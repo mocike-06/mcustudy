@@ -1,0 +1,2504 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DMA 与总线矩阵 - McuStudy</title>
+  <meta name="description" content="知识体系第 30 篇：DMA 到底省掉了什么（同样搬 1024 字节，中断要 1.5 ms 的 CPU 时间、DMA 只要一次配置）、为什么 CPU 占用能从 52.6% 掉到 1% 以下、总线矩阵为什么不是一条公共汽车而是交叉开关、多主（ICode/DCode/System/DMA1/DMA2）对多从（Flash/SRAM/FSMC/AHB 外设）怎么并行、仲裁器的轮询规则、DMA 控制器的通道与请求线映射（F103 的 DMA1 七通道 + DMA2 五通道、CSELR 与 DMAMUX 的区别）、软件优先级与硬件通道号顺序、一次传输的完整握手时序、源地址/目的地址/传输数量三要素、地址增量与数据宽度配对、非对齐访问的后果、单次与循环模式、FIFO 与突发传输（INCR4/8/16）为什么能提高有效带宽、双缓冲 ping-pong 与半传输中断、TC/HT/TE/FE 四个标志与 IFCR 的写 1 清除、Cortex-M7 上 DMA 与 D-Cache 的一致性坑，含 ADC+DMA 连续采集、串口 DMA 发送、IDLE+DMA 不定长接收、内存到内存搬运、SPI+DMA 读 W25Q64 的完整 HAL 代码与手写寄存器版对照，以及请求映射速查表和「DMA 不工作」的八步排查顺序。">
+  <meta name="keywords" content="DMA,直接存储器访问,总线矩阵,交叉开关,AHB,APB1,APB2,多主多从,仲裁器,轮询仲裁,ICode,DCode,系统总线,DMA1,DMA2,通道,channel,请求线,request,CSELR,DMAMUX,请求映射,软件优先级,硬件通道号,握手,CPAR,CMAR,CNDTR,CCR,ISR,IFCR,地址增量,PINC,MINC,数据宽度,PSIZE,MSIZE,对齐,非对齐访问,半字,字,循环模式,circular,normal,单次传输,突发传输,burst,INCR4,INCR8,INCR16,FIFO,阈值,双缓冲,ping-pong,半传输,HT,传输完成,TC,传输错误,TE,FIFO错误,FE,数据一致性,D-Cache,cache line,clean,invalidate,MPU,非cache区,ADC+DMA,串口DMA,IDLE中断,ReceiveToIdle,内存到内存,MEM2MEM,SPI+DMA,W25Q64,RS-485方向切换,CPU占用率">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">DMA 与总线矩阵</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          DMA 与总线矩阵
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你做了一个采集盒子：STM32 要连续采 4 路模拟量、把数据从串口送到电脑、顺便刷一块 OLED。第一版代码用「ADC 转换完成中断」读数据，跑通了——直到你把采样率往上调。然后主循环开始卡：按键要按两下才响应，OLED 刷新像幻灯片，串口偶尔丢包。你把 ADC 改成 DMA，程序<b class="font-semibold text-ink">突然就活了</b>，可你并不真的知道刚才发生了什么：明明还是那 72 MHz 的芯片，为什么多了个 DMA 就快了？后来你又遇到一堆新的怪事——DMA「只搬一次」、数据整体错开一位、串口用 DMA 发送时<b class="font-semibold text-ink">最后一个字节总是发不出去</b>、换到 STM32F7 上同一个程序收的数据「有时对有时错，加一句打印就对了」。这一篇就来把这件事讲到底：<b class="font-semibold text-ink">DMA 省掉的到底是什么、它凭什么能和 CPU 同时工作（这要去总线矩阵里找答案）、以及怎么用它才不出错</b>。学完你会明白一句看起来矛盾的话——<b class="font-semibold text-ink">DMA 不占 CPU，但它占总线</b>。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">核心原理</span>
+          <span class="stat-pill">层级：<b>第 2 层 · 嵌入式核心 → 核心原理（第 30 篇）</b></span>
+          <span class="stat-pill">教材：<b>刘火良《STM32 库开发实战指南》第 2 版 第 21 章</b></span>
+          <span class="stat-pill">平台：<b>STM32F103C8T6</b></span>
+          <span class="stat-pill">阅读约 <b>62</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-saved">DMA 到底省掉了什么</a>
+          <a class="toc-link is-sub" href="#sub-matrix">总线矩阵：不是公共汽车，是交叉开关</a>
+          <a class="toc-link is-sub" href="#sub-controller">DMA 控制器内部：通道、请求与优先级</a>
+          <a class="toc-link is-sub" href="#sub-handshake">一次传输的完整握手</a>
+          <a class="toc-link is-sub" href="#sub-params">传输三要素：地址、宽度与数量</a>
+          <a class="toc-link is-sub" href="#sub-burst">突发与 FIFO：为什么能省下总线时间</a>
+          <a class="toc-link is-sub" href="#sub-pingpong">双缓冲与四个标志</a>
+          <a class="toc-link is-sub" href="#sub-cache">DMA 与 CPU 的数据一致性</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-board">先看清你手上这块板子</a>
+          <a class="toc-link is-sub" href="#sub-mcu-adc">ADC + DMA 连续采集</a>
+          <a class="toc-link is-sub" href="#sub-mcu-uart-tx">串口 + DMA 发送</a>
+          <a class="toc-link is-sub" href="#sub-mcu-uart-rx">串口 IDLE + DMA 不定长接收</a>
+          <a class="toc-link is-sub" href="#sub-mcu-m2m">内存到内存搬运与 ping-pong</a>
+          <a class="toc-link is-sub" href="#sub-mcu-spi">SPI + DMA 高速读外部 Flash</a>
+          <a class="toc-link is-sub" href="#sub-mcu-reg">手写寄存器版：HAL 底下干了什么</a>
+          <a class="toc-link is-sub" href="#sub-mcu-map">请求映射速查表</a>
+          <a class="toc-link is-sub" href="#sub-debug">「DMA 不工作」的排查顺序</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-saved">DMA 到底省掉了什么</a>
+            <a class="toc-link is-sub" href="#sub-matrix">总线矩阵：不是公共汽车，是交叉开关</a>
+            <a class="toc-link is-sub" href="#sub-controller">DMA 控制器内部：通道、请求与优先级</a>
+            <a class="toc-link is-sub" href="#sub-handshake">一次传输的完整握手</a>
+            <a class="toc-link is-sub" href="#sub-params">传输三要素：地址、宽度与数量</a>
+            <a class="toc-link is-sub" href="#sub-burst">突发与 FIFO：为什么能省下总线时间</a>
+            <a class="toc-link is-sub" href="#sub-pingpong">双缓冲与四个标志</a>
+            <a class="toc-link is-sub" href="#sub-cache">DMA 与 CPU 的数据一致性</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-board">先看清你手上这块板子</a>
+            <a class="toc-link is-sub" href="#sub-mcu-adc">ADC + DMA 连续采集</a>
+            <a class="toc-link is-sub" href="#sub-mcu-uart-tx">串口 + DMA 发送</a>
+            <a class="toc-link is-sub" href="#sub-mcu-uart-rx">串口 IDLE + DMA 不定长接收</a>
+            <a class="toc-link is-sub" href="#sub-mcu-m2m">内存到内存搬运与 ping-pong</a>
+            <a class="toc-link is-sub" href="#sub-mcu-spi">SPI + DMA 高速读外部 Flash</a>
+            <a class="toc-link is-sub" href="#sub-mcu-reg">手写寄存器版：HAL 底下干了什么</a>
+            <a class="toc-link is-sub" href="#sub-mcu-map">请求映射速查表</a>
+            <a class="toc-link is-sub" href="#sub-debug">「DMA 不工作」的排查顺序</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">前面几篇你分别学过了 CPU 怎么执行指令（<a class="text-brand-600 dark:text-brand-300" href="core-cpu.html">CPU 架构与指令执行</a>）、存储器住在哪个地址（<a class="text-brand-600 dark:text-brand-300" href="core-memory-map.html">存储器映射与地址空间</a>）、中断怎么打断主程序（<a class="text-brand-600 dark:text-brand-300" href="core-interrupt.html">中断与异常机制</a>）。这一篇讲的是它们中间的那一层：<b class="font-semibold text-ink">数据在「外设」和「内存」之间来回搬的时候，是谁在搬、走哪条路、花谁的时间</b>。这一层平时看不见，但它是「程序能跑」和「程序跑得稳」之间那道分水岭。</p>
+          <p class="mt-3">下面四个场景，是这一层出问题时最常见的四种样子。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景一：改成 DMA 之后程序突然就快了，但你说不出为什么</h3>
+          <p class="mt-3">你的采集板要连续采一路模拟量，采样率 200 kSPS 左右。第一版代码是「每次 ADC 转换完成进一次中断，在中断里把结果读走」。程序能跑，但主循环基本废了：按键要按两下才响应，OLED 刷新一顿一顿，你甚至不敢在循环里做浮点运算。</p>
+          <p class="mt-3">你把读数据的方式换成「ADC 转换完成让 DMA 自动搬进缓冲区，每搬满 512 个点才中断一次」。程序立刻活了。<b class="font-semibold text-ink">但这里有个反直觉的事实：DMA 并没有让数据搬得更快</b>——ADC 还是那个速度，一个点还是要 5 µs 才转换出来。变的只有一件事：<b class="font-semibold text-ink">CPU 不再为每一个数据点付出一次「进中断、读寄存器、写内存、退中断」的代价</b>。第 3 节的第一道例题会把这笔账算清楚：同样是 200 kSPS，中断方式吃掉约 40% 的 CPU，DMA 方式只占 0.4%——相差一百倍，而芯片的主频一个字都没改。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景二：串口用 DMA 发送，最后一个字节永远发不出去</h3>
+          <p class="mt-3">这是「DMA 看着简单、用起来处处是坑」的典型。你把一串数据交给 DMA 从串口发出去，然后在「DMA 传输完成中断」里立刻把 RS-485 的收发使能拉低（换成接收方向）。结果对方收到的报文<b class="font-semibold text-ink">永远少最后一个字节</b>，或者最后一个字节是乱码。</p>
+          <p class="mt-3">原因是一句很容易被忽略的区分：<b class="font-semibold text-ink">「DMA 搬完了」不等于「数据发出去了」</b>。DMA 完成的那一刻，只代表最后一个字节被写进了串口的发送数据寄存器；这个字节还要在移位寄存器里一位一位地往引脚上送，一个字节 8N1 要 86.8 µs。你在这 86.8 µs 里把方向切了，最后那个字节的波形就被拦腰截断。第 4 节会给你一个明确的判据：<b class="font-semibold text-ink">切方向必须等到串口的 TC 标志（发送完成），而不是 DMA 的 TC 标志</b>。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景三：配置看起来一个错都没有，DMA 就是不动</h3>
+          <p class="mt-3">你把外设地址、内存地址、传输长度、方向、宽度、中断全部配好，编译没报错，单步看寄存器也都写进去了，<b class="font-semibold text-ink">可缓冲区里的值一直是 0，中断一次都不进</b>。你开始怀疑芯片坏了。</p>
+          <p class="mt-3">这类问题有八九成落在三个地方：<b>① DMA 自己的 RCC 时钟没开</b>（大多数人记得开外设时钟，却忘了 DMA 也是一个挂在 AHB 上的独立外设，它有自己的时钟位）；<b>② 通道选错了</b>（STM32F1 上「哪个外设用哪个通道」是硬件固定死的，写错了不会报错，只会永远等不到请求）；<b>③ 外设那一侧的「DMA 请求使能位」没打开</b>（比如 USART 的 CR3.DMAT、ADC 的 CR2.DMA、SPI 的 CR2.TXDMAEN）——DMA 控制器准备好了，但外设根本没在喊它。第 4 节最后给了一份按顺序走的八步排查清单，这三条排在前两位。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景四：换到 F7 上，同一个程序「有时对有时错，加一句打印就对了」</h3>
+          <p class="mt-3">你在 F103 上写好的 DMA 采集程序，原样搬到一块 STM32F7 的开发板上。现象非常诡异：<b class="font-semibold text-ink">数据有时候全对，有时候整体是上一批的旧值；用调试器看内存里的数据是对的，程序读出来的却是旧的；在中间加一句无关的 printf，问题就消失了</b>。你去查 DMA 配置，一个字都没错。</p>
+          <p class="mt-3">这不是玄学，是 <b class="font-semibold text-ink">Cortex-M7 的数据 cache</b> 在作怪：DMA 是「绕过 cache 直接读写内存」的总线主设备，而 CPU 读变量时先查 cache。于是同一块内存出现了两个版本：内存里是新的，cache 里是旧的（或者相反）。F103（Cortex-M3）和 F4（Cortex-M4）没有数据 cache，所以你在那里永远不会遇到这个问题——<b class="font-semibold text-ink">没遇到不代表不存在，只代表你还没换芯片</b>。第 2 节最后一小节讲这个坑的成因、判断方法和三种解法。</p>
+
+          <div class="callout callout-info mt-6">
+            <div class="callout-title">这一篇要彻底回答三个问题</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>DMA 到底省掉了什么？</b>——不是省掉了「时间」，而是省掉了 CPU 为每一份数据所做的动作。搞清这一点，你才知道 DMA 什么时候有用、什么时候反而是负担。</li>
+              <li><b>它凭什么能和 CPU 同时工作？</b>——因为 STM32 内部的不是一根「公共汽车」式的总线，而是一个<b>总线矩阵（交叉开关）</b>。这一层是整篇的骨架，也是很多教程跳过的部分。</li>
+              <li><b>怎么用它才不出错？</b>——地址增量、数据宽度、传输数量、四个标志、循环模式、cache 一致性。第 4 节给出可直接编译的完整代码和一份排查顺序。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="mt-14 text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节按「先算账、再看路、再看人、最后看规矩」的顺序展开：先弄清 DMA 省掉的到底是什么（算账），再看 CPU 和 DMA 是怎么共用一套总线的（看路），然后是 DMA 控制器内部长什么样（看人），最后是它干活的完整流程与参数（看规矩）。</p>
+
+          <h3 id="sub-saved" class="mt-7 text-base font-semibold">DMA 到底省掉了什么</h3>
+
+          <p class="mt-3">先把「搬一个字节」这件事拆开看。假设你要把串口收到的每个字节存进一个数组，用中断方式做，CPU 在这一次里实际执行的是这些动作：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="中断方式搬 1 个字节，CPU 究竟做了多少事">
+            <pre><code>【中断方式：每来 1 个字节，CPU 都要走一遍】
+
+  外设侧：数据到了 → 置标志位 → 向 NVIC 发中断请求
+       │
+       ▼
+  ① 压栈        把 R0~R3、R12、LR、PC、xPSR 共 8 个寄存器压进栈
+                —— 硬件自动完成，约 12 个时钟周期
+  ② 取向量      从向量表读出中断服务函数的入口地址，跳过去
+                —— 约 2~6 个周期，如果向量表在 Flash 里还会更久
+  ③ 判断来源    读外设的状态寄存器，确认是不是它在叫
+  ④ 清标志      写标志清除位                ← 忘了这步就会反复进中断
+  ⑤ 读数据      读外设数据寄存器进 CPU 寄存器
+  ⑥ 写内存      把寄存器写进数组，并自己维护写指针
+  ⑦ 计数判断    写指针加一、和缓冲末尾比较、满了就置个标志
+  ⑧ 出栈        恢复现场，返回主程序           —— 约 12 个周期
+       │
+       ▼
+  合计：约 100 ~ 150 个时钟周期
+  72 MHz 下约 1.4 ~ 2.1 µs
+
+  ★ 注意：这 8 步里，只有 ⑤⑥ 两步是真正在「搬数据」，
+    其余 6 步全是「为了搬这份数据而付出的手续」—— 手续占了 80% 以上。</code></pre>
+          </div>
+
+          <p class="mt-3">再看 DMA 方式。<b class="font-semibold text-ink">DMA 控制器是一个只会做两件事的小硬件：从某个地址读一个数，写到另一个地址去</b>，然后把手里的计数器减一。它不认识协议、不做判断、不执行你的程序。CPU 只需要在开头告诉它四件事，剩下的一次都不用管：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="DMA 方式搬 1 个字节，CPU 只需要做这些">
+            <pre><code>【配置阶段：整批数据只做一次，约 20 ~ 30 个周期 ≈ 0.3 ~ 0.4 µs】
+
+   写 CPAR  →  源地址（例：&amp;ADC1-&gt;DR，外设寄存器）
+   写 CMAR  →  目的地址（例：adc_buf，内存缓冲区）
+   写 CNDTR →  搬多少个（例：1024，单位是【数据宽度】不是字节）
+   写 CCR   →  方向、地址增不增、宽度、模式、优先级、中断使能
+               ↑ 最后一位 EN 置 1 的瞬间，DMA 立刻开始工作
+   然后 CPU 掉头就走，去执行主循环
+
+【搬运阶段：CPU 完全不参与，0 个周期】
+
+   外设喊一声 → DMA 自己去总线矩阵申请 → 自己读 → 自己写 → CNDTR 减一
+   （这期间 CPU 在执行你的主循环，指令周期一个都没少）
+
+【通知阶段：搬满一半 / 全部，各来一次中断】
+
+   HAL 层的回调约 1.5 ~ 5 µs；手写寄存器版可以压到 1 µs 以内</code></pre>
+          </div>
+
+          <p class="mt-3">把两者放在一起，差别就非常直观了。下面这张表里的数字按 72 MHz、Cortex-M3、Flash 等待周期已配置好来估算（中断单次开销取 1.5 µs，DMA 配置取 25 个周期）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>每份数据 CPU 要花的动作</th><th>单次开销（72 MHz）</th><th>搬 1024 字节的 CPU 时间</th><th>真正用于搬数据的比例</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>轮询</b>：反复读状态位，就绪后读走</td>
+                  <td>约 20 个周期 ≈ 0.28 µs</td>
+                  <td>约 20 480 个周期 ≈ <b>284 µs</b></td>
+                  <td>中等（大头是空转等待）</td>
+                </tr>
+                <tr>
+                  <td><b>中断</b>：进中断 → 读 → 写 → 出中断</td>
+                  <td>约 108 个周期 ≈ 1.5 µs</td>
+                  <td>约 110 592 个周期 ≈ <b>1536 µs</b></td>
+                  <td><b>低于 20%</b>，其余都是手续</td>
+                </tr>
+                <tr>
+                  <td><b>DMA</b>：只在开头配置一次</td>
+                  <td>配置约 25 个周期 ≈ 0.35 µs</td>
+                  <td>约 25 个周期 + 一次中断 ≈ <b>1 µs 上下</b></td>
+                  <td>—（搬运全程不经过 CPU）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这就是那句「CPU 占用率从 52.6% 降到 1% 以下」的全部秘密。请注意这个占用率<b class="font-semibold text-ink">不是由「搬了多少字节」决定的，而是由「发生了多少次事件」决定的</b>：每一次事件都要付一次固定手续费。DMA 做的事情，本质上是<b class="font-semibold text-ink">把「每个数据一次事件」变成「每个缓冲区一次事件」</b>，手续费就被摊薄了几百倍。第 3 节的例题 1 会用 200 kSPS 的 ADC 把这笔账算到底。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">必须纠正的一句话：「DMA 不占 CPU，所以不占资源」</div>
+            <p>准确的说法是：<b>DMA 不占 CPU 的指令执行时间，但它占总线带宽</b>。数据仍然要在 AHB 总线上走，仍然要从 SRAM 里读、往外设里写，这些总线周期是一定的、省不掉的。DMA 的价值在于它把这些周期<b>从 CPU 手里接了过去</b>，让 CPU 空出来去做只有 CPU 能做的事（运算、判断、控制）。当下面的总线矩阵一节讲完，你会看到这句话的物理来源：<b>总线上多了一个主设备，就意味着某块内存或外设的访问要排队</b>。</p>
+          </div>
+
+          <p class="mt-7 font-semibold text-ink">三种搬运方向：外设到内存、内存到外设、内存到内存</p>
+
+          <p class="mt-3">DMA 能干的活儿只有三种方向，所有的应用场景都是这三种的组合。把这个分类记牢，配 DMA 的时候你就不会再问「哪个地址要递增」——因为答案就在方向里：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>方向</th><th>谁在递增</th><th>谁固定不动</th><th>典型场景</th><th>谁来启动</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>外设 → 内存</b><br><span class="text-[12.5px] text-muted">DMA_PERIPH_TO_MEMORY</span></td>
+                  <td>内存地址（每个数据往后挪一格）</td>
+                  <td>外设寄存器地址（永远是同一个寄存器）</td>
+                  <td>ADC 连续采集、串口接收、SPI 读传感器、I²C 读寄存器</td>
+                  <td>外设发请求</td>
+                </tr>
+                <tr>
+                  <td><b>内存 → 外设</b><br><span class="text-[12.5px] text-muted">DMA_MEMORY_TO_PERIPH</span></td>
+                  <td>内存地址</td>
+                  <td>外设寄存器地址</td>
+                  <td>串口发送、DAC 输出波形、定时器 PWM 查表、SPI 刷屏</td>
+                  <td>外设发请求</td>
+                </tr>
+                <tr>
+                  <td><b>内存 → 内存</b><br><span class="text-[12.5px] text-muted">DMA_MEMORY_TO_MEMORY</span></td>
+                  <td>两边都递增</td>
+                  <td>没有</td>
+                  <td>数组/图像拷贝、清屏、把一块 Flash 数据搬到 RAM</td>
+                  <td><b>软件启动</b>（没有外设来喊它）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">「外设地址永远不增」这句话是理解 DMA 的钥匙</b>：外设的数据寄存器只有一个（比如 ADC1 的 DR），每次转换完新数据都覆盖写进同一个地址，DMA 必须反复来读同一个地方；而内存里的缓冲区是一排格子，每搬一个就要往后挪一格。如果两边都递增，你会把外设的地址往后推到一个根本没用的寄存器上；如果两边都不增，你搬 1024 次的结果都写进 <code class="icode">buf[0]</code>——这就是「DMA 只搬一次」这类现象最常见的成因之一。</p>
+
+          <p class="mt-3">内存到内存（MEM2MEM）还有一个身份上的不同：它没有外设来发请求，<b class="font-semibold text-ink">必须由 CPU 写寄存器启动，而且一次搬完就停</b>。在 STM32F1 上，MEM2MEM 模式不能和循环模式一起用（参考手册 RM0008 明确写了这条限制）。所以「DMA 会一直自动搬下去」这件事只对「外设请求驱动 + 循环模式」成立。</p>
+
+          <p class="mt-7 font-semibold text-ink">什么时候不该用 DMA</p>
+
+          <p class="mt-3">DMA 不是「高级功能」，它是一个<b class="font-semibold text-ink">为连续数据流设计的工具</b>。用错场合，它会让代码更长、更难调，而且不会更快。下面五种情况，老老实实用轮询或中断：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>一次只搬几个字节。</b>DMA 的配置开销约 20~30 个周期，而直接搬 3 个字节只要 10 来个周期。省不了时间，还多引入一个中断和一个状态机。</li>
+            <li><b>每一个字节都要做判断。</b>DMA 只会「照搬」，它不理解协议。协议解析（找帧头、算校验、转义还原）永远要 CPU 来做——正确姿势是「DMA 把原始字节收进缓冲区，CPU 事后在缓冲区上解析」，而不是指望 DMA 帮你解析。</li>
+            <li><b>事件本身极低频率。</b>每秒几次的按键、每 10 秒一次的传感器读取，用中断/轮询三行代码就完了。</li>
+            <li><b>需要逐位精确控制时序。</b>软件模拟的 I²C、1-Wire、DHT11 这类「拉低 1 µs 再拉高」的协议，DMA 帮不上忙（也不会更快）。这类活儿应该交给硬件外设，而不是 DMA。</li>
+            <li><b>缓冲区小到「半传输中断比中断方式还频繁」。</b>比如你给串口接收配了 8 字节的 DMA 缓冲——每收 8 个字节就要进一次中断，和逐字节中断几乎没区别，反而多了一层缓冲区的间接寻址。这就是「用 DMA 反而更慢」的一种真实情况。</li>
+          </ul>
+
+          <p class="mt-3">判断的标准始终是同一个算式：<b class="font-semibold text-ink">事件频率 × 单次开销 = CPU 占用</b>。DMA 只在「事件频率很高」时才划得来，因为它能把事件频率除以一个缓冲区的大小。</p>
+
+          <h3 id="sub-matrix" class="mt-8 text-base font-semibold">总线矩阵：不是公共汽车，是交叉开关</h3>
+
+          <p class="mt-3">现在回答那个最关键的问题：<b class="font-semibold text-ink">DMA 在搬数据的时候，CPU 凭什么还能干活？</b></p>
+
+          <p class="mt-3">如果你对 DMA 的印象是「DMA 把数据搬完再还给 CPU」，那你脑子里的模型大概是这个样子——这也是早期计算机的真实做法：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="错误直觉：一条公共汽车式的总线">
+            <pre><code>【误解中的样子：所有人都挤在一条线上】
+
+    CPU ──┐
+    DMA ──┼──── [ 一 条 总 线 ] ────→  Flash / SRAM / 各种外设
+    其他 ─┘
+              ↑
+     同一时刻只有一个"乘客"能上车。
+     所以 DMA 一开始搬数据，CPU 就只能停在那里等 —— 这叫"总线被抢占"。
+
+【这是真实发生过的历史】
+   8086 + 8237 DMA 控制器就是这么干的：
+   DMA 要搬数据时，先给 CPU 发一个 HOLD 信号，
+   CPU 回一个 HLDA 表示"我让开了"，然后把地址/数据总线交出去。
+   这段时间里 CPU 完全不执行指令 —— 内存和 CPU 抢的是同一套引脚。
+
+【如果 STM32 也是这样，那么】
+   72 MHz 的芯片一旦用上 DMA 搬 ADC 数据，
+   CPU 就会周期性地"停摆"，主循环反而更慢。
+   可现实恰恰相反 —— 所以 STM32 用的不是这个模型。</code></pre>
+          </div>
+
+          <p class="mt-3">当代单片机（包括 STM32 全系）用的是<b class="font-semibold text-ink">总线矩阵（Bus Matrix）</b>，也叫交叉开关（Crossbar）。它不再是一条线，而是一张<b>主设备 × 从设备</b>的网格，每个交叉点都是一条可以单独通断的路径：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="STM32F103 的总线矩阵（以参考手册的总线结构图为原型简化）">
+            <pre><code>                       从设备（被访问的一方）
+   ┌─────────┬─────────┬─────────┬─────────┬─────────┐
+   │ Flash   │  SRAM   │ AHB 外设│  FSMC   │ APB 桥  │
+   │ (取指)  │ (变量/  │ (DMA、  │ (外部   │ (APB1/2)│
+   │  缓冲)  │  CRC)   │  存储器)│         │         │
+   └────┬────┴────┬────┴────┬────┴────┬────┴────┬────┘
+        │         │         │         │         │
+        ┌──────────────────────────────────────────────────┐
+        │        总线矩阵（交叉开关，Bus Matrix）           │
+        │                                                  │
+        │   · 每个交叉点 = 一条可以单独通断的路径            │
+        │   · 不同从设备 → 同时通行，这才是真正的并行         │
+        │   · 同一从设备 → 排队，仲裁器决定谁先用（轮询）      │
+        └──────────────────────────────────────────────────┘
+        │         │         │         │         │
+   ┌────┴────┐┌───┴─────┐┌───┴─────┐┌───┴─────┐┌───┴─────┐
+   │ CPU 取指││ CPU 数据││  DMA1   ││  DMA2   ││ 以太网   │
+   │  ICode  ││  DCode  ││ 7 通道  ││ 5 通道  ││ USB DMA │
+   └─────────┘└─────────┘└─────────┘└─────────┘└─────────┘
+                        主设备（发起访问的一方）</code></pre>
+          </div>
+
+          <p class="mt-3">把这张图读懂，很多现象就自动讲通了。STM32F103 上的主设备一共这几类（不同型号略有差别）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>主设备</th><th>它负责什么</th><th>典型负载</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">ICode</td><td>CPU 的<b>取指</b>总线，从 Flash 取指令</td><td>每条指令都要用，占用率最高</td></tr>
+                <tr><td class="font-mono text-xs">DCode</td><td>CPU 的<b>数据</b>总线，读写变量、常量、外设</td><td>访存指令、栈操作</td></tr>
+                <tr><td class="font-mono text-xs">System</td><td>CPU 的<b>系统</b>总线，访问外设寄存器走这条</td><td>读写 GPIO/USART 等</td></tr>
+                <tr><td class="font-mono text-xs">DMA1</td><td>7 个通道的搬运请求</td><td>ADC、串口、SPI、定时器</td></tr>
+                <tr><td class="font-mono text-xs">DMA2</td><td>5 个通道（<b>大容量型号才有</b>，如 F103RC/ZE）</td><td>ADC3、SDIO、TIM5/TIM8</td></tr>
+                <tr><td class="font-mono text-xs">以太网 / USB</td><td>互联型（CL 系列）上的以太网 DMA 与 USB OTG DMA</td><td>网络与 USB 传输</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">从设备侧则是：<b>内部 Flash</b>（通过 FLITF 闪存接口）、<b>SRAM</b>、<b>AHB 外设</b>（DMA 控制器本身、CRC、FSMC 等）、以及通过 <b>APB 桥</b>接出去的两条低速外设总线（APB1 最高 36 MHz，APB2 最高 72 MHz，ADC1/USART1/SPI1/TIM1 这些挂在 APB2 上）。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一个能立刻用上的推论</div>
+            <p>「不同从设备可以同时通行」意味着：<b>CPU 从 Flash 取指令走的是 ICode → Flash 这条路，DMA1 把 ADC 数据写进 SRAM 走的是 DMA1 → SRAM 这条路，两条路完全不冲突</b>。所以你用 DMA 采集时，CPU 的执行速度几乎一点不受影响——这正是「DMA 让主循环活过来」的物理原因。</p>
+            <p class="mt-2">但反过来也成立：<b>如果 CPU 此刻也要读写 SRAM（几乎一定，栈和变量都在 SRAM 里），它就与 DMA 抢同一个从设备</b>。这时候仲裁器会让双方轮流走，CPU 的访存会多等几个周期。数据量大到一定程度时，这个「多等的几个周期」会累积成可观的性能损失——这就是「DMA 也占总线」这句话的出处。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">仲裁器怎么决定谁先用？</b>STM32 参考手册给出的答案是<b>轮询（Round Robin）</b>：谁都不是永远优先，某个主设备占用了这个从设备一轮之后，下一个请求就轮到别人。这不是「先来先服务」，也不是「DMA 永远压着 CPU」，而是硬件尽力做到公平。工程上有三条实用结论：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>仲裁只发生在「同一个从设备」上。</b>访问不同的从设备，根本不存在谁让谁的问题。这是交叉开关最大的好处。</li>
+            <li><b>争用一次就多等几个周期。</b>单次传输本身只要 2 个 AHB 周期（1 个地址相位 + 1 个数据相位），争用时可能变成 3~4 个甚至更多。所以 DMA 的实际吞吐要和「总线上还有谁」一起估算，不能只看理论带宽。</li>
+            <li><b>AHB 的理论上限是 72 MHz × 4 字节 = 288 MB/s</b>（F103 的 HCLK 最高 72 MHz、数据宽度 32 位）。这个数看起来很富裕——ADC 满载也只有 2 MB/s——但它是所有主设备共享的总量。</li>
+          </ul>
+
+          <p class="mt-3">顺着这条路看下去还有一层：数据从 SRAM 到 ADC 的路上，除了总线矩阵，还要经过 <b>APB 桥</b>。AHB 是 72 MHz、32 位宽；APB2 是 72 MHz 但外设寄存器往往只有 16 位。所以真正限制「DMA 能搬多快」的，几乎从来不是总线矩阵，而是<b class="font-semibold text-ink">外设自己产生数据的速度</b>（ADC 最快 1 MSPS，串口 115200 只有 11.5 kB/s）。第 3 节的例题 2 会算给你看：DMA 搬 1000 个半字占掉的总线时间，只有总容量的百分之几。</p>
+
+          <h3 id="sub-controller" class="mt-8 text-base font-semibold">DMA 控制器内部：通道、请求与优先级</h3>
+
+          <p class="mt-3">总线矩阵回答的是「路怎么走」，接下来要回答「谁来走」。STM32F103 上有两个 DMA 控制器：<b>DMA1 有 7 个通道</b>（编号 1~7），<b>DMA2 有 5 个通道</b>（编号 1~5，只有大容量/互联型型号才有）。这里有一个必须提前记住的差别：</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">先确认你的芯片有没有 DMA2 —— 这个坑每年都要坑一批人</div>
+            <p>最常见的入门板 <b>STM32F103C8T6（中容量）只有 DMA1</b>，没有 DMA2。而网上很多例程来自大容量的 F103RC/ZE 或者 F4 系列，里面写着 <code class="icode">DMA2_Channel5</code>。<b>这种代码在你的板子上能编译通过、能下载运行，但永远不会有任何反应</b>——因为那个外设在你的芯片里根本不存在，写它的寄存器什么都不会发生，也不会报错。</p>
+            <p class="mt-2">判断方法：查你芯片型号对应的参考手册开头「器件一览」表，或者直接看启动文件里有没有 <code class="icode">DMA2_Channel1_IRQHandler</code> 这个向量名。没有，就是没有。</p>
+          </div>
+
+          <p class="mt-3">每个通道都是一条独立的搬运管道，它自己有一套完整的寄存器。而在管道的入口，是一排「请求线」——每个支持 DMA 的外设都有一根信号线，接到 DMA 控制器上，外设准备好数据（或有空位）时就把这根线拉高一下：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="请求线 → 通道：F103 上是硬件固定接好的（以常用的几个为例）">
+            <pre><code>   外设的请求线（每根线是硬件接到某个通道上的，软件改不了）
+
+   ADC1 ───────────┐
+   TIM2_CH3 ───────┼──→ [ 通道 1 ]──┐
+   TIM4_CH1 ───────┘                │
+                                    │
+   SPI1_RX ────────┐                │
+   USART3_TX ──────┼──→ [ 通道 2 ]──┤
+   TIM2_UP ────────┘                │
+                                    │
+   SPI1_TX ────────┐                ├──→ 通道仲裁 ──→ 向总线矩阵申请 ──→ AHB
+   USART3_RX ──────┼──→ [ 通道 3 ]──┤    （先比软件优先级，
+   TIM3_UP ────────┘                │      再比通道号大小）
+                                    │
+   USART1_TX ──────┐                │
+   SPI2_RX ────────┼──→ [ 通道 4 ]──┤
+   I2C2_TX ────────┘                │
+                                    │
+   USART1_RX ──────┐                │
+   SPI2_TX ────────┼──→ [ 通道 5 ]──┤
+   TIM2_CH1 ───────┘                │
+                                    │
+   I2C1_TX ────────┐                │
+   USART2_RX ──────┼──→ [ 通道 6 ]──┤
+   TIM3_CH1 ───────┘                │
+                                    │
+   I2C1_RX ────────┐                │
+   USART2_TX ──────┼──→ [ 通道 7 ]──┘
+   TIM4_UP ────────┘
+
+   ★ 一根请求线上可以挂好几个外设，但【同一时刻只能使能一个】。
+     把 USART1_TX 和 SPI2_RX 同时挂在通道 4 上使能，
+     两个外设的请求会挤进同一条管道，数据必然串。</code></pre>
+          </div>
+
+          <p class="mt-3">这里有一个和具体型号强相关的关键差别，值得单独说清楚，因为它决定了你的代码能不能换芯片：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>系列</th><th>请求线与通道的对应关系</th><th>能不能改</th></tr></thead>
+              <tbody>
+                <tr><td><b>STM32F1（含 F103）</b></td><td><b>硬件固定</b>：ADC1 只能在通道 1，USART1_TX 只能在通道 4……</td><td><b>不能改</b>，只能查表选通道</td></tr>
+                <tr><td><b>STM32F0 / F3</b></td><td>有一个 <code class="icode">DMA_CSELR</code> 寄存器，每个通道配 4 位 <code class="icode">CS[3:0]</code>，可以选择把哪根请求线接到这个通道</td><td><b>可以改</b>，软件重映射</td></tr>
+                <tr><td><b>STM32F7 / G0 / G4 / H7</b></td><td>更进一步，有独立的 <b>DMAMUX</b>（请求路由器）：一根请求线可以路由到任意通道，还能用「软件触发」「定时器事件」当请求源</td><td><b>完全自由</b>，几乎不受限制</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">所以你在 F1 上写代码，「选哪个通道」是查出来的，不是选出来的；而在 G4/F7 上，「选哪个通道」很大程度上由你自己决定，代价是多了一层 <code class="icode">DMAMUX</code> 配置。这也解释了为什么换芯片移植 DMA 代码时，<b class="font-semibold text-ink">通道号的改动量往往比外设配置还大</b>。</p>
+
+          <p class="mt-3">通道内部到底是哪几个寄存器？F1 上每个通道一组，一共 6 类寄存器：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>寄存器</th><th>中文名</th><th>里面装什么</th><th>关键点</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">DMA_ISR</td><td>中断状态</td><td>每个通道 4 个标志：GIF / TCIF / HTIF / TEIF</td><td>只读；读它判断发生了什么事</td></tr>
+                <tr><td class="font-mono text-xs">DMA_IFCR</td><td>中断标志清除</td><td>与 ISR 同布局</td><td><b>写 1 清除</b>，写 0 没用；写 ISR 更没用</td></tr>
+                <tr><td class="font-mono text-xs">DMA_CCRx</td><td>通道配置</td><td>方向、增量、宽度、模式、优先级、中断使能、使能位</td><td>位最多、最容易配错；最后写，因为 EN 一置位就开始搬</td></tr>
+                <tr><td class="font-mono text-xs">DMA_CNDTRx</td><td>剩余数量</td><td>16 位，还要搬多少个（不是字节数）</td><td>搬运过程中递减；使能后只读</td></tr>
+                <tr><td class="font-mono text-xs">DMA_CPARx</td><td>外设地址</td><td>外设寄存器的 32 位地址</td><td>M2M 模式下它就是「源地址」</td></tr>
+                <tr><td class="font-mono text-xs">DMA_CMARx</td><td>内存地址</td><td>内存缓冲区的 32 位地址</td><td>M2M 模式下它就是「目的地址」</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">其中 <code class="icode">CCRx</code> 值得把每一位摊开看一遍——<b class="font-semibold text-ink">HAL 里那一大串 <code class="icode">hdma.Init.XXX</code>，最终就是一个一个地写进这个寄存器</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>位</th><th>名称</th><th>= 0</th><th>= 1</th><th>HAL 里对应的字段</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">0</td><td>EN</td><td>通道关闭</td><td><b>使能，立刻开始搬</b></td><td>由 HAL 在启动时置位</td></tr>
+                <tr><td class="font-mono text-xs">1</td><td>TCIE</td><td>不产生 TC 中断</td><td>传输完成时中断</td><td>由启动函数打开</td></tr>
+                <tr><td class="font-mono text-xs">2</td><td>HTIE</td><td>不产生 HT 中断</td><td>半传输时中断</td><td>由启动函数打开</td></tr>
+                <tr><td class="font-mono text-xs">3</td><td>TEIE</td><td>不产生 TE 中断</td><td>传输错误时中断</td><td>由启动函数打开</td></tr>
+                <tr><td class="font-mono text-xs">4</td><td>DIR</td><td>外设 → 内存</td><td>内存 → 外设</td><td><code class="icode">Init.Direction</code></td></tr>
+                <tr><td class="font-mono text-xs">5</td><td>CIRC</td><td>单次（搬完就停）</td><td><b>循环</b>（自动重装）</td><td><code class="icode">Init.Mode</code></td></tr>
+                <tr><td class="font-mono text-xs">6</td><td>PINC</td><td>外设地址不增</td><td>外设地址递增</td><td><code class="icode">Init.PeriphInc</code></td></tr>
+                <tr><td class="font-mono text-xs">7</td><td>MINC</td><td>内存地址不增</td><td>内存地址递增</td><td><code class="icode">Init.MemInc</code></td></tr>
+                <tr><td class="font-mono text-xs">9:8</td><td>PSIZE</td><td colspan="2">00=8 位　01=16 位　10=32 位</td><td><code class="icode">Init.PeriphDataAlignment</code></td></tr>
+                <tr><td class="font-mono text-xs">11:10</td><td>MSIZE</td><td colspan="2">00=8 位　01=16 位　10=32 位</td><td><code class="icode">Init.MemDataAlignment</code></td></tr>
+                <tr><td class="font-mono text-xs">13:12</td><td>PL</td><td colspan="2">00=低　01=中　10=高　11=最高</td><td><code class="icode">Init.Priority</code></td></tr>
+                <tr><td class="font-mono text-xs">14</td><td>MEM2MEM</td><td>普通模式</td><td>内存到内存模式</td><td><code class="icode">Init.Direction</code> 设为 M2M 时自动置位</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">优先级有两层，顺序不能颠倒：</b></p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>第一层是软件优先级</b>（CCR 的 PL[1:0]）：最低、中、高、最高四档。这是你在代码里能直接控制的一层。</li>
+            <li><b>第二层是硬件通道号</b>：当两个通道的软件优先级<b>相同</b>时，<b>通道号小的先走</b>（通道 1 优先于通道 2，优先于通道 3……）。这一层是固定的，改不了。</li>
+            <li><b>注意范围</b>：这两层比较只在<b>同一个 DMA 控制器内部</b>有效。DMA1 的通道和 DMA2 的通道之间没有「谁优先」这回事，它们是在总线矩阵上被轮询仲裁的。</li>
+          </ul>
+
+          <p class="mt-3">这条规则在实战里最典型的用法是：<b class="font-semibold text-ink">把「不能被拖延」的那一路放到通道号小、软件优先级高的位置</b>。比如同时用 ADC1（通道 1）和 USART1_RX（通道 5）搬数据，两者都设成「高」优先级时，ADC 天生先走——因为它在通道 1。如果你更怕丢串口数据，就得把 USART1_RX 设成「最高」，把 ADC 降成「高」，才能把顺序翻过来。</p>
+        <h3 id="sub-handshake" class="mt-8 text-base font-semibold">一次传输的完整握手：从请求到计数器减一</h3>
+
+          <p class="mt-3">把通道、请求线、总线矩阵都摆好之后，一个数据从外设走到内存，中间发生的完整过程是这样的。<b class="font-semibold text-ink">这张图是这一篇最该记住的东西</b>——后面所有的排查顺序，本质上都是沿着它一步一步往回找：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="DMA 单次传输的完整握手（以外设 → 内存为例）">
+            <pre><code>   外设              DMA 控制器                 总线矩阵              内存
+    │                    │                         │                   │
+    │ ① 数据就绪，         │                         │                   │
+    │    把请求线拉高      │                         │                   │
+    │──── 请求 ──────────→│                         │                   │
+    │                    │ ② 通道仲裁：             │                   │
+    │                    │    先比软件优先级 PL      │                   │
+    │                    │    相同则比通道号（小的先） │                   │
+    │                    │ ③ 向总线矩阵提出申请       │                   │
+    │                    │──── 申请 ──────────────→│                   │
+    │                    │                         │ ④ 从设备侧轮询仲裁： │
+    │                    │                         │    此刻该谁用 SRAM？  │
+    │                    │←──── 授权 ──────────────│                   │
+    │                    │                         │                   │
+    │←── ⑤ 读源地址（地址相位 + 数据相位）──────────────────────────────│
+    │───── 数据 ────────→│                         │                   │
+    │                    │ ⑥ 写目的地址 ──────────────────────────────→│
+    │                    │                         │                   │
+    │                    │ ⑦ CNDTR 减 1            │                   │
+    │                    │    （减到一半 → 置 HTIF） │                   │
+    │                    │    （减到 0   → 置 TCIF， │                   │
+    │                    │      循环模式下自动重装）  │                   │
+    │←── ⑧ 清掉请求 ─────│                         │                   │
+    │                    │                         │                   │
+    │ ⑨ 外设下一次数据就绪，回到第 ① 步 —— 全过程不需要 CPU 插手一次       │</code></pre>
+          </div>
+
+          <p class="mt-3">这张图里有三个容易被忽略、但非常关键的细节：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>第 ⑧ 步「清掉请求」是自动的。</b>DMA 每搬完一个数据，就把外设的请求标志清掉，然后「等」下一次请求。<b class="font-semibold text-ink">这就是 DMA 能自动跟外设的速度匹配的原因</b>——ADC 转得慢，DMA 就慢；ADC 转得快，DMA 就快。它不是一个固定频率的数据泵，而是被外设的节奏牵着走的。</li>
+            <li><b>请求不会「丢」，但外设里的数据会。</b>如果 DMA 正忙着搬一个更高优先级的通道，低优先级的请求会一直挂着等（请求线是电平式的，不会消失）。但如果等了太久，外设自己的寄存器被新数据覆盖了，那<b>旧数据就永久丢了</b>——串口上的表现是 <code class="icode">ORE</code> 溢出错误，ADC 上的表现是「采样点变少但没人告诉你」。</li>
+            <li><b>真正的成本在 ⑤⑥ 两步，其余都是固定开销。</b>第 ⑤⑥ 步各占 1 个 AHB 周期（如果目标是 APB 上的外设，还会插入等待周期）。②③④ 的仲裁与申请也是要花时间的——这正是后面「突发传输」要优化的对象。</li>
+          </ul>
+
+          <p class="mt-3">按 72 MHz 估算，一次传输的各步骤成本大致如下（这是工程估算的常用口径，不是数据手册上的绝对值）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>步骤</th><th>谁在做</th><th>AHB 周期数</th><th>能不能优化</th></tr></thead>
+              <tbody>
+                <tr><td>② 通道仲裁</td><td>DMA 控制器内部逻辑</td><td>约 1</td><td>不能，硬件固定</td></tr>
+                <tr><td>③④ 总线申请与轮询仲裁</td><td>总线矩阵</td><td>1 ~ 2（争用时更多）</td><td><b>能</b>：突发传输把多次合并成一次</td></tr>
+                <tr><td>⑤ 读源</td><td>总线矩阵 + 从设备</td><td>1（AHB 从设备）<br>3 ~ 6（经 APB 桥访问外设）</td><td>不能，取决于从设备</td></tr>
+                <tr><td>⑥ 写目的</td><td>总线矩阵 + 从设备</td><td>1（SRAM）<br>3 ~ 6（写外设寄存器）</td><td>不能</td></tr>
+                <tr><td>⑦ 计数器与标志</td><td>DMA 控制器内部逻辑</td><td>0（与传输并行）</td><td>—</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">把这张表加起来，一次「内存 ↔ 内存」的搬运约 4 个周期，一次「外设 ↔ 内存」的搬运约 6~10 个周期。这个数字先记住，第 3 节的例题 2 会用它来算总线占用率，并证明一件事：<b class="font-semibold text-ink">对绝大多数应用来说，DMA 占总线的比例低得可以忽略</b>。</p>
+
+          <h3 id="sub-params" class="mt-8 text-base font-semibold">传输的三要素与参数：地址、数量、增量、宽度、模式</h3>
+
+          <p class="mt-3">配置一次 DMA，无论用 HAL 还是写寄存器，你其实只在回答五个问题。把这五个问题答对，DMA 就不会不工作：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>问题</th><th>寄存器</th><th>HAL 字段</th><th>答错的后果</th></tr></thead>
+              <tbody>
+                <tr><td>1. 从哪儿读？（源地址）</td><td class="font-mono text-xs">CPAR / CMAR（看方向）</td><td>由启动函数传入的指针</td><td>搬到一堆无关的数据</td></tr>
+                <tr><td>2. 写到哪儿？（目的地址）</td><td class="font-mono text-xs">另一个</td><td>同上</td><td>覆盖掉别的变量，程序跑飞</td></tr>
+                <tr><td>3. 搬多少个？</td><td class="font-mono text-xs">CNDTR（16 位）</td><td><code class="icode">Size</code> 参数</td><td>搬多了越界、搬少了只搬一部分</td></tr>
+                <tr><td>4. 地址要不要递增？</td><td class="font-mono text-xs">CCR.PINC / MINC</td><td><code class="icode">PeriphInc</code> / <code class="icode">MemInc</code></td><td><b>最常见</b>：「只搬一次」或地址冲进外设区</td></tr>
+                <tr><td>5. 每次搬多宽？</td><td class="font-mono text-xs">CCR.PSIZE / MSIZE</td><td><code class="icode">PeriphDataAlignment</code> / <code class="icode">MemDataAlignment</code></td><td>数据错位、缓冲区大小算错</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">第 3 个问题有一个必须记住的单位陷阱：<b class="font-semibold text-ink"><code class="icode">CNDTR</code> 里的数字不是「字节数」，而是「数据个数」</b>。传 100 个半字，CNDTR 写 100；传 100 个字节，CNDTR 也写 100——但两者搬的内存分别是 200 字节和 100 字节。缓冲区大小要按 <code class="icode">个数 × 宽度</code> 算，这是「缓冲区莫名其妙越界」的头号成因。另外它是 16 位寄存器，<b>单次最多 65535 个数据</b>，想搬更多只能分段。</p>
+
+          <p class="mt-3">第 4 个问题（地址增量）是 DMA 配置里最容易错、也最值得用一张图讲清楚的地方：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="外设 → 内存：一边固定、一边游走">
+            <pre><code>【外设 → 内存（ADC 连续采集）—— PINC = 0，MINC = 1】
+
+   外设侧：地址永远不变        内存侧：地址每次 +2（半字）
+   ┌──────────────┐           ┌────┬────┬────┬────┬────┬────┐
+   │ ADC1-&gt;DR     │           │[0] │[1] │[2] │[3] │[4] │[5] │...
+   │ 0x4001244C   │           │0x20│0x21│0x22│0x23│0x24│0x25│
+   └──────┬───────┘           └─▲──┴─▲──┴─▲──┴─▲──┴─▲──┴────┘
+          │  第 1 次读 ─────────┘    │    │    │    │
+          │  第 2 次读 ──────────────┘    │    │    │
+          │  第 3 次读 ───────────────────┘    │    │
+          │  ...  每一次都读同一个寄存器，写进下一个格子            │
+          └───────────────────────────────────────────────────────
+
+   ★ 如果误把 PINC 也设成 1：第 2 次读的是 0x4001244E，
+     那不是 ADC 的数据寄存器，读回来的是相邻的另一个寄存器内容。
+
+【内存 → 内存（数组拷贝）—— PINC = 1，MINC = 1】
+
+   源：┌────┬────┬────┬────┐      目的：┌────┬────┬────┐
+       │ A  │ B  │ C  │ D  │   ──→      │ A  │ B  │ C  │...
+       └─▲──┴─▲──┴─▲──┴─▲──┘            └─▲──┴─▲──┴─▲──┘
+         └────┴────┴────┘                 └────┴────┘
+         两边一起往前走
+
+   ★ 源和目的地址不能重叠（DMA 不是 memmove，它不会判断方向）</code></pre>
+          </div>
+
+          <p class="mt-3">第 5 个问题（数据宽度）与「对齐」是绑在一起的。<b class="font-semibold text-ink">规则只有一条：地址必须与宽度对齐</b>——8 位随便、16 位要偶数地址、32 位要 4 的倍数地址。此外还有一条更隐蔽的规则：</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">PSIZE 和 MSIZE 可以不一样，但你会得到一个「长得不一样」的缓冲区</div>
+            <p>F1 的 DMA 允许外设侧和内存侧配成不同宽度（比如外设 8 位、内存 16 位）。这时 DMA 会按较小的宽度去搬，内存里的排布会变成你没预料的样子：<b>8 位数据配 16 位内存宽度，每个样本仍然占 2 个字节（高字节补 0），缓冲区大小必须按个数 ×2 来算</b>。反过来「16 位外设配 8 位内存」更糟——一个 16 位样本会被拆成两个字节塞进缓冲区，数据完全错位。</p>
+            <p class="mt-2"><b>实用建议：除非你明确知道自己要什么，否则两边配成一样的宽度。</b>ADC 的 DR 是 16 位寄存器，就用半字；串口是字节，就用字节；SPI 8 位模式下就用字节。</p>
+          </div>
+
+          <p class="mt-3">那如果真的对齐错了会怎样？这里必须说得诚实一点，因为不同系列的表现完全不同：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>不对劲的地方</th><th>F1 / F4（Cortex-M3/M4）</th><th>F7 / H7（Cortex-M7）</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>半字宽度 + 奇数地址</td>
+                  <td>总线上会忽略最低位（相当于地址被「向下取整」），结果是数据错位、静默出错，<b>不会有任何报错</b></td>
+                  <td>可能触发总线错误异常（HardFault），也可能被 MPU 拦下</td>
+                </tr>
+                <tr>
+                  <td>指向了不存在/未使能时钟的外设</td>
+                  <td>置 <code class="icode">TEIF</code> 传输错误标志（AHB 返回错误响应），通道自动关闭</td>
+                  <td>同样置 <code class="icode">TEIF</code>，并可能进总线错误中断</td>
+                </tr>
+                <tr>
+                  <td>访问保留地址区</td>
+                  <td>置 <code class="icode">TEIF</code></td>
+                  <td>置 <code class="icode">TEIF</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">注意最后两行：<b class="font-semibold text-ink">「传输错误」这个标志，在 F1 上几乎只会在「访问了一个根本不存在的东西」时出现</b>（最典型的就是外设时钟忘了开——时钟没开，访问它的寄存器就会被总线判为错误）。所以看到 TEIF，第一反应应该去查 RCC，而不是去查对齐。</p>
+
+          <p class="mt-3">最后一个参数是模式：单次还是循环。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>模式</th><th>CCR.CIRC</th><th>搬完 CNDTR 个数据之后</th><th>典型用途</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>单次（Normal）</b></td>
+                  <td>0</td>
+                  <td>通道自动关闭（EN 位被硬件清零），CNDTR 停在 0，想再搬必须重新使能</td>
+                  <td>串口发送一段固定长度的数据、一次性拷贝、SPI 读一次 Flash</td>
+                </tr>
+                <tr>
+                  <td><b>循环（Circular）</b></td>
+                  <td>1</td>
+                  <td>CNDTR 自动重装成初始值，从缓冲区开头继续写，<b>永远不停</b></td>
+                  <td>ADC 连续采样、音频流、示波器波形刷新、串口持续接收</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">循环模式最容易被误解的一点是：<b class="font-semibold text-ink">它并不会「防止缓冲区溢出」，它只是「溢出后从头再来」</b>。缓冲区写满一轮就覆盖最旧的数据。这对「随时读最新 N 个采样点」的场合正好（示波器就是这么干的），但对「一个字节都不能丢」的场合就是灾难——你必须保证 CPU 在每一轮的时间里把数据取走。第 3 节的例题 3 会算这个「每一轮有多长」。</p>
+
+      <h3 id="sub-burst" class="mt-8 text-base font-semibold">突发传输与 FIFO：为什么成批走比一个一个字走快得多</h3>
+
+          <p class="mt-3">先看清楚成本结构。上一节的握手图告诉我们，每搬一个数据，都要付一次「②③④ 仲裁与申请」的固定开销，而且这个开销<b class="font-semibold text-ink">和数据本身的大小无关</b>——搬 1 个字节要付一次，搬 4 个字节也只需要付一次。既然如此，把数据攒起来一次付一次账，单位数据的成本就下来了。这就是突发传输（Burst）的全部动机。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="为什么突发能提高有效带宽：把固定开销摊薄">
+            <pre><code>【方式一：单次传输（Single）—— 每个数据都付一次账】
+
+    数据1      数据2      数据3      数据4
+    [申][读][写][申][读][写][申][读][写][申][读][写]
+     ↑          ↑          ↑          ↑
+     每次都要重新申请总线、等一次仲裁
+
+    4 个数据的周期数 ≈ 4 ×（1 申请 + 1 地址 + 1 数据 + 1 开销） = 16 个周期
+    平均：约 4 个周期 / 数据
+
+【方式二：突发传输（INCR4）—— 四次数据只付一次账】
+
+    [申请][地址][数据1][数据2][数据3][数据4]
+      ↑     ↑
+     付一次  只发一次地址相位，后面 4 个数据背靠背地走，
+     账      不需要每个都重新申请总线
+
+    4 个数据的周期数 ≈ 1 申请 + 1 地址 + 4 数据 = 6 个周期
+    平均：约 1.5 个周期 / 数据
+
+    ★ 有效带宽提升约 2 ~ 2.7 倍 —— 数据总量没变，省下来的是「手续费」。</code></pre>
+          </div>
+
+          <p class="mt-3">AHB 协议里定义的突发长度是固定的几种：<b>INCR4、INCR8、INCR16</b>（4、8、16 个节拍），外加 SINGLE（单个）。它们不是你想设多长就多长——硬件只支持这几档，因为这样地址发生器最简单。</p>
+
+          <p class="mt-3">但这里有一个<b class="font-semibold text-ink">必须先讲清楚的现实</b>，否则你会在 F103 上找半天「突发长度」这个配置项，然后发现它根本不存在：</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">F1 的 DMA 没有 FIFO，也不支持突发传输</div>
+            <p>STM32F1 的 DMA 是<b>通道式</b>设计：一次请求搬一个数据，直接读、直接写，中间没有任何缓冲。你去翻 RM0008 的 DMA 章节，<b>找不到 FIFO 阈值，也找不到 Burst 配置位</b>——这不是你没找到，是真的没有。</p>
+            <p class="mt-2">FIFO 与突发是<b>流式（Stream）DMA</b>才有的能力：STM32F2 / F4 / F7 / H7 的 DMA 每个<b>流</b>带一个 <b>4 字（16 字节）的 FIFO</b>，并且可以分别配置外设侧和内存侧的突发长度。F1 和它们不是同一套硬件，连寄存器的叫法都不一样（F1 叫<b>通道 Channel</b>，F4/F7 叫<b>流 Stream</b>，位定义、中断向量、HAL 句柄结构全都不同）。</p>
+            <p class="mt-2">所以：<b>在 F103 上，这一节属于「知道有这回事、换芯片时用得上」，而不是「照着配就能开」。</b>下面提到的配置项都是 F4/F7 上才存在的。</p>
+          </div>
+
+          <p class="mt-3">在 F4/F7 上，FIFO 解决的是一个真实的矛盾：<b class="font-semibold text-ink">外设是「一个一个字」地给数据的，而总线喜欢「一批一批」地走</b>。FIFO 就夹在中间做缓冲和整形：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="FIFO 是怎么把零散的请求「攒」成突发的（F4/F7 的流式 DMA）">
+            <pre><code>   外设侧（零散）                FIFO（4 字 = 16 字节）          总线侧（成批）
+   ┌────────────┐        ┌───────────────────────┐        ┌────────────────┐
+   │ ADC 转完一个 │  ──→  │ [ ][ ][ ][ ]          │        │                │
+   │ 抬一次请求   │        │ 只有 1 个字，没到阈值   │        │ 先不发，等着     │
+   └────────────┘        └───────────────────────┘        └────────────────┘
+   ┌────────────┐        ┌───────────────────────┐        ┌────────────────┐
+   │ ADC 又转完   │  ──→  │ [■][■][ ][ ]          │        │                │
+   └────────────┘        └───────────────────────┘        └────────────────┘
+   ┌────────────┐        ┌───────────────────────┐        ┌────────────────┐
+   │ ADC 又转完   │  ──→  │ [■][■][■][■] 到阈值！ │  ──→  │ 一次突发写 4 个字│
+   └────────────┘        └───────────────────────┘        │ 进 SRAM        │
+                                                          └────────────────┘
+   ★ FIFO 阈值可配 1/4、1/2、3/4、全满 —— 对应攒 1、2、3、4 个字就发一次
+   ★ 代价：数据从产生到落进内存多了一层延迟。阈值越大，攒得越久、
+     实时性越差 —— 这是「带宽」与「延迟」的经典权衡。</code></pre>
+          </div>
+
+          <p class="mt-3">FIFO 和突发是配套的，配置项成对出现：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>配置项</th><th>F4/F7 里的位置</th><th>可选值</th><th>怎么选</th></tr></thead>
+              <tbody>
+                <tr><td>FIFO 阈值</td><td><code class="icode">DMA_SxCR.FTH</code></td><td>1/4、1/2、3/4、全满</td><td>追求带宽设「全满」，追求实时设「1/4」</td></tr>
+                <tr><td>外设侧突发</td><td><code class="icode">DMA_SxCR.PBURST</code></td><td>SINGLE / INCR4 / INCR8 / INCR16</td><td>外设支持突发才敢开（ADC、SPI、SDIO 一般支持）</td></tr>
+                <tr><td>内存侧突发</td><td><code class="icode">DMA_SxCR.MBURST</code></td><td>SINGLE / INCR4 / INCR8 / INCR16</td><td>SRAM 都支持；缓冲区的起始地址要按突发长度对齐</td></tr>
+                <tr><td>FIFO 模式</td><td><code class="icode">DMA_SxCR.DMDIS</code></td><td>直接模式 / FIFO 模式</td><td>要用突发就必须开 FIFO 模式（直接模式一次只走一个数据）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">最后提醒一句：<b class="font-semibold text-ink">突发不是万能的加速器</b>。它提速的前提是「数据确实一批一批地来、而且两边都支持突发」。如果外设只肯一个一个地给数据（比如某些低速 ADC），FIFO 攒满一次突发反而<b>增加了延迟</b>；如果缓冲区起始地址没有按突发长度对齐，硬件甚至可能直接置传输错误标志。所以 F4/F7 的 CubeMX 里突发长度默认就是 <code class="icode">SINGLE</code>——这不叫保守，这叫安全的默认值。</p>
+
+          <h3 id="sub-pingpong" class="mt-8 text-base font-semibold">双缓冲（ping-pong）：解决「CPU 正在处理、DMA 又写进来」的竞争</h3>
+
+          <p class="mt-3">循环模式配好之后，一个很自然的问题立刻出现：缓冲区既是 DMA 的写作区，也是 CPU 的读取区，<b class="font-semibold text-ink">两个主设备同时操作同一块内存</b>。如果 CPU 正在读前半部分、DMA 恰好绕回来开始写前半部分，就会读到一半新数据一半旧数据——这类 bug 的特点是「偶尔错一次、很难复现」，靠加打印是查不出来的。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="竞争是怎么发生的">
+            <pre><code>  缓冲区 256 个半字，循环模式，DMA 一直在写
+
+  时间 ──────────────────────────────────────────────────────────→
+
+  DMA ： [──── 写前半 128 ────][──── 写后半 128 ────][── 写前半 ──]
+                                                      ↑
+  CPU ：                  [── 读前半（处理得慢了点）────┘
+                                                      ↑
+                                            撞上了！CPU 读到的是
+                                            一半新数据、一半旧数据
+
+  根因：CPU 的处理时间 ＞ DMA 写一圈的时间
+  → 缓冲区分成两半、让两个主设备永远错开，就能根治</code></pre>
+          </div>
+
+          <p class="mt-3">解决办法是把缓冲区切成两半，<b class="font-semibold text-ink">DMA 写一半的时候 CPU 处理另一半，两者操作的永远是不同区域</b>。这个手法叫 ping-pong（乒乓球）或者双缓冲。在 F1 上它靠一个现成的机制实现：<b>半传输中断 HT</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="半传输中断驱动的 ping-pong（F1 上最通用的做法）">
+            <pre><code>  缓冲区切成两半：ping = buf[0 .. N/2-1]，pong = buf[N/2 .. N-1]
+
+  时间 ──────────────────────────────────────────────────────────────→
+
+  DMA 写：  [── 填 ping ──][── 填 pong ──][── 填 ping ──][── 填 pong ──]
+                 │              │              │              │
+                 ▼              ▼              ▼              ▼
+  中断：        HT             TC             HT             TC
+                 │              │              │              │
+  CPU 处理：      └─ 处理 pong ──┘└─ 处理 ping ─┘└─ 处理 pong ─┘
+                    ↑                ↑
+            此时 DMA 正在填 ping   此时 DMA 正在填 pong
+            → 两边操作的是不同区域，永不冲突
+
+  ★ HT 与 TC 的间隔 = DMA 搬 N/2 个数据的时间 = CPU 处理半块的时间上限
+  ★ 这个「时间上限」就是双缓冲方案能不能用的唯一判据</code></pre>
+          </div>
+
+          <p class="mt-3">HAL 把这件事做得非常顺手：<code class="icode">HAL_ADC_Start_DMA(&amp;hadc1, buf, N)</code> 一调用，<b>HT 和 TC 中断都被打开了</b>，你只需要在两个回调里各处理一半：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="ping-pong 的骨架（完整例程在第 4 节）">
+            <pre><code>/* 缓冲区 256 个半字：每次处理函数只碰其中一半 */
+#define PP_LEN 128
+uint16_t adc_buf[PP_LEN * 2];
+
+/* 半传输：前半（ping）已经填好，可以安全处理 */
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc)
+{
+    process(adc_buf, PP_LEN);           /* 只处理 ping 这一段 */
+}
+
+/* 全传输：后半（pong）已经填好 */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+{
+    process(adc_buf + PP_LEN, PP_LEN);  /* 只处理 pong 这一段 */
+}
+
+/* 主循环里什么都不用做 —— 数据是被"推"过来的 */</code></pre>
+          </div>
+
+          <p class="mt-3">注意回调里的两个细节，它们决定了这个方案是否可靠：<b>一是处理时只用 <code class="icode">PP_LEN</code>，不要顺手把整个缓冲区扫一遍</b>；<b>二是回调里不要做耗时的事</b>（<code class="icode">printf</code> 打印、写 Flash、阻塞式发送都算），因为回调超时等同于乒乓错位，下一轮就会撞上。要打印，就先拷进另一块缓冲、置个标志，回主循环再慢慢打。</p>
+
+          <p class="mt-3">F4/F7 上还有一层硬件级的双缓冲，用它就不需要 HT 中断了：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>做法</th><th>依赖的硬件</th><th>切换由谁完成</th><th>适用</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>半传输中断 ping-pong</b></td>
+                  <td>只要 DMA + HT 中断（<b>F1 就能用</b>）</td>
+                  <td>DMA 只管循环写，CPU 靠 HT/TC 判断该处理哪一半</td>
+                  <td>几乎所有场合，最通用</td>
+                </tr>
+                <tr>
+                  <td><b>硬件双缓冲 DBM</b></td>
+                  <td>F4/F7 流式 DMA 的 <code class="icode">DMA_SxCR.DBM</code> 位，配两个内存地址寄存器 <code class="icode">SxM0AR / SxM1AR</code></td>
+                  <td><b>硬件自动切换</b>：一轮搬完，DMA 自动换成另一个缓冲区，CPU 用 CT 位（当前目标）知道该处理哪一个</td>
+                  <td>高带宽场合（音频、摄像头、SDIO），省掉一次中断</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">还有一个「伪双缓冲」的坑值得提前说：<b>内存到内存（M2M）搬运不能和循环模式一起用</b>（F1 的参考手册明确禁止 M2M + CIRC）。所以如果你要做一个「持续不断拷贝」的 M2M 双缓冲，正确做法是<b>每搬完一轮在 TC 中断里重新配置并重新使能</b>，而不是把 CIRC 位置 1。这一点在第 4 节的 M2M 例程里会体现出来。</p>
+
+          <h3 id="sub-cache" class="mt-8 text-base font-semibold">DMA 与 CPU 的数据一致性：M3/M4 没事，M7 有坑</h3>
+
+          <p class="mt-3">这是本篇唯一一个「在 F103 上完全不会遇到、但换到 M7 芯片上一定会遇到」的问题。它原理很好懂，可只要没听过，就一定会踩。</p>
+
+          <p class="mt-3">先说清楚为什么 F103 上没有这个问题：<b class="font-semibold text-ink">Cortex-M3/M4 没有数据 cache</b>。CPU 读一个变量，就真的去 SRAM 里读；DMA 写一个数据，也是真的写进 SRAM。两个主设备看的是同一块物理内存，天然一致。你甚至可以用调试器直接看缓冲区里的值，看到的和 CPU 看到的一模一样。</p>
+
+          <p class="mt-3">但 <b>Cortex-M7 有一条数据 cache（D-Cache）</b>，而且 ST 的 Cube 工程里 <code class="icode">SystemInit()</code> 默认就把它打开了。cache 的存在意味着：<b class="font-semibold text-ink">CPU 和 DMA 看到的可能不是同一份数据</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="cache 一致性问题的机制（以 STM32F7/H7 为例）">
+            <pre><code>【场景 A：DMA 写内存、CPU 读 —— CPU 读到旧数据】
+
+                        ┌────────────────┐
+   CPU 之前读过这块内存 → │   D-Cache      │  里面是【旧值】
+                        │  adc_buf[0..]  │
+                        └───────┬────────┘
+                                │  CPU 从这里读 → 永远是旧值
+   ┌────────────────┐           │
+   │     SRAM       │ ← DMA 只往这里写，它不认识 cache 是什么
+   │  adc_buf[0..]  │   里面是【新值】，但 CPU 看不见
+   └────────────────┘
+        ↑
+        └── 调试器的内存窗口看到的也是这里（新值）
+            → 于是出现「调试器里是对的、程序读出来是错的」
+
+【场景 B：CPU 写内存、DMA 读 —— DMA 读到旧数据】
+
+   CPU 刚算好一块要发送的数据写进 buf[]      ┌────────────────┐
+   但写操作可能只落在 cache 里（write-back）→ │   D-Cache      │【新值】
+                                             └───────┬────────┘
+                                                     ↕ 还没写回内存
+   ┌────────────────┐                                │
+   │     SRAM       │  里面还是【旧值】←──────────────┘
+   │     buf[]      │ ← DMA 从这里读 → 发出去的是上一次的数据
+   └────────────────┘
+
+   F1 上这两种症状一个都不会出现；F7 上它们是最常见的"DMA 玄学"来源。</code></pre>
+          </div>
+
+          <p class="mt-3">解决办法有三个，按推荐程度排序：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>办法</th><th>怎么做</th><th>代价与注意</th><th>推荐度</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>① 手动 clean / invalidate</b></td>
+                  <td>发数据前 <code class="icode">SCB_CleanDCache_by_Addr()</code>；收数据后 <code class="icode">SCB_InvalidateDCache_by_Addr()</code></td>
+                  <td>每次几十个周期；<b>地址要 32 字节对齐、长度要是 32 的倍数</b>，否则会误伤相邻数据</td>
+                  <td>★★★ 最常用</td>
+                </tr>
+                <tr>
+                  <td><b>② 把缓冲区放进非 cache 区</b></td>
+                  <td>用 MPU 把某段 SRAM 配成 Non-cacheable，或直接用芯片上不走 cache 的 RAM</td>
+                  <td>配 MPU 有学习成本；且要注意不是所有 RAM 都能被 DMA 访问（F7 上 DMA 就不能访问 DTCM）</td>
+                  <td>★★★ 一次配好、永久省心</td>
+                </tr>
+                <tr>
+                  <td><b>③ 干脆关掉 D-Cache</b></td>
+                  <td>不调用 <code class="icode">SCB_EnableDCache()</code></td>
+                  <td>CPU 性能大幅下降，<b>不推荐</b></td>
+                  <td>★ 只当「验证是不是 cache 问题」的临时手段</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">判断「是不是 cache 问题」的三个特征，命中一条就够</div>
+            <ul class="mt-1 list-disc space-y-1.5 pl-5">
+              <li><b>调试器的内存窗口里数据是对的，程序读出来却是错的。</b>调试器通过调试接口直接读物理内存，绕开了 cache。</li>
+              <li><b>把 D-Cache 关掉，程序立刻就对了。</b>这一条几乎可以直接定罪。</li>
+              <li><b>「第一次错、第二次对」，或者「发出去的内容慢一拍」</b>——典型的「DMA 读到的还是上一轮的内存内容」。</li>
+            </ul>
+            <p class="mt-2">清理的方向千万别搞反：<b>CPU 写完、DMA 读，要 clean（把 cache 写回内存）；DMA 写完、CPU 读，要 invalidate（把 cache 作废）</b>。如果一块缓冲区两边都写过，就得先 clean 再 invalidate，不能只做一半——只 invalidate 会把还没写回的脏数据直接丢掉。</p>
+          </div>
+
+          <p class="mt-3">最后补一个容易混淆的点：<b class="font-semibold text-ink">F4 上也有「cache」，但那是 ART Accelerator 的指令 cache（I-Cache）和 Flash 预取，只缓存指令、只读</b>。DMA 搬的是数据、走的是数据总线，和指令 cache 完全不相干。所以在 F4 上你不需要做任何 cache 维护——这一点常被搞混：看到「F4 靠 cache 加速到 200 MHz 以上」就以为 DMA 也要清 cache。</p>
+        </section>
+
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="mt-14 text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">这一节的三个例题，分别回答 DMA 使用中最常被问到的三个问题：<b class="font-semibold text-ink">「用 DMA 到底能省多少 CPU？」「DMA 搬这批数据要占多少总线？」「缓冲区该开多大、会不会溢出？」</b>所有的数都按 STM32F103、HCLK = 72 MHz 来算，你可以直接照着自己的参数替换。</p>
+
+          <h3 id="sub-calc" class="mt-8 text-base font-semibold">例题一：中断逐字节搬 512 字节，CPU 占用率是多少</h3>
+
+          <p class="mt-3"><b>题目：</b>一块 SPI 从设备（比如外部 8 位 ADC 或无线模块）以 2.8 Mbit/s 连续向外吐数据，STM32 用 SPI1 接收，每 512 字节构成一帧。请分别算出「用中断逐字节接收」和「用 DMA 接收」时，搬运这件事占掉多少 CPU。</p>
+
+          <p class="mt-3"><b>第一步：把数据率换算成「多久来一帧」</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题一 · 第一步">
+            <pre><code>SPI 时钟 = 2.8 Mbit/s，8 位一字节，无额外帧开销
+  数据率 = 2 800 000 ÷ 8 = 350 000 字节/秒 = 350 kB/s
+
+一帧 512 字节
+  帧周期 = 512 ÷ 350 000 = 0.001463 秒 = 1463 µs
+
+也就是说：平均每 1.463 ms，就有 512 个字节等你处理。
+（换算成频率：每秒 350 000 ÷ 512 ≈ 684 帧）</code></pre>
+          </div>
+
+          <p class="mt-3"><b>第二步：算中断方式的 CPU 时间</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题一 · 第二步">
+            <pre><code>中断方式：每一个字节都要进一次中断
+  单次中断的固定开销 = 压栈 12 周期
+                      + 取向量并跳转 ≈ 6 周期
+                      + 判断来源、清标志 ≈ 15 周期
+                      + 读数据、写内存并维护指针 ≈ 20 周期
+                      + 出栈 12 周期
+                      + 循环开销与流水线损失 ≈ 43 周期
+                      ────────────────────────────
+                      合计 ≈ 108 个周期
+
+  108 ÷ 72 MHz ≈ 1.5 µs
+
+搬完一帧 512 字节
+  CPU 时间 = 512 × 1.5 µs = 768 µs
+
+CPU 占用率
+  = 768 µs ÷ 1463 µs = 52.5%  ← 常被引用的「52.6%」就在这一档
+     （如果单次开销取 1.4 µs，得 49.0%；取 1.7 µs，得 59.5%）
+
+★ 注意这个数的含义：不是"搬运很吃力"，而是
+  "CPU 有一半以上的时间在做压栈出栈这些和业务无关的事"。
+  主循环能用的时间只剩 47.5% —— 屏幕刷新卡顿、按键反应迟钝、
+  通信协议超时，根子都在这里。</code></pre>
+          </div>
+
+          <p class="mt-3"><b>第三步：算 DMA 方式的 CPU 时间</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题一 · 第三步">
+            <pre><code>DMA 方式：整帧只配置一次，中途 CPU 完全不参与
+
+  配置开销（在帧开始前做一次）
+    写 CPAR / CMAR / CNDTR / CCR 四个寄存器 ≈ 25 个周期
+    25 ÷ 72 MHz ≈ 0.35 µs
+
+  中断开销（HAL 默认同时打开 HT 和 TC）
+    HT 回调（处理前半帧）≈ 2 µs
+    TC 回调（处理后半帧）≈ 2 µs
+    合计 ≈ 4 µs
+
+  一帧总的 CPU 时间 = 0.35 + 4 = 4.35 µs
+
+CPU 占用率
+  = 4.35 µs ÷ 1463 µs = 0.297%  ≈ 0.3%
+
+  （如果不用双缓冲、只开 TC 中断：2.35 µs ÷ 1463 µs = 0.16%）
+
+★ 从 52.5% 降到 0.3%：CPU 负担下降了约 175 倍
+★ 省下来的时间正好等于「512 次中断的手续费 - 2 次中断的手续费」</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>中断逐字节</th><th>DMA + 双缓冲</th><th>倍数关系</th></tr></thead>
+              <tbody>
+                <tr><td>一帧内的 CPU 事件次数</td><td>512 次中断</td><td>1 次配置 + 2 次回调</td><td>约 1/170</td></tr>
+                <tr><td>一帧的 CPU 时间</td><td>768 µs</td><td>4.35 µs</td><td>约 1/177</td></tr>
+                <tr><td>CPU 占用率</td><td><b>52.5%</b></td><td><b>0.30%</b></td><td>约 1/175</td></tr>
+                <tr><td>主循环可用时间</td><td>47.5%</td><td>99.7%</td><td>—</td></tr>
+                <tr><td>代码复杂度</td><td>一个 ISR，简单直观</td><td>要处理 HT/TC 两半与回调时序</td><td>—</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>结论：</b>这次优化之所以有效，<b class="font-semibold text-ink">不是因为「DMA 搬得更快」，而是因为「事件次数从 512 次变成了 3 次」</b>。搬运 512 个字节的总线时间一点没变（甚至因为 DMA 的仲裁开销还略多一点），变的是 CPU 被叫醒的次数。这也解释了一个反直觉的现象：<b>数据率越低，DMA 的收益越小</b>——如果 SPI 只有 10 kB/s，中断方式占用率只有 1.5%，上 DMA 纯属折腾。</p>
+
+          <h3 id="sub-timing" class="mt-8 text-base font-semibold">例题二：搬 1000 个半字要多少个总线周期，理论最长多久</h3>
+
+          <p class="mt-3"><b>题目：</b>DMA 一次搬运 1000 个半字（2000 字节）。分别按「内存 → 内存」和「外设 → 内存」两种方向，算出需要多少个 AHB 总线周期、折合多长时间，并给出理论上的最短与最长边界。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题二 · 逐步计算">
+            <pre><code>【基础数据】
+  AHB 时钟 = 72 MHz，一个周期 = 1 ÷ 72 000 000 = 13.89 ns
+  待搬运数据量：1000 个半字 = 2000 字节 = 500 个字(32 位)
+
+【单次传输的周期开销（取自第 2 节握手表的工程口径）】
+  内存 → 内存        每数据 ≈ 4 个周期（地址 1 + 数据 1 + 申请仲裁 2）
+  外设 → 内存(AHB 外设) 每数据 ≈ 6 个周期
+  外设 → 内存(APB 外设) 每数据 ≈ 6 ~ 10 个周期（含 APB 桥等待）
+  理论极限（完全无争用） 每数据 = 2 个周期（只有地址相位 + 数据相位）
+
+【方案 A：内存 → 内存】
+  周期数 = 1000 × 4 = 4000 个周期
+  时间   = 4000 × 13.89 ns = 55.6 µs
+
+【方案 B：外设 → 内存（ADC1 的 DR 挂在 APB2 上）】
+  乐观：1000 × 6  = 6000 周期  = 83.3 µs
+  保守：1000 × 10 = 10 000 周期 = 138.9 µs
+
+【理论最短（下界）】
+  周期数 = 1000 × 2 = 2000 周期 = 27.8 µs
+  —— 现实中永远达不到，因为只要有第二个主设备在用总线，
+     就一定会插入仲裁周期。
+
+【理论最长（上界，悲观模型）】
+  假设每次传输都恰好撞上 CPU 正在读写 SRAM，
+  轮询一圈才轮到 DMA，再加上 APB 桥的等待：
+  周期数 = 1000 × 12 = 12 000 周期 = 166.7 µs
+  即使再保守地取每数据 20 个周期：1000 × 20 = 20 000
+  周期 = 277.8 µs —— 仍然不到一秒的 0.03%</code></pre>
+          </div>
+
+          <p class="mt-3"><b>那么这批数据占总线的多少？</b>光看「一次搬运 55.6 µs」没有意义，要把它放到「数据产生的节奏」里看。假设这 1000 个半字是被 ADC 以 500 kSPS 连续采出来的：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题二 · 换算成总线占用率">
+            <pre><code>ADC 以 500 kSPS 采样，1000 个点需要
+  1000 ÷ 500 000 = 2 ms = 144 000 个总线周期
+
+DMA 搬这 1000 个点要占
+  6000 ~ 10 000 个周期
+
+总线占用率 = 10 000 ÷ 144 000 = 6.9%（悲观）
+           = 6 000 ÷ 144 000 = 4.2%（乐观）
+
+★ 也就是说，即使按最悲观的口径，DMA 也只占掉总线的
+  百分之七 —— CPU 剩下的 93% 带宽完全够用，
+  「用 DMA 会不会拖慢 CPU」在这种速率下答案是不会。</code></pre>
+          </div>
+
+          <p class="mt-3"><b>但换一个场景，结论就完全不同了。</b>下面这张表把常见负载放在一起，用的都是同一套口径（<b>每数据按 10 个总线周期估算，含 APB 桥等待</b>，这是偏保守的工程值）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>数据源</th><th>数据率</th><th>DMA 需要的总线周期/秒</th><th>占总线带宽（72 MHz）</th><th>结论</th></tr></thead>
+              <tbody>
+                <tr><td>USART1 @115200</td><td>11.5 kB/s</td><td>115 200</td><td>0.16%</td><td>完全无压力</td></tr>
+                <tr><td>USART1 @921600</td><td>92.2 kB/s</td><td>921 600</td><td>1.28%</td><td>无压力</td></tr>
+                <tr><td>ADC1 @100 kSPS（半字）</td><td>200 kB/s</td><td>1 000 000</td><td>1.39%</td><td>无压力</td></tr>
+                <tr><td>ADC1 @1 MSPS（半字，F1 的极限）</td><td>2 MB/s</td><td>10 000 000</td><td><b>13.9%</b></td><td>要留意，但可行</td></tr>
+                <tr><td>SPI1 @18 MHz（F1 的极限）</td><td>2.25 MB/s</td><td>22 500 000</td><td><b>31.3%</b></td><td><b>已经很高</b>，CPU 会明显变慢</td></tr>
+                <tr><td>内存到内存全速拷贝</td><td>约 36 M 半字/s</td><td>144 000 000</td><td><b>200%</b>（不可能达成）</td><td>实际会被总线限速到约 36 MB/s</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>结论：</b>总线带宽在「外设 → 内存」这类应用里几乎从来不是瓶颈——串口、低速 ADC 连 1% 都占不到。<b class="font-semibold text-ink">真正会吃掉总线的是两块：一是 SPI 满速刷屏，二是大块的内存到内存拷贝。</b>前者在 F1 上是出了名的慢（320×240 的 RGB565 屏幕一帧 153.6 kB，按 10 周期/字节要 1 536 000 个周期 = 21.3 ms，连 50 fps 都上不去），后者则会被总线限速到 30 MB/s 上下。这也是为什么 F4/F7 要引入 FIFO 和突发传输——<b>它们的价值恰恰在这种高负载场景，而不是在你搬 1000 个 ADC 采样点的时候</b>。</p>
+
+          <h3 id="sub-frames" class="mt-8 text-base font-semibold">例题三：8 通道 ADC 采一年，缓冲区要开多大</h3>
+
+          <p class="mt-3"><b>题目：</b>一块外挂的 8 位 SPI ADC，以 <b>1 kHz 的速率轮流采集 8 个通道</b>，用 DMA 循环模式连续采集。请问：一年会采到多少个点？缓冲区要开多大？循环模式下会不会溢出？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题三 · 第一步：一年采到多少个点">
+            <pre><code>【采样率】
+  每个通道 1 kHz，共 8 个通道
+  总采样率 = 1000 × 8 = 8000 点/秒
+
+【一年的时间】
+  365 × 24 × 60 × 60 = 31 536 000 秒
+
+【一年的点数】
+  8000 × 31 536 000 = 252 288 000 000 个点
+  ≈ 2523 亿个点
+
+【换算成存储空间】
+  按 1 字节/点（8 位 ADC，刚好一个字节）
+    252 288 000 000 字节 ≈ 252.3 GB
+  按 2 字节/点（HAL 里习惯用半字缓冲区）
+    约 504.6 GB
+
+【换一个更直观的说法】
+  一张 32 GB 的 SD 卡，按 1 字节/点连续写：
+    32 000 000 000 ÷ 8000 = 4 000 000 秒 = 46.3 天
+  → 采满一年需要约 8 张 32 GB 卡，而且中间不能停</code></pre>
+          </div>
+
+          <p class="mt-3"><b>第二步：CPU 处理得过来吗？</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题三 · 第二步：CPU 的负担">
+            <pre><code>假设每个采样点要做 100 条指令的处理
+  （比如判断阈值、累加统计、查表换算）
+
+  每秒需要的指令数 = 8000 × 100 = 800 000 条
+  CPU 占用率 = 800 000 ÷ 72 000 000 = 1.1%
+
+  一年需要的总指令数 = 252 288 000 000 × 100 = 2.52 × 10¹³ 条
+  折合时间 = 2.52 × 10¹³ ÷ 72 000 000 = 350 400 秒 ≈ 4.05 天
+
+★ 结论非常清楚：
+  · 数据是【一年】里匀速来的，处理它们只需要 CPU 跑【4 天】
+    → 边采边算，完全来得及，DMA 让这件事变得毫无压力
+  · 但想把 2523 亿个点【全部存下来】是另一个数量级的问题
+    → 存储才是瓶颈，不是 CPU，也不是 DMA
+
+【DMA 占的总线】
+  8000 点/秒 × 10 周期/点 = 80 000 周期/秒
+  80 000 ÷ 72 000 000 = 0.11%  —— 可以忽略不计</code></pre>
+          </div>
+
+          <p class="mt-3"><b>第三步：缓冲区要开多大？循环模式下会不会溢出？</b></p>
+
+          <p class="mt-3">这两个问题其实是同一个问题。循环模式下 <b class="font-semibold text-ink">DMA 永远不会「溢出报错」，它只会一圈一圈地覆盖</b>。所以你唯一要保证的是：<b>CPU 在每一圈的时间里，把需要的数据取走</b>。而「一圈有多长」是可以直接算出来的：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题三 · 第三步：一圈时间与 CPU 的时间上限">
+            <pre><code>【公式】一圈时间 = 缓冲区的数据个数 ÷ 总采样率
+
+  缓冲区  256 字节 → 256  ÷ 8000 = 32 ms
+  缓冲区 1024 字节 → 1024 ÷ 8000 = 128 ms
+  缓冲区 8000 字节 → 8000 ÷ 8000 = 1 秒
+
+【用双缓冲（HT + TC）时，CPU 处理半块的时间上限】
+  缓冲区 1024 字节，半块 512 字节：
+    上限 = 512 ÷ 8000 = 64 ms
+  64 ms 里 72 MHz 的 CPU 能执行 4 608 000 条指令
+  → 处理 512 个采样点（每点 100 条指令 = 51 200 条）
+    只用了时间上限的 1.1%
+
+【结论】
+  · 缓冲区 1024 字节（F103 的 20 KB SRAM 里毫无压力）
+    就够了，一圈 128 ms，CPU 有 64 ms 的余量处理半块
+  · 会不会溢出？只要你不在回调里做 printf、不等串口发送，
+    就永远不会。用 DMA 玩出"数据被覆盖"，99% 是因为在中断
+    回调里做了耗时操作，而不是缓冲区开小了</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>缓冲区大小</th><th>一圈时间</th><th>半块处理的时间上限</th><th>占 F103 的 20 KB SRAM</th><th>适合</th></tr></thead>
+              <tbody>
+                <tr><td>256 字节</td><td>32 ms</td><td>16 ms</td><td>1.3%</td><td>只关心最近几十毫秒的波形</td></tr>
+                <tr><td><b>1024 字节</b></td><td><b>128 ms</b></td><td><b>64 ms</b></td><td>5%</td><td><b>推荐</b>：通用采集与统计</td></tr>
+                <tr><td>4096 字节</td><td>512 ms</td><td>256 ms</td><td>20%</td><td>需要一次处理较长的数据窗（做 FFT）</td></tr>
+                <tr><td>8000 字节（1 秒）</td><td>1 s</td><td>500 ms</td><td>40%</td><td>要给外部存储留出批量写入的时间</td></tr>
+                <tr><td>19200 字节（更长）</td><td>2.4 s</td><td>1.2 s</td><td><b>94%</b>，几乎占满</td><td>不建议——先想想是不是该外扩 SRAM</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>结论：</b>这道题的三个答案分别是——<b>一年 2523 亿个点（252 GB）；缓冲区 1024 字节就够；循环模式本身不会溢出，但如果你在回调里做耗时操作就一定会覆盖</b>。更重要的是它揭示了一个判断顺序：<b class="font-semibold text-ink">先算数据率，再算一圈时间，最后才去挑缓冲区大小</b>。反过来「先随便开个 128 字节试试」的做法，会在数据率一变高时立刻失效。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">把三个例题的公式抽出来，以后直接套</div>
+            <div class="table-scroll mt-3">
+              <table class="table-mcu">
+                <thead><tr><th>要算的东西</th><th>公式</th><th>口诀</th></tr></thead>
+                <tbody>
+                  <tr><td>CPU 占用率</td><td>单次事件开销 × 事件频率 ÷ CPU 频率</td><td>省不省，看事件次数</td></tr>
+                  <tr><td>总线占用率</td><td>数据率 × 每数据总线周期 ÷ 总线频率</td><td>搬得动不动，看带宽</td></tr>
+                  <tr><td>缓冲区一圈时间</td><td>缓冲区数据个数 ÷ 数据率</td><td>圈子多大，CPU 有多少时间</td></tr>
+                  <tr><td>CPU 的处理余量</td><td>半块数据个数 ÷ 数据率</td><td>余量至少要留 10 倍</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-2">第三条和第四条是排查 DMA 问题时最该先算的两个数——<b>大多数「DMA 数据被覆盖」的现场，一算就会发现余量只有 1.2 倍甚至不到 1 倍</b>。</p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="mt-14 text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4">这一节给的都是<b class="font-semibold text-ink">能直接编译运行的完整实现</b>，以 STM32F103C8T6 + HAL 库为主。代码里带 <code class="icode">★</code> 的注释是这个例子真正的关键点，抄的时候可以少写别的，但这几行不能少。</p>
+
+          <h3 id="sub-board" class="mt-8 text-base font-semibold">先看清你手上这块板子</h3>
+
+          <p class="mt-3">动手之前先把 F103 的 DMA 硬件条件列清楚。<b class="font-semibold text-ink">下面这五条是硬约束，代码写得再对也绕不过去</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>事实</th><th>为什么重要</th><th>怎么确认</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>F103C8T6（中容量）只有 DMA1，没有 DMA2</b></td>
+                  <td>网上大容量型号的例程里写着 <code class="icode">DMA2_Channel5</code>，抄到你的板子上编译能过、运行没反应，也不报错</td>
+                  <td>看启动文件里有没有 <code class="icode">DMA2_Channel1_IRQHandler</code></td>
+                </tr>
+                <tr>
+                  <td><b>DMA1 只有 7 个通道</b></td>
+                  <td>同一时刻最多 7 路搬运，其中还要留出给串口收发、ADC 的位置</td>
+                  <td>规划时先列表，别一边写一边抢</td>
+                </tr>
+                <tr>
+                  <td><b>请求线与通道的对应是硬件固定的</b></td>
+                  <td>ADC1 只能在通道 1，USART1_TX 只能在通道 4——是<b>查表选出</b>来的，不是自由选择</td>
+                  <td>查本节最后的请求映射速查表</td>
+                </tr>
+                <tr>
+                  <td><b>没有 FIFO、不支持突发传输</b></td>
+                  <td>第 2 节讲的 FIFO / INCR4 在 F1 上<b>不存在</b>，相关配置项一个都没有</td>
+                  <td>翻 RM0008 的 DMA 章节，找不到就是没有</td>
+                </tr>
+                <tr>
+                  <td><b>内存到内存模式不能与循环模式同时使用</b></td>
+                  <td>想连续拷贝，只能在传输完成中断里重新启动，不能靠 CIRC 位</td>
+                  <td>参考手册 DMA 章节明确写了这条限制</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">本节例程的通道分配如下（这是能同时跑起来的一套完整方案，后文的例子都按它来）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>DMA1 通道</th><th>挂什么</th><th>方向</th><th>用途</th></tr></thead>
+              <tbody>
+                <tr><td>通道 1</td><td>ADC1</td><td>外设 → 内存</td><td>三通道连续采集，循环模式 + HT/TC 双缓冲</td></tr>
+                <tr><td>通道 2</td><td>SPI1_RX</td><td>外设 → 内存</td><td>读外部 Flash / 外部 ADC</td></tr>
+                <tr><td>通道 3</td><td>SPI1_TX</td><td>内存 → 外设</td><td>发命令与地址，同时提供时钟</td></tr>
+                <tr><td>通道 4</td><td>USART1_TX</td><td>内存 → 外设</td><td>发送不定长数据（日志、协议帧）</td></tr>
+                <tr><td>通道 5</td><td>USART1_RX</td><td>外设 → 内存</td><td>IDLE + DMA 不定长接收</td></tr>
+                <tr><td>通道 6</td><td>空闲</td><td>—</td><td>预留给 I2C1_TX（传感器写入）</td></tr>
+                <tr><td>通道 7</td><td>空闲</td><td>—</td><td>预留给 I2C1_RX（传感器读取）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">注意这张表里<b class="font-semibold text-ink">没有内存到内存的位置</b>——因为 M2M 必须占用一个通道，而 7 个通道已经被外设用完了。真要做 M2M 拷贝，就得把 I2C 或 SPI 让出来一个。这就是「DMA 通道是一种有限资源」的真实含义。</p>
+
+          <h3 id="sub-mcu-adc" class="mt-8 text-base font-semibold">例程一：ADC + DMA 连续采集（三通道，循环模式 + 双缓冲）</h3>
+
+          <p class="mt-3">这是 DMA 最经典、也最值得先跑通的例子。目标：<b class="font-semibold text-ink">PA0、PA1、PA2 三个通道连续不停地转换，转换结果自动流进一个数组，主循环随时可以读</b>，CPU 全程不参与搬运。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="adc_dma.c（一）· 句柄与缓冲区">
+            <pre><code>#include "stm32f1xx_hal.h"
+#include &lt;string.h&gt;
+
+/* 规则组里排了 3 个通道；每个通道连续存 64 个点 */
+#define ADC_CH_NUM      3
+#define ADC_LOOP_NUM    64
+#define ADC_BUF_LEN     (ADC_CH_NUM * ADC_LOOP_NUM)   /* = 192 个【数据个数】，不是字节数 */
+#define ADC_HALF_LEN    (ADC_BUF_LEN / 2)             /* 半传输的位置：第 96 个数据 */
+
+ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
+
+/* ★ 缓冲区必须是全局/静态的：函数返回之后 DMA 还要继续往里写  */
+uint16_t adc_buf[ADC_BUF_LEN];
+
+/* 中断只置标志，主循环再处理 —— 回调里绝不干重活 */
+volatile uint8_t adc_half_ready = 0;
+volatile uint8_t adc_full_ready = 0;</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="adc_dma.c（二）· DMA 初始化：先开时钟，再挂中断">
+            <pre><code>static void MX_DMA_Init(void)
+{
+    /* ★ 第一件事永远是开时钟。DMA 是独立外设，它有自己的一份 RCC 时钟，
+         不开时钟，下面所有寄存器的写入全部石沉大海，而且不会报任何错 */
+    __HAL_RCC_DMA1_CLK_ENABLE();
+
+    /* DMA1 通道 1 的中断：搬完一半、搬完一整轮，都会从这里进来 */
+    HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 1, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+}</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="adc_dma.c（三）· ADC 初始化与 MspInit（真正的 DMA 配置在这里）">
+            <pre><code>static void MX_ADC1_Init(void)
+{
+    ADC_ChannelConfTypeDef sConfig = {0};
+
+    hadc1.Instance                   = ADC1;
+    hadc1.Init.ScanConvMode          = ENABLE;               /* 多通道必须开扫描 */
+    hadc1.Init.ContinuousConvMode    = ENABLE;               /* 一轮采完立刻开始下一轮 */
+    hadc1.Init.DiscontinuousConvMode = DISABLE;
+    hadc1.Init.ExternalTrigConv      = ADC_SOFTWARE_START;   /* 软件启动，之后靠 CONT 自走 */
+    hadc1.Init.DataAlign             = ADC_DATAALIGN_RIGHT;  /* 12 位右对齐，读到就是 0~4095 */
+    hadc1.Init.NbrOfConversion       = ADC_CH_NUM;
+    if (HAL_ADC_Init(&amp;hadc1) != HAL_OK) { Error_Handler(); }
+
+    /* ADC 时钟 = PCLK2 / 6 = 12 MHz（F1 的 ADC 时钟上限 14 MHz，别超） */
+    __HAL_RCC_ADC_CONFIG(RCC_ADCPCLK2_DIV6);
+
+    /* 三个通道依次排进规则组：采样时间选最长的一档，源阻抗高也测得准 */
+    sConfig.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;
+    sConfig.Channel = ADC_CHANNEL_0; sConfig.Rank = ADC_REGULAR_RANK_1;
+    if (HAL_ADC_ConfigChannel(&amp;hadc1, &amp;sConfig) != HAL_OK) { Error_Handler(); }
+    sConfig.Channel = ADC_CHANNEL_1; sConfig.Rank = ADC_REGULAR_RANK_2;
+    if (HAL_ADC_ConfigChannel(&amp;hadc1, &amp;sConfig) != HAL_OK) { Error_Handler(); }
+    sConfig.Channel = ADC_CHANNEL_2; sConfig.Rank = ADC_REGULAR_RANK_3;
+    if (HAL_ADC_ConfigChannel(&amp;hadc1, &amp;sConfig) != HAL_OK) { Error_Handler(); }
+}
+
+/* HAL 在 HAL_ADC_Init() 里会自动回调这个函数 —— CubeMX 生成的 DMA 配置就在这儿 */
+void HAL_ADC_MspInit(ADC_HandleTypeDef *adcHandle)
+{
+    if (adcHandle-&gt;Instance == ADC1)
+    {
+        __HAL_RCC_ADC1_CLK_ENABLE();
+        __HAL_RCC_GPIOA_CLK_ENABLE();
+
+        GPIO_InitTypeDef gpio = {0};
+        gpio.Pin  = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2;
+        gpio.Mode = GPIO_MODE_ANALOG;          /* 模拟输入：不要配上拉下拉 */
+        HAL_GPIO_Init(GPIOA, &amp;gpio);
+
+        /* ---------------- 以下是 DMA 部分的全部配置 ---------------- */
+        hdma_adc1.Instance                 = DMA1_Channel1;      /* ★ ADC1 只能挂通道 1 */
+        hdma_adc1.Init.Direction           = DMA_PERIPH_TO_MEMORY;
+        hdma_adc1.Init.PeriphInc           = DMA_PINC_DISABLE;   /* ★ 外设地址固定：永远是 ADC1-&gt;DR */
+        hdma_adc1.Init.MemInc              = DMA_MINC_ENABLE;    /* ★ 内存地址递增：一格一格往后写 */
+        hdma_adc1.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+        hdma_adc1.Init.MemDataAlignment    = DMA_MDATAALIGN_HALFWORD;
+        hdma_adc1.Init.Mode                = DMA_CIRCULAR;       /* ★ 循环：搬满 192 个自动从头再来 */
+        hdma_adc1.Init.Priority            = DMA_PRIORITY_HIGH;
+        if (HAL_DMA_Init(&amp;hdma_adc1) != HAL_OK) { Error_Handler(); }
+
+        /* ★ 把 DMA 句柄"挂"到 ADC 句柄上：HAL 靠这条链在启动时自动配好一切 */
+        __HAL_LINKDMA(adcHandle, DMA_Handle, hdma_adc1);
+    }
+}</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="adc_dma.c（四）· 主函数与中断回调">
+            <pre><code>int main(void)
+{
+    HAL_Init();
+    SystemClock_Config();       /* HCLK = 72 MHz，CubeMX 生成，略 */
+    MX_GPIO_Init();
+    MX_DMA_Init();              /* ★ 必须在 MX_ADC1_Init 之前！先开 DMA1 的时钟 */
+    MX_ADC1_Init();
+
+    /* F1 的 ADC 必须先校准，否则误差可能达到几十个 LSB */
+    HAL_ADCEx_Calibration_Start(&amp;hadc1);
+
+    /* ★ 这一行就是全部：循环模式、地址增量、宽度、缓冲区大小都在句柄里配好了。
+         192 个数据会自动、连续、永不停止地流进 adc_buf[] */
+    HAL_ADC_Start_DMA(&amp;hadc1, (uint32_t *)adc_buf, ADC_BUF_LEN);
+
+    while (1)
+    {
+        if (adc_half_ready) {
+            adc_half_ready = 0;
+            process_channels(&amp;adc_buf[0], ADC_HALF_LEN);        /* 处理前半 */
+        }
+        if (adc_full_ready) {
+            adc_full_ready = 0;
+            process_channels(&amp;adc_buf[ADC_HALF_LEN], ADC_HALF_LEN);  /* 处理后半 */
+        }
+        /* 主循环剩下的时间全是你的 —— 搬运完全不需要 CPU 操心 */
+    }
+}
+
+/* 中断向量：HAL 的中断处理函数只做一件事，就是调用你注册的回调 */
+void DMA1_Channel1_IRQHandler(void)
+{
+    HAL_DMA_IRQHandler(&amp;hdma_adc1);
+}
+
+/* 半传输：前 96 个数据填好了，此时 DMA 正在写后 96 个 —— 处理前半绝对安全 */
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc)
+{
+    if (hadc-&gt;Instance == ADC1) { adc_half_ready = 1; }
+}
+
+/* 全传输：后 96 个也填好了，DMA 已经绕回开头 —— 处理后半绝对安全 */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+{
+    if (hadc-&gt;Instance == ADC1) { adc_full_ready = 1; }
+}</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="adc_dma.c（五）· 怎么把缓冲区里的数还原成三个通道">
+            <pre><code>/* 192 个数据是按 ch0, ch1, ch2, ch0, ch1, ch2, ... 交错排的。
+   这不是"三个数组拼在一起"，读的时候很容易搞错，一定要记住这个规律。 */
+void process_channels(const uint16_t *buf, uint16_t len)
+{
+    uint16_t i;
+    for (i = 0; i + ADC_CH_NUM &lt;= len; i += ADC_CH_NUM)
+    {
+        uint16_t raw0 = buf[i + 0];     /* 通道 0 的一次转换 */
+        uint16_t raw1 = buf[i + 1];     /* 通道 1 */
+        uint16_t raw2 = buf[i + 2];     /* 通道 2 */
+
+        float volt0 = raw0 * 3.3f / 4095.0f;   /* 12 位 → 电压 */
+        float volt1 = raw1 * 3.3f / 4095.0f;
+        float volt2 = raw2 * 3.3f / 4095.0f;
+
+        (void)volt0; (void)volt1; (void)volt2;
+        /* 这里做你的业务：判断阈值、累加、算平均值…… */
+    }
+}</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>配置项</th><th>值</th><th>为什么必须是这样</th></tr></thead>
+              <tbody>
+                <tr><td><code class="icode">Instance</code></td><td><code class="icode">DMA1_Channel1</code></td><td>F1 上 ADC1 的请求线只接到通道 1，写别的通道号就是接不到信号</td></tr>
+                <tr><td><code class="icode">Direction</code></td><td>外设 → 内存</td><td>数据从 ADC 的 DR 流进 RAM</td></tr>
+                <tr><td><code class="icode">PeriphInc</code></td><td><b>DISABLE</b></td><td>外设地址永远不变，这是「外设 → 内存」模式的本质</td></tr>
+                <tr><td><code class="icode">MemInc</code></td><td><b>ENABLE</b></td><td>不递增的话 192 次结果全写进 <code class="icode">adc_buf[0]</code>，看起来就像「DMA 只搬了一次」</td></tr>
+                <tr><td><code class="icode">两个对齐</code></td><td><b>HALFWORD</b></td><td>ADC 的 DR 是 16 位寄存器，用字节宽度会把一个结果拆成两半</td></tr>
+                <tr><td><code class="icode">Mode</code></td><td><b>CIRCULAR</b></td><td>ADC 在 CONT 模式下永不停歇，DMA 也必须循环，否则第一轮之后就再也不搬了</td></tr>
+                <tr><td>第三个参数</td><td><code class="icode">ADC_BUF_LEN</code>（192）</td><td><b>是数据个数，不是字节数</b>。写成 384 会直接冲出数组</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">两个必踩的坑，提前说清楚</div>
+            <p><b>坑一：不在主循环里做双缓冲。</b>如果你不管 HT 回调，直接在 <code class="icode">while(1)</code> 里读整个 <code class="icode">adc_buf</code>，就会读到「前半是旧的、后半是新的」这种撕裂数据。上双缓冲的意义就在这里：<b>永远只处理已经填满、且 DMA 当前不在写的那一半</b>。</p>
+            <p class="mt-2"><b>坑二：把 <code class="icode">MX_DMA_Init()</code> 写在 <code class="icode">MX_ADC1_Init()</code> 后面。</b>CubeMX 生成的代码里 DMA 初始化永远排在前面，这不是风格问题——<code class="icode">__HAL_LINKDMA</code> 之后 HAL 会在启动时立刻去配 DMA 寄存器，<b>而那时 DMA1 的时钟还没开</b>，写进去的配置全部丢失，现象是「ADC 在转，缓冲区一直不动」。</p>
+          </div>
+        <h3 id="sub-mcu-uart-tx" class="mt-8 text-base font-semibold">例程二：串口 + DMA 发送（包含 RS485 方向翻转的正确时机）</h3>
+
+          <p class="mt-3">串口发送是「内存 → 外设」最典型的一步：数据在 RAM 里，目的地是 <code class="icode">USART1-&gt;DR</code> 这一个固定地址。用 DMA 之后，CPU 只需要说一句「把这 100 个字节发出去」，然后就可以回去干别的。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="uart_tx_dma.c · 发送一个数据块">
+            <pre><code>#define TX_CHUNK   256
+
+/* ★ 必须是全局/静态数组：如果写成函数内的局部数组，
+   函数一返回，那块栈内存立刻就被别人用了，DMA 还在读它 → 发出去的是垃圾 */
+uint8_t  tx_buf[TX_CHUNK];
+volatile uint8_t tx_busy = 0;      /* 忙标志：上一次还没发完 */
+volatile uint8_t tx_finished = 0;  /* 发完（最后一个位都出去了）的标志 */
+
+void uart1_send_dma(const uint8_t *data, uint16_t len)
+{
+    if (len == 0 || len &gt; TX_CHUNK) { return; }
+    if (tx_busy) { return; }        /* ★ 上一次没发完，直接丢掉；想不丢就排队（见下文） */
+
+    memcpy(tx_buf, data, len);      /* ★ 先拷进自己的缓冲区，再交给 DMA */
+    tx_busy = 1;
+
+    /* RS485 收发器：发之前把 DE 拉高，占用总线 */
+    HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, GPIO_PIN_SET);
+
+    if (HAL_UART_Transmit_DMA(&amp;huart1, tx_buf, len) != HAL_OK)
+    {
+        tx_busy = 0;                /* 启动失败，回滚 */
+        HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, GPIO_PIN_RESET);
+    }
+}
+
+/* ★ 发送完成回调 —— 注意它是在【最后一个字节完全移出引脚之后】才被调用的 */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart-&gt;Instance == USART1)
+    {
+        tx_busy     = 0;
+        tx_finished = 1;
+
+        /* 唯一正确的 RS485 方向翻转位置：此刻最后一个停止位已经发完 */
+        HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, GPIO_PIN_RESET);
+    }
+}</code></pre>
+          </div>
+
+          <p class="mt-3">为什么方向翻转必须放在这个回调里？因为「发完了」其实有<b class="font-semibold text-ink">三个不同的时刻</b>，差一个字节就足以让 RS485 总线上的最后一帧被切成两半：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>时刻</th><th>谁置位</th><th>真实含义</th><th>此时能做什么</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>最后一个字节写进 <code class="icode">DR</code></td>
+                  <td>DMA 的 <code class="icode">TCIF</code></td>
+                  <td>数据只是从内存<b>搬进了发送数据寄存器</b>，还没开始往外发</td>
+                  <td>可以启动下一次发送、可以开始写别的缓冲区</td>
+                </tr>
+                <tr>
+                  <td>最后一个字节移入移位寄存器</td>
+                  <td>USART 的 <code class="icode">TXE</code></td>
+                  <td>数据寄存器空了，但<b>最后一位还在引脚上往外挤</b></td>
+                  <td>可以塞下一个字节</td>
+                </tr>
+                <tr>
+                  <td>最后一个停止位移出引脚</td>
+                  <td>USART 的 <code class="icode">TC</code></td>
+                  <td>线路上真的没有东西了</td>
+                  <td><b>★ 翻转 RS485 方向、关掉收发器、切换引脚复用</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">HAL 已经替你把这件事做对了：<code class="icode">HAL_UART_Transmit_DMA()</code> 在 DMA 搬完之后<b>并不会立刻</b>调用 <code class="icode">HAL_UART_TxCpltCallback()</code>，而是先打开 USART 的 TC 中断，等 TC 置位才进回调。所以<b class="font-semibold text-ink">在 <code class="icode">HAL_UART_TxCpltCallback()</code> 里翻转方向是安全的；在 DMA 的传输完成中断里翻转就会早一个字节</b>。</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">「上一次没发完又调用」会发生什么</div>
+            <p><code class="icode">HAL_UART_Transmit_DMA()</code> 在 <code class="icode">gState</code> 不是就绪态时会返回 <code class="icode">HAL_BUSY</code>。很多人看到 <code class="icode">HAL_BUSY</code> 就当错误处理、打日志、甚至复位重试——<b>它不是错误，它是在说「我还在发」</b>。</p>
+            <p class="mt-2">真正危险的是<b>绕过忙判断</b>：第二次调用会把新数据 <code class="icode">memcpy</code> 进同一个 <code class="icode">tx_buf</code>，而 DMA 可能还在读这块内存的前半段，结果线上出现的是<b>前半旧数据 + 后半新数据</b>混在一起的一帧。协议解析端算校验和会失败，现象看起来像「串口随机出错」。</p>
+            <p class="mt-2">正确做法只有两条：要么丢弃（<code class="icode">if (tx_busy) return;</code>），要么<b>排队</b>——HAL 没有内置发送队列，得自己写。</p>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="uart_tx_queue.c · 要「发多少都不丢」，就自己排一个环形队列">
+            <pre><code>/* 思路：push 只写内存，绝不碰硬件；真正的启动交给 pump。
+   DMA 每次发完在回调里叫醒 pump，把下一段发出去。 */
+#define Q_SIZE  1024
+static uint8_t  q[Q_SIZE];
+static volatile uint16_t q_head = 0, q_tail = 0;   /* head 写入端，tail 读出端 */
+
+static uint16_t q_count(void) { return (uint16_t)((q_head - q_tail) &amp; (Q_SIZE - 1)); }
+static uint16_t q_space(void) { return (uint16_t)(Q_SIZE - 1 - q_count()); }
+
+/* 由任意上下文调用：只动内存，随时可以进 */
+uint8_t uart_queue_push(const uint8_t *data, uint16_t len)
+{
+    uint16_t i;
+    if (len &gt; q_space()) { return 0; }              /* 队列满了，交给上层决定怎么办 */
+    for (i = 0; i &lt; len; i++) { q[q_head] = data[i]; q_head = (q_head + 1) &amp; (Q_SIZE - 1); }
+    return 1;
+}
+
+/* ★ 把队首到「连续到缓冲区末尾」的那一段交给 DMA —— 只在空闲时调用 */
+void uart_pump(void)
+{
+    uint16_t tail, len;
+
+    if (tx_busy || q_count() == 0) { return; }
+
+    tail = q_tail;
+    len  = (tail &lt; q_head) ? (uint16_t)(q_head - tail) : (uint16_t)(Q_SIZE - tail);
+    /* 注意：这里直接用队列自己的内存做发送缓冲区，因此发完之前不能覆盖它 */
+
+    tx_busy = 1;
+    HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, GPIO_PIN_SET);
+    if (HAL_UART_Transmit_DMA(&amp;huart1, &amp;q[tail], len) != HAL_OK) { tx_busy = 0; }
+    else { q_tail = (uint16_t)((tail + len) &amp; (Q_SIZE - 1)); }
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart-&gt;Instance == USART1)
+    {
+        tx_busy = 0;
+        HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, GPIO_PIN_RESET);
+        uart_pump();                                 /* ★ 无缝接力下一段 */
+    }
+}</code></pre>
+          </div>
+
+          <p class="mt-3">这个队列的价值在于：<b class="font-semibold text-ink">写入方只写内存、发送方只读内存，中间靠 <code class="icode">tx_busy</code> 一个标志交接</b>。DMA 负责把「内存 → 串口」这一段的时间成本降到零，队列负责把「CPU 调用发送函数的时刻」和「串口真正空闲的时刻」解耦。两者合起来才能做到「随时随地打日志，一个字节不丢」。</p>
+
+          <h3 id="sub-mcu-uart-rx" class="mt-8 text-base font-semibold">例程三：串口 IDLE + DMA 不定长接收（以及「一帧被拆成两半」）</h3>
+
+          <p class="mt-3">接收比发送麻烦，因为<b class="font-semibold text-ink">你不知道对方会发多少个字节</b>。DMA 需要一个确定的传输数量才能启动，可协议帧长是变的。工程上的标准解法是：<b>按最大帧长开一个缓冲区，让 DMA 一直收，用「串口空闲」当作一帧结束的信号</b>。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="uart_rx_idle.c · HAL_UARTEx_ReceiveToIdle_DMA 的标准用法">
+            <pre><code>#define RX_BUF_SIZE  256
+
+uint8_t  rx_buf[RX_BUF_SIZE];
+DMA_HandleTypeDef hdma_usart1_rx;
+volatile uint16_t rx_start = 0;      /* 上一帧结束时，DMA 写到了哪个位置 */
+
+void uart1_rx_start(void)
+{
+    /* 接收方向：外设 → 内存，外设地址不增，内存递增，字节宽度，循环模式 */
+    hdma_usart1_rx.Instance                 = DMA1_Channel5;      /* USART1_RX 固定在通道 5 */
+    hdma_usart1_rx.Init.Direction           = DMA_PERIPH_TO_MEMORY;
+    hdma_usart1_rx.Init.PeriphInc           = DMA_PINC_DISABLE;   /* 永远是 USART1-&gt;DR */
+    hdma_usart1_rx.Init.MemInc              = DMA_MINC_ENABLE;
+    hdma_usart1_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    hdma_usart1_rx.Init.MemDataAlignment    = DMA_MDATAALIGN_BYTE;
+    hdma_usart1_rx.Init.Mode                = DMA_CIRCULAR;       /* ★ 必须循环，否则收满 256 就再也不收了 */
+    hdma_usart1_rx.Init.Priority            = DMA_PRIORITY_HIGH;
+    HAL_DMA_Init(&amp;hdma_usart1_rx);
+    __HAL_LINKDMA(&amp;huart1, hdmarx, hdma_usart1_rx);
+
+    /* 一次性启动：之后一直有效，不需要每帧重启 */
+    HAL_UARTEx_ReceiveToIdle_DMA(&amp;huart1, rx_buf, RX_BUF_SIZE);
+
+    /* ★★ 关键的一行：把半传输中断关掉。
+       不关的话，每收满 128 个字节就会进一次回调，一帧长数据会被当成两帧。 */
+    __HAL_DMA_DISABLE_IT(&amp;hdma_usart1_rx, DMA_IT_HT);
+}</code></pre>
+          </div>
+
+          <p class="mt-3">为什么会「一帧被拆成两半」？把接收过程按时间画出来就清楚了。假设对方一次发了 200 个字节，缓冲区 256 字节：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="半传输中断如何把一帧撕成两半">
+            <pre><code>rx_buf:  [0]...................................[127][128]..............[199]........[255]
+          |&lt;--------- 前半 128 字节 ---------&gt;|&lt;---- 后半 ----&gt;|&lt;--- 还没用 ---&gt;|
+          ^                                  ^                ^
+          |                                  |                |
+       第 1 个字节到达                  收到第 128 个      收到第 200 个
+                                       字节的瞬间：       字节后线路空闲：
+                                       ★ HTIF 置位        ★ IDLE 置位
+                                       DMA 计数到一半      回调 Size=200
+
+  半传输事件触发回调 HAL_UARTEx_RxEventCallback(huart, Size)
+    → 此时 Size 的含义是【缓冲区大小的一半】= 128，不是"已收字节数"
+    → 如果你把它当成一帧：处理了 128 字节，剩下的 72 字节过一会儿又来一次
+    → 现象：一帧 200 字节被解析成 128 + 72 两帧，校验和全错
+
+  处理办法（三选一）：
+    ① 启动后立刻 __HAL_DMA_DISABLE_IT(&amp;hdma_usart1_rx, DMA_IT_HT);   ← 最省事
+    ② 在回调里判断事件来源，只在 IDLE 时当成帧结束（HAL 没有直接给出事件类型，不好判）
+    ③ 不依赖回调，自己开 UART_IT_IDLE 在中断里用 DMA 剩余计数算长度   ← 最可控</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="uart_rx_idle.c · 最可控的写法：自己开 IDLE 中断算帧边界">
+            <pre><code>/* 启动时除了 ReceiveToIdle_DMA，再自己打开 IDLE 中断 */
+void uart1_rx_start_manual(void)
+{
+    /* ... DMA 配置同上 ... */
+    HAL_UARTEx_ReceiveToIdle_DMA(&amp;huart1, rx_buf, RX_BUF_SIZE);
+    __HAL_DMA_DISABLE_IT(&amp;hdma_usart1_rx, DMA_IT_HT);
+    __HAL_UART_ENABLE_IT(&amp;huart1, UART_IT_IDLE);      /* ★ 自己开 IDLE 中断 */
+}
+
+/* ★ 自己的串口中断服务函数：先处理 IDLE，再交给 HAL 处理其它标志 */
+void USART1_IRQHandler(void)
+{
+    /* IDLE 标志 HAL 不会替你处理，必须自己读 SR、再读 DR 才能清掉 */
+    if (__HAL_UART_GET_FLAG(&amp;huart1, UART_FLAG_IDLE) != RESET)
+    {
+        __HAL_UART_CLEAR_IDLEFLAG(&amp;huart1);
+
+        /* ★ 剩余计数 = 还要搬多少个才填满缓冲区；减一下就是 DMA 当前写到哪儿了 */
+        uint16_t pos = (uint16_t)(RX_BUF_SIZE - __HAL_DMA_GET_COUNTER(&amp;hdma_usart1_rx));
+
+        uint16_t len;
+        if (pos &gt;= rx_start) { len = (uint16_t)(pos - rx_start); }
+        else                 { len = (uint16_t)(RX_BUF_SIZE - rx_start + pos); }  /* 绕回来了 */
+
+        if (len &gt; 0)
+        {
+            /* 一帧到手：rx_buf[rx_start ... rx_start+len-1]（可能需要处理绕回）
+               注意这里只是"通知"，处理尽量放到主循环，中断里别做重活 */
+            on_frame_received(rx_start, len);
+        }
+
+        rx_start = pos;
+        if (rx_start == RX_BUF_SIZE) { rx_start = 0; }   /* 刚好收满，归零 */
+    }
+
+    HAL_UART_IRQHandler(&amp;huart1);     /* 溢出、帧错误、DMA 相关标志交给 HAL */
+}</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>方案</th><th>CPU 占用</th><th>能收多长</th><th>什么时候用</th></tr></thead>
+              <tbody>
+                <tr><td>纯中断，每字节一次</td><td>高（11.52 kB/s 时约 1.7%）</td><td>受缓冲区限制</td><td>只收几个字节的短命令，或者刚开始学的时候</td></tr>
+                <tr><td>DMA + IDLE，只看 IDLE 事件</td><td><b>极低</b></td><td>≤ 缓冲区大小</td><td>帧长短、帧间隔明显（AT 指令、Modbus RTU）——<b>本节推荐</b></td></tr>
+                <tr><td>DMA + IDLE + 双缓冲</td><td>极低</td><td>可以超过缓冲区</td><td>连续高速数据流（GPS、音频、大文件传输）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">IDLE 判帧的两个前提</div>
+            <p><b>一、帧与帧之间必须真的有空闲。</b>IDLE 是靠「一个字节时间内没有新数据」触发的。如果发送端连续不停地发、字节之间没有缝隙，IDLE 永远不会置位，这一帧就永远等不到结束信号——这时只能靠「收满缓冲区」或者协议里的长度字段来切分。</p>
+            <p class="mt-2"><b>二、DMA 还在写缓冲区时不要在中断里解析。</b>IDLE 置位的那一刻，DMA 已经停在原地（循环模式下标着下一次写入位置），所以 <code class="icode">rx_start</code> 到 <code class="icode">pos</code> 之间的数据是安全的；但<b>新的一帧可能马上就开始覆盖缓冲区开头</b>。稳妥做法是在主循环里处理，或者把这一帧拷走再解析。</p>
+          </div>
+        <h3 id="sub-mcu-m2m" class="mt-8 text-base font-semibold">例程四：内存到内存搬运，以及用半传输中断做 ping-pong</h3>
+
+          <p class="mt-3">内存到内存（M2M）是三种搬运里最特殊的一种：<b class="font-semibold text-ink">没有外设来发请求，请求由 DMA 自己产生</b>，所以它一启动就以最快速度狂搬，中间不留空隙。也正因为如此，它有几个和另两种完全不同的限制。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="m2m.c · 配置与启动">
+            <pre><code>#define M2M_LEN   512
+
+DMA_HandleTypeDef hdma_mem2mem;
+uint8_t src[512], dst[512];
+
+static void m2m_init(void)
+{
+    hdma_mem2mem.Instance                 = DMA1_Channel6;      /* M2M 可以随便挑一个空闲通道 */
+    hdma_mem2mem.Init.Direction           = DMA_MEMORY_TO_MEMORY;
+
+    /* ★ M2M 模式下，DMA 的"外设端口"被当成【源】，"内存端口"被当成【目的】。
+         所以 PeriphInc 管的是源地址递增，MemInc 管的是目的地址递增。
+         数组拷贝两个都要开 —— 只开一个，就会往同一个格子里反复覆盖。 */
+    hdma_mem2mem.Init.PeriphInc           = DMA_PINC_ENABLE;
+    hdma_mem2mem.Init.MemInc              = DMA_MINC_ENABLE;
+
+    /* 两端宽度必须一致。源按半字读、目的按字节写，硬件行为是未定义的 */
+    hdma_mem2mem.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+    hdma_mem2mem.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
+
+    /* ★ M2M 不能用循环模式（F1 参考手册明确限制），只能是 NORMAL */
+    hdma_mem2mem.Init.Mode                = DMA_NORMAL;
+    hdma_mem2mem.Init.Priority            = DMA_PRIORITY_MEDIUM;
+    if (HAL_DMA_Init(&amp;hdma_mem2mem) != HAL_OK) { Error_Handler(); }
+
+    /* ★ 注册回调：HAL_DMA_Start_IT 的完成通知不是 weak 函数，
+         而是这三个函数指针，必须自己赋值 */
+    hdma_mem2mem.XferHalfCpltCallback = m2m_on_half;
+    hdma_mem2mem.XferCpltCallback     = m2m_on_full;
+    hdma_mem2mem.XferErrorCallback    = m2m_on_error;
+
+    HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 2, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
+}
+
+/* ★ 启动：HAL_DMA_Start_IT 内部会自动置 MEM2MEM 位，把请求源切换成"软件请求" */
+static void m2m_start(const void *s, void *d, uint16_t len)
+{
+    if (HAL_DMA_Start_IT(&amp;hdma_mem2mem, (uint32_t)s, (uint32_t)d, len) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+void DMA1_Channel6_IRQHandler(void) { HAL_DMA_IRQHandler(&amp;hdma_mem2mem); }</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>M2M 的特殊之处</th><th>原因</th><th>写错会怎样</th></tr></thead>
+              <tbody>
+                <tr><td><code class="icode">PeriphInc</code> 控制的是<b>源</b>地址</td><td>M2M 下 DMA 把源当成"外设端口"</td><td>源不递增 → 每次都读同一个字，拷出来全一样</td></tr>
+                <tr><td>两端数据宽度必须相同</td><td>硬件在同一个总线周期里读写</td><td>宽度不匹配时行为未定义，可能只搬一半数据</td></tr>
+                <tr><td><b>不能用循环模式</b></td><td>参考手册对 F1 的明确限制</td><td>配了 CIRC 位也不生效，搬完一次就停</td></tr>
+                <tr><td>要连续搬运只能手动重启</td><td>完成中断里再调一次 <code class="icode">HAL_DMA_Start_IT</code></td><td>不重启 → 只搬一次（这就是「只搬一次」故障的头号原因）</td></tr>
+                <tr><td>全程占满总线</td><td>没有外设节奏来"让它歇一下"</td><td>搬大块内存时 CPU 明显变慢（取指被抢）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">别学官方例程里的 HAL_DMA_PollForTransfer</div>
+            <p>STM32 官方包里 M2M 的示例往往是 <code class="icode">HAL_DMA_Start()</code> 之后紧跟一句 <code class="icode">HAL_DMA_PollForTransfer()</code>。<b>那是在原地死等，CPU 被 100% 占住，比 <code class="icode">memcpy()</code> 还慢</b>——因为 memcpy 至少不会在总线上来回申请仲裁。<b class="font-semibold text-ink">凡是「启动 + 等待」成对出现的代码，都等于没用 DMA。</b>要真的省 CPU，就必须用中断或回调的方式让 CPU 在搬运期间离开。</p>
+          </div>
+
+          <p class="mt-3">那 M2M 到底用来干什么？答案是<b class="font-semibold text-ink">边搬边处理</b>：把一块数据分两半，DMA 在搬后一半的时候，CPU 正好在处理前一半。这就是 ping-pong（乒乓）双缓冲。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="ping-pong 时间轴：DMA 与 CPU 交替使用两半缓冲">
+            <pre><code>缓冲区 buf[512]，分 A 区 = buf[0..255]，B 区 = buf[256..511]
+
+  时间 →
+  DMA:  [==== 搬 A 区 ====][==== 搬 B 区 ====][==== 搬 A 区 ====][==== 搬 B 区 ====]
+  CPU:                    [ 处理 A 区 ][ 处理 B 区 ][ 处理 A 区 ][ 处理 B 区 ]
+                          ^            ^            ^
+                          |            |            |
+                       HTIF 置位     TCIF 置位     HTIF 置位
+                     "前半搬完了"  "后半搬完了"   "前半又搬完了"
+
+  要点：
+    ① DMA 写 A 区的时候，CPU 处理的是 B 区 —— 两边永远不碰同一块内存
+    ② 触发切换的信号就是半传输（HT）和全传输（TC）这两个标志
+    ③ CPU 处理时间必须 &lt; DMA 搬一半的时间，否则数据会被覆盖（"跟不上"）
+    ④ 这就是 ping-pong / double buffer 的全部原理 —— 一个缓冲在用，另一个在填</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="m2m.c · 半传输中断里处理另一半">
+            <pre><code>#define HALF_LEN   256
+#define FULL_LEN   512
+
+volatile uint32_t half_count = 0, full_count = 0;
+
+/* 前半搬完：DMA 正在搬后半，此时处理前半绝对安全 */
+static void m2m_on_half(DMA_HandleTypeDef *hdma)
+{
+    (void)hdma;
+    process_block(&amp;dst[0], HALF_LEN);       /* A 区 */
+    half_count++;
+}
+
+/* 后半搬完：DMA 已经绕回开头（或已经停止），处理后半 */
+static void m2m_on_full(DMA_HandleTypeDef *hdma)
+{
+    (void)hdma;
+    process_block(&amp;dst[HALF_LEN], HALF_LEN); /* B 区 */
+    full_count++;
+
+    /* ★ M2M 不能循环，想持续搬运就在这里重新启动一次。
+         注意：真实工程里要把 src 换成"新数据"，否则只是在反复拷同一块旧数据。 */
+    m2m_start(src, dst, FULL_LEN);
+}
+
+static void m2m_on_error(DMA_HandleTypeDef *hdma)
+{
+    (void)hdma;
+    /* 出现传输错误：多半是地址不合法或对齐问题，先把标志清掉再决定怎么办 */
+    __HAL_DMA_CLEAR_FLAG(&amp;hdma_mem2mem, DMA_FLAG_TEIF6);
+}</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">F1 之外：硬件双缓冲（DBM）</div>
+            <p>从 F2/F4 开始，DMA 有了<b>硬件双缓冲模式</b>：<code class="icode">DMA_SxCR</code> 里有一个 <code class="icode">DBM</code> 位，再加一个第二内存地址寄存器 <code class="icode">DMA_SxM1AR</code>。打开之后，DMA 搬完一个缓冲区会<b>自动切到另一个地址</b>——不需要软件在中断里重新启动，也不会有「切换那一刻请求断掉」的间隙。串口接收、音频流这类要求严格连续的场合，硬件 DBM 比软件 ping-pong 更稳。F103 上这两样都没有，只能老老实实写中断。</p>
+          </div>
+
+          <h3 id="sub-mcu-spi" class="mt-8 text-base font-semibold">例程五：SPI + DMA 高速读外部 Flash</h3>
+
+          <p class="mt-3">SPI 是 DMA 最能体现价值的场合之一：<b class="font-semibold text-ink">读写外部 Flash 一次就是几 KB</b>，如果靠中断逐字节搬，CPU 几乎全被吃掉。但在 SPI 上用 DMA 有一个比串口更隐蔽的坑——<b>主机不发就没有时钟</b>。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="spi_flash_dma.c · W25Q 系列读数据">
+            <pre><code>#define FLASH_BLK   512
+#define SPI_TIMEOUT 100
+
+uint8_t spi_dummy[FLASH_BLK];     /* ★ 专门用来"提供时钟"的缓冲区 */
+uint8_t flash_buf[FLASH_BLK];
+volatile uint8_t flash_ready = 0, flash_error = 0;
+
+/* 发送和接收各需要一个 DMA 句柄：SPI1_TX 是通道 3，SPI1_RX 是通道 2 */
+extern DMA_HandleTypeDef hdma_spi1_tx, hdma_spi1_rx;
+
+uint8_t w25q_read_dma(uint32_t addr, uint16_t len)
+{
+    uint8_t cmd[4];
+    if (len == 0 || len &gt; FLASH_BLK) { return 0; }
+
+    cmd[0] = 0x03;                                  /* READ DATA 命令 */
+    cmd[1] = (uint8_t)(addr &gt;&gt; 16);                  /* 24 位地址，大端 */
+    cmd[2] = (uint8_t)(addr &gt;&gt; 8);
+    cmd[3] = (uint8_t)(addr);
+
+    FLASH_CS_LOW();
+
+    /* 命令 + 地址只有 4 个字节：这种小数据不值得动用 DMA（配置开销比搬运还大），
+       用阻塞发送最直接。这也是"什么时候不该用 DMA"的一个真实例子。 */
+    if (HAL_SPI_Transmit(&amp;hspi1, cmd, 4, SPI_TIMEOUT) != HAL_OK)
+    {
+        FLASH_CS_HIGH(); flash_error = 1; return 0;
+    }
+
+    /* ★★ 读数据这一段必须"同时收和发"：
+         · 只调 Receive：SPI 是主机，时钟要主机产生，光等是等不来的 → 卡死到超时
+         · 先 Transmit 再 Receive：两段之间 CS 还低着但时钟停了，
+           Flash 内部的地址指针与时钟不同步，读回来的数据整体错位
+         · TransmitReceive 才是正确姿势，dummy 数组全填 0xFF，它的唯一作用就是产生时钟 */
+    memset(spi_dummy, 0xFF, len);
+
+    if (HAL_SPI_TransmitReceive_DMA(&amp;hspi1, spi_dummy, flash_buf, len) != HAL_OK)
+    {
+        FLASH_CS_HIGH(); flash_error = 1; return 0;
+    }
+
+    return 1;   /* 立刻返回，搬运交给 DMA；完成由回调通知 */
+}
+
+/* ★ CS 必须等 DMA 真搬完才拉高：提前拉高，Flash 会以为命令结束，最后几个字节丢掉 */
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+    if (hspi-&gt;Instance == SPI1)
+    {
+        FLASH_CS_HIGH();
+        flash_ready = 1;
+    }
+}
+
+void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
+{
+    if (hspi-&gt;Instance == SPI1) { FLASH_CS_HIGH(); flash_error = 1; }
+}</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>SPI + DMA 的坑</th><th>现象</th><th>正确做法</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>只调 <code class="icode">HAL_SPI_Receive_DMA()</code></td>
+                  <td>一直等不到完成，超时；或读回全 0x00 / 全 0xFF</td>
+                  <td>主机必须发才有时钟，用 <code class="icode">TransmitReceive_DMA</code></td>
+                </tr>
+                <tr>
+                  <td>分成 Transmit + Receive 两次调用</td>
+                  <td>数据能读回来，但整体错位几个字节</td>
+                  <td>一次 <code class="icode">TransmitReceive_DMA</code>，中间不让时钟停</td>
+                </tr>
+                <tr>
+                  <td>Tx 与 Rx 的长度不一致</td>
+                  <td>HAL 直接返回 <code class="icode">HAL_ERROR</code></td>
+                  <td>dummy 缓冲与接收缓冲<b>等长</b>（这是 SPI 全双工的本质）</td>
+                </tr>
+                <tr>
+                  <td>DMA 没搬完就拉高 CS</td>
+                  <td>每次读的最后几个字节是旧数据</td>
+                  <td>在 <code class="icode">HAL_SPI_TxRxCpltCallback()</code> 里拉高 CS</td>
+                </tr>
+                <tr>
+                  <td>忘了链接 <code class="icode">hdmatx</code> / <code class="icode">hdmarx</code></td>
+                  <td><code class="icode">HAL_SPI_TransmitReceive_DMA()</code> 返回错误</td>
+                  <td>MspInit 里两次 <code class="icode">__HAL_LINKDMA(&amp;hspi1, hdmatx/hdmarx, ...)</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">算一下这套方案到底快在哪：SPI1 挂在 APB2 上，72 MHz 二分频再取 4 分频得到 <b class="font-semibold text-ink">18 MHz</b> 的 SPI 时钟。读 512 字节需要 512 × 8 = 4096 个时钟，约 <b class="font-semibold text-ink">227.6 µs</b>。如果用中断逐字节搬，512 次中断 × 1.5 µs = 768 µs——<b>CPU 花的时间是数据本身传输时间的 3.4 倍</b>，而用 DMA 之后 CPU 只花了几微秒配置加一次回调。这就是「外设很慢、数据很多」时 DMA 最划算的原因。</p>
+        <h3 id="sub-mcu-reg" class="mt-8 text-base font-semibold">例程六：手写寄存器版——看看 HAL 底下到底干了什么</h3>
+
+          <p class="mt-3">前面五段代码里，DMA 相关的配置加起来有几十行，但真正写进硬件的其实只有 <b class="font-semibold text-ink">五个寄存器</b>。把这段手写版本和 HAL 版本对照着看，以后遇到「HAL 不工作」的情况，你至少知道该去哪个寄存器里找原因。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="adc_dma_reg.c · 不依赖 HAL 的 ADC1 + DMA1 通道 1">
+            <pre><code>#include "stm32f1xx.h"
+
+#define BUF_LEN  256
+uint16_t adc_buf[BUF_LEN];
+volatile uint8_t buf_half = 0, buf_full = 0, dma_error = 0;
+
+void adc_dma_reg_init(void)
+{
+    /* ---------- 1. 开时钟：GPIOA、ADC1、DMA1 三个都要开 ---------- */
+    RCC-&gt;APB2ENR |= RCC_APB2ENR_IOPAEN;    /* GPIOA */
+    RCC-&gt;APB2ENR |= RCC_APB2ENR_ADC1EN;    /* ADC1 */
+    RCC-&gt;AHBENR  |= RCC_AHBENR_DMA1EN;     /* ★ DMA1 的时钟挂在 AHB 上，不在 APB 上 */
+
+    /* ADC 时钟 = PCLK2 / 6 = 12 MHz（F1 的 ADC 时钟上限 14 MHz） */
+    RCC-&gt;CFGR &amp;= ~RCC_CFGR_ADCPRE;
+    RCC-&gt;CFGR |=  RCC_CFGR_ADCPRE_DIV6;
+
+    /* ---------- 2. PA0 配成模拟输入 ---------- */
+    GPIOA-&gt;CRL &amp;= ~(0xF &lt;&lt; 0);            /* MODE0=00 输入，CNF0=00 模拟 */
+
+    /* ---------- 3. ADC1：连续转换 + 规则组 1 个通道 + 允许 DMA 请求 ---------- */
+    ADC1-&gt;CR1  = 0;                        /* 独立模式、12 位、右对齐 */
+    ADC1-&gt;CR2  = ADC_CR2_CONT              /* 连续转换：一次触发之后自己一直转 */
+               | ADC_CR2_DMA               /* ★ 每次转换完成都产生一个 DMA 请求 */
+               | ADC_CR2_EXTSEL;           /* 触发源选 SWSTART（软件触发） */
+    ADC1-&gt;SMPR2 = ADC_SMPR2_SMP0;          /* 通道 0 用最长采样时间 239.5 周期 */
+    ADC1-&gt;SQR1  = 0;                       /* L = 0 → 规则组里只有 1 个转换 */
+    ADC1-&gt;SQR3  = 0;                       /* 第 1 个转换 = 通道 0 */
+
+    ADC1-&gt;CR2 |= ADC_CR2_ADON;             /* 打开 ADC */
+    for (volatile uint32_t i = 0; i &lt; 10000; i++) { }   /* 等 ADC 稳定 */
+    ADC1-&gt;CR2 |= ADC_CR2_CAL;              /* 开始校准（F1 必须先校准） */
+    while (ADC1-&gt;CR2 &amp; ADC_CR2_CAL) { }    /* 等校准结束，硬件自动清这一位 */
+
+    /* ---------- 4. DMA1 通道 1：就这五个寄存器 ---------- */
+    DMA1_Channel1-&gt;CPAR  = (uint32_t)&amp;ADC1-&gt;DR;   /* 源：ADC 数据寄存器，地址永远不变 */
+    DMA1_Channel1-&gt;CMAR  = (uint32_t)adc_buf;    /* 目的：内存缓冲区，地址每次递增 */
+    DMA1_Channel1-&gt;CNDTR = BUF_LEN;              /* ★ 数据【个数】= 256，不是字节数 512 */
+
+    DMA1_Channel1-&gt;CCR = DMA_CCR_MINC      /* 内存地址递增 */
+                       | DMA_CCR_CIRC      /* 循环模式：搬满自动回到开头 */
+                       | DMA_CCR_HTIE      /* 半传输中断使能 */
+                       | DMA_CCR_TCIE      /* 传输完成中断使能 */
+                       | DMA_CCR_PSIZE_0   /* 外设宽度 = 16 位 */
+                       | DMA_CCR_MSIZE_0;  /* 内存宽度 = 16 位 */
+    /*   这里"没有写"的位同样是配置：
+           DIR  = 0 → 外设是源（外设→内存）
+           PINC = 0 → 外设地址不递增
+           PL   = 00 → 低优先级
+           EN   = 0 → 通道还没启动（下一步才开）            */
+
+    /* 清掉可能残留的旧标志 —— 写 1 清除，不是写 0！ */
+    DMA1-&gt;IFCR = DMA_IFCR_CGIF1 | DMA_IFCR_CTCIF1
+               | DMA_IFCR_CHTIF1 | DMA_IFCR_CTEIF1;
+
+    /* NVIC：让通道 1 的中断能进 CPU */
+    NVIC_SetPriority(DMA1_Channel1_IRQn, 1);
+    NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+
+    /* ★★ 最后一步才使能通道：先把上面所有配置写完，再开门。
+          顺序颠倒会出现"用半套配置搬了前几个字节"这种最难查的怪现象。 */
+    DMA1_Channel1-&gt;CCR |= DMA_CCR_EN;
+
+    /* 软件触发一次；CONT = 1，之后 ADC 自己不停转，DMA 自己不停搬 */
+    ADC1-&gt;CR2 |= ADC_CR2_SWSTART;
+}
+
+/* ---------- 5. 中断里没有 HAL，全靠自己读标志、写清除 ---------- */
+void DMA1_Channel1_IRQHandler(void)
+{
+    uint32_t isr = DMA1-&gt;ISR;          /* ★ 先读出来存着：IFCR 一写，ISR 里的位就没了 */
+
+    if (isr &amp; DMA_ISR_HTIF1) {
+        DMA1-&gt;IFCR = DMA_IFCR_CHTIF1;  /* 写 1 清除，只影响这一位 */
+        buf_half = 1;                  /* 前半搬完，DMA 正在写后半 */
+    }
+    if (isr &amp; DMA_ISR_TCIF1) {
+        DMA1-&gt;IFCR = DMA_IFCR_CTCIF1;
+        buf_full = 1;                  /* 一整轮搬完，DMA 已绕回开头 */
+    }
+    if (isr &amp; DMA_ISR_TEIF1) {
+        DMA1-&gt;IFCR = DMA_IFCR_CTEIF1;
+        /* ★ 传输错误时硬件会自动把 EN 位清 0，通道停在原地等你处理 */
+        dma_error = 1;
+    }
+    if (isr &amp; DMA_ISR_GIF1) {
+        DMA1-&gt;IFCR = DMA_IFCR_CGIF1;   /* GIF = TEIF | HTIF | TCIF 的逻辑或 */
+    }
+}</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>HAL 里的一行</th><th>底层真正发生的事</th></tr></thead>
+              <tbody>
+                <tr><td><code class="icode">HAL_DMA_Init(&amp;hdma)</code></td><td>写 <code class="icode">CCR</code> 的优先级/宽度/增量/方向/循环位，写 <code class="icode">CPAR</code>、<code class="icode">CMAR</code>，开 NVIC</td></tr>
+                <tr><td><code class="icode">HAL_DMA_Start_IT(...)</code></td><td>写 <code class="icode">CNDTR</code>，置 <code class="icode">TCIE</code>/<code class="icode">HTIE</code>，清 <code class="icode">IFCR</code>，最后置 <code class="icode">EN</code></td></tr>
+                <tr><td><code class="icode">HAL_ADC_Start_DMA(...)</code></td><td>置 <code class="icode">ADC_CR2</code> 的 <code class="icode">DMA</code> 位、<code class="icode">ADON</code>、<code class="icode">SWSTART</code>，然后调 <code class="icode">HAL_DMA_Start_IT()</code></td></tr>
+                <tr><td><code class="icode">__HAL_LINKDMA(&amp;hadc1, ...)</code></td><td>只是把两个结构体指针连起来，<b>不碰任何寄存器</b>——但它决定了后面 HAL 去配哪个 DMA 通道</td></tr>
+                <tr><td><code class="icode">HAL_DMA_IRQHandler(&amp;hdma)</code></td><td>读 <code class="icode">ISR</code>、按位写 <code class="icode">IFCR</code> 清除、再分发到 <code class="icode">XferCpltCallback</code> 等函数指针</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">手写寄存器最常犯的三个错</div>
+            <p><b>一、时钟开错总线。</b>DMA1 的使能位在 <code class="icode">RCC-&gt;AHBENR</code>（<code class="icode">RCC_AHBENR_DMA1EN</code>），很多人习惯性地往 <code class="icode">APB1ENR</code> 里写——那个位是给 <code class="icode">DMA1EN</code> 之外的什么外设准备的，DMA 本身完全没开，寄存器写入全部静默失败。</p>
+            <p class="mt-2"><b>二、忘了清旧标志。</b>复位后标志本来是干净的，但如果你在同一块板子上反复调试、或者通道被别的地方用过，<code class="icode">ISR</code> 里可能已经有 <code class="icode">TCIF</code> 为 1。此时一置 <code class="icode">EN</code> 就会立刻进中断，看起来像「刚启动就搬完了」。</p>
+            <p class="mt-2"><b>三、<code class="icode">EN</code> 位太早置位。</b><code class="icode">EN</code> 必须在 <code class="icode">CPAR</code>/<code class="icode">CMAR</code>/<code class="icode">CNDTR</code>/<code class="icode">CCR</code> 全部写完、标志清完之后再置。特别要注意 <code class="icode">CNDTR</code>：<b>通道使能期间不能改它</b>，必须先清 <code class="icode">EN</code> 再写。</p>
+          </div>
+
+          <h3 id="sub-mcu-map" class="mt-8 text-base font-semibold">请求映射速查表（STM32F103，可直接抄）</h3>
+
+          <p class="mt-3">这张表是 F1 上最常被查的东西。记住一句话：<b class="font-semibold text-ink">F1 的请求线到通道的对应是硬件固定的，你只能查表，不能配置。</b>出处是 RM0008 参考手册的 DMA 请求映射表。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>外设请求</th><th>DMA / 通道</th><th>HAL 里的名字</th><th>典型用途</th></tr></thead>
+              <tbody>
+                <tr><td><b>ADC1</b></td><td><b>DMA1 通道 1</b></td><td><code class="icode">DMA1_Channel1</code></td><td>多通道连续采集（本节例程一）</td></tr>
+                <tr><td><b>SPI1_RX</b></td><td><b>DMA1 通道 2</b></td><td><code class="icode">DMA1_Channel2</code></td><td>读外部 Flash / 外部 ADC</td></tr>
+                <tr><td><b>SPI1_TX</b></td><td><b>DMA1 通道 3</b></td><td><code class="icode">DMA1_Channel3</code></td><td>发命令、同时提供时钟</td></tr>
+                <tr><td><b>USART1_TX</b></td><td><b>DMA1 通道 4</b></td><td><code class="icode">DMA1_Channel4</code></td><td>串口发送（本节例程二）</td></tr>
+                <tr><td><b>USART1_RX</b></td><td><b>DMA1 通道 5</b></td><td><code class="icode">DMA1_Channel5</code></td><td>IDLE + DMA 不定长接收（例程三）</td></tr>
+                <tr><td><b>I2C1_TX</b></td><td><b>DMA1 通道 6</b></td><td><code class="icode">DMA1_Channel6</code></td><td>往传感器写寄存器</td></tr>
+                <tr><td><b>I2C1_RX</b></td><td><b>DMA1 通道 7</b></td><td><code class="icode">DMA1_Channel7</code></td><td>读传感器数据</td></tr>
+                <tr><td><b>TIM2_CH1</b></td><td><b>DMA1 通道 5</b></td><td><code class="icode">DMA1_Channel5</code></td><td>输入捕获（测频率/占空比）</td></tr>
+                <tr><td>TIM2_CH2</td><td>DMA1 通道 7</td><td><code class="icode">DMA1_Channel7</code></td><td>输入捕获</td></tr>
+                <tr><td>TIM2_CH3</td><td>DMA1 通道 1</td><td><code class="icode">DMA1_Channel1</code></td><td>输入捕获</td></tr>
+                <tr><td>TIM2_UP</td><td>DMA1 通道 2</td><td><code class="icode">DMA1_Channel2</code></td><td>更新事件触发搬运（查表输出波形）</td></tr>
+                <tr><td>TIM3_CH1</td><td>DMA1 通道 6</td><td><code class="icode">DMA1_Channel6</code></td><td>输入捕获</td></tr>
+                <tr><td>TIM4_CH1</td><td>DMA1 通道 1</td><td><code class="icode">DMA1_Channel1</code></td><td>输入捕获</td></tr>
+                <tr><td>TIM4_UP</td><td>DMA1 通道 7</td><td><code class="icode">DMA1_Channel7</code></td><td>定时搬运</td></tr>
+                <tr><td>USART2_TX</td><td>DMA1 通道 7</td><td><code class="icode">DMA1_Channel7</code></td><td>第二路串口发送</td></tr>
+                <tr><td>USART2_RX</td><td>DMA1 通道 6</td><td><code class="icode">DMA1_Channel6</code></td><td>第二路串口接收</td></tr>
+                <tr><td>SPI2_RX / SPI2_TX</td><td>通道 4 / 通道 5</td><td><code class="icode">DMA1_Channel4/5</code></td><td>第二路 SPI</td></tr>
+                <tr><td>USART3_TX / USART3_RX</td><td>通道 2 / 通道 3</td><td><code class="icode">DMA1_Channel2/3</code></td><td>第三路串口</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这张表里藏着冲突：同一个通道被两个外设共用</div>
+            <p>仔细看会发现：<b>通道 2 同时是 SPI1_RX 和 USART3_TX 的请求线；通道 5 同时是 USART1_RX、SPI2_TX、TIM2_CH1 的请求线。</b>硬件上这些请求线是「或」在一起进通道的——<b>一个通道同一时刻只能服务一个外设</b>。</p>
+            <p class="mt-2">也就是说：<b class="font-semibold text-ink">如果你同时用 USART1_RX（通道 5）和 TIM2_CH1 输入捕获（也是通道 5），两个都会失效或互相干扰。</b>这不是 bug，是 F1 的硬件限制。参见资源规划时，第一步就是把这些冲突列出来，把需要同时工作的外设分到不同通道上——这也是为什么 ST 从 F0/F3 开始加入 <code class="icode">DMA_CSELR</code>、F7/G0/G4/H7 加入 <b>DMAMUX 请求路由器</b>：让请求线可以自由改接到任意通道，从根上消掉这种冲突。</p>
+          </div>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">1</span>
+            <div>
+              <p class="text-sm font-semibold">怎么查自己型号的映射</p>
+              <p class="mt-1 text-[13px] text-muted">最可靠的办法是查参考手册的「DMA request mapping」表。F103 是 RM0008 的表 78（DMA1）和表 79（DMA2）。表里左列是外设请求，右列是通道号，一眼就能对上。</p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">2</span>
+            <div>
+              <p class="text-sm font-semibold">用 CubeMX 交叉验证</p>
+              <p class="mt-1 text-[13px] text-muted">在 CubeMX 里给外设点 Add 加 DMA 请求，它只会列出<b>这个外设合法的那几个通道</b>，不会让你选错。生成的代码里 <code class="icode">hdma_adc1.Instance</code> 这样的成员名就是答案，可以直接抄进自己的工程。</p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">3</span>
+            <div>
+              <p class="text-sm font-semibold">不认识的型号怎么办</p>
+              <p class="mt-1 text-[13px] text-muted">F0/F3 系列看 <code class="icode">DMA_CSELR</code>（每个通道有 CS[3:0] 选择请求源，可重映射）；G0/G4/F7/H7 系列看 <b>DMAMUX</b>（请求路由器，一个通道可选几十个请求源，还能用 <code class="icode">DMAMUX_CSR</code> 产生软件请求）。这两类芯片<b>不存在"选错通道"的问题——因为通道是可以自己配的</b>，但配错了请求号同样是搬不动数据。</p>
+            </div>
+          </div>
+        <h3 id="sub-debug" class="mt-8 text-base font-semibold">「DMA 不工作」的排查顺序</h3>
+
+          <p class="mt-3">DMA 最气人的地方在于：<b class="font-semibold text-ink">它不工作的时候通常什么都不说</b>。没有编译错误、没有断言、连中断都不进，就是数据不动。下面这个顺序是按「最容易被忽略 + 最容易查」排的，照着走一遍，九成问题在前三步就能定位。</p>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">1</span>
+            <div>
+              <p class="text-sm font-semibold">DMA 自己的 RCC 时钟开了吗</p>
+              <p class="mt-1 text-[13px] text-muted">现象：<b>所有配置都写对了，数据就是一动不动，而且不报错。</b>DMA 是独立外设，有自己的时钟门控，不开时钟的话，你往 <code class="icode">CPAR</code>/<code class="icode">CMAR</code>/<code class="icode">CNDTR</code>/<code class="icode">CCR</code> 写的每一个字节都石沉大海。<b>最快的判断方法</b>：在调试器里读回 <code class="icode">DMA1_Channel1-&gt;CCR</code>——如果读出来是 0，而你的代码明明写了它，那就是时钟没开。注意按型号分：F1 是 <code class="icode">__HAL_RCC_DMA1_CLK_ENABLE()</code>（<code class="icode">RCC-&gt;AHBENR</code>），F4 是 <code class="icode">__HAL_RCC_DMA1_CLK_ENABLE()</code>（<code class="icode">RCC-&gt;AHB1ENR</code>）——<b>都在 AHB 上，不在 APB 上</b>。</p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">2</span>
+            <div>
+              <p class="text-sm font-semibold">请求映射选对了吗</p>
+              <p class="mt-1 text-[13px] text-muted">现象：<b>通道使能了，<code class="icode">CNDTR</code> 却一个数都不减</b>（说明一个请求都没收到）。时钟开了、寄存器也写进去了，但外设的请求线根本没接到这个通道上。拿本节的速查表对一遍：ADC1 只能是通道 1，USART1_TX 只能是通道 4。还要检查<b>通道冲突</b>——比如 USART1_RX 和 TIM2_CH1 都挂在通道 5，同时用就互相干扰。</p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">3</span>
+            <div>
+              <p class="text-sm font-semibold">地址增量与数据宽度配对了吗</p>
+              <p class="mt-1 text-[13px] text-muted">现象有两种，很好区分：<b>缓冲区里只有一个格子不停在变、其他的从头到尾都是同一个初值</b> → <code class="icode">MemInc</code>（<code class="icode">MINC</code>）没开；<b>数据整体错位、两个字节拼成一个数</b> → 外设与内存的数据宽度不匹配，或者 <code class="icode">CNDTR</code> 按字节数写而实际按半字搬。<b>记住这条铁律：外设地址永远不增（<code class="icode">PINC=0</code>），内存地址一定递增（<code class="icode">MINC=1</code>）</b>——这正是「外设 → 内存」模式的本质。</p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">4</span>
+            <div>
+              <p class="text-sm font-semibold">传输数量写对了吗</p>
+              <p class="mt-1 text-[13px] text-muted"><code class="icode">CNDTR</code> 的单位是<b>数据个数</b>，由 <code class="icode">PSIZE</code>/<code class="icode">MSIZE</code> 决定一个数据占几个字节：宽度配成半字时写 256 就是搬 512 字节，写 512 就会冲出缓冲区。<b>另外两个硬性限制</b>：通道使能期间不能改 <code class="icode">CNDTR</code>，必须先清 <code class="icode">EN</code>；M2M 模式不能用循环模式，想连续搬只能在中断里重新 <code class="icode">HAL_DMA_Start_IT()</code>。</p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">5</span>
+            <div>
+              <p class="text-sm font-semibold">标志清了吗、中断使能了吗</p>
+              <p class="mt-1 text-[13px] text-muted">现象：<b>数据搬对了，但回调永远不进</b>；或者<b>一使能通道就立刻进一次中断</b>。前者查三件事：<code class="icode">CCR</code> 里的 <code class="icode">TCIE</code>/<code class="icode">HTIE</code> 开了没、<code class="icode">NVIC</code> 使能了没、中断向量函数名写对了没（<code class="icode">DMA1_Channel1_IRQHandler</code> 一个字母都不能差）。后者是旧标志没清：<code class="icode">IFCR</code> 是<b>写 1 清除</b>（写 0 没有任何效果），使能通道前先清一遍。</p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">6</span>
+            <div>
+              <p class="text-sm font-semibold">循环模式要不要开</p>
+              <p class="mt-1 text-[13px] text-muted">现象：<b>只搬一次就永远停了</b>——这是「只搬一次」故障的另一个头号原因。ADC 在 <code class="icode">CONT</code> 模式下永不停歇地产数据，DMA 如果是 <code class="icode">NORMAL</code> 模式，搬满一轮就自己把 <code class="icode">EN</code> 清了，之后 ADC 还在写 <code class="icode">DR</code>、而没人来搬。<b>外设是连续数据源 → DMA 必须循环</b>（ADC 连续采集、串口不定长接收、音频流）。反过来，一次性传输（发送一段固定数据、拷贝一块内存）用 <code class="icode">NORMAL</code> 才对。</p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">7</span>
+            <div>
+              <p class="text-sm font-semibold">缓冲区有没有被别的代码改写</p>
+              <p class="mt-1 text-[13px] text-muted">现象：<b>数据大部分对、偶尔错乱；加一句无关的 <code class="icode">printf</code> 就正常了</b>。这种「幽灵故障」几乎都是缓冲区生命周期问题：DMA 缓冲区写成了函数内的<b>局部数组</b>（函数一返回栈就被复用）；缓冲区在中断里被别的 <code class="icode">memcpy</code> 覆盖；缓冲区太大把栈或堆挤爆；链接脚本里 RAM 段溢出（此时编译器不一定报错）。<b>规矩：凡是交给 DMA 的缓冲区，必须是全局或静态的，而且要对齐、要够大。</b></p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">8</span>
+            <div>
+              <p class="text-sm font-semibold">最后才查总线错误与对齐</p>
+              <p class="mt-1 text-[13px] text-muted">前三步都过了、数据还是不对，就去读 <code class="icode">ISR</code> 里的 <code class="icode">TEIF</code>。传输错误由 AHB 返回的错误响应触发，常见原因：<b>地址不满足对齐要求</b>（半字访问的地址必须是偶数，字访问必须是 4 的倍数）、访问了保留地址区、访问了<b>时钟没开的外设寄存器</b>、FSMC 外部器件没初始化就去读。<b>一个重要的行为</b>：出现 <code class="icode">TE</code> 时硬件会自动把 <code class="icode">EN</code> 位清 0，通道停在原地，所以「突然不动了」也可能是传输错误造成的——这个线索比错误标志本身更有用。</p>
+            </div>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>现象</th><th>最先怀疑的原因</th><th>去哪看</th></tr></thead>
+              <tbody>
+                <tr><td>完全不动，读回 <code class="icode">CCR</code> 是 0</td><td>DMA 的 RCC 时钟没开</td><td><code class="icode">RCC-&gt;AHBENR</code> / <code class="icode">__HAL_RCC_DMA1_CLK_ENABLE</code></td></tr>
+                <tr><td>通道使能了，<code class="icode">CNDTR</code> 不减</td><td>请求映射错 / 通道冲突</td><td>本节速查表 + 参考手册请求映射表</td></tr>
+                <tr><td>只有第一个数据在变</td><td><code class="icode">MINC</code> 没开</td><td><code class="icode">CCR</code> 的 bit7</td></tr>
+                <tr><td>数据错位、两个字节拼成一个数</td><td>宽度不匹配 / <code class="icode">CNDTR</code> 单位搞错</td><td><code class="icode">CCR</code> 的 <code class="icode">PSIZE</code>/<code class="icode">MSIZE</code></td></tr>
+                <tr><td>只搬一次就停</td><td>该用循环模式却用了 NORMAL；或 M2M 忘了重启</td><td><code class="icode">CCR</code> 的 <code class="icode">CIRC</code> 位</td></tr>
+                <tr><td>数据搬对了但回调不进</td><td>中断使能 / NVIC / 函数名</td><td><code class="icode">CCR</code> 的 <code class="icode">TCIE</code>、NVIC、启动文件</td></tr>
+                <tr><td>偶尔错乱，加打印就好</td><td>缓冲区是局部数组 / 被别的代码改写</td><td>把缓冲区改成全局 + 加 <code class="icode">align</code></td></tr>
+                <tr><td>跑一会儿突然停了</td><td>传输错误（<code class="icode">TE</code>）自动清了 <code class="icode">EN</code></td><td><code class="icode">ISR</code> 的 <code class="icode">TEIF</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一个通用的观察手段：看 CNDTR 动不动</div>
+            <p>调试 DMA 时最有价值的一个动作，是在调试器里把 <code class="icode">CNDTR</code> 加到 watch 窗口，全速运行几秒。</p>
+            <p class="mt-2"><b>它在减小</b> → 请求收到了、通道在搬，问题在数据本身（地址、宽度、缓冲区）。</p>
+            <p class="mt-2"><b>它一动不动</b> → 一个请求都没来，问题在前两步（时钟、映射）。</p>
+            <p class="mt-2"><b>它减到 0 就再不动了</b> → 模式问题（该循环没循环，或 M2M 没重启）。</p>
+            <p class="mt-2">这一个数字就能把排查范围砍掉一半，比在代码里到处加打印快得多。</p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 5. 常见误解与坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="mt-14 text-xl font-semibold">常见误解与坑</h2>
+
+          <p class="mt-4">下面十条都是「听起来有道理、实际会翻车」的说法。每一条都给出<b class="font-semibold text-ink">错在哪</b>和<b class="font-semibold text-ink">正确做法</b>，并且尽量指回前面算过的数字——纠正一个误解最有效的方式不是「记住结论」，而是<b>记住反例的数字</b>。</p>
+
+          <div class="card card-pad mt-4">
+            <p class="font-semibold text-ink">① 「DMA 不占 CPU，所以只要用上就一定更快」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>DMA 省的是 <b>CPU 时间</b>，代价是 <b>总线带宽</b>和<b>一次性的配置开销</b>。配置一个通道要写五个寄存器、清标志、开中断，实打实几十个周期；如果只搬 8 个字节，搬运本身只要 8 个总线周期，<b>配置比干活还贵</b>。更隐蔽的是内存到内存模式：它没有外设节奏来「让它歇一下」，会以最快速度占满总线，CPU 取指被抢，程序反而变慢。例题一里 DMA 划算，是因为它省下了 768 µs 去换 0.35 µs 的配置——<b>175 倍的账</b>；换成 8 个字节就是 12 µs 换 0.35 µs，还有必要吗？</p>
+            <p class="mt-2"><b>正确做法：</b>上手前先算「事务频率 × 单次耗时 = CPU 占用」。省下的时间远大于配置开销才上 DMA；每秒几次的事件型采集用轮询或中断更简单、更好调。这就是第 2 节「什么时候不该用 DMA」那五条的由来。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">② 「DMA 配好了就应该搬，为什么 <code class="icode">CNDTR</code> 一动不动」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>漏了<b>外设那一侧的开关</b>。DMA 只是「等着被请求」，请求是外设发的——外设内部还有一个 DMA 使能位：ADC 有 <code class="icode">ADC_CR2</code> 的 DMA 位，串口有 <code class="icode">USART_CR3</code> 的 <code class="icode">DMAT</code>/<code class="icode">DMAR</code>，SPI 有 <code class="icode">SPI_CR2</code> 的 <code class="icode">TXDMAEN</code>/<code class="icode">RXDMAEN</code>。<b>这些位不开，外设根本不会去拉请求线</b>。用 HAL 时 <code class="icode">HAL_ADC_Start_DMA()</code> 之类会替你置位，所以看不出问题；一旦手写寄存器、或者用标准外设库忘了调 <code class="icode">USART_DMACmd()</code>，就会出现「DMA 全部配置正确、外设也在工作、数据一个都不搬」这种最费时间的故障。</p>
+            <p class="mt-2"><b>正确做法：</b>排查时把「外设的 DMA 请求使能位」当作独立的一步来查（第 4 节排查顺序第 2、4 步）。判断依据很好用：<b>看 <code class="icode">CNDTR</code> 有没有减小</b>——不减就是没收到请求。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">③ 「缓冲区随便开一个数组就行，DMA 会自己管好边界」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>DMA 是硬件，<b>它不会检查边界、不会报越界、不会管生命周期</b>。<code class="icode">CNDTR</code> 写 512 它就搬 512 个数据，缓冲区只有 256 个位置它就往后写 256 个——踩坏的是别的变量、栈、甚至堆。<b>两个高频错误</b>：把缓冲区写成函数内的局部数组（函数一返回，栈就被复用，DMA 还在往里写）；把 <code class="icode">CNDTR</code> 当成字节数（宽度配成半字时，写 512 实际覆盖 1024 字节）。</p>
+            <p class="mt-2"><b>正确做法：</b>交给 DMA 的缓冲区一律<b>全局或静态</b>，<code class="icode">CNDTR</code> 一律按<b>数据个数</b>算（字节数 ÷ 每个数据的字节数），并在注释里写清「这个数组的单位是半字」。缓冲区最好放在 RAM 的固定区域、按 4 字节（M7 上是 32 字节）对齐。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">④ 「DMA 传输完成中断来了，说明数据已经发出去了，可以放心改缓冲区」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>把两个不同的「完成」当成了一个。DMA 的 <code class="icode">TC</code> 只说明<b>最后一个数据被写进了外设的数据寄存器</b>；对外设来说，这个数据可能还在移位寄存器里、还在往引脚上挤（串口），或者 Flash 内部还在输出（SPI）。<b>表现最典型的就是 RS485：在 DMA 完成中断里翻转收发方向，最后一个字节会被切掉一半</b>，接收端看到的是校验错、帧错，而发送端一切「正常」。</p>
+            <p class="mt-2"><b>正确做法：</b>要动缓冲区、要翻转方向，就等<b>外设自己的完成标志</b>（串口是 <code class="icode">TC</code>：最后一个停止位移出引脚）。HAL 已经处理好了这件事——<code class="icode">HAL_UART_TxCpltCallback()</code> 是等 USART 的 TC 置位之后才回调的；手写寄存器时就得自己写 <code class="icode">while (!(USART1-&gt;SR &amp; USART_SR_TC)) { }</code>（或者开 TC 中断）。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">⑤ 「DMA 的完成中断可开可不开，反正数据已经搬好了」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>不开中断你就<b>不知道什么时候能安全读缓冲区</b>，只能碰运气；更糟的是<b>传输错误（TE）不处理会静默停摆</b>——出现 TE 时硬件会自动把 <code class="icode">EN</code> 位清 0，通道停在原地，程序表面上还在跑，数据却永远停在了出错前那一帧。这种「跑着跑着数据不更新了」的故障，如果不读 <code class="icode">ISR</code> 里的 <code class="icode">TEIF</code>，几乎不可能定位。</p>
+            <p class="mt-2"><b>正确做法：</b>至少开 <code class="icode">TCIE</code>；做双缓冲（ping-pong）必须开 <code class="icode">HTIE</code>；<b>建议永远开 <code class="icode">TEIE</code></b>，在出错回调里记下错误、检查地址对齐、重新启动通道。另外，<b>DMA 中断的优先级不要设得比关键实时中断还高</b>，而且回调里只置标志、绝不做重活——回调跑久了，下一个半传输可能已经到了。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">⑥ 「DMA 通道随便选一个空的就行」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>F1 系列（以及 F2/F4 的大部分）<b>请求线到通道的对应是硬件固定的</b>，不是「选个空的」——ADC1 只在通道 1 上，USART1_TX 只在通道 4 上，写错通道号就是接不到请求线。<b>还有一层更隐蔽的坑：多个外设共用同一个通道</b>，比如 USART1_RX 和 TIM2_CH1 都在通道 5、SPI1_RX 和 USART3_TX 都在通道 2。<b>一个通道同一时刻只能服务一个外设</b>，同时用就会互相干扰。</p>
+            <p class="mt-2"><b>正确做法：</b>开工前先把要用的外设列出来，查请求映射表把通道号写下来，<b>检查有没有撞车</b>，撞了就换外设（比如改用 USART2 而不是 USART3）或者换方案（用中断做输入捕获）。F0/F3 有 <code class="icode">DMA_CSELR</code>、G0/G4/F7/H7 有 <b>DMAMUX</b>，可以把请求自由改接到任意通道——换到这些型号上，这类冲突才算真的消失。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">⑦ 「内存到内存模式跟别的模式差不多，只是把地址换成内存」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>M2M 有三处和别的模式不一样：<b>① <code class="icode">PeriphInc</code> 管的是源地址</b>（M2M 下 DMA 把源当成"外设端口"），只开 <code class="icode">MemInc</code> 会导致每次读同一个字；<b>② 不能使用循环模式</b>，搬完一次就停，想连续搬必须在完成中断里重新启动；<b>③ 请求是 DMA 自己产生的</b>，没有外设来限制节奏，它会全速占满总线。还有一个「假 DMA」陷阱：官方示例里常见 <code class="icode">HAL_DMA_Start()</code> 紧跟 <code class="icode">HAL_DMA_PollForTransfer()</code>，那是在原地死等，<b>比 <code class="icode">memcpy()</code> 还慢</b>。</p>
+            <p class="mt-2"><b>正确做法：</b>M2M 用 <code class="icode">HAL_DMA_Start_IT()</code> 配合回调（注意是 <code class="icode">XferCpltCallback</code> 这类<b>函数指针</b>，不是 weak 函数，必须自己赋值）；两端宽度一致；要连续搬运就在回调里重启；大块搬运时记得它会让 CPU 变慢，能给别的任务留时间就留一点。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">⑧ 「循环模式就是 <code class="icode">CNDTR</code> 自动重装，用起来和一次性传输一样」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>打开循环模式后，<code class="icode">CNDTR</code> 的<b>含义变成了「还剩多少个」而不是「总共多少个」</b>——你想知道「DMA 现在写到哪了」，得用 <code class="icode">缓冲区大小 − CNDTR</code> 去算。另一个高频错误是<b>照着一次性传输的代码，在完成回调里又调一次 <code class="icode">HAL_DMA_Start_IT()</code></b>：循环模式下硬件本来就会自动重装，你再启动一次，等于把计数器和标志搅乱，现象是数据周期性错乱、或者中断频率越来越高。</p>
+            <p class="mt-2"><b>正确做法：</b>循环模式下<b>回调里只处理数据，绝不重启通道</b>；要拿位置就用「总数 − 剩余数」；真需要重置（比如改了缓冲区地址），必须先 <code class="icode">HAL_DMA_Abort()</code> 或者清 <code class="icode">EN</code> 位再重新配置。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">⑨ 「为了保险起见，Cortex-M4 上也加一遍 cache clean/invalidate 吧」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>Cortex-M3 和 M4 <b>根本没有数据 cache</b>，这些操作的宏在 M4 上要么是空操作、要么直接编译不过，加了只是自我安慰。<b>方向反过来说更危险</b>：真到了 Cortex-M7（有 D-Cache）上，很多人只知道「加一句 invalidate」，却不知道 <b>invalidate 的范围必须按 32 字节 cache line 向上取整</b>——你只想作废自己那 100 字节的缓冲区，实际却作废了相邻的 28 字节，把别的变量在 cache 里的最新值一起丢掉。</p>
+            <p class="mt-2"><b>正确做法：</b>先看内核：<b>M3/M4 → 完全不用管</b>（这也是为什么大量基于 F103 的代码里根本没有相关处理）；<b>M7 → 按方向配对</b>：DMA 要读内存（内存 → 外设）时先 <b>clean</b>，DMA 要写内存（外设 → 内存）时在读完数据后 <b>invalidate</b>（并且先 clean 再 invalidate）；范围按 cache line 取整，缓冲区别忘了 <code class="icode">__attribute__((aligned(32)))</code>。<b>最省心的方案是根本不让它进 cache</b>：把 DMA 缓冲区放到 MPU 配置的非 cache 区域，从源头消掉这个问题。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">⑩ 「DMA 缓冲区不用加 <code class="icode">volatile</code>，那是给寄存器用的」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>编译器不知道有 DMA 这个硬件在偷偷改内存。在 <code class="icode">-O2</code>/<code class="icode">-O3</code> 下，它可能把「主循环里反复读同一个缓冲区」优化成只读一次、把值留在寄存器里；也可能认为某个只写不读的数组没用而删掉相关代码。<b>现象极具欺骗性：<code class="icode">-O0</code> 一切正常，一开优化就出错；加一句 <code class="icode">printf</code> 又好了</b>——因为打印打断了优化。<b>另一层问题是原子性</b>：DMA 写内存的同时 CPU 去读，可能读到「一半新一半旧」的撕裂数据。</p>
+            <p class="mt-2"><b>正确做法：</b>DMA 缓冲区加 <code class="icode">volatile</code>（或在中断与主循环之间共享的部分加），让编译器每次都老老实实去内存读；用 ping-pong 结构保证<b>CPU 读的那一半、DMA 绝不在写</b>；确实需要读「正在被写的区域」时，短暂关中断或读两次比对，别指望它天然一致。</p>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">这十条的共同点</div>
+            <p>回头看，十条里有六条的错误根源是<b>把「软件看得见的世界」当成了「硬件的全部」</b>——以为配置写完就会生效（忘了外设侧的请求位、DMA 自己的时钟）、以为传输完成就是外设发完（忘了移位寄存器）、以为通道可以随便选（忘了固定映射）、以为编译器会照你的意思读内存（忘了 <code class="icode">volatile</code>）、以为 M2M 和别的模式一样（忘了它是软件请求）。</p>
+            <p class="mt-2">剩下的四条则来自<b>把「某一类芯片的经验」当成了通用规律</b>：F1 没有 FIFO 和突发、F4 不能用 M2M+循环、M3/M4 没有 cache 而 M7 有、F1 通道固定而 H7 有 DMAMUX。<b class="font-semibold text-ink">DMA 是那种「型号差异比通用规则还多」的外设</b>——所以每换一个型号，第一件事永远是翻它的参考手册，而不是抄上一块板子的代码。</p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 6. 小结与自检 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="mt-14 text-xl font-semibold">小结与自检</h2>
+
+          <h3 class="mt-7 text-base font-semibold">这一篇的十四条要点</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>DMA 省的不是「搬运的时间」，而是「CPU 反复进出中断的时间」。</b>搬运本身照样要占用总线周期，谁也省不掉；省掉的是「压栈、取向量、判断、清标志、出栈」这一整套每次 1.5 µs（约 108 个周期）的固定开销。例题一里 768 µs 换 0.35 µs，CPU 占用从 <b>52.5% 降到 0.30%</b>，这才是「52.6% → &lt;1%」的真实含义。</li>
+            <li><b>总线矩阵是交叉开关，不是一条公共汽车。</b>多主（CPU 取指、CPU 数据、DMA1、DMA2……）对多从（Flash、SRAM、AHB 外设、FSMC），每对主从之间是一条独立路径。<b>这就是「CPU 和 DMA 能同时访问不同从设备而互不等待」的原因</b>——它们走的是不同的路。</li>
+            <li><b>只有「同时访问同一个从设备」才需要排队。</b>此时仲裁器按轮询（Round Robin）决定谁先用，输的一方多等几个周期。所以 DMA 抢走的是<b>从设备的端口时间</b>，不是 CPU 的执行时间；评估 DMA 开销时应该看「目标从设备的总线占用率」，而不是「DMA 用了多少个 CPU 周期」。</li>
+            <li><b>DMA 控制器 = 通道 + 请求线 + 优先级 + 计数器 + 四个寄存器。</b>四个寄存器是 <code class="icode">CPAR</code>（源/目的地址）、<code class="icode">CMAR</code>（另一个地址）、<code class="icode">CNDTR</code>（还能搬多少个）、<code class="icode">CCR</code>（方向、增减、宽度、模式、中断、使能）。HAL 那几十行代码，落到硬件上就是这五个寄存器加一个 <code class="icode">IFCR</code>。</li>
+            <li><b>一次传输是一次完整的握手</b>：外设发请求 → DMA 向总线矩阵申请 → 仲裁通过 → 读源 → 写目的 → 计数器减一 → 发下一个请求。理解这条链路，就不会再问「为什么我配好了 DMA 它却不动」——链路任何一环断了，现象都是「数据不动」，所以排查必须按顺序走。</li>
+            <li><b>传输三要素是源地址、目的地址、传输数量</b>；决定成败的是两个「看不见」的参数：<b>地址是否递增</b>与<b>数据宽度</b>。<b>外设寄存器地址永远不增（<code class="icode">PINC=0</code>）、内存缓冲地址一定要增（<code class="icode">MINC=1</code>）</b>，这就是「外设 → 内存」模式的本质。</li>
+            <li><b><code class="icode">CNDTR</code> 的单位是数据个数，不是字节数</b>，它由数据宽度决定。宽度不匹配、地址不对齐都会踩坑；不对齐的访问会被 AHB 拒绝，触发传输错误 <code class="icode">TE</code>，而<b>硬件在出现 TE 时会自动把 <code class="icode">EN</code> 清 0</b>，通道静默停摆。</li>
+            <li><b>单次模式与循环模式的选择，取决于数据源会不会停。</b>外设是连续数据源（ADC 连续转换、串口不定长接收、音频流）就必须用循环模式 <code class="icode">CIRC</code>，否则搬满一轮就永久停下；一次性传输用单次模式才对。注意两条限制：<b>M2M 不能用循环模式</b>；<b>通道使能期间不能改 <code class="icode">CNDTR</code></b>。</li>
+            <li><b>FIFO 是突发传输的前提，突发提高的是「有效带宽」。</b>每次仲裁与握手都有固定开销，攒够 4 个（或 8/16 个）数据一次性占用总线，就把这份开销摊薄了。<b>但 STM32F1 的 DMA 没有 FIFO、也不支持突发</b>——这是 F2/F4 之后才有的能力（<code class="icode">INCR4</code>/<code class="icode">INCR8</code>/<code class="icode">INCR16</code>）。</li>
+            <li><b>双缓冲（ping-pong）解决的是「CPU 处理这一半时，DMA 正在写另一半」。</b>触发切换的信号就是<b>半传输 HT</b> 与<b>全传输 TC</b>：HT 表示前半填满、DMA 正在写后半；TC 表示后半填满、DMA 已绕回开头。CPU 的处理时间必须小于「搬满一半的时间」，否则数据会被覆盖。</li>
+            <li><b>四个标志各管一件事</b>：TC（传输完成）、HT（半传输，双缓冲的关键）、TE（传输错误，多半是地址或对齐问题）、FE（FIFO 错误，只在有 FIFO 的型号上存在）。清标志的办法是<b>往 <code class="icode">IFCR</code> 的对应位写 1</b>（写 0 无效），而且清之前先把 <code class="icode">ISR</code> 读出来存着，否则标志位会在你读第二位时已经消失。</li>
+            <li><b>数据一致性只在有 cache 的内核上才是问题。</b>Cortex-M3/M4 <b>没有数据 cache</b>，DMA 与 CPU 看到的是同一份内存，不需要任何 clean/invalidate；Cortex-M7 有 D-Cache，会出现「内存里是新的、cache 里是旧的」。方向配对规则：<b>DMA 读内存（内存 → 外设）前先 clean，DMA 写内存（外设 → 内存）后要 invalidate</b>，而且 invalidate 的范围必须按 32 字节 cache line 向上取整。</li>
+            <li><b>只有三种搬运值得用 DMA</b>：外设 → 内存（ADC 采集、串口接收）、内存 → 外设（串口发送、DAC、PWM 查表）、内存 → 内存（数组/图像拷贝）。<b>两种情况下不该用</b>：只搬几个字节（配置开销比搬运还大）、需要逐字节做判断（DMA 不会思考，判断必须在 CPU 侧做）。</li>
+            <li><b>「DMA 不工作」的排查顺序是固定的</b>：DMA 自己的 RCC 时钟 → 请求映射（含外设侧的 DMA 使能位）→ 地址增量与宽度配对 → 传输数量 → 标志与中断使能 → 循环模式 → 缓冲区是否被改写 / 生命周期对不对 → 最后才查总线错误与对齐。<b>调试时最值钱的动作，是把 <code class="icode">CNDTR</code> 加进 watch 窗口看它动不动。</b></li>
+          </ul>
+
+          <h3 class="mt-8 text-base font-semibold">自测题（先自己算，再展开答案）</h3>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">1. 72 MHz 的 F103 上，用中断方式逐字节搬 512 字节，每次中断进出约 1.5 µs。这批数据每 1.463 ms 来一次，CPU 占用率是多少？换成 DMA 呢？（DMA 配置约 25 个周期，两次回调各 2 µs）</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>中断方式：512 × 1.5 µs = <b>768 µs</b>。占用率 = 768 µs / 1463 µs = <b>52.5%</b>（若把单次开销按 1.4 µs 算则 49.0%，按 1.7 µs 算则 59.5%——所以记住「约 1.5 µs」这个口径就够了）。</p>
+              <p class="mt-2">DMA 方式：配置 25 个周期 ≈ 0.35 µs，加上半传输与全传输两次回调各约 2 µs，合计 <b>4.35 µs</b>，占用率 = 4.35 / 1463 = <b>0.30%</b>（如果只开传输完成中断、不做双缓冲，只要 2 µs，即 <b>0.14%~0.16%</b>）。</p>
+              <p class="mt-2">比值约 <b>175 倍</b>。而这 4.35 µs 里真正属于「搬运」的开销是 0，它的作用是让 CPU 从「每隔 2.9 µs 被打断一次」变成「每 1.46 ms 被打断两次」。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">2. 为什么 CPU 从 Flash 取指的同时，DMA 可以把 ADC 数据写进 SRAM 而互不等待？如果两个主设备同时访问同一个从设备，会发生什么？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>因为总线矩阵是<b>交叉开关</b>：CPU 取指走的是「CPU（ICode）→ Flash」这条路径，DMA 走的是「DMA1 → SRAM」这条路径，<b>两条路径上的资源完全不重叠</b>——地址总线、数据总线、从设备端口都是独立的，所以可以同拍进行。</p>
+              <p class="mt-2">如果两个主设备同时访问<b>同一个从设备</b>（比如 CPU 要从 SRAM 读变量，而 DMA 正在往 SRAM 写缓冲区），该从设备只有一个端口，必须选出赢家：仲裁器按<b>轮询</b>决定，输的一方插入等待周期（AHB 的 <code class="icode">HREADY</code> 拉低）。<b>注意后果</b>：CPU 被拖慢的不是「DMA 用了 CPU 的时间」，而是「CPU 访问同一个从设备时多等了几个周期」。所以 M2M 全速搬运时程序明显变慢——它的源和目的都在 SRAM 里。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">3. 同一个项目里既要用 USART1 接收（DMA1 通道 5），又要用 TIM2_CH1 做输入捕获（也是 DMA1 通道 5）。会发生什么？有哪几种解决办法？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>F1 的请求线到通道的映射是<b>硬件固定</b>的，两条请求线在硬件上「或」进同一个通道，而<b>一个通道同一时刻只能服务一个外设</b>。现象是：两者都配好了，但至少有一个（往往是后配置的那个，或请求更频繁的那个）拿不到数据；也可能表现为互相干扰、计数乱跳。这类问题最难查，因为两个外设单独测都是好的。</p>
+              <p class="mt-2">三种解决办法：<b>① 换外设</b>——输入捕获改用 TIM3_CH1（通道 6）或 TIM4_CH1（通道 1），串口接收改用 USART2_RX（通道 6）或 USART3_RX（通道 3）；<b>② 让一个不用 DMA</b>——输入捕获这种事件量不大的场合，直接用中断完全够用（每次捕获一次中断，频率不高）；<b>③ 换型号</b>——F0/F3 有 <code class="icode">DMA_CSELR</code>、G0/G4/F7/H7 有 DMAMUX，可以把请求改接到任意通道，从根上消掉冲突。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">4. DMA 要把 1000 个半字从内存搬到外设。按「一次 AHB 传输约 3 个周期」估算，72 MHz 下需要多少总线周期、多少时间？改用 32 位宽度呢？为什么实测时间会长得多？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>每一次「读源 + 写目的」是两次 AHB 传输，约 <b>6 个周期</b>；1000 个半字（16 位）要分 1000 次搬（宽度 16 位时每个数据一次）→ 1000 × 6 = <b>6000 个周期</b> ≈ <b>83.3 µs</b>。有效数据量 2000 字节，等效带宽约 <b>24 MB/s</b>。</p>
+              <p class="mt-2">改用 32 位宽度后，同样的数据量只需要 500 次搬运 → 500 × 6 = <b>3000 个周期</b> ≈ <b>41.7 µs</b>，<b>直接减半</b>。这就是「宽度选大一号能省一半总线时间」的由来（前提是地址对齐、外设支持）。</p>
+              <p class="mt-2">实测更长的原因有四个：<b>① 仲裁开销</b>（每次申请与授权不是零成本）；<b>② 从设备等待</b>（APB 外设比 AHB 慢，APB1 最高 36 MHz、APB2 最高 72 MHz，还要走 APB 桥）；<b>③ 别的从设备/主设备在抢</b>（CPU 取指也在用 Flash 端口）；<b>④ 外设本身的节奏</b>——最典型的是串口：115200 下发 1000 字节要 <b>86.81 ms</b>，DMA 早就把数据写进 <code class="icode">DR</code> 了，但串口在外设侧只能一个字节一个字节慢慢发，DMA 只在它需要时才申请一次总线。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">5. 8 位 ADC、8 通道、每通道 1 kHz 连续采样，跑满一年：一共多少个采样点？多少 GB？缓冲区开 1024 字节能撑多久？循环模式会「溢出」吗？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>总速率 = 1000 × 8 = <b>8 kHz</b>（8000 点/s）。一年 = 365 × 24 × 3600 = <b>31 536 000 秒</b>。总点数 = 8000 × 31 536 000 = <b>2.52288 × 10<sup>11</sup> ≈ 2523 亿点</b>。按每点 1 字节（8 位 ADC）≈ <b>252.3 GB</b>，按半字（12 位 ADC 常见做法）≈ <b>504.6 GB</b>。</p>
+              <p class="mt-2">缓冲区 1024 字节 = 1024 个点 → 1024 / 8000 = <b>128 ms</b> 填满一圈，半传输每 <b>64 ms</b> 来一次（中断率 15.6 Hz；如果在半满时处理，最迟必须在 64 ms 内处理完，否则后半的数据就压到前半上）。</p>
+              <p class="mt-2">循环模式<b>不会报错、不会溢出，只会无声地覆盖最旧的数据</b>——这就是「溢出」在这类系统里的真实形态：不是硬件出错，而是你的处理速度跟不上数据产生速度，而硬件不负责告诉你。<b>顺带一个现实结论</b>：一年的原始数据 252 GB，32 GB 的 SD 卡只够存 <b>46.3 天</b>。所以这类系统必须「边采边处理」：比如每点做 100 条指令的滤波/特征提取后只存结果，CPU 占用约 <b>1.1%</b>（8000 × 100 / 72 000 000），一年数据算完要 4.05 天——但存下来的体积会小几个数量级。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">6. <code class="icode">HAL_UART_Transmit_DMA()</code> 返回 <code class="icode">HAL_BUSY</code> 是错误吗？为什么 RS485 的方向翻转要放在 <code class="icode">HAL_UART_TxCpltCallback()</code> 里？如果放在 DMA 的传输完成中断里会怎样？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>不是错误。<code class="icode">HAL_BUSY</code> 的意思是「上一次发送还没结束」，它是在提醒你做流控。<b>正确反应是等待或排队，而不是记错误日志或复位重试</b>；如果强行绕过忙判断再调一次，新数据会被写进同一个发送缓冲区，而 DMA 可能还在读它的前半段，线上就会发出「前半旧 + 后半新」的混合帧。</p>
+              <p class="mt-2">因为「发送完成」有三个不同的时刻：DMA 的 TC 只表示<b>最后一个字节被写进了 <code class="icode">DR</code></b>；USART 的 TXE 表示数据寄存器空了但<b>最后一位还在移位寄存器里</b>；只有 USART 的 TC 才表示<b>最后一个停止位已经移出引脚</b>。HAL 在 DMA 搬完后会打开 TC 中断，等 TC 置位才进 <code class="icode">TxCpltCallback()</code>，所以此时翻转方向是安全的。</p>
+              <p class="mt-2">放在 DMA 完成中断里就会<b>早一个字节</b>：收发器在最后一个字节还没发完时就释放了总线，接收端看到的是一个被截断的帧（校验错/帧错），而发送端的代码看起来完全正常——这是现场最难查的一类故障。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">7. ADC + DMA 采集时，发现「缓冲区里只有第一个数据在变」；另一块板子上是「每次读到的都是同一个通道的值」。分别是什么原因？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>「<b>只有第一个数据在变、后面全是同一个初值</b>」→ 这是 <code class="icode">MemInc</code>（<code class="icode">MINC</code>）没开：DMA 每次都把新数据写回同一个地址 <code class="icode">adc_buf[0]</code>，后面的格子从没被写过。这个现象非常有辨识度，看到就能直接定位。</p>
+              <p class="mt-2">「<b>每次读到的都是同一个通道的值</b>」→ ADC 侧的问题，有三种可能：<b>① 扫描模式没开</b>（<code class="icode">ScanConvMode = DISABLE</code>），规则组里排了三个通道却只转第一个；<b>② 规则组的通道没配全</b>（<code class="icode">NbrOfConversion</code> 写 1，或只用 <code class="icode">SQR3</code> 配了第一个通道就以为配完了）；<b>③ 通道与引脚搞错</b>——把 PA1 接到了传感器，代码里配的却是通道 0（PA0）。</p>
+              <p class="mt-2">顺带记住第三个高频现象：「<b>数据整体错位、每两个字节拼成一个数</b>」→ 数据宽度不匹配或 <code class="icode">CNDTR</code> 按字节数写了。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">8. Cortex-M7 上一段「外设 → 内存」的 DMA 采集，程序读到的永远是缓冲区刚初始化时的值，但调试器里看内存却是新数据。这是什么问题？给出三个能印证它的「指纹」，以及两种修法。</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>这是 <b>cache 一致性（coherency）问题</b>：DMA 绕过 D-Cache 直接写内存，内存里已经是新数据；但 CPU 之前读过这块区域，cache line 里存着一份旧副本，之后 CPU 读到的都命中 cache，永远看不到 DMA 的更新。</p>
+              <p class="mt-2"><b>三个指纹</b>：① <b>调试器看内存是新的、程序读出来是旧的</b>（调试器读内存往往绕开 cache）；② <b>重启后第一次跑是对的，再跑就错</b>（第一次 cache 里没有副本）；③ <b>加一句无关的 <code class="icode">printf</code> 或改动别处的代码就好了</b>（触发了 cache 换出或编译器行为变化）。</p>
+              <p class="mt-2"><b>修法一（软件清理）</b>：在 DMA 写完、CPU 读之前对缓冲区做 <b>invalidate</b>（注意按 32 字节 cache line 对齐向外取整，否则会误伤相邻变量；如果是「内存 → 外设」，则在启动 DMA 前先 <b>clean</b>）。<b>修法二（从源头消掉）</b>：把 DMA 缓冲区放到非 cache 区域——用链接脚本指定一段 RAM、或者用 MPU 把它配成 Normal non-cacheable；再配合 <code class="icode">__attribute__((aligned(32)))</code> 保证对齐。<b>工程上更推荐第二种</b>，因为它不依赖你记得在正确的时机调正确的函数。</p>
+            </div>
+          </details>
+
+          <h3 class="mt-8 text-base font-semibold">动手练习</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li><b>手动制造三种「DMA 不工作」，把现象记下来。</b>基于例程一，依次做三件事：① 注释掉 <code class="icode">__HAL_RCC_DMA1_CLK_ENABLE()</code>；② 把 <code class="icode">Instance</code> 改成 <code class="icode">DMA1_Channel2</code>；③ 把 <code class="icode">MemInc</code> 改成 <code class="icode">DMA_MINC_DISABLE</code>。<b>每次都在调试器里把 <code class="icode">CNDTR</code>、<code class="icode">CCR</code> 和缓冲区前 8 个元素加到 watch 窗口。</b>做完这三遍，第 4 节的排查顺序就不再是需要背的清单，而是你见过的三个画面。</li>
+            <li><b>用 DWT 的周期计数器量一次真实的 CPU 占用。</b>初始化 <code class="icode">CoreDebug-&gt;DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; DWT-&gt;CTRL |= DWT_CTRL_CYCCNTENA_Msk;</code>，然后分别用「主循环轮询 ADC」「每次转换完成中断」「DMA + 双缓冲」三种方式采集 1 秒，各读一次 <code class="icode">DWT-&gt;CYCCNT</code> 的增量。<b>把你测出的三个百分比和例题一的 52.5% / 0.30% 对照</b>——差异来自哪里（中断优先级？缓冲区大小？编译器优化等级？），想清楚这一点比记住数字重要。</li>
+            <li><b>给串口写一个环形发送队列，连续打 10 KB 日志不丢字节。</b>用第 4 节的 <code class="icode">uart_queue_push()</code> + <code class="icode">uart_pump()</code> 结构，在主循环里以最快速度往队列里塞日志，另一端用 USB-TTL 接电脑收，<b>校验总字节数与内容完全一致</b>。然后故意把队列改小到 64 字节，观察什么时候开始丢数据——算一下 <code class="icode">115200</code> 下这段时间是多长（参考：一帧 86.81 µs，11.52 kB/s）。</li>
+            <li><b>把 HAL 版和手写寄存器版逐位对照一次。</b>在 <code class="icode">HAL_ADC_Start_DMA()</code> 之后打个断点，把 <code class="icode">DMA1_Channel1</code> 的 <code class="icode">CCR</code>/<code class="icode">CNDTR</code>/<code class="icode">CPAR</code>/<code class="icode">CMAR</code> 四个值抄下来，再和你手写版本配置完之后的四个值比对。<b>如果有哪一位不一样，那就是你对手写版理解有偏差的地方</b>——这比读十遍参考手册都有效。</li>
+            <li><b>用示波器或逻辑分析仪验证「CS 什么时候拉高」。</b>抓 SPI 读 Flash 时 CS 与 SCK 的波形，确认 CS 是在最后一个字节的时钟走完之后才拉高。然后把拉高 CS 的代码从 <code class="icode">HAL_SPI_TxRxCpltCallback()</code> 挪到 <code class="icode">HAL_SPI_TxHalfCpltCallback()</code> 里再抓一次，<b>看最后 256 个字节读回来变成了什么</b>——亲手制造一次「提前收工」的故障，以后你会对这个波形格外敏感。</li>
+          </ol>
+
+          <h3 class="mt-8 text-base font-semibold">延伸阅读</h3>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>这些外设寄存器被放在了什么地址上、为什么外设地址永远不变 → <a class="text-brand-600 dark:text-brand-300" href="core-memory-map.html">存储器映射与地址空间</a></li>
+            <li>DMA 中断是怎么被 CPU 响应的、和普通外设中断有什么不同 → <a class="text-brand-600 dark:text-brand-300" href="core-interrupt.html">中断与异常机制</a></li>
+            <li>串口本身的帧格式、波特率与错误检测（本篇只讲了 DMA 侧） → <a class="text-brand-600 dark:text-brand-300" href="core-serial.html">串行通信原理</a></li>
+            <li>回到知识体系总览，看这一层还有哪些前置与后续 → <a class="text-brand-600 dark:text-brand-300" href="../knowledge.html">知识体系</a></li>
+          </ul>
+
+          <div class="callout callout-tip mt-6">
+            <div class="callout-title">写给正在做第一个项目的你</div>
+            <p>DMA 这一篇看起来寄存器很多、型号差异很大，但真正需要你背下来的只有三件事：<b>「DMA 省的是 CPU 反复进出中断的时间，不是搬运本身」、「外设地址不增、内存地址递增，这是外设→内存模式的本质」、「配好 DMA 不等于会搬，外设侧的请求位、通道映射、时钟三样缺一不可」</b>。剩下的都是可以随时回来查的表——请求映射表、<code class="icode">CCR</code> 逐位表、排查顺序表。</p>
+            <p class="mt-2">如果你现在正被某个「DMA 数据不对」的问题折磨，请直接跳到第 4 节的<b>排查顺序</b>，把 <code class="icode">CNDTR</code> 加进 watch 窗口看一眼它动不动——大多数这类问题的答案就藏在前三步里。而如果你想真正理解「为什么 CPU 和 DMA 能同时干活」，第 2 节的总线矩阵图和例题二值得反复看两遍：<b>把 DMA 看成「另一个会自己走路的 CPU」，而不是「一个更快的 memcpy」，很多困惑会自然消失。</b></p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="core-serial.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">串行通信原理</p>
+          </a>
+          <a href="core-embedded-c.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：继续深入 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">嵌入式 C 进阶</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

@@ -1,0 +1,1864 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>电阻电路的等效变换与分压分流 - McuStudy</title>
+  <meta name="description" content="知识体系第一层「电路理论」第 2 篇（邱关源《电路》第 5 版 第 2 章）：等效变换为什么「对外等效、对内不等效」，串联分压与并联分流的公式，两个电阻并联的「积比和」速算，Y-Δ 变换的公式与使用时机，实际电压源与实际电流源的两种模型及其等效互换（含方向判断），输入电阻与负载效应，电桥平衡条件。含把 0~5V 降到 3.3V 以内给 STM32 ADC 的完整设计算例、带载偏差核算、上拉电阻等效分析与电位器分压。">
+  <meta name="keywords" content="等效变换,对外等效对内不等效,电阻串联,串联分压,电阻并联,并联分流,积比和,Y-Δ变换,星三角变换,实际电压源,实际电流源,电源等效互换,输入电阻,负载效应,电桥平衡,惠斯通电桥,分压电阻,ADC输入阻抗,采样电容,上拉电阻,电位器,STM32 ADC,邱关源电路">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">电阻电路的等效变换与分压分流</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          电阻电路的等效变换与分压分流
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你按原理图焊了两个电阻，把传感器的 5V 输出降到 3.2V 送进 ADC。万用表量这个节点，确实是 3.214V；可串口打印出来的电压换算回去只有 3.02V，<b class="font-semibold text-ink">差了 190mV</b>。第一反应通常是「ADC 不准」，于是你去改代码、加平均、换通道——全都没用，因为问题根本不在软件。<b class="font-semibold text-ink">真凶是分压器带了负载</b>：ADC 在采样的一瞬间从那个节点吸走电荷，而分压器自己是有内阻的（R1∥R2），两者一叠加，电压就掉下来了。要算清这个偏差、要判断「这两个电阻到底该取多大」，你需要的正是这一章：<b class="font-semibold text-ink">等效变换、分压分流、输入电阻</b>。这一篇把这些公式一次讲透，并且全部落到 STM32 的真实电路上。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-brand">学科基础</span>
+          <span class="stat-pill">层级：<b>第 1 层 · 学科基础 → 电路理论</b></span>
+          <span class="stat-pill">本组第 <b>2</b> 篇</span>
+          <span class="stat-pill">教材：<b>邱关源《电路》第 5 版 · 第 2 章</b></span>
+          <span class="stat-pill">阅读约 <b>34</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-equivalent">等效变换：对外等效，对内不等效</a>
+          <a class="toc-link is-sub" href="#sub-series">串联：等效电阻与分压公式</a>
+          <a class="toc-link is-sub" href="#sub-parallel">并联：等效电阻与分流公式</a>
+          <a class="toc-link is-sub" href="#sub-two-r">两个电阻并联的「积比和」</a>
+          <a class="toc-link is-sub" href="#sub-yd">Y-Δ 变换：公式与使用时机</a>
+          <a class="toc-link is-sub" href="#sub-source">实际电源的两种模型与等效互换</a>
+          <a class="toc-link is-sub" href="#sub-input-r">输入电阻与负载效应</a>
+          <a class="toc-link is-sub" href="#sub-bridge">电桥电路与平衡条件</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link is-sub" href="#sub-ex1">例 1：把 0~5V 降到 3.3V 以内的分压设计</a>
+          <a class="toc-link is-sub" href="#sub-ex1-load">例 1 续：带载之后的偏差有多大</a>
+          <a class="toc-link is-sub" href="#sub-ex2">例 2：含 Y 形连接的电路，Y→Δ 化简</a>
+          <a class="toc-link is-sub" href="#sub-ex3">例 3：不平衡电桥，Δ→Y 化简</a>
+          <a class="toc-link is-sub" href="#sub-ex4">例 4：电源等效互换与「对内不等效」</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-mcu-divider">场景一：5V 传感器进 ADC 的分压网络</a>
+          <a class="toc-link is-sub" href="#sub-mcu-pullup">场景二：上拉/下拉电阻的等效分析</a>
+          <a class="toc-link is-sub" href="#sub-mcu-zin">场景三：ADC 输入阻抗与分压电阻取值</a>
+          <a class="toc-link is-sub" href="#sub-mcu-pot">场景四：电位器就是一只可调分压器</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-equivalent">等效变换：对外等效，对内不等效</a>
+            <a class="toc-link is-sub" href="#sub-series">串联：等效电阻与分压公式</a>
+            <a class="toc-link is-sub" href="#sub-parallel">并联：等效电阻与分流公式</a>
+            <a class="toc-link is-sub" href="#sub-two-r">两个电阻并联的「积比和」</a>
+            <a class="toc-link is-sub" href="#sub-yd">Y-Δ 变换：公式与使用时机</a>
+            <a class="toc-link is-sub" href="#sub-source">实际电源的两种模型与等效互换</a>
+            <a class="toc-link is-sub" href="#sub-input-r">输入电阻与负载效应</a>
+            <a class="toc-link is-sub" href="#sub-bridge">电桥电路与平衡条件</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link is-sub" href="#sub-ex1">例 1：把 0~5V 降到 3.3V 以内的分压设计</a>
+            <a class="toc-link is-sub" href="#sub-ex1-load">例 1 续：带载之后的偏差有多大</a>
+            <a class="toc-link is-sub" href="#sub-ex2">例 2：含 Y 形连接的电路，Y→Δ 化简</a>
+            <a class="toc-link is-sub" href="#sub-ex3">例 3：不平衡电桥，Δ→Y 化简</a>
+            <a class="toc-link is-sub" href="#sub-ex4">例 4：电源等效互换与「对内不等效」</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-mcu-divider">场景一：5V 传感器进 ADC 的分压网络</a>
+            <a class="toc-link is-sub" href="#sub-mcu-pullup">场景二：上拉/下拉电阻的等效分析</a>
+            <a class="toc-link is-sub" href="#sub-mcu-zin">场景三：ADC 输入阻抗与分压电阻取值</a>
+            <a class="toc-link is-sub" href="#sub-mcu-pot">场景四：电位器就是一只可调分压器</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              第 1 层 · 学科基础 第 2 篇。上一篇讲 KCL / KVL 和功率，这一篇讲怎么「化简」，
+              下一篇讲戴维宁、诺顿和叠加。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先说实话：这一章的名字听起来非常「课本」——等效变换、分压分流、输入电阻。但它是你后面所有硬件工作的地基，因为<b class="font-semibold text-ink">单片机开发里一半以上的模拟电路，本质就是几个电阻的分压和并联</b>。</p>
+
+          <p class="mt-3">你翻任何一块开发板的原理图，会反复看到同样的几个东西：</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">一串分压电阻</b>——把 5V 传感器信号降到 3.3V 以下送进 ADC，或者把 12V 电池电压降到能测的范围。</li>
+            <li><b class="font-semibold text-ink">几个上拉/下拉电阻</b>——按键、I2C 总线、复位脚、BOOT 脚，处处都是。</li>
+            <li><b class="font-semibold text-ink">一只电位器</b>——就是一个可以拧的分压器，用来调亮度、调阈值、调音量。</li>
+            <li><b class="font-semibold text-ink">传感器的内部等效网络</b>——应变片电桥、NTC 半桥、热电阻三线制，全都是电阻网络。</li>
+          </ul>
+
+          <p class="mt-3">而这些电路的取值（「上拉用 4.7k 还是 10k」「分压用 10k+18k 还是 100k+180k」「这个电阻会不会太耗电」），背后就是这一章的两个工具：<b class="font-semibold text-ink">等效变换</b>和<b class="font-semibold text-ink">输入电阻</b>。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">回到开头那个 190mV 的谜团</div>
+            <p>分压器不是一个「理想的电压源」。从分压节点看进去，它等效于<b>一个电压源 U_oc 串联一个电阻 R_th</b>，而这个 R_th 就是两个分压电阻并联的值（例 1 里是 6.43kΩ）。ADC 在采样瞬间要从此节点抽取电荷，等价于在节点上接了一个有限的电阻 R_in：</p>
+            <p class="mt-2"><code class="icode">U_实测 = U_oc × R_in / (R_in + R_th)</code></p>
+            <p class="mt-2">R_th 越接近 R_in，掉得越多。这就是「分压电阻不能太大」的<b>定量解释</b>——不是经验口诀，而是一个可以算出来的比例式。例 1 会把三种 R_in 下的偏差都算给你看。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">不懂这一章，你会在三个地方反复卡住：</b></p>
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li><b>算不出读数为什么偏低。</b>分压公式你会背，但你不知道「分压公式只在空载时成立」，也不知道负载效应怎么算，于是只能在「ADC 不准」和「电阻精度差」之间瞎猜。</li>
+            <li><b>化简不了电路。</b>拿到一张有三个电阻共用一个节点的图（星形），或者一个带跨接电阻的电桥，串并联怎么都套不上，只能凭感觉猜个值。</li>
+            <li><b>误用「等效」。</b>把两个串联电阻当成一个 28kΩ 电阻，结果发现「分压点不见了」；或者做电源等效互换时把电流源方向画反，后面整个计算符号全错。</li>
+          </ol>
+
+          <p class="mt-3">这一篇的结构是：<b class="font-semibold text-ink">第 2 节</b>把定义、公式和判断方法一次讲全（8 个小节，逐个配电路图）；<b class="font-semibold text-ink">第 3 节</b>用四道带真实数值的例题把公式用一遍；<b class="font-semibold text-ink">第 4 节</b>把这些知识全部落到 STM32 的分压采样、上拉电阻、ADC 源阻抗和电位器上；<b class="font-semibold text-ink">第 5、6 节</b>是十个最常见的坑和自测题。</p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+          <p class="mt-4">这一节按「先讲清楚什么叫等效 → 再讲三种化简手段（串并联、积比和、Y-Δ）→ 再讲电源模型互换 → 最后讲怎么从端口看进去（输入电阻、电桥）」的顺序走。<b class="font-semibold text-ink">每个公式都会说明它的物理意义、单位和适用前提</b>——适用前提比公式本身更容易被忽略，也更容易出错。</p>
+
+          <h3 id="sub-equivalent" class="mt-7 text-base font-semibold">等效变换：对外等效，对内不等效</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">定义：</b>两个二端网络，如果它们的<b>端口伏安关系</b>（端口的电压 u 和电流 i 之间的函数关系）完全相同，就称它们互为等效。所谓「等效变换」，就是把电路中的某一部分换成另一个与它端口伏安关系相同的部分，从而把电路化简。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="等效的含义：端口伏安关系相同">
+            <pre><code>【两个二端网络互为等效】
+
+      ┌──────────────┐                  ┌──────────────┐
+      │   网络 N1    │                  │   网络 N2    │
+   ───┤  （原来的）  ├───            ───┤  （等效的）  ├───
+      │              │                  │              │
+      └──────────────┘                  └──────────────┘
+        端口关系 u = f(i)                 端口关系 u = f(i)
+
+     只要这两条关系式【一模一样】，无论端口上接什么，
+     两个网络的端口电压、端口电流都完全相同。
+
+  ┌─────────────────────────────────────────────────────────────┐
+  │ 对外等效：接上【任何】外电路（电阻、电源、另一个网络），      │
+  │           从端口量到的电压、电流一定一样。                   │
+  │           所以求「外部」的量时，可以放心地换。                │
+  │                                                             │
+  │ 对内不等效：两个网络【内部】各处的电压、电流、功率消耗        │
+  │             可以完全不同。                                  │
+  │             所以求「内部某个元件」的量时，绝不能先等效。      │
+  └─────────────────────────────────────────────────────────────┘</code></pre>
+          </div>
+
+          <p class="mt-3">这句话最好用一个你已经很熟的例子来体会。<b class="font-semibold text-ink">R1 = 10kΩ 与 R2 = 18kΩ 串联，对外等效于一只 28kΩ 的电阻</b>：从端口看，加上同样的电压，流过的电流一样，都是 U/28kΩ；从外面无论怎么量，都分不出里面是一只还是两只。</p>
+          <p class="mt-3">但反过来，<b class="font-semibold text-ink">你绝不能用一只 28kΩ 电阻去代替这个分压器</b>——因为分压器的中间节点本身就是你要的信号！等效变换把那个节点「抹掉」了，而这正是「对外等效、对内不等效」最实用的一条推论：</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">等效的「方向性」：化简是为了看外面，不是为了看里面</div>
+            <p><b>① 能做的：</b>把一整块电路压成一个「等效电阻」或「等效电源 + 等效电阻」，用来算端口上的电压、电流，或者算它对外电路的影响。</p>
+            <p class="mt-2"><b>② 不能做的：</b>用等效后的电路去算原来内部某个电阻上的电流、电压、功率——那些值在等效前后完全不同。典型反例就是电源的等效互换：一个 12V 电压源串联 2Ω，和一个 6A 电流源并联 2Ω，对外完全等效（例 4 会用两种模型算出同一个负载电流），但开路时前者内部消耗 0W、后者内部消耗 72W。</p>
+            <p class="mt-2"><b>③ 一个记忆法：</b>对外等效 = 换了个外壳，对外表现一样；对内不等效 = 里面的人已经换了一批。</p>
+          </div>
+
+          <h3 id="sub-series" class="mt-7 text-base font-semibold">电阻串联：等效电阻与分压公式</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">串联的定义：</b>几个元件首尾相接连成一条没有分支的路径，因此<b>流过它们的电流完全相同</b>。串联电路只有一个电流值，但每一段有自己的电压。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电阻串联：电流相同，电压按阻值分配">
+            <pre><code>【串联电路：节点 A → 节点 M → 节点 B】
+
+         I ──────────►   （同一条路径上，电流处处相同）
+
+    A ──┬──[ R1 = 10kΩ ]──┬──[ R2 = 18kΩ ]──┬── B
+        │                  │                 │
+      U1 = I × R1        U2 = I × R2         │
+        │                  │                 │
+        └──────────── U = 5V ────────────────┘
+
+   中间节点 M 的电压（以 B 为参考点）就是 U2 —— 这正是「分压点」
+
+   【等效电阻】
+        R_eq = R1 + R2 = 10kΩ + 18kΩ = 28kΩ
+        从 A、B 两端看进去，整条支路就是一只 28kΩ 电阻
+
+   【分压公式】
+        U1 = U × R1/(R1+R2) = 5 × 10/28 = 1.786V
+        U2 = U × R2/(R1+R2) = 5 × 18/28 = 3.214V
+        校验：1.786 + 3.214 = 5.000V   ✔ 分压系数之和必须等于 1</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">分压公式是怎么来的？</b>只有三行，但值得你自己推一遍，因为它包含了这一章最重要的一个思维习惯：</p>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>先求总电流：整条支路只有 R_eq，所以 <code class="icode">I = U / R_eq</code>。</li>
+            <li>再用欧姆定律写某一只电阻上的电压：<code class="icode">U_k = I × R_k</code>。</li>
+            <li>把第 1 步代入第 2 步：<code class="icode">U_k = U × R_k / R_eq</code>。这就是分压公式。</li>
+          </ol>
+
+          <p class="mt-3">一般形式：<b class="font-semibold text-ink">U<sub>k</sub> = U × R<sub>k</sub> / (R<sub>1</sub> + R<sub>2</sub> + … + R<sub>n</sub>)</b>。变量的意义：U 是这条串联支路两端的总电压（单位 V），R<sub>k</sub> 是你关心的那只电阻（单位 Ω），分母是全部串联电阻之和（单位 Ω）。因为分子分母单位相同，前面的系数是个纯数字（无量纲），所以分压比永远在 0 和 1 之间。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">物理意义一句话：串联分压，电阻大的分到的电压多</b>，而且严格按阻值比例分。18kΩ 是 10kΩ 的 1.8 倍，它分到的电压也就是对方 1.8 倍。</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">分压公式的适用前提：这条支路里不能再有别的分支</div>
+            <p>推导过程里第 1 步用了「整条支路只有 R_eq」——也就是<b>分压点后面不能接任何会吸电流的东西</b>（这叫空载）。一旦你在中间节点 M 上接了 ADC、接了运放、接了下一级电路，就会有额外的电流从 M 流出去，M 点的电压立刻偏离公式。这正是「带载偏差」的来源，例 1 会完整算一遍。</p>
+            <p class="mt-2"><b>正确的做法：</b>只要分压点接了东西，就先把分压器等效成「U_oc 串联 R_th」，再用 <code class="icode">U = U_oc × R_负载/(R_负载 + R_th)</code> 算实际电压。这套方法的正式名字叫戴维宁等效，是下一篇的主角。</p>
+          </div>
+
+          <h3 id="sub-parallel" class="mt-7 text-base font-semibold">电阻并联：等效电阻与分流公式</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">并联的定义：</b>几个元件接在同样两个节点之间，因此<b>它们两端的电压完全相同</b>。并联电路只有一个电压值，但每一条支路有自己的电流。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电阻并联：电压相同，电流按电导分配">
+            <pre><code>【并联电路：节点 A 与节点 B 之间挂了两条支路】
+
+                    ┌──[ R1 = 4Ω ]──┐
+                    │               │
+         A ─────────┤               ├───────── B
+                    │               │
+                    └──[ R2 = 6Ω ]──┘
+                     I1 ↓        ↓ I2
+
+        两条支路的两端都是 A、B，所以 U1 = U2 = U
+
+   【等效电阻】用【电导】最好推：G = 1/R，单位西门子 S
+        G_eq = G1 + G2  →  1/R_eq = 1/R1 + 1/R2
+        R_eq = R1R2/(R1+R2) = 4×6/(4+6) = 24/10 = 2.4Ω
+
+   【分流公式】
+        I1 = I × R2/(R1+R2) = I × 6/10 = 0.6 I
+        I2 = I × R1/(R1+R2) = I × 4/10 = 0.4 I
+        校验：0.6 + 0.4 = 1   ✔ 分流系数之和必须等于 1
+
+   注意系数是【反】的：4Ω 那条路电流大（0.6I），6Ω 那条路电流小（0.4I）。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么并联用「电导相加」？</b>因为并联的本质是「给电流多开几条路」。电导 G 衡量的是「这条路的导电能力」，单位西门子（S）。两条路一起导电，导电能力当然相加：<code class="icode">G_eq = G1 + G2</code>。把 G = 1/R 代回去，就得到 <code class="icode">1/R_eq = 1/R1 + 1/R2</code>。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">分流公式的一般形式：</b><code class="icode">I_k = I × G_k / G_eq</code>，也就是「电流按照电导比例分配」。写成电阻形式（两条支路时）：<code class="icode">I_1 = I × R_2/(R_1+R_2)</code>——<b>注意分子上是「对方」的电阻</b>，这个「交叉」是新手最容易写反的地方。物理意义：<b>电阻小的支路电流大</b>，因为电流总是挑「好走的路」。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>比较项</th><th>串联</th><th>并联</th></tr></thead>
+              <tbody>
+                <tr><td>不变的量</td><td><b>电流</b>处处相同</td><td><b>电压</b>处处相同</td></tr>
+                <tr><td>相加的量</td><td>电压相加（KVL）</td><td>电流相加（KCL）</td></tr>
+                <tr><td>等效电阻</td><td class="font-mono text-xs">R_eq = ΣR<sub>k</sub></td><td class="font-mono text-xs">1/R_eq = Σ1/R<sub>k</sub></td></tr>
+                <tr><td>等效电阻与各电阻的关系</td><td>一定<b>大于</b>最大的那只</td><td>一定<b>小于</b>最小的那只</td></tr>
+                <tr><td>分配公式</td><td>分压：与阻值成<b>正</b>比</td><td>分流：与阻值成<b>反</b>比</td></tr>
+                <tr><td>校验手段</td><td>分压系数之和 = 1</td><td>分流系数之和 = 1</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一个 3 秒自检：等效电阻一定落在「两边夹住」的区间里</div>
+            <p><b>串联</b>的结果一定大于其中最大的电阻（10k 串 18k = 28k，比 18k 大）；<b>并联</b>的结果一定小于其中最小的电阻（10k 并 18k = 6.43k，比 10k 小）。<b>算出并联结果是 12k，那就一定错了</b>——这个自检不花时间，但能拦下绝大多数「按错计算器」和「公式记反」的错误。</p>
+          </div>
+
+          <h3 id="sub-two-r" class="mt-7 text-base font-semibold">两个电阻并联的「积比和」速算</h3>
+          <p class="mt-3">两个电阻并联是出现频率最高的场景（上拉、分压、采样网络），所以必须练到不用计算器：</p>
+
+          <p class="mt-3"><code class="icode">R_eq = R1 × R2 / (R1 + R2)</code> —— <b class="font-semibold text-ink">「积比和」：分子是乘积，分母是相加。</b></p>
+
+          <p class="mt-3">推导只要一行：把 <code class="icode">1/R_eq = 1/R1 + 1/R2</code> 右边通分，得到 <code class="icode">(R1+R2)/(R1R2)</code>，再取倒数即可。另外要记住它的两种等价写法：<code class="icode">R_eq = R1 ∥ R2</code>（工程记法，两条竖线读作「并」），以及 <code class="icode">1/(1/R1 + 1/R2)</code>（计算器上直接按的形式）。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>R1</th><th>R2</th><th>R_eq（积比和）</th><th>结果比最小的那只小多少</th><th>什么时候遇到</th></tr></thead>
+              <tbody>
+                <tr><td>10kΩ</td><td>10kΩ</td><td><b>5kΩ</b></td><td>小一半（两只相同就是除以 2）</td><td>两只相同的分压电阻</td></tr>
+                <tr><td>4.7kΩ</td><td>4.7kΩ</td><td><b>2.35kΩ</b></td><td>小一半</td><td>两个模块的 I2C 上拉电阻并联</td></tr>
+                <tr><td>10kΩ</td><td>4.7kΩ</td><td><b>3.20kΩ</b></td><td>小了 1.5kΩ（约 32%）</td><td>外部上拉 10k 遇到总线上的 4.7k</td></tr>
+                <tr><td>10kΩ</td><td>18kΩ</td><td><b>6.43kΩ</b></td><td>小了 3.57kΩ（约 36%）</td><td>本文例 1 的分压网络内阻</td></tr>
+                <tr><td>10kΩ</td><td>1MΩ</td><td><b>9.90kΩ</b></td><td>只小了 0.1kΩ（1%）</td><td>分压网络遇到万用表 / 高阻 ADC（负载效应）</td></tr>
+                <tr><td>2.2kΩ</td><td>3.3kΩ</td><td><b>1.32kΩ</b></td><td>小了 0.88kΩ（40%）</td><td>高速 I2C（400kHz）的双上拉</td></tr>
+                <tr><td>30kΩ</td><td>30kΩ</td><td><b>15kΩ</b></td><td>小一半</td><td>串联后再并联的中间结果</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">两条比公式更常用的口算规律：</b></p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>n 个相同电阻并联 = R/n。</b>两只 10k 是 5k，三只 30k 是 10k，四只 4.7k 是 1.175k。看到「相同阻值并联」就不要去套积比和了，直接除。</li>
+            <li><b>一大一小并联，结果约等于小的那只。</b>10k ∥ 1MΩ = 9.90kΩ，和 10k 只差 1%；10k ∥ 100k = 9.09kΩ，差 9%。<b>这条规律是整个「负载效应」章节的直觉来源</b>：只要负载电阻比源内阻大很多（10 倍以上），并联造成的影响就在 10% 以内。</li>
+          </ul>
+
+          <p class="mt-3"><b class="font-semibold text-ink">反向用法（设计中更常用）：</b>已知目标等效值 R_eq 和手里已有的一只电阻 R1，求要并上的 R2。把积比和反解一下：</p>
+          <p class="mt-3"><code class="icode">R2 = R_eq × R1 / (R1 − R_eq)</code></p>
+          <p class="mt-3">例：手上只有 10kΩ，想得到 5kΩ，要并一只 <code class="icode">5k × 10k/(10k − 5k) = 10kΩ</code>——正好还是 10k，符合「两只相同并联减半」。再例：想用 10kΩ 并出一只 3.3kΩ，要并 <code class="icode">3.3×10/(10−3.3) = 33/6.7 = 4.93kΩ</code>，取标准值 4.7kΩ 即可（得到 3.20kΩ，和 3.3k 差 3%）。</p>
+
+          <h3 id="sub-yd" class="mt-7 text-base font-semibold">电阻的 Y-Δ 变换：公式与什么时候要用</h3>
+          <p class="mt-3">前面两种化简手段（串并联）有一个共同的隐含前提：元件之间要么是「首尾相接」（串联），要么是「两端接在同样的两个节点上」（并联）。<b class="font-semibold text-ink">但有些电路两者都不是</b>——最典型的就是电桥里的跨接电阻，和三个电阻共用一个节点的星形网络。这时候就轮到 Y-Δ 变换出场。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两种三端电阻网络：Δ（三角形）与 Y（星形）">
+            <pre><code>【Δ 接法：也叫三角形接法、Π 形接法】       【Y 接法：也叫星形接法、T 形接法】
+
+              a                                        a
+            ╱   ╲                                      │
+       R_ab       R_ca                                [R_a]
+         ╱           ╲                                   │
+        b ───R_bc───── c                                 O ─── Y 的【中心节点】
+                                                       ╱   ╲
+   三只电阻首尾相接成一个环，                    [R_b]     [R_c]
+   三个端子 a、b、c 对外引出。                     ╱         ╲
+                                                  b           c
+
+                                            三只电阻的一端共接在 O，
+                                            另一端分别引到 a、b、c。
+
+   ┌───────────────────────────────────────────────────────────────────┐
+   │ Δ → Y（把三角变成星）——「积 除 和」                               │
+   │     R_a = R_ab × R_ca / (R_ab + R_bc + R_ca)                      │
+   │     R_b = R_ab × R_bc / (R_ab + R_bc + R_ca)                      │
+   │     R_c = R_bc × R_ca / (R_ab + R_bc + R_ca)                      │
+   │   看规律：要算【端子 a】上那只，分子就取「夹在 a 两边」的两只     │
+   │           （R_ab 与 R_ca）相乘，分母永远是三只之和。              │
+   ├───────────────────────────────────────────────────────────────────┤
+   │ Y → Δ（把星变成三角）——「两两积之和，除以对边」                   │
+   │     记 S = R_a×R_b + R_b×R_c + R_c×R_a                            │
+   │     R_ab = S / R_c      ← 边 ab 的「对边」是端子 c 上的那只 R_c    │
+   │     R_bc = S / R_a                                                │
+   │     R_ca = S / R_b                                                │
+   └───────────────────────────────────────────────────────────────────┘
+
+   【记不住公式时的两个自救办法】
+     ① 三只一样大时：Δ = 3 × Y。即 R_Δ = 3 R_Y，R_Y = R_Δ / 3。
+        把 R_a = R_b = R_c = R 代进 Y→Δ：S = 3R²，除以 R 得 3R  ✔
+        把 R_ab = R_bc = R_ca = R 代进 Δ→Y：分子 R²，分母 3R，得 R/3 ✔
+     ② 变换前后，「三个端子两两之间」的等效关系必须一致。
+        用这个去验算你算出来的结果，比背公式可靠。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">什么时候该用它？</b>判断标准只有一条：<b>盯着电路看，找不到任何两个电阻是串联或并联的时候。</b>具体来说有三种典型信号：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>你看到的电路长什么样</th><th>用哪个方向</th><th>为什么这样做有用</th><th>典型场合</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>有<b>三个节点两两之间都有电阻</b>（一个「环」），而这个环夹在两条支路中间</td>
+                  <td><b>Δ → Y</b></td>
+                  <td>变成星形之后，那个「环」就消失了，剩下三条从中心散开的支路，每条都能和外部的电阻<b>串联</b>，然后两条串联支路在中心点<b>并联</b></td>
+                  <td>电桥里有跨接电阻、三端网络</td>
+                </tr>
+                <tr>
+                  <td>有<b>三个电阻共用一个节点</b>，且这三个节点各自接在互相交错的支路上</td>
+                  <td><b>Y → Δ</b></td>
+                  <td>变成三角形后新出现的三条边，往往正好与电路里原有的电阻<b>并联</b>，并完就变成串并联结构</td>
+                  <td>传感器内部补偿网络、三相负载</td>
+                </tr>
+                <tr>
+                  <td>一眼就能看出谁和谁串联、谁和谁并联</td>
+                  <td><b>都不用</b></td>
+                  <td>串并联直接化简更快、更不容易错。多做一次 Y-Δ 只是增加出错机会</td>
+                  <td>绝大多数分压、上拉电路</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">Y-Δ 变换的三个前提，漏一个就白算</div>
+            <p><b>① 只对三端网络成立。</b>必须是恰好三个端子的网络，而且外部电路接在这三个端子上。四端、二端都不适用。</p>
+            <p class="mt-2"><b>② 它也是「对外等效」。</b>变换后三个端子之间的伏安关系不变，但<b>内部电流分布完全变了</b>——星形中心节点 O 在三角形里根本不存在。所以变换后不能再去问「原来那只 R_b 上流过多少电流」，那个问题已经没有意义了。</p>
+            <p class="mt-2"><b>③ 无源电阻网络才能直接用。</b>如果三端网络里含有受控源或独立源，公式需要修正，不能照套（含源网络请改用节点电压法或戴维宁定理）。</p>
+          </div>
+
+          <h3 id="sub-source" class="mt-7 text-base font-semibold">实际电源的两种模型与等效互换</h3>
+          <p class="mt-3">上一篇讲定律时说过：理想电压源的端电压永远不变，哪怕你短路它（电流无穷大）；理想电流源的输出电流永远不变，哪怕你开路它（电压无穷大）。<b class="font-semibold text-ink">这两种理想元件在现实里都不存在</b>——真实电源既有内阻，又会掉压。所以工程上必须用「实际电源模型」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="实际电源的两种模型：同一个端口的两种画法">
+            <pre><code>【模型一】实际电压源 = 理想电压源 U_S 串联 内阻 R_S
+
+        ┌──────[ R_S ]──────┬────────► 端口
+        │                   │
+       (U_S)                U   ← 端电压（带载后会下降）
+        │                   │
+        └───────────────────┴────────► 端口
+
+     端口伏安关系：  U = U_S − I × R_S
+     物理意义：负载要的电流 I 越大，内阻上分掉的电压越多，端电压越低。
+               这就是「带载掉压」——电池快没电时一开电机就重启的原因。
+
+【模型二】实际电流源 = 理想电流源 I_S 并联 内阻 R_S
+
+        ┌───────────────────┬────────► 端口
+        │                   │
+       (I_S) ↑              U
+        │                   │
+        ├──────[ R_S ]──────┤
+        │                   │
+        └───────────────────┴────────► 端口
+
+     端口伏安关系：  I = I_S − U / R_S
+     物理意义：端电压越低，内阻分走的电流越少，流向外部的电流越多。
+
+【关键结论】这两条端口伏安关系其实是【同一条直线】。
+            只要内阻相同、并且满足下式，两个模型对外完全等效：
+
+              I_S = U_S / R_S        U_S = I_S × R_S
+              （R_S 从「串联」改接成「并联」，数值不变）</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">方向判断——这是本节唯一真正容易错的地方。</b>数值换算谁都会，但方向画反了，整个后续计算全盘皆错，而且检查的时候很难看出来。规则只有一条：</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">方向规则：电流源箭头「流出」的那个端子，就是电压源「正极」所在的那个端子</div>
+            <div class="code-block mt-3" data-lang="text" data-title="正确与错误的方向对照">
+              <pre><code>【正确：12V 电压源串联 2Ω  →  6A 电流源并联 2Ω】
+
+      上端子                                        上端子
+        ▲                                             ▲
+        │  ← 正极在这一侧                            │  ↑ 6A 从这里【流出】
+     ┌──┴───[ 2Ω ]──┐                            ┌──┴──────────┐
+     │              │                            │             │
+    (12V)           │                           (6A)↑      [ 2Ω ]
+     │              │                            │             │
+     └──┬───────────┘                            └──┬──────────┘
+        │                                           │
+      下端子                                      下端子
+
+   核对方法：把两个模型都【短路】，电流都应该从【上端子】流出、数值都是 6A。
+             方向对了，短路电流方向自然一致。
+
+【错误：电流源箭头画反】
+
+    上端子                                      上端子
+        │  ↑ 6A 从这里【流入】 ← 反了！           │
+     ┌──┴──────────┐                              │
+     │             │                        （等价于 −12V 的电压源）
+    (6A)↓      [ 2Ω ]                        后面所有方程符号全错
+     │             │
+     └──┬──────────┘
+        │
+      下端子
+
+   这类错误最难查，因为「6A 并联 2Ω」这几个数字看起来完全正确，
+   只有在最后算出的电压符号和常识相反时才会暴露。</code></pre>
+            </div>
+            <p class="mt-2"><b>一句话记法：</b>电压源的「+」在哪一头，电流源的箭头就从哪一头指出去。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">什么时候能换、什么时候不能换：</b></p>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>情形</th><th>能不能互换</th><th>原因 / 说明</th></tr></thead>
+              <tbody>
+                <tr><td>实际电压源（0 &lt; R_S &lt; ∞）</td><td><b>能</b></td><td>直接套 <code class="icode">I_S = U_S/R_S</code>，内阻由串联改成并联</td></tr>
+                <tr><td>实际电流源（0 &lt; R_S &lt; ∞）</td><td><b>能</b></td><td>直接套 <code class="icode">U_S = I_S×R_S</code>，方向按上面的规则定</td></tr>
+                <tr><td>理想电压源（R_S = 0）</td><td><b>不能</b></td><td>换成电流源需要 I_S = U_S/0 → 无穷大，数学上不成立。理想电压源只能串联、不能并联</td></tr>
+                <tr><td>理想电流源（R_S = ∞）</td><td><b>不能</b></td><td>换成电压源需要 U_S = I_S×∞ → 无穷大。理想电流源只能并联、不能串联</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">配套的四条化简规则</b>（配合互换一起用，能把很乱的电路快速收拾干净）：</p>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>组合方式</th><th>能不能化简</th><th>结果</th><th>注意事项</th></tr></thead>
+              <tbody>
+                <tr><td>电压源<b>串联</b></td><td>能</td><td>U = U1 + U2（代数和）</td><td>方向相反的要取负号</td></tr>
+                <tr><td>电流源<b>并联</b></td><td>能</td><td>I = I1 + I2（代数和）</td><td>方向相反的要取负号</td></tr>
+                <tr><td>电压源<b>并联</b></td><td>只有电压相同、极性一致时才能并</td><td>等效为一只同值电压源</td><td>不同值的理想电压源并联违反 KVL，是不存在的电路</td></tr>
+                <tr><td>电流源<b>串联</b></td><td>只有电流相同、方向一致时才能串</td><td>等效为一只同值电流源</td><td>不同值的理想电流源串联违反 KCL</td></tr>
+                <tr><td>与理想电压源<b>并联</b>的电阻/电流源</td><td>能直接去掉</td><td>不影响端口电压</td><td><b>只在求外部量时成立</b>；想知道那只电阻自己的电流就不能去掉（对内不等效）</td></tr>
+                <tr><td>与理想电流源<b>串联</b>的电阻/电压源</td><td>能直接去掉</td><td>不影响端口电流</td><td>同上</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-input-r" class="mt-7 text-base font-semibold">输入电阻与负载效应</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">定义：</b>一个无源二端网络，从端口看进去的等效电阻叫<b>输入电阻</b>：</p>
+          <p class="mt-3"><code class="icode">R_in = u / i</code>　　其中 u 是端口电压（V），i 是流进端口的电流（A），R_in 的单位是 Ω。</p>
+          <p class="mt-3">「无源」这两个字很关键：如果网络内部还有独立电源，要先把它们<b>置零</b>——<b class="font-semibold text-ink">理想电压源短路（看成 0Ω 导线），理想电流源开路（看成断开的支路）</b>。注意是「置零」而不是「删掉」：电压源短路后那两条线还是连着的，这一点和新手直觉不同，但在求输入电阻时完全正确，因为理想电压源的端电压恒定，对交流/增量信号来说它就相当于一条短路线。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">三种求法（按使用频率排序）：</b></p>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li><b>串并联化简</b>——从端口往里一层层并、一层层串，直到只剩一只电阻。绝大多数电阻网络用这一招就够。</li>
+            <li><b>Y-Δ 变换</b>——化简卡住时（出现桥式或星形结构）用它打开局面，见例 2 和例 3。</li>
+            <li><b>外加电源法</b>——在端口上外加一个已知的电压 u，算出流进端口的电流 i，两者相除。或者外加已知电流 i，量端口电压 u。适合含受控源、怎么都化不了的电路。</li>
+          </ol>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么它这么重要？因为它决定了「测量会不会改变被测量的东西」。</b>任何测量都是把仪器的输入电阻并到被测节点上：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="负载效应：测量仪器和被测电路之间的分压">
+            <pre><code>【被测电路等效成一个「电压源 + 内阻」，测量仪器等效成一个电阻】
+
+        被测网络                             测量仪器
+      ┌────────────┐                      ┌────────────┐
+   ───┤ U_oc   R_th├──────┬───────────────┤   R_in     ├───
+      │            │      │               │            │
+      └────────────┘      │               └────────────┘
+                          │
+                       实际量到的电压 U
+
+        U = U_oc × R_in / (R_in + R_th)
+
+   【三种典型情况】
+     · R_in = 10 × R_th  →  U = U_oc × 10/11  = 0.909 U_oc   偏差 −9.1%
+     · R_in = 100 × R_th →  U = U_oc × 100/101 = 0.990 U_oc  偏差 −1.0%
+     · R_in = 1000 × R_th → U = U_oc × 0.999   = 0.999 U_oc  偏差 −0.1%
+
+   【工程直觉】想让测量误差小于 1%，测量端的内阻至少要是被测源内阻的
+              【100 倍】；想小于 0.1%，要 1000 倍。
+
+   【这就是三条常识的统一解释】
+     · 万用表电压档的内阻要做到 10MΩ 量级 —— 为了比大多数电路的内阻高得多
+     · ADC 前要多加一级运放跟随器 —— 跟随器输入阻抗 MΩ 级，几乎不吸电流
+     · 示波器探头要选 ×10 档（输入阻抗从 1MΩ 变 10MΩ）—— 少影响被测电路</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">把输入电阻的概念套回分压电路</b>，你会发现同一个电路有两个方向的输入电阻，它们都是你要用的量：</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>从被测信号那一端看进去</b>：R_in = R1 + R2（两只串联，直接相加）。它决定了分压器从传感器那里吸走多少电流——<b>它越大越省电，对传感器越友好</b>。</li>
+            <li><b>从分压输出节点（也就是接 ADC 的那个点）看进去</b>：R_in = R1 ∥ R2。这个值就是分压器的<b>输出电阻</b>，也叫戴维宁等效内阻 R_th，它决定了分压器「带得动多少负载」——<b>它越小，带载时掉压越少</b>。</li>
+          </ul>
+          <p class="mt-3">这两个要求是互相矛盾的：想让总阻值大（省电），输出电阻就会跟着变大（带载能力差）。<b>分压电阻的取值，本质就是在这两个方向之间找平衡</b>——这正是例 1 要讨论的核心问题。</p>
+
+          <h3 id="sub-bridge" class="mt-7 text-base font-semibold">电桥电路与平衡条件</h3>
+          <p class="mt-3">电桥是四个电阻组成的「日」字形结构：两条并联支路，中间跨接一条支路。它是所有<b>电阻式传感器</b>（应变片、热电阻、压力、称重）的标准接口电路。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电桥结构：两条支路 + 一条跨接支路">
+            <pre><code>                        A（上端，比如接 3.3V）
+                   ┌────┴────┐
+                  R1         R2
+                   │          │
+              C ───┤          ├─── D
+                   │          │
+                  R3         R4
+                   └────┬────┘
+                        B（下端，接 GND）
+
+   · A→C→B 是左边一条支路（R1 与 R3 串联）
+   · A→D→B 是右边一条支路（R2 与 R4 串联）
+   · C、D 之间可以跨接一个支路（历史上是检流计，现在常是负载 / 放大器 / ADC）
+
+   【两个节点的开路电压】
+        V_C = U_AB × R3 / (R1 + R3)
+        V_D = U_AB × R4 / (R2 + R4)
+        跨接支路两端的开路电压  U_CD = V_C − V_D
+        = U_AB × [ R3/(R1+R3) − R4/(R2+R4) ]
+
+   【平衡条件】令 U_CD = 0，解得：
+
+        R1 × R4 = R2 × R3        （「对臂乘积相等」）
+        等价写法：R1 / R2 = R3 / R4
+
+   【怎么记才不记反？】代入四只相等的电阻试一下：
+        R1 = R2 = R3 = R4 = R  →  左边 R²，右边 R²  ✔ 成立
+        如果你记成 R1×R2 = R3×R4，代入也得 R² = R²，验不出来；
+        所以再代一组：R1=10、R2=20、R3=10、R4=20（真实平衡）
+            R1×R4 = 200 ✔ 而 R1×R2 = 200、R3×R4 = 200 —— 同样看不出区别。
+        最可靠的记法：记住「V_C 与 V_D 相等」这个【物理条件】，
+        现场两行就能把式子推出来，比背公式稳。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">电桥平衡时会发生三件很漂亮的事：</b></p>
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li><b>C、D 两点等电位</b>，所以跨接支路里电流为 0。</li>
+            <li><b>跨接支路换成任何元件都不影响其余部分</b>——换成电阻、电容、短路、干脆拆掉，左边和右边两条支路的电流电压都一模一样。这是「对外等效」最直观的一次演示：对 C、D 这一对节点来说，「导线」和「任意电阻」的端口伏安关系都是同一条（u 恒等于 0 的那条直线），所以它们互为等效。</li>
+            <li><b>求等效电阻时可以直接把跨接支路删掉</b>，电路立刻变成「两组串联再并联」：<code class="icode">R_AB = (R1+R3) ∥ (R2+R4)</code>。这是平衡电桥最大的实用价值——省掉一整轮 Y-Δ 变换。</li>
+          </ol>
+
+          <p class="mt-3"><b class="font-semibold text-ink">不平衡时怎么办？</b>按下一篇的戴维宁定理处理：把 C、D 当成端口，求出开路电压 U_CD 和从 C、D 看进去的内阻 R_th，再接上负载即可。如果只是求等效电阻，就用例 3 的 Y-Δ 变换。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">电桥在单片机里的真实用法：为什么传感器信号必须放大</div>
+            <p>以最经典的<b>四分之一桥</b>为例：四只电阻都是 R，只有一只应变片随受力变化 ΔR。把它代进上面的 U_CD 公式（令 R1 = R + ΔR，其余三只都是 R）：</p>
+            <p class="mt-2"><code class="icode">U_CD = −U × ΔR / (4R + 2ΔR) ≈ −U × ΔR / (4R)</code>（ΔR 远小于 R 时）</p>
+            <p class="mt-2">代入真实数字：桥压 U = 3.3V，应变片 R = 350Ω（称重传感器最常见），受载后 ΔR = 0.35Ω（也就是 0.1% 的变化量）：</p>
+            <p class="mt-2"><code class="icode">|U_CD| ≈ 3.3 × 0.35 / (4 × 350) = 3.3 × 0.00025 = 0.825mV</code></p>
+            <p class="mt-2">而 STM32F103 的 12 位 ADC 在 3.3V 参考下，1 个 LSB 是 <code class="icode">3.3/4095 ≈ 0.806mV</code>。<b>也就是说整个测量信号只有大约 1 个 LSB</b>——不放大根本测不出来。这就是 HX711 这类称重专用芯片内部要带 128 倍可编程增益的原因：放大 128 倍后变成约 105.6mV，折合约 131 个 LSB，才勉强够用（想要更稳还得靠软件平均）。</p>
+          </div>
+
+          <p class="mt-3">到这里，这一章需要的所有工具就齐了：<b class="font-semibold text-ink">等效的定义（对外等效、对内不等效）→ 三种化简手段（串并联、积比和、Y-Δ）→ 电源的两种模型与互换 → 从端口看进去的输入电阻 → 电桥这种特殊情况</b>。下面用四道数值例题把它们全部用一遍。</p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+          <p class="mt-4">四道题，全部用真实器件值：前两道是设计题（分压网络、带载偏差），后两道是化简题（Y→Δ、Δ→Y），外加一道电源互换的验算。<b class="font-semibold text-ink">建议你拿纸跟着算一遍</b>——这些数字后面还会在第 4 节和第 6 节反复用到。</p>
+
+          <h3 id="sub-ex1" class="mt-7 text-base font-semibold">例 1：把 0~5V 降到 3.3V 以内——分压网络的设计</h3>
+          <p class="mt-3"><b>题目：</b>一个 0~5V 输出的压力传感器，模拟输出要接到 STM32F103 的 PA0（ADC1_IN0，非 FT 引脚，绝对不能超过 3.3V）。请设计分压网络，要求：① 传感器满量程 5V 时，PA0 上的电压不超过 3.3V，并且留出余量；② 尽量用满 ADC 的量程；③ 分压电阻的功耗要小，可以用 1/8W（125mW）的普通电阻。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 1 第 1 步：定分压比">
+            <pre><code>【第一步：理想分压比】
+
+   按「满量程正好映射到 3.3V」来算：
+        k = 3.3V / 5.0V = 0.66
+
+   也就是要   R2/(R1+R2) = 0.66
+   取 R1 = 10kΩ（E24 标准值） →  R2 = 10k × 0.66/0.34 = 19.41kΩ
+   E24 里最接近的是 20kΩ，代回去验算：
+
+        U = 5V × 20/(10+20) = 5 × 0.6667 = 3.333V   ✗ 超过 3.3V 了！
+
+   3.333V 比 3.3V 高出 33mV。别小看这 33mV：
+   传感器的输出可能略微超范围（比如 5.1V），电源也可能偏高（5.25V 是
+   USB 规范允许的上限）——按 5.25V 算，引脚上是 5.25 × 0.667 = 3.50V，虽然还没到 3.6V 的耐压线，但已经逼近 3.6V 耐压线，几乎没有余量。
+
+   ★ 结论：分压比不能按「顶到上限」设计，必须留余量。
+
+【第二步：留出余量，退一步设计】
+
+   目标：满量程时输出 3.2V 左右（余量约 100mV，约 3%）
+        k = 3.2/5.0 = 0.64
+
+   取 R1 = 10kΩ（E24）→ R2 = 10k × 0.64/0.36 = 17.78kΩ
+   E24 里选 18kΩ，代回验算：
+
+        U = 5V × 18/(10+18) = 5 × 0.642857 = 3.214V   ✔
+
+   3.214V 低于 3.3V 上限 86mV，又有 97.4% 的量程利用率。
+
+【第三步：核算电流和功耗】
+
+   分压支路总电流：  I = 5V / (10k + 18k) = 5V / 28kΩ = 178.6µA
+   R1 上的功耗：     P1 = I² × R1 = (178.6µA)² × 10kΩ = 0.319mW
+   R2 上的功耗：     P2 = I² × R2 = (178.6µA)² × 18kΩ = 0.574mW
+   支路总功耗：      P  = 5V × 178.6µA = 0.893mW
+
+   0.574mW 远小于 1/8W（125mW），余量 200 倍以上，随便用最普通的电阻。
+   178.6µA 的静态电流对市电供电可以忽略，但如果是电池供电的节点，
+   这个数字要记在本子上（一天耗 178.6µA × 24h = 4.29mAh）。
+
+【第四步：算出程序里要用的三个数】
+
+   分压比 k        = R2/(R1+R2)     = 18/28     = 0.642857
+   反推系数        = (R1+R2)/R2     = 28/18     = 1.555556
+   戴维宁内阻 R_th = R1 ∥ R2        = 10×18/28  = 6.4286kΩ
+
+   ADC 的 1 个 LSB（引脚上）= 3.3V / 4095 = 0.8059mV
+   折算到传感器端        = 0.8059mV × 1.5556 = 1.254mV
+
+   满量程读数 = 3.214V / 3.3V × 4095 = 0.97403 × 4095 ≈ 3989
+   （也就是用掉了 4095 个刻度里的 3989 个，只损失约 2.6% 的量程，
+     换算成分辨率损失  log2(4095/3989) ≈ 0.038 位 —— 完全可以忽略）</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">为什么不用「10k + 20k 再串一只小电阻」这种凑法</div>
+            <p>工程上选电阻的第一原则是<b>用标准值（E24 / E96 系列）</b>，因为非标阻值要定做、要加钱、要等货。E24 系列的常用值有 1.0、1.1、1.2、1.3、1.5、1.6、1.8、2.0、2.2、2.4、2.7、3.0、3.3、3.6、3.9、4.3、4.7、5.1、5.6、6.2、6.8、7.5、8.2、9.1 以及它们的 10 倍。<b>10kΩ 和 18kΩ 都在表里</b>，所以这个方案随时能买到。反过来，如果你算出「需要 17.78kΩ」，正确做法是就近取 18kΩ 然后<b>重新验算余量</b>，而不是串一只 7.78kΩ 去凑。</p>
+          </div>
+
+          <h3 id="sub-ex1-load" class="mt-7 text-base font-semibold">例 1 续：接上负载之后，偏差有多大</h3>
+          <p class="mt-3"><b>题目：</b>现在把上面的分压网络接到 ADC 上，并且用万用表去量同一个节点。分别计算：① 万用表（直流电压档输入阻抗 10MΩ 量级）会读到多少？② 如果 ADC 的等效输入电阻是 1MΩ、100kΩ、10kΩ 三种情况，读数分别是多少？③ 想让误差小于 0.1%，分压电阻该怎么改？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 1 续：用等效变换 + 输入电阻算带载偏差">
+            <pre><code>【第 0 步：先把分压器等效掉 —— 这一步是全部计算的关键】
+
+   把「5V 电源 + R1 + R2」对【分压节点】做等效变换：
+
+        原来的电路                        等效后（戴维宁模型）
+                                              ┌────────────┐
+   5V ──[10kΩ]──┬── 分压节点             ─────┤ U_oc  R_th ├──┬── 分压节点
+                │                              └────────────┘  │
+            [18kΩ]                              U_oc = 3.214V   │
+                │                               R_th = 6.43kΩ   │
+               GND
+
+   U_oc：空载时的节点电压 = 5V × 18/28 = 3.214V
+   R_th：把 5V 电源【短路】后，从节点看进去的电阻 = R1 ∥ R2 = 6.4286kΩ
+
+   ★ 这就是「输入电阻」的直接应用：把电源置零（电压源短路），
+     剩下两只电阻从节点看进去是并联关系。
+
+【通用公式】
+
+   U_实测 = U_oc × R_in / (R_in + R_th)
+
+【① 万用表（R_in = 10MΩ）】
+
+   U = 3.214 × 10,000,000 / (10,000,000 + 6,428.6)
+     = 3.214 × 0.9993574
+     = 3.2121V        偏差 −2.1mV，相对误差 −0.064%
+
+   ★ 万用表的 10MΩ 比 R_th（6.43kΩ）大了 1555 倍，
+     所以它【几乎不影响】这个节点 —— 你量到的 3.212V 就是真实值。
+     所有手持数字万用表的直流电压档都是 10MΩ 量级
+     （具体数值看你的表，说明书会标），这就是原因。
+
+【② ADC 的等效输入电阻 R_in 取三种值】
+
+   R_in = 1MΩ：
+        U = 3.214 × 1,000,000/1,006,428.6 = 3.214 × 0.9936125 = 3.1938V
+        偏差 = −20.5mV，相对误差 −0.64%
+
+   R_in = 100kΩ：
+        U = 3.214 × 100,000/106,428.6 = 3.214 × 0.939601 = 3.0201V
+        偏差 = −194.2mV，相对误差 −6.04%
+        折算到传感器端：−194.2mV × 1.5556 = −302mV 的读数误差 ✗
+
+   R_in = 10kΩ：
+        U = 3.214 × 10,000/16,428.6 = 3.214 × 0.608697 = 1.9565V
+        偏差 = −1257.7mV，相对误差 −39.1% ✗✗ 完全不能用
+
+   ┌──────────┬──────────┬────────────┬──────────────┐
+   │ R_in     │ 实测电压 │ 绝对偏差   │ 相对误差     │
+   ├──────────┼──────────┼────────────┼──────────────┤
+   │ 10MΩ     │ 3.2121V  │ −2.1mV     │ −0.064%  ✔   │
+   │ 1MΩ      │ 3.1938V  │ −20.5mV    │ −0.64%   ⚠   │
+   │ 100kΩ    │ 3.0201V  │ −194.2mV   │ −6.04%   ✗   │
+   │ 10kΩ     │ 1.9565V  │ −1257.7mV  │ −39.1%   ✗✗  │
+   └──────────┴──────────┴────────────┴──────────────┘
+
+【③ 要求相对误差小于 0.1%，分压电阻要改到多少？】
+
+   由 U/U_oc = R_in/(R_in+R_th) ≈ 1 − R_th/R_in，
+   要误差小于 0.1%，需要   R_th / R_in &lt; 0.001，也就是
+
+        R_th ≤ R_in / 1000
+
+   若 ADC 的等效输入电阻按 1MΩ 估算 → R_th ≤ 1kΩ。
+
+   保持 0.642857 的分压比不变，同时让 R1 ∥ R2 = 1kΩ：
+        设 S = R1 + R2，则 R2 = 0.642857 S，R1 = 0.357143 S
+        R1 ∥ R2 = 0.357143 × 0.642857 × S = 0.229592 S = 1kΩ
+        → S = 4.356kΩ  →  R2 = 2.80kΩ，R1 = 1.56kΩ
+
+   就近取标准值：R1 = 1.5kΩ，R2 = 2.7kΩ
+        验算分压比 = 2.7/4.2 = 0.642857  ✔ 正好一样（1.5:2.7 = 10:18）
+        R_th = 1.5 × 2.7/4.2 = 0.9643kΩ  ≤ 1kΩ  ✔
+
+   代价：支路电流从 178.6µA 涨到 5V/4.2kΩ = 1.19mA，
+         功耗从 0.893mW 涨到 5.95mW，是原来的 6.7 倍。
+         电池供电的节点会明显吃不消。
+
+【所以工程上的三选一】
+
+   ①【首选，免费】把 ADC 的采样时间加长。
+       源阻抗大 → 采样电容充电慢 → 把采样时间从 1.5 周期改到
+       55.5 或 71.5 周期，允许的源阻抗成比例放大（详见第 4 节表格）。
+       这一招不改硬件、不加成本，代价只是转换速度变慢。
+
+   ②【改硬件】把分压电阻整体缩小 10 倍（10k/18k → 1k/1.8k），
+       代价是静态功耗涨 10 倍。适合市电供电、不在乎这点电流的场合。
+
+   ③【最稳但最贵】在分压点和 ADC 之间加一级运放电压跟随器。
+       跟随器输入阻抗 MΩ 级以上（对分压点几乎不加载），
+       输出阻抗只有几欧姆（对 ADC 来说源阻抗极小）。
+       信号频率较高、或者要测量微弱信号时，这是标准做法。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一题的两条通用结论</div>
+            <p><b>① 任何「分压器 + 负载」的问题，第一步都是把分压器等效成「U_oc 串 R_th」。</b>把电源置零、从端口看进去求输入电阻，这是固定套路，比每次都列方程快得多。</p>
+            <p><b>② 误差量级由 R_th/R_in 的比值决定，而不是由电阻精度决定。</b>很多人以为读数偏低是「电阻误差 ±5%」，其实 5% 的阻值误差只带来百分之几的电压偏差，而负载效应可以带来 40% 的偏差。<b>先算负载效应，再谈精度。</b></p>
+          </div>
+
+          <h3 id="sub-ex2" class="mt-7 text-base font-semibold">例 2：含 Y 形连接的电路，用 Y→Δ 化简求等效电阻</h3>
+          <p class="mt-3"><b>题目：</b>某传感器的内部补偿网络可以等效成下面的电路：三只 3Ω 的电阻结成 Y 形（中心节点 O，三个端子 A、B、C），另外在端子 A 与 C 之间接了 18Ω、C 与 B 之间接了 18Ω。求从 A、B 两端看进去的等效电阻 R_AB。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 2 的电路：一个 Y 形网络夹在两个端子之间">
+            <pre><code>【原电路】
+
+                       A
+                       │
+                    [ R_a = 3Ω ]
+                       │
+                       O  ← Y 的中心节点
+                     ╱   ╲
+               [R_b]       [R_c]
+                3Ω           3Ω
+               ╱               ╲
+              B ─────[18Ω]───── C
+                    ← 这是 C 与 B 之间的电阻
+
+        同时 A 与 C 之间还有一只 18Ω：
+              A ────────────── C
+                    18Ω
+
+【为什么不能直接串并联？】
+
+   从 A 到 B 有几条路：
+        A → O → B
+        A → O → C → B
+        A → C → O → B
+        A → C → B
+   这些路径互相「借道」：R_b 上既流过 A→O→B 的电流，也流过
+   A→C→O→B 的电流。所以没有任何两只电阻是纯串联或纯并联的。
+
+   再检查它是不是电桥：电桥的平衡条件这里也没有对应结构，
+   用 Y-Δ 变换是最直接的路子。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 2 解答：Y→Δ 之后立刻变成串并联">
+            <pre><code>【第一步：把 Y（O；A、B、C）换成 Δ（三边 R_AB、R_BC、R_CA）】
+
+   Y 的三条臂：R_a = 3Ω（接 A）、R_b = 3Ω（接 B）、R_c = 3Ω（接 C）
+
+   三只一样大，直接用对称公式：  R_Δ = 3 × R_Y = 3 × 3Ω = 9Ω
+
+   （想验证公式的话，按「两两积之和除对边」慢慢算：
+        S = R_a×R_b + R_b×R_c + R_c×R_a = 9 + 9 + 9 = 27
+        R_AB = S / R_c = 27/3 = 9Ω
+        R_BC = S / R_a = 27/3 = 9Ω
+        R_CA = S / R_b = 27/3 = 9Ω      ✔ 和对称公式一致）
+
+   变换后：
+
+                       A
+                     ╱   ╲
+                9Ω ╱       ╲ 9Ω
+                 ╱           ╲
+                C ─────9Ω───── B
+
+【第二步：把新出现的 Δ 边与原电路中的电阻并联】
+
+   A—C 之间：原来的 18Ω 与新出现的 9Ω 并联
+        R_AC = 9 × 18/(9 + 18) = 162/27 = 6Ω
+
+   C—B 之间：原来的 18Ω 与新出现的 9Ω 并联
+        R_CB = 9 × 18/(9 + 18) = 162/27 = 6Ω
+
+   A—B 之间：只有新出现的 9Ω，没有别的并联
+
+   现在电路变成了一个简单的三角形：
+
+                       A
+                     ╱   ╲
+                9Ω ╱       ╲ 6Ω        （A—C）
+                 ╱           ╲
+                C ─────6Ω───── B       （C—B）
+
+【第三步：三角形化简成「并联」】
+
+   从 A 到 B 有两条路：
+        直达：          A → B，电阻 9Ω
+        绕行：          A → C → B，6Ω + 6Ω = 12Ω
+
+   两条路并联：
+        R_AB = 9 ∥ 12 = 9×12/(9+12) = 108/21 = 36/7 ≈ 5.143Ω
+
+   ★ 答案：R_AB = 36/7 Ω ≈ 5.14Ω</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 2 验算：换一种方法核对答案">
+            <pre><code>【用节点电压法独立验算，确认 36/7 没有算错】
+
+   设节点 A 电压 = 1V，节点 B 电压 = 0V（反正求的是比值，设多少都行）
+
+   对中心节点 O 写 KCL（流出为正）：
+        (V_O − 1)/3 + (V_O − 0)/3 + (V_O − V_C)/3 = 0
+        两边乘 3：  3V_O = 1 + V_C       …… (1)
+
+   对节点 C 写 KCL：
+        (V_C − 1)/18 + (V_C − 0)/18 + (V_C − V_O)/3 = 0
+        两边乘 18： (V_C − 1) + V_C + 6(V_C − V_O) = 0
+                    8V_C − 1 = 6V_O       …… (2)
+
+   由 (1) 得  V_C = 3V_O − 1，代入 (2)：
+        8(3V_O − 1) − 1 = 6V_O
+        24V_O − 9 = 6V_O
+        18V_O = 9   →   V_O = 0.5V
+        代回 (1)：   V_C = 3 × 0.5 − 1 = 0.5V
+
+   从 A 流出的总电流：
+        I = (1 − V_O)/3 + (1 − V_C)/18
+          = (1 − 0.5)/3 + (1 − 0.5)/18
+          = 0.16667 + 0.027778
+          = 0.194444 A
+
+   等效电阻：
+        R_AB = 1V / 0.194444A = 5.142857Ω = 36/7 Ω   ✔ 与 Y-Δ 结果一致
+
+   ★ 验算的意义：Y-Δ 变换里最容易犯的错是「对边搞错」
+     （该除 R_c 却除了 R_a）。用节点法或第二种变换路径核对一次，
+     就能确保答案可靠。考试和实践里都值得多花这两分钟。</code></pre>
+          </div>
+
+          <h3 id="sub-ex3" class="mt-7 text-base font-semibold">例 3：不平衡电桥，用 Δ→Y 化简求等效电阻</h3>
+          <p class="mt-3"><b>题目：</b>一个电桥电路，R1 = 10Ω（A—C）、R2 = 20Ω（A—D）、R3 = 20Ω（C—B）、R4 = 10Ω（D—B），另外 C、D 之间跨接了一只 R5 = 20Ω。求从 A、B 两端看进去的等效电阻 R_AB。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 3 的电路与判断">
+            <pre><code>【原电路】
+
+                        A
+                   ┌────┴────┐
+                 R1=10Ω     R2=20Ω
+                   │          │
+              C ───┤          ├─── D
+                   │          │
+                 R3=20Ω     R4=10Ω
+                   └────┬────┘
+                        B
+
+              C 与 D 之间跨接着 R5 = 20Ω
+
+【先查电桥是否平衡】
+
+   平衡条件：R1 × R4 = R2 × R3
+   左边 = 10 × 10 = 100
+   右边 = 20 × 20 = 400
+   100 ≠ 400  →  【不平衡】，不能直接删掉跨接电阻 R5
+
+   又因为 R5 的存在，串并联也化简不了（和例 2 同样的理由），
+   所以要动 Y-Δ 变换。
+
+【用哪个方向？】
+
+   注意 A、C、D 三个节点两两之间都有电阻：
+        A—C 是 R1 = 10Ω
+        A—D 是 R2 = 20Ω
+        C—D 是 R5 = 20Ω
+   这就是一个【Δ】，把它变成 Y，那个「环」就消失了。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 3 解答：Δ→Y 之后变成两组串联再并联">
+            <pre><code>【第一步：把 Δ（A、C、D）换成 Y，新的中心节点记为 N】
+
+   Δ 的三条边：R_AC = R1 = 10Ω，R_AD = R2 = 20Ω，R_CD = R5 = 20Ω
+   三边之和：  10 + 20 + 20 = 50Ω
+
+   按「积除和」：
+        R_A = R_AC × R_AD / 50 = 10 × 20 / 50 = 4Ω     （接端子 A 的那条臂）
+        R_C = R_AC × R_CD / 50 = 10 × 20 / 50 = 4Ω     （接端子 C 的那条臂）
+        R_D = R_AD × R_CD / 50 = 20 × 20 / 50 = 8Ω     （接端子 D 的那条臂）
+
+   变换后：
+
+                        A
+                        │
+                    [ R_A = 4Ω ]
+                        │
+                        N  ← 新的中心节点
+                      ╱   ╲
+              [R_C=4Ω]     [R_D=8Ω]
+                ╱             ╲
+               C               D
+               │               │
+           R3=20Ω          R4=10Ω
+               │               │
+               └───────┬───────┘
+                       B
+
+【第二步：两条串联支路并联】
+
+   左支路：R_C + R3 = 4 + 20 = 24Ω       （从 N 经 C 到 B）
+   右支路：R_D + R4 = 8 + 10 = 18Ω       （从 N 经 D 到 B）
+
+   并联：  R_NB = 24 ∥ 18 = 24×18/(24+18) = 432/42 = 72/7 ≈ 10.286Ω
+
+【第三步：串上 R_A】
+
+   R_AB = R_A + R_NB = 4 + 72/7 = 28/7 + 72/7 = 100/7 ≈ 14.286Ω
+
+   ★ 答案：R_AB = 100/7 Ω ≈ 14.29Ω</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 3 双重验算：换个 Δ 再算一遍 + 节点法">
+            <pre><code>【验算一：改用下面那个 Δ（C、D、B）做 Δ→Y】
+
+   R3 = C—B = 20Ω，R4 = D—B = 10Ω，R5 = C—D = 20Ω，三边之和 = 50Ω
+        R_C' = R_CD × R_CB / 50 = 20 × 20/50 = 8Ω
+        R_D' = R_CD × R_DB / 50 = 20 × 10/50 = 4Ω
+        R_B' = R_CB × R_DB / 50 = 20 × 10/50 = 4Ω
+
+   于是：
+        A 经 C 到新中心： R1 + R_C' = 10 + 8 = 18Ω
+        A 经 D 到新中心： R2 + R_D' = 20 + 4 = 24Ω
+        两者并联：       18 ∥ 24 = 432/42 = 72/7 ≈ 10.286Ω
+        再加 R_B'：      4 + 72/7 = 100/7 ≈ 14.286Ω   ✔ 完全一致
+
+【验算二：节点电压法（最硬的核对）】
+
+   设 V_A = 1V、V_B = 0V，对 C、D 写 KCL：
+
+   节点 C： (V_C − 1)/10 + (V_C − 0)/20 + (V_C − V_D)/20 = 0
+           两边乘 20： 2(V_C − 1) + V_C + (V_C − V_D) = 0
+                       4V_C − V_D = 2            …… (1)
+
+   节点 D： (V_D − 1)/20 + (V_D − 0)/10 + (V_D − V_C)/20 = 0
+           两边乘 20： (V_D − 1) + 2V_D + (V_D − V_C) = 0
+                       4V_D − V_C = 1            …… (2)
+
+   由 (2)：V_D = (1 + V_C)/4，代入 (1)：
+        4V_C − (1 + V_C)/4 = 2   →   16V_C − 1 − V_C = 8
+        15V_C = 9   →   V_C = 0.6V
+        V_D = (1 + 0.6)/4 = 0.4V
+
+   从 A 流出的电流：
+        I = (1 − 0.6)/10 + (1 − 0.4)/20 = 0.04 + 0.03 = 0.07A
+   R_AB = 1/0.07 = 14.285714Ω = 100/7 Ω   ✔ 三种方法结果一致</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">从例 2、例 3 提炼出的「两分钟判断流程」</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>先找有没有三只电阻两两相接（Δ）。</b>有的话，把它变成 Y——因为星形没有「环」，化简的路立刻打开。例 3 走的就是这条路。</li>
+              <li><b>再看有没有三只电阻共用一个节点（Y），而三个端子的另一端接在互相交错的支路上。</b>有的话，把它变成 Δ，让新边去和原有电阻并联。例 2 走的是这条路。</li>
+              <li><b>两个都没有，就老老实实串并联。</b>绝大多数实际电路属于这一类。</li>
+              <li><b>算完一定要验算。</b>换一个 Δ/Y 算一遍（例 3 的验算一），或者用节点电压法核对（例 2、例 3 的验算二）。Y-Δ 公式里「对边搞错」是最常见的失误，验算一次就能兜住。</li>
+            </ol>
+          </div>
+
+          <h3 id="sub-ex4" class="mt-7 text-base font-semibold">例 4：电源等效互换与「对内不等效」</h3>
+          <p class="mt-3"><b>题目：</b>一块 12V 蓄电池的简化模型是「理想电压源 12V 串联内阻 2Ω」。① 把它等效成电流源模型，并说清方向；② 用两种模型分别计算接 3Ω 负载时的电流，验证等效；③ 计算开路和短路两种状态下，两个模型内部的功率消耗，说明「对内不等效」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 4：互换、验算与内部功耗核算">
+            <pre><code>【第一步：等效成电流源】
+
+   I_S = U_S / R_S = 12V / 2Ω = 6A
+   内阻由「串联」改接成「并联」，数值仍是 2Ω
+
+   方向：电压源的正极在上端 → 电流源的箭头也要从上端【流出】
+
+    电压源模型                     电流源模型
+        上端子                        上端子
+          ▲                             ▲
+      ┌───┴──[ 2Ω ]──┐              ┌───┴─────────┐
+      │              │              │  ↑ 6A       │
+     (12V)           │              │        [2Ω] │
+      │              │              │             │
+      └───┬──────────┘              └───┬─────────┘
+          │                             │
+        下端子                        下端子
+
+【第二步：接 3Ω 负载，两种模型分别算电流】
+
+   电压源模型（串联回路，直接用欧姆定律）：
+        I = U_S /(R_S + R_负载) = 12 / (2 + 3) = 12/5 = 2.4A
+        负载电压 U = I × 3Ω = 2.4 × 3 = 7.2V
+        内阻上的压降 = 2.4 × 2 = 4.8V   （校验：4.8 + 7.2 = 12V ✔）
+
+   电流源模型（并联分流，用分流公式）：
+        I_负载 = I_S × R_S /(R_S + R_负载) = 6 × 2/5 = 2.4A     ✔ 一致
+        负载电压 U = 2.4 × 3 = 7.2V                              ✔ 一致
+
+   ★ 对外确实完全等效：同样的负载，电压电流一模一样。
+
+【第三步：开路时的内部功耗 —— 差别出现了】
+
+   电压源模型开路：外部电流为 0 → 内阻上电流也是 0
+        P_内 = 0² × 2Ω = 0W
+        端口电压 = 12V（因为内阻上没有压降）
+
+   电流源模型开路：外部电流为 0 → 6A 全部在内阻里【环流】
+        P_内 = I_S² × R_S = 6² × 2 = 36 × 2 = 72W
+        端口电压 = I_S × R_S = 6 × 2 = 12V           ✔ 端口电压一致
+
+   ┌──────────┬──────────────┬──────────────┬──────────┐
+   │ 状态     │ 端口电压/电流│ 电压源模型内耗│ 电流源模型内耗│
+   ├──────────┼──────────────┼──────────────┼──────────┤
+   │ 开路     │ U = 12V      │ 0W           │ 72W      │
+   │ 接 3Ω    │ U = 7.2V     │ 2.4²×2=11.5W │ 3.6²×2=25.9W │
+   │ 短路     │ I = 6A       │ 6²×2=72W     │ 0W       │
+   └──────────┴──────────────┴──────────────┴──────────┘
+
+   （接 3Ω 时的详细计算：
+     电压源模型：内阻电流 = 2.4A → P = 2.4² × 2 = 11.52W
+     电流源模型：内阻电流 = 6 − 2.4 = 3.6A → P = 3.6² × 2 = 25.92W）
+
+   ★ 端口上的电压、电流在三种状态下都完全一致，
+     但两个模型内部的功率消耗处处不同 ——
+     这就是「对外等效、对内不等效」最干净的证据。
+
+【工程上的意义】
+
+   真实电源更接近哪个模型？看它的物理结构：
+     · 电池、稳压电源、USB 口  → 接近【电压源模型】
+       （空载几乎不耗电，短路时发热严重 —— 对应表里的最后一行）
+     · 光电池、某些恒流源、电流互感器 → 接近【电流源模型】
+       （空载时内部仍有电流在流动）
+
+   所以：
+     · 想算「接上负载之后电压掉多少」→ 用电压源模型，方便
+     · 想算「几个电源并联怎么分摊电流」→ 换成电流源模型，方便
+     两个模型随时互转，选哪个只取决于哪种算法省事。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">方向错了会怎样？用短路法一秒自查</div>
+            <p>把两个模型都短路，比较短路电流的<b>方向</b>：电压源模型短路后，电流从「+」端流出，是 6A；电流源模型短路后，电流沿着箭头方向流出，也应当是 6A。<b>如果两个方向相反，说明你的 I_S 箭头画反了。</b>这个自查只要两秒钟，比事后一行行查方程快得多。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+          <p class="mt-4">这一节把上面的公式全部落到实物上：<b class="font-semibold text-ink">分压采样、上拉电阻、ADC 源阻抗、电位器</b>。这四件事你以后画原理图、抄别人的电路、排查读数异常，会反复遇到。</p>
+
+          <h3 id="sub-mcu-divider" class="mt-7 text-base font-semibold">场景一：5V 传感器进 ADC 的分压网络</h3>
+          <p class="mt-3">这是分压公式在单片机里最标准的用法。以例 1 算出来的 10kΩ + 18kΩ 为例，完整的接线与等效关系如下。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="5V 传感器 → STM32 ADC 的完整分压网络">
+            <pre><code>【原理图：节点都标了字母】
+
+   传感器 OUT ──[ R1 = 10kΩ ]──┬─────────────► PA0（ADC1_IN0）
+   （0 ~ 5V）                  │  节点 M
+                               │
+                          [ R2 = 18kΩ ]
+                               │
+                              GND ─────────── 与 STM32 共地（必须！）
+
+   传感器 VCC = 5V，传感器 GND 与 STM32 的 GND 必须连在一起。
+   只连信号线不连地，PA0 上读到的是到处乱飘的电压。
+
+【三个必背的数字】
+
+   空载分压：  U_M = 5V × 18/(10+18) = 3.214V    ← 低于 3.3V 上限 86mV
+   戴维宁内阻：R_th = 10k ∥ 18k = 6.43kΩ         ← 这个节点的「输出电阻」
+   反推系数：  (10+18)/18 = 1.5556               ← 程序里乘这个数
+
+【反推公式的来历】
+
+   正着算：U_M = U_src × R2/(R1+R2)
+   反着解：U_src = U_M × (R1+R2)/R2 = U_M × 1.5556
+
+   例：ADC 读到引脚电压 3.1938V（记住这个数，例 1 里出现过）
+       → U_src = 3.1938 × 1.5556 = 4.968V
+       （而真实的传感器输出是 5.000V，差 32mV，正是负载效应造成的）
+
+【一条不能破的红线】
+
+   PA0 属于 PA0~PA7，是【非 FT 引脚】，耐压上限约 3.6V。
+   分压后的电压必须稳稳低于 3.3V，而且要给传感器的输出误差、
+   电源波动、电阻精度都留出余量。3.214V 是合适的；
+   「刚好 3.30V」是危险的；「3.33V」是绝对不能接受的。</code></pre>
+          </div>
+
+          <p class="mt-3">对应的程序只有两个要点：<b class="font-semibold text-ink">① 采样时间要够长（因为源阻抗是 6.43kΩ 量级）；② 引脚模式必须是模拟输入</b>。下面这段代码把分压采样和电位器读取放在一起，稍后场景四还会用到它。</p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— 读分压后的 5V 信号 + 用电位器调 PWM">
+            <pre><code>/* ============================================================================
+ * 分压采样 + 电位器调 PWM
+ *
+ * 硬件接线：
+ *   传感器 OUT(0~5V) ── R1(10kΩ) ──┬── PA0（ADC1_IN0）
+ *                                   R2(18kΩ) ── GND
+ *   3.3V ── 电位器(10kΩ) ── GND，中间脚 ── PA1（ADC1_IN1）
+ *   传感器 VCC = 5V，传感器 GND 与 STM32 共地
+ *
+ * 涉及的两个公式：
+ *   分压    U_M  = U_src × R2/(R1+R2)          → 3.214V（5V 输入时）
+ *   反推    U_src = U_M × (R1+R2)/R2 = U_M × 1.5556
+ * ============================================================================ */
+
+#include "main.h"
+
+extern ADC_HandleTypeDef hadc1;
+extern TIM_HandleTypeDef htim2;
+
+/* ★ 填【万用表量出来的实际阻值】，不要照抄丝印上的标称值。
+ *   标称 10kΩ 的碳膜电阻实际可能是 9.8kΩ，两个电阻的误差会让
+ *   反推系数整体偏 2%~3%。 */
+#define DIV_R1_OHM      10000.0f
+#define DIV_R2_OHM      18000.0f
+
+#define ADC_VREF        3.300f      /* 蓝药丸：VREF+ = VDDA = 3.3V */
+#define ADC_FULL_SCALE  4095.0f     /* 12 位 ADC，读数 0~4095 */
+
+/* 分压比、反推系数、戴维宁内阻 —— 编译期就算好，不占运行时间 */
+#define DIV_K           (DIV_R2_OHM / (DIV_R1_OHM + DIV_R2_OHM))  /* 0.642857 */
+#define DIV_UNDO        ((DIV_R1_OHM + DIV_R2_OHM) / DIV_R2_OHM)  /* 1.555556 */
+#define DIV_RTH_OHM     (DIV_R1_OHM * DIV_R2_OHM / (DIV_R1_OHM + DIV_R2_OHM))
+
+/* 调试用：在 Keil 的 Watch 窗口里可以直接看这两个变量 */
+static volatile float g_src_voltage = 0.0f;   /* 反推出来的传感器电压 */
+static volatile float g_pin_voltage = 0.0f;   /* PA0 引脚上的电压 */
+
+/* ---------------------------------------------------------------------------
+ * 读一次指定 ADC 通道，返回引脚上的电压（单位 V）；失败返回 -1.0f
+ * --------------------------------------------------------------------------- */
+static float adc_read_voltage(uint32_t channel)
+{
+  ADC_ChannelConfTypeDef cfg = {0};
+  uint32_t raw;
+
+  cfg.Channel = channel;
+  cfg.Rank    = ADC_REGULAR_RANK_1;
+
+  /* ★★ 这一行是本程序最关键的一行。
+   *    分压网络的戴维宁内阻是 6.43kΩ，属于「高源阻抗」。
+   *    如果采样时间用默认的 1.5 周期（14MHz 下约 107ns），
+   *    内部采样电容根本充不满，读数会系统性偏低。
+   *    源阻抗越大，采样时间必须越长 —— 详见本节场景三的表格。 */
+  cfg.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;
+
+  if (HAL_ADC_ConfigChannel(&amp;hadc1, &amp;cfg) != HAL_OK) { return -1.0f; }
+
+  if (HAL_ADC_Start(&amp;hadc1) != HAL_OK) { return -1.0f; }
+
+  /* 一定要给超时。给 HAL_MAX_DELAY 的话，ADC 一旦不产生完成标志，
+   * 程序会永久卡死在这里，看起来像「单片机死了」。 */
+  if (HAL_ADC_PollForConversion(&amp;hadc1, 50) != HAL_OK)
+  {
+    HAL_ADC_Stop(&amp;hadc1);
+    return -1.0f;
+  }
+
+  raw = HAL_ADC_GetValue(&amp;hadc1);         /* 0 ~ 4095 */
+  HAL_ADC_Stop(&amp;hadc1);
+
+  return ((float)raw * ADC_VREF) / ADC_FULL_SCALE;
+}
+
+/* 连读 8 次取平均，压掉随机噪声（分压节点是高阻节点，容易被干扰） */
+static float adc_read_avg(uint32_t channel)
+{
+  float sum = 0.0f;
+  uint8_t i;
+
+  for (i = 0; i &lt; 8; i++)
+  {
+    float v = adc_read_voltage(channel);
+    if (v &lt; 0.0f) { return -1.0f; }
+    sum += v;
+  }
+  return sum / 8.0f;
+}
+
+int main(void)
+{
+  float v_pin, v_pot;
+  uint32_t arr, ccr;
+
+  HAL_Init();
+  SystemClock_Config();
+  MX_GPIO_Init();
+  MX_ADC1_Init();
+  MX_TIM2_Init();
+
+  /* ★ 校准不能漏。不做的话读数可能有几十个 LSB 的固定偏差，
+   *   你会误以为是分压电阻不准。 */
+  HAL_ADCEx_Calibration_Start(&amp;hadc1);
+
+  HAL_TIM_PWM_Start(&amp;htim2, TIM_CHANNEL_1);
+  arr = __HAL_TIM_GET_AUTORELOAD(&amp;htim2);   /* PWM 的计数值上限 */
+
+  while (1)
+  {
+    /* ---- ① PA0：经 R1/R2 分压的 0~5V 传感器信号 ---- */
+    v_pin = adc_read_avg(ADC_CHANNEL_0);
+    if (v_pin &gt;= 0.0f)
+    {
+      g_pin_voltage = v_pin;
+      g_src_voltage = v_pin * DIV_UNDO;      /* 反推传感器端原始电压 */
+
+      /* 安全判断：引脚电压逼近 3.3V 说明分压比不对或传感器超范围，
+       * 这时候要断电查电路，而不是继续读。 */
+      if (v_pin &gt; 3.15f)
+      {
+        /* 例如在这里点亮一个错误指示灯，或者通过串口告警 */
+      }
+    }
+
+    /* ---- ② PA1：电位器，线性映射成 PWM 占空比 ---- */
+    v_pot = adc_read_avg(ADC_CHANNEL_1);
+    if (v_pot &gt;= 0.0f)
+    {
+      /* 电位器本身就是分压器：输出 0~3.3V 与旋钮位置成正比。
+       * 所以「电压比例」直接就是「占空比比例」，不需要额外换算。 */
+      ccr = (uint32_t)((v_pot / ADC_VREF) * (float)arr);
+      __HAL_TIM_SET_COMPARE(&amp;htim2, TIM_CHANNEL_1, ccr);
+    }
+
+    HAL_Delay(50);
+  }
+}
+
+/* ============================================================================
+ * 【四个必须注意的点】
+ *
+ * ① 采样时间必须是 55.5 周期或更长
+ *    分压网络的源阻抗 R_th = 6.43kΩ，属于高源阻抗。
+ *    按数据手册的采样模型估算，1.5 周期（约 107ns 的充电时间）远远不够，
+ *    至少要 28.5 周期以上才稳妥。本程序保守地取了 55.5 周期，
+ *    代价是单次转换变慢（14MHz 下约 4µs，完全够用）。
+ *
+ * ② HAL_ADCEx_Calibration_Start() 不能省
+ *    ADC 内部电容存在失配，上电后需要校准一次。省掉它，
+ *    读数可能整体偏移几十个 LSB（几十毫伏），
+ *    你会误以为是分压电阻的精度问题。
+ *
+ * ③ 用实际阻值，不要用标称值
+ *    两个 ±5% 的电阻叠在一起，反推系数可能偏 3%。
+ *    想要准确，就用万用表把 R1、R2 都量一遍，填进宏定义。
+ *
+ * ④ 分压节点的干扰
+ *    6.43kΩ 的节点属于「高阻节点」，容易拾取工频和开关噪声。
+ *    如果读数跳动明显，可以在 R2 两端并一只 100nF 电容，
+ *    但要清楚：它和 R_th 构成 RC 低通，会拖慢响应速度。
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <h3 id="sub-mcu-pullup" class="mt-7 text-base font-semibold">场景二：上拉/下拉电阻的等效分析</h3>
+          <p class="mt-3">上拉和下拉电阻是最容易被「随便抄一个值」的地方，其实它的取值和等效关系都能直接算。这里有两个必踩的等效陷阱：<b class="font-semibold text-ink">① 内部上拉和外部上拉是并联的；② 挂在同一根总线上的每个模块的上拉电阻，也是并联的。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="陷阱一：内部上拉与外部上拉并联（按键电路）">
+            <pre><code>【按键电路：外部 10kΩ 上拉 + STM32 内部上拉同时打开】
+
+            3.3V                        3.3V
+              │                           │
+         [外部 10kΩ]                 [内部 40kΩ]     ← GPIO_PULLUP 打开时接进来的
+              │                           │
+              └─────────────┬─────────────┘
+                            │
+                          PA0 ────────┬────────[ 按键 ]──────── GND
+                                      │
+                            按键按下时，这条线被拉到地
+
+   【等效上拉电阻】两个电阻接在同样的两个节点（3.3V 与 PA0）之间
+                     → 是【并联】关系
+
+        R_pull = 10k ∥ 40k = 10×40/(10+40) = 400/50 = 8kΩ
+
+   【没按下时】没有电流流过，上拉电阻不产生压降，引脚读到 3.3V
+   【按下时】  引脚电流 = 3.3V / 8kΩ = 0.413mA
+               引脚电压 ≈ 0V（按键的接触电阻只有几十毫欧，远低于 VIL=0.8V）
+   【功耗】    按下期间 3.3V × 0.413mA = 1.36mW，松开时为 0
+               按键是「按下才耗电」，所以 8kΩ 完全没问题
+
+   ★ 如果没有外部上拉（R_pull = 40kΩ）：
+        按下电流 = 3.3/40k = 0.083mA，一样能正常读到低电平。
+        但 40kΩ 的上拉对干扰更敏感（长引线拾取的噪声更容易把电平拉偏），
+        所以「按键引线较长」时，习惯加一个 10kΩ 外部上拉。
+        两者并联后是 8kΩ —— 比你以为的 10kΩ 小 20%。
+
+   ⚠ STM32F103 数据手册给出的内部上拉/下拉电阻范围是 30kΩ ~ 50kΩ
+     （典型值 40kΩ）。它的误差很大，所以任何【依赖上拉电阻精确值】
+     的设计（比如靠上拉和外部电阻分压来测量）都是不可靠的 ——
+     要精确分压，就必须用外部电阻。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="陷阱二：I2C 总线上多个模块的上拉电阻并联">
+            <pre><code>【I2C 总线：两个模块各自板载 4.7kΩ 上拉，全部并联在同一根线上】
+
+             3.3V              3.3V
+               │                 │
+          [4.7kΩ]            [4.7kΩ]      ← 模块 A、模块 B 板载的上拉
+               │                 │
+               └────────┬────────┘
+                        │
+                      SDA ──────── 所有器件的 SDA 都是【开漏】引脚挂在这根线上
+
+   【等效上拉】
+        R_pull = 4.7k ∥ 4.7k = 2.35kΩ      （两个相同 → 除以 2）
+        再挂第三个模块 → 4.7k/3 = 1.567kΩ
+        再挂第四个     → 4.7k/4 = 1.175kΩ
+
+   【后果一：低电平电流成倍增加】
+        某个器件把 SDA 拉到 0V 时，电流从 3.3V 经等效上拉流入该器件：
+        单个上拉：3.3V / 4.7kΩ = 0.70mA
+        两个并联：3.3V / 2.35kΩ = 1.40mA     ← 翻倍
+        四个并联：3.3V / 1.175kΩ = 2.81mA    ← 四倍
+
+        I2C 规范规定器件的灌电流能力不小于 3mA，
+        所以 2.8mA 还能接受，但如果继续堆模块，就会超出器件的灌电流能力，
+        低电平被抬高到 VIL 以上 → 通信随机出错。
+
+   【后果二：上升沿变快（这是好事，但也有边界）】
+        总线的上升时间 ≈ 0.3 × R_pull × C_bus（按 10%~90% 的经验系数估算）
+        取 C_bus = 100pF（几十厘米排线 + 几个器件的引脚电容，典型值）：
+            单个上拉 4.7kΩ： t_r ≈ 0.3 × 4.7k × 100p = 141ns   ✔ 够 100kHz
+            两个并联 2.35kΩ：t_r ≈ 0.3 × 2.35k × 100p = 70.5ns ✔ 够 400kHz
+        上拉越小，边沿越陡，越能跑高速 —— 这就是 400kHz 下推荐
+        2.2kΩ ~ 3.3kΩ 上拉的原因。
+
+   【结论：I2C 上拉怎么定】
+        ① 先数清楚总线上【总共有几只上拉电阻】（包括每个模块板载的）
+        ② 用并联公式算出等效值
+        ③ 等效值落在 2kΩ ~ 10kΩ 之间基本都能工作；
+           100kHz 推荐 4.7kΩ 等效值，400kHz 推荐 2.2kΩ ~ 3.3kΩ
+        ④ 如果模块板载上拉太小（例如 1kΩ），必须把它拆掉或断开，
+           否则等效值被拖得过小，低电平电流超标
+
+   ⚠ 一个常见的误判：「我明明只加了两个 4.7k，怎么波形这么陡？」
+     答案是模块上还各带一个 4.7k，实际等效已经是 1.57kΩ 了。</code></pre>
+          </div>
+
+          <h3 id="sub-mcu-zin" class="mt-7 text-base font-semibold">场景三：ADC 的输入阻抗与分压电阻取值</h3>
+          <p class="mt-3">「分压电阻不能太大」这句话你一定听过，但它到底为什么、到底多大算大？答案在 ADC 的内部结构里。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="逐次逼近型 ADC 的采样过程：一只开关加一只小电容">
+            <pre><code>【ADC 引脚内部（STM32F1 的逐次逼近型 ADC，简化模型）】
+
+   引脚 ──┬────[ R_ADC ≈ 1kΩ ]────┬──[ 采样开关 ]──┬────┬──── GND
+          │                        │                │    │
+     外部源阻抗 R_s             （采样期间闭合）  C_ADC ≈ 8pF
+          │                                         （采样保持电容）
+       分压网络
+
+   【工作过程】
+     ① 采样阶段：开关闭合，C_ADC 通过 R_s + R_ADC 充电，
+                  目标是充到引脚上的真实电压。
+     ② 保持阶段：开关断开，C_ADC 上的电压被逐次逼近电路转换成数字量。
+     ③ 下次采样前，C_ADC 上的电荷会残留一部分（除非重新充电到位）。
+
+   【充电要多久？】RC 充电的时间常数 τ = (R_s + R_ADC) × C_ADC
+
+     充到 12 位精度（误差小于 1/2 LSB，约 0.012%）需要约 9.7 个 τ
+     （严格的公式是 t_S ≥ (R_ADC + R_AIN) × C_ADC × ln(2^(n+2))，
+       n = 12 时 ln(2^14) = 9.7）
+
+   【算一个具体的例子：本文的分压网络】
+
+     R_s = R_th = 6.43kΩ（分压器戴维宁内阻），R_ADC ≈ 1kΩ
+     τ = (6.43k + 1k) × 8pF = 7.43kΩ × 8pF = 59.4ns
+     需要的充电时间 = 9.7 × 59.4ns = 576ns
+
+     ADC 时钟 14MHz 时，一个周期 = 71.4ns
+     → 需要 576/71.4 ≈ 8.1 个周期
+
+     ✗ 采样时间设成 1.5 周期（107ns）→ 只充到 107/59.4 = 1.8 个 τ，
+       误差还有 e^(−1.8) ≈ 16.5% → 读数严重偏低！
+     ✔ 设成 28.5 周期（2036ns）→ 充到 34 个 τ，误差 10^(−15) 量级，足够
+     ✔ 设成 55.5 周期更保守，本文的示例程序用的就是它
+
+   ★ 上面用的 R_ADC = 1kΩ、C_ADC = 8pF 是 STM32F1 系列数据手册给出的
+     典型值；本节的估算都建立在这两个数上，属于「按典型值估算」，
+     实际值随芯片批次和温度有变化，所以工程上要留余量。</code></pre>
+          </div>
+
+          <p class="mt-3">把上面的算法倒过来用，就得到一张<b class="font-semibold text-ink">「源阻抗 ↔ 采样时间」对照表</b>。这张表是配分压电阻时最实用的工具：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>采样时间（ADC 时钟 14MHz）</th><th>充电时间</th><th>按 12 位精度估算允许的总串联电阻（R_s + R_ADC）</th><th>扣除 R_ADC ≈ 1kΩ 后，外部源阻抗 R_s 的上限</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">1.5 周期</td><td>107ns</td><td>约 1.4kΩ</td><td><b>约 0.4kΩ</b>（只有几百欧，几乎只能接运放输出）</td></tr>
+                <tr><td class="font-mono text-xs">7.5 周期</td><td>536ns</td><td>约 6.9kΩ</td><td>约 5.9kΩ</td></tr>
+                <tr><td class="font-mono text-xs">28.5 周期</td><td>2036ns</td><td>约 26kΩ</td><td><b>约 25kΩ</b>（本文 6.43kΩ 的分压网络在这一档就够）</td></tr>
+                <tr><td class="font-mono text-xs">55.5 周期</td><td>3964ns</td><td>约 51kΩ</td><td>约 50kΩ（示例程序选的就是这一档）</td></tr>
+                <tr><td class="font-mono text-xs">71.5 周期</td><td>5107ns</td><td>约 66kΩ</td><td>约 65kΩ</td></tr>
+                <tr><td class="font-mono text-xs">239.5 周期</td><td>17107ns</td><td>约 220kΩ</td><td>约 219kΩ（可以接 100kΩ 级的分压网络）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张表说明了两件事。第一，<b class="font-semibold text-ink">「源阻抗要小于 kΩ」这句话只对最快的采样设置成立</b>——把采样时间拉到 71.5 周期，几十 kΩ 的源阻抗也能测准。第二，<b class="font-semibold text-ink">分压电阻「不能太大」有两个独立的理由</b>，它们经常被混为一谈：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>理由</th><th>物理机制</th><th>表现</th><th>对策</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>① 采样电容充不满</b><br>（转换误差）</td>
+                  <td>源阻抗 R_th 与内部采样电容构成 RC，采样时间不够就没充到目标电压</td>
+                  <td>读数<b>系统性偏低</b>，而且随输入电压变化，不是随机噪声；把采样时间加长就明显改善</td>
+                  <td>加长采样时间（免费）<br>或减小 R_th（费电）</td>
+                </tr>
+                <tr>
+                  <td><b>② 高阻节点易受干扰</b><br>（噪声误差）</td>
+                  <td>高阻节点上的电荷很难被「拉回」，邻近走线的容性耦合、PCB 表面漏电、助焊剂残留都会改变它的电压</td>
+                  <td>读数<b>无规则跳动</b>，手一碰板子或附近有电机动作就更明显</td>
+                  <td>加 RC 低通（并 100nF）<br>缩短引线<br>降低阻值到 10kΩ 量级<br>软件多做平均</td>
+                </tr>
+                <tr>
+                  <td><b>③ 负载效应</b><br>（静态误差）</td>
+                  <td>ADC 的等效输入电阻与 R_th 分压（例 1 续算的就是这个）</td>
+                  <td>读数比万用表量到的值<b>低一个固定比例</b></td>
+                  <td>保证 R_th 远小于输入电阻，或者加跟随器缓冲</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">给分压电阻取值的实用口诀（STM32F103 场景）</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>总阻值（R1+R2）取 10kΩ ~ 100kΩ。</b>低于 10kΩ 费电（几毫安静态电流），高于 100kΩ 容易被干扰。</li>
+              <li><b>优先让 R_th = R1∥R2 落在 1kΩ ~ 25kΩ。</b>这个区间配合 28.5~55.5 周期的采样时间，既准又省电。本文的 6.43kΩ 正好在中间。</li>
+              <li><b>无论怎么取，采样时间都别用默认的 1.5 周期。</b>分压采样一律设 28.5 周期以上，这是成本为零的一步。</li>
+              <li><b>信号很弱或者要测得很准时，加一级运放跟随器。</b>跟随器的输入阻抗是 MΩ 级（对分压点几乎不加载），输出阻抗只有几欧（对 ADC 是理想源），两个方向的矛盾一次解决。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-mcu-pot" class="mt-7 text-base font-semibold">场景四：电位器就是一只可调分压器</h3>
+          <p class="mt-3">电位器的三个引脚，本质就是「R1 + R2 = 常数」的分压器，滑动端把两个电阻的分界点引了出来。<b class="font-semibold text-ink">拧旋钮 = 改变分压比。</b>理解这一点，电位器的一切行为都能算出来。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电位器的两种接法与它们的等效电路">
+            <pre><code>【接法一：三端分压（正确用法）—— 输出随旋钮线性变化】
+
+              3.3V
+               │
+            ┌──┴──┐
+            │     │
+            │ 10kΩ│  ← 电位器（比如 10kΩ 的旋转式或直滑式）
+            │     │
+            ├──┤  │
+            │  │  │
+            │  └──┘
+            │  ↑
+            │ 滑动端（一般是中间那个脚）──► PA1（ADC1_IN1）
+            │
+            └──┬──┘
+               │
+              GND
+
+   等效电路就是两只电阻串联后再分压：
+        R_上：滑动端以上部分的阻值
+        R_下：滑动端以下部分的阻值
+        R_上 + R_下 = 10kΩ（恒定，因为电阻体总阻值不变）
+
+        输出电压 = 3.3V × R_下 / (R_上 + R_下) = 3.3V × R_下 / 10kΩ
+
+   → 输出电压与「滑动端在下半部分的比例」成正比
+   → 旋钮转到最上端：R_下 = 10kΩ，输出 3.3V，ADC 读到 4095
+   → 旋钮转到最下端：R_下 = 0，输出 0V，ADC 读到 0
+   → 旋钮在中间：输出 1.65V，ADC 读到约 2048
+
+   【源阻抗是多少？这是关键】
+        从滑动端看进去的内阻 = R_上 ∥ R_下
+        在中间位置最大：5k ∥ 5k = 2.5kΩ
+        在两端最小：0Ω（一头被短路到 3.3V 或 GND）
+
+        所以 10kΩ 电位器的最大源阻抗是 2.5kΩ —— 用 28.5 周期
+        采样时间绰绰有余。
+        如果换成 100kΩ 电位器：最大源阻抗 = 50k ∥ 50k = 25kΩ，
+        就要把采样时间加到 55.5 周期以上才稳妥。
+
+【接法二：两端变阻（错误用法）—— 旋到底就是短路】
+
+        ┌──[ 电位器两端，滑动端悬空或与一端短接 ]──┐
+        │                                        │
+   3.3V ┘                                        └── 直接接到 ADC 引脚
+
+   ⚠ 这样接，旋到某一边时相当于把 3.3V 或 GND 直接短到 ADC 引脚。
+     如果是「滑动端 + 一端」的两脚接法，把它当成可变电阻用，
+     必须再串一只固定电阻限流（例如 1kΩ），否则旋到 0Ω 时
+     会把电源短路，烧掉电位器或板子。
+
+   ★ 判据：如果你要的是「电压」，就用三端接法（滑动端输出）；
+           如果你要的是「可变电阻」，才用两脚接法，并且一定要串限流电阻。
+
+【两个实际的坑】
+
+   ① 引脚认错。电位器中间那只脚才是滑动端，两侧是电阻体两端。
+      买到的直滑式电位器，中间常是滑动端；但不同型号的引脚定义
+      要靠万用表确认：量任意两脚之间阻值，转动时【阻值变化】的
+      那对里有滑动端，而【阻值恒定】的那对是两个固定端。
+
+   ② 接触噪声。滑动端是机械接触，转动时会有毫秒级的接触抖动，
+      读数会跳。对策：软件里做中值滤波（取多次采样的中位数），
+      或者在滑动端与 GND 之间并一只 100nF 电容 —— 但要注意
+      100nF 与最大 2.5kΩ 的源阻抗构成 RC 低通，时间常数
+      τ = 2.5kΩ × 100nF = 250µs，意味着电压变化会被「抹平」250µs，
+      快速转动时会跟不上。对调光、调音量足够，对快速摇杆就不够。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">一个立刻能用的推论：为什么「旋钮读数不均匀」有时是正常的</div>
+            <p>如果电位器后面接的不是 ADC，而是一个相对低的负载电阻 R_L（比如一个 1kΩ 的后续电路），那么 R_L 会与 R_下 <b>并联</b>，实际输出变成：</p>
+            <p class="mt-2"><code class="icode">U = 3.3V × (R_下 ∥ R_L) / [R_上 + (R_下 ∥ R_L)]</code></p>
+            <p class="mt-2">旋钮转到 R_下 较大的位置时，R_下 ∥ R_L 明显小于 R_下，输出就上不去，<b>看起来像「旋钮拧到顶了电压还不够」</b>。这不是电位器坏了，而是又遇到了负载效应。判据很简单：只要 R_L 比电位器总阻值大 10 倍以上（10kΩ 电位器配 100kΩ 以上的负载），非线性就小于 10%。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见误解与坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误解与坑</h2>
+          <p class="mt-4">下面十条，每一条都按照「<b class="font-semibold text-ink">错误认知 → 为什么错 → 正确做法</b>」写。它们全部来自真实的调试现场，尤其是前三条，几乎每个做 ADC 采样的人都踩过。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 1：把「等效」当成「一模一样」</h3>
+          <p class="mt-2"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>「10kΩ 串 18kΩ 就等于 28kΩ，所以直接用一只 28kΩ 代替也一样。」</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>等效只是<b>对外部端口</b>成立。换掉之后，原本分压器的中间节点消失了——而那个节点恰恰是你要取信号的地方。同理，电源等效互换后，两个模型内部的功率消耗完全不同（例 4 里开路时一个是 0W，一个是 72W）。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>等效变换只用于求「端口以外」的电压、电流。凡是要问「原来那只电阻上流过多少电流」「原来这个节点电压是多少」，就不能先等效——要么保留原电路，要么用戴维宁定理把外部影响考虑进来。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 2：分压公式到处套，不知道它只在空载时成立</h3>
+          <p class="mt-2"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>「U_out = U × R2/(R1+R2)，这个公式在哪都能用。」</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>推导时用掉了「这条支路上只有这一个电流」的前提。只要分压点后面接了 ADC、运放、下一级电路，就会有额外电流从节点流出，节点电压必然低于公式值。例 1 续里的数字很直观：空载 3.214V，接上 100kΩ 的负载就只剩 3.020V，<b>低了 194mV（6%）</b>。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>只要分压点接了东西，就把分压器等效成「U_oc 串联 R_th」（U_oc 是空载电压，R_th 是把电源短路后从节点看进去的输入电阻），再用 <code class="icode">U = U_oc × R_负载/(R_负载 + R_th)</code> 算实际值。<b>另外记住：万用表量到的值也可能受负载效应影响</b>——一般手持表是 10MΩ，比常见分压网络的 R_th 大三个数量级，所以基本可以当它不存在。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 3：以为分压电阻「越大越省电，越大越好」</h3>
+          <p class="mt-2"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>「分压电阻只用耗电，越大越省电，那就取 1MΩ + 1.8MΩ 吧。」</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>阻值越大，戴维宁内阻 R_th 越大，带来三个后果：① ADC 采样电容充不满 → 读数系统性偏低（见本节对照表：1.5 周期采样时，源阻抗上限只有几百欧）；② 高阻节点更容易拾取工频、开关噪声和 PCB 表面漏电 → 读数乱跳；③ 负载效应更严重（R_th/R_in 的比值变大）。1MΩ + 1.8MΩ 的 R_th 是 643kΩ，即使采样时间拉到最长也测不准。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>总阻值取 10kΩ ~ 100kΩ；优先让 R_th = R1∥R2 落在 1kΩ ~ 25kΩ；把 ADC 采样时间设到 28.5 周期以上；真的很在乎功耗又要求精度时，加一级运放跟随器（它把「高输入阻抗」和「低输出阻抗」这两个矛盾的要求分开了）。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 4：并联用「加起来除以二」</h3>
+          <p class="mt-2"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>「10k 并 4.7k 就是 (10+4.7)/2 = 7.35k。」</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>「加起来除以二」只对<b>两只完全相同的电阻</b>成立（那是 R/n 的特例）。一般情况必须用积比和：10k ∥ 4.7k = 10×4.7/14.7 = 3.20kΩ，和 7.35k 差了 2.3 倍。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>牢记两条：<b>相同阻值并联用 R/n</b>（两只 10k 是 5k）；<b>不同阻值用积比和</b>。算完必须自检一次——并联结果一定小于其中最小的那只（10k ∥ 4.7k = 3.20k &lt; 4.7k ✔；算成 7.35k 就立刻能发现错误）。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 5：电源等效互换时把电流源方向画反</h3>
+          <p class="mt-2"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>「12V 串 2Ω 等于 6A 并 2Ω，数字对上就行了，箭头朝哪边无所谓。」</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>数值只保证了「大小」对，方向决定了「符号」。箭头画反，等效出来的就是 −12V 的电压源，后面列的每一个方程都会带错符号。这类错误极难自查，因为中间每一步的数字看起来都很合理。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>记死一条规则——<b>电流源箭头「流出」的那个端子，就是电压源「正极」所在的端子</b>。写完立刻做两秒钟自查：把两个模型都短路，看短路电流是不是从同一个端子流出、数值是否相同。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 6：以为理想电源也能互换</h3>
+          <p class="mt-2"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>「任何电压源都能换成电流源，套公式 I = U/R 就行。」</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>公式里的 R 是<b>内阻</b>。理想电压源的内阻是 0，I = U/0 是无穷大，数学上不成立。反过来，理想电流源的内阻是无穷大，换成电压源会得到无穷大的电压。<b>只有「实际电源」（内阻既不为 0 也不为无穷大）才能互换。</b></p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>看到「理想电压源」就想「它只负责钉住电压，谁跟它并联都不影响它，但它绝不能短路」；看到「理想电流源」就想「它只负责钉住电流，谁跟它串联都不影响它，但它绝不能开路」。需要化简含理想电源的电路时，改用节点电压法或戴维宁定理。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 7：求输入电阻时把电源「删掉」而不是「置零」</h3>
+          <p class="mt-2"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>「求输入电阻要把电源去掉，那就把电源那一段直接抹掉，线也断开。」</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>「置零」和「删掉」不是一回事。<b>理想电压源置零 = 短路（导线还在，两点仍然连通）</b>；<b>理想电流源置零 = 开路（支路断开）</b>。如果把电压源连导线一起删掉，原本经过它的通路就断了，算出来的输入电阻会偏大甚至完全错。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>按类型分别处理：电压源画成一根导线，电流源画成断开；<b>受控源不能置零，必须原样保留</b>（而且含受控源时通常要用外加电源法）。做完之后回看一下：电路结构是不是还完整、节点的连接关系有没有被破坏。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 8：拿 Y-Δ 变换去算内部电流，或者对简单电路硬套</h3>
+          <p class="mt-2"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>「Y-Δ 变换很高级，遇到电路就先用一下；反正变换前后是等效的，算内部的电流应该也对。」</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>两个毛病。① <b>它也是「对外等效」</b>——变换后星形的中心节点根本不存在了，问「原来那只 R_b 上流过多大电流」在变换后的电路里没有对应物，算出来的数是别的电路的值。② <b>对本来就是串并联的电路用它纯属自找麻烦</b>：公式里的「对边」很容易搞错，多一步就多一次出错机会，还慢。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>只在「盯着电路找不到任何串联或并联关系」时才动用它；<b>变换之后一定要验算</b>——换另一个 Δ/Y 再算一遍，或者用节点电压法核对（例 2、例 3 都演示了这两种验算）。只求外部等效电阻、等效电源时用它；要算内部各支路电流时，回到原电路用节点法或网孔法。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 9：电桥平衡条件记成「相邻臂乘积相等」</h3>
+          <p class="mt-2"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>「电桥平衡就是 R1×R2 = R3×R4。」</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>正确条件是<b>对臂（交叉）乘积相等：R1×R4 = R2×R3</b>，等价于 R1/R2 = R3/R4。写成相邻臂相乘，几乎在所有不平衡的场合都会得出相反的结论——该判定为「不平衡」的电路被判成平衡，于是直接删掉跨接电阻，结果全错。更麻烦的是，用四只相等的电阻去检验时两种写法都成立，所以你自查不出来。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>不要背公式，背<b>物理条件</b>：平衡 = C、D 两点等电位 = V_C = V_D，也就是 <code class="icode">U×R3/(R1+R3) = U×R4/(R2+R4)</code>。现场两行就能推出 R1R4 = R2R3，永远不会记反。检验时用一组<b>不相等的</b>平衡电阻（例如 10、20、10、20，注意要按正确的臂位摆放）代入验证。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 10：忘了总线上的上拉电阻是并联的</h3>
+          <p class="mt-2"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>「I2C 上拉我用的是 4.7kΩ，这个值没问题。」</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>总线上的每一个模块都可能<b>板载</b>一只上拉电阻，STM32 内部上拉也可能同时打开，按键还有外部上拉 + 内部上拉。这些电阻挂在同样的两个节点之间，是<b>并联</b>关系：两个 4.7kΩ 并联等效只有 2.35kΩ，四个并联只有 1.175kΩ。等效值变小会带来两个后果：低电平时灌进器件的电流成倍增加（可能超出器件的灌电流能力，低电平被抬高到 VIL 以上导致通信出错），以及边沿过快带来的过冲和振铃。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>定上拉之前先「数电阻」——把总线上所有模块板载的上拉都数上，用并联公式算出等效值，让它落在 2kΩ ~ 10kΩ。模块板载上拉太小时（比如 1kΩ）要把它拆掉。另外，STM32F103 的内部上拉是 30kΩ~50kΩ 的宽范围、误差很大，<b>任何依赖上拉精确阻值的测量设计都不可靠</b>，要精确分压就用外部电阻。</p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与自检 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自检</h2>
+
+          <h3 class="mt-6 text-base font-semibold">这一篇要记住的九句话</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">等效 = 端口伏安关系相同。</b>对外等效（求外部量随便换），对内不等效（求内部量绝不能先换）。</li>
+            <li><b class="font-semibold text-ink">串联分压、并联分流。</b>串联：R_eq = ΣR，U_k = U×R_k/R_eq；并联：1/R_eq = Σ1/R_k，I_k = I×G_k/G_eq。</li>
+            <li><b class="font-semibold text-ink">两个电阻并联用「积比和」：</b>R_eq = R1R2/(R1+R2)；相同阻值直接用 R/n；一大一小并联结果约等于小的那只。</li>
+            <li><b class="font-semibold text-ink">分压公式只在空载时成立。</b>分压点接了负载，就先等效成「U_oc 串联 R_th」，再用 <code class="icode">U = U_oc × R_负载/(R_负载 + R_th)</code>。</li>
+            <li><b class="font-semibold text-ink">Y-Δ 只在串并联化不了时用。</b>Δ→Y 用「积除和」，Y→Δ 用「两两积之和除对边」，三只相同则 Δ = 3Y；<b>算完必须验算</b>。</li>
+            <li><b class="font-semibold text-ink">电源互换：R_S 数值不变（串联↔并联），U_S = I_S×R_S，方向按「电流源流出的端子就是电压源正极」定。</b>理想电源不能互换。</li>
+            <li><b class="font-semibold text-ink">输入电阻 = 从端口看进去的等效电阻</b>，求之前把独立源置零（电压源短路、电流源开路）。它和负载电阻的分压比，就是「测量误差」的定量来源。</li>
+            <li><b class="font-semibold text-ink">分压电阻怎么取：</b>总阻值 10kΩ~100kΩ，R_th 落在 1kΩ~25kΩ，ADC 采样时间设 28.5 周期以上。三件事一起做，精度和功耗都能兼顾。</li>
+            <li><b class="font-semibold text-ink">电桥平衡是对臂乘积相等：R1×R4 = R2×R3</b>（等价于 V_C = V_D）。平衡时跨接支路可以随便换、随便删，等效电阻直接按两组串联再并联算。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">自测题</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>「R1 = 10kΩ 与 R2 = 18kΩ 串联，对外等效于一只 28kΩ 电阻。」这句话对吗？如果对，为什么不能直接把这两个电阻换成一只 28kΩ？</li>
+            <li>三只 6Ω 的电阻并联，等效电阻是多少？再用积比和算一遍「6Ω 并 3Ω」，并说出你用来自检的那条规律。</li>
+            <li>一个分压网络的空载输出是 2.50V，戴维宁内阻 R_th = 8kΩ。如果后级负载的输入电阻是 200kΩ，实际输出电压是多少？相对误差是多少？</li>
+            <li>一个 24V 电源串联 4Ω 内阻。把它等效成电流源模型，电流源是多大、方向怎么定？把两个模型都短路，短路电流各是多少？</li>
+            <li>一个 Y 形网络的三条臂都是 12Ω，接在端子 a、b、c 上。把它变换成 Δ 之后，每条边是多少欧？如果只在 a、b 两端接一个测量电路、c 端悬空，从 a、b 看进去的等效电阻是多少？</li>
+            <li>电桥电路里 R1 = 1kΩ、R2 = 2kΩ、R3 = 1.5kΩ、R4 = 3kΩ（R1、R2 在上，R3、R4 在下）。这个电桥平衡吗？为什么？如果平衡，从 A、B 两端看进去的等效电阻是多少？</li>
+            <li>接 I2C 总线时，你在总线上挂了三个模块，每个模块板载一只 4.7kΩ 上拉电阻，STM32 侧又外接了一只 4.7kΩ。等效上拉是多少？某个器件把 SDA 拉到 0V 时，灌进它的电流是多大？</li>
+          </ol>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">自测题答案</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>这句话对外部端口是对的，但不能直接替换。</b>因为等效只保证「从 A、B 两端看进去」的伏安关系相同；换成一只 28kΩ 之后，原来 R1 与 R2 之间的那个节点消失了，而分压器的价值恰恰在于那个节点的电压（<code class="icode">U_M = 5V × 18/28 = 3.214V</code>）。要取那个节点的信号，就必须保留两只电阻。这就是「对外等效、对内不等效」。</li>
+              <li><b>三只 6Ω 并联 = 6/3 = 2Ω</b>（相同阻值并联直接用 R/n）。<b>6Ω ∥ 3Ω = 6×3/(6+3) = 18/9 = 2Ω</b>。自检规律：<b>并联结果一定小于其中最小的那只</b>（2Ω &lt; 3Ω ✔）。另外可以顺手验一下：6Ω 是 3Ω 的两倍，所以电流应该反过来分——3Ω 那条支路流过总电流的 2/3，6Ω 那条流过 1/3。</li>
+              <li>用负载效应公式：<code class="icode">U = 2.50 × 200k/(200k + 8k) = 2.50 × 200/208 = 2.50 × 0.961538 = 2.404V</code>。<b>相对误差 = (2.404 − 2.50)/2.50 = −3.85%</b>。想让误差小于 1%，负载输入电阻要大于 R_th 的 100 倍，也就是 800kΩ 以上。</li>
+              <li><b>I_S = U_S/R_S = 24V/4Ω = 6A，内阻仍是 4Ω（从串联改为并联）。</b>方向：电压源的正极所在的端子，就是电流源箭头流出的端子（一句话记法：「电流源流出的端子 = 电压源正极的端子」）。<b>短路电流：两个模型都是 24V/4Ω = 6A</b>，而且方向都是从正极那一端流出——这就是自查方向对不对的两秒钟方法。</li>
+              <li><b>Δ 的每条边 = 3 × 12Ω = 36Ω</b>（三只相同的对称情形，S = 3×144 = 432，除对边 12Ω 得 36Ω ✔）。若 c 端悬空，从 a、b 看进去有两条路：直达的 36Ω，以及绕经 c 的 36 + 36 = 72Ω，两者并联 <code class="icode">36 ∥ 72 = 36×72/108 = 24Ω</code>。<b>验算：</b>用原来的 Y 直接看——a、b 两端之间就是两条臂串联（a→O→b），<code class="icode">12 + 12 = 24Ω</code> ✔ 两种方法一致，说明变换没错。</li>
+              <li><b>平衡。</b>检验对臂乘积：<code class="icode">R1×R4 = 1k×3k = 3×10⁶</code>，<code class="icode">R2×R3 = 2k×1.5k = 3×10⁶</code>，两边相等，所以平衡。（也可以用物理条件验证：V_C = U×R3/(R1+R3) = U×1.5/2.5 = 0.6U，V_D = U×R4/(R2+R4) = U×3/5 = 0.6U，两点等电位 ✔。）<b>平衡时跨接支路可以删掉</b>，等效电阻 = (R1+R3) ∥ (R2+R4) = (1k+1.5k) ∥ (2k+3k) = 2.5k ∥ 5k = <code class="icode">2500×5000/7500 = 1.667kΩ</code>。</li>
+              <li><b>四个 4.7kΩ 全部并联（三个模块板载的 + 你外接的一只）：</b><code class="icode">R_pull = 4.7k/4 = 1.175kΩ</code>。<b>灌电流 = 3.3V/1.175kΩ ≈ 2.81mA</b>。这个值还在 I2C 器件 3mA 的灌电流能力范围内，但已经几乎没有余量了——如果再挂一个模块（等效 0.94kΩ），电流会到 3.5mA，<b>超出器件的低电平灌电流能力，低电平会被抬高，通信开始随机出错</b>。正确做法是数清楚总线上的所有上拉、算等效值，必要时把模块板载的上拉拆掉。</li>
+            </ol>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li><b>把例 1 的分压网络真的焊出来，然后故意「带载」。</b>用 R1 = 10kΩ、R2 = 18kΩ 接 5V，先用万用表量分压节点（应该是 3.212V 左右，因为它几乎不加载）；再在这个节点和 GND 之间并一只 100kΩ 电阻当作负载，再量一次。<b>你会看到它掉到 3.02V 左右</b>——和例 1 续算出来的数字对上了。再换成 10kΩ 负载，看它是不是掉到 1.96V 附近。这一组实验能把「负载效应」从公式变成手感。</li>
+            <li><b>亲手验证「并联等效」的两条规律。</b>拿几只电阻，用万用表实测阻值（标称值不可信），然后分别并联两只 10kΩ、一只 10kΩ 加一只 4.7kΩ、一只 10kΩ 加一只 1MΩ，实测并联后的阻值，和积比和算出来的值对比。<b>重点体会第三种情况</b>——1MΩ 几乎不起作用，这正是「负载电阻远大于源内阻时可以忽略」的物理来源。</li>
+            <li><b>用节点电压法给例 2、例 3 各做一次独立验算。</b>不用 Y-Δ，直接对内部节点写 KCL 解方程，求出总电流再算等效电阻。<b>如果两次结果对不上，不要改答案，去把 Y-Δ 公式的「对边」重新查一遍</b>——这是练熟 Y-Δ 最有效的方式。</li>
+            <li><b>做一个「分压采样 + 电位器」的二合一程序。</b>按第 4 节的示例接线，把 PA0（分压后的 5V 信号）和 PA1（电位器）两个通道的电压通过串口打印出来。然后做三个实验：① 改变 CubeMX 里的 Sampling Time（从 1.5 周期改到 71.5 周期），观察 PA0 读数怎么变——<b>你会亲眼看到「源阻抗太大 + 采样时间太短」造成的系统性偏低</b>；② 把 R1、R2 整体换成 1kΩ + 1.8kΩ，看读数是不是变准了、电流是不是变大了；③ 旋动电位器，观察 PA1 的读数是不是从 0 平滑变到 4095，并在中间位置停一下，看看读数有没有跳动（那是滑动端的接触噪声）。</li>
+            <li><b>给自己手上的 I2C 模块「数一遍上拉电阻」。</b>把每个模块板载的上拉电阻找出来（通常在 SDA/SCL 到 VCC 之间，丝印上标着 472 就是 4.7kΩ，103 是 10kΩ），数清楚总数，算出等效值，再和你实际用的通信速率对一下。<b>这一步做过一次，你以后配 I2C 上拉就不是抄别人的值了。</b></li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">延伸阅读</h3>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>KCL、KVL、参考方向与功率计算（本篇的前置知识） → <a class="text-brand-600 dark:text-brand-300" href="ee-circuit-laws.html">电路基本概念与定律</a></li>
+            <li>把这一篇讲的一切压成「一个电源加一个电阻」（下一篇） → <a class="text-brand-600 dark:text-brand-300" href="ee-circuit-theorems.html">电路定理：叠加、戴维宁与诺顿</a></li>
+            <li>ADC 的完整用法：校准、采样时间、DMA、多通道 → <a class="text-brand-600 dark:text-brand-300" href="stm32-adc.html">STM32 ADC 模数转换</a></li>
+            <li>把分压采样做成一个完整的电压表项目 → <a class="text-brand-600 dark:text-brand-300" href="stm32-voltmeter.html">STM32 数字电压表</a></li>
+            <li>分压和电平转换在 5V/3.3V 接口中的实战 → <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-level.html">3.3V 电平与硬件安全</a></li>
+            <li>回到知识地图，看电路理论这一组的完整顺序 → <a class="text-brand-600 dark:text-brand-300" href="../knowledge.html">嵌入式知识体系地图</a></li>
+          </ul>
+
+          <div class="callout callout-info mt-6">
+            <div class="callout-title">这一篇在整个知识体系里的位置</div>
+            <p>上一篇《电路基本概念与定律》给了你「怎么列方程」——KCL、KVL、欧姆定律。这一篇给了你「怎么少列方程」——<b>等效变换就是电路分析的「化简」技巧</b>：能并的并、能串的串、认不出来就 Y-Δ，电源互换用来改变问题的形式，输入电阻用来回答「这块电路从外面看像什么」。</p>
+            <p class="mt-2">下一篇《电路定理：叠加、戴维宁与诺顿》会把这一篇里反复出现的那个套路——<b>「把一块电路等效成 U_oc 串联 R_th」</b>——升级成一条正式定理，并且告诉你它为什么对任何线性电路都成立。到那时候你会发现，这一篇里算分压器内阻、算电桥开路电压的做法，全都是戴维宁定理的特例。</p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="ee-circuit-laws.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">电路基本概念与定律</p>
+          </a>
+          <a href="ee-circuit-theorems.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">电路定理：叠加、戴维宁与诺顿</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

@@ -1,0 +1,400 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   McuStudy 设计系统 —— 颜色令牌
+   亮色 / 暗色只切换 :root 与 .dark 上的变量，
+   组件层无需写任何 dark: 变体，保证全站视觉统一。
+   ============================================================ */
+:root {
+  --c-canvas: 247 249 252;   /* 页面底色 */
+  --c-surface: 255 255 255;  /* 卡片底色 */
+  --c-raised: 241 244 249;   /* 次级底色（表头、代码头等） */
+  --c-line: 229 232 239;     /* 分隔线 / 描边 */
+  --c-ink: 29 33 41;         /* 正文主色 */
+  --c-muted: 78 89 105;      /* 次要文字 */
+  --c-faint: 134 144 156;    /* 弱化文字 */
+
+  /* 代码块在两套主题下都保持深色，阅读对比度最稳 */
+  --code-bg: 27 34 49;
+  --code-head: 34 42 59;
+  --code-line: 52 63 84;
+  --code-text: 226 232 240;
+  --tok-com: 138 147 166;
+  --tok-str: 110 231 183;
+  --tok-num: 255 179 110;
+  --tok-key: 255 138 168;
+  --tok-type: 125 211 252;
+  --tok-pre: 196 168 255;
+  --tok-fn: 121 192 255;
+}
+
+.dark {
+  --c-canvas: 13 17 23;
+  --c-surface: 22 27 34;
+  --c-raised: 30 36 46;
+  --c-line: 39 46 59;
+  --c-ink: 230 237 243;
+  --c-muted: 154 166 184;
+  --c-faint: 118 130 148;
+
+  --code-bg: 11 15 22;
+  --code-head: 18 23 32;
+  --code-line: 39 46 59;
+  --code-text: 226 232 240;
+  --tok-com: 107 118 136;
+  --tok-str: 126 231 135;
+  --tok-num: 255 166 87;
+  --tok-key: 255 123 156;
+  --tok-type: 121 192 255;
+  --tok-pre: 210 168 255;
+  --tok-fn: 88 166 255;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-size: 16px;
+    line-height: 1.75;
+    transition: background-color .18s ease, color .18s ease;
+  }
+  /* 中文字重补偿：避免苹方/微软雅黑在暗色下发虚 */
+  .dark body { font-weight: 400; }
+
+  ::selection { background: rgb(22 93 255 / .22); }
+
+  /* 锚点跳转时给固定导航栏留出空间 */
+  :target, [id] { scroll-margin-top: 88px; }
+
+  h1, h2, h3, h4 { @apply text-ink font-semibold; line-height: 1.35; }
+
+  a { @apply transition-colors duration-150; }
+
+  /* 统一焦点样式：键盘可达性 */
+  :focus-visible {
+    outline: 2px solid #165DFF;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* 滚动条（Webkit） */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--c-faint) / .38);
+    border-radius: 8px;
+    border: 2px solid rgb(var(--c-canvas));
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-faint) / .6); }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: .001ms !important;
+      transition-duration: .001ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* ---------- 布局容器 ---------- */
+  .wrap { @apply mx-auto w-full max-w-page px-4 sm:px-6 lg:px-8; }
+
+  /* ---------- 按钮 ---------- */
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-lg
+           px-5 py-2.5 text-sm font-medium leading-none whitespace-nowrap
+           border border-transparent cursor-pointer;
+  }
+  .btn-primary {
+    @apply btn bg-brand-500 text-white shadow-sm
+           hover:bg-brand-600 active:bg-brand-700;
+  }
+  .btn-outline {
+    @apply btn border-line bg-surface text-ink
+           hover:border-brand-300 hover:text-brand-600 hover:bg-brand-50;
+  }
+  .dark .btn-outline { @apply hover:bg-brand-500/10 hover:border-brand-500/50 hover:text-brand-300; }
+  .btn-ghost {
+    @apply btn text-muted hover:text-brand-600 hover:bg-brand-50;
+  }
+  .dark .btn-ghost { @apply hover:bg-brand-500/10 hover:text-brand-300; }
+  .btn-sm { @apply px-3.5 py-2 text-xs; }
+
+  /* ---------- 卡片 ---------- */
+  .card {
+    @apply rounded-xl border border-line bg-surface shadow-card;
+  }
+  .card-pad { @apply p-5 sm:p-6; }
+  .card-hover {
+    @apply transition-all duration-200
+           hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-pop;
+  }
+  .dark .card-hover { @apply hover:border-brand-500/60; }
+  /* 整卡可点击：内部用绝对定位的 stretched link，保持语义正确 */
+  .card-link { @apply relative block; }
+
+  /* ---------- 标签 / 徽章 ---------- */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-md border px-2 py-0.5
+           text-2xs font-medium leading-5 whitespace-nowrap;
+  }
+  .badge-easy { @apply badge border-emerald-300/70 bg-emerald-50 text-emerald-700; }
+  .badge-mid  { @apply badge border-amber-300/70 bg-amber-50 text-amber-700; }
+  .badge-hard { @apply badge border-rose-300/70 bg-rose-50 text-rose-700; }
+  .badge-brand{ @apply badge border-brand-200 bg-brand-50 text-brand-700; }
+  .badge-plain{ @apply badge border-line bg-raised text-muted; }
+  .dark .badge-easy { @apply border-emerald-500/35 bg-emerald-500/[0.12] text-emerald-300; }
+  .dark .badge-mid  { @apply border-amber-500/35 bg-amber-500/[0.12] text-amber-300; }
+  .dark .badge-hard { @apply border-rose-500/35 bg-rose-500/[0.12] text-rose-300; }
+  .dark .badge-brand{ @apply border-brand-500/40 bg-brand-500/[0.12] text-brand-300; }
+
+  /* ---------- 区块标题 ---------- */
+  .sec-eyebrow {
+    @apply mb-2 inline-flex items-center gap-2 text-xs font-semibold
+           uppercase tracking-[.14em] text-brand-500;
+  }
+  .sec-title { @apply text-xl sm:text-2xl font-semibold tracking-tight; }
+  .sec-desc { @apply mt-2 max-w-2xl text-sm text-muted sm:text-[15px]; }
+
+  /* ---------- 顶部导航 ---------- */
+  .nav-link {
+    @apply relative rounded-lg px-3 py-2 text-sm font-medium text-muted
+           hover:bg-raised hover:text-ink whitespace-nowrap;
+  }
+  .nav-link.is-active { @apply text-brand-600 bg-brand-50; }
+  .dark .nav-link.is-active { @apply text-brand-300 bg-brand-500/[0.12]; }
+  .nav-link.is-active::after {
+    content: '';
+    @apply absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-brand-500;
+  }
+  .nav-mobile-link {
+    @apply block rounded-lg px-3 py-2.5 text-[15px] font-medium text-muted
+           hover:bg-raised hover:text-ink;
+  }
+  .nav-mobile-link.is-active { @apply bg-brand-50 text-brand-600; }
+  .dark .nav-mobile-link.is-active { @apply bg-brand-500/[0.12] text-brand-300; }
+
+  /* ---------- 代码块（含高亮 / 复制按钮） ---------- */
+  .code-block {
+    @apply my-5 overflow-hidden rounded-xl border;
+    border-color: rgb(var(--code-line));
+    background: rgb(var(--code-bg));
+  }
+  .code-head {
+    @apply flex items-center justify-between gap-3 border-b px-3.5 py-2;
+    border-color: rgb(var(--code-line));
+    background: rgb(var(--code-head));
+  }
+  .code-title {
+    @apply flex items-center gap-2 font-mono text-xs truncate;
+    color: rgb(var(--code-text) / .72);
+  }
+  .code-lang {
+    @apply rounded border px-1.5 py-0.5 text-2xs uppercase tracking-wider;
+    border-color: rgb(var(--code-line));
+    color: rgb(var(--code-text) / .5);
+  }
+  .code-copy {
+    @apply inline-flex shrink-0 items-center gap-1.5 rounded-md border
+           px-2.5 py-1 font-mono text-2xs transition-colors cursor-pointer;
+    border-color: rgb(var(--code-line));
+    color: rgb(var(--code-text) / .72);
+    background: transparent;
+  }
+  .code-copy:hover { background: rgb(255 255 255 / .08); color: rgb(var(--code-text)); }
+  .code-copy.is-copied { border-color: #16A34A; color: #4ADE80; }
+  .code-body { @apply overflow-x-auto; }
+  .code-body pre {
+    @apply m-0 px-4 py-3.5 font-mono text-[13px] leading-[1.75];
+    color: rgb(var(--code-text));
+    tab-size: 4;
+  }
+  .code-body code { @apply font-mono bg-transparent p-0 text-inherit; }
+  .code-body::-webkit-scrollbar { height: 8px; }
+
+  /* 行内代码（正文中） */
+  .icode {
+    @apply rounded border border-line bg-raised px-1.5 py-0.5
+           font-mono text-[.86em] text-brand-600;
+  }
+  .dark .icode { @apply text-brand-300; }
+
+  /* 语法高亮 Token */
+  .tok-com  { color: rgb(var(--tok-com)); font-style: italic; }
+  .tok-str  { color: rgb(var(--tok-str)); }
+  .tok-num  { color: rgb(var(--tok-num)); }
+  .tok-key  { color: rgb(var(--tok-key)); }
+  .tok-type { color: rgb(var(--tok-type)); }
+  .tok-pre  { color: rgb(var(--tok-pre)); }
+  .tok-fn   { color: rgb(var(--tok-fn)); }
+
+  /* ---------- 提示条 ---------- */
+  .callout {
+    @apply my-5 rounded-xl border-l-4 px-4 py-3.5 text-sm leading-relaxed;
+  }
+  .callout-title { @apply mb-1 flex items-center gap-2 font-semibold; }
+  .callout-info  { @apply callout border-brand-500 bg-brand-50 text-ink; }
+  .callout-tip   { @apply callout border-emerald-500 bg-emerald-50 text-ink; }
+  .callout-warn  { @apply callout border-amber-500 bg-amber-50 text-ink; }
+  .callout-danger{ @apply callout border-rose-500 bg-rose-50 text-ink; }
+  .dark .callout-info   { @apply bg-brand-500/10; }
+  .dark .callout-tip    { @apply bg-emerald-500/10; }
+  .dark .callout-warn   { @apply bg-amber-500/10; }
+  .dark .callout-danger { @apply bg-rose-500/10; }
+
+  /* ---------- 学习路线时间线 ---------- */
+  .timeline { @apply relative; }
+  .timeline::before {
+    content: '';
+    @apply absolute top-2 bottom-2 w-0.5 rounded-full;
+    left: 11px;
+    background: rgb(var(--c-line));
+  }
+  @media (min-width: 640px) { .timeline::before { left: 15px; } }
+  .tl-item { @apply relative pb-8 pl-9 last:pb-0 sm:pl-14; }
+  .tl-dot {
+    @apply absolute left-0 top-1.5 flex h-6 w-6 items-center justify-center
+           rounded-full border-2 border-brand-500 bg-surface
+           font-mono text-2xs font-bold text-brand-600;
+  }
+  @media (min-width: 640px) { .tl-dot { @apply h-8 w-8 text-xs; } }
+  .dark .tl-dot { @apply border-brand-500 bg-surface text-brand-300; }
+
+  /* ---------- 文章侧边目录 ---------- */
+  .toc-link {
+    @apply block border-l-2 border-line py-1.5 pl-3 text-[13px] leading-snug
+           text-muted hover:border-brand-300 hover:text-ink;
+  }
+  .toc-link.is-active {
+    @apply border-brand-500 font-medium text-brand-600;
+  }
+  .dark .toc-link.is-active { @apply text-brand-300; }
+  .toc-link.is-sub { @apply pl-7 text-xs; }
+
+  /* ---------- 正文排版（教程页） ---------- */
+  .prose-mcu { @apply text-[15.5px] leading-[1.85] text-ink; }
+  .prose-mcu > p { @apply my-4; }
+  .prose-mcu h2 {
+    @apply mt-11 mb-4 scroll-mt-24 border-b border-line pb-2.5 text-lg sm:text-xl;
+  }
+  .prose-mcu h2::before {
+    content: '';
+    @apply mr-2.5 inline-block h-4 w-1 rounded-full bg-brand-500 align-middle;
+  }
+  .prose-mcu h3 { @apply mt-7 mb-3 scroll-mt-24 text-base sm:text-[17px]; }
+  .prose-mcu ul { @apply my-4 list-disc space-y-2 pl-6 marker:text-brand-400; }
+  .prose-mcu ol { @apply my-4 list-decimal space-y-2 pl-6 marker:text-brand-500; }
+  .prose-mcu li > ul, .prose-mcu li > ol { @apply my-2; }
+  .prose-mcu a { @apply text-brand-600 underline decoration-brand-300 underline-offset-2 hover:decoration-brand-500; }
+  .dark .prose-mcu a { @apply text-brand-300; }
+  .prose-mcu strong { @apply font-semibold text-ink; }
+  .prose-mcu blockquote {
+    @apply my-5 border-l-4 border-line pl-4 text-muted;
+  }
+  .prose-mcu hr { @apply my-9 border-line; }
+
+  /* ---------- 表格 ---------- */
+  .table-mcu {
+    @apply my-5 w-full border-collapse overflow-hidden rounded-xl border border-line text-sm;
+  }
+  .table-mcu thead { @apply bg-raised; }
+  .table-mcu th {
+    @apply border-b border-line px-3.5 py-2.5 text-left font-semibold text-ink whitespace-nowrap;
+  }
+  .table-mcu td { @apply border-b border-line px-3.5 py-2.5 align-top text-muted; }
+  .table-mcu tbody tr:last-child td { @apply border-b-0; }
+  .table-mcu tbody tr:hover { @apply bg-raised/60; }
+  /* 表格在窄屏可横向滚动 */
+  .table-scroll { @apply -mx-1 overflow-x-auto px-1; }
+
+  /* ---------- 表单 / 工具页控件 ---------- */
+  .field { @apply flex flex-col gap-1.5; }
+  .label { @apply text-xs font-semibold uppercase tracking-wider text-muted; }
+  .input, .select {
+    @apply w-full rounded-lg border border-line bg-surface px-3 py-2.5
+           font-mono text-sm text-ink placeholder:text-faint
+           focus:border-brand-500 focus:outline-none
+           focus:ring-2 focus:ring-brand-500/25;
+  }
+  .select { @apply font-sans cursor-pointer pr-8; }
+  .hint { @apply text-xs leading-relaxed text-faint; }
+
+  /* 结果输出区 */
+  .out-box {
+    @apply rounded-lg border border-line bg-raised px-3.5 py-3
+           font-mono text-sm break-all;
+  }
+  .stat {
+    @apply rounded-lg border border-line bg-surface px-3.5 py-3;
+  }
+  .stat-k { @apply text-2xs uppercase tracking-wider text-faint; }
+  .stat-v { @apply mt-0.5 font-mono text-base font-semibold text-ink; }
+
+  /* ---------- 步骤编号 ---------- */
+  .step-num {
+    @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-lg
+           bg-brand-500 font-mono text-xs font-bold text-white;
+  }
+
+  /* ---------- 分隔线 ---------- */
+  .hr-soft { @apply my-8 h-px border-0 bg-line; }
+
+  /* ---------- 首页 Hero ---------- */
+  .hero { @apply relative overflow-hidden border-b border-line; }
+  /* 淡淡的工程网格底纹，靠遮罩只在上半部分显形，不干扰阅读 */
+  .hero::before {
+    content: '';
+    @apply pointer-events-none absolute inset-0;
+    background-image:
+      linear-gradient(to right, rgb(var(--c-line) / .85) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(var(--c-line) / .85) 1px, transparent 1px);
+    background-size: 46px 46px;
+    -webkit-mask-image: radial-gradient(ellipse 75% 62% at 50% 0%, #000 20%, transparent 78%);
+    mask-image: radial-gradient(ellipse 75% 62% at 50% 0%, #000 20%, transparent 78%);
+  }
+  .hero-glow {
+    @apply pointer-events-none absolute -top-24 left-1/2 h-72 w-[46rem]
+           -translate-x-1/2 rounded-full opacity-60 blur-3xl;
+    background: radial-gradient(circle, rgb(22 93 255 / .22), transparent 70%);
+  }
+  .hero-inner { @apply relative; }
+
+  /* 通用小图标底板 */
+  .icon-tile {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg
+           bg-brand-50 text-brand-600;
+  }
+  .dark .icon-tile { @apply bg-brand-500/[0.12] text-brand-300; }
+  .icon-tile-sm { @apply h-8 w-8 rounded-md; }
+
+  /* 学习路线预览：桌面端在卡片之间画一个连接箭头 */
+  .route-arrow {
+    @apply pointer-events-none absolute top-1/2 z-10 hidden h-6 w-6
+           -translate-y-1/2 items-center justify-center rounded-full
+           border border-line bg-surface text-faint lg:flex;
+    right: -24px;
+  }
+
+  /* 首页数据小条 */
+  .stat-pill {
+    @apply inline-flex items-baseline gap-1.5 rounded-lg border border-line
+           bg-surface px-3 py-1.5 text-xs text-muted;
+  }
+  .stat-pill b { @apply font-mono text-sm font-semibold text-brand-600; }
+  .dark .stat-pill b { @apply text-brand-300; }
+
+  /* 步骤条（首页“如何使用本站”） */
+  .mini-step { @apply flex items-start gap-3; }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}

@@ -1,0 +1,2696 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>任务间通信：队列、信号量与互斥量 - McuStudy</title>
+  <meta name="description" content="知识体系第 41 篇：两个任务改同一个变量，为什么偶尔会丢一次？这一篇把「偶发 bug」拆成三个可枚举的并发问题——原子性（counter++ 是读-改-写三条指令，中间被 tick 中断切开就丢更新）、可见性（忘了 volatile，编译器把变量缓存在寄存器里，循环永远出不来）、顺序（生产者先置标志后写数据，消费者先看到标志后读到半成品）。队列：xQueueCreate 的长度单位是元素个数而不是字节，uxQueueLength × uxItemSize 的 RAM 账怎么算，xQueueSend/xQueueReceive 的值拷贝语义与「传指针」的两种安全模式（数组槽位 + 索引、堆分配 + 消费者释放），超时参数 0 / portMAX_DELAY / pdMS_TO_TICKS(n) 的语义差别与 pdMS_TO_TICKS 向下取整的坑，邮箱（长度 1 加 xQueueOverwrite）与流水线（长度 N）的区别，队列满时的四种设计决策（丢最旧、阻塞背压、扩容、丢弃并计数）。FromISR：xQueueSendFromISR 与 xSemaphoreGiveFromISR 的 pxHigherPriorityTaskWoken 完整正确写法、忘记 portYIELD_FROM_ISR 会白等一个 tick、以及 ESP32 的 Xtensa 端口不带参数而 STM32 的 Cortex-M 端口带参数这个移植坑。信号量：二值信号量的初值是「空的」、计数信号量做资源池（max=3, init=3）与事件计数（max=N, init=0，欠账不会丢）两种用法、中断到任务同步的标准写法。互斥量与优先级反转：xSemaphoreCreateMutex 与二值信号量的三点本质区别（所有权、优先级继承、绝对不能在 ISR 使用），优先级反转的完整时序算例（L 持锁 50 ms、M 插队 30 ms、H 在 t=30 申请锁，无继承时 H 等 50 ms，有继承时压到 30 ms 的理论下限，代价是 M 被推迟），最坏情况公式 W = C_rem + ΣT_mid、优先级继承不是万能的（链式反转、死锁），递归互斥量解决同一任务重入。事件组：xEventGroupWaitBits 的 xClearOnExit 与 xWaitForAllBits 四个组合、内核把高 8 位当控制字节（只能用 bit0~bit23）、一个任务只能等一个事件组、xEventGroupSync 做多任务集合点。任务通知：为什么快（不创建对象、直接写 TCB 字段、等待列表最多一个人）、四种通知方式（覆盖 eSetValueWithOverwrite / 累加 eIncrement / 置位 eSetBits / 计数 ulTaskNotifyTake）、只有一个收件箱与不能广播的限制。流缓冲与消息缓冲：xStreamBufferCreate 的 TriggerLevel 作用（批次唤醒、以及「不满一批就永远不处理」的坑）、xMessageBufferCreate 每条消息 4 字节长度头、与队列「定长元素 vs 字节计数」的本质区别。十行选型对照表（队列、二值信号量、计数信号量、互斥量、递归互斥量、事件组、任务通知、流缓冲、消息缓冲、全局变量加临界区），死锁四个必要条件与三种避免法，临界区与锁的边界（taskENTER_CRITICAL 只保护几条指令），ESP-IDF 的 esp_event 事件循环与 FreeRTOS 机制的定位差别、esp_timer 与 xTimerCreate 的区别。含四个可直接编译的完整 ESP-IDF 程序：生产者消费者（含 RAM 账注释）、优先级反转复现实验与其修复版对照、按键中断到任务同步、事件组三条件全就绪才启动。">
+  <meta name="keywords" content="FreeRTOS任务间通信,队列,xQueueCreate,xQueueSend,xQueueReceive,xQueueSendFromISR,pxHigherPriorityTaskWoken,portYIELD_FROM_ISR,信号量,xSemaphoreCreateBinary,xSemaphoreCreateCounting,xSemaphoreGiveFromISR,互斥量,xSemaphoreCreateMutex,优先级反转,优先级继承,递归互斥量,xSemaphoreCreateRecursiveMutex,事件组,xEventGroupCreate,xEventGroupWaitBits,xClearOnExit,xWaitForAllBits,xEventGroupSync,任务通知,xTaskNotify,ulTaskNotifyTake,xTaskNotifyWait,eSetValueWithOverwrite,eIncrement,eSetBits,流缓冲,xStreamBufferCreate,TriggerLevel,消息缓冲,xMessageBufferCreate,临界区,taskENTER_CRITICAL,vTaskSuspendAll,死锁,原子性,可见性,顺序,volatile,counter++丢更新,值拷贝语义,portMAX_DELAY,pdMS_TO_TICKS,队列RAM开销,ESP-IDF,esp_event,esp_timer,xTimerCreate,uart事件队列,ESP32双核,IRAM_ATTR,任务看门狗">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">任务间通信：队列、信号量与互斥量</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          任务间通信：队列、信号量与互斥量
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          上一篇你让任务跑起来了（<a class="text-brand-600 dark:text-brand-300" href="adv-esp32-freertos.html">ESP32 与 FreeRTOS：任务与调度</a>），这一篇解决它带来的第一个新麻烦：<b class="font-semibold text-ink">任务之间怎么交换数据、怎么互相等待</b>。你大概已经体会过那种「偶发 bug」了——一个计数的全局变量，两个任务各自加一万次，最后不是两万，而是一万三千多；一个「按下按键就打印」的程序，十次里有两次没反应；一个显示屏刷新任务，明明优先级最高，偶尔却要等半秒才动一下。你盯着代码看了一晚上，逻辑挑不出毛病，因为<b class="font-semibold text-ink">毛病不在逻辑里，在「两个执行流同时碰同一份内存」这件事里</b>。这一篇的主线只有一句话：<b class="font-semibold text-ink">共享变量出错不是运气问题，而是三个可以枚举出来的并发问题；每一种通信机制，都是为其中某几个问题准备的</b>。我们会先把这三个问题（原子性、可见性、顺序）拆开讲透，再沿着队列、信号量、互斥量、事件组、任务通知、流缓冲一路走下来，每讲一个机制就问同一组问题：<b>它替我解决了哪几个问题？它自己的开销是多少？它能在中断里用吗？</b>
+        </p>
+
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+          这一篇也是整个系列里<b class="font-semibold text-ink">翻车率最高的一篇</b>，因为 RTOS 里最贵的 bug 全都藏在这里：优先级反转会让「高优先级任务」变成一句空话；在中断里调用了任务版 API 会让系统在凌晨三点挂死；一把锁拿了没放会让设备卡到看门狗复位；而队列长度随手写个 10，会在数据量翻倍的那天开始悄悄丢包。好消息是这些坑都有明确的检查项，不需要天赋。学完这一篇你会得到四份可直接编译的程序（生产者消费者、优先级反转的复现与修复、按键中断到任务同步、事件组三条件就绪），加上一张「十种机制怎么选」的对照表——<b class="font-semibold text-ink">以后你写任何一行跨任务的代码之前，都会先在这张表上找一行</b>。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="badge-brand">RTOS 内核对象</span>
+          <span class="stat-pill">第 3 层 · ESP32 与工程实践</span>
+          <span class="stat-pill">第 <b>41</b> 篇</span>
+          <span class="stat-pill">教材：刘火良 FreeRTOS 第 15~20 章</span>
+          <span class="stat-pill">平台：<b>ESP32-WROOM-32 / ESP-IDF</b></span>
+          <span class="stat-pill">阅读约 <b>95</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-concurrency">并发三问题：原子性、可见性、顺序</a>
+          <a class="toc-link is-sub" href="#sub-queue">队列：元素个数、值拷贝与四种满队列策略</a>
+          <a class="toc-link is-sub" href="#sub-isr">从 ISR 到任务：FromISR 与那个必须传的指针</a>
+          <a class="toc-link is-sub" href="#sub-sem">信号量：二值同步与计数信号量的两种用法</a>
+          <a class="toc-link is-sub" href="#sub-mutex">互斥量与优先级反转：本篇最重要的一节</a>
+          <a class="toc-link is-sub" href="#sub-eventgroup">事件组：一个 32 位变量表示 24 件事</a>
+          <a class="toc-link is-sub" href="#sub-notify">任务通知：最快的同步，只有一个收件箱</a>
+          <a class="toc-link is-sub" href="#sub-stream">流缓冲与消息缓冲：字节流和变长消息</a>
+          <a class="toc-link is-sub" href="#sub-select">怎么选：十行对照表与死锁纪律</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-mcu-prodcons">程序一：生产者与消费者（含 RAM 账）</a>
+          <a class="toc-link is-sub" href="#sub-mcu-inversion">程序二：优先级反转复现与修复对照</a>
+          <a class="toc-link is-sub" href="#sub-mcu-isr">程序三：按键中断到任务同步</a>
+          <a class="toc-link is-sub" href="#sub-mcu-evtgrp">程序四：事件组三条件全就绪才启动</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-concurrency">并发三问题：原子性、可见性、顺序</a>
+            <a class="toc-link is-sub" href="#sub-queue">队列：元素个数、值拷贝与四种满队列策略</a>
+            <a class="toc-link is-sub" href="#sub-isr">从 ISR 到任务：FromISR 与那个必须传的指针</a>
+            <a class="toc-link is-sub" href="#sub-sem">信号量：二值同步与计数信号量的两种用法</a>
+            <a class="toc-link is-sub" href="#sub-mutex">互斥量与优先级反转：本篇最重要的一节</a>
+            <a class="toc-link is-sub" href="#sub-eventgroup">事件组：一个 32 位变量表示 24 件事</a>
+            <a class="toc-link is-sub" href="#sub-notify">任务通知：最快的同步，只有一个收件箱</a>
+            <a class="toc-link is-sub" href="#sub-stream">流缓冲与消息缓冲：字节流和变长消息</a>
+            <a class="toc-link is-sub" href="#sub-select">怎么选：十行对照表与死锁纪律</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-mcu-prodcons">程序一：生产者与消费者（含 RAM 账）</a>
+            <a class="toc-link is-sub" href="#sub-mcu-inversion">程序二：优先级反转复现与修复对照</a>
+            <a class="toc-link is-sub" href="#sub-mcu-isr">程序三：按键中断到任务同步</a>
+            <a class="toc-link is-sub" href="#sub-mcu-evtgrp">程序四：事件组三条件全就绪才启动</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">上一篇把任务创建、调度、优先级、双核钉核这些「怎么让多个执行流同时存在」的事情讲完了。可是任务一旦多起来，你马上会撞上第二类问题：<b class="font-semibold text-ink">这些执行流之间要交换数据，还要互相等待</b>。比如采集任务采到一个温度值，处理任务要拿到它；按键中断检测到按下，控制任务要做响应；两个任务都想往同一块 SPI 显示屏上写，得排队；Wi-Fi 连接建立之前，上报任务不许开工。这些事情在裸机时代你已经有土办法了——<a class="text-brand-600 dark:text-brand-300" href="core-architecture.html#sub-mcu-ring">嵌入式软件架构</a>那一篇里我们手写过环形缓冲和事件标志组。这一篇讲的是<b class="font-semibold text-ink">内核亲手提供的版本</b>：它们多了阻塞等待、多了优先级继承、多了中断安全，也多了自己的坑。</p>
+          <p class="mt-3">下面四个场景，是我见过（也亲手制造过）的四种典型翻车方式。它们的共同点是：<b class="font-semibold text-ink">代码逻辑看不出错，错在「两个执行流同时碰同一份内存」</b>。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景一：两个任务各加一万次，结果是一万三千多</h3>
+          <p class="mt-3">你想验证一下「任务是不是真的在并行」，于是写了个小实验：一个全局变量 <code class="icode">g_count</code>，两个任务各自循环一万次做 <code class="icode">g_count++</code>，跑完打印结果。按算术应该是 20000。<b class="font-semibold text-ink">实测永远是一个一万三到一万九之间的随机数，而且每次都不一样。</b></p>
+          <p class="mt-3">你可能会想：「ESP32 是双核，两个任务跑在两个核上，当然会撞。」那我们把两个任务都钉到 core0（<code class="icode">xTaskCreatePinnedToCore(..., 0)</code>），单核上「同一时刻只有一条指令在执行」，总该对了吧？<b class="font-semibold text-ink">结果还是一万三千多。</b>原因在第 2.1 节会讲到汇编级：<code class="icode">g_count++</code> 不是一条指令，是「读—改—写」三条；FreeRTOS 的 tick 中断会在这三条中间把任务切走，接管 CPU 的另一个任务读到的是同一个旧值。<b>单核不等于不并发——只要有中断能打断你，就存在并发。</b>这个实验你可以在第 2.1 节末尾亲手跑一遍，看着数字变魔术。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景二：中断里的按键，主循环有时「看不见」</h3>
+          <p class="mt-3">第二个实验更朴素：一个按键中断服务函数把标志置 1，一个任务轮询这个标志，看到 1 就打印一行。代码是这样的：</p>
+          <p class="mt-3">中断里 <code class="icode">g_pressed = 1;</code>，任务里 <code class="icode">while (1) { if (g_pressed) { printf(&quot;key\n&quot;); g_pressed = 0; } }</code>。你按下按键，十次里有两次什么也没发生；更诡异的是，如果你把 <code class="icode">printf</code> 换成别的轻量操作，现象又变了。<b class="font-semibold text-ink">这是「可见性」问题</b>：编译器看到你的循环里没有任何代码修改 <code class="icode">g_pressed</code>，于是理直气壮地把它读进寄存器，之后再也不去内存里重新读——中断改的是内存，而你在读寄存器副本。解决它的关键词是 <code class="icode">volatile</code>，但请注意：<b class="font-semibold text-ink">volatile 只解决「读得到」，完全不解决「不会丢」</b>，这两个问题在第 2.1 节会被严格区分开。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景三：数据是对的，但「半新半旧」</h3>
+          <p class="mt-3">场景二改对了之后，你又遇到新麻烦：你传给任务的不是一个标志，而是一包数据——结构体里有时刻、温度、湿度、校验和。生产者这么写：先填结构体，再置标志；消费者这么写：先看标志，再读结构体。<b class="font-semibold text-ink">结果偶尔会读到「上一包的温度 + 这一包的时间戳」这种缝合怪</b>，校验和当然对不上。</p>
+          <p class="mt-3">这是第三个问题：<b class="font-semibold text-ink">顺序</b>。现在的编译器和 CPU 都允许把没有依赖关系的写操作重排（Xtensa 和 Cortex-M 都是弱内存序），「先写数据、后置标志」这个顺序在源码里成立，在机器码和时间上都不一定成立。你需要的是一条「屏障（barrier）」——而 FreeRTOS 的队列恰好自带屏障：<b class="font-semibold text-ink">用队列传数据，顺序问题就不存在了，因为拷贝动作发生在内核的临界区里</b>。这就是「为什么要用内核机制，而不是自己写全局变量 + 标志位」的核心答案。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景四：优先级最高的任务，偶尔要等半秒</h3>
+          <p class="mt-3">第四个场景最昂贵：你的显示屏刷新任务优先级 10（最高），周期 100 ms，截止期 40 ms。它和另外两个任务共享一把锁。你观察到一个诡异现象：<b class="font-semibold text-ink">大部分时候刷新很准时，偶尔会迟到 50 ms 以上，甚至整帧丢掉。</b>你把优先级又调高了一级，没有任何改善。</p>
+          <p class="mt-3">这是<b class="font-semibold text-ink">优先级反转（priority inversion）</b>：一个低优先级任务拿着锁慢慢干活，一个中优先级任务（它根本不需要锁）抢走了 CPU，于是「高优先级任务」实际上在等「中优先级任务」把 CPU 让出来。优先级这个数字在锁面前会失效。<b>这不是理论问题</b>——1997 年火星探路者号在火星表面反复重启，就是同一个机制。第 2.5 节会把这段时序一秒一秒算给你看，第 4 节的程序二能让你在自己的板子上把它打印出来。</p>
+
+          <div class="callout callout-info mt-6">
+            <div class="callout-title">这一篇要彻底回答的四个问题</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>共享变量到底会怎么出错？</b>——把「偶发」拆成原子性、可见性、顺序三个可枚举的问题，并且给出每一类问题的正确解法（临界区、<code class="icode">volatile</code> 加屏障、或者干脆换成队列）。</li>
+              <li><b>内核提供的这些机制各自解决哪几个问题？</b>——队列、二值信号量、计数信号量、互斥量、递归互斥量、事件组、任务通知、流缓冲、消息缓冲，共九种，外加「手写全局变量加临界区」。第 2.8 节给一张十行的对照表。</li>
+              <li><b>优先级反转是什么、怎么算、怎么办？</b>——这是本篇的骨架。完整时序算例、优先级继承把时间压回哪里、以及「继承不是万能的」在哪两个地方失效。</li>
+              <li><b>中断里那套 API 为什么和任务里不一样？</b>——<code class="icode">FromISR</code> 后缀、<code class="icode">pxHigherPriorityTaskWoken</code> 这个出参、<code class="icode">portYIELD_FROM_ISR</code>，以及忘掉它会付出多大的延迟代价。</li>
+            </ul>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">先把主线摆出来：一个「采样—显示—上报」的小系统</div>
+            <p>为了不让知识散成一地珠子，这一篇所有内容都挂在同一个例子上：<b>采集任务每 20 ms 采一包温湿度，显示任务负责刷新屏幕，上报任务等网络就绪后把数据发出去，按键中断用来触发一次手动上报</b>。队列在采集与显示之间传数据、互斥量保护屏幕、信号量做按键同步、事件组等「网络就绪 + 时间同步 + 自检通过」三件事。第 3 节算它的账（RAM、延迟、反转时长），第 4 节给你它的四份完整代码。<b>把这个小系统想清楚，你就掌握了 90% 的任务间通信实战。</b></p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这一篇和教材的关系（一句提醒）</div>
+            <p>教材出处是刘火良《FreeRTOS 内核实现与应用开发实战指南》第 15~20 章，书上的代码跑在 STM32F103 上，用的是 Cortex-M3 的移植层。FreeRTOS 的 API 名字两边几乎完全一样，<b>但移植层的几个宏不一样</b>——最典型的就是 <code class="icode">portYIELD_FROM_ISR</code>：Cortex-M 端口写成带参数的 <code class="icode">portYIELD_FROM_ISR(hpw)</code>，而 ESP-IDF 的 Xtensa 端口定义成不带参数的 <code class="icode">portYIELD_FROM_ISR()</code>。所以<b>「从书上抄代码」到 ESP32 时，中断那几行必须逐字核对</b>，这一篇会在第 2.3 节明确标出来。另外 ESP-IDF 里任务栈大小的单位是<b>字节</b>，不是书上的「字（word）」。</p>
+          </div>
+
+          <p class="mt-4">最后交个底：这一篇的篇幅偏长，因为「选错机制」的代价远高于「多读十分钟」。如果你现在就想解决手头的一个具体问题，可以直接跳到第 2.8 节的选型对照表，找到和你场景对得上的那一行，再回头读对应的小节。</p>
+        </section>
+
+<!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="mt-14 text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节的路线是「<b class="font-semibold text-ink">先看病因，再看药</b>」。前面三小节（2.1）先把并发那三个问题拆开、看清它们的机理；从 2.2 节开始，一种机制一种机制地过，每种机制都回答同一组问题：<b>它替我解决了哪几个问题、它的开销是多少、它能不能在中断里用、它自己的坑在哪</b>。顺序是：队列（2.2）→ 中断版本（2.3）→ 信号量（2.4）→ 互斥量与优先级反转（2.5，本节最重要）→ 事件组（2.6）→ 任务通知（2.7）→ 流缓冲与消息缓冲（2.8，末尾附十行选型对照表与死锁纪律）。</p>
+
+          <h3 id="sub-concurrency" class="mt-7 text-base font-semibold">并发三问题：原子性、可见性、顺序</h3>
+
+          <p class="mt-3">在单片机里，「并发」这个词的含义比 PC 上宽。只要有<b class="font-semibold text-ink">两个执行流能在任意时刻打断对方</b>，就构成并发。在你手上的 ESP32 里，至少有四种打断方式：</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>任务切换</b>——SysTick 中断（ESP-IDF 默认 100 Hz，即每 10 ms 一次）里调度器可能把当前任务换成另一个；更高优先级任务就绪时也会立刻切换。</li>
+            <li><b>中断</b>——GPIO、UART、定时器中断随时可能插进来，它们的优先级高于任何任务。</li>
+            <li><b>双核真并行</b>——两个任务钉在不同核上时，两条指令是真同时执行的，不存在「谁打断谁」。</li>
+            <li><b>DMA</b>——外设自己改内存，CPU 完全不知情（这是第 <a class="text-brand-600 dark:text-brand-300" href="core-dma.html">DMA 与总线矩阵</a>那一篇的内容）。</li>
+          </ul>
+          <p class="mt-3">所以「我只用了一个核，不会有事」是一个危险的想法。<b class="font-semibold text-ink">只要存在上面任意一条，你写的每一条普通 C 语句都可能被打断，而被打断的位置是你无法控制的。</b>下面把这种「无法控制的打断」造成的错误分成三类——这是本篇最重要的一次分类，后面每一种机制都是在为其中某几类准备解药。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">问题一：原子性——<code class="icode">g_count++</code> 不是一条指令</h4>
+          <p class="mt-3">原子性（atomicity）的意思是：<b>一个操作要么完整地做完，要么完全没发生，不存在「做了一半被别人看见」的中间状态</b>。麻烦在于，C 语言里看起来最小的那些操作，往往并不原子。把 <code class="icode">g_count++</code> 编译成 ARM Cortex-M 的机器码，它是三条指令：</p>
+
+          <div class="code-block" data-lang="text" data-title="g_count++ 的机器码（Cortex-M3，-O2）"><pre><code>    ldr     r3, .L_addr      ; r3 = &amp;g_count      取变量地址
+    ldr     r2, [r3]         ; r2 = *r3          ① 读（Read）
+    adds    r2, r2, #1       ; r2 = r2 + 1       ② 改（Modify）
+    str     r2, [r3]         ; *r3 = r2          ③ 写（Write）
+</code></pre></div>
+
+          <p class="mt-3">问题的核心是：<b class="font-semibold text-ink">tick 中断可以在①和③之间的任何位置插进来</b>。中断让另一个任务运行，而那个任务也在做同样的事，于是两边都基于同一个旧值计算，最后写回的是同一个新值——一次自增被吃掉了。这是「read-modify-write（读—改—写）」的经典失败模式：</p>
+
+          <div class="code-block" data-lang="text" data-title="丢失更新（lost update）时序图"><pre><code>时间 →（假设 g_count 初值 = 5）
+
+任务 A:  ①读 g_count=5 ──┐                                    ③写回 6
+                         │  ← 这里发生 tick 中断，任务切换
+任务 B:                  └── ①读 g_count=5 ── ②改 6 ── ③写回 6
+
+结果：g_count = 6。两次自增，只留下一次 → 丢了一次更新
+
+两个任务各加 10000 次时，冲突次数是随机的，
+所以最终结果在 10000 ~ 20000 之间乱跳，而且每次运行都不同。
+</code></pre></div>
+
+          <p class="mt-3">有三条结论要记牢：</p>
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li><b>这不是「运气不好」，而是概率问题</b>。冲突窗口只有几条指令宽（几十纳秒），撞上的概率很低，所以这个小实验常常要跑几十毫秒才丢几千次——你越是觉得「我跑了三天都没出问题」，越说明你的测试环境太温柔。</li>
+            <li><b>32 位机器上的 8 位或 16 位读写在硬件上是原子的，但 C 语言不保证</b>。真正需要小心的是「读—改—写」这类复合操作：<code class="icode">x++</code>、<code class="icode">x += y</code>、<code class="icode">flag = !flag</code>、<code class="icode">ptr = ptr-&gt;next</code> 全都是。</li>
+            <li><b>结构体、数组、字符串的赋值永远不原子</b>。哪怕你写一句 <code class="icode">g_packet = new_packet;</code>，编译器也会展开成一段 <code class="icode">memcpy</code>（示例里的 32 字节结构体就是 8 次 4 字节拷贝），中间被打断就会产生「半新半旧」的数据。</li>
+          </ol>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">原子性问题的三种解法（按推荐程度排序）</div>
+            <p><b>① 换用内核对象</b>——队列、信号量、通知内部都有关键区保护，你不需要知道细节就得到了原子性。这是本篇推荐的做法。<br>
+            <b>② 用临界区</b>——<code class="icode">taskENTER_CRITICAL(&amp;mux)</code> 到 <code class="icode">taskEXIT_CRITICAL(&amp;mux)</code> 之间关中断（ESP32 上还带一个自旋锁），几条指令的操作可以安全地放进去。记住它<b>只能保护几条指令</b>，细节见第 2.8 节。<br>
+            <b>③ 用编译器提供的原子内建函数</b>——<code class="icode">__atomic_fetch_add(&amp;g_count, 1, __ATOMIC_SEQ_CST)</code>，或者在 C11 里 <code class="icode">#include &lt;stdatomic.h&gt;</code> 后用 <code class="icode">atomic_fetch_add(&amp;g_count, 1)</code>。这一类会编译成 <code class="icode">LDREX/STREX</code>（Cortex-M）或 <code class="icode">S32C1I</code>（Xtensa）这类独占访问指令，<b>无锁、最快，但只能用于单个变量的简单操作</b>。</p>
+          </div>
+
+          <p class="mt-3">还有一个「假原子」要特别点名：<b>加锁保护的读—改—写是原子的，但「先读出来、算一会儿、再写回去」不是</b>。下面这段代码即使每一步都用锁保护，结果照样是错的：</p>
+
+          <div class="code-block" data-lang="c" data-title="错的：把锁用成了「分段原子」"><pre><code>/* 错误示范：看起来每一步都加锁了，实际上整个「读—算—写」不是一个原子段 */
+static int g_level;
+static SemaphoreHandle_t s_lock;
+
+void update_level(int delta)
+{
+    int v;
+
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    v = g_level;                       /* 读出来（原子） */
+    xSemaphoreGive(s_lock);
+
+    v = v + delta;                     /* 算一会儿（这中间别的任务可能改了 g_level） */
+
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    g_level = v;                       /* 写回去（原子，但基于过期的 v） */
+    xSemaphoreGive(s_lock);
+}
+/* 正确做法：整段读—改—写放在同一次 Take / Give 之间。 */
+</code></pre></div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">问题二：可见性——为什么加了 <code class="icode">volatile</code> 才能看见</h4>
+          <p class="mt-3">可见性（visibility）的意思是：<b>一个执行流写进内存的值，另一个执行流什么时候能读到</b>。它出问题的根源不在硬件，而在编译器：编译器不知道「还有别人会改这个变量」，所以它会做两种优化。</p>
+          <p class="mt-3"><b>第一，把变量缓存在寄存器里。</b>下面这段代码是每个新手都写过的：</p>
+
+          <div class="code-block" data-lang="c" data-title="可见性实验：标志位版的等待"><pre><code>static int g_ready;              /* 中断里会把它置 1，这里是错的写法 */
+
+void wait_task(void *arg)
+{
+    while (g_ready == 0) {       /* 编译器看到循环里没人改 g_ready， */
+        /* 空转 */                /* 于是把它读进寄存器，再也不用读内存了 */
+    }
+    printf("device ready\n");
+}
+
+/* 中断里的代码： */
+void IRAM_ATTR some_isr(void *arg)
+{
+    g_ready = 1;                 /* 改的是内存，但 wait_task 已经不看内存了 */
+}
+</code></pre></div>
+
+          <p class="mt-3">在 <code class="icode">-O2</code> 下，编译器很可能把这段循环优化成「先读一次，如果为 0 就无限跳回自己」——也就是说，<b class="font-semibold text-ink">中断把 <code class="icode">g_ready</code> 改成 1 之后，这个任务永远出不来，直到看门狗把它打死</b>。加上 <code class="icode">volatile</code> 之后，编译器会老老实实每次都从内存读：<code class="icode">static volatile int g_ready;</code>。</p>
+          <p class="mt-3"><b>第二，把「看起来没用」的写操作直接删掉。</b>如果编译器发现你写了一个之后再没被读过的变量，它可能把这个写整条消掉。在裸机里这通常无所谓，但那个变量的作用可能就是「通知 DMA 或者中断另一侧的代码」——<code class="icode">volatile</code> 同样能保住它。</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">关于 volatile 的三个必须搞清楚的边界</div>
+            <p><b>① <code class="icode">volatile</code> 不等于原子。</b><code class="icode">volatile int</code> 的 <code class="icode">++</code> 依然是三条指令，照样会丢更新。<b>volatile 解决可见性，不解决原子性</b>——把这两件事混为一谈是最常见的错误。<br>
+            <b>② <code class="icode">volatile</code> 不等于内存屏障。</b>C 标准只要求「volatile 访问不能与另一个 volatile 访问重排」，它不保证 volatile 访问与普通访问之间的顺序。要严格的顺序，得用原子操作的 <code class="icode">__ATOMIC_ACQUIRE</code> / <code class="icode">__ATOMIC_RELEASE</code> 语义。<br>
+            <b>③ 最好的办法是根本不用裸标志位。</b>FreeRTOS 的 API 内部自己处理好了可见性与屏障（进临界区、操作链表、必要时插入内存屏障），<b>所以「用队列/信号量/通知传递状态」这件事本身就把可见性问题一并解决了</b>。只有在你确实要用一个全局变量跟中断通信、而它又只是「一个不超过 32 位的值」时，才退回到 <code class="icode">volatile</code> 加原子操作的组合。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">问题三：顺序——先写数据再置标志，可能反着执行</h4>
+          <p class="mt-3">顺序（ordering）是最隐蔽的一个问题，因为它出现的条件是「<b>用两个变量表达一个状态</b>」。看生产者与消费者这对老搭档：</p>
+
+          <div class="code-block" data-lang="c" data-title="顺序问题的标准形态"><pre><code>typedef struct { float temp; float humi; uint32_t crc; } packet_t;
+
+static packet_t        g_pkt;      /* 数据 */
+static volatile int    g_valid;    /* 标志：1 = 数据有效 */
+
+/* 生产者（可能是中断，也可能是另一个任务） */
+void produce(void)
+{
+    g_pkt.temp = read_temp();
+    g_pkt.humi = read_humi();
+    g_pkt.crc  = calc_crc(&amp;g_pkt);
+    g_valid    = 1;                /* 源码顺序：数据在前，标志在后 */
+}
+
+/* 消费者 */
+void consume(void)
+{
+    if (g_valid == 1) {
+        use_packet(&amp;g_pkt);       /* 危险：这里可能读到「半新半旧」的包 */
+        g_valid = 0;
+    }
+}
+</code></pre></div>
+
+          <p class="mt-3">在源码里，<code class="icode">g_valid = 1</code> 是最后一条语句，所以「标志为 1 时数据一定完整」看起来天经地义。但有两层东西会破坏这个顺序：<b>编译器可以在不改变单线程语义的前提下重排写操作</b>（在它眼里没有任何依赖关系），<b>CPU 的写缓冲也会让多个写操作以不同于程序顺序的时间抵达内存</b>（Xtensa 与 Cortex-M 的默认内存序都是弱序）。于是消费者可能先看到 <code class="icode">g_valid = 1</code>，再读到还在更新的 <code class="icode">g_pkt</code>。</p>
+          <p class="mt-3">打破这种「缝合怪」需要一次<b class="font-semibold text-ink">发布—获取配对</b>：</p>
+
+          <div class="code-block" data-lang="c" data-title="用 release / acquire 建立顺序"><pre><code>/* 生产者：写数据用普通写，最后用「释放语义」写标志 */
+__atomic_store_n(&amp;g_valid, 1, __ATOMIC_RELEASE);
+/* 这条语句的含义：本次写入之前的所有写操作，
+   对「读到这个 1 的人」来说都必须已经完成 */
+
+/* 消费者：先用「获取语义」读标志，再读数据 */
+if (__atomic_load_n(&amp;g_valid, __ATOMIC_ACQUIRE) == 1) {
+    use_packet(&amp;g_pkt);        /* 这里看到的 g_pkt 一定是完整的 */
+}
+</code></pre></div>
+
+          <p class="mt-3">如果这一对语义让你觉得抽象，那就记住工程上的结论：<b class="font-semibold text-ink">跨执行流共享「一包数据」，正确的方式是把它当作一个不可分割的整体传递，而不是「数据 + 标志」两个变量</b>。队列做的正是这件事——<code class="icode">xQueueSend</code> 在一次临界区里完成整包数据的拷贝、更新计数、唤醒接收者，消费者 <code class="icode">xQueueReceive</code> 拿到的必然是一整包。<b>你不需要理解屏障，因为你没有手写共享状态。</b></p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>问题</th>
+                  <th>一句话定义</th>
+                  <th>典型症状</th>
+                  <th>常见错误解法</th>
+                  <th>正确解法</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>原子性</b><br><span class="text-[12.5px] text-muted">atomicity</span></td>
+                  <td>读—改—写这类复合操作被打断，中间态被别人看见</td>
+                  <td>计数偏小、状态机跳步、结构体半新半旧</td>
+                  <td>把两个任务钉到同一个核；给变量加 <code class="icode">volatile</code></td>
+                  <td>队列/信号量等内核对象；短短几条指令用临界区；单变量用原子内建函数</td>
+                </tr>
+                <tr>
+                  <td><b>可见性</b><br><span class="text-[12.5px] text-muted">visibility</span></td>
+                  <td>写进内存的值，对方读的时候不一定看得见（编译器缓存到寄存器）</td>
+                  <td>中断置的标志主循环看不到；变量改名或改优化等级后现象消失</td>
+                  <td>反复加 <code class="icode">printf</code> 调试（它碰巧打断了优化）</td>
+                  <td><code class="icode">volatile</code> 只保「读得到」；要「不丢」还得靠原子操作或内核对象</td>
+                </tr>
+                <tr>
+                  <td><b>顺序</b><br><span class="text-[12.5px] text-muted">ordering</span></td>
+                  <td>「数据 + 标志」两个变量之间的先后被编译器或 CPU 打乱</td>
+                  <td>偶尔读到时间戳与数值不属于同一包的数据；校验和随机失败</td>
+                  <td>把语句顺序调来调去、加 <code class="icode">vTaskDelay(1)</code> 碰运气</td>
+                  <td>把整包数据交给队列一次传完；或者用 release/acquire 配对的原子操作</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一小节的结论：先问「我是不是在共享可变状态」，再问用什么工具</div>
+            <p>看到这里你应该已经发现：三个问题的根源是同一个——<b>有一份可变状态被两个执行流共享</b>。所以最强的一招不是「找工具去保护它」，而是<b>先想办法不共享</b>：让数据只有一个归属者（谁创建谁拥有），需要跨任务流动时<b>用拷贝把它交出去</b>（队列），需要通知对方时<b>用信号量或通知传一个事件</b>（不传数据）。这套思路有个名字叫「消息传递优于共享内存」，它是后面所有小节的总纲：<b>队列传数据、信号量传事件、互斥量保护实在躲不掉的共享资源</b>。</p>
+          </div>
+
+          <h3 id="sub-queue" class="mt-7 text-base font-semibold">队列：元素个数、值拷贝与四种满队列策略</h3>
+
+          <p class="mt-3">队列（queue）是 FreeRTOS 里最基础、也是最该优先考虑的一种机制。它同时解决刚才三个问题：拷贝动作在临界区里完成（原子）、写读都经过内核（可见性有保证）、整包数据一次交付（顺序不会错）。用法上你只需要记住三件事：<b>长度单位是元素个数、传递是值拷贝、等待时间是可选的</b>。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">创建：<code class="icode">uxQueueLength</code> 的单位是「个」，RAM 账怎么算</h4>
+          <p class="mt-3">函数原型是 <code class="icode">QueueHandle_t xQueueCreate(UBaseType_t uxQueueLength, UBaseType_t uxItemSize)</code>。这两个参数最容易被误读成「长度」和「宽度」，实际含义是：</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><code class="icode">uxQueueLength</code>——<b>最多同时能存几个元素</b>（不是字节数）。写 20 就是「队列里最多躺 20 个东西」。</li>
+            <li><code class="icode">uxItemSize</code>——<b>一个元素占多少字节</b>，通常写 <code class="icode">sizeof(你的结构体)</code>。内核不关心这个结构体里有什么，它只会按字节拷贝这么多。</li>
+          </ul>
+          <p class="mt-3">所以队列的存储开销几乎是「乘法」：</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">队列的 RAM 公式（背下来，选型时天天用）</div>
+            <p><b>存储区</b> = <code class="icode">uxQueueLength × uxItemSize</code> 字节（这是主体，连续分配的一块内存）<br>
+            <b>队列结构体</b> <code class="icode">Queue_t</code> ≈ 80 字节（存读写指针、元素个数、长度、两个等待链表、互斥量持有者等）<br>
+            <b>堆管理开销</b> ≈ 8 字节（ESP-IDF 的 <code class="icode">heap_caps_malloc</code> 每块带一个 8 字节块头）<br>
+            <b>合计</b> ≈ <code class="icode">uxQueueLength × uxItemSize + 88</code> 字节。第 3 节的例题一会把这笔账算到底。</p>
+          </div>
+
+          <p class="mt-3">队列内部的存储是一块连续的环形缓冲，配合读写指针循环使用，所以「队列用了多少内存」跟「当前存了几个元素」完全无关——<b class="font-semibold text-ink">创建的那一刻就把最大容量定死了，之后既不增长也不收缩</b>。它的内存布局长这样：</p>
+
+          <div class="code-block" data-lang="text" data-title="队列的内存布局（xQueueCreate(20, 32)）"><pre><code>    Queue_t 结构体（约 80 B，另一块堆内存）
+    +------------------------------------------+
+    | pcHead / pcTail      指向存储区首尾       |
+    | pcReadFrom           下一个要读的槽       |
+    | pcWriteTo            下一个要写的槽       |
+    | uxMessagesWaiting    当前有几个元素       |
+    | uxLength       = 20  容量（元素个数）     |
+    | uxItemSize     = 32  每个元素字节数       |
+    | xTasksWaitingToSend    等着往里写的任务   |
+    | xTasksWaitingToReceive 等着往外读的任务   |
+    +------------------------------------------+
+                     |
+                     v
+    存储区（20 x 32 = 640 B，一块连续的堆内存，环形使用）
+    +----+----+----+----+----+----+----+----+          +----+
+    | 0  | 1  | 2  | 3  | 4  | 5  | 6  | 7  |  ......  | 19 |
+    +----+----+----+----+----+----+----+----+          +----+
+      ^              ^
+      |              |
+   读指针          写指针        （两者都绕回到 0 继续用，形成环）
+</code></pre></div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">传值：两次拷贝换来的安全</h4>
+          <p class="mt-3">原型是 <code class="icode">BaseType_t xQueueSend(QueueHandle_t xQueue, const void *pvItemToQueue, TickType_t xTicksToWait)</code>，注意第二个参数是<b>指针</b>，但它只在函数执行期间被用来读数据——<b>内核会把 <code class="icode">uxItemSize</code> 个字节从你给的地址拷贝进队列的存储区</b>。这就是「值拷贝语义（copy by value）」：函数返回之后，你原来的那个变量怎么改都不会影响队列里的副本。接收端 <code class="icode">xQueueReceive(q, &amp;dst, timeout)</code> 再把数据拷贝到你的变量里。</p>
+          <p class="mt-3">代价是：<b>每传一个元素，一共发生两次拷贝</b>（入队一次、出队一次），总量是 <code class="icode">2 × sizeof(元素)</code>。这带来一个非常实际的选型判断：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>元素大小</th>
+                  <th>每次传递的拷贝量</th>
+                  <th>20 ms 周期的负载（50 包/秒）</th>
+                  <th>建议</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>4 字节（<code class="icode">uint32_t</code>、按键事件码）</td>
+                  <td>8 字节</td>
+                  <td>400 B/s</td>
+                  <td><b>直接传值</b>，最省心</td>
+                </tr>
+                <tr>
+                  <td>32 字节（本页示例的采样包）</td>
+                  <td>64 字节</td>
+                  <td>3.2 KB/s</td>
+                  <td><b>直接传值</b>，拷贝就是 16 条指令的事</td>
+                </tr>
+                <tr>
+                  <td>512 字节（一帧图像、一段语音）</td>
+                  <td>1024 字节</td>
+                  <td>51 KB/s</td>
+                  <td>开始值得考虑传指针（见下）</td>
+                </tr>
+                <tr>
+                  <td>4 KB（一整块 Flash 缓冲）</td>
+                  <td>8192 字节</td>
+                  <td>410 KB/s</td>
+                  <td><b>必须传指针</b>，否则一半 CPU 在 memcpy</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">如果你确认要传指针，<b class="font-semibold text-ink">那么指针指向的内存必须有明确的归属规则</b>，否则你会用「数据被覆盖」换掉「数据拷贝」。两种安全的模式：</p>
+
+          <div class="code-block" data-lang="c" data-title="大数据的两种安全传递模式"><pre><code>/* ---------- 模式 A（推荐）：数组槽位 + 队列传索引 ---------- */
+#define NSLOT 4
+static uint8_t  s_slot[NSLOT][512];     /* 4 个 512 B 的槽，静态分配，永不释放 */
+static uint8_t  s_slot_in_use[NSLOT];   /* 1 = 生产者在写，消费者不许碰 */
+static QueueHandle_t s_free_q;          /* 里面装的是「空闲槽号」
+                                           初值 0,1,2,3，长度 NSLOT */
+static QueueHandle_t s_full_q;          /* 里面装的是「填好的槽号」 */
+
+/* 生产者：先领一个空闲槽（领不到就阻塞，天然背压），填完再交出去 */
+void producer(void)
+{
+    uint8_t idx;
+    for (;;) {
+        if (xQueueReceive(s_free_q, &amp;idx, portMAX_DELAY) != pdTRUE) continue;
+        s_slot_in_use[idx] = 1;
+        fill_big_buffer(s_slot[idx], 512);       /* 慢慢填，不占锁 */
+        s_slot_in_use[idx] = 0;
+        xQueueSend(s_full_q, &amp;idx, portMAX_DELAY);   /* 只传 1 字节的索引 */
+    }
+}
+
+/* 消费者：拿到索引，用完把索引还回去 */
+void consumer(void)
+{
+    uint8_t idx;
+    for (;;) {
+        if (xQueueReceive(s_full_q, &amp;idx, portMAX_DELAY) == pdTRUE) {
+            use_big_buffer(s_slot[idx], 512);
+            xQueueSend(s_free_q, &amp;idx, portMAX_DELAY);   /* 归还槽位 */
+        }
+    }
+}
+
+/* ---------- 模式 B：堆分配 + 消费者释放 ---------- */
+/* 生产者：xQueueSend(q, &amp;p, 0)，p 来自 malloc
+   消费者：收到 p，用完 free(p)
+   规则只有一条，但违反一次就内存泄漏或者 double free。
+   适合「包大小差异很大、不固定」的场景。 */
+</code></pre></div>
+
+          <p class="mt-3">模式 A 是我最推荐的：<b>没有 malloc、没有泄漏、槽位数量就是流控上限</b>，索引是 1 字节，拷贝成本可以忽略。它唯一的代价是要多维护一条「空闲队列」。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">等待：<code class="icode">xTicksToWait</code> 的三种语义</h4>
+          <p class="mt-3">队列的第三个参数是「等多久」，它决定了「队列满（发送时）或队列空（接收时）该怎么办」。三种写法对应三种完全不同的行为：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>写法</th>
+                  <th>队列满 / 空时的行为</th>
+                  <th>调用者状态</th>
+                  <th>返回值</th>
+                  <th>用在哪</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">0</code></td>
+                  <td>立刻返回，什么都不等</td>
+                  <td>一直 Running</td>
+                  <td><code class="icode">pdFALSE</code>（即 <code class="icode">errQUEUE_FULL</code> / <code class="icode">errQUEUE_EMPTY</code>）</td>
+                  <td>不能等的地方：中断、临界区、定时器回调、以及「丢一包没关系」的高频数据</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">pdMS_TO_TICKS(n)</code></td>
+                  <td>最多等 n 毫秒；期间来了空间/数据就立刻返回</td>
+                  <td>先 Blocked，被唤醒或超时后回 Ready</td>
+                  <td>成功 <code class="icode">pdTRUE</code>，超时 <code class="icode">pdFALSE</code></td>
+                  <td><b>绝大多数业务代码</b>：等不到就上报一次「忙」，系统不会卡死</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">portMAX_DELAY</code></td>
+                  <td>永远等下去，直到成功为止</td>
+                  <td>Blocked，不占 CPU 也不耗电，来了立刻醒</td>
+                  <td>只要返回就是 <code class="icode">pdTRUE</code></td>
+                  <td>「这件事必须做成」的场合；<b>但也是死锁的温床</b>，见 2.8 节</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">关于 <code class="icode">portMAX_DELAY</code>，有三个数字值得记住：它是 <code class="icode">0xFFFFFFFF</code>（<code class="icode">configUSE_16_BIT_TICKS = 0</code> 时），在 ESP-IDF 默认的 100 Hz tick 下相当于 <b>42949672.95 秒 ≈ 497 天</b>——比任何设备的寿命都长，所以它的实际含义就是「永久等待」。另外，<b>把 <code class="icode">portMAX_DELAY</code> 传给一个不支持阻塞的 API 会触发断言</b>（<code class="icode">configASSERT</code> 在 ESP-IDF 默认是打开的），这类错误在开发期就会暴露，不用等到现场。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title"><code class="icode">pdMS_TO_TICKS</code> 是向下取整，不是四舍五入</div>
+            <p>这个宏在 FreeRTOS 里的定义是「毫秒 × tick 频率 ÷ 1000」的<b>整数除法</b>，也就是<b>向下取整</b>。所以在 ESP-IDF 默认的 100 Hz tick 下，<code class="icode">pdMS_TO_TICKS(15)</code> = 15 × 100 ÷ 1000 = 1.5 → <b>1 个 tick = 10 ms</b>，比你要的 15 ms <b>短了 5 ms</b>。如果你写的是「至少等 15 ms 才能认为对方没响应」，就应该写成 <code class="icode">pdMS_TO_TICKS(15) + 1</code>，或者干脆把 tick 频率配成 1000 Hz（<code class="icode">CONFIG_FREERTOS_HZ = 1000</code>），让 1 ms 的粒度足够细。第 3 节的例题三会把这两个频率下的误差都算一遍。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">队列的两种用途：邮箱（长度 1）与流水线（长度 N）</h4>
+          <p class="mt-3">同样是队列，「长度给几」决定了它的性质完全不同，这是设计时最该先想清楚的一件事。</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>邮箱（mailbox）：长度 1。</b>语义是「只保留最新的一份状态」。它天然会「背压」生产者：上一条还没被取走，新的就发不进来。如果你要的是「新的直接盖掉旧的」，用 <code class="icode">xQueueOverwrite(q, &amp;item)</code>——<b>这个函数只允许用在长度正好为 1 的队列上</b>（内部有 <code class="icode">configASSERT( uxQueueLength == 1 )</code>），它相当于「不检查满不满，直接覆盖」。适合传「当前音量」「最新一次 GPS 定位」「要显示的当前温度」这类状态。</li>
+            <li><b>流水线（pipeline）：长度 N。</b>语义是「允许 N 个元素在途」。它把生产者和消费者在时间上解耦：消费者去写 Flash 卡住 20 ms 的时候，生产者还能继续往里放 20 ms 的数据，不丢包也不阻塞。长度 N 的选取有一个可算的方法：<b>N = 峰值到达速率 × 消费者最长一次不可被打断的时间</b>，再加 20%~50% 余量。第 3 节的例题一就用这个公式检查「长度 20 到底够不够」。</li>
+          </ul>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">队列满了怎么办？这是一个必须做的设计决策</div>
+            <p>新手最常见的做法是「队列长度随手写个 10，满了就返回失败，然后 <code class="icode">continue</code>」——<b>这等于选择了「静默丢数据」，而丢数据本身可能是最糟的选项</b>。队列满的那一刻，你要在下面四条里明确选一条，并且<b>把它写进注释</b>：</p>
+            <p class="mt-2"><b>① 丢最旧</b>：先 <code class="icode">xQueueReceive</code> 强行取走一个再发（或者对长度 1 的队列直接用 <code class="icode">xQueueOverwrite</code>）。适合状态类数据：旧的温度没有意义，不如保留最新的。<br>
+            <b>② 阻塞等空间（背压）</b>：<code class="icode">xQueueSend(q, &amp;item, pdMS_TO_TICKS(100))</code>。让生产者慢下来，数据不丢但生产者的时间线会被拉长。<b>注意：这在中断里做不到，在临界区里也不能做</b>。<br>
+            <b>③ 扩容</b>：FreeRTOS 的队列<b>不能原地扩容</b>。可行的做法是「建一个更大的新队列，把旧队列里的元素搬过去，然后把新队列的 handle 换掉」——但换 handle 这件事本身又需要一把锁或者一个停机时刻，工程上通常退化为「启动时就把容量配足，外加上报水位告警」。<br>
+            <b>④ 丢弃并计数</b>：<code class="icode">xQueueSend</code> 失败时对一个 <code class="icode">uint32_t</code> 计数器加一，把它作为「系统健康度」上报（MQTT 或日志）。<b>丢一包不可怕，不知道自己丢了包才可怕。</b>这一条应该加在上面任何一条之上。</p>
+          </div>
+
+          <h3 id="sub-isr" class="mt-7 text-base font-semibold">从 ISR 到任务：FromISR 与那个必须传的指针</h3>
+
+          <p class="mt-3">中断服务函数（ISR）和任务处在两个不同的世界里：<b class="font-semibold text-ink">ISR 没有自己的任务控制块，不能阻塞，也不能被「切换出去」</b>。所以凡是能在 ISR 里调用的内核 API，都有一份专门的 <code class="icode">FromISR</code> 版本，它们的共同特点是：<b>没有超时参数（永不阻塞），多了一个用于「事后处理」的出参</b>。</p>
+
+          <p class="mt-3">为什么任务版 API 不能用在 ISR 里？因为它内部要「如果拿不到，就把当前任务挂到等待链表上，然后触发一次调度」。而 ISR 里没有「当前任务」这个概念（被中断打断的那个任务并不是调用者），更不可能把自己挂起来。<b>在 ISR 里调用任务版 API，轻则触发断言，重则破坏内核链表、在中断上下文里挂死。</b>ESP-IDF 的断言会明确告诉你调用栈在哪里，看到 <code class="icode">assert failed</code> 并且栈里有某个 <code class="icode">_isr</code> 函数，第一反应就应该是「我是不是用错了 API 版本」。</p>
+
+          <p class="mt-3">下面是「中断给一个信号量、任务取它」的标准写法。这一段请<b>逐字对照</b>，因为三行里有两行是新手一定会漏的：</p>
+
+          <div class="code-block" data-lang="c" data-title="isr_to_task.c：中断到任务同步的标准写法"><pre><code>static SemaphoreHandle_t s_evt;      /* 在 app_main 里创建 */
+
+/* ---------------- 中断侧：只做「通知」，不做业务 ---------------- */
+static void IRAM_ATTR my_isr(void *arg)
+{
+    BaseType_t hpw = pdFALSE;        /* ① 必须初始化为 pdFALSE */
+
+    /* ② 用 FromISR 版本；它没有超时参数，永不阻塞 */
+    xSemaphoreGiveFromISR(s_evt, &amp;hpw);
+
+    /* ③ 把「是否需要立刻切换」这件事交给移植层 */
+    if (hpw == pdTRUE) {
+        portYIELD_FROM_ISR();        /* ESP-IDF（Xtensa）不带参数 */
+    }
+}
+
+/* ---------------- 任务侧：在这里做所有耗时的事 ---------------- */
+static void handler_task(void *arg)
+{
+    for (;;) {
+        /* portMAX_DELAY：没有事件时任务真的在睡，一个周期都不占 */
+        if (xSemaphoreTake(s_evt, portMAX_DELAY) == pdTRUE) {
+            do_the_real_work();      /* 打印、算 CRC、写 Flash、发网络都在这里 */
+        }
+    }
+}
+</code></pre></div>
+
+          <p class="mt-3">现在逐行解释这三行为什么缺一不可。</p>
+          <p class="mt-3"><b><code class="icode">pxHigherPriorityTaskWoken</code> 到底在说什么？</b>它是一个「出参」——内核通过它告诉你一件事：<b>「刚才这个 Give 唤醒了一个正在等它的任务，而那个任务的优先级比被打断的那个任务更高」</b>。注意它做的是一个比较：<b>被唤醒的任务 vs 被打断的任务</b>（不是 vs 中断优先级，也不是 vs 当前正在跑的任务——在中断里，被打断的那个就是「当前」）。如果确实更高，内核希望你在离开中断之前切过去，但它<b>故意不替你切</b>，因为一次中断里你可能会调用好几个 <code class="icode">FromISR</code> 函数，内核不知道你是不是还要做别的事，也不知道中断嵌套的上下文允不允许现场切换。决定权交给你，代价就是你<b>必须自己交出这个决定</b>。</p>
+          <p class="mt-3"><b><code class="icode">portYIELD_FROM_ISR()</code> 做了什么？</b>它并不马上切换（中断上下文里切换是危险的），而是<b>请求一次「中断返回时切换」</b>：在 Cortex-M 上是把 PendSV 挂起（PendSV 是专门用来做上下文切换的最低优先级异常），在 ESP32 的 Xtensa 上是调用 <code class="icode">_frxt_setup_switch</code> 之类的机制，最终效果都是<b>等中断服务函数返回时，直接跑到那个被唤醒的高优先级任务上去，而不是回到被打断的任务</b>。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">忘记 <code class="icode">portYIELD_FROM_ISR()</code> 的代价：白等一个 tick</div>
+            <p>如果你把 <code class="icode">hpw</code> 传了、但没有检查它、也没有 yield，会发生什么？<b>被唤醒的高优先级任务不会立刻运行</b>——它已经处于 Ready 状态，但要等到「下一次调度机会」才轮到它。下一次机会是下一个 tick 中断（ESP-IDF 默认 100 Hz，<b>最多等 10 ms</b>）或者被打断的那个任务主动让出 CPU。<br>
+            这个错误的症状非常典型：<b>「用逻辑分析仪看，中断确实进了、信号量也确实给了，但我的任务响应延迟忽大忽小，最大能到 10 ms」</b>。对按键这种应用你还感觉不到；对「编码器每 100 µs 一个脉冲」「SPI 从机片选拉低必须 5 µs 内响应」这类场景，那就是致命的。第 3 节的例题四会把这个延迟折算成 CPU 占比。</p>
+          </div>
+
+          <p class="mt-3">关于 ESP-IDF 与教材（STM32）在这几行上的差异，还有一个必须点名的坑：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>写法</th>
+                  <th>Cortex-M（STM32 / 教材）</th>
+                  <th>Xtensa（ESP32 / ESP-IDF）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>请求中断返回时切换</td>
+                  <td><code class="icode">portYIELD_FROM_ISR( hpw )</code>——宏<b>带参数</b>，内部会判断 <code class="icode">hpw != pdFALSE</code></td>
+                  <td><code class="icode">portYIELD_FROM_ISR()</code>——宏<b>不带参数</b>，是否需要 yield 必须由你判断</td>
+                </tr>
+                <tr>
+                  <td>等价的旧名字</td>
+                  <td><code class="icode">portEND_SWITCHING_ISR( hpw )</code>（已不推荐，见到就知道是旧代码）</td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td>ISR 里给队列传数据</td>
+                  <td><code class="icode">xQueueSendFromISR(q, &amp;item, &amp;hpw)</code></td>
+                  <td>同上（这一步两边一样）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">所以「从书上抄中断代码到 ESP32」时，<b>一定要打开 ESP-IDF 的 <code class="icode">portmacro.h</code> 确认这个宏的签名</b>（路径在 <code class="icode">components/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos/portmacro.h</code>）。它属于移植层，不同芯片平台的写法确实不同，这不是谁写错了。</p>
+
+          <p class="mt-3">最后补两条 ISR 版的通用规则：</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>一次中断里多次调用 FromISR 函数，只需要 yield 一次。</b>把 <code class="icode">hpw</code> 声明成局部变量，所有调用都传同一个 <code class="icode">&amp;hpw</code>（内核只会把它置成 <code class="icode">pdTRUE</code>，不会清回 <code class="icode">pdFALSE</code>），最后统一判断一次即可。</li>
+            <li><b>ISR 里绝对不要做的四件事</b>：调用任务版 API、调用 <code class="icode">vTaskDelay</code>、调用 <code class="icode">printf</code> 或 <code class="icode">ESP_LOGI</code>（它们会加锁并且不可重入）、做软件消抖这种需要延时的事情。把这些统统丢给任务，<b>中断里只留「记录事件」和「唤醒任务」两件事</b>。第 4 节的程序三会把正确与错误写法并排放在一起。</li>
+          </ul>
+        <h3 id="sub-sem" class="mt-7 text-base font-semibold">信号量：一枚旗子，还是一把令牌</h3>
+
+          <p class="mt-3">队列解决的是「把数据搬过去」。可很多时候你手里<b>根本没有数据要搬</b>，只是想让另一个任务知道「事情发生了」，或者想知道「还剩几个空闲资源」。为一个事件专门建一条队列、再塞一个空结构体进去，就像开卡车送一张纸条。</p>
+
+          <p class="mt-3">信号量就是为这种情况准备的。它在 FreeRTOS 内部的实现方式很有意思：<b>信号量就是一条「元素长度为 0 的队列」</b>。所以你在上一节学的队列语义它全都继承——会阻塞、有超时参数、有 <code class="icode">FromISR</code> 版本、连 RAM 结构都是同一个。区别只在于它数的不是「数据」，而是「次数」。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">二值信号量：只有「有」和「没有」两种状态</h4>
+
+          <div class="code-block" data-lang="c" data-title="sem_basic.c"><pre><code>#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+
+static SemaphoreHandle_t s_evt;          /* 二值信号量句柄 */
+
+static void producer_task(void *arg)
+{
+    while (1) {
+        /* 做完了某件事，通知对方 */
+        xSemaphoreGive(s_evt);
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+
+static void consumer_task(void *arg)
+{
+    while (1) {
+        /* 等到「有」为止。portMAX_DELAY = 一直等 */
+        if (xSemaphoreTake(s_evt, portMAX_DELAY) == pdTRUE) {
+            /* 每给一次，这里恰好跑一次 */
+        }
+    }
+}
+
+void app_main(void)
+{
+    /* 【最容易踩的坑】xSemaphoreCreateBinary() 建出来是「空」的，
+       第一次 Take 会立刻阻塞。想让任务一上电就能拿到，得自己先 Give 一次 */
+    s_evt = xSemaphoreCreateBinary();
+    configASSERT(s_evt != NULL);         /* 堆不够会返回 NULL，必须断言 */
+
+    xTaskCreate(producer_task, "prod", 3072, NULL, 4, NULL);
+    xTaskCreate(consumer_task, "cons", 3072, NULL, 5, NULL);
+}</code></pre></div>
+
+          <p class="mt-3">三条必须记住的语义：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>它只记得住 1 次。</b>连续 Give 两次、Take 一次之后，信号量就空了，第二次 Give 在信号量还是「满」的时候会直接返回 <code class="icode">pdFALSE</code>（不阻塞、不报错、悄悄丢掉）。所以<b>二值信号量适合「状态通知」，不适合「数事件个数」</b>——数个数请用计数信号量。</li>
+            <li><b>没有所有权。</b>任何一个任务、任何一段代码都可以 Give 它，不需要「先 Take 过」。这正是它做事件通知的灵活性来源，也正是它<b>不能拿来当锁</b>的原因——后面讲互斥量时会看到这一点有多致命。</li>
+            <li><b>它传递的是「时序」，不是「数据」。</b>信号量本身只有一个计数值，具体发生了什么、有什么数据，还得靠你自己放在共享变量里。这就引出了「谁先写、谁后读」的顺序要求，本节最后会专门说。</li>
+          </ul>
+
+          <h4 class="mt-6 text-[15px] font-semibold">中断 → 任务同步的标准写法（建议背下来）</h4>
+
+          <p class="mt-3">这是信号量在真实项目里出现频率最高的场景：<b>中断里只记一笔，重活全部交给任务</b>。原因在上一篇讲过（ISR 必须短），这里给出完整的两侧代码。</p>
+
+          <div class="code-block" data-lang="c" data-title="isr_to_task.c"><pre><code>#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+
+#define BTN_GPIO   GPIO_NUM_0
+static const char *TAG = "btn";
+
+static SemaphoreHandle_t s_btn;          /* 中断给，任务取 */
+
+/* ---------- 中断侧：只做两件事 ---------- */
+static void IRAM_ATTR btn_isr(void *arg)
+{
+    BaseType_t hpw = pdFALSE;            /* 局部变量，初始必须 pdFALSE */
+    xSemaphoreGiveFromISR(s_btn, &amp;hpw);  /* 版本必须是 FromISR */
+    if (hpw == pdTRUE) {
+        portYIELD_FROM_ISR();            /* 唤醒了更高优先级任务：现在切 */
+    }
+}
+
+/* ---------- 任务侧：慢慢做 ---------- */
+static void btn_task(void *arg)
+{
+    while (1) {
+        /* 无限等：平时不占 CPU（阻塞态），事件来了立刻醒 */
+        if (xSemaphoreTake(s_btn, portMAX_DELAY) == pdTRUE) {
+            vTaskDelay(pdMS_TO_TICKS(30));        /* 消抖，只在任务里做 */
+            if (gpio_get_level(BTN_GPIO) == 0) {
+                ESP_LOGI(TAG, "按键确认按下");     /* 打日志，只在任务里做 */
+            }
+        }
+    }
+}
+
+void app_main(void)
+{
+    s_btn = xSemaphoreCreateBinary();    /* 建出来是空的，正合适：先等事件 */
+    configASSERT(s_btn != NULL);
+
+    gpio_config_t io = {
+        .pin_bit_mask = 1ULL &lt;&lt; BTN_GPIO,
+        .mode         = GPIO_MODE_INPUT,
+        .pull_up_en   = GPIO_PULLUP_ENABLE,
+        .intr_type    = GPIO_INTR_NEGEDGE,   /* 下降沿：按下 */
+    };
+    gpio_config(&amp;io);
+    gpio_install_isr_service(0);         /* 必须先装驱动，再挂回调 */
+    gpio_isr_handler_add(BTN_GPIO, btn_isr, NULL);
+
+    xTaskCreate(btn_task, "btn", 3072, NULL, 10, NULL);
+}</code></pre></div>
+
+          <p class="mt-3">这段代码里有三个「不这样写就会出事」的点：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>任务侧必须是 <code class="icode">portMAX_DELAY</code>。</b>写成 0 就变成「查一次就走」，任务得靠 <code class="icode">while</code> 空转轮询；一旦两次按键靠得近，或者任务刚好在忙别的，事件就丢了。无限等待的任务在阻塞时不消耗 CPU，交给调度器去管才是 RTOS 的用法。</li>
+            <li><b>中断侧必须是 <code class="icode">xSemaphoreGiveFromISR()</code>。</b>写成任务版的 <code class="icode">xSemaphoreGive()</code> 会命中内核里的断言（<code class="icode">configASSERT( pxQueue-&gt;cTxLock ... )</code> 之类），表现是「一按键就重启」——因为断言默认直接 <code class="icode">abort()</code>。这类现象很有迷惑性：不按键一切正常，说明问题一定在中断路径上。</li>
+            <li><b><code class="icode">pxHigherPriorityTaskWoken</code> 用局部变量。</b>不要用全局变量，也不要在两个 ISR 里共用同一个变量——它的语义是「这一次调用有没有唤醒更高优先级任务」，每次调用前都得重新是 <code class="icode">pdFALSE</code>。</li>
+          </ul>
+
+          <p class="mt-3">顺带说清楚一个常见疑问：<b>同一个中断里给多个信号量，要不要 yield 多次？</b>不需要。所有 <code class="icode">FromISR</code> 调用都传同一个局部变量 <code class="icode">&amp;hpw</code>，内核只会把它从 <code class="icode">pdFALSE</code> 置成 <code class="icode">pdTRUE</code>（不会反向清掉），最后统一判断一次即可。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">计数信号量：同一个 API，两种完全不同的用法</h4>
+
+          <p class="mt-3">计数信号量比二值信号量多一个「上限」，创建时要给两个参数：最大值和初始值。<b>参数怎么填，决定了它是资源池还是事件计数器</b>——这是初学者最容易糊的地方。</p>
+
+          <div class="code-block" data-lang="text" data-title="counting_semantics.txt"><pre><code>用法一：资源池（初始值 = 最大值 = N）
+   语义：令牌代表「空闲资源」，Take = 借，Give = 还
+
+   ┌───────────────┐                    ┌───────────────┐
+   │ 令牌 ● ● ●    │  3 个资源全空闲     │ 令牌 ● ● ○    │  还剩 2 个
+   └───────────────┘                    └───────────────┘
+                        Take ──借走一个──▶   ·   ·   ·
+                        Give ──还回来一个──▶
+
+   第 4 个任务来 Take 时令牌已空 ──▶ 阻塞，直到有人 Give（还资源）
+
+用法二：事件计数（初始值 = 0，最大值 = 上限）
+   语义：令牌代表「还没处理的事件」，Give = 来了一个，Take = 取走全部
+
+   ┌───────────────┐                    ┌───────────────┐
+   │ 令牌          │  还没有事件         │ 令牌 ● ● ●    │  累计 3 次
+   └───────────────┘                    └───────────────┘
+                     中断里 Give ──▶ 计数 +1（不会像二值信号量那样丢掉）
+                     任务里 Take ──▶ 计数 -1，一次只减一个</code></pre></div>
+
+          <div class="code-block" data-lang="c" data-title="counting_sem.c"><pre><code>#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
+/* ===== 用法一：资源池，比如 3 路相互独立的 SPI 总线 ===== */
+static SemaphoreHandle_t s_spi_pool;
+
+static void user_task(void *arg)
+{
+    while (1) {
+        /* 借一个：没有空闲就阻塞等（也可以给超时，见第 3 节例题） */
+        if (xSemaphoreTake(s_spi_pool, portMAX_DELAY) == pdTRUE) {
+            /* 这里保证最多只有 3 个任务同时在用 SPI */
+            do_spi_transaction();
+            xSemaphoreGive(s_spi_pool);      /* 【必须】用完就还 */
+        }
+    }
+}
+
+/* ===== 用法二：事件计数，比如编码器 / 流量脉冲 ===== */
+static SemaphoreHandle_t s_pulse;
+
+static void IRAM_ATTR pulse_isr(void *arg)
+{
+    BaseType_t hpw = pdFALSE;
+    /* 每来一个脉冲计数 +1；上限到了会返回 pdFALSE（说明任务处理不过来） */
+    xSemaphoreGiveFromISR(s_pulse, &amp;hpw);
+    if (hpw == pdTRUE) {
+        portYIELD_FROM_ISR();
+    }
+}
+
+static void pulse_task(void *arg)
+{
+    uint32_t total = 0;
+    while (1) {
+        if (xSemaphoreTake(s_pulse, portMAX_DELAY) == pdTRUE) {
+            total++;                          /* 一次对应一个脉冲 */
+            if (total % 1000 == 0) {
+                ESP_LOGI("pulse", "累计 %u 个脉冲", (unsigned)total);
+            }
+        }
+    }
+}
+
+void app_main(void)
+{
+    s_spi_pool = xSemaphoreCreateCounting(3, 3);      /* 最多 3，初始 3 */
+    s_pulse    = xSemaphoreCreateCounting(1000, 0);   /* 最多 1000，初始 0 */
+    configASSERT(s_spi_pool != NULL &amp;&amp; s_pulse != NULL);
+}</code></pre></div>
+
+          <p class="mt-3">两个参数的含义再强调一遍：<code class="icode">xSemaphoreCreateCounting(uxMaxCount, uxInitialCount)</code>，第一个是<b>计数上限</b>，第二个是<b>上电时的初始计数</b>。资源池要「初始值 = 最大值」（所有资源都空闲），事件计数器要「初始值 = 0」（还没有事件）。填反了代码能跑，但逻辑一定是错的。</p>
+
+          <div class="callout callout-tip">
+            <p class="callout-title">计数信号量当事件计数器时，上限就是「允许积压的事件数」</p>
+            <p class="mt-2">中断来得比任务处理得快时，计数会一直涨；涨到 <code class="icode">uxMaxCount</code> 之后，<code class="icode">xSemaphoreGiveFromISR</code> 返回 <code class="icode">pdFALSE</code>，事件被丢弃。这个「返回 <code class="icode">pdFALSE</code> 的次数」正好是一个现成的<b>过载指标</b>：在 ISR 里数一下它，超过阈值就打印一条「处理不过来」的警告，比事后再去猜有用得多。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">信号量只保证「时序」，数据还得你自己放对地方</h4>
+
+          <p class="mt-3">这是并发三问题里「可见性」和「顺序」在信号量上的落点。先看两段代码，它们唯一的区别是 Give 的位置：</p>
+
+          <div class="code-block" data-lang="c" data-title="order.c"><pre><code>/* ---------- 正确：先写数据，再给信号 ---------- */
+static volatile int32_t s_adc_value;
+
+void sampler_task(void *arg)                 /* 写者 */
+{
+    while (1) {
+        s_adc_value = adc_read_raw();        /* 1. 先放数据 */
+        xSemaphoreGive(s_ready);             /* 2. 再通知（Give 内部有内存屏障） */
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+void display_task(void *arg)                 /* 读者 */
+{
+    while (1) {
+        if (xSemaphoreTake(s_ready, portMAX_DELAY) == pdTRUE) {
+            int32_t v = s_adc_value;         /* 3. 拿到信号后再读，读到的一定是新值 */
+            show(v);
+        }
+    }
+}
+
+/* ---------- 错误：先给信号，再写数据 ---------- */
+void sampler_task_bad(void *arg)
+{
+    while (1) {
+        xSemaphoreGive(s_ready);             /* 读者可能立刻被唤醒…… */
+        s_adc_value = adc_read_raw();        /* ……然后读到上一次的旧值 */
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}</code></pre></div>
+
+          <p class="mt-3">为什么「先写后给」就一定对？因为内核在 Give/Take 的实现里有临界区，而临界区的进入和退出会在编译器和 CPU 两个层面形成<b>内存屏障</b>（ESP32 的 Xtensa 内核上是 <code class="icode">memw</code> 指令）：编译器不能把屏障前后的访存互相挪位置，CPU 也不会把屏障后的读写提前发射。于是「写数据」必然排在「给信号」之前，「读数据」必然排在「拿到信号」之后——这就是顺序问题被解决的方式。</p>
+
+          <p class="mt-3">反过来说，<b>信号量不会帮你搬运数据</b>。它只是一个约定：谁在 Give 之前写了共享变量，得到 Take 的人就有权去读。约定写错了，信号量再标准也救不了你。至于「多个字段要一起更新」这种要求（读者不能看到只更新了一半的结构），要么用临界区把这几条赋值整体保护起来，要么干脆用队列<b>把整个结构体拷过去</b>——后者往往更省心。</p>
+
+          <div class="table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>对比项</th><th>二值信号量</th><th>计数信号量</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>创建</td><td><code class="icode">xSemaphoreCreateBinary()</code>，建出来是<b>空</b>的</td><td><code class="icode">xSemaphoreCreateCounting(max, init)</code>，初值由你定</td></tr>
+                <tr><td>能记住几次</td><td>1 次；再 Give 返回 <code class="icode">pdFALSE</code></td><td>最多 max 次；满了 Give 返回 <code class="icode">pdFALSE</code></td></tr>
+                <tr><td>典型用途</td><td>事件通知、任务与中断同步</td><td>资源池（init = max）、事件计数（init = 0）</td></tr>
+                <tr><td>有所有权吗</td><td>没有，谁都能 Give</td><td>没有，谁都能 Give</td></tr>
+                <tr><td>能当锁用吗</td><td colspan="2"><b>都不能。</b>没有所有权 + 没有优先级继承，用它们保护共享资源会直接掉进优先级反转，下一节就讲这件事</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">所以到这里可以先下一个结论：<b>信号量管的是「事件」，不是「资源归属」</b>。一旦你要保护的是「同一时刻只能有一个任务动这块数据」，就必须换一个带所有权的对象。</p>
+
+          <h3 id="sub-mutex" class="mt-7 text-base font-semibold">互斥量与优先级反转：这一节值得多读两遍</h3>
+
+          <p class="mt-3">「同一时刻只允许一个任务动这块数据」——这件事情听上去用二值信号量也能办到：进去之前 <code class="icode">Take</code>，出来之后 <code class="icode">Give</code>，不就行了吗？<b>能跑，但会在你最不希望的时候出事。</b>而且出的事不是「数据错了」，是「高优先级任务莫名其妙地被拖延」——一种从代码表面完全看不出来的时间问题。这就是优先级反转（priority inversion）。</p>
+
+          <p class="mt-3">FreeRTOS 为此准备了一个专门的对象：互斥量（mutex）。它和二值信号量长得很像（连句柄类型都是同一个 <code class="icode">SemaphoreHandle_t</code>），但有三点本质区别。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">区别一：所有权——锁知道「是谁拿着我」</h4>
+
+          <div class="code-block" data-lang="c" data-title="mutex_basic.c"><pre><code>#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+
+static SemaphoreHandle_t s_lock;         /* 互斥量 */
+static struct {
+    uint32_t count;
+    uint32_t sum;
+} s_shared;
+
+void app_main(void)
+{
+    /* 【与二值信号量的第一个不同】建出来就是「可用」的：
+       第一次 Take 立刻成功，不需要先 Give 一次 */
+    s_lock = xSemaphoreCreateMutex();
+    configASSERT(s_lock != NULL);
+}
+
+/* 谁 Take，谁 Give —— 这是一条纪律，不是建议 */
+static void writer_task(void *arg)
+{
+    while (1) {
+        if (xSemaphoreTake(s_lock, portMAX_DELAY) == pdTRUE) {
+            /* ---------- 临界区开始 ---------- */
+            s_shared.count++;
+            s_shared.sum += s_shared.count;     /* 两个字段是一个整体，不能被插队 */
+            /* ---------- 临界区结束 ---------- */
+            xSemaphoreGive(s_lock);             /* 还给「自己拿的那把锁」 */
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+/* 【错误示范】另一个任务替别人 Give */
+static void helper_task(void *arg)
+{
+    while (1) {
+        /* 它自己从没 Take 过。内核里没有人拦这一句，
+           但它会把「持有者」记成这个任务，优先级继承的账从此错乱。
+           递归互斥量则会更明确地返回 pdFALSE，见本节最后。 */
+        xSemaphoreGive(s_lock);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}</code></pre></div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">区别二与区别三：优先级继承、以及不能在中断里用</h4>
+
+          <div class="table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>对比项</th><th>二值信号量</th><th>互斥量</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>创建 / 初始状态</td>
+                  <td><code class="icode">xSemaphoreCreateBinary()</code>，建出来是<b>空</b>的</td>
+                  <td><code class="icode">xSemaphoreCreateMutex()</code>，建出来<b>可用</b></td>
+                </tr>
+                <tr>
+                  <td><b>所有权</b></td>
+                  <td>没有。谁都能 Give，内核不记持有者</td>
+                  <td>有。内核记住「谁拿着」，并且只有持有者能 Give</td>
+                </tr>
+                <tr>
+                  <td><b>优先级继承</b></td>
+                  <td>没有。拿锁的低优先级任务仍会被中等优先级任务随意抢占</td>
+                  <td>有。高优先级任务等锁时，持有者的优先级被临时提到与之相同</td>
+                </tr>
+                <tr>
+                  <td><b>能在 ISR 用吗</b></td>
+                  <td>能。<code class="icode">xSemaphoreGiveFromISR()</code> 是标准用法</td>
+                  <td><b>绝对不能。</b>中断里没有「当前任务」，所有权与优先级继承都无从记账<br>（ESP-IDF 上断言打开时会直接报错）</td>
+                </tr>
+                <tr>
+                  <td>典型用途</td>
+                  <td>事件通知、中断与任务同步</td>
+                  <td>保护共享资源 / 串口 / 总线 / 文件系统这类「同时只能一个人用」的东西</td>
+                </tr>
+                <tr>
+                  <td>递归版本</td>
+                  <td>没有</td>
+                  <td><code class="icode">xSemaphoreCreateRecursiveMutex()</code> + <code class="icode">TakeRecursive</code>/<code class="icode">GiveRecursive</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">一句话总结这三个区别的意义：<b>互斥量是「锁」，二值信号量是「旗子」。</b>旗子谁都能举谁都能放，锁必须由拿锁的人开。丢掉了「所有权」，就丢掉了内核帮你做优先级继承的依据——下面这个算例就是这件事的代价。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">优先级反转是怎么发生的：一个可以照着算的完整时序</h4>
+
+          <p class="mt-3">先给场景和假设（数字都是为了好算而取的典型值）：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>L</b>（low，优先级 1）先拿到锁，要执行 <b>5 ms</b> 的临界区；</li>
+            <li><b>H</b>（high，优先级 5）在 <b>t = 1 ms</b> 时被事件唤醒，需要同一把锁；</li>
+            <li><b>M</b>（medium，优先级 3）在 <b>t = 1.5 ms</b> 时被事件唤醒，要跑 <b>20 ms</b> 的纯计算，<b>完全不需要这把锁</b>；</li>
+            <li>三个任务都在同一个核上，单核抢占式调度；上下文切换开销约 2~5 µs，在这个 ms 级的算例里先忽略（占比不到 0.1%，后面第 3 节会算一次）。</li>
+          </ul>
+
+          <div class="code-block" data-lang="text" data-title="priority_inversion_timeline.txt"><pre><code>时刻(ms)   发生的事                                  此刻在跑的是
+---------  ----------------------------------------  --------------
+t = 0      L 拿到锁，开始 5 ms 的临界区               L
+t = 1.0    H 就绪 → 抢同一把锁 → 失败 → 阻塞          L（继续跑她的临界区）
+t = 1.5    M 就绪，优先级 3 &gt; L 的 1 → 立刻抢占       M
+                                                     ▲
+                        ┌────────────────────────────┘
+                        │  这 20 ms 里，H 一直卡在锁上等，
+                        │  而抢占 CPU 的 M 跟这把锁毫无关系
+                        ▼
+t = 21.5   M 算完（假设它不阻塞、不主动让出）          L（回来跑剩下的 3.5 ms）
+t = 25.0   L 终于跑完临界区，释放锁 → H 立刻拿到       H
+---------  ----------------------------------------  --------------
+结论：H 的等待 = 25.0 − 1.0 = 24 ms
+      其中「真正必要」的等待 = 4 ms（锁还被 L 占着的时间）
+            「被插队」的等待 = 20 ms（M 与锁毫无关系）</code></pre></div>
+
+          <p class="mt-3">注意这个结果有多反直觉：<b>M 从来没有碰过那把锁，却让最高优先级的 H 多等了 20 ms。</b>而如果 H 直接跑（不用锁），它 <code class="icode">t = 1</code> 就能开始工作，早就干完了。加了锁之后，一个纯计算任务反而让系统的响应时间从「可忽略」变成了 24 ms——这就是「优先级反转」这四个字的字面意思：<b>高优先级任务被低优先级任务（间接地）拖住了，而拖住它的时间大部分跟它要的资源无关。</b></p>
+
+          <p class="mt-3">这类问题的可怕之处在于：L 和 M 的代码各自都没错，单看任何一个任务都查不出毛病；只有把三条时间线放在一起才看得出来。而现场表现往往只是「偶尔慢一下」——因为 M 不是每次都刚好在这 5 ms 里被唤醒。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">优先级继承：把「被插队」的那 20 ms 从等待里删掉</h4>
+
+          <p class="mt-3">机制本身非常简单，一句话就能说完：<b>当 H 因为等锁而阻塞时，内核把锁的持有者 L 的优先级临时提升到 H 的优先级；L 释放锁之后，优先级立刻恢复原样。</b>因为 L 此刻的优先级变成了 5，M（优先级 3）就再也抢不动它了。</p>
+
+          <div class="code-block" data-lang="text" data-title="priority_inheritance_timeline.txt"><pre><code>时刻(ms)   发生的事                                      此刻在跑的是
+---------  --------------------------------------------  --------------
+t = 0      L 拿到锁（优先级 1），开始临界区                 L  (prio 1)
+t = 1.0    H 抢锁失败 → 阻塞
+           └─▶ 内核动作：L 的优先级 1 → 5（继承 H）        L  (prio 5)
+t = 1.5    M 就绪（优先级 3）
+           └─▶ 3 &lt; 5，抢不动 L，M 只能排队等着             L  (prio 5)
+t = 5.0    L 跑完临界区、释放锁
+           └─▶ L 优先级恢复 1；H 立刻拿到锁                H  (prio 5)
+t = 25.0   H 干完（与本节无关，它自己想跑多久就跑多久）     M  (prio 3)
+---------  --------------------------------------------  --------------
+结论：H 的等待 = 5.0 − 1.0 = 4 ms
+      压缩掉的 20 ms 正是 M 的插队时间；剩下的 4 ms 是锁本身必须被占用的时间</code></pre></div>
+
+          <p class="mt-3">对比一下这两条时间线：</p>
+
+          <div class="table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>H 的等待时间构成</th><th>用二值信号量当锁</th><th>用互斥量（优先级继承）</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>锁还被 L 占着（不可避免）</td><td>4 ms</td><td>4 ms</td></tr>
+                <tr><td>被无关任务 M 插队</td><td><b>20 ms</b></td><td><b>0 ms</b>（M 抢不动被提升的 L）</td></tr>
+                <tr><td>优先级继承带来的额外开销</td><td>—</td><td>每次 Take/Give 几条指令，按典型值估算 &lt; 1 µs</td></tr>
+                <tr><td><b>H 总共被拖延</b></td><td><b>24 ms</b></td><td><b>4 ms</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">24 ms 压到 4 ms，也就是<b>原来等待时间的六分之一</b>——而且压掉的全是「没关系的那部分」。这就是为什么只要涉及共享资源，就应该用互斥量而不是二值信号量，而且这个选择不需要你多写一行代码，只是把创建函数换一个名字。</p>
+
+          <div class="callout callout-warn">
+            <p class="callout-title">「开机第一版就选对」比「出问题再改」便宜得多</p>
+            <p class="mt-2">优先级反转的现场现象通常是「偶尔一次响应超时」，抓不到复现条件，改起来靠猜。而只要在写代码的第一天就用 <code class="icode">xSemaphoreCreateMutex()</code>，这个问题<b>根本不会出现在你的项目里</b>。第 4 节的程序二会给你一份可以亲手跑出这 24 ms 与 4 ms 的复现实验。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">优先级继承做不到的三件事</h4>
+
+          <p class="mt-3">优先级继承很有效，但它只解决「无关任务插队」这一种情况。<b>把它当成万能药的人，下一个坑往往更深。</b></p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>它压不掉「临界区本身的时间」。</b>把上面算例里的临界区从 5 ms 改成 50 ms，H 的等待就被压到 46 ms 以上——继承一分钱也省不下来。所以真正的纪律是：<b>锁保护的区域越短越好</b>。日志、<code class="icode">printf</code>、I2C/SPI 事务、Flash 写、等待另一个信号量，统统不要放在锁里面。一个 1000 行的函数被一把锁罩住，是设计问题，不是 API 问题。</li>
+            <li><b>链式反转照样能拖很久。</b>假设 H 等锁 A（L1 拿着），而 L1 在 A 里面又要去等锁 B（L2 拿着）。优先级会沿着这条链一路传下去（H → L1 → L2），机制没坏；但 H 的实际等待变成了「L2 的临界区 + L1 的临界区」之和，中间任何一环很长，H 就得等很久。<b>继承保证的是「不被无关任务插队」，不是「等待很短」。</b></li>
+            <li><b>死锁它管不了，甚至会更早暴露。</b>优先级继承会让持锁任务跑得更快，两个任务交叉等锁的死局因此<b>更容易真的撞上</b>——以前可能因为时序宽松侥幸绕过去了。<b>死锁只能靠设计避免</b>（固定加锁顺序、用超时而不是无限等），第 5 节会把四条件和三种避免法一次讲清。</li>
+          </ul>
+
+          <h4 class="mt-6 text-[15px] font-semibold">递归互斥量：同一个任务嵌套拿同一把锁</h4>
+
+          <p class="mt-3">还有一种很常见的错误：<b>同一个任务自己去拿一把已经拿过的锁</b>。函数 A 加了锁，A 内部调用的函数 B 又加了一次同一把锁——用普通互斥量，B 会一直等一个永远等不到的锁，任务直接卡死（自己等自己）。</p>
+
+          <div class="code-block" data-lang="c" data-title="recursive_mutex.c"><pre><code>#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
+static SemaphoreHandle_t s_cfg_lock;
+static int s_cfg[8];
+
+/* 底层函数：自己保证加锁 */
+static void cfg_set_raw(int key, int val)
+{
+    xSemaphoreTakeRecursive(s_cfg_lock, portMAX_DELAY);   /* 第 2 层 */
+    s_cfg[key] = val;
+    xSemaphoreGiveRecursive(s_cfg_lock);                 /* 计数减 1，还没真正释放 */
+}
+
+/* 上层函数：要保证一批配置「要么全改完，要么没改」 */
+static void cfg_set_batch(int a, int b)
+{
+    xSemaphoreTakeRecursive(s_cfg_lock, portMAX_DELAY);   /* 第 1 层，真正拿到锁 */
+    cfg_set_raw(0, a);
+    cfg_set_raw(1, b);
+    xSemaphoreGiveRecursive(s_cfg_lock);                 /* 计数减到 0，真正释放 */
+}
+
+void app_main(void)
+{
+    /* 【注意】换回 xSemaphoreCreateMutex() 再跑同一个 cfg_set_batch()：
+       cfg_set_raw() 里的第二次 Take 会永远阻塞 —— 典型死锁 */
+    s_cfg_lock = xSemaphoreCreateRecursiveMutex();
+    configASSERT(s_cfg_lock != NULL);
+
+    cfg_set_batch(11, 22);
+}</code></pre></div>
+
+          <p class="mt-3">三条使用规则：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>Take 和 Give 必须配平。</b>递归互斥量内部有一个「重入计数」：Take 一次加 1，Give 一次减 1，减到 0 才真正释放、才把优先级恢复。少写一个 <code class="icode">GiveRecursive</code>，别人就永远拿不到这把锁。</li>
+            <li><b>它只对「同一个任务」重入有效，对另一个任务仍然是普通的锁。</b>H 任务想拿 L 任务正持有的递归锁，照样阻塞——这一点跟普通互斥量完全一样。</li>
+            <li><b>能用普通互斥量重构时，不要用递归锁。</b>递归锁往往意味着「加锁的责任分散在多个层次」，是个设计味道；它的代码路径更长、更容易出配平错误。<b>真正合理的场景</b>是：你调用的中间层函数（库、驱动、别人写的模块）自己就会加锁，而你无法改它。</li>
+          </ul>
+
+          <p class="mt-3">到这里，互斥量这条线就通了：<b>要保护资源就用互斥量，锁的时间要短，锁里不要调可能阻塞的 API，能用普通锁就别用递归锁。</b>下一节换个方向——有些场景根本不需要「锁」，只需要「条件是或还是与」。</p>
+
+          <h3 id="sub-eventgroup" class="mt-7 text-base font-semibold">事件组：32 位变量里的 24 个「条件」</h3>
+
+          <p class="mt-3">真实项目里经常遇到这种需求：<b>「等好几个条件都满足，才开始干活」</b>。比如温控器要开始控制，得先「传感器初始化完成」+「配置从 Flash 读出来了」+「网络连上了」（或者超时也算）。用信号量做这件事很别扭——你得建三个信号量，再按固定顺序依次 Take；顺序一错，或者某个条件先到，逻辑就乱了。</p>
+
+          <p class="mt-3">事件组的做法是把「条件」变成<b>一个 32 位变量里的位</b>：谁的条件满足了，就把对应的那一位置 1；等待方一次性说清楚「我要等哪几位、是全要还是有一个就行」。FreeRTOS 的 <code class="icode">EventBits_t</code> 是 32 位，但<b>内核拿最高 8 位做内部控制</b>，所以你实际能用的是低 24 位，也就是 <code class="icode">bit0</code> ~ <code class="icode">bit23</code>。</p>
+
+          <div class="code-block" data-lang="c" data-title="event_group_api.c"><pre><code>#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
+
+/* 每个条件一位，名字写成宏，代码自解释 */
+#define BIT_SENSOR_READY  (1UL &lt;&lt; 0)
+#define BIT_CFG_LOADED    (1UL &lt;&lt; 1)
+#define BIT_NET_CONNECTED (1UL &lt;&lt; 2)
+
+static EventGroupHandle_t s_evt_grp;
+
+void app_main(void)
+{
+    s_evt_grp = xEventGroupCreate();      /* 约占一个 EventGroup_t 的堆空间 */
+    configASSERT(s_evt_grp != NULL);
+
+    /* 谁满足条件谁置位：任务里用这个 */
+    xEventGroupSetBits(s_evt_grp, BIT_CFG_LOADED);
+
+    /* 中断里必须用 FromISR 版本（见下面的坑） */
+    BaseType_t hpw = pdFALSE;
+    xEventGroupSetBitsFromISR(s_evt_grp, BIT_SENSOR_READY, &amp;hpw);
+}</code></pre></div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">四个组合：<code class="icode">xClearOnExit</code> 与 <code class="icode">xWaitForAllBits</code></h4>
+
+          <p class="mt-3">等待用一个函数完成：<code class="icode">xEventGroupWaitBits(grp, bits, xClearOnExit, xWaitForAllBits, ticks)</code>。中间两个参数都是 <code class="icode">BaseType_t</code>，一共四种组合，<b>每一种都对应一种真实需求</b>，值得做成一张表贴在手边。</p>
+
+          <div class="table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th><code class="icode">xClearOnExit</code></th><th><code class="icode">xWaitForAllBits</code></th><th>什么条件下返回</th><th>返回后那些位</th><th>典型用途</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">pdFALSE</code></td><td><code class="icode">pdFALSE</code></td>
+                  <td>等的位里<b>任意一位</b>就绪</td><td>保留不变</td>
+                  <td>「看状态」：谁先好就先处理谁，位留着给别人也看到</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">pdFALSE</code></td><td><code class="icode">pdTRUE</code></td>
+                  <td><b>所有</b>位都就绪</td><td>保留不变</td>
+                  <td>「条件齐了就开工，但状态还要留着给别的任务查」</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">pdTRUE</code></td><td><code class="icode">pdFALSE</code></td>
+                  <td>任意一位就绪</td><td><b>被清 0</b></td>
+                  <td>「抢单」：一次只处理一个事件，处理完再等下一个</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">pdTRUE</code></td><td><code class="icode">pdTRUE</code></td>
+                  <td>所有位都就绪</td><td><b>被清 0</b></td>
+                  <td><b>最常用</b>：「三个条件全齐 → 开工一次 → 复位 → 等下一轮」</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">两个必须记住的细节：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>返回值是「退出那一刻的事件组快照」，而且是在清零之后取的。</b>所以如果你开了 <code class="icode">xClearOnExit = pdTRUE</code>，返回值里自己等的那些位已经是 0 了，想判断「到底哪几位就绪」，要用返回值，而不是返回后再去 <code class="icode">xEventGroupGetBits()</code> 查一次——那时候已经查不到了。</li>
+            <li><b>位是「电平」，不是「边沿」。</b>同一位被 SetBits 十次，结果还是 1。所以事件组适合表达<b>状态</b>（就绪 / 连接上 / 已配置），<b>不适合数次数</b>（数次数要用计数信号量或任务通知）。需要「数次数」而用了事件组，是初学阶段最常见的语义错配。</li>
+          </ul>
+
+          <div class="callout callout-warn">
+            <p class="callout-title">中断里置位要小心：它不是「立刻生效」的</p>
+            <p class="mt-2">FreeRTOS 的 <code class="icode">xEventGroupSetBitsFromISR()</code> <b>不能直接在中断里改事件组</b>——它会把这个动作<b>投递给守护任务（timer service task）</b>，由守护任务稍后完成。这带来两个后果：一是需要 <code class="icode">configUSE_TIMERS = 1</code>（ESP-IDF 默认就是开着的）；二是<b>置位到等待方被唤醒之间有一个不确定的延迟</b>，取决于守护任务的优先级和当前负载，按典型值估算在几十微秒到毫秒级。<b>要求「中断后几微秒内必须反应」的场合，请改用任务通知（下一节）或计数信号量。</b></p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">一条硬限制：一个任务一次只能等一个事件组</h4>
+
+          <p class="mt-3"><code class="icode">xEventGroupWaitBits()</code> 的调用本身只能盯住一个事件组。这不是「不方便」，而是真实存在的设计约束，绕不过去，只能换个写法：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>做法一：把条件合并到一个事件组里。</b>24 位够表达绝大部分场景，事先把位的分配写成一张表（bit0 网关就绪、bit1 传感器就绪……），全项目共用一组宏定义。这是最省事、最常用的做法。</li>
+            <li><b>做法二：加一个「中介任务」。</b>让中介任务去等第二个事件组，等到之后再给第一个事件组置位。多一个任务（多一份栈，按典型值估算 2~3 KB）换来解耦，在跨模块的场景里很值。</li>
+            <li><b>做法三：换 <code class="icode">esp_event</code>。</b>ESP-IDF 自带的事件循环本来就是「多事件源 → 多订阅者」的模型，天生不受「一个任务只能等一组」的限制，代价是它的抽象层级更高、也慢一些（第 6 节细说）。</li>
+          </ul>
+
+          <h3 id="sub-notify" class="mt-7 text-base font-semibold">任务通知：不建对象的那种同步</h3>
+
+          <p class="mt-3">到目前为止，每一种机制都要<b>先创建一个对象</b>（队列、信号量、事件组），再来回传句柄。任务通知（task notification）把这件事取消了：<b>每个任务的 TCB 里本来就预留了一个 32 位的通知值和一个通知状态</b>，直接往那儿写就行——不用创建、不用传句柄、不用过队列的临界区。这也解释了它为什么又快又省 RAM。</p>
+
+          <div class="code-block" data-lang="text" data-title="notify_vs_sem.txt"><pre><code>二值信号量 / 队列：            任务通知：
+                                                  ┌──────────────┐
+  ┌──────────────┐                TCB(task T) ──▶ │ ulNotifiedValue ├─ 32 位，已存在
+  │ Queue_t 结构 │  ≈80 B 堆      （任务创建时    │ ucNotifyState   ├─ 1 字节，已存在
+  │  + 堆块头    │  ≈100 B        就分配好了）    └──────────────┘
+  └──────────────┘                                    ↑
+        ↑                                             │
+   还要 xQueueCreate /                 xTaskNotify() 直接写这两个字段
+   xSemaphoreCreateBinary 才能用       额外 RAM 开销：0 字节
+
+  唤醒一个阻塞任务的相对开销（FreeRTOS 官方文档的对比数据）：
+     二值信号量 = 100%      任务通知 ≈ 55%（快约 45%）</code></pre></div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">五种用法（其实是同一个字段的五种解释方式）</h4>
+
+          <p class="mt-3">发送侧是 <code class="icode">xTaskNotify(handle, value, eAction)</code>，不同的 <code class="icode">eAction</code> 决定「那个 32 位字段怎么被更新」；接收侧用 <code class="icode">ulTaskNotifyTake()</code>（当计数器用）或 <code class="icode">xTaskNotifyWait()</code>（当值/位图用）去取。</p>
+
+          <div class="table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th><code class="icode">eAction</code></th><th>语义</th><th>接收侧该用</th><th>典型场景</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">eIncrement</code></td><td><b>计数</b>：字段 +1（发送时不用给 value）</td><td><code class="icode">ulTaskNotifyTake()</code></td><td>替代二值/计数信号量，中断里最常用</td></tr>
+                <tr><td><code class="icode">eSetBits</code></td><td><b>置位</b>：与 value 按位或，多位可累积</td><td><code class="icode">xTaskNotifyWait()</code></td><td>一个任务要区分多种事件（超时/溢出/按键）</td></tr>
+                <tr><td><code class="icode">eSetValueWithOverwrite</code></td><td><b>覆盖</b>：直接写入，旧的没取走也不要了</td><td><code class="icode">xTaskNotifyWait()</code></td><td>「只要最新的」：最新 ADC 值、最新目标位置</td></tr>
+                <tr><td><code class="icode">eSetValueWithoutOverwrite</code></td><td><b>不覆盖</b>：旧值还没被取走时返回 <code class="icode">pdFAIL</code></td><td><code class="icode">xTaskNotifyWait()</code></td><td>「一条都不能丢」：失败方自己决定重发还是丢弃</td></tr>
+                <tr><td><code class="icode">eNoAction</code></td><td>只把任务标成「有通知」，不带值</td><td><code class="icode">xTaskNotifyWait()</code></td><td>纯唤醒：相当于只举手，不留纸条</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block" data-lang="c" data-title="notify_modes.c"><pre><code>#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+
+#define EVT_OVF   (1UL &lt;&lt; 0)      /* 传感器溢出 */
+#define EVT_TIMEOUT (1UL &lt;&lt; 1)    /* 通信超时   */
+
+static TaskHandle_t s_worker;      /* 接收方的任务句柄 */
+
+/* ===== 用法一：计数式（替代二值信号量） ===== */
+static void IRAM_ATTR btn_isr(void *arg)
+{
+    BaseType_t hpw = pdFALSE;
+    vTaskNotifyGiveFromISR(s_worker, &amp;hpw);   /* 专门的 ISR 版 */
+    if (hpw == pdTRUE) {
+        portYIELD_FROM_ISR();
+    }
+}
+
+static void worker_task(void *arg)
+{
+    while (1) {
+        /* 第一个参数：取走时是否把计数清零
+           pdTRUE  = 返回「累计值」并清零（适合攒一批一起处理）
+           pdFALSE = 只减 1（适合一个一个处理）          */
+        uint32_t n = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        ESP_LOGI("work", "被唤醒，累计 %u 次事件", (unsigned)n);
+        do_work();
+    }
+}
+
+/* ===== 用法二：置位式（一个任务区分多种事件） ===== */
+static void monitor_task(void *arg)
+{
+    uint32_t bits = 0;
+    while (1) {
+        /* 参数：进入时要清哪些位、退出时要清哪些位、取到的值、超时 */
+        if (xTaskNotifyWait(0, 0, &amp;bits, portMAX_DELAY) == pdTRUE) {
+            if (bits &amp; EVT_OVF)     { ESP_LOGW("mon", "传感器溢出"); }
+            if (bits &amp; EVT_TIMEOUT) { ESP_LOGW("mon", "通信超时");   }
+        }
+    }
+}
+
+/* 任何一个任务/中断都可以这样置位 */
+static void other_task(void *arg)
+{
+    xTaskNotify(s_worker, EVT_OVF | EVT_TIMEOUT, eSetBits);   /* 两位一起置 */
+    xTaskNotify(s_worker, latest_adc_value, eSetValueWithOverwrite);  /* 只要最新的 */
+    xTaskNotify(s_worker, frame_id, eSetValueWithoutOverwrite);       /* 不能丢的 */
+    vTaskDelay(pdMS_TO_TICKS(100));
+}</code></pre></div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">它只有「一个收件箱」——什么时候必须换回队列</h4>
+
+          <p class="mt-3">任务通知省事的代价是结构上的极简：<b>一个任务只有一份通知值，只有一个收件箱。</b>由此带来四条限制，遇到任何一条就应该换回队列或事件组：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>不能一对多（没有广播）。</b>一个通知只能发给一个任务，「所有人都听着」这种事它做不到——那是事件组的活。</li>
+            <li><b>不能区分发送者。</b>三个任务都往同一个收件箱发计数，接收方只知道「一共来了 5 次」，不知道是谁发的。想区分就得用 <code class="icode">eSetBits</code> 给每个来源分配一位，位不够就只能换队列。</li>
+            <li><b>只能带一个 32 位值。</b>要传一个结构体（时间戳 + 三个通道 + 帧号）就得换队列，靠队列的值拷贝一次搬完。</li>
+            <li><b>接收方必须知道发送方的任务句柄。</b>这会给模块之间带来额外的耦合：驱动层得存一个 <code class="icode">TaskHandle_t</code>。如果这个耦合让你难受，说明这里更适合用队列（队列是「匿名」的，谁 send 谁 receive 都行）。</li>
+          </ul>
+
+          <div class="callout callout-tip">
+            <p class="callout-title">性能上的实话：别为了省 100 字节去重构</p>
+            <p class="mt-2">任务通知比信号量快约 45%、省约 100 字节堆空间（按 FreeRTOS 官方文档的对比数据与典型结构体大小估算），这在「中断里每秒唤醒几万次」的场合是实打实的收益。但如果你一次唤醒后面跟着的是一句 <code class="icode">ESP_LOGI</code>（串口打印，几百微秒量级），那点差别完全可以忽略。<b>选型的顺序应该是：语义合适 &gt; 限制能接受 &gt; 最后才比性能。</b>把「任务通知更快」当成主要理由去改架构，是本末倒置。</p>
+          </div>
+
+<h3 id="sub-stream" class="mt-7 text-base font-semibold">流缓冲与消息缓冲：字节流和变长消息</h3>
+
+          <p class="mt-3">队列有一个硬性前提：<b>元素长度必须固定</b>。可现实里常见两种「长度不定」的东西：一类是<b>字节流</b>（串口来的数据、麦克风的 PCM 采样），根本没有「一条消息」的概念，来多少算多少；另一类是<b>变长消息</b>（一帧 Modbus、一帧自定义协议），长 12 字节还是 200 字节由内容决定。用定长队列接这两种数据，要么浪费 RAM（按最大长度开元素），要么自己再写一层拆包逻辑。</p>
+
+          <p class="mt-3">针对这两种需求，FreeRTOS 提供了两个「按字节数计」的缓冲对象：<b>流缓冲（stream buffer）</b>与<b>消息缓冲（message buffer）</b>。它们在 ESP-IDF 里是标配（头文件 <code class="icode">freertos/stream_buffer.h</code>、<code class="icode">freertos/message_buffer.h</code>），UART 驱动的接收缓冲内部用的就是流缓冲，所以这不是「偏门 API」，而是你迟早会直接用到的东西。</p>
+
+          <div class="code-block" data-lang="c" data-title="stream_message_buffer.c"><pre><code>#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/stream_buffer.h"
+#include "freertos/message_buffer.h"
+
+/* ============ 一、流缓冲：不保留边界的字节流 ============ */
+static StreamBufferHandle_t s_uart_rx;
+
+static void uart_cb_from_isr(const uint8_t *buf, size_t len)
+{
+    BaseType_t hpw = pdFALSE;
+    /* 写进去多少个字节，函数就返回多少；缓冲满时可能只写进去一部分 */
+    size_t written = xStreamBufferSendFromISR(s_uart_rx, buf, len, &amp;hpw);
+    (void)written;                       /* 真丢了字节，这里就是唯一的证据 */
+    if (hpw == pdTRUE) {
+        portYIELD_FROM_ISR();
+    }
+}
+
+static void parser_task(void *arg)
+{
+    uint8_t chunk[64];
+    while (1) {
+        /* 返回值 = 实际取到的字节数；0 表示超时（一个字节都没等到）。
+           注意：一次 Receive 可能只拿到 10 个字节，也可能拿到 64 个，
+           「半包」要由你自己用状态机去拼 —— 这是字节流的本性 */
+        size_t got = xStreamBufferReceive(s_uart_rx, chunk, sizeof(chunk),
+                                          pdMS_TO_TICKS(100));
+        if (got &gt; 0) {
+            feed_protocol_parser(chunk, got);
+        }
+    }
+}
+
+/* ============ 二、消息缓冲：一次一条完整消息 ============ */
+static MessageBufferHandle_t s_frames;
+
+static void send_one_frame(const uint8_t *frame, size_t frame_len)
+{
+    /* 任务里发送。消息缓冲没有触发级别，只按总字节数算空间 */
+    xMessageBufferSend(s_frames, frame, frame_len, portMAX_DELAY);
+}
+
+static void frame_task(void *arg)
+{
+    uint8_t out[256];
+    while (1) {
+        /* 一次 Receive 只会拿到「一条」完整消息，绝不会拿到半条 */
+        size_t n = xMessageBufferReceive(s_frames, out, sizeof(out),
+                                         pdMS_TO_TICKS(100));
+        if (n &gt; 0) {
+            handle_frame(out, n);
+        }
+    }
+}
+
+void app_main(void)
+{
+    /* 1024 字节容量，触发级别 1：缓冲里可读字节数达到 1 就唤醒接收方 */
+    s_uart_rx = xStreamBufferCreate(1024, 1);
+    /* 512 字节容量，每帧消息额外占 4 字节长度前缀（32 位平台） */
+    s_frames  = xMessageBufferCreate(512);
+    configASSERT(s_uart_rx != NULL &amp;&amp; s_frames != NULL);
+}</code></pre></div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">触发级别（TriggerLevel）：拿唤醒次数换首字节延迟</h4>
+
+          <p class="mt-3">流缓冲的创建函数比别的对象多一个参数：<code class="icode">xStreamBufferCreate(buffer_size_bytes, trigger_level_bytes)</code>。它的作用是<b>给「唤醒接收方」设一个门槛</b>：缓冲里可读的字节数达到触发级别，阻塞在 <code class="icode">xStreamBufferReceive()</code> 上的任务才会被解除阻塞。这个参数直接决定了两件事的平衡：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>触发级别 = 1</b>：来一个字节就唤醒一次，反应最快，但唤醒次数最多、上下文切换最频繁。</li>
+            <li><b>触发级别 = 64</b>：攒够 64 字节才唤醒，唤醒次数降到 1/64，但第一个字节可能要在缓冲里躺一会儿才被处理（延迟增加，最坏情况下还要靠「缓冲超时」兜底——<code class="icode">xStreamBufferReceive</code> 自己的超时机制可以处理这种「不满也要处理」的情况）。</li>
+          </ul>
+
+          <p class="mt-3">拿一个具体数字感受一下这个取舍：如果你用 <b>921600 bps、8N1</b> 的串口，每个字节占 10 位，那么一个字节的到达间隔是 10 ÷ 921600 s ≈ <b>10.9 µs</b>；而一次任务切换的开销按典型值估算在 <b>2~5 µs</b>（240 MHz 的 ESP32，含上下文保存与调度器）。也就是说，触发级别取 1 时，<b>光切换就吃掉了接收时间的 20%~45%</b>。改成 64 之后，切换开销降到 1/64，完全可忽略——这就是触发级别存在的意义。<b>凡是「数据来得又快又碎」的场合，都应该把触发级别调大，而不是指望任务自己跑得够快。</b></p>
+
+          <div class="table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>对比项</th><th>队列</th><th>流缓冲</th><th>消息缓冲</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>计量单位</td><td>元素个数（每个元素定长）</td><td>字节数</td><td>字节数 + 每条消息的边界</td></tr>
+                <tr><td>一次收发</td><td>整个元素，一次一个</td><td>可以只写一部分、只读一部分</td><td>一定是一条完整消息，不会半条</td></tr>
+                <tr><td>创建参数</td><td><code class="icode">长度</code>, <code class="icode">元素字节数</code></td><td><code class="icode">容量字节</code>, <code class="icode">触发级别</code></td><td><code class="icode">容量字节</code></td></tr>
+                <tr><td>额外开销</td><td>结构体 ≈ 80 B + 存储区</td><td>结构体 ≈ 60~70 B + 容量</td><td>同左，且每条消息再占 4 字节长度前缀</td></tr>
+                <tr><td>谁更适合</td><td>定长的指令、采样结构体、指针</td><td>串口字节流、音频 PCM</td><td>协议帧、日志行、变长记录</td></tr>
+                <tr><td>典型坑</td><td>元素长度填错，或传了大结构体的指针</td><td>以为有消息边界，自己拼半包时出错</td><td>忘了 4 字节前缀在算容量时也要占地方</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">还有两条使用纪律：<b>一是流缓冲官方就推荐「一个写者、一个读者」</b>，多个写者同时写进去，字节会交错在一起，谁也拆不开——需要多写者就自己加锁，或者改用消息缓冲；<b>二是它没有优先级继承</b>，跟队列一样，不要拿它当锁用。</p>
+
+          <h3 id="sub-select" class="mt-7 text-base font-semibold">怎么选：十行对照表与死锁纪律</h3>
+
+          <p class="mt-3">前面把八种机制一种一种过完了。但真到了写代码的那一刻，你要回答的其实只有一句话：<b>这个场景该用哪一个？</b>下面这张表就是那张「查表即用」的答案，它同时也是本节所有内容的索引。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">选型对照表：十种机制，六个维度</h4>
+
+          <p class="mt-3">下面这张表建议直接抄进你的项目笔记。判据的顺序是：<b>先看「拿来干什么」，再看「中断里能不能用」，然后看「有没有优先级继承」，最后才看 RAM 开销和典型坑。</b>RAM 一列按 ESP32（32 位、FreeRTOS 10、堆分配）的典型值估算，只求量级正确。</p>
+
+          <div class="table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>机制</th><th>用途</th><th>ISR 能用吗</th><th>优先级继承</th><th>RAM 开销（估算）</th><th>典型坑</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>队列</b></td>
+                  <td>任务/中断之间传数据，定长元素；长度 1 还能当邮箱</td>
+                  <td>能，<code class="icode">FromISR</code> 版</td>
+                  <td>无</td>
+                  <td>≈80 B + 长度 × 元素字节数</td>
+                  <td>元素长度填成字节数总长；用长度 1 的队列当锁（会反转）</td>
+                </tr>
+                <tr>
+                  <td><b>二值信号量</b></td>
+                  <td>事件通知、中断与任务同步</td>
+                  <td>能，<code class="icode">xSemaphoreGiveFromISR</code></td>
+                  <td>无</td>
+                  <td>≈80~100 B</td>
+                  <td>建出来是空的，忘了先 Give；连发两次丢一次；错当锁用</td>
+                </tr>
+                <tr>
+                  <td><b>计数信号量</b></td>
+                  <td>资源池（N 个同类资源）、事件计数</td>
+                  <td>能，给的方向</td>
+                  <td>无</td>
+                  <td>≈80~100 B</td>
+                  <td>最大值与初始值填反；Give 超过上限悄悄返回 <code class="icode">pdFALSE</code></td>
+                </tr>
+                <tr>
+                  <td><b>互斥量</b></td>
+                  <td>保护共享资源、总线、文件系统</td>
+                  <td><b>不能</b></td>
+                  <td><b>有</b></td>
+                  <td>≈80~100 B</td>
+                  <td>锁里调阻塞 API（把别人一起拖住）；忘了 Give</td>
+                </tr>
+                <tr>
+                  <td><b>递归互斥量</b></td>
+                  <td>同一任务嵌套拿同一把锁（多层加锁）</td>
+                  <td><b>不能</b></td>
+                  <td><b>有</b>（含重入计数）</td>
+                  <td>≈80~100 B</td>
+                  <td>Take/Give 次数不配平；能用普通锁重构却上了递归锁</td>
+                </tr>
+                <tr>
+                  <td><b>事件组</b></td>
+                  <td>多个条件（24 位）先或后与；一对多广播状态</td>
+                  <td>能但绕道：<code class="icode">FromISR</code> 经守护任务，有延迟</td>
+                  <td>无</td>
+                  <td>≈30~50 B</td>
+                  <td>拿它数次数（位是电平不是边沿）；ISR 里指望它立刻生效</td>
+                </tr>
+                <tr>
+                  <td><b>任务通知</b></td>
+                  <td>一个任务收事件；中断到任务的快速通道；顺带带一个 32 位值</td>
+                  <td>能，<code class="icode">vTaskNotifyGiveFromISR</code>，最快</td>
+                  <td>无</td>
+                  <td><b>0 B</b>（复用 TCB 字段）</td>
+                  <td>只能一对一、不能区分发送者；拿它做一对多广播</td>
+                </tr>
+                <tr>
+                  <td><b>流缓冲</b></td>
+                  <td>字节流：串口、音频、按字节到达的数据</td>
+                  <td>能，<code class="icode">SendFromISR</code></td>
+                  <td>无</td>
+                  <td>≈60~70 B + 容量</td>
+                  <td>当成有边界的消息用（会拿到半包）；多写者交错</td>
+                </tr>
+                <tr>
+                  <td><b>消息缓冲</b></td>
+                  <td>变长消息：协议帧、日志行</td>
+                  <td>能，<code class="icode">SendFromISR</code></td>
+                  <td>无</td>
+                  <td>≈60~70 B + 容量 + 每条 4 B</td>
+                  <td>容量算漏了长度前缀；接收缓冲开得比最大消息还小</td>
+                </tr>
+                <tr>
+                  <td><b>全局变量 + 临界区</b></td>
+                  <td>只有几条指令的极短保护；单个标志、单个计数器</td>
+                  <td>能（<code class="icode">taskENTER_CRITICAL_FROM_ISR</code>）</td>
+                  <td>不适用（直接关中断/关调度）</td>
+                  <td><b>0 B</b></td>
+                  <td>临界区里写了耗时几十微秒的事，把中断响应也一起拖长</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">三条设计纪律：把死锁消灭在设计期</h4>
+
+          <p class="mt-3">表格能告诉你「该用哪个」，但机制选对了也可能写出死锁。<b>死锁有四个必要条件</b>，其中三个是「用锁」这件事本身带来的，只有最后一个是你亲手造出来的：</p>
+
+          <div class="table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>必要条件</th><th>在你的代码里长什么样</th><th>能不能消灭</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><b>互斥</b></td><td>一把锁同一时刻只允许一个任务进入</td><td>不能（这正是锁的用途）</td></tr>
+                <tr><td><b>持有并等待</b></td><td>拿着 L1 还去 Take L2</td><td>很难（分层加锁时几乎必然发生）</td></tr>
+                <tr><td><b>不可剥夺</b></td><td>FreeRTOS 不会强行把锁从任务手里抢走</td><td>不能（抢锁会破坏临界区的语义）</td></tr>
+                <tr><td><b>循环等待</b></td><td>A 拿着 L1 等 L2，B 拿着 L2 等 L1</td><td><b>能，而且只能靠你在设计期消灭</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">于是得到三条可以直接写进代码规范的纪律：</p>
+
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li><b>固定加锁顺序。</b>全局约定一个顺序（比如「先 L1 后 L2」），任何地方都不许反过来。<b>能只用一把锁的地方，绝不用两把</b>——这是最省事、也最容易被忽略的一条。</li>
+            <li><b>用有限超时替代 <code class="icode">portMAX_DELAY</code>。</b>拿第二把锁时给一个具体超时（例题 3 里算过：临界区最长 5 ms，就取 10~15 ms），超时后<b>回滚</b>（把已经拿到的锁 Give 回去）并退避重试。这一步把「查不出来的永久死锁」换成「会自己打印的偶发失败」，代价只是几十行错误处理。</li>
+            <li><b>锁的粒度尽量小、持有时间尽量短。</b>临界区越短，四个条件里能同时踩中的窗口就越小；而「短」这件事只有你能决定，内核帮不了你。</li>
+          </ol>
+
+          <p class="mt-3">还有一条不算「纪律」但同样致命的铁律，单独说：<b>不要在持锁期间调用可能阻塞的 API。</b><code class="icode">vTaskDelay()</code>、<code class="icode">printf</code> / <code class="icode">ESP_LOGI</code>、网络收发、Flash 写、<code class="icode">malloc</code>，以及在锁里再去 Take 另一把锁——这些动作全都可能让你「抱着锁睡过去」。而只要你抱着锁睡，就等于同时按下了「持有并等待」和「循环等待」两个按钮。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">临界区还是锁？一条判断标准</h4>
+
+          <p class="mt-3">这两种手段经常被混用，其实分工很干脆：<b><code class="icode">taskENTER_CRITICAL()</code> 只该保护几条指令</b>（一次读-改-写、一次链表插入、一次「判断并置位」），它靠关中断实现，代价是这段时间里连中断也进不来；<b>互斥量用来保护「一段有意义的临界区」</b>（几个字段要一起更新、一次总线事务、一次文件操作），它允许其他任务继续运行，只把竞争者挡在门外。</p>
+
+          <p class="mt-3">判断标准可以简化成一句话：<b>如果你能用三五行操作说清「这段时间不能被别人插进来」，就用临界区；如果你需要的是一个「别人别碰这块资源」的约定，就用互斥量。</b>还有一条必须遵守的边界：<b>临界区里不调用任何 FreeRTOS API、不打印、不延时</b>——在关中断的状态下阻塞，后果不是变慢，而是断言失败或者整个系统失去响应。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">回到主线：每种机制到底替我们解决了哪个问题</h4>
+
+          <p class="mt-3">本文开头说「共享变量出错不是运气问题，是三个可枚举的并发问题；每一种通信机制都是为其中某几个问题准备的」。现在可以把这句话落实成一张对应表——<b>这张表也是整篇文章的索引</b>：</p>
+
+          <div class="table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>机制</th><th>原子性（读写不被打断）</th><th>可见性（别人能看见新值）</th><th>顺序（先写后读）</th><th>它靠什么做到</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>队列 / 流缓冲 / 消息缓冲</td><td>✅ 内核临界区</td><td>✅ 拷贝语义</td><td>✅ 先进先出 + 屏障</td><td>数据被拷进内核对象，读写不再共享</td></tr>
+                <tr><td>信号量 / 事件组 / 任务通知</td><td>✅ 内核临界区</td><td>⚠️ 只管时序</td><td>✅ 屏障保证「先写后给」</td><td>Give 前写的数据，Take 后必然可见</td></tr>
+                <tr><td>互斥量</td><td>✅ 内核临界区</td><td>⚠️ 只管时序</td><td>✅ 屏障 + 排他</td><td>同一时刻只有一个任务在临界区内</td></tr>
+                <tr><td>临界区（<code class="icode">taskENTER_CRITICAL</code>）</td><td>✅ 关中断/关调度</td><td>✅ 屏障</td><td>✅ 屏障</td><td>最原始也最贵的手段：把并发直接抹掉</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">看出规律了吗？<b>凡是「数据被搬进内核对象」的机制（队列、流缓冲、消息缓冲），三个问题全都被一次性解决，因为它们让两个任务不再共享同一块内存。</b>而凡是「只传一个信号」的机制（信号量、事件组、通知），内核只保证时序，数据本身还在共享内存里——所以你必须自己守住「先写后给」这个顺序。至于互斥量，它是「信号 + 排他」，保证的是<b>同一时间只有一个写者</b>，读侧仍然要靠顺序约定。</p>
+
+          <p class="mt-3">这条规律可以直接当口诀用：<b>能搬数据就搬数据（队列），不能搬就守顺序（先写后给），要排他就上锁（互斥量），短到几条指令就关中断（临界区）。</b></p>
+
+        </section>
+
+<section>
+          <h2 id="sec-calc" class="mt-14 text-xl font-semibold">算一算：RAM、等待时间、超时与队列长度</h2>
+
+          <p class="mt-3">前面五节讲的都是「是什么」和「为什么」，但工程上真正要拍板的是<b>数字</b>：队列开多长、元素能不能放指针、超时填多少、优先级继承到底救回来多少时间。这一节给五道可以照着算的题，每题都写清假设——<b>你要做的是把这些假设换成自己项目的实际值，再算一遍。</b></p>
+
+          <p class="mt-3">先声明三个到处都要用到的典型值（都是量级，不是精确值）：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>队列/信号量的控制结构体 <code class="icode">Queue_t</code> 在 32 位平台上约 <b>80 字节</b>；让内核给句柄分配时，堆块头再占约 <b>8 字节</b>。</li>
+            <li>一次上下文切换（保存/恢复现场 + 调度器）在 240 MHz 的 ESP32 上约 <b>2~5 µs</b>。</li>
+            <li>240 MHz 时，一个时钟周期是 1 ÷ 240 MHz ≈ <b>4.17 ns</b>。</li>
+          </ul>
+
+          <h4 class="mt-6 text-[15px] font-semibold">例题 1：长度 20、元素 32 字节的队列，到底占多少 RAM</h4>
+
+          <p class="mt-3"><b>题目：</b>两个任务之间要传一个 32 字节的采样结构体，队列长度定为 20。调用 <code class="icode">xQueueCreate(20, sizeof(reading_t))</code>（<code class="icode">sizeof(reading_t) == 32</code>）之后，堆里一共少了多少字节？</p>
+
+          <div class="code-block" data-lang="text" data-title="例1_队列RAM账.txt"><pre><code>已知：
+  uxQueueLength = 20（元素个数）
+  uxItemSize    = 32 B（每个元素字节数）
+  Queue_t 控制结构体 ≈ 80 B
+  堆块头 ≈ 8 B
+
+第一层：存储区（内核替你开的那块连续内存）
+  存储区 = uxQueueLength × uxItemSize
+        = 20 × 32 B
+        = 640 B
+
+第二层：控制结构体 + 堆块头
+  固定开销 = 80 B + 8 B = 88 B
+
+总计：
+  队列占用 = 640 B + 88 B = 728 B ≈ 0.71 KB
+--------------------------------------------------------------
+对比 A：元素换成 100 B 的完整数据包
+  20 × 100 B + 88 B = 2000 B + 88 B = 2088 B ≈ 2.04 KB
+
+对比 B：队列里只传指针（4 B），数据用两块静态缓冲轮换
+  20 × 4 B + 88 B = 80 B + 88 B = 168 B
+  两块 100 B 缓冲        = 200 B
+  合计                   = 368 B
+
+  省下 = 2088 B − 368 B = 1720 B，约为原来（2.04 KB）的 82%</code></pre></div>
+
+          <p class="mt-3"><b>答案：约 728 字节，其中 640 字节是存储区、88 字节是固定开销。</b>注意 <code class="icode">uxItemSize</code> 填的是<b>每个元素</b>的字节数（32），不是「一共要传多少字节」（640）——填错这一项，队列会一次拷贝 640 字节，RAM 直接变成 20 × 640 B = 12.5 KB，而且收发双方的类型也对不上。</p>
+
+          <p class="mt-3">至于「值拷贝还是传指针」，判据可以定得很干脆：<b>结构体小于等于 32 字节就直接传值</b>（拷贝 32 字节大约十来个时钟周期，占一次 send 的零头，换来的是彻底不用管所有权）；<b>超过 64 字节，再考虑指针 + 双缓冲</b>，并且必须想清楚「这块内存谁能写、什么时候能改」——省下的是 RAM，花掉的是心智负担和一类新的竞态。</p>
+
+          <div class="callout callout-tip">
+            <p class="callout-title">更可靠的办法：让它自己报账</p>
+            <p class="mt-2">上面 80 B、8 B 都是估算，想看准确值，就在创建前后各问一次堆的大小：<br><br><code class="icode">size_t before = heap_caps_get_free_size(MALLOC_CAP_8BIT);</code><br>
+            <code class="icode">QueueHandle_t q = xQueueCreate(20, 32);</code><br>
+            <code class="icode">size_t after = heap_caps_get_free_size(MALLOC_CAP_8BIT);</code><br>
+            <code class="icode">ESP_LOGI(TAG, "队列实际占用 %u 字节", (unsigned)(before - after));</code><br><br>
+            打印出来的就是真实值（含对齐与堆块头）。<b>把这句话当成创建任何内核对象时的习惯</b>——它顺带还检验了「对象到底有没有创建成功」。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">例题 2：优先级反转到底拖延了多久，继承又救回来多少</h4>
+
+          <p class="mt-3"><b>题目：</b>三个任务，L（优先级 1）、M（优先级 3）、H（优先级 5），单核。L 先拿到锁，临界区需要 5 ms；H 在 t = 1.0 ms 就绪并要同一把锁；M 在 t = 1.5 ms 就绪，要跑 20 ms 的纯计算，不需要这把锁。求 H 从就绪到真正开始运行的等待时间，并给出换成互斥量（优先级继承）后的结果。</p>
+
+          <div class="code-block" data-lang="text" data-title="例2_反转时长.txt"><pre><code>已知：
+  T_临界区 = 5.0 ms
+  t_H      = 1.0 ms（H 就绪时刻）
+  T_M      = 20.0 ms（M 的计算时间，与锁无关）
+  t_M      = 1.5 ms（M 就绪时刻，晚于 t_H，所以在 H 之后插队）
+
+第一步：H 就绪的那一刻，锁还被占多久？
+  T_剩余 = T_临界区 − t_H
+         = 5.0 ms − 1.0 ms = 4.0 ms
+
+第二步：用二值信号量当锁（没有优先级继承）
+  L 优先级 1 &lt; M 优先级 3，所以 M 就绪后立刻抢占 L，跑满 20 ms。
+  这 20 ms 里 H 一直阻塞在锁上，而 M 跟这把锁毫无关系。
+  T_wait = T_剩余 + T_M
+         = 4.0 ms + 20.0 ms = 24.0 ms
+
+第三步：用互斥量（优先级继承）
+  H 阻塞的那一刻，内核把 L 的优先级 1 → 5。
+  M（优先级 3）此时抢不动 L（优先级 5），只能等。
+  L 从 t = 1.0 一路跑完剩下的 4.0 ms，在 t = 5.0 释放锁，
+  释放的同时把自己的优先级恢复为 1，H 立刻拿到锁。
+  T_wait = T_剩余 + 0 ms = 4.0 ms
+
+对比：
+  压缩比 = 24.0 ms ÷ 4.0 ms = 6 倍
+  一般式：T_wait = T_剩余临界区 + Σ T_无关任务抢占
+          继承之后，第二项被压成 0，只剩第一项
+
+第四步：上下文切换开销要不要算？
+  反转期间大约发生 4 次切换：H→L、L→M、M→L、L→H
+  4 × (2~5 µs) = 8~20 µs
+  占 24.0 ms 的比例 = 0.000008 / 0.024 … ≈ 0.03%~0.08%
+  结论：在 ms 级的临界区面前可以忽略；
+        只有当临界区短到几十微秒时，切换开销才需要认真算
+
+边界情形（很重要）：
+  ① 把 T_M 从 20 ms 改成 200 ms
+     未继承：204 ms      继承：4 ms      对比 = 51 倍
+  ② 把 T_临界区 从 5 ms 改成 50 ms
+     未继承：50 ms 附近  继承：49 ms     对比 ≈ 1 倍
+     ⇒ 继承压缩的是「被别人插队」，压不掉「锁本身被占用的时间」</code></pre></div>
+
+          <p class="mt-3"><b>答案：未加优先级继承时 H 要等 24 ms（其中 20 ms 纯属被 M 插队）；加了继承之后只剩 4 ms，缩短到六分之一。</b>边界情形②也顺便解释了为什么「锁里的活要短」不是一句空话：<b>临界区一长，优先级继承就完全失效了。</b></p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">例题 3：<code class="icode">portMAX_DELAY</code> 与 100 ms 超时，差的是一次死锁</h4>
+
+          <p class="mt-3"><b>题目：</b>任务 A 依次拿 L1、L2；任务 B 依次拿 L2、L1（加锁顺序写反了）。求两种情况下的等待时间上限：(1) 两次 Take 都用 <code class="icode">portMAX_DELAY</code>；(2) 第二次 Take 用 100 ms 超时，超时后退避重试（随机 10~100 ms）。</p>
+
+          <div class="code-block" data-lang="text" data-title="例3_超时对比.txt"><pre><code>已知：
+  Take 顺序：A = L1 → L2     B = L2 → L1（顺序不一致）
+  临界区最长合法耗时 ≈ 5 ms
+  方案(2) 的退避时间 = random(10, 100) ms，平均 55 ms
+
+方案 (1)：两次 Take 都是 portMAX_DELAY
+  当 A 拿着 L1 等 L2、同时 B 拿着 L2 等 L1 时：
+      A 在等一个只可能由 B 释放的锁
+      B 在等一个只可能由 A 释放的锁
+      T_wait(A) = T_wait(B) = ∞
+  后果：两个任务永久不再运行，而系统的其他任务一切正常。
+        如果看门狗是由第三个任务喂的，设备甚至不会复位 ——
+        现场现象是「功能死了，但设备还活着」，属于最难查的一类。
+  T_恢复 = 只能靠复位，且复位后同样的时序可能再次踩中
+
+方案 (2)：第二次 Take = 100 ms，超时后回滚 + 退避重试
+  T_wait_max = T_timeout = 100 ms        （上限有了）
+  回滚：把已经拿到的那把锁 Give 回去（这一步不能省，否则锁被永久泄漏）
+  退避：平均 55 ms，最坏 100 ms
+  T_恢复(平均) = 100 ms + 55 ms  ≈ 155 ms
+  T_恢复(最坏) = 100 ms + 100 ms = 200 ms
+
+超时值该取多少？
+  只能容忍 5 ms 的合法临界区 ⇒ 超时取它的 2~3 倍
+  T_timeout = 5 ms × (2~3) = 10~15 ms
+  （取 1000 ms 等于没有超时；取 1 ms 会在负载一高时误报）</code></pre></div>
+
+          <div class="table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>同一段代码</th><th>出问题时的现象</th><th>能不能自己诊断</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>全程 <code class="icode">portMAX_DELAY</code></td><td>两个任务永久不再运行，其余功能正常</td><td>不能。只能靠现象反推，「以为」是硬件问题</td></tr>
+                <tr><td>第二次 Take 带超时</td><td>每 100~200 ms 打印一条 <code class="icode">ESP_LOGW</code>：加锁超时</td><td>能。日志直接告诉你「谁在哪把锁上超时了」</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>答案：<code class="icode">portMAX_DELAY</code> 的等待上限是无穷大，死锁会安静地永久存在；100 ms 超时把上限钉在 100 ms，加上退避最坏 200 ms 就能恢复，而且每次超时都能打一条日志。</b>所以工程纪律里那条「能用超时就不要用无限等」的真实含义是：<b>把「查不出来的死锁」换成「会自己叫的报错」</b>。代价是代码里多一次「失败了要回滚」的处理——这几十行代码，换来的是现场可诊断性。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">例题 4：任务通知比信号量省多少（RAM 与时间都要算）</h4>
+
+          <p class="mt-3"><b>题目：</b>有 10 个事件源需要通知处理任务，现在用二值信号量，考虑换成任务通知。分别算 RAM 与 CPU 时间的差别，并判断在事件率 10 kHz 与 1 kHz 时是否值得改。</p>
+
+          <div class="code-block" data-lang="text" data-title="例4_通知与信号量.txt"><pre><code>第一部分：RAM（每个事件源一个对象）
+  二值信号量 = Queue_t 80 B + 堆块头 8 B          = 88 B
+  （若用「长度 1、元素 4 B」的队列替代，还要 + 4 B 存储 = 92 B）
+  任务通知   = 0 B（复用 TCB 里已有的
+                    ulNotifiedValue 4 B + ucNotifyState 1 B）
+
+  单个省 88 B；10 个事件源省 88 × 10 = 880 B ≈ 0.86 KB
+  结论：RAM 上「省 100%」，但绝对值不到 1 KB —— 这不是换架构的理由
+
+第二部分：时间（每唤醒一次）
+  出处：FreeRTOS 官方文档给出的对比 —— 用任务通知唤醒一个任务
+        比用二值信号量快约 45%
+  设信号量路径（Give + 唤醒 + 调度切换）按典型值估算 ≈ 400 个时钟周期
+  通知路径 ≈ 400 × (1 − 0.45) = 220 个时钟周期
+  每条差值 = 180 个时钟周期 = 180 × 4.17 ns ≈ 0.75 µs
+
+  事件率 10 kHz（每秒 10000 次）：
+      10 000 × 0.75 µs = 7.5 ms/s ⇒ 占 CPU 约 0.75%
+  事件率 1 kHz：
+      1 000 × 0.75 µs = 0.75 ms/s ⇒ 占 CPU 约 0.075%
+
+第三部分：和「打一行日志」对比（这才是关键）
+  115200 bps、8N1：每个字节 10 位 ⇒ 每秒 11520 字节
+  一行日志约 60 字节 ⇒ 60 × 10 ÷ 115200 = 5.2 ms
+  5.2 ms ÷ 0.75 µs ≈ 6900 次
+  ⇒ 一次串口打印的阻塞时间，等于六千多次「通知换信号量」的差价</code></pre></div>
+
+          <p class="mt-3"><b>答案：RAM 上省 880 字节（数量级：KB 以下，不重要）；时间上每次唤醒省约 0.75 µs，10 kHz 时相当于 0.75% 的 CPU，1 kHz 时只有 0.075%。</b>结论分三档：<b>事件率高（&gt; 10 kHz）且处理链很短时，换通知是实打实的收益；事件率在 kHz 以下时，两种写法都行，应按语义选；而一旦你的唤醒后面跟着一句打印，前面省下的那点时间立刻被抹掉六千倍。</b></p>
+
+          <div class="callout callout-warn">
+            <p class="callout-title">所以「测性能」不能用打印</p>
+            <p class="mt-2">既然一次 <code class="icode">printf</code> / <code class="icode">ESP_LOGI</code> 就是毫秒量级，那么「在关键路径上加一句日志看看慢在哪」这个动作，本身就把问题改变了：你测出来的是日志的耗时，不是原逻辑的耗时。<b>正确的做法是翻转一个空闲 GPIO，用示波器量脉宽；或者用 <code class="icode">esp_timer_get_time()</code> 取时间戳，把结果存进数组，最后一个周期性地统一打印。</b>这是把「时间」测准的唯一办法。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">例题 5：队列长度该开多少个元素</h4>
+
+          <p class="mt-3"><b>题目：</b>生产者每秒产生 200 个 32 字节的元素，消费者在写 Flash 时最坏会被阻塞 50 ms。队列至少要多长？再算算队列 RAM，以及队列取 5 个、20 个各自会怎样。</p>
+
+          <div class="code-block" data-lang="text" data-title="例5_队列长度.txt"><pre><code>已知：
+  λ = 200 个/秒（生产速率）
+  T_max = 50 ms = 0.05 s（消费者最坏一次被阻塞的时间）
+
+第一步：最小值（消费者阻塞期间生产的元素必须全部装得下）
+  N_min = λ × T_max
+        = 200 个/秒 × 0.05 s
+        = 10 个
+  单位检查：[个/秒] × [秒] = [个]  ✓
+
+第二步：留余量（生产速率会波动、阻塞时间也会超预期）
+  余量取 60% ⇒ N = 10 × 1.6 = 16 个（取整到 2 的幂便于看波形与算账）
+
+第三步：队列 RAM
+  RAM = N × uxItemSize + 88 B
+      = 16 × 32 B + 88 B
+      = 512 B + 88 B = 600 B
+
+第四步：对比两个坏选择
+  N = 5：只能吸收 5 ÷ 200 = 25 ms 的突发
+        消费者一阻塞 50 ms，第 25 ms 起队列就满了
+        这 50 ms 里生产了 10 个元素，只有 5 个装得下
+        ⇒ 每次写 Flash 丢 5 个元素（而且丢的是「最旧」还是「最新」，
+          取决于你 send 时用的是覆盖还是阻塞）
+  N = 20：可吸收 20 ÷ 200 = 100 ms 的突发
+         RAM = 20 × 32 B + 88 B = 728 B
+         ⇒ 多花 128 B，突发容忍度翻倍
+
+结论：
+  N = 16 是最小值加余量的结果（600 B）
+  N = 20 更适合「Flash 写时间不确定」的场合（728 B）
+  ESP32-WROOM-32 有 520 KB SRAM，128 B 换 50 ms 的突发容忍，
+  是整机设计里最划算的一笔交易之一</code></pre></div>
+
+          <p class="mt-3"><b>答案：至少 10 个元素，工程上取 16（600 字节）留余量，写 Flash 时间不确定时取 20（728 字节）。</b>这道题还顺带回答了「队列满了怎么办」这个设计决策：把 <code class="icode">N</code> 按最坏情况算出来，就不需要「丢最旧」这种策略；真装了数据却担心队列满，说明<b>该调的是消费者，而不是队列长度</b>——队列只是把问题延后，它不会让慢的消费者变快。</p>
+
+          <div class="table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>例题</th><th>关键算式</th><th>答案</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>1. 队列 RAM 账</td><td>20 × 32 B + 80 B + 8 B</td><td><b>728 B</b>（≈0.71 KB）；改传指针 + 双缓冲只需 368 B</td></tr>
+                <tr><td>2. 优先级反转时长</td><td>(5 − 1) ms + 20 ms = 24 ms；继承后只剩 4 ms</td><td><b>24 ms → 4 ms</b>，缩短到 1/6</td></tr>
+                <tr><td>3. 超时 vs 无限等</td><td>∞ 对 100 ms + 平均 55 ms 退避</td><td><b>∞ → 最坏 200 ms 恢复</b>，且能打印报警日志</td></tr>
+                <tr><td>4. 通知 vs 信号量</td><td>88 B/个；400 × 45% = 180 周期 ≈ 0.75 µs</td><td><b>省 880 B；10 kHz 时省 0.75% CPU</b>，而一次打印 = 5.2 ms</td></tr>
+                <tr><td>5. 队列长度</td><td>N = λ × T = 200 × 0.05 = 10，×1.6 ≈ 16</td><td><b>16 个元素 / 600 B</b>（保守取 20 / 728 B）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">五道题的算式都很短，但它们是本文最实用的部分——因为<b>它们在把「我觉得」变成「我算过」</b>。你在自己的项目里换掉那几个假设值（元素多大、临界区多长、生产多快），就能直接得到该填进代码里的数字。</p>
+        </section>
+
+<section>
+          <h2 id="sec-mcu" class="mt-14 text-xl font-semibold">四个能直接编译跑通的完整程序</h2>
+
+          <p class="mt-3">下面四个程序都是完整文件，可以直接贴进 ESP-IDF 工程：<code class="icode">idf.py create-project ipc_demo</code>，把 <code class="icode">main/main.c</code> 整体换掉，然后 <code class="icode">idf.py -p COMx flash monitor</code>。<b>没有省略号，没有「此处省略若干行」</b>——你看到的每一行都是跑起来所必需的。</p>
+
+          <p class="mt-3">四个程序分别对应四件事：队列怎么传数据、优先级反转长什么样（以及怎么消失）、中断怎么唤醒任务、多个条件怎么「全齐了才开工」。</p>
+
+          <h3 id="sub-mcu-prodcons" class="mt-10 text-base font-semibold">程序一：生产者 / 消费者（队列 + 两个任务 + 串口打印）</h3>
+
+          <p class="mt-3">这是队列最标准的用法：一个任务只管产生数据，另一个只管消费，两边不共享任何变量，唯一的接触面就是队列。<b>注意程序里消费者故意比生产者慢三倍</b>——这样队列才会被填满，你才能看到「满了以后怎么办」的真实行为。</p>
+
+          <div class="code-block" data-lang="c" data-title="程序一_队列生产者消费者.c"><pre><code>/* ============================================================
+ * 程序一：生产者 / 消费者（队列）
+ *
+ * RAM 账（下面还会用 heap_caps 实测一遍）：
+ *   存储区 = QUEUE_LEN × sizeof(reading_t) = 16 × 32 B = 512 B
+ *   Queue_t 控制结构体                    ≈ 80 B
+ *   堆块头                                ≈ 8 B
+ *   合计                                  ≈ 600 B
+ *   （sizeof(reading_t) 为什么是 32 而不是 4+8+8+2=22？
+ *     因为 int64_t 要求 8 字节对齐，编译器会插入填充字节。
+ *     所以别自己心算，永远打印 sizeof。）
+ * ============================================================ */
+#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "esp_heap_caps.h"
+
+#define QUEUE_LEN   16          /* 元素个数，不是字节数 */
+static const char *TAG = "程序一";
+
+typedef struct {
+    uint32_t seq;        /* 帧号 */
+    int64_t  t_us;       /* 产生时刻（us） */
+    int16_t  value[4];   /* 4 个通道 */
+    uint16_t crc;        /* 只为把结构体凑成 32 B */
+} reading_t;
+
+static QueueHandle_t s_queue;
+static uint32_t      s_dropped;     /* 队列满而丢弃的帧数 */
+
+/* ---------------- 生产者：100 Hz，优先级 5 ---------------- */
+static void producer_task(void *arg)
+{
+    reading_t r;
+    uint32_t seq = 0;
+
+    while (1) {
+        r.seq  = seq++;
+        r.t_us = esp_timer_get_time();
+        for (int i = 0; i &lt; 4; i++) {
+            r.value[i] = (int16_t)(seq + i);
+        }
+        r.crc = 0xA5A5;
+
+        /* 超时传 0：队列满时立刻返回 pdFALSE，本次数据丢弃。
+           这就是「丢新数据」策略 —— 它保证生产者永远不会被队列拖死，
+           代价是丢的那一帧只有计数、没有内容。
+           想换成「阻塞生产者」：把 0 改成 portMAX_DELAY；
+           想换成「丢最旧」：改用 xQueueOverwrite()（仅限长度 1 的队列）
+           或在满了以后先 Receive 一次再 Send。 */
+        if (xQueueSend(s_queue, &amp;r, 0) != pdTRUE) {
+            s_dropped++;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));      /* 10 ms = 100 Hz */
+    }
+}
+
+/* ---------------- 消费者：慢 3 倍，优先级 5 ---------------- */
+static void consumer_task(void *arg)
+{
+    reading_t r;
+
+    while (1) {
+        /* 超时传 portMAX_DELAY：没有数据就一直睡，
+           这期间不占 CPU、不参与调度 —— 这正是队列相对「主循环查标志位」
+           最大的好处。 */
+        if (xQueueReceive(s_queue, &amp;r, portMAX_DELAY) == pdTRUE) {
+
+            vTaskDelay(pdMS_TO_TICKS(30));      /* 模拟慢消费者 */
+
+            if (r.seq % 20 == 0) {
+                ESP_LOGI(TAG, "seq=%u  队列里还剩=%u  累计丢弃=%u  本任务栈余量=%u",
+                         (unsigned)r.seq,
+                         (unsigned)uxQueueMessagesWaiting(s_queue),
+                         (unsigned)s_dropped,
+                         (unsigned)uxTaskGetStackHighWaterMark(NULL));
+            }
+        }
+    }
+}
+
+void app_main(void)
+{
+    size_t before = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+
+    s_queue = xQueueCreate(QUEUE_LEN, sizeof(reading_t));
+    configASSERT(s_queue != NULL);      /* 创建失败就是内存不够，别往下跑 */
+
+    size_t after = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+
+    ESP_LOGI(TAG, "元素 %u B × %d 个，实测占用 %u B（估算 512+88=600 B）",
+             (unsigned)sizeof(reading_t), QUEUE_LEN,
+             (unsigned)(before - after));
+
+    xTaskCreate(producer_task, "prod", 3072, NULL, 5, NULL);
+    xTaskCreate(consumer_task, "cons", 3072, NULL, 5, NULL);
+}</code></pre></div>
+
+          <p class="mt-3"><b>你会看到什么：</b>生产者 10 ms 一帧、消费者 30 ms 一帧，所以队列很快填满到 16 个，此后 <code class="icode">累计丢弃</code> 每 30 ms 涨 2。这不是 bug，是<b>算过的设计</b>——消费者根本处理不完 100 Hz，队列的作用是把「瞬时突发」吸收掉，剩下的必须丢，而且丢的数量要能被观测到。</p>
+
+          <p class="mt-3">想让它不丢数据，只有两条路：提高消费者速度（<code class="icode">30</code> 改成 <code class="icode">10</code>），或者降低生产速率。把 <code class="icode">QUEUE_LEN</code> 从 16 改成 160 只能把丢的时刻推迟 1.4 秒——<b>队列长度不能解决产能不足</b>，这一点在例题 5 里也算过。</p>
+
+          <h3 id="sub-mcu-inversion" class="mt-10 text-base font-semibold">程序二：亲手跑一遍优先级反转（以及它怎么消失）</h3>
+
+          <p class="mt-3">这个程序把 4.2 节那个时序算例变成可以跑的代码。<b>改一个宏，反转就从 230 ms 变成 30 ms</b>——亲眼看过一次，你这辈子都不会再把二值信号量当锁用。</p>
+
+          <p class="mt-3">三个任务的安排（数值刻意取 10 ms 的整数倍，原因见下面注释）：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>L</b>（低优先级，2）：拿到锁，在临界区里忙等 <b>50 ms</b>。</li>
+            <li><b>H</b>（高优先级，6）：等 <b>20 ms</b> 后去拿同一把锁，并测出自己等了多久。</li>
+            <li><b>M</b>（中优先级，4）：等 <b>30 ms</b> 后开始 <b>200 ms</b> 的纯计算，<b>完全不碰那把锁</b>。</li>
+          </ul>
+
+          <div class="code-block" data-lang="c" data-title="程序二_优先级反转复现.c"><pre><code>/* ============================================================
+ * 程序二：优先级反转复现实验
+ *
+ *   USE_MUTEX = 1  → xSemaphoreCreateMutex()  有优先级继承
+ *   USE_MUTEX = 0  → 二值信号量            没有优先级继承
+ *
+ * 预期（ESP32 单核，CONFIG_FREERTOS_HZ = 100）：
+ *   USE_MUTEX = 1：H 打印「我等了约 30 ms」
+ *   USE_MUTEX = 0：H 打印「我等了约 230 ms」
+ *
+ * 为什么时间都取 10 ms 的整数倍？
+ *   因为 tick 频率默认 100 Hz，一个 tick 就是 10 ms，
+ *   pdMS_TO_TICKS(3) 在这个配置下会等于 0！
+ *   想用 ms 级精度，要么把 CONFIG_FREERTOS_HZ 提到 1000，
+ *   要么像这里一样只用 10 ms 的整数倍。
+ * ============================================================ */
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "freertos/event_groups.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+
+#define USE_MUTEX   1       /* ← 改成 0 就能看到优先级反转 */
+
+#define T_CRIT_MS   50      /* L 的临界区长度 */
+#define T_H_START   20      /* H 何时开始要锁 */
+#define T_M_START   30      /* M 何时开始抢 CPU */
+#define T_M_RUN     200     /* M 要跑多久 */
+
+static const char *TAG = "程序二";
+static SemaphoreHandle_t s_lock;
+static EventGroupHandle_t s_start;
+#define BIT_GO  (1UL &lt;&lt; 0)
+
+/* 忙等（不调用 vTaskDelay，所以不会主动让出 CPU） */
+static void busy_ms(uint32_t ms)
+{
+    int64_t t0 = esp_timer_get_time();
+    while (esp_timer_get_time() - t0 &lt; (int64_t)ms * 1000) {
+        /* 空转 */
+    }
+}
+
+/* 三个任务都等同一个 bit —— 事件组是唯一能「一次唤醒所有等待者」的机制，
+   用它做统一起跑线，比让每个任务各自 vTaskDelay 更准 */
+static void wait_go(void)
+{
+    xEventGroupWaitBits(s_start, BIT_GO, pdFALSE, pdTRUE, portMAX_DELAY);
+}
+
+/* ---------------- L：低优先级，持有锁 ---------------- */
+static void low_task(void *arg)
+{
+    wait_go();
+
+    while (1) {
+        xSemaphoreTake(s_lock, portMAX_DELAY);
+        ESP_LOGW(TAG, "L: 拿到锁，进入 %d ms 临界区", T_CRIT_MS);
+        busy_ms(T_CRIT_MS);
+        xSemaphoreGive(s_lock);
+        ESP_LOGW(TAG, "L: 释放锁（此刻优先级 = %u）",
+                 (unsigned)uxTaskPriorityGet(NULL));
+
+        vTaskDelay(pdMS_TO_TICKS(1000));    /* 1 秒一轮 */
+    }
+}
+
+/* ---------------- H：高优先级，被反转的那个 ---------------- */
+static void high_task(void *arg)
+{
+    wait_go();
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(T_H_START));   /* 20 ms 后再要锁 */
+
+        int64_t t0 = esp_timer_get_time();
+        xSemaphoreTake(s_lock, portMAX_DELAY);
+        int64_t waited_us = esp_timer_get_time() - t0;
+        xSemaphoreGive(s_lock);
+
+        ESP_LOGI(TAG, "H: 等了 %lld ms 才拿到锁（%s）",
+                 waited_us / 1000,
+                 USE_MUTEX ? "互斥量：只有临界区剩下的 30 ms"
+                           : "二值信号量：多等了 M 的 200 ms");
+
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+/* ---------------- M：中优先级，纯捣乱 ---------------- */
+static void mid_task(void *arg)
+{
+    wait_go();
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(T_M_START));   /* 30 ms 后开始 */
+        ESP_LOGW(TAG, "M: 开始 %d ms 纯计算（不碰锁）", T_M_RUN);
+        busy_ms(T_M_RUN);
+        ESP_LOGW(TAG, "M: 计算结束");
+
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+void app_main(void)
+{
+    s_start = xEventGroupCreate();
+
+#if USE_MUTEX
+    s_lock = xSemaphoreCreateMutex();       /* 创建即「可用」，不需要 Give */
+#else
+    s_lock = xSemaphoreCreateBinary();      /* 创建后是「空」的！ */
+    xSemaphoreGive(s_lock);                 /* 二值信号量当锁用，必须先 Give */
+#endif
+    configASSERT(s_lock != NULL);
+
+    ESP_LOGI(TAG, "本次使用：%s", USE_MUTEX ? "互斥量（有优先级继承）"
+                                            : "二值信号量（无优先级继承）");
+
+    xTaskCreate(low_task,  "L", 3072, NULL, 2, NULL);
+    xTaskCreate(mid_task,  "M", 3072, NULL, 4, NULL);
+    xTaskCreate(high_task, "H", 3072, NULL, 6, NULL);
+
+    /* 三个任务都在等这个 bit，SetBits 会把它们同时唤醒 */
+    xEventGroupSetBits(s_start, BIT_GO);
+
+    vTaskDelete(NULL);      /* app_main 自己的活干完了 */
+}</code></pre></div>
+
+          <p class="mt-3"><b>为什么这个实验能成功复现：</b>L 的临界区是「忙等」而不是 <code class="icode">vTaskDelay</code>，所以<b>L 在临界区里始终是就绪状态、可以被抢占</b>。用 <code class="icode">vTaskDelay</code> 就复现不出来了——L 一睡，锁就没了「持有者被抢占」这个前提，反转自然不会发生。这也是为什么真实项目里的反转总出现在「临界区里有计算」的地方。</p>
+
+          <p class="mt-3"><b>换成二值信号量后你会看到的完整过程：</b></p>
+
+          <div class="code-block" data-lang="text" data-title="程序二_日志对照.txt"><pre><code>USE_MUTEX = 0（二值信号量，无继承）
+  t=0     L: 拿到锁，进入 50 ms 临界区
+  t=20    H 来要锁 → 阻塞（L 优先级还是 2，不涨）
+  t=30    M 就绪（优先级 4 &gt; 2）→ 抢占 L，开始 200 ms 计算
+  t=230   M 计算结束 → L 才被放回来，跑完剩下的 20 ms
+  t=250   L 释放锁 → H 终于拿到
+  H: 等了 230 ms 才拿到锁（二值信号量：多等了 M 的 200 ms）
+
+USE_MUTEX = 1（互斥量，有继承）
+  t=0     L: 拿到锁，进入 50 ms 临界区
+  t=20    H 来要锁 → 阻塞，内核把 L 从 2 抬到 6
+  t=30    M 就绪（优先级 4 &lt; 6）→ 抢不动，只能等
+  t=50    L 跑完临界区释放锁，优先级恢复为 2
+  t=50    H 立刻拿到锁
+  H: 等了 30 ms 才拿到锁（互斥量：只有临界区剩下的 30 ms）
+  （H 释放后，M 才拿到 CPU 跑它的 200 ms）
+
+  差值 = 230 ms − 30 ms = 200 ms
+  这 200 ms 完全是「M 插了 L 的队」，与那把锁没有任何关系 —— 这就是反转</code></pre></div>
+
+          <p class="mt-3">自己动手改三个地方，收获会更大：把 <code class="icode">T_M_RUN</code> 改成 <code class="icode">20</code>（比临界区剩的还短），看 H 的等待怎么变；把 H 的优先级改成 3（和 M 相同），看反转是否还出现；把 <code class="icode">USE_MUTEX</code> 关掉之后再把 L 的 <code class="icode">busy_ms</code> 换成 <code class="icode">vTaskDelay</code>，看反转是不是自己消失了。</p>
+        <h3 id="sub-mcu-isr" class="mt-10 text-base font-semibold">程序三：按键中断 → 唤醒任务（含四种错误写法对照）</h3>
+
+          <p class="mt-3">中断服务函数里该做的事只有一个：<b>把信号举起来，然后立刻退出</b>。所有的消抖、打印、业务逻辑都交给任务。这个程序用开发板上的 BOOT 键（GPIO0，按下为低电平）。</p>
+
+          <div class="code-block" data-lang="c" data-title="程序三_中断同步正确写法.c"><pre><code>/* ============================================================
+ * 程序三：按键中断 → 任务同步（正确写法）
+ *
+ * 分工：
+ *   中断里：只做 GiveFromISR + 必要时触发一次调度切换（几微秒）
+ *   任务里：消抖、判断、打印、业务（想用多久用多久）
+ * ============================================================ */
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "esp_attr.h"
+
+#define BTN_GPIO    GPIO_NUM_0      /* 开发板 BOOT 键，按下接地 */
+static const char *TAG = "程序三";
+
+static SemaphoreHandle_t s_btn_sem;
+
+/* ---------------- 中断服务函数：越短越好 ---------------- */
+static void IRAM_ATTR btn_isr(void *arg)
+{
+    /* pxHigherPriorityTaskWoken 必须是「每次进中断都重新置 pdFALSE 的局部变量」。
+       内核会在唤醒一个优先级高于当前被中断任务的任务时把它写成 pdTRUE，
+       告诉我们要不要中断返回时立刻切换过去。 */
+    BaseType_t hpw = pdFALSE;
+
+    /* 中断里只能用带 FromISR 后缀的版本：
+       它不会阻塞、不操作等待链表、不会调用任何可能睡眠的代码 */
+    xSemaphoreGiveFromISR(s_btn_sem, &amp;hpw);
+
+    /* 只有在真的唤醒了更高优先级任务时才要求切换。
+       少了这一步的后果：按键到任务响应之间可能要多等一个 tick（默认 10 ms），
+       按键「手感发钝」通常就是这么来的。 */
+    if (hpw == pdTRUE) {
+        portYIELD_FROM_ISR();
+    }
+}
+
+/* ---------------- 处理任务：所有慢活都在这里 ---------------- */
+static void btn_task(void *arg)
+{
+    uint32_t count = 0;
+
+    while (1) {
+        /* 无限等待：没按键就永远睡着，不占一点 CPU */
+        if (xSemaphoreTake(s_btn_sem, portMAX_DELAY) == pdTRUE) {
+
+            /* 消抖放在任务里 —— 中断里可不能有 delay */
+            vTaskDelay(pdMS_TO_TICKS(20));
+
+            /* 20 ms 后还是低电平，才算一次真正的按下 */
+            if (gpio_get_level(BTN_GPIO) == 0) {
+                count++;
+                ESP_LOGI(TAG, "第 %u 次按下（t = %lld ms）",
+                         (unsigned)count, esp_timer_get_time() / 1000);
+            }
+        }
+    }
+}
+
+void app_main(void)
+{
+    s_btn_sem = xSemaphoreCreateBinary();
+    configASSERT(s_btn_sem != NULL);
+
+    gpio_config_t cfg = {
+        .pin_bit_mask = 1ULL &lt;&lt; BTN_GPIO,
+        .mode         = GPIO_MODE_INPUT,
+        .pull_up_en   = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type    = GPIO_INTR_NEGEDGE,      /* 下降沿：按下瞬间 */
+    };
+    ESP_ERROR_CHECK(gpio_config(&amp;cfg));
+
+    /* 这两句的顺序不能反：
+       gpio_install_isr_service() 负责建立 GPIO 中断的分发机制，
+       没装就调 gpio_isr_handler_add() 会返回 ESP_ERR_INVALID_STATE */
+    ESP_ERROR_CHECK(gpio_install_isr_service(0));
+    ESP_ERROR_CHECK(gpio_isr_handler_add(BTN_GPIO, btn_isr, NULL));
+
+    /* 优先级给高一点：按键响应是「人机交互」，比采样慢一点没关系，
+       但绝不能排在网络任务后面 */
+    xTaskCreate(btn_task, "btn", 3072, NULL, 10, NULL);
+}</code></pre></div>
+
+          <p class="mt-3"><b>下面这四段都是真实项目里出现过的错误写法。</b>它们被放在 <code class="icode">#if 0</code> 里是为了让你能连同正确版本一起编译，但<b>任何一段都不要抄进工程</b>：</p>
+
+          <div class="code-block" data-lang="c" data-title="程序三_四种错误写法.c"><pre><code>#if 0
+/* 【错误 1】中断里用任务版 xSemaphoreGive()
+   现象：一按键就触发 configASSERT 断言、设备重启。
+   原因：任务版 API 内部会检查「当前是否在中断上下文」，
+         在 ISR 里调用属于明确的 API 误用。 */
+static void IRAM_ATTR bad_isr_1(void *arg)
+{
+    xSemaphoreGive(s_btn_sem);              /* ← 错！必须用 FromISR 版本 */
+}
+
+/* 【错误 2】给 pxHigherPriorityTaskWoken 传 NULL
+   现象：运气好什么都不发生，运气不好直接崩溃。
+   原因：这个参数是输出参数，内核要往里写 pdTRUE，不会做 NULL 检查。
+   同理，把它写成全局变量也不对：上一次的值会残留，
+   导致「明明唤醒了高优先级任务却不切换」（响应变慢）
+   或「没唤醒也切换」（白白多做一次上下文切换）。 */
+static void IRAM_ATTR bad_isr_2(void *arg)
+{
+    xSemaphoreGiveFromISR(s_btn_sem, NULL); /* ← 错！必须是局部 BaseType_t 的地址 */
+}
+
+/* 【错误 3】中断里直接打印
+   现象：串口输出乱码、丢字符，严重时进不去中断或看门狗复位。
+   原因：串口输出内部要拿锁、要等 FIFO、要做格式化，
+         这些在中断上下文里既可能阻塞，也可能与
+         「任务正在打印」撞车。中断里唯一该做的是 GiveFromISR。 */
+static void IRAM_ATTR bad_isr_3(void *arg)
+{
+    BaseType_t hpw = pdFALSE;
+    xSemaphoreGiveFromISR(s_btn_sem, &amp;hpw);
+    ESP_LOGI(TAG, "按键中断");              /* ← 错！打印必须搬到任务里 */
+}
+
+/* 【错误 4】任务侧用 0 超时轮询，而不是 portMAX_DELAY
+   现象：连按两次只响应一次；按键越密，丢的事件越多。
+   原因：信号量只记得「有没有被 Give 过」，不会累加计数。
+         第一次 Give 让它变成「满」，任务还没来 Take，
+         第二次 Give 会直接返回 pdFALSE（给了但没记住）。
+         如果你确实需要记住每一次事件，请换成计数信号量。 */
+static void bad_task_4(void *arg)
+{
+    while (1) {
+        if (xSemaphoreTake(s_btn_sem, 0) == pdTRUE) {   /* ← 错！会漏事件 */
+            /* 处理按键 */
+        }
+        vTaskDelay(pdMS_TO_TICKS(5));       /* 轮询周期比按键间隔长就必丢 */
+    }
+}
+#endif</code></pre></div>
+
+          <p class="mt-3">一句话总结第四个错误：<b><code class="icode">portMAX_DELAY</code> 不是「性能不好」的写法</b>。等待期间任务是完全不占 CPU 的，用 0 超时轮询反而既费 CPU 又漏事件——这是初学者最常见的「以为自己在优化」的反向优化。</p>
+
+          <h3 id="sub-mcu-evtgrp" class="mt-10 text-base font-semibold">程序四：事件组——三个条件全就绪才开工</h3>
+
+          <p class="mt-3">开机要等三件事：配置从 Flash 读出来、传感器自检通过、网络连上。<b>三件事由三个互不相干的任务完成、耗时各不相同，主逻辑必须等它们全部就绪才启动</b>——这正是事件组的典型场景（队列和信号量都做不到「同时等多个条件」）。</p>
+
+          <div class="code-block" data-lang="c" data-title="程序四_事件组启动条件.c"><pre><code>/* ============================================================
+ * 程序四：事件组 —— 三个条件全就绪才启动（带超时降级）
+ *
+ * 把这个宏改成 5000，就能看到「等不齐」的完整路径：
+ *   3000 ms 超时 → 打印缺哪个 bit → 降级为离线模式启动
+ * ============================================================ */
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "esp_log.h"
+
+#define NET_DELAY_MS    600     /* ← 改成 5000 试试降级路径 */
+
+/* 位定义：一位一个条件。注意内核占用高 8 位，
+   所以能用的是 bit0 ~ bit23，最多 24 个条件。 */
+#define BIT_CFG         (1UL &lt;&lt; 0)     /* 配置已读取 */
+#define BIT_SENSOR      (1UL &lt;&lt; 1)     /* 传感器自检通过 */
+#define BIT_NET         (1UL &lt;&lt; 2)     /* 网络已连接 */
+
+#define BIT_REQUIRED    (BIT_CFG | BIT_SENSOR)      /* 必备条件 */
+#define BIT_ALL         (BIT_CFG | BIT_SENSOR | BIT_NET)   /* 理想条件 */
+
+static const char *TAG = "程序四";
+static EventGroupHandle_t s_evt;
+
+typedef struct {
+    EventBits_t bit;
+    const char *name;
+    uint32_t    ms;         /* 这个条件要花多久 */
+} cond_t;
+
+static const cond_t s_conds[] = {
+    { BIT_CFG,    "配置读取(Flash)", 200 },
+    { BIT_SENSOR, "传感器自检",      400 },
+    { BIT_NET,    "网络连接",        NET_DELAY_MS },
+};
+
+/* ---------------- 三个「条件提供者」，各自独立并行 ---------------- */
+static void cond_task(void *arg)
+{
+    const cond_t *c = (const cond_t *)arg;
+
+    vTaskDelay(pdMS_TO_TICKS(c-&gt;ms));       /* 模拟各自的耗时 */
+
+    ESP_LOGW(TAG, "条件就绪：%s（耗时 %u ms）→ 置位",
+             c-&gt;name, (unsigned)c-&gt;ms);
+
+    xEventGroupSetBits(s_evt, c-&gt;bit);      /* 置位即广播：所有等这一位的任务都会被唤醒 */
+
+    vTaskDelete(NULL);                      /* 一次性任务，干完就走 */
+}
+
+/* ---------------- 主逻辑：等条件，然后决定怎么启动 ---------------- */
+static void boot_task(void *arg)
+{
+    /* 严格路径：三个条件全齐才启动，最多等 3000 ms。
+       xClearOnExit = pdFALSE —— 这里刻意不清位，因为后面还要用同一批位
+       判断降级路径。位是「状态」（电平）语义，读多少次都还在；
+       真要让位失效，得自己调用 xEventGroupClearBits()。 */
+    EventBits_t got = xEventGroupWaitBits(s_evt,
+                                          BIT_ALL,              /* 等哪些位 */
+                                          pdFALSE,              /* 退出时不清位 */
+                                          pdTRUE,               /* 全部就绪才返回 */
+                                          pdMS_TO_TICKS(3000)); /* 最多等 3 秒 */
+
+    if ((got &amp; BIT_ALL) == BIT_ALL) {
+        xEventGroupClearBits(s_evt, BIT_ALL);   /* 明确复位，为下一轮做准备 */
+        ESP_LOGI(TAG, "三个条件全齐 → 在线模式启动，主逻辑开跑");
+        return;
+    }
+
+    /* 没等齐：把「缺了谁」算出来，这是事件组相比信号量最大的好处之一 ——
+       返回值直接告诉你当前的状态快照 */
+    EventBits_t missing = BIT_ALL &amp; ~got;
+    ESP_LOGE(TAG, "3000 ms 内没等齐：已就绪 0x%02X，缺 0x%02X",
+             (unsigned)got, (unsigned)missing);
+
+    /* 降级路径：必备条件齐了就先把活干起来，网络随它去 */
+    EventBits_t must = xEventGroupWaitBits(s_evt,
+                                           BIT_REQUIRED,
+                                           pdFALSE,
+                                           pdTRUE,
+                                           pdMS_TO_TICKS(5000));
+
+    if ((must &amp; BIT_REQUIRED) == BIT_REQUIRED) {
+        ESP_LOGW(TAG, "必备条件已就绪 → 离线模式启动（网络恢复后可自动升级）");
+    } else {
+        ESP_LOGE(TAG, "必备条件也没齐 → 停在安全模式，只亮故障灯");
+    }
+}
+
+void app_main(void)
+{
+    s_evt = xEventGroupCreate();
+    configASSERT(s_evt != NULL);
+
+    for (int i = 0; i &lt; sizeof(s_conds) / sizeof(s_conds[0]); i++) {
+        xTaskCreate(cond_task, "cond", 3072, (void *)&amp;s_conds[i], 5, NULL);
+    }
+
+    xTaskCreate(boot_task, "boot", 4096, NULL, 6, NULL);
+
+    vTaskDelete(NULL);
+}</code></pre></div>
+
+          <p class="mt-3"><b>四种组合在这个程序里出现了三种，值得对着代码再看一遍：</b></p>
+
+          <div class="table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>调用</th><th><code class="icode">xClearOnExit</code></th><th><code class="icode">xWaitForAllBits</code></th><th>语义</th><th>本程序里的用途</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>第一次 WaitBits</td><td><code class="icode">pdFALSE</code></td><td><code class="icode">pdTRUE</code></td><td>等全部、保留位</td><td>三个条件全就绪；位留着给降级判断用</td></tr>
+                <tr><td>第二次 WaitBits</td><td><code class="icode">pdFALSE</code></td><td><code class="icode">pdTRUE</code></td><td>等全部、保留位</td><td>只等必备的两个条件</td></tr>
+                <tr><td>（未用到）</td><td><code class="icode">pdTRUE</code></td><td><code class="icode">pdTRUE</code></td><td>等全部、然后清零</td><td>「全齐 → 开工一次 → 复位」，最常用的一种</td></tr>
+                <tr><td>（未用到）</td><td><code class="icode">pdTRUE</code></td><td><code class="icode">pdFALSE</code></td><td>任一位就返回、并清零</td><td>多个人抢同一件事（抢单）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">最后再提醒一次那个容易被忽略的限制：<b>一个任务在一次等待里只能等一个事件组。</b>如果你发现自己在写「先等事件组 A，再等事件组 B」，那么要么把两个组的位合并到一个组里（最多 24 位），要么让一个中间任务负责转发，要么用 <code class="icode">esp_event</code> 把这类跨模块的等待交给事件循环。</p>
+        </section>
+
+<section>
+          <h2 id="sec-pitfall" class="mt-14 text-xl font-semibold">十个最常见的错误认知</h2>
+
+          <p class="mt-3">下面每一条，都是「听起来很有道理、写出来能编译、跑起来偶尔出错」的那种。每条都按同一格式拆开：<b>你怎么想的 → 为什么不对 → 该怎么做</b>。如果时间紧，只看每条的最后一行也能用。</p>
+
+          <div class="callout callout-danger">
+            <p class="callout-title">误区 1：单核单片机不存在并发问题</p>
+            <p class="mt-2"><b>错误认知：</b>「我把任务全钉在一个核上跑，哪来的并发？」</p>
+            <p class="mt-2"><b>为什么错：</b>FreeRTOS 是在 tick 中断里做任务切换的，你的 <code class="icode">vTaskDelay</code>、阻塞、被唤醒也都是切换点。两个任务轮流读写同一个变量，与两个核同时读写，对代码语义没有任何区别——都是「本来不可分割的操作被切开了」。单核只是把「同时」变成了「交替得足够快」，而 <code class="icode">counter++</code> 需要的原子性，交替得快并不能提供。</p>
+            <p class="mt-2"><b>正确做法：</b>只要有两处代码（或一处代码 + 一处中断）会碰同一个可写变量，就按并发处理：能搬数据就搬（队列），不能搬就守顺序（信号量），要排他就上锁（互斥量），短到几条指令就关中断。</p>
+          </div>
+
+          <div class="callout callout-danger">
+            <p class="callout-title">误区 2：变量前加个 <code class="icode">volatile</code> 就安全了</p>
+            <p class="mt-2"><b>错误认知：</b>「这是编译器优化的问题，加 <code class="icode">volatile</code> 就解决了。」</p>
+            <p class="mt-2"><b>为什么错：</b><code class="icode">volatile</code> 只保证「每一次访问都真的去内存读/写」，它解决的是「编译器把变量缓存进寄存器、导致另一处改了看不见」这一类问题。<b>它不提供任何原子性</b>：<code class="icode">counter++</code> 编译出来仍然是「读 → 加一 → 写回」三条指令，中间照样能被 tick 中断切开——加了 <code class="icode">volatile</code> 只会让这三条指令每次都访问内存而已，丢失更新一点没少。</p>
+            <p class="mt-2"><b>正确做法：</b>共享计数用临界区或原子操作（<code class="icode">portENTER_CRITICAL()</code> 或 C11 的 <code class="icode">atomic_fetch_add()</code>）；更有工程味的是根本别共享——用队列把数据搬走。<code class="icode">volatile</code> 留给「中断里改、任务里读的单个字节/单字标志」这种场合。</p>
+          </div>
+
+          <div class="callout callout-danger">
+            <p class="callout-title">误区 3：用信号量来传数据</p>
+            <p class="mt-2"><b>错误认知：</b>「中断里把数据放进全局变量，然后 Give 一个信号量；任务 Take 到了就去读全局变量，这不是挺好吗？」</p>
+            <p class="mt-2"><b>为什么错：</b>方向对了一半——信号量<b>确实</b>能保证「先写后读」的时序（这正是它的用途），但它没有容量：如果中断在任务还没来得及读之前又触发了一次，第二次的数据会直接盖掉第一次的，而任务只会被唤醒一次。<b>信号量传递的是「事件发生了」，不是「数据在这里」。</b></p>
+            <p class="mt-2"><b>正确做法：</b>数据用队列传（内核替你拷贝、替你排队、也替你记住有几份）；非要用全局缓冲，就做成「双缓冲 + 两个信号量」，并且写清每一块缓冲在任一时刻的所有者是谁。</p>
+          </div>
+
+          <div class="callout callout-danger">
+            <p class="callout-title">误区 4：用二值信号量当锁</p>
+            <p class="mt-2"><b>错误认知：</b>「二值信号量和互斥量不都是 0 和 1 吗？用哪个不一样？」</p>
+            <p class="mt-2"><b>为什么错：</b>三点本质区别。① <b>没有所有权</b>：任何任务都能 Give，甚至从没 Take 过的任务也能 Give，等于把锁「送」给别人，内核完全不知道谁是持有者；② <b>没有优先级继承</b>：高优先级任务会被中优先级任务插队几十毫秒（程序二里就是 230 ms 对 30 ms）；③ 「中断里也能 Give」看起来是优点，其实是它本来就不是锁的旁证——锁天生属于某个任务，而中断不属于任何任务。</p>
+            <p class="mt-2"><b>正确做法：</b>保护共享资源一律 <code class="icode">xSemaphoreCreateMutex()</code>；二值信号量只用于「中断 → 任务」的同步。开机第一版就选对，以后不用改。</p>
+          </div>
+
+          <div class="callout callout-danger">
+            <p class="callout-title">误区 5：拿着锁的时候想干嘛干嘛</p>
+            <p class="mt-2"><b>错误认知：</b>「反正我在锁里面，别人进不来，那我打印一下日志、延时一下、等个网络响应也没什么。」</p>
+            <p class="mt-2"><b>为什么错：</b>持锁时间等于所有人的等待时间。打印、<code class="icode">vTaskDelay</code>、等网络都是毫秒到秒级，会把别人的等待放大成百上千倍，这时优先级继承也救不回来（它只能压缩「被插队」，压不掉「锁本身被占很久」）。更危险的是：如果在持锁期间调用了一个会去等<b>另一把锁</b>的 API，你就同时满足了死锁的「持有并等待」和「循环等待」两个条件。</p>
+            <p class="mt-2"><b>正确做法：</b>锁里只放「必须原子完成的那几条指令」。所有慢活——打印、延时、Flash 写、网络、<code class="icode">malloc</code>——全部搬到锁外面。需要「先算后写」时，在锁外把结果算好，进锁只做一次赋值。</p>
+          </div>
+
+          <div class="callout callout-danger">
+            <p class="callout-title">误区 6：加锁顺序随便写</p>
+            <p class="mt-2"><b>错误认知：</b>「先拿哪把锁不都一样？反正都能拿到。」</p>
+            <p class="mt-2"><b>为什么错：</b>死锁有四个必要条件——<b>互斥</b>（资源一次只能一个持有）、<b>持有并等待</b>（拿着一个还去要另一个）、<b>不可剥夺</b>（不能强行抢走）、<b>循环等待</b>（形成等待环）。前三个是锁这种机制天生带来的，你消灭不了；<b>唯一能在设计阶段掐死的是「循环等待」</b>，而加锁顺序不一致就是人为制造循环等待：任务 A 拿着 L1 等 L2，任务 B 拿着 L2 等 L1，双方永久阻塞，而且谁也打印不出错误——这就是例题 3 里那个 <code class="icode">T_wait = ∞</code>。</p>
+            <p class="mt-2"><b>正确做法：</b>三条纪律。<b>① 固定加锁顺序</b>：全局约定「先 L1 后 L2」，任何地方都不许反过来（能只用一把锁就绝不用两把）；<b>② 用超时而不是 <code class="icode">portMAX_DELAY</code></b>：拿第二把锁时给 100 ms，超时就回滚（把已持有的 Give 掉）并退避重试，把「查不出的永久死锁」换成「会自己叫的报警日志」；<b>③ 锁的粒度尽量小、持有时间尽量短</b>：锁越少越短，四个条件里能踩中的就越少。</p>
+          </div>
+
+          <div class="callout callout-danger">
+            <p class="callout-title">误区 7：<code class="icode">taskENTER_CRITICAL()</code> 是万能的</p>
+            <p class="mt-2"><b>错误认知：</b>「既然是共享变量，那我把整个函数都放进临界区，最保险。」</p>
+            <p class="mt-2"><b>为什么错：</b>临界区的本质是<b>关中断</b>（ESP32 上关掉优先级低于 <code class="icode">configMAX_SYSCALL_INTERRUPT_PRIORITY</code> 的中断）。关得越久，系统对中断的响应就越差：串口丢字节、Wi-Fi 丢包、甚至触发看门狗。而且在临界区里调用可能阻塞的 API（<code class="icode">vTaskDelay</code>、<code class="icode">xQueueSend</code>、<code class="icode">printf</code>）是明确禁止的，会触发断言或产生未定义行为。</p>
+            <p class="mt-2"><b>正确做法：</b>把它当成「只能保护几条指令」的工具：一次读-改-写、一次链表插入。规则可以背下来——<b>临界区里不调用任何可能阻塞的 API、不打印、不延时</b>。保护范围一大，就该换锁；数据交互一复杂，就该换队列。</p>
+          </div>
+
+          <div class="callout callout-danger">
+            <p class="callout-title">误区 8：中断里混用普通 API，或者忘了 <code class="icode">pxHigherPriorityTaskWoken</code></p>
+            <p class="mt-2"><b>错误认知：</b>「<code class="icode">FromISR</code> 版本和普通版差不多，随便用哪个都行。」</p>
+            <p class="mt-2"><b>为什么错：</b>普通版会操作等待链表、可能让调用者阻塞，在中断上下文里调用会直接踩断言（现象是「一按键就重启」）；而 <code class="icode">pxHigherPriorityTaskWoken</code> 忘了传或传了 <code class="icode">NULL</code>，轻则崩溃，重则「明明该立刻切换却没切」——按键到任务响应之间白等一个 tick（默认 10 ms），手感发钝。</p>
+            <p class="mt-2"><b>正确做法：</b>中断里只用 <code class="icode">...FromISR()</code> 系列；写法固定成三行：<code class="icode">BaseType_t hpw = pdFALSE;</code> → <code class="icode">xSemaphoreGiveFromISR(sem, &amp;hpw);</code> → <code class="icode">if (hpw == pdTRUE) portYIELD_FROM_ISR();</code>。这个输出参数必须是<b>每次进中断都重新初始化的局部变量</b>。</p>
+          </div>
+
+          <div class="callout callout-danger">
+            <p class="callout-title">误区 9：把事件组当计数器用</p>
+            <p class="mt-2"><b>错误认知：</b>「事件组有 24 个位，我用一个位记一次按键，应该能累加吧？」</p>
+            <p class="mt-2"><b>为什么错：</b>位是<b>状态</b>不是计数：置位表示「这件事已经发生过/现在成立」，第二次置位不会变成 2。它是电平语义，没有边沿、没有累加。另外两个容易被忽略的限制：一个任务一次只能等一个事件组；<code class="icode">xEventGroupSetBitsFromISR()</code> 不是立刻生效的，它把活丢给定时器守护任务去做，有几十微秒到毫秒的延迟（还需要 <code class="icode">configUSE_TIMERS = 1</code>）。</p>
+            <p class="mt-2"><b>正确做法：</b>要计数用计数信号量或任务通知的 <code class="icode">eIncrement</code>；要「多个条件全齐才开工」用事件组；要在中断里置位又对延迟敏感，改用手动任务通知。</p>
+          </div>
+
+          <div class="callout callout-danger">
+            <p class="callout-title">误区 10：任务通知这么好，那就全用它</p>
+            <p class="mt-2"><b>错误认知：</b>「任务通知不占 RAM 还快 45%，那还要队列和信号量干什么？」</p>
+            <p class="mt-2"><b>为什么错：</b>它只有一个「收件箱」（TCB 里的一个 32 位值 + 一个状态字节）。因此：<b>不能广播</b>（一次通知只能给一个任务，多个任务等同一个事件做不到）、<b>不知道是谁通知的</b>、<b>传不了结构体</b>（只有那 32 位）。用它硬替代队列，代码会在「出现第二个事件源」或「需要知道自己错过了几次」的那一天崩掉。</p>
+            <p class="mt-2"><b>正确做法：</b>按语义选，而不是按性能选——传数据 → 队列 / 流缓冲 / 消息缓冲；一对一的事件或计数 → 任务通知；一对多广播 → 事件组；资源互斥 → 互斥量。只有当语义完全对得上、且这条路径确实在关键性能路径上时，才用通知去替换信号量。</p>
+          </div>
+        </section>
+
+<section>
+          <h2 id="sec-summary" class="mt-14 text-xl font-semibold">小结：要点、自测与练习</h2>
+
+          <p class="mt-3">回到开头那句话：<b>共享变量出错不是运气问题，是三个可枚举的并发问题；每一种通信机制都是为其中某几个问题准备的。</b>现在你应该能自己填满下面这张表了。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>机制</th><th>它解决的是哪个问题</th><th>一句话记住它</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>队列</td><td>原子性 + 可见性 + 顺序（全解决）</td><td>把数据搬走，两边就不再共享内存</td></tr>
+                <tr><td>信号量（二值 / 计数）</td><td>顺序</td><td>它管「事件发生了」，不管数据</td></tr>
+                <tr><td>互斥量 / 递归互斥量</td><td>顺序 + 互斥（带优先级继承）</td><td>保护共享资源，只能用锁，不能用信号量</td></tr>
+                <tr><td>事件组</td><td>顺序（多条件）</td><td>24 个位，等「全齐」或「任一个」</td></tr>
+                <tr><td>任务通知</td><td>顺序（一对一、最省最快）</td><td>一个收件箱，不能广播</td></tr>
+                <tr><td>流缓冲 / 消息缓冲</td><td>原子性 + 可见性 + 顺序（字节流语义）</td><td>变长数据的搬运工，TriggerLevel 是「攒够多少再叫醒」</td></tr>
+                <tr><td>临界区</td><td>原子性（顺带可见性）</td><td>只保护几条指令，里面不许调用任何可能阻塞的 API</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="summary-points" class="mt-9 text-base font-semibold">十个要点，用来自查</h3>
+
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li><b>单核也会并发</b>：tick 中断里会切换任务，所以「两个任务轮流访问一个变量」和「两个核同时访问」在语义上没有区别。</li>
+            <li><b>原子性 / 可见性 / 顺序</b>是三个独立的问题，各有各的解法；<code class="icode">volatile</code> 只碰到可见性的一小部分，从不提供原子性。</li>
+            <li><b>队列是值拷贝</b>：<code class="icode">uxQueueLength</code> 是元素个数、<code class="icode">uxItemSize</code> 是每个元素的字节数；RAM ≈ 长度 × 元素 + 88 B。</li>
+            <li><b>队列满/空时的行为要提前设计</b>：丢新、丢旧、阻塞、还是扩容——四种选择没有默认答案，但它们必须是你<b>选</b>的，不是碰巧的。</li>
+            <li><b>中断里只能用 <code class="icode">...FromISR()</code></b>，并且必须处理 <code class="icode">pxHigherPriorityTaskWoken</code>（局部变量 + <code class="icode">portYIELD_FROM_ISR()</code>）。</li>
+            <li><b>二值信号量不是锁</b>：没有所有权、没有优先级继承；锁只有一个正确选择——<code class="icode">xSemaphoreCreateMutex()</code>。</li>
+            <li><b>优先级反转</b> = 高优先级任务被一个不相干的中优先级任务插队。继承把「插队时间」压成 0，但压不掉「临界区本身有多长」。</li>
+            <li><b>事件组等的是状态不是事件</b>：位不会累加，一个任务一次只能等一个事件组；<code class="icode">xClearOnExit</code> × <code class="icode">xWaitForAllBits</code> 四种组合要能张口就来。</li>
+            <li><b>任务通知省的是「对象」</b>：0 字节额外 RAM、约 45% 更快的唤醒，代价是只有一个收件箱、不能广播、传不了结构体。</li>
+            <li><b>死锁靠设计消灭</b>：四个必要条件里只有「循环等待」你能在设计期掐死——固定加锁顺序、用超时替代 <code class="icode">portMAX_DELAY</code>、锁的粒度尽量小；以及那条铁律：<b>不要在持锁时调用可能阻塞的 API</b>。</li>
+          </ol>
+
+          <h3 id="summary-quiz" class="mt-9 text-base font-semibold">八道自测题（先自己答，再展开）</h3>
+
+          <div class="mt-4 space-y-3">
+            <details class="card card-pad">
+              <summary class="cursor-pointer text-sm font-semibold">1. 单核 ESP32 上，两个任务各做一次 <code class="icode">counter++</code>，为什么可能只加了 1 次？加 <code class="icode">volatile</code> 有用吗？</summary>
+              <p class="mt-3 text-sm leading-relaxed">因为 <code class="icode">counter++</code> 不是一条指令，而是「读 → 加一 → 写回」三条。如果任务 A 执行完「读」就被 tick 中断切走，任务 B 完整做完三次操作把值写成 1，A 回来时用的还是自己寄存器里那个旧值 0，写回后结果仍是 1——B 的那次增加被覆盖了。<b>加 <code class="icode">volatile</code> 没有用</b>：它只强制每次都去内存读写，三条指令之间照样可以被切开。正确解法是把这段操作放进临界区（几条指令，够快），或者干脆用队列把「计数」这件事交给一个任务独占处理。</p>
+            </details>
+
+            <details class="card card-pad">
+              <summary class="cursor-pointer text-sm font-semibold">2. <code class="icode">xQueueCreate(20, 32)</code> 大概占多少 RAM？为什么「传指针 + 双缓冲」能省下 82%？</summary>
+              <p class="mt-3 text-sm leading-relaxed">存储区 20 × 32 B = 640 B，加控制结构体约 80 B、堆块头约 8 B，合计约 <b>728 B</b>。传指针时存储区只有 20 × 4 B = 80 B，加 88 B 与两块 100 B 的静态缓冲 = 368 B，相对 2088 B（20 × 100 B 元素）省下约 1720 B，也就是 82%。<b>省下来的代价是所有权问题</b>：你必须回答「这块缓冲现在归谁、什么时候能改写」，而传值时这个问题由内核的拷贝替你消掉了。</p>
+            </details>
+
+            <details class="card card-pad">
+              <summary class="cursor-pointer text-sm font-semibold">3. 队列满的时候有哪几种选择？各自的代价是什么？</summary>
+              <p class="mt-3 text-sm leading-relaxed">① <b>丢新数据</b>（超时传 0，返回 <code class="icode">pdFALSE</code>）：生产者永不被拖死，代价是丢的那一帧要看计数器才知道；② <b>阻塞生产者</b>（<code class="icode">portMAX_DELAY</code>）：不丢数据，但生产者会被消费者拖慢，整条链路的节拍由最慢的一环决定；③ <b>丢最旧</b>（先 Receive 再 Send，或用长度 1 的队列 + <code class="icode">xQueueOverwrite</code>）：保证你拿到的总是最新值，适合「状态」类数据，不适合「事件」类数据；④ <b>扩容</b>：只是把问题推迟，且吃 RAM。<b>关键不是选哪个，而是你明确选了哪个，并且能用计数器或日志证明它真的按你选的方式在跑。</b></p>
+            </details>
+
+            <details class="card card-pad">
+              <summary class="cursor-pointer text-sm font-semibold">4. 二值信号量和互斥量的三点本质区别是什么？为什么中断里只能用前者？</summary>
+              <p class="mt-3 text-sm leading-relaxed">① <b>所有权</b>：互斥量记得「谁拿的」，只有持有者能释放；二值信号量没有所有者，任何任务（甚至从没 Take 过的）都能 Give。② <b>优先级继承</b>：互斥量在阻塞发生时会把持有者的优先级临时抬高，二值信号量不会，于是会出现几百毫秒的反转。③ <b>使用场景</b>：互斥量<b>不能在中断里 Give</b>，因为中断不属于任何任务，而锁的所有权必须挂在某个任务上；二值信号量正相反，它就是为「中断 → 任务」的同步而生的。</p>
+            </details>
+
+            <details class="card card-pad">
+              <summary class="cursor-pointer text-sm font-semibold">5. 优先级反转的等待时间由哪几部分组成？优先级继承压掉了哪一部分？</summary>
+              <p class="mt-3 text-sm leading-relaxed">两部分：<b>① 临界区的剩余时间</b>（高优先级任务必须等低优先级任务把锁里的活干完，这是锁本身的要求，合理且不可避免）；<b>② 被不相干任务插队的时间</b>（中优先级任务抢占持有锁的低优先级任务，这段时间与那把锁毫无关系，纯属浪费）。优先级继承只能把 ② 压成 0——程序二里 230 ms → 30 ms 就是这个效果。它<b>压不掉 ①</b>：如果临界区本身是 50 ms，继承前后都是 50 ms 左右，此时唯一的解法是把锁里的活改短。它同样解决不了链式反转（等三把锁就是三段临界区之和）和死锁。</p>
+            </details>
+
+            <details class="card card-pad">
+              <summary class="cursor-pointer text-sm font-semibold">6. <code class="icode">xEventGroupWaitBits</code> 的 <code class="icode">xClearOnExit</code> × <code class="icode">xWaitForAllBits</code> 四种组合分别是什么语义？</summary>
+              <p class="mt-3 text-sm leading-relaxed">① <code class="icode">pdFALSE</code>/<code class="icode">pdFALSE</code>：任意一位就绪即返回，位保留（用来「探测状态」）；② <code class="icode">pdFALSE</code>/<code class="icode">pdTRUE</code>：全部指定位置位才返回，位保留（本页程序四用的就是它，因为随后还要用同一批位做降级判断）；③ <code class="icode">pdTRUE</code>/<code class="icode">pdFALSE</code>：任意一位就绪即返回并清零（多个任务抢同一件事，抢到的那个把位清掉）；④ <code class="icode">pdTRUE</code>/<code class="icode">pdTRUE</code>：全部就绪才返回并清零——「所有条件齐了 → 开工一次 → 复位」，这是最常用的一种。<b>返回值是「清除之后」的状态快照</b>，所以判断是否全部就绪要用返回值而不是再次去读事件组。</p>
+            </details>
+
+            <details class="card card-pad">
+              <summary class="cursor-pointer text-sm font-semibold">7. 任务通知为什么省 RAM、为什么更快？什么情况下必须换回队列？</summary>
+              <p class="mt-3 text-sm leading-relaxed">省 RAM 是因为它<b>不创建任何对象</b>：通知值就写在接收任务 TCB 里本来就存在的 <code class="icode">ulNotifiedValue</code> 和 <code class="icode">ucNotifyState</code> 字段上，额外内存为 0（而一个二值信号量要 88 B 左右）。更快是因为省掉了「队列结构的入队出队 + 解锁等待链表」这些步骤，FreeRTOS 官方给的量级是唤醒快约 45%。<b>必须换回队列的场合</b>：需要广播给多个任务、需要传递结构体（通知只有 32 位）、需要知道是谁通知的、或者需要排队（通知只记一个值，来了两次你只知道「有过事」，队列能让你一个都不少地处理）。</p>
+            </details>
+
+            <details class="card card-pad">
+              <summary class="cursor-pointer text-sm font-semibold">8. 死锁的四个必要条件里，哪一个能在设计阶段消灭？三种具体做法是什么？</summary>
+              <p class="mt-3 text-sm leading-relaxed">四个条件是：互斥、持有并等待、不可剥夺、循环等待。前三个是「锁」这种机制本身带来的，用锁就躲不开；<b>只有「循环等待」是你亲手造出来的，也只能由你在设计阶段掐死</b>。三种做法：① <b>全局固定加锁顺序</b>（所有代码都按同一个顺序拿锁，能只用一把锁就绝不用两把）；② <b>用有限超时替代 <code class="icode">portMAX_DELAY</code></b>，超时后回滚已持有的锁并退避重试——把「永久死锁」变成「会打印报警的偶发失败」；③ <b>锁的粒度尽量小、持有时间尽量短</b>，并且绝不在持锁时调用可能阻塞的 API（打印、延时、网络、<code class="icode">malloc</code> 都是高危动作）。</p>
+            </details>
+          </div>
+
+          <h3 id="summary-exercise" class="mt-9 text-base font-semibold">五个练习，动手才算学会</h3>
+
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li>把程序一的 <code class="icode">QUEUE_LEN</code> 从 16 改到 160，跑一分钟，记录「累计丢弃」的最终值。然后回答：为什么队列长度只是把丢数据的<b>时刻</b>推迟了，而没有让任何一帧少丢？</li>
+            <li>把程序二的 <code class="icode">USE_MUTEX</code> 改成 0（二值信号量），再把 L 的 <code class="icode">busy_ms(T_CRIT_MS)</code> 换成 <code class="icode">vTaskDelay(pdMS_TO_TICKS(T_CRIT_MS))</code>，观察 H 的等待时间。<b>用你自己的话解释：为什么反转消失了？</b>（提示：锁的持有者在临界区里睡着了，还会「被抢占」吗？）</li>
+            <li>给程序三加一个「计数信号量」版本：把二值信号量换成 <code class="icode">xSemaphoreCreateCounting(10, 0)</code>，然后连按五次，看任务是不是五次都处理到了。再故意把任务里的处理时间加长到 200 ms，观察计数值是如何把「来不及处理」这件事暴露出来的。</li>
+            <li>在你的项目里，给每一种用到的内核对象都做一次实测：创建前后各调一次 <code class="icode">heap_caps_get_free_size(MALLOC_CAP_8BIT)</code>，把结果做成一张表（对象 / 参数 / 估算 / 实测）。这张表会在你下次「RAM 不够了」的时候救你一命。</li>
+            <li>写一个「故意死锁」的小程序：两个任务、两把互斥量、相反的加锁顺序，第二次 Take 都用 <code class="icode">portMAX_DELAY</code>。确认它真的会卡死（用 <code class="icode">idf.py monitor</code> 看日志停住），然后改成 100 ms 超时 + 回滚 + 退避重试，把日志里那条「加锁超时」打出来。<b>这两个版本都亲手跑过一遍，你以后写锁的时候会自觉多想三秒。</b></li>
+          </ol>
+
+          <div class="callout callout-tip mt-6">
+            <div class="callout-title">接着往下读</div>
+            <p>这一篇讲的是「任务之间怎么打交道」。往前一篇 <a href="adv-esp32-freertos.html" class="text-brand-600 dark:text-brand-300 hover:underline">《ESP32 与 FreeRTOS：任务与调度》</a>讲的是「任务本身怎么跑起来」——任务状态迁移、抢占式调度怎么选、栈开多大、双核怎么分工。两篇合起来才是完整的 RTOS 入门：<b>先让任务跑起来，再让它们安全地说话。</b></p>
+            <p class="mt-2">如果你还想看「没有 RTOS 的时候这些事是怎么做的」，可以回看第 32 篇 <a href="core-architecture.html" class="text-brand-600 dark:text-brand-300 hover:underline">《嵌入式软件架构》</a>：那里的环形缓冲队列、事件标志组是<b>你自己手写的</b>；而这一篇里的队列、事件组是<b>内核送给你的</b>。同一个问题、两种实现，对照着看，你会更清楚内核到底替你做了什么——以及它为什么值那几百字节 RAM。</p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="adv-esp32-freertos.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">ESP32 与 FreeRTOS：任务与调度</p>
+          </a>
+          <a href="adv-esp32-network.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：让 ESP32 连上网 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">ESP32 网络编程：Socket 与 HTTP</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

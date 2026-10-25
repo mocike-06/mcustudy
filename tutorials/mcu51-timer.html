@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>定时器原理与定时 - McuStudy</title>
+  <meta name="description" content="51 单片机定时器完整教程：机器周期与晶振的换算（12MHz 下 1 机器周期 = 1µs）、TMOD（0x89 不可位寻址）与 TCON 逐位说明、方式 0/1/2 的区别与初值计算、方式 1 为什么要在中断里手动重装而方式 2 由硬件重装、TMOD &= 0xF0; TMOD |= 0x01; 写法的原因、中断号 interrupt 1，附 12MHz 定时 50ms（TH0=0x3C TL0=0xB0）翻转 LED 的完整可编译代码。">
+  <meta name="keywords" content="51单片机定时器,TMOD,TCON,机器周期,定时器初值计算,方式1,方式2,自动重装,interrupt 1,中断服务函数">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="mcu51" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../mcu51.html" class="hover:text-brand-600 dark:hover:text-brand-300">51单片机</a>
+          <span>/</span>
+          <span class="text-muted">定时器原理与定时</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          定时器原理与定时
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          上一篇的软件延时只能当「模糊节拍」，这一篇把它换成硬件定时。
+          核心只有一句话：<b class="font-semibold text-ink">定时器就是一个自动数机器周期的计数器，数满了就通知 CPU 一声。</b>
+          学会它，你就能得到与代码写法无关的精确时间——数码管扫描、串口波特率、红外解码、电机调速全都建立在这上面。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="stat-pill">芯片：<b>STC89C52RC</b></span>
+          <span class="stat-pill">晶振：<b>12MHz</b></span>
+          <span class="stat-pill">阅读约 <b>16</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>定时器是 51 的分水岭，难点集中在两处：机器周期怎么算、寄存器怎么配。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-register.html">单片机内部结构与寄存器</a> —— TMOD / TCON 都是 SFR，位寻址让你能单独操作 <code class="icode">TR0</code></li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-number.html">数制与位运算</a> —— TH / TL 初值的十六进制换算，以及 <code class="icode">&</code> <code class="icode">|</code> 的用法</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-digital.html">数字电路与电平</a> —— 时钟、周期、频率三者的关系</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-cycle">机器周期与晶振的换算</a>
+          <a class="toc-link is-sub" href="#sub-tmod">TMOD 与 TCON 寄存器逐位说明</a>
+          <a class="toc-link is-sub" href="#sub-modes">工作方式与初值计算</a>
+          <a class="toc-link is-sub" href="#sub-reload">方式 1 为什么要手动重装</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link is-sub" href="#sub-query">查询方式（不用中断）写法</a>
+          <a class="toc-link is-sub" href="#sub-mode2">方式 2 完整示例</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-cycle">机器周期与晶振的换算</a>
+            <a class="toc-link is-sub" href="#sub-tmod">TMOD 与 TCON 寄存器逐位说明</a>
+            <a class="toc-link is-sub" href="#sub-modes">工作方式与初值计算</a>
+            <a class="toc-link is-sub" href="#sub-reload">方式 1 为什么要手动重装</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link is-sub" href="#sub-query">查询方式（不用中断）写法</a>
+            <a class="toc-link is-sub" href="#sub-mode2">方式 2 完整示例</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              计算初值嫌麻烦？用
+              <a class="text-brand-600 dark:text-brand-300" href="../tools.html#tool-delay">定时器初值计算器</a>
+              直接出 TH/TL。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            上一篇的 <code class="icode">Delay_ms</code> 是靠 CPU 空转消耗时间，写多少条指令、编译器怎么优化，
+            时间就跟着变，所以它「不准」。定时器的思路完全不同：
+            <b class="font-semibold text-ink">让一个独立的硬件计数器去数时钟，数到约定的个数就举手报告</b>。
+            CPU 在这期间可以去干别的活，时间到了再回来处理——这就是「定时」与「延时」的本质区别。
+          </p>
+
+          <h3 id="sub-cycle" class="mt-7 text-base font-semibold">机器周期与晶振的换算</h3>
+          <p class="mt-3">
+            51 的时钟链路是这样的：晶振产生频率 <code class="icode">fosc</code> → 芯片内部振荡电路整形 → 得到
+            <b>时钟周期（振荡周期）</b> → 再 <b>12 分频</b> → 得到 <b>机器周期</b>。
+            定时器数的不是时钟周期，而是<b class="font-semibold text-ink">机器周期</b>。所以：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="机器周期换算公式与常用晶振对照">
+            <pre><code>基本关系：
+    时钟周期  = 1 / fosc
+    机器周期  = 12 / fosc        （标准 8051 是 12T 芯片：12 个时钟 = 1 个机器周期）
+    定时时间  = 机器周期 × 计数值
+
+  fosc = 12MHz      →  时钟周期 83.3ns  →  机器周期 1.000µs
+  fosc = 11.0592MHz →  时钟周期 90.4ns  →  机器周期 1.085µs
+  fosc = 6MHz       →  时钟周期 166.7ns →  机器周期 2.000µs
+
+一句话记住：12MHz 晶振下，1 个机器周期 = 1µs。
+定时器数 50000 个机器周期，就是 50000µs = 50ms。
+
+注意芯片制程差异：
+  STC89C52RC 是 12T（本教程用的芯片），按上面公式算；
+  STC15 / STC8 系列是 1T（1 个时钟 = 1 个计数），
+  把同一段程序搬过去，定时时间会变成原来的 1/12 —— 必须重算初值。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th>软件延时（上一篇）</th>
+                  <th>硬件定时器（本篇）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>时间由什么决定</td>
+                  <td>指令条数 × 编译器优化结果</td>
+                  <td>机器周期数 × 晶振频率</td>
+                </tr>
+                <tr>
+                  <td>精度来源</td>
+                  <td>不可控，换优化等级就变</td>
+                  <td>晶振精度（常见 ±20~±50ppm，即 0.002%~0.005%）</td>
+                </tr>
+                <tr>
+                  <td>CPU 占用</td>
+                  <td>100% 空转，不能做别的事</td>
+                  <td>几乎不占用，定时期间 CPU 可执行其他代码</td>
+                </tr>
+                <tr>
+                  <td>能否同时计数</td>
+                  <td>不能</td>
+                  <td>能（C/T 位置 1 时变成对外部脉冲计数，可测频率）</td>
+                </tr>
+                <tr>
+                  <td>典型用途</td>
+                  <td>流水灯、开机闪灯等对时间不敏感处</td>
+                  <td>数码管动态扫描、串口波特率、PWM、测周期/脉宽</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-tmod" class="mt-7 text-base font-semibold">TMOD 与 TCON 寄存器逐位说明</h3>
+          <p class="mt-3">
+            用定时器就是配置三个寄存器：<b>TMOD</b>（选工作方式）、<b>TCON</b>（启动与标志）、
+            <b>IE</b>（要不要中断）。51 内部有 T0 和 T1 两个定时器，T0 用低 4 位配置、T1 用高 4 位。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="TMOD 位定义（地址 0x89，不可位寻址）">
+            <pre><code>TMOD （地址 0x89，复位值 0x00）
+
+  bit7  bit6  bit5  bit4 │ bit3  bit2  bit1  bit0
+  GATE  C/T   M1    M0   │ GATE  C/T   M1    M0
+  └──── 属于定时器 T1 ───┘ └──── 属于定时器 T0 ───┘
+
+GATE —— 门控位
+    0 = 只由 TR0（或 TR1）控制启停；定时器软件启动      ← 平时都用 0
+    1 = 还要 INT0 引脚为高电平才计数，用于测量脉宽
+
+C/T  —— 计数/定时选择位
+    0 = 定时器模式：对内部机器周期计数，时间 = 计数 × 1µs   ← 定时就用 0
+    1 = 计数器模式：对 T0（P3.4）/ T1（P3.5）引脚的外部脉冲下降沿计数
+
+M1 M0 —— 工作方式选择位
+    0 0 = 方式 0：13 位定时器（TL0 只用低 5 位）
+    0 1 = 方式 1：16 位定时器（最常用）
+    1 0 = 方式 2：8 位自动重装
+    1 1 = 方式 3：T0 拆成两个 8 位定时器（T1 停止），很少用
+
+为什么不能写 sbit TR0 = TMOD^4;？
+    位寻址要求地址能被 8 整除（位地址 = 字节地址 + 位号）。
+    TMOD 的地址是 0x89，0x89 / 8 除不尽 → 不可位寻址，
+    所以只能用 TMOD = 0x01; 或 TMOD |= 0x01; 整体赋值，不能单独改某一位。
+    而 TCON 的地址是 0x88（整除了！）→ 可位寻址，TR0 / TF0 都能单独操作。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>寄存器（地址）</th>
+                  <th>位</th>
+                  <th>名称</th>
+                  <th>含义</th>
+                  <th>本实验取什么值</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td rowspan="2">TCON（0x88，可位寻址）</td>
+                  <td class="font-mono text-xs">bit4</td>
+                  <td class="font-mono text-xs">TR0</td>
+                  <td>定时器 0 运行控制：1 = 启动计数，0 = 停止</td>
+                  <td class="font-mono text-xs">TR0 = 1;</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">bit5</td>
+                  <td class="font-mono text-xs">TF0</td>
+                  <td>定时器 0 溢出标志：计满时硬件置 1；<b>进中断时硬件自动清零</b>，查询方式必须软件清零</td>
+                  <td class="font-mono text-xs">不用手动动它</td>
+                </tr>
+                <tr>
+                  <td rowspan="2">IE（0xA8，可位寻址）</td>
+                  <td class="font-mono text-xs">bit7</td>
+                  <td class="font-mono text-xs">EA</td>
+                  <td>总中断开关：1 = 打开所有被允许的中断</td>
+                  <td class="font-mono text-xs">EA = 1;</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">bit1</td>
+                  <td class="font-mono text-xs">ET0</td>
+                  <td>定时器 0 中断允许：1 = 允许 T0 溢出时产生中断</td>
+                  <td class="font-mono text-xs">ET0 = 1;</td>
+                </tr>
+                <tr>
+                  <td rowspan="2">特殊功能寄存器</td>
+                  <td class="font-mono text-xs">—</td>
+                  <td class="font-mono text-xs">TH0</td>
+                  <td>定时器 0 高 8 位（方式 2 时它当重装值仓库）</td>
+                  <td class="font-mono text-xs">0x3C</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">—</td>
+                  <td class="font-mono text-xs">TL0</td>
+                  <td>定时器 0 低 8 位（真正在计数的部分）</td>
+                  <td class="font-mono text-xs">0xB0</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            中断服务函数要放在哪个地址，是芯片设计时就固定好的。51 的中断向量表如下——
+            你写 <code class="icode">interrupt 1</code>，编译器就把函数放到 <code class="icode">000BH</code> 那一格：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="51 中断向量表与中断号">
+            <pre><code>中断源          中断号   向量地址   说明
+外部中断 0 INT0    0      0003H      P3.2 引脚
+定时器 0  T0       1      000BH      ← 本篇用这个
+外部中断 1 INT1    2      0013H      P3.3 引脚
+定时器 1  T1       3      001BH
+串口中断  RI/TI    4      0023H
+
+写法（中断号直接跟在函数后面，不是参数）：
+    void Timer0_ISR(void) interrupt 1
+    {
+        ...中断里要做的事...
+    }
+
+要点：
+  ① 中断函数必须是 void 返回、不带参数；
+  ② 中断号必须是 0~31 的常量，写错不会报错，但中断会跳到错误的地址，现象变得不可预测；
+  ③ 不用在 main 里调用它 —— 中断发生时硬件自动跳转过去执行。</code></pre>
+          </div>
+
+          <h3 id="sub-modes" class="mt-7 text-base font-semibold">工作方式与初值计算</h3>
+          <p class="mt-3">
+            方式决定「计数器有几个位」——位数越多，一次能定的时间越长。计数器的行为是：
+            <b class="font-semibold text-ink">从你写入的初值开始往上数，数到满（溢出）就置标志位</b>。
+            所以初值越大，剩下的步数越少，定时越短；这就是「初值 = 满值 − 步数」的来历。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>方式</th>
+                  <th>M1 M0</th>
+                  <th>位数</th>
+                  <th>最大计数</th>
+                  <th>12MHz 下最大定时</th>
+                  <th>溢出后怎么重装</th>
+                  <th>典型用途</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>方式 0</td>
+                  <td class="font-mono text-xs">0 0</td>
+                  <td>13 位</td>
+                  <td class="font-mono text-xs">8192</td>
+                  <td class="font-mono text-xs">8.192ms</td>
+                  <td>软件手动重装</td>
+                  <td>兼容早期 8048，已基本淘汰</td>
+                </tr>
+                <tr>
+                  <td><b>方式 1</b></td>
+                  <td class="font-mono text-xs">0 1</td>
+                  <td>16 位</td>
+                  <td class="font-mono text-xs">65536</td>
+                  <td class="font-mono text-xs">65.536ms</td>
+                  <td>软件手动重装</td>
+                  <td><b>通用定时，本教程主用</b></td>
+                </tr>
+                <tr>
+                  <td>方式 2</td>
+                  <td class="font-mono text-xs">1 0</td>
+                  <td>8 位</td>
+                  <td class="font-mono text-xs">256</td>
+                  <td class="font-mono text-xs">256µs</td>
+                  <td><b>硬件自动重装</b></td>
+                  <td>串口波特率发生器、固定小间隔节拍</td>
+                </tr>
+                <tr>
+                  <td>方式 3</td>
+                  <td class="font-mono text-xs">1 1</td>
+                  <td>两个 8 位</td>
+                  <td class="font-mono text-xs">256 × 2</td>
+                  <td class="font-mono text-xs">256µs</td>
+                  <td>各自手动重装</td>
+                  <td>T0 拆成两个定时器，同时 T1 停用</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">把三种方式的初值算法写在一起，其实就是一句话：<b class="font-semibold text-ink">初值 = 满值 − 需要的机器周期数</b>。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="初值计算：以 12MHz 定时 50ms 为例">
+            <pre><code>第 1 步：把时间换算成机器周期数
+    12MHz → 1 个机器周期 = 1µs
+    N = 50ms / 1µs = 50000
+
+第 2 步：确认这个数放得下
+    方式 1 最大 65536 → 50000 装得下 ✔
+    （如果要定 100ms，50000 装得下但 100000 超了 → 只能定 50ms 再软件数 2 次）
+
+第 3 步：算初值
+    初值 = 65536 − 50000 = 15536
+
+第 4 步：拆成高 8 位和低 8 位
+    15536 ÷ 256 = 60 余 176
+    TH0 = 60  = 0x3C
+    TL0 = 176 = 0xB0
+    即 TH0 = 0x3C; TL0 = 0xB0;
+
+三种方式的通用公式：
+    方式 0（13 位）：初值 = 8192  − N ；TH0 = 初值 / 32 ，TL0 = 初值 % 32
+    方式 1（16 位）：初值 = 65536 − N ；TH0 = 初值 / 256，TL0 = 初值 % 256
+    方式 2（8 位） ：重装值 = 256 − N ；TH0 = TL0 = 重装值（N 最大 256）
+
+如果晶振换成 11.0592MHz（1 个机器周期 = 1.085µs）：
+    N = 50ms / 1.085µs ≈ 46080
+    初值 = 65536 − 46080 = 19456 = 0x4C00  →  TH0 = 0x4C; TL0 = 0x00;
+    同一段程序、同一个 50ms 目标，初值完全不同 —— 这就是「换晶振必须重算初值」的原因。</code></pre>
+          </div>
+
+          <p class="mt-4">常用定时值可以直接查下面这张表（<b>12MHz、方式 1</b>）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>定时时间</th>
+                  <th>机器周期数 N</th>
+                  <th>初值（十进制）</th>
+                  <th>TH0</th>
+                  <th>TL0</th>
+                  <th>8 位软件计数凑整</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>1ms</td><td class="font-mono text-xs">1000</td><td class="font-mono text-xs">64536</td><td class="font-mono text-xs">0xFC</td><td class="font-mono text-xs">0x18</td><td>×1000 = 1s</td></tr>
+                <tr><td>5ms</td><td class="font-mono text-xs">5000</td><td class="font-mono text-xs">60536</td><td class="font-mono text-xs">0xEC</td><td class="font-mono text-xs">0x78</td><td>×200 = 1s</td></tr>
+                <tr><td>10ms</td><td class="font-mono text-xs">10000</td><td class="font-mono text-xs">55536</td><td class="font-mono text-xs">0xD8</td><td class="font-mono text-xs">0xF0</td><td>×100 = 1s</td></tr>
+                <tr><td>20ms</td><td class="font-mono text-xs">20000</td><td class="font-mono text-xs">45536</td><td class="font-mono text-xs">0xB1</td><td class="font-mono text-xs">0xE0</td><td>×50 = 1s</td></tr>
+                <tr><td><b>50ms</b></td><td class="font-mono text-xs">50000</td><td class="font-mono text-xs">15536</td><td class="font-mono text-xs">0x3C</td><td class="font-mono text-xs">0xB0</td><td><b>×20 = 1s</b></td></tr>
+                <tr><td>65.536ms（最大）</td><td class="font-mono text-xs">65536</td><td class="font-mono text-xs">0</td><td class="font-mono text-xs">0x00</td><td class="font-mono text-xs">0x00</td><td>×15 ≈ 0.98s</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么选 50ms 而不是 1 秒</div>
+            <p>
+              方式 1 一次最多只能定 <b>65.536ms</b>，写不下 1 秒。
+              标准做法是「短定时 + 软件计数」：定 50ms，中断 20 次就是 1 秒。
+              片内还有一个 T1 也能当定时器，但真正需要长时间定时时，
+              用「短周期 + 计数」比用更大的定时器更灵活——因为计数目标可以随时改，而定时器初值一改就要重算。
+            </p>
+          </div>
+
+          <h3 id="sub-reload" class="mt-7 text-base font-semibold">方式 1 为什么要手动重装，方式 2 为什么不用</h3>
+          <p class="mt-3">
+            这是定时器最容易出错、也最能体现「懂原理」的地方。关键在于<b class="font-semibold text-ink">溢出之后计数器从哪儿重新开始</b>：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="溢出行为对比">
+            <pre><code>方式 1（16 位，TH0 + TL0）：溢出后从 0x0000 继续数
+
+    写入 TH0=0x3C TL0=0xB0（= 15536）
+      → 数 50000 个机器周期 → 到 0xFFFF → 再来一个脉冲就溢出
+    
+    溢出时：TF0 置 1，然后 TH0/TL0 自动变成 0x0000
+      → 如果你不在中断里重装，下一轮从 0 数到满 = 65536 个周期 = 65.536ms
+      → 定时从 50ms 变成 65.536ms，误差 (65536-50000)/50000 = +31%
+
+    所以：方式 1 的中断服务函数第一件事就是重新写 TH0 / TL0。
+
+方式 2（8 位，TL0 计数 + TH0 存重装值）：溢出后硬件自动把 TH0 装回 TL0
+
+    TH0 = 0x38（重装值 56 = 256 - 200）
+      → TL0 从 0x38 数到 0xFF 溢出 → 硬件立即把 TH0 的值再装进 TL0
+      → 永远只需要初始化一次，中断里不用（也不能）重装
+      → 代价是只有 8 位，12MHz 下最长只能定 256µs
+
+一句话：方式 1 是「软件重装」，方式 2 是「硬件重装」。
+        要长定时用方式 1，要固定小间隔/波特率用方式 2。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">手动重装的隐藏误差，以及怎么消掉它</div>
+            <p>
+              中断响应本身需要时间（现场保护 + 跳转，通常十几个机器周期，约十几微秒），
+              再加上 <code class="icode">TH0 = …; TL0 = …;</code> 这两条指令执行期间计数器没有停，
+              每轮都会丢掉这么一小段时间。单次约十几微秒，相对 50ms 只有万分之几，
+              但一秒累计 20 轮，长时间跑就会慢慢偏。
+            </p>
+            <p class="mt-2">
+              要求更严时的标准做法是在重装前后把计数器停掉：
+              <code class="icode">TR0 = 0; TH0 = 0x3C; TL0 = 0xB0; TR0 = 1;</code>
+              ——让「重装」这件事在时间上也是原子的。日常实验用不到，
+              但你要知道这个误差存在，并且知道它从哪儿来。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            定时器在<b class="font-semibold text-ink">芯片内部</b>，所以这个实验不需要新增任何一个元件——
+            上一篇接好的板子原样拿来用，只换程序。这正是本节要强调的第一个知识点。
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">最常见的误解：T0 引脚要接线吗？</div>
+            <p>
+              不需要。<code class="icode">T0</code> 是 P3.4 引脚（第 14 脚）的复用功能，
+              只有在 <code class="icode">TMOD</code> 的 <b>C/T 位 = 1（计数器模式）</b>时才有意义——
+              那时它是「外部脉冲输入」，你才需要往它上面接信号。
+              C/T = 0（定时器模式）时，计数源是芯片内部的机器周期，
+              与这个引脚完全无关，<b>悬空即可</b>。
+            </p>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>引脚 / 元件</th>
+                  <th>本实验怎么接</th>
+                  <th>与上一篇是否相同</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">P1.0（第 1 脚）</td>
+                  <td>LED 负极；LED 正极经 470Ω 接 +5V</td>
+                  <td>相同</td>
+                  <td>灌电流接法，低电平点亮；本实验用它显示定时结果</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">P1.1 ~ P1.7</td>
+                  <td>可保持上一篇的 8 路 LED 不变</td>
+                  <td>相同</td>
+                  <td>不用的引脚留着不影响定时器工作</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">P3.4 / T0（第 14 脚）</td>
+                  <td><b>悬空</b></td>
+                  <td>—</td>
+                  <td>定时器模式下不需要外部信号；练计数器模式时才接脉冲源</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">P3.5 / T1（第 15 脚）</td>
+                  <td><b>悬空</b></td>
+                  <td>—</td>
+                  <td>同上</td>
+                </tr>
+                <tr>
+                  <td>晶振</td>
+                  <td class="font-mono text-xs">12MHz + 两个 30pF</td>
+                  <td>看板子，可能要换</td>
+                  <td><b>本页初值全部按 12MHz 计算</b>；若板上是 11.0592MHz，必须按 0x4C00 重算</td>
+                </tr>
+                <tr>
+                  <td>复位电路</td>
+                  <td class="font-mono text-xs">10µF + 10kΩ</td>
+                  <td>相同</td>
+                  <td>复位会清 TMOD/TCON，程序重新初始化一遍</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">EA（第 31 脚）/ 电源</td>
+                  <td>+5V；40 脚 +5V 带 104 去耦</td>
+                  <td>相同</td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td>示波器 / 频率计（选配）</td>
+                  <td>探头接 P1.0（或另接 P1.1 输出方波）</td>
+                  <td>新增可选</td>
+                  <td>用来验证 1Hz 方波，比肉眼数秒准得多</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意（沿用上一篇的板子）</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="定时器实验接线：内部计数，外部只留一个指示">
+            <pre><code>                     STC89C52RC（芯片内部）
+        ┌──────────────────────────────────────────────┐
+        │                                              │
+        │   晶振 12MHz ──► 时钟电路 ──► 12 分频         │
+        │                              │               │
+        │                              ▼               │
+        │                    ┌──────────────────┐      │
+        │                    │  机器周期 1µs    │      │
+        │                    └────────┬─────────┘      │
+        │                             │ 每 1µs 计数 +1 │
+        │                             ▼                │
+        │                   ┌────────────────────┐     │
+        │                   │ 定时器 T0（16 位） │     │
+        │                   │  TH0      TL0      │     │
+        │                   └─────────┬──────────┘     │
+        │                             │ 数满 50000 次  │
+        │                             ▼                │
+        │                    TF0 置 1 ──► 触发中断 ────┼──┐
+        │                                              │  │
+        └──────────────────────────────────────────────┘  │
+                                                          ▼
+                                    中断服务函数：重装初值 + 计数 10 次
+                                                          │
+                                                          ▼
+        ┌───────────────────────────────────────────────────────┐
+        │  P1.0（第 1 脚）──► LED 负极                           │
+        │  +5V ──► 470Ω ──► LED 正极                            │
+        │  → 每 500ms 翻转一次电平，肉眼看到 1Hz 闪烁            │
+        └───────────────────────────────────────────────────────┘
+
+  P3.4(T0) 第 14 脚 —— 悬空，不接任何东西
+  P3.5(T1) 第 15 脚 —— 悬空，不接任何东西</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">上电前检查</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>确认板上晶振的实际频率。丝印看不清就用频率计测，或直接看 STC-ISP 检测到的芯片信息——<b>初值算错，现象就是时间差一倍以上</b>。</li>
+            <li>确认 <code class="icode">EA</code>（第 31 脚）接在 +5V，否则程序根本不会从片内 Flash 执行。</li>
+            <li>确认 P1.0 那一路的 LED 仍是灌电流接法（正极经电阻接 +5V，负极接引脚），否则亮灭逻辑正好相反。</li>
+            <li>若接了示波器，先确认探头地线夹在板子 GND 上，避免引入干扰或短路。</li>
+          </ol>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            目标：12MHz 晶振下，用方式 1 每 50ms 中断一次，累计 10 次（500ms）翻转一次 P1.0，
+            得到周期 1 秒的闪烁。代码可直接编译下载，逐行有中文注释。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— 定时器 0 方式 1，50ms 中断，500ms 翻转 LED">
+            <pre><code>#include &lt;reg52.h&gt;                  /* 51 寄存器定义，含 TMOD / TCON / IE / TH0 / TL0 */
+
+sbit LED = P1^0;                    /* 把 P1.0 命名为 LED，灌电流接法：0 亮 1 灭 */
+
+unsigned char count = 0;            /* 中断次数计数，50ms × 10 = 500ms（最大 255，够用） */
+
+/* ------------------------------------------------------------------
+ * 定时器 0 初始化：方式 1（16 位定时器），12MHz 下定 50ms
+ * ------------------------------------------------------------------ */
+void Timer0_Init(void)
+{
+    TMOD &amp;= 0xF0;                   /* 清掉低 4 位（T0 的设置），保留高 4 位（不动 T1） */
+    TMOD |= 0x01;                   /* 低 4 位设为 0001：GATE=0, C/T=0, M1=0, M0=1 → 方式 1 */
+
+    TH0 = 0x3C;                     /* 初值 65536 - 50000 = 15536 = 0x3CB0 → 高 8 位 */
+    TL0 = 0xB0;                     /* 低 8 位。写入后计数器从这里开始往上数 */
+
+    EA  = 1;                        /* 打开总中断开关（总闸） */
+    ET0 = 1;                        /* 允许定时器 0 溢出时产生中断（分闸） */
+    TR0 = 1;                        /* 启动定时器 0，开始计数 */
+}
+
+/* ------------------------------------------------------------------
+ * 定时器 0 中断服务函数
+ * interrupt 1 表示定时器 0，编译器会把它放到向量地址 000BH
+ * 不需要在 main 里调用：T0 溢出时 CPU 自动跳转过来
+ * ------------------------------------------------------------------ */
+void Timer0_ISR(void) interrupt 1
+{
+    TH0 = 0x3C;                     /* 方式 1 必须手动重装！否则下一次定时变成 65.536ms */
+    TL0 = 0xB0;                     /* 这两条指令本身也耗时，属于重装误差的来源 */
+
+    count++;                        /* 每 50ms 加一 */
+    if (count &gt;= 10)                /* 累计到 10 次 = 500ms */
+    {
+        count = 0;                  /* 计数器清零，准备下一轮 */
+        LED = !LED;                 /* 翻转 LED：500ms 亮、500ms 灭 → 周期 1s，即 1Hz */
+    }
+}
+
+void main(void)
+{
+    LED = 1;                        /* 上电先让灯灭（灌电流接法：高电平熄灭） */
+    Timer0_Init();                  /* 配置并启动定时器 */
+
+    while (1)
+    {
+        /* 主循环空转。定时完全由硬件负责，
+           这里可以放按键扫描、串口收发等任务，不会影响定时精度 */
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">TMOD &amp;= 0xF0; TMOD |= 0x01;</code>——为什么要写成两句，
+              而不是直接 <code class="icode">TMOD = 0x01;</code>？
+              第一句是「读—改—写」：把低 4 位清零，<b>保留高 4 位里 T1 的原有设置</b>；
+              第二句再或上方式 1 的编码。如果直接整体赋值，T1 的配置会被一起清成 0——
+              当程序里同时用 T1 做波特率发生器时，这一赋值就会把串口波特率弄乱。
+              另外注意不能写 <code class="icode">TMOD ^ 4 = 0;</code> 之类的位操作，
+              因为 <b>TMOD 地址 0x89 不可位寻址</b>，只能整体赋值。
+            </li>
+            <li>
+              <code class="icode">TH0 = 0x3C; TL0 = 0xB0;</code>——0x3CB0 = 15536，
+              计数器从 15536 数到 65535 再溢出，正好 65536 − 15536 = 50000 个机器周期。
+              12MHz 下 50000 × 1µs = 50ms。这两行<b>写初值时</b>和<b>中断里重装时</b>都要出现，
+              漏掉后者是新手最典型的错误。
+            </li>
+            <li>
+              <code class="icode">EA = 1; ET0 = 1; TR0 = 1;</code>——三件事缺一不可：
+              EA 是总闸，ET0 是定时器 0 这一路的分闸，TR0 才是真的让计数器开始跑。
+              少任何一个，中断都不会发生，现象都是「灯一动不动」。
+            </li>
+            <li>
+              <code class="icode">void Timer0_ISR(void) interrupt 1</code>——中断号 1 对应定时器 0
+              （向量地址 000BH）。函数必须 <code class="icode">void</code> 返回、无参数；
+              写成 <code class="icode">interrupt 0</code> 会占用外部中断 0 的向量，现象立刻变得不可预测。
+            </li>
+            <li>
+              <code class="icode">LED = !LED;</code>——对 <code class="icode">sbit</code> 定义的位变量，
+              推荐用逻辑非 <code class="icode">!</code>；位取反 <code class="icode">~</code> 是按位取反运算符，
+              语义上更适合整字节（例如 <code class="icode">P1 = ~P1;</code> 会让 8 个灯同时取反）。两者在这里都能用，
+              但把「位用 !、字节用 ~」当成习惯，读代码的人不会误会。
+            </li>
+            <li>
+              <code class="icode">count</code> 为什么用 <code class="icode">unsigned char</code> 而不是
+              <code class="icode">unsigned int</code>？因为它只需要数到 10，而 8 位变量自增在 51 上是
+              <b>一条指令</b>，不会被中断打断；16 位变量的自增是两条指令，主循环若同时读这个变量就可能读到半个值。
+              这是一个很小但很真实的工程考虑。
+            </li>
+          </ul>
+
+          <h3 id="sub-query" class="mt-7 text-base font-semibold">查询方式（不用中断）写法</h3>
+          <p class="mt-3">
+            如果只是要一段「精确延时」，不要求后台自动跑，可以不用中断：
+            启动定时器后用 <code class="icode">while (!TF0);</code> 等标志位。
+            代价是等待期间 CPU 被占住，好处是不涉及中断优先级和现场保护，逻辑更简单。
+            请特别注意标志位的清零——这是查询方式最容易踩的坑。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— 用定时器做精确毫秒延时（查询方式）">
+            <pre><code>#include &lt;reg52.h&gt;
+
+sbit LED = P1^0;
+
+/* ------------------------------------------------------------------
+ * 用定时器 0 实现精确毫秒延时（12MHz）
+ * 每个 1ms 都由定时器硬件计时，不受编译器优化等级影响
+ * ------------------------------------------------------------------ */
+void Timer0_Delay_ms(unsigned int ms)
+{
+    unsigned int i;
+
+    for (i = 0; i &lt; ms; i++)        /* 循环 ms 次，每次等 1ms */
+    {
+        TMOD &amp;= 0xF0;               /* 每次重新配置，保证状态确定 */
+        TMOD |= 0x01;               /* 方式 1：16 位 */
+
+        TH0 = 0xFC;                 /* 65536 - 1000 = 64536 = 0xFC18 */
+        TL0 = 0x18;
+
+        TF0 = 0;                    /* 关键：查询方式必须软件清标志，否则第二次判断立刻通过 */
+        TR0 = 1;                    /* 启动计数 */
+
+        while (!TF0);               /* 空等，直到硬件把 TF0 置 1（约 1ms） */
+
+        TR0 = 0;                    /* 停止计数，准备下一轮 */
+    }
+}
+
+void main(void)
+{
+    LED = 1;                        /* 上电灯灭 */
+
+    while (1)
+    {
+        LED = !LED;                 /* 翻转 LED */
+        Timer0_Delay_ms(500);       /* 精确定时 500ms */
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-mode2" class="mt-7 text-base font-semibold">方式 2 完整示例（硬件自动重装）</h3>
+          <p class="mt-3">
+            把上面的 50ms 换成 200µs 节拍：方式 2 只有 8 位，200µs 对应 200 个机器周期，
+            重装值 = 256 − 200 = 56 = <code class="icode">0x38</code>。累计 2500 次就是 500ms。
+            注意中断服务函数里<b>没有</b>重装语句——这就是方式 2 最大的好处。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— 方式 2（8 位自动重装），200µs 节拍">
+            <pre><code>#include &lt;reg52.h&gt;
+
+sbit LED = P1^0;
+
+unsigned int tick = 0;              /* 200µs × 2500 = 500ms，需要 16 位变量 */
+
+void Timer0_Init(void)
+{
+    TMOD &amp;= 0xF0;                   /* 保留 T1 的设置 */
+    TMOD |= 0x02;                   /* 低 4 位 0010：M1=1, M0=0 → 方式 2（8 位自动重装） */
+
+    TH0 = 0x38;                     /* 重装值 = 256 - 200 = 56 = 0x38，TH0 只当"仓库" */
+    TL0 = 0x38;                     /* 计数器本体也从同一个值开始 */
+
+    EA  = 1;
+    ET0 = 1;
+    TR0 = 1;
+}
+
+void Timer0_ISR(void) interrupt 1
+{
+    /* 方式 2 由硬件自动把 TH0 装回 TL0，这里不需要（也不应该）重装 */
+
+    tick++;                         /* 每 200µs 加一 */
+    if (tick &gt;= 2500)               /* 2500 × 200µs = 500ms */
+    {
+        tick = 0;
+        LED = !LED;                 /* 每 500ms 翻转，周期 1s */
+    }
+}
+
+void main(void)
+{
+    LED = 1;
+    Timer0_Init();
+
+    while (1)
+    {
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">两种方式怎么选</div>
+            <p>
+              需要<b>长定时</b>（几十毫秒级）→ 方式 1，但记得在中断里手动重装；
+              需要<b>固定小间隔</b>（几百微秒以内）或做串口波特率发生器 → 方式 2，让硬件替你重装，
+              连中断都可以不开（波特率发生器就是纯硬件在跑）。
+              判断依据只有一个：<b>256 个机器周期够不够用</b>。
+              12MHz 下 256µs 够，1ms 就不够了。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            定时器实验的现象只有「闪」和「不闪」两种，但闪的<b>快慢</b>精确地反映了你的初值和重装有没有写对。
+            所以这一节最重要的动作是：<b>用秒表或频率计测量，而不是用眼睛判断</b>。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>上电后 P1.0 的 LED 亮 0.5 秒、灭 0.5 秒，稳定循环，肉眼看起来是均匀的 1Hz 闪烁。</li>
+            <li>用秒表量 20 个完整周期（亮+灭算一个周期）：应为 20.0 秒左右，误差应在 0.1 秒内（手工计时的误差主要来自人）。</li>
+            <li>用万用表频率档或示波器量 P1.0：应读到 <b>1.000Hz 左右的方波</b>，占空比接近 50%。</li>
+            <li>在主循环里加入其他任务（比如按键扫描）后，闪烁周期<b>不变</b>——这正说明定时与 CPU 在做什么无关。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">现象与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>测到的现象</th>
+                  <th>周期</th>
+                  <th>原因</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>亮 0.5s 灭 0.5s，稳定</td>
+                  <td class="font-mono text-xs">1.000s</td>
+                  <td><b>正确</b>：方式 1 初值 0x3CB0 + 中断里重装 + 计数 10 次</td>
+                </tr>
+                <tr>
+                  <td>闪得比预期慢一点，长时间也稳定</td>
+                  <td class="font-mono text-xs">≈1.085s</td>
+                  <td>板上晶振其实是 11.0592MHz，但初值按 12MHz 算的（慢 8.5%）。改 TH0=0x4C、TL0=0x00</td>
+                </tr>
+                <tr>
+                  <td>闪得明显慢，节奏均匀</td>
+                  <td class="font-mono text-xs">≈1.310s</td>
+                  <td><b>忘了在中断里手动重装</b> TH0/TL0：每轮变成 65.536ms，慢了 31%</td>
+                </tr>
+                <tr>
+                  <td>亮灭各 50ms，快得晃眼</td>
+                  <td class="font-mono text-xs">0.100s</td>
+                  <td>中断里少了 <code class="icode">count &gt;= 10</code> 的判断，每次中断就翻转</td>
+                </tr>
+                <tr>
+                  <td>灯一动不动（常亮或常灭）</td>
+                  <td>—</td>
+                  <td>中断没开起来：EA / ET0 / TR0 少写一个；或中断号写错；或忘了调用 <code class="icode">Timer0_Init()</code></td>
+                </tr>
+                <tr>
+                  <td>闪几下后停住、或干脆跑飞</td>
+                  <td>—</td>
+                  <td>中断号与向量不匹配（例如写成 <code class="icode">interrupt 0</code>），或中断里做了耗时操作导致堆栈溢出</td>
+                </tr>
+                <tr>
+                  <td>忽快忽慢、偶尔漏一次</td>
+                  <td>不稳定</td>
+                  <td>中断服务程序太长被别的中断再打断；或电源不稳、复位电路受干扰（回想最小系统那一篇）</td>
+                </tr>
+                <tr>
+                  <td>用查询方式时第一次正常，之后疯狂翻转</td>
+                  <td>—</td>
+                  <td>查询方式忘了 <code class="icode">TF0 = 0;</code>，标志一直是 1，后面的等待立刻通过</td>
+                </tr>
+                <tr>
+                  <td>亮灭反了（上电就亮，灭 0.5s）</td>
+                  <td class="font-mono text-xs">1.000s</td>
+                  <td>接法不是灌电流，或初始值写成了 <code class="icode">LED = 0;</code>——现象周期对，只是极性反</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">把「测得准」变成实验结论</div>
+            <p>
+              写实验报告时，别写「灯正常闪烁」，而要写：「用频率计测得 P1.0 输出 1.0002Hz，
+              理论值 1.0000Hz，相对误差 0.02%，误差来源为晶振精度与中断重装延迟」。
+              顺便把上一篇软件延时的实测值也列出来对比——
+              你会发现软件延时的误差通常在百分之几，而定时器的误差在万分之几，
+              这个数量级的差别就是「为什么要学定时器」的答案。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            定时器的问题有个特点：<b>编译能过、下载成功、但现象不对</b>。
+            所以下面的条目里，编译期和运行期各占一半，运行期的更要逐条对号入座。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">编译报错：main.c(12): error C202: 'TR0': undefined identifier</div>
+            <p><b class="font-semibold">原因：</b>漏了 <code class="icode">#include &lt;reg52.h&gt;</code>。TR0、TF0、TMOD、TH0 这些名字都定义在头文件里，编译器不认识它们。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>补上头文件，并确认工程 Device 选的是 AT89C52 / STC89C52RC 这类 51 芯片（选了 STM32 芯片自然没有这个头文件）。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">编译报错：main.c(8): error C142: 'TMOD': invalid base type  /  试图写 sbit TR0 = TMOD^4;</div>
+            <p><b class="font-semibold">原因：</b>把不可位寻址的寄存器当成了可位寻址的。TMOD 地址是 <code class="icode">0x89</code>，不能被 8 整除，所以不能用 <code class="icode">sbit</code> 定义它的某一位，也不能用 <code class="icode">TMOD^4 = 0;</code> 这种写法。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>改为整体赋值并配合位掩码：<code class="icode">TMOD &amp;= 0xF0; TMOD |= 0x01;</code>。需要单独操作某一位时，改用可位寻址的 TCON（地址 0x88）：<code class="icode">TR0 = 1; TF0 = 0;</code>。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">链接报错：*** WARNING L1: UNRESOLVED EXTERNAL SYMBOL  SYMBOL: TIMER0_ISR  MODULE: main.obj (MAIN)</div>
+            <p><b class="font-semibold">原因：</b>链接器找不到中断服务函数的实体——通常是函数名改了但某处声明没改，或者把中断函数写成了「只有声明没有函数体」，也可能被 <code class="icode">#if 0</code> 之类的条件编译挡掉了。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>确保中断服务函数有且只有一个完整定义（含函数体），名字与声明完全一致；本项目只有 main.c 一个文件，直接搜索函数名即可定位。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：灯完全不闪，保持上电时的状态</div>
+            <p><b class="font-semibold">原因：</b>中断链条断了一环。任何一处不对，现象都一样：漏 <code class="icode">EA = 1;</code>（总闸没开）、漏 <code class="icode">ET0 = 1;</code>（分闸没开）、漏 <code class="icode">TR0 = 1;</code>（定时器没启动）、漏调用 <code class="icode">Timer0_Init()</code>，或者中断号写错导致 CPU 跳到了别的向量地址。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>按「TMOD → TH0/TL0 → EA → ET0 → TR0 → 中断号 1」的顺序逐项核对。快速定位技巧：临时把 <code class="icode">EA = 1;</code> 注释掉，同时把主循环改成直接翻转 LED——如果这样能闪，说明前面的配置都对，问题就在中断使能或中断号上。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：闪烁周期约 1.31 秒，比设计的 1 秒慢了 31%</div>
+            <p><b class="font-semibold">原因：</b>中断服务函数里忘了重装初值。方式 1 溢出后计数器从 <code class="icode">0x0000</code> 重新开始，下一轮要数 65536 个机器周期 = 65.536ms，而不是 50ms。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>在中断服务函数的第一件事写回 <code class="icode">TH0 = 0x3C; TL0 = 0xB0;</code>；或者改用方式 2（硬件自动重装，但只有 8 位，最长 256µs）。判断误差大小的通用公式：<code class="icode">(65536 − N) / N</code>。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：查询方式下第一次等待正常，之后 LED 疯狂翻转</div>
+            <p><b class="font-semibold">原因：</b>查询方式忘了软件清除溢出标志 <code class="icode">TF0 = 0;</code>。第一次溢出后 TF0 一直是 1，后面的 <code class="icode">while (!TF0);</code> 立即通过，等于完全没有等待。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>在启动定时器之前写 <code class="icode">TF0 = 0;</code>。记住两者的区别：<b>中断方式下 TF0 由硬件自动清零，查询方式下必须软件清零</b>——这正是很多人从查询改成中断后「反而不会写」的原因。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">一条设计原则：中断服务函数要短</div>
+            <p>
+              中断里只做「必须马上做的事」——重装初值、计数、置标志，然后立刻返回。
+              不要在中断里调用长延时、浮点运算、串口打印（<code class="icode">printf</code>），
+              否则主程序会被长时间挂起；如果中断自身又被打断，还可能造成逻辑错乱。
+              需要处理的事情多，就在中断里置一个标志，让主循环去干活——
+              这就是「前台/后台」结构，后面写数码管扫描和按键消抖时会反复用到。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            定时器的全部逻辑可以浓缩成四步：<b class="font-semibold text-ink">选方式（TMOD）→ 算初值（满值 − 机器周期数）→ 开中断（EA/ET0/TR0）→ 溢出后处理（方式 1 手动重装，方式 2 硬件重装）</b>。
+            把这四步走顺，你手里就有了一把与代码写法无关的时间尺子；
+            后面无论是让数码管稳定不闪、让串口波特率准确，还是测一个方波的频率，用的都是它。
+          </p>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b>改成一个 2 秒周期的闪烁</b>：仍用方式 1 与 50ms 初值 0x3CB0，
+                只在中断里改计数阈值 <code class="icode">count &gt;= 20</code>；
+                然后回答：为什么不能把 <code class="icode">TH0</code>/<code class="icode">TL0</code> 直接算成「一次定时 1 秒」？
+                请用方式 1 的最大定时值（65.536ms）来论证。
+              </li>
+              <li>
+                <b>用方式 2 产生 2kHz 方波</b>：需要每 250µs 翻转一次（周期 500µs → 2kHz），
+                重装值 = 256 − 250 = 6，即 <code class="icode">TH0 = TL0 = 0x06</code>。
+                用示波器或万用表频率档验证，然后解释：为什么用方式 2 做不出 1kHz 方波
+                （提示：1kHz 需要 500µs 的半周期，超过了 8 位 256µs 的上限）。
+              </li>
+              <li>
+                <b>把查询方式延时和软件延时放在一起测</b>：用本篇的
+                <code class="icode">Timer0_Delay_ms(500)</code> 和上一篇的
+                <code class="icode">Delay_ms(500)</code> 各做一个闪烁程序，
+                分别用秒表量 20 个周期的总时间，算出各自的相对误差；
+                再把 C51 优化等级从 Level 8 改到 Level 0，重测一次。
+                用数据回答：哪一种延时的误差会随优化等级变化？为什么？
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一步学什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="../mcu51.html">51 单片机全部教程</a>——外部中断、串口通信、数码管动态扫描都建立在定时器之上。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-led.html">IO 口输出：LED 流水灯</a>——回去看看「不准的延时」是怎么被本篇替换掉的。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="../tools.html#tool-delay">在线工具：定时器初值计算器</a>——换晶振、改定时值时不用手算。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="mcu51-led.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">IO 口输出：LED 流水灯</p>
+          </a>
+          <a href="mcu51-exti.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">外部中断触发</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

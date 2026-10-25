@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 物联网教程 · WiFi / 蓝牙 / MQTT 入门 - McuStudy</title>
+  <meta name="description" content="McuStudy ESP32 物联网教程：基于 ESP32-WROOM-32 与 Arduino IDE，从环境搭建、GPIO 控制、WiFi STA 配网、蓝牙串口、MQTT 接入平台到 DHT11 / DS18B20 传感器与蓝牙遥控器综合项目，附完整代码、引脚速查表与避坑提示。">
+  <meta name="keywords" content="ESP32,ESP32-WROOM-32,ESP32教程,Arduino IDE,物联网,WiFi,STA模式,蓝牙串口,MQTT,PubSubClient,DHT11,DS18B20">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/site.js" defer></script>
+</head>
+
+<body data-page="esp32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 页面 Hero ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-12 sm:py-14">
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="index.html" class="hover:text-brand-600">首页</a><span>/</span><span class="text-muted">ESP32</span>
+        </nav>
+        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">ESP32 物联网教程</h1>
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+          ESP32 是入门物联网最划算的一块板子：一块 ESP32-WROOM-32 上同时集成了 2.4GHz WiFi 和蓝牙，
+          不用再外挂 ESP-01、HC-05 之类的模块，接线、供电、代码量都省一半。它还带 240MHz 双核、
+          最多 34 个 GPIO、18 路 ADC 和 2 路 8 位 DAC，跑 Arduino 库毫无压力——
+          用 <code class="icode">WiFi.begin()</code> 五六行就能连上路由器，用 <code class="icode">PubSubClient</code> 就能把数据发到 MQTT 平台。
+          学完这一套，你能独立做出「手机远程控制继电器 + 温湿度上云」这类毕设级别的小系统，
+          也是从 51/STM32 走向联网设备最平滑的一步。
+        </p>
+        <div class="mt-6 flex flex-wrap gap-2.5">
+          <span class="stat-pill"><b>7</b> 个专题</span>
+          <span class="stat-pill">芯片：<b>ESP32-WROOM-32</b></span>
+          <span class="stat-pill">工具：<b>Arduino IDE</b></span>
+          <span class="stat-pill">建议周期：<b>4~6 周</b></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== 为什么选 ESP32 ============================== -->
+    <section class="wrap py-12 sm:py-14">
+      <p class="sec-eyebrow">Why ESP32</p>
+      <h2 class="sec-title">为什么选 ESP32 入门物联网</h2>
+      <p class="sec-desc">物联网入门最怕两件事：硬件东拼西凑、代码看不懂。ESP32 恰好把这两个坑都填了。</p>
+
+      <div class="mt-8 card card-pad">
+        <div class="grid gap-6 sm:grid-cols-3">
+          <div class="mini-step">
+            <span class="step-num">1</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">一块板子同时有 WiFi 和蓝牙</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                ESP32-WROOM-32 内部就带 2.4GHz WiFi（STA / AP / 混杂模式）和经典蓝牙 + BLE。
+                做联网项目不用再买 WiFi 模块，做手机遥控也不用额外插蓝牙模块，接线少一半，供电只需一根 USB 线。
+              </p>
+            </div>
+          </div>
+          <div class="mini-step">
+            <span class="step-num">2</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">Arduino 生态库多，几行代码就出效果</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                装好 esp32 board package 后，连路由器只要 <code class="icode">WiFi.begin(ssid, password)</code>，
+                读温湿度直接调 DHT 库，发 MQTT 用 PubSubClient。
+                不用啃寄存器手册，先把「能跑通」的正反馈拿到手，再回头补底层原理。
+              </p>
+            </div>
+          </div>
+          <div class="mini-step">
+            <span class="step-num">3</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">价格低、资料多，做毕设最容易出效果</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                一块开发板二三十元，烧了也不心疼；示例程序、开源库、视频教程遍地都是，
+                卡住了几乎都能搜到答案。答辩时「手机 App 远程控制 + 数据上云 + 曲线展示」这套组合，
+                比单纯的流水灯更容易讲出技术含量。
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 基础篇 ============================== -->
+    <section class="wrap py-14 sm:py-16">
+      <p class="sec-eyebrow">Foundations</p>
+      <h2 class="sec-title">基础篇：ESP32 多出来的那几层，先认全</h2>
+      <p class="sec-desc">
+        ESP32 不是“51 加个 WiFi 模块”。它自带双核、RTOS、协议栈，用 C++ 写，还要讲网络。
+        这 5 篇把多出来的那几层一次讲清——从 FreeRTOS 任务是什么，到 IP、端口、MQTT 到底在传什么。
+      </p>
+
+      <div class="callout callout-info mt-8">
+        <div class="callout-title">ESP32 上最容易翻车的三件事</div>
+        <ul class="mt-2 space-y-1.5">
+          <li>· <b class="font-semibold text-ink">供电</b>——WiFi 发射瞬间电流能冲到 500mA，电脑 USB 口撑不住就会不停重启。</li>
+          <li>· <b class="font-semibold text-ink">引脚</b>——GPIO6~11 接了内部 Flash，GPIO34~39 只能输入，用错了程序直接不启动。</li>
+          <li>· <b class="font-semibold text-ink">网络</b>——很多人会照抄 <code class="icode">MQTTClient.publish()</code>，却不知道 Topic、端口、Broker 分别是什么，于是连不上也查不出原因。</li>
+        </ul>
+        <p class="mt-2">下面这 5 篇就是按这三个坑排的。</p>
+      </div>
+
+      <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
+        <!-- 基础 1 -->
+        <a id="b-compare" href="tutorials/esp32-basic-compare.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M8 3 4 7l4 4"/>
+                <path d="M4 7h16"/>
+                <path d="m16 21 4-4-4-4"/>
+                <path d="M20 17H4"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">从 51 / STM32 到 ESP32</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            它不是“单片机 + WiFi 模块”，而是把射频、协议栈、双核 CPU 塞进一颗芯片的 SoC。
+            讲清双核分工、FreeRTOS 任务与超级循环的区别、内存布局，附<b class="font-semibold text-ink">可安全使用的引脚表</b>。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">双核与 RTOS</span>
+            <span class="badge-plain">内存布局</span>
+            <span class="badge-plain">引脚禁区</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 2 -->
+        <a id="b-level" href="tutorials/esp32-basic-level.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">3.3V 供电与 GPIO 安全</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            为什么 WiFi 一连就重启（500mA 峰值电流）、供电方案对比、GPIO 电流上限、
+            ADC 只能进 0~3.3V，以及新手一定会踩的 <b class="font-semibold text-ink">ADC2 与 WiFi 冲突</b>。附“能不能接”对照表。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">峰值电流</span>
+            <span class="badge-plain">ADC2 冲突</span>
+            <span class="badge-plain">输入专用引脚</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 3 -->
+        <a id="b-arduino" href="tutorials/esp32-basic-arduino.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m4 17 6-6-6-6"/>
+                <path d="M12 19h8"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">Arduino 框架与 ESP-IDF</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            Arduino 到底是什么（不是芯片也不是语言）、<code class="icode">setup()</code>/<code class="icode">loop()</code> 和
+            <code class="icode">main()</code> 什么关系、点“上传”之后依次发生了什么、什么时候该用 ESP-IDF。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">分层结构</span>
+            <span class="badge-plain">编译烧录流程</span>
+            <span class="badge-plain">库与板子配置</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 4 -->
+        <a id="b-cpp" href="tutorials/esp32-basic-cpp.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M8 3H7a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h1"/>
+                <path d="M16 3h1a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-1"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">C++ 与 Arduino API 基础</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            类与对象（<code class="icode">Serial</code> 就是一个对象）、方法调用、<code class="icode">Serial</code> 常用方法速查、
+            <code class="icode">print</code> 与 <code class="icode">write</code> 的关键区别，以及
+            <b class="font-semibold text-ink">为什么滥用 String 会造成内存碎片</b>。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">类与对象</span>
+            <span class="badge-plain">Serial 串口</span>
+            <span class="badge-plain">String 陷阱</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 5 -->
+        <a id="b-network" href="tutorials/esp32-basic-network.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M3 12h18"/>
+                <path d="M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">网络基础：IP、TCP 与 MQTT</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            连 WiFi 时到底发生了什么、IP 与子网掩码、端口是干什么的、TCP 与 UDP 的区别、
+            HTTP 请求与响应、<b class="font-semibold text-ink">MQTT 的发布/订阅模型</b>与 Broker、QoS、Topic，以及 JSON。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">IP 与端口</span>
+            <span class="badge-plain">MQTT</span>
+            <span class="badge-plain">HTTP 与 JSON</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 教程目录 ============================== -->
+    <section class="wrap py-12 sm:py-14">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p class="sec-eyebrow">Tutorials</p>
+          <h2 class="sec-title">7 个专题，从装环境做到蓝牙遥控器</h2>
+          <p class="sec-desc">建议按顺序学：前 3 个专题是必经之路，后 4 个可以按毕设题目挑着做。每个专题都配可直接编译的完整代码。</p>
+        </div>
+      </div>
+
+      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
+        <!-- 01 环境搭建 -->
+        <a id="c-env" href="tutorials/esp32-env.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold group-hover:text-brand-600">Arduino IDE 环境搭建</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            从零装好能编译能下载的 ESP32 开发环境：安装 Arduino IDE、在首选项里添加开发板管理器网址、
+            安装 esp32 board package、选择开发板型号与串口端口，并解决最常见的 USB 串口驱动问题。
+          </p>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <span class="badge-plain">开发板管理器网址</span>
+            <span class="badge-plain">esp32 board package</span>
+            <span class="badge-plain">串口驱动 CH340 / CP2102</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <!-- 02 GPIO -->
+        <a id="c-gpio" href="tutorials/esp32-gpio.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold group-hover:text-brand-600">ESP32 GPIO 控制</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            数字输入输出与模拟采集的基本功：<code class="icode">pinMode</code> / <code class="icode">digitalWrite</code> /
+            <code class="icode">digitalRead</code> 点亮 LED 与读按键，<code class="icode">analogRead</code> 读电位器，
+            用 <code class="icode">ledcWrite</code> 输出 PWM 调光。
+          </p>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <span class="badge-plain">pinMode / digitalWrite</span>
+            <span class="badge-plain">ADC 通道与 12 位分辨率</span>
+            <span class="badge-plain">ledcWrite PWM</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <!-- 03 WiFi -->
+        <a id="c-wifi" href="tutorials/esp32-wifi.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2.5 8.5a15 15 0 0 1 19 0M6 12.2a10 10 0 0 1 12 0M9.5 15.8a5 5 0 0 1 5 0"/><circle cx="12" cy="19.5" r="1"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold group-hover:text-brand-600">WiFi 连接与 STA 模式</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            让 ESP32 变成一台联网设备：用 <code class="icode">WiFi.begin()</code> 连接家里的路由器，
+            搞清 STA 与 AP 两种模式的区别，用 <code class="icode">WiFi.status()</code> 判断连接状态，
+            并写出掉线后能自己重连的稳定程序。
+          </p>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <span class="badge-plain">WiFi.begin / WiFi.status</span>
+            <span class="badge-plain">STA 与 AP 模式</span>
+            <span class="badge-plain">断线自动重连</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <!-- 04 蓝牙 -->
+        <a id="c-bt" href="tutorials/esp32-bt.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m7 7 10 10-5 4V3l5 4L7 17"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold group-hover:text-brand-600">蓝牙串口通信</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            不用 WiFi 也能手机遥控：用经典蓝牙 <code class="icode">BluetoothSerial</code> 把 ESP32 变成一个无线串口，
+            配合手机上的蓝牙串口助手收发数据，并讲清经典蓝牙与 BLE 的区别以及该选哪个。
+          </p>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <span class="badge-plain">BluetoothSerial</span>
+            <span class="badge-plain">手机蓝牙串口助手</span>
+            <span class="badge-plain">经典蓝牙 vs BLE</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <!-- 05 MQTT -->
+        <a id="c-mqtt" href="tutorials/esp32-mqtt.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M7 18a4.5 4.5 0 0 1-.6-9A5.8 5.8 0 0 1 17.4 10 3.8 3.8 0 0 1 17 18H7Z"/><path d="M12 16v3M12 19l-2-2M12 19l2-2"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold group-hover:text-brand-600">MQTT 接入物联网平台</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            真正意义上的「上云」：用 PubSubClient 库连接公共或自建 Broker，理解 Broker 与 Topic 的发布 / 订阅模型，
+            把传感器数据发上去、把控制指令收下来，并处理遗嘱消息与掉线重连。
+          </p>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <span class="badge-plain">PubSubClient</span>
+            <span class="badge-plain">Broker 与 Topic</span>
+            <span class="badge-plain">遗嘱消息 / 重连</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <!-- 06 传感器 -->
+        <a id="c-sensor" href="tutorials/esp32-sensor.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0Z"/><path d="M12 9v7"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold group-hover:text-brand-600">DHT11 / DS18B20 传感器读取</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            给项目装上「感官」：用 DHT 库读 DHT11 的温湿度，用 OneWire + DallasTemperature 读 DS18B20，
+            搞懂单总线时序与 64 位 ROM 地址，把多个传感器挂在同一根总线上，并用 CRC 校验判断数据是否可信。
+          </p>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <span class="badge-plain">DHT 库读温湿度</span>
+            <span class="badge-plain">单总线与 64 位 ROM</span>
+            <span class="badge-plain">CRC 校验</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <!-- 07 综合项目 -->
+        <a id="c-remote" href="tutorials/esp32-remote.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2.5" y="8" width="19" height="10" rx="4"/><path d="M7.5 11v4M5.5 13h4M16 11.8h.01M18.5 14.2h.01"/>
+              </svg>
+            </span>
+            <span class="badge-hard">综合</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold group-hover:text-brand-600">综合项目：ESP32 蓝牙遥控器</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            把前面学的串起来做一个能演示的作品：手机 App 发送指令字符，ESP32 通过蓝牙接收并解析，
+            再用 GPIO 驱动 LED 与继电器（可接真实负载），附完整代码与手机端 App 推荐。
+          </p>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <span class="badge-plain">蓝牙接收与解析指令</span>
+            <span class="badge-plain">GPIO 驱动 LED / 继电器</span>
+            <span class="badge-plain">手机 App 推荐</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 避坑提示 ============================== -->
+    <section class="wrap py-12 sm:py-14">
+      <p class="sec-eyebrow">Pitfalls</p>
+      <h2 class="sec-title">避坑提示</h2>
+      <p class="sec-desc">下面这几条是 ESP32 新手 90% 的「卡住」都发生在同一个地方，遇到问题先按顺序对一遍。</p>
+
+      <div class="mt-8 grid gap-4 sm:grid-cols-2">
+
+        <div class="callout callout-warn">
+          <div class="callout-title">配网失败先确认路由器是 2.4GHz</div>
+          <p>
+            ESP32-WROOM-32 的 WiFi 只支持 2.4GHz，不支持 5GHz。如果路由器把 2.4G 和 5G 合并成一个名字，
+            或者你填的是 5G 的 SSID，就会一直卡在连接超时。解决办法：进路由器后台把两个频段分开命名
+            （例如 <code class="icode">MyWiFi-2.4G</code>），把代码里的 ssid 改成 2.4GHz 那个；手机开的热点也要确认是 2.4GHz。
+          </p>
+        </div>
+
+        <div class="callout callout-warn">
+          <div class="callout-title">串口全是乱码 = 波特率不对</div>
+          <p>
+            乱码几乎只有一个原因：串口监视器的波特率和程序里的 <code class="icode">Serial.begin()</code> 不一致。
+            教程统一用 115200，所以监视器右下角也要选 115200。另外确认开发板选的是 ESP32 Dev Module 而不是其他型号，
+            并检查是否装错串口驱动（CH340 / CP2102 对应不同芯片）。
+          </p>
+        </div>
+
+        <div class="callout callout-warn">
+          <div class="callout-title">GPIO6 ~ GPIO11 接了内部 Flash，不能乱用</div>
+          <p>
+            GPIO6 到 GPIO11 这 6 个引脚在模组内部已经连到 SPI Flash，用来存放程序和数据。
+            把它们当普通 IO 接外设，轻则读数错误，重则程序直接跑飞、无法启动。接线时把这一片引脚空着即可，
+            能用的是 GPIO4、5、12~19、21~23、25~27、32~39 这些。
+          </p>
+        </div>
+
+        <div class="callout callout-warn">
+          <div class="callout-title">下载失败：按住 BOOT 键再点上传</div>
+          <p>
+            提示 “Failed to connect to ESP32: Timed out waiting for packet header” 时，按住开发板上的 BOOT 键
+            → 点上传 → 等串口输出出现 “Connecting...” 再松开，通常就能下载进去。
+            如果仍然失败，换一根确认能传数据的 USB 线（很多线只能充电），并确认端口没被其他串口软件占用。
+          </p>
+        </div>
+
+        <div class="callout callout-warn">
+          <div class="callout-title">analogRead 在 WiFi 开启时会受影响</div>
+          <p>
+            ESP32 的 ADC2（对应 GPIO0、2、4、12~15、25~27）与 WiFi 共用硬件资源，
+            只要 WiFi 一开始工作，ADC2 上的 <code class="icode">analogRead()</code> 就会失败或读数乱跳。
+            做联网项目时请一律改用 ADC1 的引脚：GPIO32 ~ GPIO39。
+          </p>
+        </div>
+
+        <div class="callout callout-tip">
+          <div class="callout-title">给 WiFi 协议栈留出运行时间</div>
+          <p>
+            在 <code class="icode">loop()</code> 里加一个 <code class="icode">delay()</code> 或 <code class="icode">vTaskDelay()</code>，
+            让 WiFi 协议栈和系统任务有机会运行。如果 loop 里写 <code class="icode">while</code> 死等、
+            或者长时间不做任何延时，就会看到 “Task watchdog got triggered” 的看门狗复位，板子每隔几秒重启一次。
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 引脚速查表 ============================== -->
+    <section class="wrap py-12 sm:py-14">
+      <p class="sec-eyebrow">Pinout Reference</p>
+      <h2 class="sec-title">ESP32 常用引脚与功能速查</h2>
+      <p class="sec-desc">以 ESP32-WROOM-32 开发板（30 针 / 38 针常见版本）为准。接线前先看这张表，能省掉一半调试时间。</p>
+
+      <div class="mt-8 table-scroll">
+        <table class="table-mcu">
+          <thead>
+            <tr>
+              <th scope="col">引脚</th>
+              <th scope="col">可用功能</th>
+              <th scope="col">注意事项</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code class="icode">GPIO0</code></td>
+              <td>BOOT 按键、Strapping 引脚、普通数字 IO、ADC2 通道</td>
+              <td>上电瞬间为低电平会进入下载模式而不是运行程序；接按键时要保证松开时为高电平，否则程序不启动。</td>
+            </tr>
+            <tr>
+              <td><code class="icode">GPIO2</code></td>
+              <td>多数开发板的板载 LED（高电平点亮）、普通数字 IO、ADC2、PWM</td>
+              <td>同时是 Strapping 引脚，启动时会输出调试信息；不要接会把它拉低的外部电路。开 WiFi 后不能做 ADC。</td>
+            </tr>
+            <tr>
+              <td><code class="icode">GPIO4 / GPIO5</code></td>
+              <td>普通数字 IO、ADC2、PWM 输出、自定义 I2C 引脚</td>
+              <td>GPIO5 属于 Strapping 引脚，启动时需为高电平；接外部下拉电阻前先确认不影响启动。</td>
+            </tr>
+            <tr>
+              <td><code class="icode">GPIO12 ~ GPIO15</code></td>
+              <td>普通数字 IO、ADC2、PWM 输出</td>
+              <td>全是 Strapping 引脚，启动电平决定了 Flash 电压等配置；尤其 GPIO12 被拉高可能导致启动失败或反复重启，新手建议整组避开。</td>
+            </tr>
+            <tr>
+              <td><code class="icode">GPIO16 / GPIO17</code></td>
+              <td>普通数字 IO、PWM，默认是 UART2 的 RX / TX</td>
+              <td>WROOM 模组上可正常使用（WROVER 模组被 PSRAM 占用）。外接模块时注意是 3.3V 逻辑电平，不能直接接 5V 信号。</td>
+            </tr>
+            <tr>
+              <td><code class="icode">GPIO21 / GPIO22</code></td>
+              <td>默认 I2C 的 SDA（21）与 SCL（22），也可做普通 IO</td>
+              <td>用 Wire 库接 OLED、传感器时就是这两个脚，别再重复分配给其他用途。模块一般自带 4.7k 上拉，没带要自己加。</td>
+            </tr>
+            <tr>
+              <td><code class="icode">GPIO25 / GPIO26</code></td>
+              <td>真正的 8 位 DAC 模拟输出（<code class="icode">dacWrite</code>），也可做 ADC2</td>
+              <td>全芯片只有这两个脚能输出模拟电压。开 WiFi 后不要再用它们做 <code class="icode">analogRead</code>。</td>
+            </tr>
+            <tr>
+              <td><code class="icode">GPIO32 ~ GPIO39</code></td>
+              <td>ADC1 通道（12 位分辨率），WiFi 开启时仍可正常采集</td>
+              <td>做联网项目时优先用这一组做模拟输入；GPIO37、GPIO38 在部分模组上没有引出。</td>
+            </tr>
+            <tr>
+              <td><code class="icode">GPIO34 ~ GPIO39</code></td>
+              <td>仅输入（input only），无内部上拉 / 下拉电阻</td>
+              <td>只能读电平，不能 <code class="icode">digitalWrite</code>，也不能用 <code class="icode">INPUT_PULLUP</code>；需要上拉时外接 10k 电阻到 3.3V。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="hint mt-3">提示：不同厂家开发板的引脚丝印与数量略有差异，接线前请以手上板子的丝印和原理图为准。</p>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 完整代码 ============================== -->
+    <section class="wrap py-12 sm:py-14">
+      <p class="sec-eyebrow">Full Example</p>
+      <h2 class="sec-title">完整示例：WiFi 连接并打印 IP</h2>
+      <p class="sec-desc">
+        这段代码就是第 3 个专题的骨架：STA 模式连接路由器、带超时的连接循环、打印本机 IP，
+        并在 <code class="icode">loop()</code> 里做非阻塞的掉线重连检查。改掉 ssid 与密码即可直接编译上传。
+      </p>
+
+      <div class="code-block" data-lang="c" data-title="wifi_sta.ino —— STA 模式连接路由器">
+        <pre><code>/*
+ * wifi_sta.ino —— ESP32 STA 模式连接路由器并打印 IP
+ * 硬件：ESP32-WROOM-32 开发板
+ * 环境：Arduino IDE + esp32 board package，串口监视器波特率 115200
+ * 注意：ESP32 只支持 2.4GHz WiFi，ssid 请填 2.4G 频段的名称
+ */
+
+#include &lt;WiFi.h&gt;
+
+// ① 改成你自己的 WiFi 名称与密码（必须是 2.4GHz 频段）
+const char* ssid     = "你的WiFi名称";
+const char* password = "你的WiFi密码";
+
+// ② 连接超时时间：15 秒还没连上就先放弃，避免程序死等
+const unsigned long CONNECT_TIMEOUT_MS = 15000;
+
+void setup() {
+  Serial.begin(115200);          // 与串口监视器的波特率保持一致
+  delay(300);                    // 等串口稳定，否则开头几行会是乱码
+
+  Serial.println();
+  Serial.println("ESP32 WiFi STA demo start");
+
+  WiFi.mode(WIFI_STA);           // 明确设为 STA 模式（只连路由器，不开热点）
+  WiFi.setAutoReconnect(true);   // 打开底层自动重连
+  WiFi.begin(ssid, password);    // 开始连接路由器
+
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+  unsigned long startMs = millis();
+  // ③ 连接循环：每 500ms 查一次状态，超过 15s 就提示失败并退出
+  while (WiFi.status() != WL_CONNECTED) {
+    if (millis() - startMs &gt; CONNECT_TIMEOUT_MS) {
+      Serial.println();
+      Serial.println("Connect timeout: 检查 SSID / 密码 / 是否为 2.4GHz");
+      break;
+    }
+    delay(500);
+    Serial.print('.');
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println();
+    Serial.println("WiFi connected.");
+    Serial.print("IP address : ");
+    Serial.println(WiFi.localIP());     // 路由器分配到的 IP，手机同网段可访问
+    Serial.print("Subnet mask: ");
+    Serial.println(WiFi.subnetMask());
+    Serial.print("Gateway    : ");
+    Serial.println(WiFi.gatewayIP());
+    Serial.print("RSSI       : ");
+    Serial.print(WiFi.RSSI());          // 信号强度，越接近 0 越强
+    Serial.println(" dBm");
+  }
+}
+
+void loop() {
+  // ④ 非阻塞重连检查：每 2 秒看一次状态，掉线了才重新连接
+  static unsigned long lastCheckMs = 0;
+
+  if (millis() - lastCheckMs &gt;= 2000) {
+    lastCheckMs = millis();
+
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("WiFi lost, reconnecting...");
+      WiFi.disconnect();
+      WiFi.begin(ssid, password);   // 重新发起连接，绝不在 loop 里 while 死等
+    } else {
+      Serial.print("Still online, IP = ");
+      Serial.println(WiFi.localIP());
+    }
+  }
+
+  // ⑤ 给 WiFi 协议栈和系统任务留出运行时间，避免看门狗复位
+  delay(10);
+}</code></pre>
+      </div>
+
+      <p class="hint mt-3">
+        烧录后打开串口监视器（115200），先看到 Connecting to ... 和几个点号，连上后会打印 IP、网关与信号强度。
+        如果一直打印点号直到超时，请回到上面的「避坑提示」逐条排查。
+      </p>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 收尾说明 ============================== -->
+    <section class="wrap py-12 sm:py-14">
+      <div class="card card-pad">
+        <p class="sec-eyebrow">Note</p>
+        <h2 class="text-base font-semibold">关于本页的教程链接</h2>
+        <p class="mt-3 max-w-3xl text-[13px] leading-relaxed text-muted">
+          本页 7 张卡片的链接目前都是本页锚点占位（如 <code class="icode">href="tutorials/esp32-wifi.html"</code>），
+          点击只会在当前页面内跳转，并没有对应的独立文章页。正式发布时请把每张卡片的
+          <code class="icode">href</code> 换成真实文章地址，例如 <code class="icode">esp32/wifi-sta.html</code>
+          或把正文直接写在锚点位置。新建文章页可以直接复制 <code class="icode">article-template.html</code>：
+          它已经包含与本页一致的页头、页脚、目录、代码块与上下篇导航样式，替换标题和正文即可上线。
+        </p>
+        <div class="mt-5 flex flex-wrap gap-2.5">
+          <a href="article-template.html" class="btn-outline">查看文章模板</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

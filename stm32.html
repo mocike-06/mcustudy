@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STM32 HAL 库教程 · STM32F103C8T6 从环境搭建到综合项目 | McuStudy</title>
+  <meta name="description" content="STM32 HAL 库教程专题：以 STM32F103C8T6（Cortex-M3）为例，用 STM32CubeMX + Keil MDK 讲透 GPIO、USART 串口、定时器 PWM、ADC 采集、I2C 与 OLED、外部中断，附 HAL 常用函数速查表、新手避坑提示与数字电压表综合项目。">
+  <meta name="keywords" content="STM32,STM32F103C8T6,HAL库,STM32CubeMX,Keil MDK,GPIO,USART,串口,PWM,定时器,ADC,I2C,OLED,外部中断,数字电压表,嵌入式">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/site.js" defer></script>
+</head>
+
+<body data-page="stm32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 页面 Hero ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-12 sm:py-14">
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="index.html" class="hover:text-brand-600">首页</a><span>/</span><span class="text-muted">STM32</span>
+        </nav>
+        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">STM32 HAL 库教程</h1>
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+          从 51 的 <code class="icode">P1 = 0xFE;</code> 直接写寄存器，切换到 32 位 ARM 的工程化开发方式：用 STM32CubeMX 图形化配置时钟树与引脚，用 HAL 库函数代替手写寄存器，在 STM32F103C8T6（Cortex-M3，主频 72MHz）上跑通 GPIO、串口、定时器 PWM、ADC、I2C 与外部中断。HAL 库的取舍是牺牲一点执行效率与代码体积，换来更短的开发周期、跨型号的可移植性和官方文档与例程支撑——对课设、竞赛和毕设来说，这笔交易非常划算。学完之后你能独立走完“配置 → 写代码 → 编译下载 → 定位问题”的完整闭环，并做出数字电压表这类综合小项目。
+        </p>
+        <div class="mt-6 flex flex-wrap gap-2.5">
+          <span class="stat-pill"><b>8</b> 个专题</span>
+          <span class="stat-pill">芯片：<b>STM32F103C8T6</b></span>
+          <span class="stat-pill">工具：<b>CubeMX + Keil MDK</b></span>
+          <span class="stat-pill">建议周期：<b>6~8 周</b></span>
+        </div>
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 从 51 到 STM32 的思维转变 ============================== -->
+    <section class="wrap py-12 sm:py-14">
+      <div class="card card-pad">
+        <p class="sec-eyebrow">Mindset Shift</p>
+        <h2 class="text-base font-semibold">从 51 到 STM32 的思维转变</h2>
+        <p class="mt-2 text-[13px] leading-relaxed text-muted">
+          51 的经验不会白费，但有三件事必须先换个思路，否则第一条编译不过的报错就会把人劝退。
+        </p>
+        <div class="mt-6 grid gap-6 sm:grid-cols-3">
+          <div class="mini-step">
+            <span class="step-num">1</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">从直接写寄存器到调用 HAL 函数</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                51 里一行 <code class="icode">P1 = 0xFE;</code> 就完事；STM32 里一行 <code class="icode">HAL_GPIO_WritePin()</code> 背后是“开时钟 → 配模式 → 写 BSRR”三件事。HAL 不是更难，而是把细节收进了初始化结构体，你要做的是看懂 CubeMX 生成的初始化代码，而不是背函数。
+              </p>
+            </div>
+          </div>
+          <div class="mini-step">
+            <span class="step-num">2</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">从 8 位到 32 位：先有时钟，才有外设</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                51 上电就能用 IO 口，STM32 的每个外设都要先“开时钟”才通电。系统时钟由 HSE 经 PLL 倍频得到 72MHz，串口波特率、定时器周期、ADC 采样时间全部由它推导——时钟树上错一个节点，外设就完全不工作。
+              </p>
+            </div>
+          </div>
+          <div class="mini-step">
+            <span class="step-num">3</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">从裸机 while(1) 到中断与 NVIC 优先级</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                51 只有几个固定中断号；STM32 有几十条可屏蔽中断，需要理解抢占优先级与响应优先级的分组。通用做法是：中断里只置标志位、存数据，真正的活儿留给主循环处理。
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 基础篇 ============================== -->
+    <section class="wrap py-14 sm:py-16">
+      <p class="sec-eyebrow">Foundations</p>
+      <h2 class="sec-title">基础篇：从 51 转过来，先把这 5 件事理顺</h2>
+      <p class="sec-desc">
+        STM32 真正劝退新手的不是外设多，而是它换了一整套世界观：72MHz、时钟树、句柄结构体、回调函数。
+        这 5 篇把 51 与 STM32 之间的那道沟填平——从“ARM 是什么”讲到“为什么点灯不亮是忘了开时钟”。
+      </p>
+
+      <div class="callout callout-info mt-8">
+        <div class="callout-title">如果你是直接从 STM32 开始的</div>
+        建议按 <b class="font-semibold text-ink">基础篇 → 环境搭建 → GPIO → 串口</b> 的顺序走。
+        尤其是「时钟系统」和「寄存器、标准库与 HAL」这两篇——新手在 STM32 上卡住的时间，八成花在这两件事上：
+        <b class="font-semibold text-ink">忘了开外设时钟</b>，以及<b class="font-semibold text-ink">看不懂 HAL 的回调为什么会被调用</b>。
+      </div>
+
+      <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
+        <!-- 基础 1 -->
+        <a id="b-arm" href="tutorials/stm32-basic-arm.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                <rect x="9" y="9" width="6" height="6"/>
+                <path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">ARM 架构与存储器映射</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            ARM 只设计内核不生产芯片、Cortex-M3 强在哪、AHB/APB 总线各挂什么外设、
+            4GB 地址空间怎么划分、中断向量表与启动流程（从上电到进 <code class="icode">main</code>）。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">Cortex-M3</span>
+            <span class="badge-plain">存储器映射</span>
+            <span class="badge-plain">启动流程</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 2 -->
+        <a id="b-clock" href="tutorials/stm32-basic-clock.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M12 7v5l3 2"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">时钟系统：为什么第一件事是配时钟</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            HSI/HSE/LSI/LSE 各自用途、PLL 怎么把 8MHz 倍频到 72MHz（算式一步步写出来）、
+            完整时钟树、APB1 为什么只有 36MHz，以及“访问任何外设前必须先开时钟”这条铁律。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">PLL 倍频</span>
+            <span class="badge-plain">时钟树</span>
+            <span class="badge-plain">外设时钟使能</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 3 -->
+        <a id="b-hal" href="tutorials/stm32-basic-hal.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m12 2 9 5-9 5-9-5 9-5Z"/>
+                <path d="m3 12 9 5 9-5"/>
+                <path d="m3 17 9 5 9-5"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">寄存器、标准库与 HAL</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            同一件“点灯”用三种写法各写一遍做对比。重点讲透两件新手最容易懵的事：
+            <b class="font-semibold text-ink">句柄结构体是什么</b>、<b class="font-semibold text-ink">回调函数是谁在什么时候调用的</b>，
+            以及 <code class="icode">MspInit</code> 为什么要拆成两半。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">三种写法对比</span>
+            <span class="badge-plain">句柄结构体</span>
+            <span class="badge-plain">回调机制</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 4 -->
+        <a id="b-c" href="tutorials/stm32-basic-c.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M8 3H7a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h1"/>
+                <path d="M16 3h1a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-1"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">C 语言进阶：指针、结构体与回调</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            指针的类型为什么重要、结构体指针与 <code class="icode">-&gt;</code>、
+            <b class="font-semibold text-ink">函数指针怎么实现回调</b>、
+            <code class="icode">const</code>/<code class="icode">volatile</code>/<code class="icode">static</code> 不加会出什么事。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">结构体指针</span>
+            <span class="badge-plain">函数指针</span>
+            <span class="badge-plain">volatile</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 5 -->
+        <a id="b-level" href="tutorials/stm32-basic-level.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">3.3V 电平与硬件安全</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            从 5V 的 51 转过来最容易在这里烧板子。5V 容忍（FT）引脚怎么查、电平转换三种土办法、
+            GPIO 八种模式怎么选、ADC 只能进 0~3.3V。附一张<b class="font-semibold text-ink">“能不能接”对照表</b>。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">5V 容忍引脚</span>
+            <span class="badge-plain">电平转换</span>
+            <span class="badge-plain">GPIO 八种模式</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 8 个教程专题 ============================== -->
+    <section class="wrap pb-14 sm:pb-16">
+      <p class="sec-eyebrow">STM32 Tutorials</p>
+      <h2 class="sec-title">8 个教程专题</h2>
+      <p class="sec-desc">
+        按顺序学最省力：先把环境和下载跑通，再逐个攻克外设，最后用一个综合项目把知识串起来。每个专题都给出可编译的最小工程思路与常见报错排查方向。
+      </p>
+
+      <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
+        <!-- 01 环境 -->
+        <a id="c-env" href="tutorials/stm32-env.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3v10m0 0 4-4m-4 4-4-4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold">Keil MDK 环境搭建与芯片包安装</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            装好 MDK5、在 Pack Installer 里安装 STM32F1 系列器件支持包，用 STM32CubeMX 生成第一个能编译的工程，再用 ST-Link 通过 SWD 把程序烧进板子。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">MDK5 安装</span>
+            <span class="badge-plain">Pack Installer</span>
+            <span class="badge-plain">SWD / ST-Link</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <!-- 02 GPIO -->
+        <a id="c-gpio" href="tutorials/stm32-gpio.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M10 3v2M14 3v2M10 19v2M14 19v2M3 10h2M3 14h2M19 10h2M19 14h2"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold">STM32 GPIO 输入输出</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            点亮板载 LED、读一个按键，把 GPIO 的推挽与开漏、上拉与下拉输入一次讲透；顺便解释为什么机械按键必须做消抖，以及板载 LED 为什么常常是低电平点亮。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain font-mono">HAL_GPIO_WritePin</span>
+            <span class="badge-plain">推挽 / 开漏</span>
+            <span class="badge-plain">按键消抖</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <!-- 03 USART -->
+        <a id="c-usart" href="tutorials/stm32-usart.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 12h4l2-6 3 12 3-9 2 3h4"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold">USART 串口通信</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            在 CubeMX 里配好波特率与引脚，用 <code class="icode">HAL_UART_Transmit</code> 发送、用中断接收，再把 <code class="icode">printf</code> 重定向到串口方便调试；最后给出接收不定长数据的三种方案。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain font-mono">HAL_UART_Transmit</span>
+            <span class="badge-plain">printf 重定向</span>
+            <span class="badge-plain">不定长接收</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <!-- 04 定时器与 PWM -->
+        <a id="c-timer-pwm" href="tutorials/stm32-timer-pwm.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 15V9h4.5v6H12V9h4.5v6H21"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold">定时器与 PWM 输出</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            搞清预分频（PSC）与自动重装（ARR）怎样决定定时周期，用 <code class="icode">HAL_TIM_Base_Start_IT</code> 产生稳定的 1ms 中断，再用 PWM 调 LED 亮度、控舵机角度。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">PSC 与 ARR</span>
+            <span class="badge-plain font-mono">HAL_TIM_Base_Start_IT</span>
+            <span class="badge-plain font-mono">__HAL_TIM_SET_COMPARE</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <!-- 05 ADC -->
+        <a id="c-adc" href="tutorials/stm32-adc.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 12c2.5-6.5 5-6.5 7.5 0s5 6.5 7.5 0"/><path d="M3 20h18"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold">ADC 模拟采集</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            12 位分辨率与参考电压的意义、轮询/中断/DMA 三种读取方式的取舍、多通道扫描为什么要配合 DMA，以及 ADC 原始值到真实电压的换算公式。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">12 位分辨率</span>
+            <span class="badge-plain">轮询 / 中断 / DMA</span>
+            <span class="badge-plain font-mono">HAL_ADC_GetValue</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <!-- 06 I2C + OLED -->
+        <a id="c-i2c-oled" href="tutorials/stm32-i2c-oled.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="13" rx="2"/><path d="M7 9h6M7 13h10"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold">I2C 通信与 OLED 屏幕</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            从 I2C 的起始位、应答位讲到 SSD1306 的命令与数据区分，用 <code class="icode">HAL_I2C_Master_Transmit</code> 把显存一次性刷到 0.96 寸 OLED，并移植常用 ASCII 与汉字字库。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">I2C 时序与地址</span>
+            <span class="badge-plain font-mono">HAL_I2C_Master_Transmit</span>
+            <span class="badge-plain">SSD1306 显存</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <!-- 07 外部中断 -->
+        <a id="c-exti" href="tutorials/stm32-exti.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M13 2 4.5 13H11l-1 9 8.5-11H12l1-9Z"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold">外部中断</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            按键接到哪条 EXTI 线、NVIC 优先级分组怎么算、<code class="icode">HAL_GPIO_EXTI_Callback</code> 什么时候被调用，以及中断服务函数里绝对不能做的那几件事。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">EXTI 线映射</span>
+            <span class="badge-plain">NVIC 优先级分组</span>
+            <span class="badge-plain font-mono">HAL_GPIO_EXTI_Callback</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <!-- 08 综合项目 -->
+        <a id="c-voltmeter" href="tutorials/stm32-voltmeter.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 18a8 8 0 1 1 16 0"/><path d="m12 18 4-6"/><circle cx="12" cy="18" r="1"/>
+              </svg>
+            </span>
+            <span class="badge-hard">综合</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold">综合项目：STM32 数字电压表</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            ADC 采集 + OLED 显示 + 串口上报，把前面几个专题串成一个能演示、能写进报告的小系统，含分压电路设计与软件滤波。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">ADC + OLED + 串口</span>
+            <span class="badge-plain">分压电路</span>
+            <span class="badge-plain">软件滤波</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 避坑提示 ============================== -->
+    <section class="wrap pb-14 sm:pb-16">
+      <p class="sec-eyebrow">Pitfalls</p>
+      <h2 class="sec-title">避坑提示：新手最容易栽的五个地方</h2>
+      <p class="sec-desc">
+        下面这几条几乎每个人都要踩一遍，提前看一遍能省下好几个晚上。排查外设问题时的通用顺序是：先看时钟，再看引脚复用，最后才怀疑代码逻辑。
+      </p>
+
+      <div class="mt-8 grid gap-4">
+
+        <div class="callout callout-warn">
+          <div class="callout-title">外设完全没反应？先确认时钟使能了没有</div>
+          <p>
+            STM32 的每个外设（GPIO / USART / TIM / ADC / I2C）在总线上默认都是关着的，时钟不开，寄存器怎么写都不会有反应。CubeMX 会帮你生成
+            <code class="icode">__HAL_RCC_GPIOA_CLK_ENABLE()</code> 这类语句；一旦自己手写初始化，或者临时启用了一个新端口、新外设，就必须补上对应的
+            <code class="icode">__HAL_RCC_xxx_CLK_ENABLE()</code>。典型现象是：程序明明在跑，串口有打印，引脚却一动不动。
+          </p>
+        </div>
+
+        <div class="callout callout-warn">
+          <div class="callout-title">串口乱码：先查时钟树，再查波特率</div>
+          <p>
+            绝大多数乱码不是接线问题，而是波特率算错：HAL 库用系统时钟推导 USARTDIV，如果
+            <code class="icode">SystemClock_Config()</code> 没被调用，或者板子上的晶振是 8MHz 而 CubeMX 里填成了别的值，波特率就会整体偏掉。排查顺序：
+            ① 确认 <code class="icode">HSE_VALUE</code> 与板上晶振一致；② 确认时钟树上 USART1 挂在 APB2（72MHz）；③ 确认串口助手也是 115200-8-N-1，并且接了 GND。
+          </p>
+        </div>
+
+        <div class="callout callout-warn">
+          <div class="callout-title">HAL 库回调函数里不要做耗时操作</div>
+          <p>
+            <code class="icode">HAL_GPIO_EXTI_Callback()</code> 是在中断上下文里执行的：里面不能调用 <code class="icode">HAL_Delay()</code>
+            （SysTick 中断优先级默认被设为最低 0x0F，在优先级更高的 EXTI 里等它等于死等），不能 <code class="icode">printf()</code>
+            （串口发送既耗时又不可重入），也不要跑长循环。正确做法是只改一个 <code class="icode">volatile</code> 标志位或把数据塞进环形缓冲区，真正的处理放到 <code class="icode">main</code>
+            的 <code class="icode">while(1)</code> 里做。
+          </p>
+        </div>
+
+        <div class="callout callout-warn">
+          <div class="callout-title">CubeMX 重新生成代码会覆盖 USER CODE 之外的内容</div>
+          <p>
+            CubeMX 只保留 <code class="icode">USER CODE BEGIN xxx</code> 与 <code class="icode">USER CODE END xxx</code> 之间的内容，其余部分每次
+            Generate Code 都会重新生成。自己写的函数、全局变量、额外的 <code class="icode">#include</code> 一定要放进对应的 USER CODE 区；否则今天调好的中断回调，明天重新生成一次就凭空消失了。
+          </p>
+        </div>
+
+        <div class="callout callout-warn">
+          <div class="callout-title">烧录成功但程序不跑：先看 BOOT 跳线与复位</div>
+          <p>
+            下载提示成功、灯却不闪，先别怀疑代码：确认 BOOT0 跳线在 0（从 Flash 启动），BOOT0/BOOT1 组合不对会进系统存储器或 SRAM 启动；再按一次复位键，有些 ST-Link 下载完成后不会自动复位；
+            最后检查是否把 SWD 用的 PA13/PA14 复用成了普通 IO，那样下次就连不上下载器了。
+          </p>
+        </div>
+
+      </div>
+
+      <div class="callout callout-tip mt-4">
+        <div class="callout-title">省事小技巧：把 CubeMX 的引脚配置截图存档</div>
+        <p>
+          在 CubeMX 的 Pinout 视图里，把引脚分配图、时钟树、每个外设的参数页各截一张图，连同工程一起放进文件夹。写实验报告、画原理图、给同学讲接线时直接引用；
+          过两周回头改代码，也比重新打开 CubeMX 一个个翻参数页快得多。
+        </p>
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== HAL 常用函数速查 ============================== -->
+    <section class="wrap pb-14 sm:pb-16">
+      <p class="sec-eyebrow">Cheat Sheet</p>
+      <h2 class="sec-title">HAL 库常用函数速查</h2>
+      <p class="sec-desc">
+        初学阶段 90% 的代码都是这十几个函数拼出来的，先混个脸熟，写的时候回来查一眼即可。表中 <code class="icode">&amp;huart1</code> 这类句柄由 CubeMX 生成，不要自己改名。
+      </p>
+
+      <div class="table-scroll mt-8">
+        <table class="table-mcu">
+          <thead>
+            <tr>
+              <th>函数</th>
+              <th>作用</th>
+              <th>典型用法</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code class="icode">HAL_GPIO_WritePin</code></td>
+              <td>把指定引脚置高或置低，一次只改一个引脚</td>
+              <td><code class="icode">HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);</code> // 低电平点亮板载 LED</td>
+            </tr>
+            <tr>
+              <td><code class="icode">HAL_GPIO_ReadPin</code></td>
+              <td>读引脚当前电平，返回 GPIO_PIN_SET 或 GPIO_PIN_RESET</td>
+              <td><code class="icode">if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET) { /* 按键按下 */ }</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">HAL_GPIO_TogglePin</code></td>
+              <td>翻转引脚电平，做 LED 闪烁最方便</td>
+              <td><code class="icode">HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">HAL_Delay</code></td>
+              <td>基于 SysTick 的毫秒级阻塞延时，中断里不能用</td>
+              <td><code class="icode">HAL_Delay(500);</code> // 等待 500ms</td>
+            </tr>
+            <tr>
+              <td><code class="icode">HAL_UART_Transmit</code></td>
+              <td>阻塞方式发送一串字节，发完才返回</td>
+              <td><code class="icode">HAL_UART_Transmit(&amp;huart1, (uint8_t *)buf, len, 100);</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">HAL_UART_Receive_IT</code></td>
+              <td>开启中断接收，收满指定长度后进接收完成回调</td>
+              <td><code class="icode">HAL_UART_Receive_IT(&amp;huart1, rx_buf, 1);</code> // 单字节中断接收</td>
+            </tr>
+            <tr>
+              <td><code class="icode">HAL_TIM_Base_Start_IT</code></td>
+              <td>启动定时器并打开更新中断</td>
+              <td><code class="icode">HAL_TIM_Base_Start_IT(&amp;htim2);</code> // 每 1ms 进一次中断</td>
+            </tr>
+            <tr>
+              <td><code class="icode">__HAL_TIM_SET_COMPARE</code></td>
+              <td>运行时动态修改 PWM 比较值，即改占空比</td>
+              <td><code class="icode">__HAL_TIM_SET_COMPARE(&amp;htim3, TIM_CHANNEL_1, 500);</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">HAL_ADC_Start</code></td>
+              <td>启动 ADC 转换（轮询模式，需再调 PollForConversion 等结果）</td>
+              <td><code class="icode">HAL_ADC_Start(&amp;hadc1);</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">HAL_ADC_GetValue</code></td>
+              <td>读取最近一次的转换结果，12 位量程为 0~4095</td>
+              <td><code class="icode">uint16_t raw = HAL_ADC_GetValue(&amp;hadc1);</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">HAL_I2C_Master_Transmit</code></td>
+              <td>I2C 主机发送数据，OLED 写命令与写数据都靠它</td>
+              <td><code class="icode">HAL_I2C_Master_Transmit(&amp;hi2c1, 0x78, buf, len, 100);</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">HAL_NVIC_SetPriority</code></td>
+              <td>设置某条中断的抢占优先级与响应优先级</td>
+              <td><code class="icode">HAL_NVIC_SetPriority(EXTI0_IRQn, 1, 0);</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">HAL_NVIC_EnableIRQ</code></td>
+              <td>使能 NVIC 中对应的中断线，不调用则中断永远不来</td>
+              <td><code class="icode">HAL_NVIC_EnableIRQ(EXTI0_IRQn);</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 完整代码示例 ============================== -->
+    <section class="wrap pb-14 sm:pb-16">
+      <p class="sec-eyebrow">Code Sample</p>
+      <h2 class="sec-title">完整示例：串口重定向 + main 函数骨架</h2>
+      <p class="sec-desc">
+        这份代码可以直接贴在 CubeMX 生成的 <code class="icode">main.c</code> 里（重定向部分放在 USER CODE 区），编译下载后打开串口助手就能看到打印。
+      </p>
+
+      <div class="code-block mt-8" data-lang="c" data-title="main.c —— printf 重定向到 USART1">
+        <pre><code>/**
+ * @file    main.c
+ * @brief   STM32F103C8T6 + HAL 库：把 printf 重定向到 USART1 的完整示例
+ * @note    工程由 STM32CubeMX 生成，本文件只改 USER CODE BEGIN / END 之间的内容
+ *          串口参数：115200-8-N-1，引脚 PA9(TX) / PA10(RX)
+ */
+
+#include "main.h"
+#include "usart.h"
+#include "gpio.h"
+#include &lt;stdio.h&gt;              /* printf、fputc 的声明都在这里 */
+
+/* ================= 1. 重定向：让 printf 走串口 ================= */
+/* Keil MDK(ARMCC) 里的 printf 最终调用 fputc 输出一个字符，覆盖它即可 */
+int fputc(int ch, FILE *f)
+{
+    uint8_t byte = (uint8_t)ch;                     /* 只取低 8 位；中文要按字节流发送 */
+    HAL_UART_Transmit(&amp;huart1, &amp;byte, 1, 10);      /* 阻塞发送 1 字节，超时 10ms */
+    return ch;                                      /* 必须有返回值，否则 printf 会中途停住 */
+}
+
+/* 关闭半主机模式：少了这两句，Keil 下可能一直卡在 _sys_exit 里出不来 */
+void _sys_exit(int x) { x = x; }
+void _ttywrch(int ch)  { ch = ch; }
+
+/* 如果用 STM32CubeIDE(GCC)，把重定向改成实现 __io_putchar 即可 */
+#ifdef __GNUC__
+int __io_putchar(int ch)
+{
+    HAL_UART_Transmit(&amp;huart1, (uint8_t *)&amp;ch, 1, 10);
+    return ch;
+}
+#endif
+
+/* ================= 2. 系统时钟：由 CubeMX 生成 ================= */
+/* HSE 8MHz 经 PLL 9 倍频得到 SYSCLK = 72MHz；APB2 = 72MHz，USART1 就挂在这条总线上 */
+void SystemClock_Config(void)
+{
+    /* 函数体由 CubeMX 生成，不要手改：重新生成代码时会被整体覆盖 */
+}
+
+/* ================= 3. 主函数 ================= */
+int main(void)
+{
+    uint32_t cnt = 0;             /* 变量声明统一放在最前面，兼容 C90 编译模式 */
+
+    HAL_Init();                   /* 复位所有外设、初始化 Flash 接口与 SysTick(1ms) */
+    SystemClock_Config();         /* 必须在 HAL_Init 之后调用，否则波特率、延时全部算错 */
+    MX_GPIO_Init();               /* PC13 推挽输出，接板载 LED */
+    MX_USART1_UART_Init();        /* 115200-8-N-1，无硬件流控 */
+
+    printf("STM32F103C8T6 启动完成\r\n");                 /* \r\n 是串口助手习惯的换行 */
+    printf("SYSCLK = %lu Hz\r\n", HAL_RCC_GetSysClockFreq());
+
+    while (1)
+    {
+        HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);          /* 翻转 LED，观察程序是否在跑 */
+        printf("第 %lu 次循环：LED 已翻转\r\n", ++cnt);
+        HAL_Delay(500);                                   /* SysTick 提供的毫秒级延时 */
+    }
+}</code></pre>
+      </div>
+
+      <p class="hint mt-3">
+        注意：<code class="icode">fputc</code> 是阻塞发送，在中断里调用会拖慢响应；调通之后建议改成 DMA + 空闲中断的发送方式。
+      </p>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 结尾说明 ============================== -->
+    <section class="wrap pb-16 sm:pb-20">
+      <div class="card card-pad">
+        <p class="sec-eyebrow">Note</p>
+        <h2 class="sec-title">关于本页的教程链接</h2>
+        <p class="mt-3 max-w-3xl text-[13px] leading-relaxed text-muted">
+          本页 8 张卡片的链接目前都是页内锚点占位（形如 <code class="icode">href="tutorials/stm32-usart.html"</code>），点击只在当前页面跳转，还没有对应的正文。
+          正式发布时，请把每张卡片的 <code class="icode">href</code> 换成真实文章地址，例如 <code class="icode">stm32/usart.html</code>；
+          新文章的页头、页脚与代码块结构可以直接复制 <code class="icode">article-template.html</code>，改掉标题与正文即可。
+        </p>
+        <p class="hint mt-3">
+          小提示：替换链接时建议保留某个 <code class="icode">id="c-usart"</code> 形式的锚点，方便首页热门教程等页面深链到具体小节。
+        </p>
+        <a href="article-template.html" class="btn-outline mt-5">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 3h7v7M21 3l-9 9M19 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4"/>
+          </svg>
+          查看教程模板
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

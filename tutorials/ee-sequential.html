@@ -1,0 +1,3050 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>时序逻辑电路：锁存器、触发器与寄存器 - McuStudy</title>
+  <meta name="description" content="知识体系第 17 篇（阎石《数字电子技术基础》第 6 版 第 5、6 章）：时序逻辑与组合逻辑的分界线「有记忆」、锁存器与触发器的电平与边沿之别、基本 RS 锁存器的四态与 D 锁存器的空翻、主从与边沿触发、JK 与 T 触发器、异步置位复位端、建立时间与保持时间、寄存器与 74HC595 两级锁存、同步与异步计数器 74LS161/74LS160 改造任意进制、Moore 与 Mealy 状态机与完整分析方法，并逐条落到单片机里的配置寄存器、读-改-写丢位、595 数码管乱闪、定时器分频、按键状态机与跨时钟域打两拍。">
+  <meta name="keywords" content="时序逻辑,组合逻辑,记忆,状态,状态表,状态图,时序图,锁存器,触发器,基本RS锁存器,门控RS锁存器,D锁存器,空翻,race-through,主从触发器,边沿触发,上升沿,下降沿,维持阻塞,JK触发器,T触发器,特性方程,异步置位,异步复位,建立时间,保持时间,亚稳态,寄存器,移位寄存器,74HC595,输出锁存器,计数器,74LS161,74LS160,反馈清零法,反馈置数法,毛刺,同步计数器,异步计数器,级联,分频比,状态机,Moore,Mealy,状态编码,状态转移方程,输出方程,驱动方程,读改写,BSRR,ODR,IDR,跨时钟域,打两拍,按键消抖">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">时序逻辑电路：锁存器、触发器与寄存器</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          时序逻辑电路：锁存器、触发器与寄存器
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          上一篇的组合逻辑，输出只看「现在」——输入变了，输出跟着变，不算旧账。这一篇要往电路里加一样全新的东西：<b class="font-semibold text-ink">记忆</b>。有了它，电路才能「记住刚才按了键」「记住现在已经数到 7」「记住配置是 9600 波特率」。你调试时遇到的那些「玄学」——数码管更新时乱闪一下、改了一个 IO 结果别的灯灭了、跨时钟域的信号偶尔把状态机带跑、芯片跑热了就偶尔算错——<b class="font-semibold text-ink">根子全在这一篇里</b>：什么器件能记住一位、它什么时候记住、它凭什么能记住得可靠。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="badge-brand">学科基础</span>
+          <span class="stat-pill">第 1 层 · 数字电子技术</span>
+          <span class="stat-pill">第 <b>17</b> 篇</span>
+          <span class="stat-pill">教材：<b>阎石 第 5、6 章</b></span>
+          <span class="stat-pill">平台：<b>51 / STM32 通用</b></span>
+          <span class="stat-pill">阅读约 <b>42</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-memory">「有记忆」：时序逻辑的分界</a>
+          <a class="toc-link is-sub" href="#sub-latch">锁存器：从基本 RS 到 D 锁存器</a>
+          <a class="toc-link is-sub" href="#sub-edge">主从与边沿触发</a>
+          <a class="toc-link is-sub" href="#sub-jk-t">JK 触发器与 T 触发器</a>
+          <a class="toc-link is-sub" href="#sub-timing">异步端、建立时间与保持时间</a>
+          <a class="toc-link is-sub" href="#sub-register">寄存器与移位寄存器</a>
+          <a class="toc-link is-sub" href="#sub-counter">计数器：同步、异步与任意进制</a>
+          <a class="toc-link is-sub" href="#sub-fsm">状态机：Moore 与 Mealy</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link is-sub" href="#calc-clear">例一：反馈清零法做十二进制</a>
+          <a class="toc-link is-sub" href="#calc-load">例二：反馈置数法与毛刺对比</a>
+          <a class="toc-link is-sub" href="#calc-equation">例三：从状态图写三个方程</a>
+          <a class="toc-link is-sub" href="#calc-analysis">例四：门级电路的完整分析</a>
+          <a class="toc-link is-sub" href="#calc-fmax">例五：建立时间预算与最高频率</a>
+          <a class="toc-link is-sub" href="#calc-divide">例六：分频比与级联片数</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#mcu-config">配置寄存器就是一组触发器</a>
+          <a class="toc-link is-sub" href="#mcu-rmw">读-改-写 IO 为什么丢位</a>
+          <a class="toc-link is-sub" href="#mcu-595">74HC595 串行扩展与数码管</a>
+          <a class="toc-link is-sub" href="#mcu-div">用计数器分频得到精确时钟</a>
+          <a class="toc-link is-sub" href="#mcu-key">按键的边沿检测与消抖状态机</a>
+          <a class="toc-link is-sub" href="#mcu-sync">跨时钟域为什么要打两拍</a>
+          <a class="toc-link is-sub" href="#mcu-fmax">建立保持时间与「能不能超频」</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-memory">「有记忆」：时序逻辑的分界</a>
+            <a class="toc-link is-sub" href="#sub-latch">锁存器：从基本 RS 到 D 锁存器</a>
+            <a class="toc-link is-sub" href="#sub-edge">主从与边沿触发</a>
+            <a class="toc-link is-sub" href="#sub-jk-t">JK 触发器与 T 触发器</a>
+            <a class="toc-link is-sub" href="#sub-timing">异步端、建立时间与保持时间</a>
+            <a class="toc-link is-sub" href="#sub-register">寄存器与移位寄存器</a>
+            <a class="toc-link is-sub" href="#sub-counter">计数器：同步、异步与任意进制</a>
+            <a class="toc-link is-sub" href="#sub-fsm">状态机：Moore 与 Mealy</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link is-sub" href="#calc-clear">例一：反馈清零法做十二进制</a>
+            <a class="toc-link is-sub" href="#calc-load">例二：反馈置数法与毛刺对比</a>
+            <a class="toc-link is-sub" href="#calc-equation">例三：从状态图写三个方程</a>
+            <a class="toc-link is-sub" href="#calc-analysis">例四：门级电路的完整分析</a>
+            <a class="toc-link is-sub" href="#calc-fmax">例五：建立时间预算与最高频率</a>
+            <a class="toc-link is-sub" href="#calc-divide">例六：分频比与级联片数</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#mcu-config">配置寄存器就是一组触发器</a>
+            <a class="toc-link is-sub" href="#mcu-rmw">读-改-写 IO 为什么丢位</a>
+            <a class="toc-link is-sub" href="#mcu-595">74HC595 串行扩展与数码管</a>
+            <a class="toc-link is-sub" href="#mcu-div">用计数器分频得到精确时钟</a>
+            <a class="toc-link is-sub" href="#mcu-key">按键的边沿检测与消抖状态机</a>
+            <a class="toc-link is-sub" href="#mcu-sync">跨时钟域为什么要打两拍</a>
+            <a class="toc-link is-sub" href="#mcu-fmax">建立保持时间与「能不能超频」</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先说一个你一定遇到过的现场。你写了一个按键程序：按下按键，数码管显示的数字加一。你怕按键抖动，很自然地加了延时消抖：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="新手最常写的那版按键消抖">
+            <pre><code>/* 直觉版：检测到低电平就等 20ms 再看一眼 */
+if (KEY == 0)
+{
+    delay_ms(20);          /* ★ 这 20ms 里 CPU 什么都不干 */
+    if (KEY == 0)
+    {
+        count++;           /* 认为是一次真实按下 */
+        display(count);
+    }
+}</code></pre>
+          </div>
+
+          <p class="mt-3">这段代码能跑，但你会遇到三个说不清的现象：<b class="font-semibold text-ink">① 按下的一瞬间数码管会暗一下</b>（因为消抖那 20ms 里动态扫描停了）；<b class="font-semibold text-ink">② 长按不会连续加</b>（一次按下只加一次）；<b class="font-semibold text-ink">③ 两个按键同时按，其中一个常常没反应</b>（两个 20ms 串起来等，第二个按键的抖动窗口已经过去了）。你把这些当成「小瑕疵」忍了，其实它是<b class="font-semibold text-ink">你的程序里没有「状态」这个概念</b>的直接后果。</p>
+
+          <p class="mt-3">再换一个现场，这次是硬件。你做了 8 位数码管，用两片 74HC595 串起来驱动，代码是这样写的：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="数码管乱闪的那版 595 驱动">
+            <pre><code>/* 移位：把 16 位数据一位一位推进 595 */
+shiftOut(DATA_PIN, CLK_PIN, MSBFIRST, high_byte);
+shiftOut(DATA_PIN, CLK_PIN, MSBFIRST, low_byte);
+/* 写完就完事了 —— 忘了拉锁存引脚 */
+latch_never_toggled();</code></pre>
+          </div>
+
+          <p class="mt-3">现象是：<b class="font-semibold text-ink">每次更新显示时，数码管会闪过一串乱七八糟的字符</b>。你怀疑是「595 质量不好」「时钟太快」「电源不稳」，换了一片又一片，问题一模一样。真正的原因非常朴素：<b class="font-semibold text-ink">74HC595 里面有两个寄存器，你只喂了第一个</b>。移位寄存器在推进数据的过程中，输出是一直连在移位寄存器上的——你看到的「乱码」，就是数据从左往右爬过去的过程。</p>
+
+          <p class="mt-3">第三个现场最像玄学。你在中断里改一个 IO：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="读-改-写丢位">
+            <pre><code>/* 主循环里 */
+GPIOA-&gt;ODR |= GPIO_PIN_5;
+
+/* 中断里 */
+GPIOA-&gt;ODR |= GPIO_PIN_6;</code></pre>
+          </div>
+
+          <p class="mt-3">结果偶尔出现：「5 号引脚该亮的时候没亮」，或者「6 号引脚闪一下就灭了」。你反复看逻辑，觉得毫无破绽。破绽在这里：<code class="icode">|=</code> 不是一条指令，它是<b class="font-semibold text-ink">读 → 改 → 写</b>三步。中断如果恰好插在「读」和「写」之间，中断里改的那一位就会在返回时被旧值覆盖掉。这就是经典的<b class="font-semibold text-ink">读-改-写丢位</b>。</p>
+
+          <p class="mt-3">三个现场，一个共同点：<b class="font-semibold text-ink">电路（或变量）里存着一位「过去」，而你没有认真想过这位是什么时候、以什么方式被改写的。</b>组合逻辑不需要你操心这件事——你写 <code class="icode">Y = A &amp; B</code>，输入变输出立刻变，没有过去。而一旦电路有了记忆，问题就变成三个：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="时序逻辑必须回答的三个问题">
+            <pre><code>【问题一】状态存在哪里？
+   → 锁存器 / 触发器。一位状态 = 一个双稳态器件。
+
+【问题二】什么时候更新状态？
+   → 电平触发（E 为高时一直跟着变）还是边沿触发（只在时钟边沿变一次）。
+     这一个选择，决定了整个系统能不能可靠地同步工作。
+
+【问题三】下一拍变成什么？
+   → 次态方程 / 状态转移方程。这就是你写的 if-else 和状态机。
+
+这三问，分别是这一篇的第 2、3、4、6 节：
+   器件（锁存器、触发器、寄存器、计数器）
+   时机（电平 / 边沿、建立时间、保持时间）
+   逻辑（状态表、状态图、状态方程）</code></pre>
+          </div>
+
+          <p class="mt-3">还有一个现实理由，值得你花时间学这一篇：<b class="font-semibold text-ink">单片机里「配置」这件事，本质上就是往一堆触发器里写数</b>。你写 <code class="icode">TMOD = 0x21;</code>、写 <code class="icode">TIM3-&gt;PSC = 71;</code>、写 <code class="icode">GPIO_InitStruct.Mode = ...</code>，芯片接收下来存进寄存器，然后<b class="font-semibold text-ink">一直按这个配置工作，直到你改它或者断电</b>。为什么「配置一次就一直生效」？因为寄存器就是一组触发器：时钟沿锁进去，只要不掉电、不复位，状态就一直保持着。理解了触发器，<b class="font-semibold text-ink">你就理解了「寄存器」这个词为什么同时出现在教材和手册里</b>——它们本来就是同一个东西。</p>
+
+          <p class="mt-3">这一篇的路线是这样的：先从「记忆」讲起（时序逻辑与组合逻辑的分界、状态这个概念、三种描述方式），再把记忆器件从小到大走一遍（基本 RS 锁存器 → 门控 RS → D 锁存器 → 主从 → 边沿触发 D → JK / T），然后是它们的各种组合（寄存器、移位寄存器、计数器、状态机），最后回到你最关心的问题：<b class="font-semibold text-ink">这些东西在单片机里长什么样、会在哪里坑你</b>。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一篇和上一篇的关系</div>
+            <p>组合逻辑那一篇总结过一句话：<b>「输出只由当前输入决定，表达式写完就完事了」</b>。这一篇会在这句话上开一个口子：只要把一个门电路的输出绕回它自己的输入，电路就立刻有了「过去」和「未来」——它开始有自己的历史，而历史的载体，就是存储元件。后面几节你会发现，时序逻辑所有的坑，无一例外都能归结成一句话：<b>你以为状态在某一刻更新了，实际它在别的时刻更新了，或者更新了不止一次。</b></p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+<!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节按「概念 → 器件 → 器件 → …」的顺序推进。前两小节解决「什么是时序逻辑」，中间五小节把记忆器件从小做到大，最后两小节把它们组装成寄存器和计数器、并用状态机把它们统一起来。</p>
+
+          <h3 id="sub-memory" class="mt-7 text-base font-semibold">「有记忆」：时序逻辑与组合逻辑的分界线</h3>
+
+          <p class="mt-3">先把上一篇的结论摆出来做对照。组合逻辑电路的输出，是当前输入的函数：</p>
+
+          <p class="mt-3"><code class="icode">Z = f(X)</code>　——　输入变了，输出立刻跟着变；电路本身不留任何痕迹。</p>
+
+          <p class="mt-3">时序逻辑电路的输出，除了看当前输入，还要看<b class="font-semibold text-ink">电路现在处于什么状态</b>：</p>
+
+          <p class="mt-3"><code class="icode">Z = f(X, Q)</code>　和　<code class="icode">Q* = g(X, Q)</code></p>
+
+          <p class="mt-3">这里的 <code class="icode">Q</code> 叫<b class="font-semibold text-ink">现态</b>（当前状态），<code class="icode">Q*</code> 叫<b class="font-semibold text-ink">次态</b>（下一个状态）。第一个式子叫<b class="font-semibold text-ink">输出方程</b>，第二个叫<b class="font-semibold text-ink">状态转移方程</b>（也叫次态方程）。两条式子一写出来，一个时序电路的行为就被完全确定了——后面所有的分析、设计，都是在这两条式子上做文章。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="时序逻辑电路的标准结构：组合逻辑 + 存储电路 + 反馈">
+            <pre><code>    ┌────────────────────────────────────────────────────────┐
+    │                                                        │
+    │  外部输入 X ──┬─────────────────────────►┌──────────┐    │
+    │               │                          │  组合逻辑 │    │
+    │               │        ┌────────────────►│          │────┼──► 外部输出 Z
+    │               │        │                 └──────────┘    │
+    │               │        │                       ▲        │
+    │               │        │  现态 Q                │        │
+    │               │        │                       │        │
+    │               │   ┌────┴───────┐               │        │
+    │               └──►│  存储电路   │───────────────┘        │
+    │        CLK ──────►│ （触发器组） │                        │
+    │                   └────────────┘                        │
+    │                                                        │
+    └────────────────────────────────────────────────────────┘
+
+    · 组合逻辑  ：算 Z = f(X, Q) 和 Q* = g(X, Q) 这两个函数
+    · 存储电路  ：把 Q* 存起来，让它变成下一拍的 Q
+    · CLK（时钟）：决定「Q* 什么时候真的变成 Q」——这是整篇的关键
+    · 反馈       ：Q 从存储电路绕回组合逻辑的输入，记忆就是这样参与运算的
+
+【一句话拆解】
+    「时序逻辑 = 组合逻辑 + 存储电路 + 反馈」——
+      组合逻辑负责"算什么"，存储电路负责"记住"，
+      反馈负责"让记住的东西参与下一次计算"。</code></pre>
+          </div>
+
+          <p class="mt-3">三个部分里，<b class="font-semibold text-ink">存储电路是全新的东西</b>，也是这一篇的主角。它的构造单元叫<b class="font-semibold text-ink">双稳态器件</b>：一个能稳定停在两种状态、并且能被外部信号推着切换的电路。<b class="font-semibold text-ink">一个双稳态器件存一位（1 bit）</b>，所以：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>触发器个数 n</th><th>能表示的状态数 2<sup>n</sup></th><th>对应到单片机的什么</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>2（0 / 1）</td><td>一个「按键是否按下」的标志位、一位 GPIO 输出</td></tr>
+                <tr><td>4</td><td>16（0~15）</td><td>一位十六进制数码管的显示值、一个 4 位计数器</td></tr>
+                <tr><td>8</td><td>256（0~255）</td><td>一个 8 位端口 P1、一个 8 位定时器的计数范围</td></tr>
+                <tr><td>16</td><td>65536（0~65535）</td><td>STM32 的 <code class="icode">TIMx-&gt;PSC</code> / <code class="icode">ARR</code> 寄存器、8051 的 <code class="icode">TH0/TL0</code></td></tr>
+                <tr><td>32</td><td>约 43 亿</td><td>STM32 的 <code class="icode">GPIOA-&gt;ODR</code>、<code class="icode">TIMx-&gt;CR1</code> 这类 32 位配置寄存器</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">「状态」这个词，在单片机的世界里遍地都是</div>
+            <p>数码管现在显示几、串口收到第几个字节、按键处于「按下稳定」还是「抖动中」、电机在加速还是在匀速——<b>凡是能用一个有限的数概括「现在处在什么局面」的量，都是状态</b>。状态个数有限、状态之间的迁移规则确定的系统，就叫有限状态机（FSM）。第 8 小节和第 4 节的按键例子会反复用到这个词。<b>一个很实用的判断方法：如果你能用一句「现在处于第几阶段」来概括程序的处境，那你写的其实就是状态机。</b></p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">接下来是本节第二个概念：状态怎么描述。</b>同一个时序电路，教材里会用三种方式画出来，它们说的是同一件事，只是给你看的视角不同。用最简单的例子——一个 2 位二进制加法计数器（00 → 01 → 10 → 11 → 00）——把三种画法都摆出来：</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">描述方式一：状态表</b>（把「现态 → 次态」列成表格，适合算方程）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>现态 Q<sub>1</sub>Q<sub>0</sub></th><th>次态 Q<sub>1</sub>*Q<sub>0</sub>*</th><th>输出 Z（计满标志）</th><th>十进制读法</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">0 0</td><td class="font-mono text-xs">0 1</td><td>0</td><td>0 → 1</td></tr>
+                <tr><td class="font-mono text-xs">0 1</td><td class="font-mono text-xs">1 0</td><td>0</td><td>1 → 2</td></tr>
+                <tr><td class="font-mono text-xs">1 0</td><td class="font-mono text-xs">1 1</td><td>0</td><td>2 → 3</td></tr>
+                <tr><td class="font-mono text-xs">1 1</td><td class="font-mono text-xs">0 0</td><td>1</td><td>3 → 0（回零，输出进位）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">描述方式二：状态图</b>（把状态画成圈，迁移画成箭头，适合看「整体行为」）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="2 位二进制加法计数器的状态图">
+            <pre><code>          ┌──────┐   CLK    ┌──────┐   CLK    ┌──────┐   CLK    ┌──────┐
+          │  00  │─────────►│  01  │─────────►│  10  │─────────►│  11  │
+          └──────┘          └──────┘          └──────┘          └──┬───┘
+             ▲                                                     │
+             │                       CLK（Z = 1）                   │
+             └─────────────────────────────────────────────────────┘
+
+    · 圈里的数字 = 状态（这里就是 Q1Q0 的取值）
+    · 箭头 = 状态迁移，旁边的标注是迁移条件（这里是「来一个时钟」）
+    · 环上共 4 个状态，走一圈回到起点 —— 这就是「模 4 计数」
+    · 如果某个状态不在环上（走进去出不来），就叫【死状态】，
+      后面 例三 会看到一个真实的死状态例子</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">描述方式三：时序图</b>（把每个信号随时间的变化画成波形，适合和示波器对照）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="2 位二进制加法计数器的时序图">
+            <pre><code>             ①        ②        ③        ④        ⑤
+             │        │        │        │        │
+CLK   ───────┐        ┌────────┐        ┌────────┐        ┌───
+             └────────┘        └────────┘        └────────┘
+             ↑        ↑        ↑        ↑        ↑
+           （上升沿：状态在这里更新一次，一拍只更新一次）
+
+Q1    ────────────────────────┐                 ┌──────────────
+                              └─────────────────┘
+Q0    ──────────────┐                 ┌─────────┐
+                    └─────────────────┘         └──────────────
+Z     ────────────────────────────────┐         ┌──────────────
+    （计满标志）                       └─────────┘
+
+状态     00       01       10       11       00       01
+十进制    0        1        2        3        0        1
+
+【看图的三条规矩，以后看任何时序图都用得上】
+   ① 先找时钟边沿：所有变化都对齐到边沿，是同步电路的标志；
+   ② 再找因果：每个信号的变化都发生在某一拍的边沿【之后】，
+      因为触发器要等边沿才动作，输出总比输入晚一拍 —— 
+      这叫「时序逻辑天然带一个周期的延迟」；
+   ③ 最后看稳定窗口：每个信号在两个边沿之间必须稳如泰山，
+      这段稳定时间够不够，就是第 5 小节的建立/保持时间。</code></pre>
+          </div>
+
+          <p class="mt-3">三种描述方式的用途不一样，别混着用：<b class="font-semibold text-ink">状态表用来列方程</b>（有表才能写最小项）、<b class="font-semibold text-ink">状态图用来看行为和自启动</b>（有没有死循环、能不能绕回主圈）、<b class="font-semibold text-ink">时序图用来和示波器、和代码里的时序对照</b>（毛刺、延迟、竞态全在这里现形）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">最后分清同步与异步。</b>时序电路按「时钟怎么发」分成两类，这个区分在你选计数器芯片、写单片机代码时都要用到：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>同步时序电路</th><th>异步时序电路</th></tr></thead>
+              <tbody>
+                <tr><td>时钟怎么接</td><td>所有触发器共用同一个 CLK，边沿同时到达</td><td>不同触发器的时钟来自不同地方（比如前一级的输出就是后一级的时钟）</td></tr>
+                <tr><td>状态何时变</td><td>同一拍一起变，只变一次</td><td>一级一级地「波动」过去，各位变化时刻不同</td></tr>
+                <tr><td>中间状态</td><td>不存在的，状态表上就是干净的 4 行</td><td>过渡期间会出现一堆短暂的假码（后面例一会具体算）</td></tr>
+                <tr><td>速度</td><td>快：延迟 = 一级触发器 + 一级组合逻辑</td><td>慢：延迟按级数累加，n 级就是 n 倍</td></tr>
+                <tr><td>设计/分析难度</td><td>有成熟流程（状态表 → 方程 → 电路）</td><td>要逐个分析每级的时钟条件，容易漏</td></tr>
+                <tr><td>典型器件</td><td>74LS161 / 74LS160 / 74HC574</td><td>74HC393 / 74HC4020 / 74HC590</td></tr>
+                <tr><td>单片机里的对应</td><td>整个 CPU 和外设都由 HCLK 驱动，是彻底的同步系统</td><td>外部按键、编码器、串口起始位——与时钟无关的信号</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">为什么工程上几乎只用同步电路</div>
+            <p>因为<b>同步电路把所有的不确定性压缩到了一件事上——时钟边沿</b>。只要边沿是干净的、数据在边沿前后足够稳（这就是建立/保持时间），电路的下一拍状态就是完全可预测的。异步电路没有这个「共同的裁判」：A 部分已经更新、B 部分还没更新，中间那段时间电路处于一个「谁也不知道是什么」的中间态，任何在这段时间里采样的人都会读到假值。<b>你以后听到的「跨时钟域」「亚稳态」「打两拍」，本质上都是「异步信号闯进了同步世界」这一个问题的不同侧面。</b>而同步世界能存在的前提，就是第 3 小节讲的：存储器件必须是边沿触发的。</p>
+          </div>
+
+          <h3 id="sub-latch" class="mt-7 text-base font-semibold">锁存器：从基本 RS 到 D 锁存器，以及那个要命的「空翻」</h3>
+
+          <p class="mt-3">存储一位的最原始电路，是把两个反相器首尾接成一个环。这个电路没有任何输入，但它能稳定地停在两种状态上：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="双稳态：记忆的最小模型">
+            <pre><code>            ┌─────────┐        ┌─────────┐
+            │  反相器  │        │  反相器  │
+      ┌────►│  ①      ├───────►│  ②      ├──┬────► 输出
+      │     └─────────┘        └─────────┘  │
+      └────────────────────────────────────────┘
+
+  假设输出 = 1：经过①变成 0，经过②变回 1 → 回到输入端还是 1，自洽 ✔
+  假设输出 = 0：经过①变成 1，经过②变回 0 → 回到输入端还是 0，自洽 ✔
+
+  → 两种状态都能「自己维持自己」，这就叫【双稳态电路】
+  → 这就是「记忆」的全部本质：不需要外界一直提醒，它自己撑住
+
+【但它有个大问题】
+   一个没有输入的双稳态电路是没用的：你没法让它变成你想要的状态。
+   而且上电瞬间它落在哪个状态完全随机（取决于两个门的延迟谁更小），
+   所以你永远不知道它上电后是 0 还是 1。
+   → 必须加输入：能把它「推」成 1（置位），也能「推」成 0（复位）
+   → 而且必须有办法「复位」：单片机的 NRST 引脚干的就是这件事</code></pre>
+          </div>
+
+          <p class="mt-3">加上输入，就得到最经典的记忆单元——<b class="font-semibold text-ink">基本 RS 锁存器</b>。它的构造简单到只有两个门：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两个与非门交叉耦合：基本 RS 锁存器">
+            <pre><code>                    ┌───────────┐
+        S̄ ──────────┤  与非 G1   ├───┬─────────────► Q
+              ┌─────┤           │   │
+              │     └───────────┘   │
+              │                     │
+              │     ┌───────────┐   │
+              └─────┤  与非 G2   ├───┴─────────────► Q̄
+        R̄ ──────────┤           │
+                    └───────────┘
+
+【连线关系——照着画一遍，比看十遍书都管用】
+   G1 的两个输入 = S̄ 和 Q̄        G1 的输出 = Q
+   G2 的两个输入 = R̄ 和 Q        G2 的输出 = Q̄
+
+   注意：每个门的输出都接到了另一个门的输入上，绕成一个环。
+   这个【交叉耦合】的环，就是前面那个「两个反相器」的升级版 ——
+   两个与非门在 S̄ = R̄ = 1 时，就等效于反相器，环就闭上，状态就记住了。
+
+   约定：带横杠的信号（S̄、R̄、Q̄）表示【低电平有效】，
+        也就是「0 才是有效信号，1 表示没事发生」。
+        这是数字电路里非常常见的约定，读手册时一定要看清横杠。</code></pre>
+          </div>
+
+          <p class="mt-3">把两个输入四种组合逐个代进去，就得到它的<b class="font-semibold text-ink">功能表</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>S̄（置位端）</th><th>R̄（复位端）</th><th>次态 Q*</th><th>次态 Q̄*</th><th>功能</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>1</td><td><b>Q（不变）</b></td><td>Q̄（不变）</td><td><b>保持</b>：两个门都当反相器用，环闭着，状态冻住</td></tr>
+                <tr><td><b>0</b></td><td>1</td><td><b>1</b></td><td>0</td><td><b>置位</b>：G1 输入有 0，输出必为 1，Q 被推成 1</td></tr>
+                <tr><td>1</td><td><b>0</b></td><td><b>0</b></td><td>1</td><td><b>复位</b>：G2 输入有 0，输出必为 1，把 Q 压成 0</td></tr>
+                <tr><td><b>0</b></td><td><b>0</b></td><td>1</td><td>1</td><td><b>不定（禁止）</b>：两个输出同时为 1，见下面的解释</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">前三行很好理解，<b class="font-semibold text-ink">第四行为什么叫「不定」，值得单独说清楚</b>——因为它是后面所有「约束」「禁止态」讨论的源头。当 S̄ 和 R̄ 同时为 0：G1 因为有 S̄ = 0 所以输出 Q = 1，G2 因为有 R̄ = 0 所以输出 Q̄ = 1，两个输出<b class="font-semibold text-ink">同时为 1</b>。这本身就已经违反了「Q 和 Q̄ 互补」的前提（你的电路里其它部分还在假设 Q̄ 就是 Q 的反，现在这个假设崩了）。更要命的是接下来：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="为什么同时撤销会造成「不定」">
+            <pre><code>【情形一】S̄ 和 R̄ 完全同时回到 1 → 谁快谁赢
+
+   S̄:  ────┐        ┌────────────────
+            └────────┘
+   R̄:  ────┐        ┌────────────────
+            └────────┘
+   Q:  ────┐
+            └────────────────────────   最后是 1 还是 0，
+                                      取决于 G1、G2 谁先退出、
+                                      以及环上谁先稳定下来 ——
+                                      这是【竞态】，结果不可预测
+
+【情形二】两个门延迟恰好非常接近 → 可能振荡
+
+   Q 和 Q̄ 一起在 0/1 之间来回摆，直到制造工艺上的微小不平衡
+   把电路「推」到某一侧。这段时间里输出是乱的。
+
+【情形三】(真正危险的) 从「不定」恢复后，两片芯片结果不同
+   同一批次的芯片上，可能 A 板恢复成 1、B 板恢复成 0。
+   → 所以功能表里这一格写的不是「0」也不是「1」，而是「不定」
+
+【工程上的处理】
+   ① 电路设计时【禁止】让 S̄ 和 R̄ 同时有效；
+   ② 器件手册里这一格通常标注为「不允许」或打星号；
+   ③ 更彻底的方案：干脆不让电路存在这种输入组合 ——
+      这就是 D 锁存器、JK 触发器出现的动机（见后）。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">换成或非门版本，你会看到另一种常见画法</div>
+            <p>把两个与非门换成或非门、输入改成高电平有效的 S 和 R，就得到<b>或非门基本 RS 锁存器</b>：G1 输入 S 和 Q̄，G2 输入 R 和 Q。它的功能表正好是上面那张表的「镜像」：<code class="icode">S=R=0</code> 时保持（这也是「平时没有信号」的自然状态，比与非门版本「平时两个输入都是 1」更符合直觉），<code class="icode">S=1</code> 置位，<code class="icode">R=1</code> 复位，<code class="icode">S=R=1</code> 时两个输出同时为 0 ——同样是不定态。两种版本在教材和手册里都会出现，<b>看电路时第一件事是确认「有效电平是高还是低」</b>。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">基本 RS 锁存器的一个致命毛病：它没有「什么时候听」的控制。</b>只要 S̄ 或 R̄ 有毛刺，输出立刻跟着变。实际系统里需要一个「节拍」——平时别理我，到了节拍点上再听。于是加一个门控端 E（Enable，也叫使能）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="门控 RS 锁存器：给锁存器装一个「什么时候听」的开关">
+            <pre><code>            ┌───────────┐
+      S ────►│  与非      ├─── S′ ──┐
+      E ────►│  ①        │          │
+            └───────────┘          │    ┌────────────────┐
+                                   ├───►│  基本 RS 锁存器  │───┬──► Q
+            ┌───────────┐          │    │ （与非门交叉耦合）│   │
+      R ────►│  与非      ├─── R′ ──┘    └────────────────┘   │
+      E ────►│  ②        │                                   │
+            └───────────┘                                   └──► Q̄
+
+【E = 0（关门）】两个与非门输出恒为 1 → S′ = R′ = 1 → 基本锁存器【保持】
+                 这时候 S、R 怎么变都没用，输出纹丝不动 ✔
+
+【E = 1（开门）】S′ = S̄，R′ = R̄ → 锁存器恢复成普通 RS 锁存器
+                 这时候 S、R 直接决定输出 —— 锁存器是【透明】的
+
+注意这里 S、R 是高电平有效（经过与非门后变成低有效的 S′、R′）。
+约束照旧：E = 1 期间不允许 S = R = 1。</code></pre>
+          </div>
+
+          <p class="mt-3">门控 RS 锁存器解决了「什么时候听」，但「S 和 R 不能同时有效」这条约束还在。工程上最简单的规避办法是：<b class="font-semibold text-ink">干脆只留一个输入端，另一路自动取反</b>。这就是 D 锁存器：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="D 锁存器：一个输入，永不冲突">
+            <pre><code>                                ┌──────────────┐
+      D ──┬────────────────────►│ 置位通路 S    │
+          │                     │              │──┐
+          │   ┌───────────┐     │              │  │   ┌──────────────┐
+          └──►│  反相器    ├────►│ 复位通路 R    │  ├──►│ 基本 RS 锁存器 │──► Q
+              └───────────┘     │              │  │   └──────────────┘
+      E ──────────────────────► │ 门控端 E      │──┘
+                                └──────────────┘
+     （D 走两路：一路原样送 S，一路反相后送 R；E 同时门控两路）
+
+   规律：D = 1 时只有 S 有效（置位），D = 0 时只有 R 有效（复位）
+        → S 和 R 永远不会同时有效，「不定态」被结构性消灭 ✔
+
+   特性方程：Q* = E·D + Ē·Q
+              （E = 1 时 Q* = D；E = 0 时 Q* = Q）</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>E（使能/门控）</th><th>D（数据）</th><th>次态 Q*</th><th>名称</th><th>生活化的类比</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>×（无关）</td><td><b>Q（保持）</b></td><td>锁存（Latched）</td><td>快门关闭：外面怎么变，底片上还是老样子</td></tr>
+                <tr><td>1</td><td>0</td><td><b>0</b></td><td>透明（Transparent）</td><td>快门打开，光直接照到底片上</td></tr>
+                <tr><td>1</td><td>1</td><td><b>1</b></td><td>透明（Transparent）</td><td>同上</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">D 锁存器只有一个数据输入，用起来非常省心，所以它在实际芯片里无处不在——最典型的就是 <b class="font-semibold text-ink">74HC573 / 74HC373</b>（八路透明锁存器，8 个 D 锁存器共用一个 LE 使能端），你以后在数码管、LCD、总线扩展电路里一定会见到它们。</p>
+
+          <p class="mt-3">但是，<b class="font-semibold text-ink">D 锁存器的「透明」同时也带来了一个经典事故：空翻（race-through，也叫「多次翻转」）。</b>只要 E 保持为高，Q 就一直是 D 的「实时镜像」；如果一个系统里 Q 的变化又绕回去影响 D，那么在 E 高电平的这段时间里，Q 就会反复变化，一个使能脉冲内翻转很多次：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="空翻：D 锁存器接成「每次都翻转」，结果一个脉冲里翻了三次">
+            <pre><code>【接线】把 Q̄ 接回 D（想让它在每个 E 脉冲里翻转一次，做一个 ÷2 分频器）
+        ┌───────────────────────────────┐
+        │                               │
+        │        ┌─────────────┐        │
+        └───────►│ D      Q    ├────────┼──► Q
+                 │             │        │
+        E ──────►│ E           │        │
+                 └─────────────┘        │
+                                      Q̄ ┘（反相后接回 D）
+
+【波形】E 高电平期间，Q 和 D 互相追着变 —— 这就是空翻
+
+   E    ────┐                          ┌──────────
+           └──────────────────────────┘
+           ↑ E 上升，锁存器变透明
+   Q    ────┐    ┌──┐    ┌──┐    ┌──┐
+           └────┘  └────┘  └────┘  └───────────
+   D=Q̄   ────┐  ┌────┐  ┌────┐  ┌────┐
+            └──┘    └──┘    └──┘    └─────────
+              ↑      ↑      ↑      ↑
+             每绕环一圈就翻转一次，翻转频率 = 1 / (2 × 环上总延迟)
+
+  结果：你以为 E 来一个脉冲它翻转一次，
+        实际上它在这一个脉冲里翻了 3 次（奇数次 ⇒ 方向还反了）。
+
+【为什么会这样】
+   D 锁存器在 E = 1 时是「组合逻辑的一部分」，不是「记忆元件」。
+   它把 Q̄ 送回 D 就等于把两个反相器接成了一个环形振荡器。
+   → 电平触发的器件，不能用在「输出反馈回输入」的环路里。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">空翻不是「偶尔出现的 bug」，而是「必然的错误」</div>
+            <p>注意上面波形的结论：<b>翻转次数取决于环路延迟和 E 的脉宽，是个可以算出具体数字的量，不是随机事件</b>。E 脉宽越宽、环路越快（现代 CMOS 门延迟只有几纳秒），翻转次数就越多。所以「把电平触发的锁存器用在反馈环路里」这件事，在任何工艺、任何频率下都是错的——<b>它不是一个可以靠「慢一点」绕过去的性能问题，而是一个逻辑上的错误</b>。解决办法只有两个：换边沿触发的器件（下一小节），或者保证 E 的有效窗口窄到只够翻转一次（这就是「窄脉冲触发」的思路，工程上不可靠，教材里只作为过渡方案）。</p>
+          </div>
+
+          <p class="mt-3">空翻问题的第一个工程解法，是把两个锁存器串起来、用反相的时钟错开它们的工作时间，让「采样」和「输出」不在同一时刻发生——这就是<b class="font-semibold text-ink">主从结构</b>，也就是下一小节的内容。</p>
+<h3 id="sub-edge" class="mt-7 text-base font-semibold">主从与边沿触发：为什么「边沿」才是同步系统的地基</h3>
+
+          <p class="mt-3">解决空翻的第一招非常朴素：<b class="font-semibold text-ink">既然一个锁存器在开门期间会被反复「追」，那就用两个锁存器，让它们永远只有一个在开门。</b>这就是主从结构：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="主从 D 触发器：两个锁存器 + 一个反相器">
+            <pre><code>        ┌──────────────────┐        ┌──────────────────┐
+   D ──►│   主锁存器        │  Qm    │   从锁存器        │──┬──► Q
+        │  （E 高时透明）    ├───────►│  （E 低时透明）    │  │
+        └──────────────────┘        └──────────────────┘  │
+                 ▲                            ▲           │
+                 │                            │           │
+   CLK ──────────┘        ┌─────────┐         │           │
+                          │  反相器  ├─────────┘           │
+                          └─────────┘                     │
+                                                          └──► Q̄
+
+【两个阶段，交替进行】
+   CLK = 1：主锁存器【透明】，采样 D 并记住它
+            从锁存器【关门】，输出 Q 保持不变   ← 这时候输出是稳的！
+   CLK = 0：主锁存器【关门】，记住刚才采到的值
+            从锁存器【透明】，把主锁存器记的值送到输出 Q
+
+【结果】输出 Q 只在 CLK 的【下降沿】变化一次，而且只变一次。
+        空翻消失了：因为主锁存器翻转的时候，从锁存器是关着门的；
+        从锁存器开门的时候，主锁存器已经关门，值不会再变。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="主从 D 触发器的时序图（输出在下降沿更新）">
+            <pre><code>   CLK  ────┐        ┌────────┐        ┌────────┐        ┌───
+            └────────┘        └────────┘        └────────┘
+            ↑        ↓        ↑        ↓        ↑        ↓
+   主锁存器  采样      记住      采样      记住      采样      记住
+   从锁存器  保持      更新      保持      更新      保持      更新
+                      ↑                 ↑                 ↑
+                 Q 在这里更新       Q 在这里更新       …（只在下降沿）
+
+   D    ──────┐   ┌───────┐        ┌──────────────────────
+              └───┘       └────────┘
+   Q    ───────────┐        ┌───────────────┐
+                   └────────┘               └──────────────
+                   ↑                        ↑
+              （注意：Q 的变化时刻被推到了下降沿，
+                与 D 的变化时刻彻底解耦 —— 这就是「可靠」的来源）</code></pre>
+          </div>
+
+          <p class="mt-3">主从结构能用了，但它还有个尾巴没扫干净：<b class="font-semibold text-ink">在 CLK = 1 的整个高电平期间，主锁存器是透明的，所以输入 D 必须在这整段时间里保持稳定。</b>这个要求比「边沿附近稳定一小会儿」苛刻得多——时钟高电平可能是半个周期（在低频系统里就是几十微秒）。更麻烦的是，如果把输出反馈回输入（比如把 JK 触发器接成 T′ 做分频），主锁存器在 CLK 高电平期间可能会翻转不止一次，这就是教材里说的<b class="font-semibold text-ink">主从触发器「一次翻转」问题</b>，需要靠电路内部的延迟来保证只翻一次——本质上仍是个「靠延迟凑」的方案。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">真正干净的解法是边沿触发：把「听话的时间」压缩到边沿附近的极短窗口里。</b>思路可以这样理解（这也是理解边沿触发最直观的一条路径）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="边沿触发的核心思路：只在边沿附近开一次门">
+            <pre><code>                 ┌──────────┐   ┌──────────┐
+   CLK ──┬──────►│  反相器1  ├──►│  反相器2  ├───► CLK_d（延迟后的 CLK）
+         │       └──────────┘   └──────────┘
+         │        （两级反相器 = 纯粹的延迟，极性不变）
+         │
+         └───────────────────────────────────────► 送到「与门」
+
+   窄脉冲 = CLK ·（CLK_d 取反）
+
+   CLK   ────┐                    ┌────────────
+             └────────────────────┘
+   CLK_d ───────┐                 ┌────────────
+                └─────────────────┘
+   取反   ──────┐                 ┌──────────────
+                └─────────────────┘
+   窄脉冲 ──────┐
+                └───┐
+                    └───────────────────────────
+                ↑
+        宽度 ≈ 两级门延迟，通常只有几纳秒
+
+   → 用这个窄脉冲去开门，锁存器就只在「边沿后的几纳秒」里听一次，
+     其余时间都在保持。空翻无从发生，输入也只需要在这几纳秒附近稳定。
+
+【工程上的真实做法】
+   实际芯片（如 74HC74）用的是【维持-阻塞】结构：靠内部的互锁反馈，
+   让引导门在边沿瞬间自己开、自己关，不依赖"精确的延迟长度"。
+   CMOS 版本（如 74HC574）常用【传输门 + 主从】，用时钟的两个相位控制
+   两个传输门，谁先谁后由时钟本身决定。
+   它们和上面那个"延迟窄脉冲"的思路是同一件事，只是实现方式更稳健 —— 
+   因为靠延迟长度决定脉宽的做法，会随温度和工艺漂移，不能用在产品里。</code></pre>
+          </div>
+
+          <p class="mt-3">接下来是很多人看书时会卡住的一个点：<b class="font-semibold text-ink">上升沿触发和下降沿触发，电路上到底差在哪？</b>答案比你想的简单——<b class="font-semibold text-ink">只差「哪一级锁存器在时钟的哪个相位透明」</b>。主从结构里，主锁存器在 CLK = 1 透明、从锁存器在 CLK = 0 透明，输出就在下降沿更新；把时钟的反相器从「从锁存器那一路」挪到「主锁存器那一路」，输出的更新时刻就挪到了上升沿。所以：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="在符号和手册里怎么一眼认出触发方式">
+            <pre><code>【看符号】
+      ┌─────┐                    ┌─────┐
+   D ─┤D   Q├─ Q             D ─┤D   Q├─ Q
+      │     │                    │     │
+   ───┤&gt;    │   ← 上升沿触发    ───┤&gt;o   │   ← 下降沿触发
+      └─────┘                    └─────┘
+       时钟脚没有小圆圈            时钟脚【有】小圆圈（气泡）
+      （手册写作 positive-edge）   （手册写作 negative-edge）
+
+      还有一种是画成 Λ 形的动态输入符号，同样表示边沿触发。
+
+【看手册的哪些词】
+   "positive-edge-triggered"   → 上升沿（如 74HC74、74HC574）
+   "negative-edge-triggered"   → 下降沿（如 74LS112 的时钟脚）
+   "transparent latch"         → 透明锁存器，也就是电平触发（74HC573）
+   "edge-triggered"            → 边沿触发，和 latch 是两回事
+
+【为什么手册要强调这个】
+   因为它决定了「你的输入要在哪个时刻稳定」——
+   接错了不是"不能工作"，而是"在错误的时刻采样"，
+   表现为【偶发】的错值，最难查。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>常见型号</th><th>类型</th><th>触发方式</th><th>异步端</th><th>输出</th><th>你会用它做什么</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">74HC74</td><td>双 D 触发器</td><td><b>上升沿</b></td><td>SD̄ / RD̄ 各一路，低有效</td><td>Q、Q̄</td><td>二级分频、同步器、复位同步</td></tr>
+                <tr><td class="font-mono text-xs">74HC273</td><td>八 D 触发器</td><td>上升沿</td><td>公共 CLR̄</td><td>Q</td><td>并行输出锁存（数码管、继电器板）</td></tr>
+                <tr><td class="font-mono text-xs">74HC574</td><td>八 D 触发器</td><td>上升沿</td><td>无</td><td>三态 Q</td><td>总线驱动、IO 扩展，OĒ 可断开输出</td></tr>
+                <tr><td class="font-mono text-xs">74HC573 / 74HC373</td><td>八 D <b>锁存器</b></td><td><b>电平</b>（LE 为高时透明）</td><td>无</td><td>三态 Q</td><td>数码管段选、地址锁存（配合 51 的 ALE）</td></tr>
+                <tr><td class="font-mono text-xs">74HC595</td><td>8 位移位寄存器 + 输出锁存器</td><td>上升沿（两个时钟各管一级）</td><td>SRCLR̄</td><td>串行 QH′ + 并行 QA~QH</td><td>三线扩展 8 位输出，级联驱动数码管</td></tr>
+                <tr><td class="font-mono text-xs">74HC165</td><td>8 位移位寄存器（并入串出）</td><td>上升沿</td><td>SH/LD̄（并行装入）</td><td>串行 QH</td><td>三线扩展 8 位输入，读拨码/按键阵列</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">573 和 574 差一个字，用法差很多</div>
+            <p><b>74HC573 是锁存器</b>（latch）：LE 为高的整段时间里输出跟着输入走，LE 变低才锁住。<b>74HC574 是触发器</b>（flip-flop）：输出只在时钟上升沿更新一次，其余时间完全不理会输入。同样的 8 位并行输出，573 适合做「总线上的地址锁存」（因为 51 单片机就是用 ALE 信号在总线周期的前半段锁地址），574 适合做「和时钟同步的输出寄存器」。<b>选型时看手册写的是 latch 还是 flip-flop，这一个词决定了你的数据在什么时刻被采样。</b></p>
+          </div>
+
+          <p class="mt-3">现在回答本节的核心问题：<b class="font-semibold text-ink">为什么边沿触发才能构成可靠的同步系统？</b>把理由摊成五条，你会发现它们其实是从五个角度说同一件事——<b>把「不确定性」关进一个小小的窗口，并用时钟来统一所有部件的行动时刻</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="边沿触发为什么是同步系统的地基">
+            <pre><code>【理由一】一拍只更新一次 —— 从根上消灭空翻
+   电平触发：输出在使能期间可能翻转无数次，次数取决于脉宽和延迟。
+   边沿触发：一个时钟周期内，状态最多更新一次。
+   → 电路的行为从此可以被「周期」这个单位来描述，可以被计算、被验证。
+
+【理由二】把「输入必须稳定」的时间窗压缩到最小
+   电平触发要求：输入在整个使能期间（可能是半个周期）稳定。
+   边沿触发要求：输入在边沿前后 t_su / t_h 这个小窗口内稳定即可
+                  （典型几纳秒到几十纳秒）。
+   → 其余整整一个周期的时间，都可以留给组合逻辑去"算完"和"稳住"。
+   → 这一条是整个同步设计方法论的基础，见第 5 小节与例五。
+
+【理由三】所有触发器共用同一个边沿 —— 全局行动一致
+   时钟树把同一个 HCLK 送到几百万个触发器（STM32F103 内部就是这样），
+   所有触发器在同一个边沿、按同一个节拍更新。
+   → 任何时刻，整个系统的状态都是「上一拍算出来的那一个确定值」，
+     不存在"一部分已更新、一部分还没更新"的中间状态。
+   （异步电路恰恰死在这一条上：没有共同裁判，就永远有中间态。）
+
+【理由四】让「最高工作频率」变成可以算出来的数
+   因为一拍就是一个周期，所以：
+       周期 T ≥ 触发器延迟 + 组合逻辑最大延迟 + t_su + 时钟偏斜
+   这个不等式把"能不能跑更快"从经验问题变成了算术问题。
+   → 厂商给出的 f_max 就是这么算出来的（例五会亲手算一遍）。
+
+【理由五】把"偶发错误"转化为"可排查的时序违例"
+   用了边沿触发之后，你遇到的所有偶发错误几乎都能归因到某条时序约束被违反：
+   频率超了、偏斜大了、跨时钟域没同步、复位撤销时机不对。
+   → 每一个都有明确对策。这就是"可靠"二字在工程上的全部含义。</code></pre>
+          </div>
+
+          <h3 id="sub-jk-t" class="mt-7 text-base font-semibold">JK 触发器与 T 触发器：把「不定」变成「翻转」</h3>
+
+          <p class="mt-3">边沿触发解决了「什么时候听」，但 D 触发器只有一个输入。历史上还有两种触发器，它们的价值在于<b class="font-semibold text-ink">用两个输入表达了更丰富的动作</b>，而且正好解决了 RS 的「不定态」。先看 <b>JK 触发器</b>——它的思路非常漂亮：<b class="font-semibold text-ink">既然 S 和 R 同时有效会造成不定，那就干脆把「同时有效」这个输入组合定义为「翻转」</b>。不定态不是被禁止，而是被赋予了一个有用的含义：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>J</th><th>K</th><th>次态 Q*</th><th>动作</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>0</td><td><b>Q</b></td><td>保持</td><td>两个输入都没动作，状态冻住</td></tr>
+                <tr><td>0</td><td>1</td><td><b>0</b></td><td>复位（清 0）</td><td>K 单独有效 = 清 0</td></tr>
+                <tr><td>1</td><td>0</td><td><b>1</b></td><td>置位（置 1）</td><td>J 单独有效 = 置 1</td></tr>
+                <tr><td>1</td><td>1</td><td><b>Q̄</b></td><td><b>翻转（Toggled）</b></td><td>每来一个边沿就取反一次 —— 这是分频器的核心动作</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">四种组合全部有明确含义，一格「不定」都没有了。写成方程就是 <b class="font-semibold text-ink">JK 触发器的特性方程</b>：</p>
+
+          <p class="mt-3"><code class="icode">Q* = J·Q̄ + K̄·Q</code></p>
+
+          <p class="mt-3">逐项读一遍：<code class="icode">J·Q̄</code> 表示「现在是 0，且 J 要求置 1，那么下一拍就是 1」（置位通路）；<code class="icode">K̄·Q</code> 表示「现在是 1，且 K 没有要求清 0，那么下一拍保持 1」（保持通路，注意是 K̄ 而不是 K，因为 K 是「清 0 有效」）。把四种输入代进去验证一下：J = K = 0 时 Q* = Q（保持）；J = K = 1 时 Q* = Q̄ + 0 = Q̄（翻转）。<b class="font-semibold text-ink">一条式子把功能表全包括了，这就是特性方程的用处。</b></p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">T 触发器是 JK 的更简化版本</b>：把 J 和 K 接到一起，只留一个输入 T（Toggle）。T = 0 保持，T = 1 翻转：</p>
+
+          <p class="mt-3"><code class="icode">Q* = T ⊕ Q</code>　（异或：T 为 1 时取反，T 为 0 时保持）</p>
+
+          <p class="mt-3">如果让 T 恒等于 1，得到 <b class="font-semibold text-ink">T′ 触发器</b>：每来一个时钟边沿就翻转一次，输出频率正好是输入时钟的一半——<b class="font-semibold text-ink">它就是一个 ÷2 分频器，也是所有二进制计数器的最小单元</b>。你在第 7 小节看到的 74LS161 内部，就是 4 个这样的单元加上一堆控制逻辑。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种触发器之间的相互转换：只要会写方程就能换">
+            <pre><code>【用 D 触发器实现 JK 的功能】
+   把 JK 的特性方程当成"我想要的次态"，再让 D 触发器去执行它：
+        D = Q* = J·Q̄ + K̄·Q
+   → 一个 2 输入与门 + 一个 2 输入与门 + 一个或门，就能把 D 触发器变成 JK。
+
+【用 D 触发器实现 T 的功能】
+        D = Q* = T ⊕ Q        （一个异或门，或者 T = 1 时把 Q̄ 接回 D）
+
+【反过来：用 JK 实现 D】
+        J = D，K = D̄          （这样 J、K 永远不可能同时为 1）
+   【用 JK 实现 T】
+        J = K = T             （T = 1 时 J = K = 1 → 翻转；T = 0 时保持）
+
+【这条规律为什么重要】
+   它说明：【存储元件只有一种，差别只在输入端的组合逻辑】。
+      任何触发器 = 一个基本的双稳态存储 + 一组决定"下一拍变成什么"的门电路。
+
+   这正是 FPGA 内部的样子：
+      每个逻辑单元 = 一个 D 触发器 + 一个查找表（LUT）+ 一点控制逻辑，
+      没有任何 JK 或 T 触发器 —— 需要 JK 的时候，用 LUT 现算出来。
+   也解释了为什么厂商手册里只强调 D 触发器：
+      它是"最小、最通用"的那一个，其它都是它的"外挂"。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>类型</th><th>输入</th><th>特性方程</th><th>有没有禁止的输入组合</th><th>它的「本职工作」</th></tr></thead>
+              <tbody>
+                <tr><td>基本 RS 锁存器</td><td>S̄、R̄（或 S、R）</td><td>Q* = S + R̄·Q（约束 S·R = 0）</td><td><b>有</b>：同时有效 → 不定</td><td>最原始的记忆单元，教材起点</td></tr>
+                <tr><td>D 锁存器</td><td>E、D</td><td>Q* = E·D + Ē·Q</td><td>没有</td><td>电平触发的数据暂存（573）</td></tr>
+                <tr><td>D 触发器</td><td>D（边沿触发）</td><td>Q* = D</td><td>没有</td><td><b>同步系统的通用单元</b>：寄存器、状态机、流水线</td></tr>
+                <tr><td>JK 触发器</td><td>J、K</td><td>Q* = J·Q̄ + K̄·Q</td><td>没有</td><td>既能置位/复位又能翻转，适合写通用计数逻辑</td></tr>
+                <tr><td>T / T′ 触发器</td><td>T（T′ 无输入）</td><td>Q* = T ⊕ Q</td><td>没有</td><td><b>分频与计数</b>：T′ 就是 ÷2，串起来就是二进制计数器</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">别被「JK 更强大」误导：实际系统里几乎只用 D 触发器</div>
+            <p>JK 看起来功能更多，但<b>它并没有更省</b>：同样的逻辑用 D 触发器 + 一点组合逻辑能实现，而且 D 触发器只有一个数据输入，时序约束更容易分析、代码里也更好表达（<code class="icode">reg</code> 就是 D 触发器，Verilog 里没有「JK 寄存器」这种语法）。所以现实情况是：<b>74LS112 这类 JK 芯片只在教材和老电路里出现；现代数字设计（FPGA、ASIC、单片机内部）全部用 D 触发器。</b>你学 JK 和 T 的真正理由有两个：① 用它们能写出更紧凑的计数逻辑（例三会看到）；② 理解「特性方程 → 驱动方程」这套换算，是时序逻辑设计的基本功。</p>
+          </div>
+
+          <h3 id="sub-timing" class="mt-7 text-base font-semibold">异步置位/复位端、建立时间与保持时间</h3>
+
+          <p class="mt-3">到目前为止，触发器的所有动作都发生在时钟边沿上。但有一件事必须能<b class="font-semibold text-ink">不等时钟</b>就完成：<b class="font-semibold text-ink">把系统强制拉到一个已知的初始状态。</b>为此，触发器上专门留了独立的置位/复位引脚，它们最反直觉的一点是——<b class="font-semibold text-ink">它们和时钟完全无关，一旦有效就立刻生效</b>，所以叫<b class="font-semibold text-ink">异步</b>置位 / 复位端。74HC74 上的 <code class="icode">SD̄</code>（也叫 PRE，置位）和 <code class="icode">RD̄</code>（也叫 CLR，复位）就是这两路，低电平有效。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="为什么必须有一路「不依赖时钟」的复位">
+            <pre><code>【原因一】上电的那一刻，状态是随机的
+   双稳态电路上电后落在 0 还是 1，取决于两个门谁快一点 ——
+   这在工艺上是随机的。你的系统如果是"开机时数码管显示 8888"
+   或者"电机先抖一下"，八成就是初始状态没被确定。
+
+【原因二】上电时，时钟可能还没开始跳动
+   晶振从通电到稳定起振需要几毫秒（手册里叫 startup time）。
+   在这几毫秒里，时钟引脚上可能是缓慢爬升的乱信号，
+   靠时钟去复位等于"等一个还没出生的人来救你"。
+
+【原因三】出故障时需要一根"急停绳"
+   看门狗触发复位、程序跑飞、电源跌落 —— 这些时候你必须能立刻
+   把系统拍回已知状态，而不能"等下一个时钟边沿"。
+
+【典型的上电复位电路】
+   3.3V ──┬───[ R = 10kΩ ]───┬──────────► 接到各芯片的 RD̄（低有效复位）
+          │                  │
+          │               [ C = 100nF ]     ← RC 决定复位脉冲宽度
+          │                  │
+         GND                 GND
+
+   上电瞬间 C 上电压为 0 → RD̄ 为低 → 所有触发器被强制清 0
+   随着 C 通过 R 充电，RD̄ 电压升高，几十微秒到几毫秒后变成高 → 复位释放
+   复位脉冲宽度 ≈ 1.1 × R × C = 1.1 × 10kΩ × 100nF ≈ 1.1 ms  ← 足够晶振起振
+
+   ⚠ 关键：RD̄ 是慢速上升的模拟信号，直接接数字芯片可能落在门限附近抖动，
+     所以工程上要用【施密特触发输入】的器件（如 74HC14）整形后再送出去。
+     单片机内部的 NRST 引脚早就帮你做好了这件事（内部带施密特和滤波）。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">异步复位的「撤销」时刻，是最容易出事的时刻</div>
+            <p>复位有效（拉低）的时候很安全：它压住一切，不需要跟时钟商量。危险的是<b>复位撤销</b>的那一刻——如果它恰好落在时钟边沿附近，触发器内部就同时收到「解除复位」和「采样时钟」两个互相竞争的命令，结果又是亚稳态（下一小节详述）。工程上的标准解法叫<b>「异步复位、同步释放」</b>：复位拉低时不经过任何触发器（立刻生效），撤销时让它先过两级触发器、跟随时钟节拍放出去。这样复位撤销的时刻一定被对齐到时钟边沿之后，竞争消失。后面第 4 节的跨时钟域部分会给出这个电路的接线和代码。</p>
+          </div>
+
+          <p class="mt-3">现在讲这一节最重要、也是整个同步设计里最实用的两个时间参数：<b class="font-semibold text-ink">建立时间 t<sub>su</sub></b>（setup time）和 <b class="font-semibold text-ink">保持时间 t<sub>h</sub></b>（hold time）。它们的定义各一句话：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">建立时间 t<sub>su</sub>：</b>在时钟有效边沿<b>到来之前</b>，数据输入必须已经稳定并保持了至少 t<sub>su</sub> 那么久。</li>
+            <li><b class="font-semibold text-ink">保持时间 t<sub>h</sub>：</b>在时钟有效边沿<b>过去之后</b>，数据输入还必须继续保持稳定至少 t<sub>h</sub> 那么久，然后才可以变化。</li>
+          </ul>
+
+          <div class="code-block mt-3" data-lang="text" data-title="时钟边沿前后的「禁止变化窗口」">
+            <pre><code>                          ←—— 禁止区 ——→
+                  │←  t_su  →│←  t_h  →│
+                  │          │          │
+   D    ──────────┼──────────┼──────────┼────────────
+                  │          │          │
+                  │     ★ 数据必须在这段窗口里纹丝不动 ★
+                  │          │          │
+   CLK  ──────────┼──────────┼──────────┼────────────
+                  │          ▲          │
+                  │     时钟有效边沿     │
+                  │   （触发器在此"拍照"）│
+
+   换个说法，更好记：
+       t_su 回答的是「你来晚了没有」——数据必须比边沿早到 t_su；
+       t_h  回答的是「你走得早不早」——数据必须比边沿晚走 t_h。
+
+   违反 t_su → 数据"还没站稳"就被拍进去了（常见于频率太高、路径太长）
+   违反 t_h  → 数据"走得太快"，把下一拍的值提前透了过去
+                （常见于路径太短，加缓冲器解决，而不是降频！）</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么会有这两个奇怪的要求？</b>因为触发器内部并不是「一个瞬间动作的开关」，它内部仍然是两个锁存器（或两个反相器环）在互相配合：时钟边沿到来时，内部的门要一个接一个地翻转，把输入值「接力」到输出端。这个接力过程需要时间，所以：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">t<sub>su</sub> 的来源：</b>边沿到来前，输入信号必须先穿过前级的门，把内部节点的电平建立起来。如果数据来得太晚，内部节点还没到该到的电平，边沿一到就会拍到一个「半成品」。</li>
+            <li><b class="font-semibold text-ink">t<sub>h</sub> 的来源：</b>边沿到来后，内部前级的门还在关闭过程中，需要一点时间才真正「锁死」。这段时间里输入如果变了，变化会顺着还没关严的门透过去，把刚拍下的值改掉。</li>
+          </ul>
+
+          <p class="mt-3">这两个参数不是「建议值」，而是器件手册里明确给出的、必须满足的<b class="font-semibold text-ink">时序要求（timing requirements）</b>。举个真实的例子：<b class="font-semibold text-ink">TI 的 SN74HC74 数据手册在 V<sub>CC</sub> = 4.5V 时给出的时序要求是 t<sub>su</sub> ≥ 20 ns、t<sub>h</sub> ≥ 5 ns，时钟脉冲宽度 ≥ 20 ns，最高时钟频率的保证值约 25 MHz</b>（按数据手册的推荐工作条件）。把这些数字和你熟悉的 STM32 对比一下：STM32F103 内部触发器在 72 MHz 下工作，一个周期只有 13.9 ns——比 74HC74 的建立时间还短。原因不神秘：<b class="font-semibold text-ink">芯片内部的触发器是专门为速度优化的定制单元，t<sub>su</sub> 只有几百皮秒到一两纳秒；而 74HC 系列要兼顾 5V 兼容、抗干扰和成本，所以慢得多。</b>这也是为什么「自己用 74HC 搭一个 100 MHz 的电路」是不现实的，而 STM32 内部能跑 72 MHz。</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">违反建立/保持时间的后果：亚稳态（metastability）</div>
+            <p>如果数据在禁止窗口里变化了，触发器内部会进入一个既不是 0 也不是 1 的中间状态：输出电压停在门限附近（比如 1.5V），并且以指数规律缓慢地向 0 或 1 靠拢，最后<b>随机地</b>落到某一侧。这个状态叫<b>亚稳态</b>。它的危害有三层：</p>
+            <p class="mt-2"><b>① 值可能错</b>——落在哪一侧是随机的，你想要 1 它可能给你 0。</p>
+            <p class="mt-2"><b>② 稳定时刻不确定</b>——它可能在一个周期内稳定，也可能拖到两个、三个周期。更糟的是，同一根信号被两条不同的路径分别接到两个触发器上，一个采到 0、一个采到 1，<b>整个系统的状态就自相矛盾了</b>。</p>
+            <p class="mt-2"><b>③ 会传染</b>——后级触发器如果正好在它抖动的时候采样，后级也进入亚稳态（亚稳态传播），错误沿着数据通路一路传下去。</p>
+            <p class="mt-2">工程上无法「消灭」亚稳态，只能把它的<b>发生概率压到可以接受</b>：方法是给它足够长的稳定时间，也就是第 4 节要讲的「打两拍」。厂商在手册里会给出计算 MTBF（平均无故障时间）的公式，核心规律是——<b>留给亚稳态稳定的时间每多一个时钟周期，MTBF 就按指数级上升</b>。</p>
+          </div>
+<h3 id="sub-register" class="mt-7 text-base font-semibold">寄存器：一组共用时钟的触发器，以及 74HC595 里的两级锁存</h3>
+
+          <p class="mt-3">把 8 个 D 触发器排成一排，让它们共用同一个时钟，每个触发器的 D 端各接一根数据线，时钟上升沿一到，8 位数据被<b class="font-semibold text-ink">同时</b>拍进 8 个触发器——这就是一个 <b class="font-semibold text-ink">8 位寄存器</b>。拍完之后，不管你外面的数据线怎么跳，输出都稳稳地保持着这 8 位值，直到下一个时钟沿到来。</p>
+
+          <p class="mt-3">"寄存器"这个名字来自英文 register（登记簿）。你可以把它想成一排储物柜：时钟边沿就是"管理员来收一次表"，你此刻把 8 张纸条塞进 8 个柜门，他就"啪"地把所有柜门一起锁上。之后你在外面怎么晃纸条都没用，柜子里存的是<b class="font-semibold text-ink">锁上那一刻</b>的内容。这正好解释了第 4 节要讲的单片机配置寄存器：为什么"配置一次就一直生效"——因为它就是一组触发器，只要不断电、不重新写，它就一直保持着你写进去的值。</p>
+
+          <p class="mt-3">寄存器有两种常见的组织方式，它们的区别只在"数据的出入口怎么接"：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>类型</th><th>数据入口</th><th>数据出口</th><th>典型器件</th><th>典型用途</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>并行寄存器（数据寄存器）</td><td>N 位同时输入</td><td>N 位同时输出</td><td>74HC374（8 位，三态输出）、74HC273（8 位，带异步清零）</td><td>存一个字节、做输出口扩展、做数据缓冲</td></tr>
+                <tr><td>移位寄存器（串入并出）</td><td>1 位串行输入</td><td>N 位并行输出</td><td>74HC595（8 位，带输出锁存）</td><td>用三根线扩出 8 个（或更多）输出脚</td></tr>
+                <tr><td>移位寄存器（并入串出）</td><td>N 位并行输入</td><td>1 位串行输出</td><td>74HC165（8 位）</td><td>用三根线读回 8 个输入（比如一排按键）</td></tr>
+                <tr><td>通用移位寄存器</td><td>串行 + 并行</td><td>串行 + 并行</td><td>74HC194、74HC299</td><td>左移、右移、循环、并串转换都能做</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">移位寄存器的核心思想只有一句话：把前一级的输出接到后一级的输入。</b>这样每来一个时钟，全部数据整体挪一格：最右边一位被挤出去（或者接到串行输出脚），新的 1 位从最左边补进来。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="4 位串入并出移位寄存器：数据的流动">
+            <pre><code>   串行输入 SER ──▶┌─────┐    ┌─────┐    ┌─────┐    ┌─────┐
+                   │ FF0 │──▶│ FF1 │──▶│ FF2 │──▶│ FF3 │──▶ 串行输出 Q3
+   移位时钟 SHCP ─▶│ ▷   │    │ ▷   │    │ ▷   │    │ ▷   │    （给下一片用）
+                   └──┬──┘    └──┬──┘    └──┬──┘    └──┬──┘
+                      │          │          │          │
+                      ▼          ▼          ▼          ▼
+                     Q0         Q1         Q2         Q3   ← 4 位并行输出
+
+   假设 SER 依次送入 1、0、1、1（先送最低位），4 个时钟后：
+   时钟 1 后：Q0=1  Q1=0  Q2=0  Q3=0
+   时钟 2 后：Q0=0  Q1=1  Q2=0  Q3=0
+   时钟 3 后：Q0=1  Q1=0  Q2=1  Q3=0
+   时钟 4 后：Q0=1  Q1=1  Q2=0  Q3=1     ← 四位都到位了
+
+   注意看每个时钟沿：所有触发器是"同一个沿"一起动作的，
+   新的 Q0 来自 SER，新的 Q1 来自"上一拍的 Q0"，以此类推。</code></pre>
+          </div>
+
+          <p class="mt-3">上面这个电路就是 74HC595 的前半部分。但 74HC595 比它多了一级，而<b class="font-semibold text-ink">这多出来的一级，正是它能在单片机世界里"人手一片"的原因</b>。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">74HC595 内部是两部分拼起来的：一个 8 位移位寄存器 + 一个 8 位输出锁存器。</b>移位寄存器的 8 个输出并不直接接到芯片的输出脚，而是先接到输出锁存器的 8 个输入端；真正驱动外部负载的，是输出锁存器的输出。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="74HC595 内部结构（简化框图）">
+            <pre><code>                      74HC595 内部结构（简化框图）
+
+   SER(14) ──▶┌──────┐  ┌──────┐  ┌──────┐        ┌──────┐
+              │ FF0  │─▶│ FF1  │─▶│ FF2  │─ … ──▶│ FF7  │──▶ Q7'(9) 级联输出
+              │  ▷   │  │  ▷   │  │  ▷   │        │  ▷   │
+              └───┬──┘  └───┬──┘  └───┬──┘        └───┬──┘
+                  │         │         │               │
+   SHCP(11) ──────┴─────────┴─────────┴───────────────┘   ← 移位时钟（8 个触发器共用）
+                  │         │         │               │
+                  │         │         │               │   这 8 根线带的是"正移进来的值"
+                  ▼         ▼         ▼               ▼
+              ┌──────┐  ┌──────┐  ┌──────┐        ┌──────┐
+              │ LT0  │  │ LT1  │  │ LT2  │─ … ──▶│ LT7  │   ← 输出锁存器（8 位）
+              │  ▷   │  │  ▷   │  │  ▷   │        │  ▷   │
+              └───┬──┘  └───┬──┘  └───┬──┘        └───┬──┘
+                  ▲         ▲         ▲               ▲
+   STCP(12) ──────┴─────────┴─────────┴───────────────┘   ← 锁存时钟（上升沿一次性更新）
+                  │         │         │               │
+                  ▼         ▼         ▼               ▼
+   OE(13) ───▶  QA(15)    QB(1)     QC(2)    …      QH(7)   ← 真正对外输出的 8 个脚
+
+   还有两个"清零/使能"脚：
+     MR(10)  低有效：只清移位寄存器（8 个 FF 全部变 0），锁存器里的内容不受影响
+     OE(13)  低有效：输出使能，为高时 8 个输出脚呈高阻（相当于"拔掉了"）</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么非得有第二级锁存？</b>设想你把 LED 直接挂在移位寄存器的输出上（也就是把输出锁存器这级砍掉）。你要显示一个图案，就得一位一位往里移。移位过程中会发生什么？每来一个移位脉冲，8 个 LED 的状态就整体变一次——第 1 个脉冲后只有第 1 位是你想要的，其余 7 位还是上一次的残余；第 2 个脉冲后前两位对了…… 也就是说，<b class="font-semibold text-ink">在整个移位过程里，输出端一直在展示"半成品"，只有第 8 个脉冲结束后那一瞬间才短暂地正确</b>。如果你还在不停地刷新（比如轮流点亮多位数码管），第 9 个脉冲立刻又把刚显示好的图案冲掉，肉眼看到的就是一片乱闪。</p>
+
+          <p class="mt-3">加上输出锁存器之后，流程变成"<b class="font-semibold text-ink">移的时候不让外面看见，移完了统一亮相</b>"：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="74HC595 的刷新节奏：先移 8 位，再锁一次">
+            <pre><code>   SHCP  ─┐_┌─┐_┌─┐_┌─┐_┌─┐_┌─┐_┌─┐_┌─┐_┌──     8 个移位脉冲
+          │ │ │ │ │ │ │ │ │ │ │ │ │ │ │ │
+          └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘
+          ▲ 移位寄存器在动，但输出锁存器按兵不动
+          │
+          │                                        ┌────────
+   STCP  ─┴────────────────────────────────────────┘
+                                                   ▲
+                                     8 位全部移完后，拉一次锁存时钟
+                                     ↑ 这一瞬间，8 个输出脚同时更新为新图案
+
+   输出的行为：
+   QA~QH ──[旧图案一直保持]───────────────────┐
+                                             └──[新图案，纹丝不动地保持到下次锁存]
+                                                 ▲
+                                          移位全程没有任何乱闪</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这就是"双缓冲"：移位寄存器是草稿纸，输出锁存器是正式展板</div>
+            <p>同样的思路你在别的地方也见过：显卡的帧缓冲（画完了再切一帧）、单片机的 DMA 双缓冲（填满了再切换）、甚至 STM32 的捕获/比较影子寄存器（写的时候不影响输出，更新事件到了才生效）。<b>凡是要"改到一半不能被看见"的地方，都会加一级锁存。</b>74HC595 的这个结构不是特例，而是数字电路里最通用的一招。</p>
+            <p class="mt-2">顺带说一个很妙的设计细节：<code class="icode">MR</code>（10 脚）拉低会把移位寄存器清成全 0，但<b>不会动输出锁存器</b>。这意味着你可以在不失显示的前提下把移位寄存器擦干净、重新开始移——如果两级是直连的，这一下就会让整屏黑掉。</p>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>74HC595 引脚</th><th>名称</th><th>作用</th><th>接法（单片机侧）</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>14</td><td>SER（DS、SDA）</td><td>串行数据输入</td><td>任意 GPIO / SPI 的 MOSI</td></tr>
+                <tr><td>11</td><td>SHCP（SRCLK、SCK）</td><td>移位时钟，上升沿把 SER 上的 1 位移进 FF0</td><td>任意 GPIO / SPI 的 SCK</td></tr>
+                <tr><td>12</td><td>STCP（RCLK、RCK）</td><td>锁存时钟，上升沿把移位寄存器整体复制到输出锁存器</td><td>任意 GPIO，移完 8 位后拉一次</td></tr>
+                <tr><td>10</td><td>MR（SRCLR）</td><td>移位寄存器异步清零，低有效；不影响锁存器</td><td>常态接 V<sub>CC</sub>（不用的功能要"拴住"）</td></tr>
+                <tr><td>13</td><td>OE</td><td>输出使能，低有效；为高时输出高阻</td><td>接 GND；接 GPIO 可做全体调光/关断</td></tr>
+                <tr><td>9</td><td>Q7'</td><td>移位寄存器的串行输出</td><td>接下一片的 SER（级联）</td></tr>
+                <tr><td>15、1~7</td><td>QA~QH</td><td>8 位并行输出</td><td>接 LED/数码管段选/继电器驱动</td></tr>
+                <tr><td>16 / 8</td><td>V<sub>CC</sub> / GND</td><td>电源与地</td><td>V<sub>CC</sub> = 2~6V（典型 5V 或 3.3V）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">还要提醒一句电流：74HC595 每个输出脚的连续电流上限约 ±35 mA，但<b class="font-semibold text-ink">整片芯片流过 V<sub>CC</sub>/GND 的总电流上限只有约 ±70 mA</b>（按数据手册的绝对最大额定值）。8 个脚同时点 8 个 LED、每个 10 mA，就已经 80 mA 了——所以"595 直接驱动 8 个 LED"要么把每路电流限到 8 mA 以内，要么加三极管/驱动器。这个数字第 4 节讲数码管扫描时会再算一次。</p>
+
+          <hr class="hr-soft my-10">
+
+          <h3 id="sub-counter" class="mt-7 text-base font-semibold">计数器：同步与异步的分水岭，和 74LS161 / 74LS160</h3>
+
+          <p class="mt-3">计数器是最常见的一类时序电路，定义朴素得有点不像话：<b class="font-semibold text-ink">状态按固定顺序循环的时序电路</b>。每来一个时钟脉冲，状态往前走一格；走完最后一名就绕回开头。它没有输入（或者说输入只用来控制"数不数"和"从哪里开始数"），只有时钟和输出。</p>
+
+          <p class="mt-3">你可能会问：这不就是寄存器加个加法器吗？对，本质就是这样——<b class="font-semibold text-ink">计数器 = 一组触发器 + 一团告诉它们"什么时候翻转"的组合逻辑</b>。而"什么时候翻转"的答案怎么算出来，就区分出了同步与异步两大流派。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">异步计数器（行波计数器，ripple counter）：把上一级的输出当作下一级的时钟。</b>最经典的 4 位二进制计数器，就是 4 个 T 触发器（T 恒等于 1，每个时钟沿都翻转）串起来，后一级的时钟来自前一级的 Q：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="异步 4 位二进制计数器（T 触发器链）">
+            <pre><code>   CP ──▶┌─────┐      ┌─────┐      ┌─────┐      ┌─────┐
+          │ T0  │      │ T1  │      │ T2  │      │ T3  │
+          │ T=1 │      │ T=1 │      │ T=1 │      │ T=1 │
+          └──┬──┘      └──┬──┘      └──┬──┘      └──┬──┘
+             │ Q0         │ Q1         │ Q2         │ Q3
+             └──────▶ 时钟 └──────▶ 时钟 └──────▶ 时钟
+
+   每个触发器都是"来一个时钟沿就翻转"，所以：
+     Q0 的频率 = CP 的 1/2      （CP 每来一下，Q0 翻一次）
+     Q1 的频率 = CP 的 1/4
+     Q2 的频率 = CP 的 1/8
+     Q3 的频率 = CP 的 1/16
+   状态序列：0000 → 0001 → 0010 → … → 1111 → 0000（模 16）</code></pre>
+          </div>
+
+          <p class="mt-3">这个电路简单到几乎不用设计——但它有两个天生的毛病，都是从"时钟要一级一级传下去"来的：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">延迟会累加。</b>CP 边沿到来时，Q0 要先等 T0 翻转（74LS 系列每个触发器传输延迟按典型值估算约 10~20 ns），Q1 又要等 Q0 变化后才动，Q2 再等 Q1…… 到 Q3 稳定下来，总共等掉了 4 份延迟。位数越多越慢，16 位异步计数器光"等它稳定"就要几百纳秒。所以异步计数器的最高工作频率是"位数越多越低"，而同步计数器基本不受位数影响。</li>
+            <li><b class="font-semibold text-ink">输出不是同时翻转的，中间会出现"假状态"。</b>最典型的例子是 0111 → 1000 这一步：Q0 先从 1 变 0（输出成了 0110），Q1 跟着变 0（0100），Q2 再变 0（0000），最后 Q3 变 1（1000）。在这一串连锁反应的几纳秒到几十纳秒里，输出端短暂地出现过 0110、0100、0000 这些根本不该存在的码。如果你用组合逻辑去译码某个状态（比如"数到 7 就点亮一个灯"），译码器就会吐出几纳秒的<b class="font-semibold text-ink">毛刺（glitch）</b>。毛刺本身不可怕，但它如果被接到时钟脚或清零脚上，就会多计数、误清零——这种故障极难查，因为示波器上它只是一闪而过的小尖峰。</li>
+          </ul>
+
+          <p class="mt-3"><b class="font-semibold text-ink">同步计数器：所有触发器共用同一个时钟，翻转与否提前算好。</b>既然异步的毛病出在"时钟传来传去"，那就干脆不传——所有触发器都接同一个 CP，每一位要不要翻转，由它在时钟沿<b class="font-semibold text-ink">之前</b>就算好的使能信号 T 决定：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="同步 4 位二进制计数器的使能逻辑">
+            <pre><code>   T0 = 1                    （最低位每个时钟沿都翻转）
+   T1 = Q0                   （Q0 为 1 时才进位）
+   T2 = Q1 · Q0              （低两位全 1 才进位）
+   T3 = Q2 · Q1 · Q0         （低三位全 1 才进位）
+
+   也就是：第 i 位翻转的条件 = 它右边所有位"全是 1"
+   这正是二进制加法的进位规则 —— 0111 再加 1，才会一路进到第 4 位。
+
+   CP  ──┬──▶ 所有触发器的时钟脚（同一根线，同一时刻）
+         │
+         └──▶ 组合逻辑提前算出 T0~T3，时钟沿一到全体同时翻转
+              → 输出同时稳定，没有"中间假状态"，没有累积延迟</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>对比项</th><th>异步（行波）计数器</th><th>同步计数器</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>时钟接法</td><td>只有第一级接 CP，其余接前一级的 Q</td><td>所有触发器接同一个 CP</td></tr>
+                <tr><td>状态变化时刻</td><td>一级一级传递，依次翻转</td><td>同一个时钟沿全部同时翻转</td></tr>
+                <tr><td>累积延迟</td><td>有，n 位 ≈ n × t<sub>pd</sub>，位数越多越慢</td><td>基本没有，只取决于一级组合逻辑的延迟</td></tr>
+                <tr><td>译码毛刺</td><td>有，译码输出会出现窄脉冲</td><td>几乎无（除非组合逻辑本身有竞争）</td></tr>
+                <tr><td>最高工作频率</td><td>低，且随位数下降</td><td>高，与位数基本无关</td></tr>
+                <tr><td>电路复杂度</td><td>极简，几乎不用门</td><td>要加进位逻辑，门多一些</td></tr>
+                <tr><td>功耗与噪声</td><td>输出变化分散在不同时刻，瞬时电流小</td><td>所有输出同时翻转，瞬时电流尖峰大（要好好去耦）</td></tr>
+                <tr><td>典型用途</td><td>纯分频（不需要译码）、要求成本极低的场合</td><td>需要精确计数、要译码显示、要做地址计数器的场合</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">你在单片机里见到的基本都是同步计数器：定时器的 CNT 就是一个同步二进制计数器（或递增/递减计数器），它的每一位在同一时刻更新，所以读取 CNT 不会读到"半个值"。而异步结构最常见的身影是"分频链"——比如某些低功耗实时时钟芯片里的预分频器，纯粹要一个 1 Hz 出来，不需要译码，用行波结构最省电。</p>
+
+          <p class="mt-3">接下来认识两位"教具级"的芯片。它们都是 4 位同步计数器，引脚完全一样，区别只在计数模数：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>CLR̄</th><th>LD̄</th><th>ENP</th><th>ENT</th><th>CP</th><th>工作模式</th><th>输出 Q<sub>3</sub>Q<sub>2</sub>Q<sub>1</sub>Q<sub>0</sub> 与 RCO</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>0</td><td>×</td><td>×</td><td>×</td><td>×</td><td>异步清零</td><td>立刻变 0000（不等时钟，优先级最高）</td></tr>
+                <tr><td>1</td><td>0</td><td>×</td><td>×</td><td>↑</td><td>同步置数</td><td>时钟沿到时装进 D<sub>3</sub>~D<sub>0</sub></td></tr>
+                <tr><td>1</td><td>1</td><td>0</td><td>×</td><td>↑</td><td>保持</td><td>输出不变，RCO = 0</td></tr>
+                <tr><td>1</td><td>1</td><td>×</td><td>0</td><td>↑</td><td>保持</td><td>输出不变，RCO = 0</td></tr>
+                <tr><td>1</td><td>1</td><td>1</td><td>1</td><td>↑</td><td>加法计数</td><td>每个上升沿 +1</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张表是 74LS161（4 位同步二进制计数器）的功能表，74LS160（4 位同步十进制计数器）的表格形状完全一样，只有两处不同：<b class="font-semibold text-ink">74LS160 数到 1001（9）就回到 0000</b>，而 74LS161 要数到 1111（15）才回 0000；相应地，74LS160 的进位输出 RCO 在状态 9 时变高，74LS161 在状态 15 时变高。RCO 的定义可以记成一句：<b class="font-semibold text-ink">RCO = ENT · （已经是本片最后一个状态）</b>——74LS161 是 <code class="icode">RCO = ENT · Q3·Q2·Q1·Q0</code>，74LS160 是 <code class="icode">RCO = ENT · Q3·¬Q2·¬Q1·Q0</code>（也就是 1001）。</p>
+
+          <p class="mt-3">至于为什么会有"十进制计数器"这种看起来多余的器件：因为人算的是十进制。做一个数字钟，秒的个位要 0~9 循环、十位要 0~5 循环，如果你手上只有 161，就得用反馈的方法硬凑出 ÷10 和 ÷6；而 160 天生就是 ÷10，连线立刻少一半。这就是"选对器件比设计得巧更重要"的典型例子。</p>
+
+          <p class="mt-3">但现实需求总是奇奇怪怪的：我要 ÷12（钟表的小时）、我要 ÷60（分秒）、我要 ÷7（星期）。一片 161/160 只有固定模数，怎么办？答案是<b class="font-semibold text-ink">用反馈把"N 进制"掰成"任意 M 进制"（M ≤ N）</b>，两种基本手法：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">反馈清零法（复位法）：</b>让它自然往上数，数到第 M 个状态（也就是刚要出现"该回零的那个码"）时，用门电路把这个码认出来，产生一个清零信号拉低 CLR̄，把它强行拨回 0000。比如要用 161 做 ÷12，就在出现 1100（12）时清零，稳定状态是 0~11 共 12 个。</li>
+            <li><b class="font-semibold text-ink">反馈置数法（预置法）：</b>同样是数到某个码时产生信号，但这次不是清零，而是拉低 LD̄，让下一个时钟沿把 D<sub>3</sub>~D<sub>0</sub> 上预设的值同步装进去。装什么值，就从什么值开始数；数到触发点为止，同样是 M 个状态。比如用 161 做 ÷12，可以检测 1111（15）时置入 0100（4），稳定状态就是 4~15 共 12 个。</li>
+          </ul>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">两种方法最大的区别：清零是异步的，置数是同步的</div>
+            <p>74LS161 的 CLR̄ 是<b>异步</b>清零端——它一旦变低，输出立刻回零，根本不等时钟。这意味着那个"被检测到的第 M+1 个状态"会真实地出现在输出上，虽然只存在很短一段时间（几个门延迟），但它确实存在。这个瞬时状态会带来两个后果：</p>
+            <p class="mt-2"><b>① 译码显示会闪一下假码</b>。比如 ÷12 计数器驱动数码管，每当它从 11 跳到 12 的那一瞬间，译码器可能已经把"12"或别的中间码解出来了。</p>
+            <p class="mt-2"><b>② 如果清零信号被毛刺干扰，可能误清零</b>，计数器直接少计一个数。</p>
+            <p class="mt-2">而 74LS161 的 LD̄ 是<b>同步</b>置数端，它拉低后要等时钟沿才生效，所以被检测的状态是"合法的稳定状态"，输出上不会出现多余的码。这就引出了第 3 节要走完整过程的那个结论：<b>能用同步的，就别用异步的</b>——如果非要用清零法，请换用 74LS163（同步清零版本），或者接受那个瞬时态、别让它进译码器。</p>
+          </div>
+
+          <p class="mt-3">最后是<b class="font-semibold text-ink">级联</b>。一片 4 位计数器不够用，就把多片接起来，让它们像十进制的"个位、十位、百位"一样互相进位。同步级联的标准接法是：<b class="font-semibold text-ink">所有片的 CP 并在一起，低片的 RCO 接到高片的 ENT</b>。这样低片数满（RCO 变高）时，高片才被允许在下一个时钟沿加 1，两者严格同步，不会有毛刺。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两片 74LS161 同步级联 = 8 位二进制计数器（模 256）">
+            <pre><code>              ┌──────────────┐        ┌──────────────┐
+   计数脉冲 ──▶│ CP        RCO│───────▶│ ENT       CP │◀── 同一个计数脉冲
+              │              │        │              │
+              │  74LS161(低) │        │  74LS161(高) │
+              │  Q3 Q2 Q1 Q0  │        │  Q3 Q2 Q1 Q0 │
+              └──┬──┬──┬──┬──┘        └──┬──┬──┬──┬──┘
+                 │  │  │  │              │  │  │  │
+                 Q0 Q1 Q2 Q3            Q4 Q5 Q6 Q7     ← 拼成 8 位计数值
+
+   低片的 ENP、ENT 都接高（一直允许计数）；
+   高片的 ENT 接低片的 RCO，等于"低片进位了我才动"。
+
+   分频比怎么算：级联后的模数 = 各片模数之积
+     两片 161（÷16）级联      → 16 × 16 = 256      → 对 CP 做 256 分频
+     一片 161（÷12）+ 一片 160（÷10）→ 12 × 10 = 120 → 对 CP 做 120 分频
+     161（÷12）+ 六片 160（÷10）   → 12 × 10⁶ = 12,000,000 → 12 MHz 变 1 Hz</code></pre>
+          </div>
+
+          <p class="mt-3">所以"分频比"这件事在计数器世界里就是一道乘法题：<b class="font-semibold text-ink">总模数 = 每一级模数相乘</b>，而每一级的模数既可以由器件天生决定（161 是 16、160 是 10），也可以由你用反馈法改成任意值。第 3 节的例六会拿 12 MHz 晶振变 1 Hz 完整算一遍，你会发现"用 16 分频硬凑"为什么凑不出来。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">一个顺手的观察：每一位输出本身就是一路分频</div>
+            <p>4 位二进制计数器不只能"整体 ÷16"，它的每一个输出脚还各自是一路分频：Q0 是 ÷2、Q1 是 ÷4、Q2 是 ÷8、Q3 是 ÷16，而且都是 50% 占空比的方波。这就是老式数字钟"从晶振一路分频到 1 Hz、再到秒脉冲"的做法，也是你后面在单片机里用定时器做分频时会反复见到的同一件事——定时器的预分频器 PSC 和自动重装值 ARR，合起来就是一个可编程的分频比。</p>
+          </div>
+
+<hr class="hr-soft my-10">
+
+          <h3 id="sub-fsm" class="mt-7 text-base font-semibold">状态机：Moore 与 Mealy，以及必须会写的三个方程</h3>
+
+          <p class="mt-3">前面那些器件（锁存器、触发器、寄存器、计数器）都是"零件"。把零件组装成一个能完成具体任务的时序电路，中间缺的就是一套设计方法。而<b class="font-semibold text-ink">状态机（finite state machine，FSM）就是这套方法的名字</b>：先用状态图把"要做什么"描述清楚，再把状态图翻译成方程，最后由方程连出电路——或者，在单片机里由方程写出代码。</p>
+
+          <p class="mt-3">回到贯穿本节的那个通用模型，把话说得更干脆一点。任何时序电路都可以用两个方程概括：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="时序电路的两个方程（状态机的一切都从这里长出来）">
+            <pre><code>   状态转移方程（次态方程）：  Q* = f ( Q , X )
+        —— 下一个状态，由"现在是什么状态"和"现在的输入"共同决定
+
+   输出方程：                  Z  = g ( Q , X )     或    Z = g ( Q )
+        —— 输出要么两个都看（Mealy），要么只看状态（Moore）
+
+   其中：Q 是现态（所有触发器当前的值），X 是输入，Q* 是次态，Z 是输出。
+
+   组合逻辑和时序逻辑的全部区别，就压在这两行里：
+       组合逻辑：Z = f ( X )            —— 只看现在
+       时序逻辑：Z = g ( Q , X )，Q* = f ( Q , X ）   —— 还看"过去攒下来的 Q"</code></pre>
+          </div>
+
+          <p class="mt-3">输出方程的那两种写法，就是 <b class="font-semibold text-ink">Moore 型</b>与 <b class="font-semibold text-ink">Mealy 型</b>的区别。这个区别看着小，实际影响却很大，尤其是在"输出会不会抖"这件事上。</p>
+
+          <p class="mt-3">拿一个具体任务来对比：<b class="font-semibold text-ink">检测输入序列中的"110"</b>（输入 X 一个时钟一位，检测到连续三位是 1、1、0 时，输出 Z 给一个 1）。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="同一个任务，Mealy 用 3 个状态，Moore 用 4 个状态">
+            <pre><code>  ── Mealy 型（输出写在"箭头"上，跟着输入走）──────────────────────
+
+        X=0 / Z=0                    X=0 / Z=0
+     ┌───────────┐               ┌───────────┐
+     │           ▼               │           ▼
+   ┌───┐  X=1  ┌───┐  X=1   ┌───┐
+   │S0 │──────▶│S1 │───────▶│S2 │──────── X=0 / Z=1 ────────╮
+   │ 00│       │ 01│        │ 11│                            │
+   └───┘       └───┘        └───┘                            │
+     ▲   X=0     │  X=0        │  X=1（还是"11"，继续等 0）   │
+     └───────────┘             └──────┐                      │
+        （回到起点）                    │                      │
+                            回到 S2 ◀──┘                      ▼
+                                                         回到 S0
+                             （刚收到 0，序列断了；Z 就在这一刻输出 1）
+
+   要点：S2 的含义是"已经看到 11"。此时只要输入 0，输出 Z 立刻变高
+         —— 因为这条箭头是"当前状态 + 当前输入"共同决定的；
+         同时状态被送回 S0：刚收到的那个 0 不能充当任何前缀。
+
+  ── Moore 型（输出写在"圈"里，只看状态）────────────────────────
+
+                  X=1            X=1            X=0
+   ┌───────┐  ────────▶┌───────┐────────▶┌───────┐────────▶╭───────╮
+   │  S0   │           │  S1   │         │  S2   │         │  S3   │
+   │ Z = 0 │◀──────────│ Z = 0 │         │ Z = 0 │         │ Z = 1 │
+   └───────┘    X=0    └───────┘         └───────┘         ╰───────╯
+       ▲                    ▲                                  │
+       └────────────────────┴──────────────────────────────────┘
+                        X=0 时 S1、S3 回到起点 S0
+                  （S3 若收到 X=1，则回到 S1 —— 末尾那个 1 可能是下一组
+                    110 的开头，这种"允许重叠"的检测才是标准做法）
+
+   要点：必须"看到 110 三位都到齐"、再等一个时钟沿进入 S3，
+         输出才变高。多了一个状态，输出晚了一拍，但 Z 只跟状态有关。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>对比项</th><th>Moore 型</th><th>Mealy 型</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>输出取决于</td><td>只取决于现态：Z = g(Q)</td><td>现态 + 输入：Z = g(Q, X)</td></tr>
+                <tr><td>状态图上的画法</td><td>输出写在状态圈里</td><td>输出写在箭头上（输入/输出）</td></tr>
+                <tr><td>状态数</td><td>通常多一个（要有一个专门表示"输出该为 1"的状态）</td><td>通常少一个</td></tr>
+                <tr><td>响应速度</td><td>慢一拍：输入到位后要等下一个时钟沿才反映到输出</td><td>快：输入一变，只要穿过一层组合逻辑，输出就变</td></tr>
+                <tr><td>输出质量</td><td>干净。输出是触发器的 Q，只在时钟沿变化，天然没有毛刺</td><td>容易抖。输出经过组合逻辑，输入上的任何毛刺都会透到输出</td></tr>
+                <tr><td>对时钟的依赖</td><td>输出严格同步于时钟</td><td>输出与时钟"半同步"，输入路径的延迟会影响输出</td></tr>
+                <tr><td>典型用途</td><td>状态指示、控制器输出、驱动继电器/电机的信号（怕毛刺的场合）</td><td>通信协议应答、总线控制、需要"立刻响应"的组合输出</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">工程上的取舍口诀：输出要"稳"选 Moore，要"快"选 Mealy</div>
+            <p>如果输出的那根线接的是继电器、电机使能、片选这种"抖一下就会出事"的东西，用 Moore，宁可慢一拍也别给毛刺。<b>如果实在需要 Mealy 的速度又想要 Moore 的干净，还有第三招：把 Mealy 的输出再打一拍</b>——也就是在输出后面接一个 D 触发器，让它也变成"只在时钟沿变化"。代价同样是慢一拍，但你换来了时序上的可预测性。</p>
+            <p class="mt-2">在单片机里写软件状态机时，这个区别常常表现为"<b>输出的赋值写在哪一行</b>"：写在 <code class="icode">switch (state)</code> 的各个 case 里（只跟状态有关）就是 Moore；写在"根据当前状态和输入判断、立刻赋值"的地方就是 Mealy。软件里没有毛刺问题，所以更多是按"逻辑清晰"来选。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">下一个问题：状态用什么二进制码表示？</b>状态图里的 S0、S1、S2 只是名字，触发器里存的是 0 和 1。给每个状态分配一个二进制码的过程叫<b class="font-semibold text-ink">状态编码（state assignment）</b>。同一张状态图，编码不同，最后连出来的电路差别可以很大：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>编码方式</th><th>怎么编（以 4 个状态为例）</th><th>触发器数量</th><th>优点</th><th>缺点</th><th>常用场合</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>二进制码</td><td>S0=00、S1=01、S2=10、S3=11</td><td>最少（n 个状态用 ⌈log₂n⌉ 个）</td><td>省触发器，FPGA 里省资源、74 系列里省芯片</td><td>次态译码逻辑复杂；多位可能同时翻转，瞬时电流大、易出毛刺</td><td>触发器紧张、状态多的场合</td></tr>
+                <tr><td>格雷码</td><td>S0=00、S1=01、S2=11、S3=10（相邻只差一位）</td><td>同二进制码</td><td>每次只翻一位，毛刺和动态功耗最小，便于跨时钟域</td><td>译码逻辑要按这个编码重画卡诺图，人算容易错</td><td>顺序型状态机、低功耗设计</td></tr>
+                <tr><td>独热码（one-hot）</td><td>S0=0001、S1=0010、S2=0100、S3=1000</td><td>一个状态一个（n 个状态用 n 个）</td><td>译码逻辑最简单（每根线几乎不用与门），速度最快，改状态只加触发器</td><td>触发器用得多；未用状态极多，必须处理自启动</td><td>CPLD/FPGA（触发器富余，组合逻辑贵）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">选择原则一句话：<b class="font-semibold text-ink">触发器便宜就独热，触发器贵就二进制；要低功耗或怕毛刺就格雷码。</b>74 系列里触发器是按芯片算的，所以传统教材例题都用二进制码；FPGA 里触发器是海量的，所以厂商手册推荐独热码。你在单片机里写软件状态机时，编码对应的是 <code class="icode">enum</code> 里的取值——软件里没有毛刺和功耗问题，但格雷码那个思路（相邻状态只变一位）在编码器、跨时钟域握手里仍然天天用。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">然后是本节最需要动手的三张纸：状态转移方程、输出方程、驱动方程。</b>它们不是三个并列的公式，而是层层递进的一条链：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="设计流程：从状态图到电路，逐层翻译">
+            <pre><code>   ① 状态图 / 状态表            ← 需求在这里被描述清楚（人话 → 图形）
+            │
+            │  （给状态编码，把 S0/S1/S2 换成 00/01/10）
+            ▼
+   ② 次态表 + 输出表            ← 真值表形式：每一行是"现态 + 输入 → 次态 + 输出"
+            │
+            │  （每一位触发器单独画一张次态卡诺图，化简）
+            ▼
+   ③ 状态转移方程  Q* = f(Q, X)  ← 每一位触发器写一个方程，例如 Q1* = Q0·X
+            │
+            ├──────────────▶ ④ 输出方程  Z = g(Q, X)（或 Z = g(Q)）
+            │
+            │  （把 Q* 代入所选触发器的特性方程，反解出输入端的表达式）
+            ▼
+   ⑤ 驱动方程  D1 = ?  J1 = ? K1 = ?  T1 = ?   ← 真正要接到触发器引脚上的表达式
+            │
+            ▼
+   ⑥ 画电路图（门 + 触发器），⑦ 检查自启动（把所有未用状态代进方程走一遍）</code></pre>
+          </div>
+
+          <p class="mt-3">驱动方程为什么需要"反解"？因为触发器不是"你想要什么次态就给什么次态"的器件——它有自己的脾气，这个脾气写在<b class="font-semibold text-ink">特性方程</b>里。你要做的是：先想清楚次态 Q* 应该是多少（这是状态转移方程告诉你的），再回过头去凑触发器的输入端，让它自己产生这个次态。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>触发器</th><th>特性方程（它的脾气）</th><th>由 Q* 反解输入端（驱动方程）</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>D 触发器</td><td>Q* = D</td><td>D = Q*</td><td>最省事：状态转移方程写出来，就是驱动方程，直接接上去</td></tr>
+                <tr><td>T 触发器</td><td>Q* = T ⊕ Q</td><td>T = Q ⊕ Q*</td><td>T=1 翻转、T=0 保持；把两边的 Q 异或过去即可</td></tr>
+                <tr><td>JK 触发器</td><td>Q* = J·¬Q + ¬K·Q</td><td>在 Q=0 的格子里：J = Q*<br>在 Q=1 的格子里：¬K = Q*，即 K = ¬Q*</td><td>把次态卡诺图按 Q=0 / Q=1 拆成两张小图分别化简，无关项可自由取值</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">JK 那一行值得多说一句，因为它是最容易出错的地方。把 Q* = J·¬Q + ¬K·Q 看成一"选择器"：当 Q = 0 时第二项没了，Q* = J；当 Q = 1 时第一项没了，Q* = ¬K。<b class="font-semibold text-ink">所以在次态卡诺图里，每个格子的 Q 值是已知的，Q=0 的格子直接把值读成 J，Q=1 的格子把值取反读成 K</b>。剩下的无关项（不会出现的"现态+输入"组合）在化简时随便当 0 或 1 用，让表达式尽量短——但用完之后必须回代检查自启动，因为"随便取值"可能把某个未用状态的去处定成了死角。</p>
+
+          <p class="mt-3">最后一步<b class="font-semibold text-ink">自启动检查</b>是初学者最容易漏、也最要命的一步。假如 4 个状态用 2 位二进制编码，那 2 位能表示 4 个码，正好用完，没有多余状态；但如果状态数是 3 个（比如 110 检测器的 Mealy 版用了 S0=00、S1=01、S2=11），就凭空多出一个未用码 10。上电瞬间，触发器里的值可能是随机的，万一它落在 10 上，会发生什么？</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>把 Q1Q0 = 10 代进状态转移方程，看它下一步去哪。</li>
+            <li>如果它能走进 00/01/11 中的某一个，那它会在一两拍之内自动回到正常工作，这个电路<b class="font-semibold text-ink">可以自启动</b>。</li>
+            <li>如果它绕进了一个"自己的小循环"（比如 10 → 10），那它<b class="font-semibold text-ink">永远出不来</b>——电路看起来在跑，但再也不响应输入了。这种故障现场非常迷惑人：复位一下就好，跑着跑着又坏。</li>
+          </ul>
+
+          <p class="mt-3">补救办法有三个：<b class="font-semibold text-ink">改编码</b>（把状态数凑满，或用独热码让未用态有明确的去处）、<b class="font-semibold text-ink">在化简时特意留一个引导项</b>（牺牲一点逻辑最简性，换未用态能回到主循环）、<b class="font-semibold text-ink">用复位端强制进入初始状态</b>（上电时先把所有触发器清成 S0，这是最省事也最常见的做法，但前提是电路必须有可靠的复位信号）。第 3 节的例三你会看到这两种手段同时上阵：既加了引导项，也留了复位。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">把这一节串起来：所谓"时序逻辑设计"，就是七步走一遍</div>
+            <p><b>① 描述</b>（状态图/状态表，把需求说清楚）→ <b>② 编码</b>（给状态分配二进制码，列次态表）→ <b>③ 状态转移方程</b>（每位触发器一张次态卡诺图，化简）→ <b>④ 输出方程</b>（Moore 只看 Q，Mealy 看 Q 和 X）→ <b>⑤ 驱动方程</b>（用特性方程反解，D 最省事、JK 要拆图）→ <b>⑥ 画图接线</b> → <b>⑦ 自启动与毛刺检查</b>。</p>
+            <p class="mt-2">在单片机里，这条链会缩短成两段：前四步照做（用 <code class="icode">enum</code> 编码、写出次态和输出的逻辑），第五步之后的"触发器"由 CPU 和时钟替你完成——<b>你写的 <code class="icode">state = next_state</code> 这一句，在硬件上就是给一组触发器接上了时钟沿。</b>理解了硬件那七步，你在软件里写状态机时就不会再写出那种"状态漏了、默认分支忘了处理"的代码。</p>
+          </div>
+
+<hr class="hr-soft my-10">
+
+        <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+
+        <p class="mt-3">概念听懂了和会做题是两件事。这一节有六道题，覆盖了前面所有主干：前两道是"把 N 进制改成 M 进制"（计数器改造），第三道是"从状态图写出三个方程"（状态机设计），第四道反过来是"给电路求功能"（时序电路分析），第五道算时序预算（这电路能跑多快），第六道算分频比与级联片数。建议你拿纸笔跟着算一遍，尤其是例三的卡诺图——那是这一章唯一"必须手熟"的技能。</p>
+
+        <h3 id="calc-clear" class="mt-7 text-base font-semibold">例一：用 74LS161 反馈清零法做十二进制计数器</h3>
+
+        <div class="callout callout-info mt-4">
+          <div class="callout-title">题目</div>
+          <p>手上只有一片 74LS161（4 位同步二进制加法计数器）和一个 74LS00（四 2 输入与非门），要求做出一个<b>十二进制（模 12）计数器</b>：写出反馈逻辑表达式、画出连线思路、给出完整状态序列，并指出这个方案的隐患。</p>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 1 步：确定"稳定的 12 个状态"落在哪儿。</b>74LS161 自然能表示 0~15 共 16 个状态，我们要砍掉 4 个。最省事的选法是让计数从 0 开始数到 11：<b class="font-semibold text-ink">稳定状态 = {0, 1, 2, …, 11}，共 12 个</b>，然后立刻回到 0。</p>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 2 步：找出那个"多出来的码"。</b>既然稳定状态到 11 为止，那么第 13 个状态就是 12。把它写成二进制：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="目标状态与越界状态的二进制码">
+          <pre><code>   要保留的：0 ~ 11        0000 0001 0010 0011 0100 0101
+                          0110 0111 1000 1001 1010 1011
+
+   要砍掉的：12 13 14 15   1100 1101 1110 1111
+
+   观察这四个"越界码"有什么共同点：
+       12 = 1 1 0 0
+       13 = 1 1 0 1
+       14 = 1 1 1 0
+       15 = 1 1 1 1
+            ↑ ↑
+          Q3 Q2 都是 1！
+
+   也就是说：只要 Q3 和 Q2 同时为 1，就说明已经越界了。
+   而 0~11 里面，没有任何一个码是 Q3=1 且 Q2=1 的（Q3 要到 8 才为 1，
+   此时 Q2=0，一直到 11 = 1011 时 Q2 都还是 0）。</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 3 步：写出清零逻辑。</b>74LS161 的清零端 <code class="icode">CLR̄</code> 是<b>低电平有效</b>，所以我们要在"Q3 和 Q2 同时为 1"时让它输出低电平——这正好是一个与非门：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="反馈清零逻辑（模 12）">
+          <pre><code>   逻辑表达式：      CLR̄  =  ¬ ( Q3 · Q2 )
+
+   真值（只看 Q3、Q2 两位）：
+        Q3  Q2   |  Q3·Q2  |  CLR̄ = ¬(Q3·Q2)  |  计数器动作
+        ---------+---------+-----------------+-----------------------
+         0   0   |    0    |        1        |  正常计数（不清零）
+         0   1   |    0    |        1        |  正常计数
+         1   0   |    0    |        1        |  正常计数
+         1   1   |    1    |        0        |  立刻清零 → 回到 0000
+
+   接线：74LS00 的一个与非门，两个输入分别接 Q3、Q2，输出接 CLR̄(1 脚)。
+        74LS161 剩下的控制脚：LD̄ 接高、ENP 和 ENT 都接高（一直允许计数）。</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 4 步：验证状态序列。</b>把上面的逻辑代进计数过程，走一遍看是不是刚好 12 个状态：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="十二进制计数器的工作过程（含那个瞬时态）">
+          <pre><code>  时钟脉冲    Q3 Q2 Q1 Q0     说明
+  ──────────┬─────────────┬──────────────────────────────────────
+    复位后   │  0  0  0  0 │  从 0 开始
+      1     │  0  0  0  1 │
+      2     │  0  0  1  0 │
+      …     │     …       │  正常往上数，Q3Q2 不同时为 1，不清零
+     11     │  1  0  1  1 │  数到 11（最后一个"合法"状态）
+     12     │  1  1  0  0 │  ← 越界！Q3=Q2=1，与非门输出立刻变低
+            │             │     CLR̄ 被拉低（注意：不等时钟！）
+            │  0  0  0  0 │  ← 几十纳秒后被强行拨回 0，重新开始
+
+   ★ 关键：第 12 个时钟沿之后，输出上真的出现过 1100 这个码。
+     它不是"不存在"，而是"存在了一小段时间"——这就是毛刺的来源。</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 5 步：算一下这个瞬时态有多宽。</b>它由两段延迟拼成：信号从 Q2 变高，穿过 74LS00 的与非门（74LS 系列门电路的传输延迟按典型值估算约 10 ns），再把 74LS161 的 CLR̄ 拉低，直到计数器输出真正变成 0000（74LS161 数据手册给出的 CLR̄ 到输出清零的延迟，按典型值估算约 20 ns）。</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="瞬时态宽度估算（按 74LS 系列典型值）">
+          <pre><code>   t(瞬时态) ≈ t_pd(74LS00) + t_pd(CLR̄ → 输出清零)
+             ≈ 10 ns + 20 ns
+             ≈ 30 ns        （按典型值估算，实际随器件、温度、负载而变）
+
+   换个角度看 30 ns 有多长：如果时钟频率是 1 MHz（周期 1000 ns），
+   这个瞬时态只占周期的 3%；但如果时钟跑到 1 MHz 以上，它就会
+   越来越显眼 —— 而且它跟时钟频率无关，是个"固定宽度的窗口"。</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 6 步：指出隐患。</b>这 30 ns 会带来三个具体麻烦：</p>
+
+        <ul class="mt-3 list-disc space-y-2.5 pl-5">
+          <li><b class="font-semibold text-ink">译码器会解出假码。</b>如果这 4 位输出接了一片 74LS48/74HC4511 之类的七段译码器去驱动数码管，那每当计数从 11 跳回 0 的瞬间，译码器已经把"1100"解出来了——显示上表现为数字"12"一闪，或者更糟：因为 Q2、Q1、Q0 三位是在同一个时钟沿翻转的，它们到达译码器的时间有细微差别，译码器可能依次看到 1100、1101、1110、1111 这一串中间码，显示的就是一片乱码残影。眼睛不一定看得清，但这在示波器上清清楚楚。</li>
+          <li><b class="font-semibold text-ink">清零信号可能被干扰。</b>异步清零端对窄脉冲很敏感，如果 <code class="icode">CLR̄</code> 的走线长、旁边有强干扰源，一个几十纳秒的干扰尖峰就能把它误清零，计数器就会"偶尔少数一个数"。这类故障最折磨人：跑一整天都对，偏偏在某个时刻错一次。</li>
+          <li><b class="font-semibold text-ink">下游电路可能读到非法值。</b>如果这 4 位还同时送到比较器、地址总线或另一片逻辑的输入端，那它在 30 ns 窗口里读到的是 12——而这个值在你的设计里根本不该存在，后续状态机可能因此跑飞。</li>
+        </ul>
+
+        <div class="callout callout-warn mt-4">
+          <div class="callout-title">补救方案（按推荐程度排序）</div>
+          <p><b>① 换 74LS163（同步清零版本）。</b>74LS163 与 74LS161 引脚完全兼容，但它有一个关键区别：<b>CLR̄ 是同步的</b>——清零信号也要等时钟沿才生效。这样一来，检测的状态就要改成"最后一个合法状态"11（1011）：</p>
+          <p class="mt-2"><code class="icode">CLR̄ = ¬( Q3 · Q1 · Q0 )</code>，用一个 3 输入与非门（74LS10）或者两个 2 输入与非门串起来。此时 1100 永远不会出现在输出上，12 个状态干干净净，一个不多一个不少。</p>
+          <p class="mt-2"><b>② 用反馈置数法（见例二）。</b>绕开清零端，只用同步的置数端，效果和方案 ① 一样好，而且不需要换芯片。</p>
+          <p class="mt-2"><b>③ 硬要用 161 的清零法？</b>那就别让那 4 位输出直接进译码器/下游逻辑——比如给译码器加一个"消隐（blanking）"信号，在清零窗口内把显示关掉。这属于打补丁，工程上能做但不优雅，因为那个消隐信号本身也得从 Q3Q2 推出来，容易越描越乱。</p>
+        </div>
+
+        <p class="mt-3">顺带记住一条能省很多事的经验：<b class="font-semibold text-ink">异步清零的器件，检测"越界码 M"；同步清零的器件，检测"最后一个合法码 M−1"。</b>很多人第一次做题会把这两个搞混，结果做出一个 M−1 进制或 M+1 进制的计数器，一上电就发现"怎么少了一个数"。</p>
+
+        <hr class="hr-soft my-10">
+
+        <h3 id="calc-load" class="mt-7 text-base font-semibold">例二：反馈置数法，以及两种方案的毛刺对比</h3>
+
+        <div class="callout callout-info mt-4">
+          <div class="callout-title">题目</div>
+          <p>还是那片 74LS161，还是模 12。这次要求<b>改用反馈置数法</b>，给出一到两种实现，解释为什么这样做没有毛刺，最后把两种方法列成表对比。</p>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">方案 A：用 RCO 直接触发置数，稳定状态取 4~15。</b>74LS161 有一个现成的输出 <code class="icode">RCO</code>（进位输出），它的定义是 <code class="icode">RCO = ENT · Q3·Q2·Q1·Q0</code>——也就是说，<b class="font-semibold text-ink">计数到 15 时 RCO 正好变高</b>，连译码的门都省了：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="方案 A：检测 15，同步装入 4">
+          <pre><code>   接线：
+        LD̄  =  ¬ RCO          （一个反相器，例如 74LS04 的一个门）
+        D3 D2 D1 D0 = 0 1 0 0 （预置数为 4 = 0100）
+        CLR̄ 接高（不用清零）
+        ENP、ENT 接高（一直允许计数）
+
+   工作过程：
+        时钟沿来到 → 若 LD̄ = 0，则把 0100 装进去（同步，等时钟）
+        
+        … 数到 15（1111）时 RCO = 1 → LD̄ = 0
+        下一个时钟沿 → 装入 0100
+        → 状态序列：4,5,6,7,8,9,10,11,12,13,14,15, 4,5,…
+                     └────────── 数一下：正好 12 个 ──────────┘
+
+   为什么没有毛刺：
+        · 15 是一个"合法稳定状态"，它本来就该出现（占满一个时钟周期）
+        · LD̄ 是同步置数端，置数动作发生在时钟沿上，
+          输出的变化和计数时完全一样干净
+        · 状态序列里没有"半路杀出的多余码"</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">方案 B：检测 11，同步装入 0，稳定状态取 0~11。</b>如果你希望计数器从 0 开始数（例如要接译码器显示 0~11），那就把检测点往前挪一个：检测最后一个合法状态 11，然后装入 0000。</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="方案 B：检测 11，同步装入 0">
+          <pre><code>   检测 11 = 1011：
+        Q3=1  Q2=0  Q1=1  Q0=0
+        注意 Q2 是 0，可以不看它 —— 只要 Q3、Q1、Q0 同时为 1
+        就只有 1011 和 1111 两个码满足。而我们数到 11 就装 0，
+        永远到不了 15，所以这两个码里实际只会出现 1011。
+
+   逻辑表达式：
+        LD̄ = ¬ ( Q3 · Q1 · Q0 )
+        D3 D2 D1 D0 = 0 0 0 0
+
+   工作过程：
+        状态序列：0,1,2,…,11, 0,1,2,…    ← 正好 12 个
+
+   实现细节：
+        3 输入与非门可以用一片 74LS10（三 3 输入与非门），
+        也可以拿 74LS00 的两个门串起来：
+            中间 = ¬(Q3 · Q1)
+            LD̄  = ¬(中间 · Q0)  ← 注意这里要的是"中间与 Q0 再取反"
+        但别接错：如果写成 ¬(¬(Q3Q1) · Q0) = Q3Q1 + ¬Q0，
+        那就变成"只要 Q0 是 0 就置数"，计数器会卡在 0 不动。</code></pre>
+        </div>
+
+        <div class="callout callout-tip mt-4">
+          <div class="callout-title">方案 B 里那个"两个门串起来"的坑，值得单独说一句</div>
+          <p>用两个 2 输入与非门搭一个 3 输入与非门，正确的做法是：<b>先把两个输入与非起来取反，再和第三个输入与非</b>。中间那个信号是"¬(Q3·Q1)"，它代表"Q3 和 Q1 都是 1"这件事成立。再把它和 Q0 一起送进第二个与非门，输出就是 ¬(中间·Q0) = ¬(Q3·Q1·Q0)。</p>
+          <p class="mt-2">新手常见的错误是把中间信号当成 Q3·Q1 用（忘了它其实是取反过的），于是推出完全不同的逻辑。检查方法很简单：<b>把你推出来的表达式代几个状态进去，看它在不该置数的时候是不是老老实实为 1</b>——这一步花十秒钟，能省掉一整晚的查线。</p>
+        </div>
+
+        <div class="table-scroll mt-3">
+          <table class="table-mcu">
+            <thead>
+              <tr><th>对比项</th><th>反馈清零法（例一）</th><th>反馈置数法（例二·方案 A）</th><th>反馈置数法（例二·方案 B）</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>用哪个控制端</td><td>CLR̄（异步清零）</td><td>LD̄（同步置数）</td><td>LD̄（同步置数）</td></tr>
+              <tr><td>检测的状态码</td><td>12 = 1100（越界码）</td><td>15 = 1111（用 RCO 现成信号）</td><td>11 = 1011（最后一个合法码）</td></tr>
+              <tr><td>反馈表达式</td><td>CLR̄ = ¬(Q3·Q2)</td><td>LD̄ = ¬RCO，不需要另加门</td><td>LD̄ = ¬(Q3·Q1·Q0)</td></tr>
+              <tr><td>预置值</td><td>—（清零到 0）</td><td>0100（从 4 开始数）</td><td>0000（从 0 开始数）</td></tr>
+              <tr><td>稳定状态区间</td><td>0~11</td><td>4~15</td><td>0~11</td></tr>
+              <tr><td>动作生效时刻</td><td>信号一变就生效（不等时钟）</td><td>下一个时钟沿</td><td>下一个时钟沿</td></tr>
+              <tr><td>输出上是否出现无用码</td><td>出现，宽约 30 ns（按典型值估算）</td><td>不出现</td><td>不出现</td></tr>
+              <tr><td>接译码器会不会闪假码</td><td>会</td><td>不会</td><td>不会</td></tr>
+              <tr><td>所需门</td><td>1 个 2 输入与非门</td><td>1 个反相器（或干脆用 74LS163 的清零端不用）</td><td>1 个 3 输入与非门</td></tr>
+              <tr><td>推荐度</td><td>不推荐（除非换成 74LS163）</td><td>推荐，接线最省</td><td>推荐，起始状态最直观</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-3">还要补一句：<b class="font-semibold text-ink">方案 A 和方案 B 都没有"瞬时态"这个说法</b>，因为它们检测的状态是计数器本来就会正常停留一个完整时钟周期的状态。它们和例一最本质的差别不在"用哪个门"，而在<b>反馈信号接到了同步端还是异步端</b>。这也就是为什么选器件时值得多花两毛钱买 74LS163：它的清零端是同步的，"清零 + 同步"这个组合让两种方法都变得干净。</p>
+
+        <p class="mt-3">最后一个通用结论，做数字钟的时候你会反复用到：<b class="font-semibold text-ink">一个 M 进制计数器，本质上就是"让计数器只在 M 个状态里打转"</b>。检测点选哪个、装什么值，不影响模数，只影响这 M 个状态在 16 个码里的位置。所以你可以用这个自由度做很实用的事：比如做"分"的个位（0~9 循环）、"分"的十位（0~5 循环），只要把两片级联起来、各自设好模数与预置值，60 进制就出来了。</p>
+
+        <hr class="hr-soft my-10">
+
+        <h3 id="calc-equation" class="mt-7 text-base font-semibold">例三：从状态图写出三个方程（并检查自启动）</h3>
+
+        <div class="callout callout-info mt-4">
+          <div class="callout-title">题目</div>
+          <p>实现一个<b>"110"序列检测器</b>（输入 X 每个时钟来一位，检测到连续的 1、1、0 时输出 Z 给一个 1；允许重叠，也就是"110110"要被检测到两次）。要求：给状态编码，写出<b>状态转移方程、输出方程、驱动方程</b>（分别用 D 触发器和 JK 触发器各做一遍），并检查自启动。</p>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 1 步：定状态、给编码。</b>检测"110"需要记住"已经收到了几个有效的开头"，所以三个状态就够：</p>
+
+        <div class="table-scroll mt-3">
+          <table class="table-mcu">
+            <thead>
+              <tr><th>状态名</th><th>编码 Q<sub>1</sub>Q<sub>0</sub></th><th>含义（已经匹配到哪一步）</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>S0</td><td>00</td><td>目前没有任何有效前缀（或者刚收到 0）</td></tr>
+              <tr><td>S1</td><td>01</td><td>已经收到一个 1</td></tr>
+              <tr><td>S2</td><td>11</td><td>已经收到 11</td></tr>
+              <tr><td>（未用）</td><td>10</td><td>编码里多出来的一个码，上电时有可能落在这里</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-3">为什么这样编码？因为 S0/S1/S2 恰好对应"前缀长度 0、1、2"，用 Q<sub>0</sub> 表示"有没有收到 1"、Q<sub>1</sub> 表示"是不是已经收到两个 1"，读起来很自然。<b class="font-semibold text-ink">如果你用 00、01、10 这样顺排的编码，方程会复杂一些</b>——编码不是随便给的，它直接影响后面卡诺图化简的难度，这就是第 2 节讲状态编码时那句"同一张状态图，编码不同，电路差别很大"的由来。</p>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 2 步：列状态表。</b>这一步是把"状态图"翻译成"真值表"，为写方程做准备。每一行是现态，每一列是一个输入取值，格子里填"次态 / 输出"：</p>
+
+        <div class="table-scroll mt-3">
+          <table class="table-mcu">
+            <thead>
+              <tr><th>现态 Q<sub>1</sub>Q<sub>0</sub></th><th>含义</th><th>X = 0 时<br>次态 / Z</th><th>X = 1 时<br>次态 / Z</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>00（S0）</td><td>没有前缀</td><td>00 / 0</td><td>01 / 0</td></tr>
+              <tr><td>01（S1）</td><td>已收到 1</td><td>00 / 0</td><td>11 / 0</td></tr>
+              <tr><td>11（S2）</td><td>已收到 11</td><td>00 / 1</td><td>11 / 0</td></tr>
+              <tr><td>10（未用）</td><td>不会正常出现</td><td>d / d</td><td>d / d</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-3">每一行怎么来的？举两个例子。<b>S1（已收到一个 1）再收到 0</b>：序列变成"10"，末尾的 0 不能当任何前缀（"110"要以 1 开头），所以回到 S0，输出 0。<b>S2（已收到 11）再收到 0</b>：这正好凑成"110"，检测成功，所以输出 Z = 1；同时那个刚落下的 0 也不能当新前缀，状态回到 S0。这两格就是 Mealy 型"输出跟着输入走"的最直接体现——Z 是在"处在 S2 且 X=0"这个组合上产生的，而不是某个状态自带的属性。</p>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 3 步：画次态卡诺图，写出状态转移方程。</b>两位触发器要写两个方程，所以要画两张卡诺图：Q<sub>1</sub><sup>*</sup> 一张、Q<sub>0</sub><sup>*</sup> 一张。行是现态（Q<sub>1</sub>Q<sub>0</sub>），列是输入 X：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="次态卡诺图（未用态 10 作为无关项 d）">
+          <pre><code>   ── Q1*（次态的高位）──────────────────────────────
+              X=0    X=1
+        Q1Q0 ┌──────┬──────┐
+         00  │  0   │  0   │      （S0：X=0 回 00、X=1 去 01，高位都是 0）
+         01  │  0   │  1   │      （S1：X=1 去 11，高位变 1）
+         11  │  0   │  1   │      （S2：X=1 留在 11，高位是 1）
+         10  │  d   │  d   │      （未用态，随便取）
+             └──────┴──────┘
+        圈两组：右下 2 格（01 行、11 行，X=1 列）
+        化简：  Q1* = Q0 · X        ← 只要 Q0=1 且 X=1，次态高位就是 1
+
+   ── Q0*（次态的低位）──────────────────────────────
+              X=0    X=1
+        Q1Q0 ┌──────┬──────┐
+         00  │  0   │  1   │
+         01  │  0   │  1   │      ← 这两行 Q0* 完全等于 X
+         11  │  0   │  1   │
+         10  │  0   │  0   │      ← 这里我们主动填 0（而不是 d），
+             └──────┴──────┘        目的是把未用态引导回主循环
+
+        如果按最简化：Q0* = X
+        我们选用：    Q0* = X · ( ¬Q1 + Q0 )
+        —— 二者在所有"合法"状态下取值完全一样，
+           差别只在于从 10 出发时前者去 01、后者去 00。
+           我们特意选了后者，让未用态的去向是"明确的 00"，
+           而不是"碰巧也对"，代价是多一个或门。</code></pre>
+        </div>
+
+        <div class="callout callout-warn mt-4">
+          <div class="callout-title">关于无关项 d 的一个诚实说明</div>
+          <p>教材上常说"无关项可以任意取 0 或 1，使表达式最简"。这话没错，但它有个前提：<b>你不需要关心电路掉进未用态之后会怎样</b>。而实际工程里你必须关心——因为上电瞬间触发器里的值是不确定的，电源抖动、干扰、甚至调试时单步，都可能让状态机落到未用码上。</p>
+          <p class="mt-2">所以正确的心态是：<b>d 是"设计自由度"，不是"随便"。</b>你可以用它化简逻辑（省门、省面积），但化简完之后一定要回头检查："我这样取值之后，未用态会去哪？"如果答案是"它自己能回到主循环"，那这个 d 取得漂亮；如果答案是"它绕进了一个自己的小圈"，那就必须放弃一部分最简性，手动给它指定一条出路——这就是本节例三里 Q<sub>0</sub><sup>*</sup> 老老实实写成 <code class="icode">X·(¬Q1 + Q0)</code> 的原因。</p>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 4 步：写输出方程。</b>Z 只在"现态是 S2 且 X = 0"这一种情况下为 1，所以：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="输出方程（Mealy 型：输出与现态、输入都有关）">
+          <pre><code>   Z 的真值（只可能出现 1 的那一格）：
+        现态 11 且 X = 0   →   Z = 1
+        其余所有情况        →   Z = 0
+
+   输出方程：   Z = Q1 · Q0 · ¬X
+
+   对照一下 Moore 型的写法（输出只看状态）：
+        Moore 需要一个额外的状态 S3（编码 11 之外的第三个触发器位，
+        或者重新编码成 4 个状态），输出就是  Z = Q1 · Q0 ，
+        不需要乘 ¬X —— 代价是"要等下一个时钟沿才输出"。</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 5 步：D 触发器的驱动方程。</b>D 触发器最省事，特性方程是 Q<sup>*</sup> = D，所以状态转移方程写出来就是驱动方程：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="D 触发器方案（直接照抄状态转移方程）">
+          <pre><code>   D1 = Q1* = Q0 · X
+   D0 = Q0* = X · ( ¬Q1 + Q0 )
+
+   Z  = Q1 · Q0 · ¬X
+
+   电路长什么样：
+        · 两个 D 触发器（比如一片 74HC74 里正好有两个）
+        · D1 前一个与门（Q0 · X）
+        · D0 前一个或门 + 一个与门（¬Q1 + Q0，再和 X 相与）
+        · Z 前一个三输入与门（Q1 · Q0 · ¬X），再加一个反相器产生 ¬X
+        · 两个触发器的 CP 接同一个时钟，这就是"同步"的全部含义</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 6 步：JK 触发器的驱动方程。</b>这一步是本章最需要动手的地方。回忆第 2 节那条规则：把次态卡诺图按 Q = 0 和 Q = 1 拆开看——<b class="font-semibold text-ink">在 Q = 0 的格子里，次态就是 J；在 Q = 1 的格子里，次态取反才是 K</b>。</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="JK 驱动方程：先求 J1/K1，再求 J0/K0">
+          <pre><code>   ── 求 J1、K1（看 Q1 这一位）────────────────────────
+   Q1 = 0 的行：00、01          这两行里 次态高位 = J1
+        00 行：X=0→0，X=1→0   →  J1 在 Q0=0 时为 0
+        01 行：X=0→0，X=1→1   →  J1 在 Q0=1 时为 X
+        合起来：J1 = Q0 · X
+
+   Q1 = 1 的行：11、10          这两行里 次态高位 = ¬K1
+        11 行：X=0→0（即 K1=1），X=1→1（即 K1=0）  →  K1 = ¬X
+        10 行：无关项（未用态）
+        合起来：K1 = Q1 · Q0 · ¬X        （乘 Q1Q0 把这个项限制在 11 行）
+
+   ── 求 J0、K0（看 Q0 这一位）────────────────────────
+   Q0 = 0 的行：00、10          这两行里 次态低位 = J0
+        00 行：X=0→0，X=1→1   →  J0 在这里等于 X
+        10 行：未用态，我们主动让它"引导回主循环"：
+               取 J0 = 1 → 从 10 出发时 Q0* 变成 1，
+               于是下一个状态是 1x，也就是落进 S2/S3 一侧，脱离死区
+        合起来：J0 = ¬Q0 · ( X + Q1 )
+
+   Q0 = 1 的行：01、11          这两行里 次态低位 = ¬K0
+        01 行：X=0→0（K0=1），X=1→1（K0=0）  →  K0 = ¬X
+        11 行：X=0→0（K0=1），X=1→1（K0=0）  →  K0 = ¬X
+        合起来：K0 = Q0 · ¬X</code></pre>
+        </div>
+
+        <div class="callout callout-danger mt-4">
+          <div class="callout-title">反例：贪图最简会做出一个"死锁"的状态机</div>
+          <p>如果不做自启动考虑，J<sub>0</sub> 那一项最自然的写法是 <code class="icode">J0 = ¬Q1 · ¬Q0 · X</code>（只有从 S0 出发、且 X=1 时才需要把 Q0 置 1）。这个表达式在合法状态上<b>完全正确</b>，而且比 <code class="icode">¬Q0·(X + Q1)</code> 更"对称好看"。但把它代进未用态 10 试试：</p>
+          <p class="mt-2"><code class="icode">J1 = Q0·X = 0·X = 0</code>，<code class="icode">K1 = Q1·Q0·¬X = 1·0·¬X = 0</code> → Q<sub>1</sub><sup>*</sup> = J1·¬Q1 + ¬K1·Q1 = 0 + 1·1 = <b>1</b>（保持）</p>
+          <p class="mt-2"><code class="icode">J0 = ¬Q1·¬Q0·X = 0</code>，<code class="icode">K0 = Q0·¬X = 0</code> → Q<sub>0</sub><sup>*</sup> = 0（保持）</p>
+          <p class="mt-2">结论：<b>从 10 出发，下一个状态还是 10，无论 X 是什么。</b>这个状态机一旦上电落进 10，就永远卡在那里，输入再怎么变都不理你——它看起来还在"正常运行"，只是再也不输出了。而只要把 J<sub>0</sub> 写成含引导项的 <code class="icode">¬Q0·(X + Q1)</code>，从 10 出发就会走到 11（S2），一拍之内回到主循环。</p>
+          <p class="mt-2">用我们的表达式完整检查一遍自启动：<b>10 →（J1=0, K1=0 → Q1*=1；J0=1, K0=0 → Q0*=1）→ 11</b>，而 11 是 S2，属于正常工作状态。<b>可以自启动 ✔</b>。如果换成 D 触发器方案，从 10 出发是 D1 = Q0·X = 0、D0 = X·(¬Q1 + Q0) = X·0 = 0，即 <b>10 → 00</b>，同样回到主循环。<b>两种触发器都能自启动，但走的路不一样</b>——这也是为什么"自启动检查"必须针对你实际选的器件做一遍，不能想当然。</p>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 7 步：结果汇总。</b>把这一题的全部答案整理成一张表，方便你对照：</p>
+
+        <div class="table-scroll mt-3">
+          <table class="table-mcu">
+            <thead>
+              <tr><th>项目</th><th>Mealy 型（本题，3 个状态）</th><th>Moore 型（对照，4 个状态）</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>状态编码</td><td>S0=00、S1=01、S2=11（10 未用）</td><td>S0=00、S1=01、S2=10、S3=11（无未用态）</td></tr>
+              <tr><td>输出方程</td><td>Z = Q1·Q0·¬X</td><td>Z = Q1·Q0</td></tr>
+              <tr><td>Q1*（或 Q1 的次态）</td><td>Q1* = Q0·X</td><td>Q1* = ¬Q1·Q0·X + Q1·¬Q0</td></tr>
+              <tr><td>Q0*</td><td>Q0* = X·(¬Q1 + Q0)</td><td>Q0* = ¬Q0·(Q1 ⊕ X) + Q1·Q0·X</td></tr>
+              <tr><td>D 触发器驱动方程</td><td>D1 = Q0·X，D0 = X·(¬Q1+Q0)</td><td>D1 = ¬Q1·Q0·X + Q1·¬Q0，D0 = ¬Q0·(Q1⊕X) + Q1·Q0·X</td></tr>
+              <tr><td>JK 触发器驱动方程</td><td>J1 = Q0·X，K1 = Q1·Q0·¬X<br>J0 = ¬Q0·(X+Q1)，K0 = Q0·¬X</td><td>（留给练习三，方法完全一样）</td></tr>
+              <tr><td>输出出现时刻</td><td>输入 0 一到，同一个时钟周期内 Z 就变高</td><td>要等下一个时钟沿进入 S3 才变高（慢一拍）</td></tr>
+              <tr><td>自启动</td><td>可以（10 → 11 或 10 → 00，取决于器件）</td><td>无所谓（4 个码全用满，没有未用态）</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-3">注意 Moore 那两列的方程明显更长：<b class="font-semibold text-ink">Moore 用"多一个状态"换来了"输出干净"，代价是次态逻辑更复杂；Mealy 用"输出可能抖动"换来了"状态更少、方程更短、响应更快"。</b>这张表就是第 2 节那个取舍口诀的具体账本。</p>
+
+<hr class="hr-soft my-10">
+
+        <h3 id="calc-analysis" class="mt-7 text-base font-semibold">例四：给一个门级电路，完整分析出它的功能</h3>
+
+        <div class="callout callout-info mt-4">
+          <div class="callout-title">题目</div>
+          <p>下面是一个用两个上升沿触发的 D 触发器和几个门搭成的电路（两个触发器共用同一个时钟 CP）：</p>
+          <div class="code-block mt-3" data-lang="text" data-title="待分析的时序电路">
+            <pre><code>              ┌───────────┐
+              │    D0     │        ┌───────────┐
+       ┌──────┤ D      Q  ├─── Q0 ──┤    D1     │
+       │      │           │        │ D      Q  ├─── Q1 ──┬──▶ 到输出与门
+       │   ┌──┤ CP        │        │           │         │
+       │   │  └───────────┘    ┌───┤ CP        │         │
+       │   │                   │   └───────────┘         │
+       │   │                   │                         │
+       │   │                   │   ┌───────────┐         │
+       │   └───────────────────┼───┤ 异或门 XOR ├─────────┘
+       │                       │   └───────────┘   （Q0 ⊕ Q1 → D1）
+       │   ┌───────────┐       │
+       └───┤  反相器    ├───────┘
+           └───────────┘      （¬Q0 → D0）
+                                                    Z ◀── 与门（Q1 · Q0）
+
+   注意两个触发器的 D 端：
+        D0 接的是 ¬Q0（自己的反相输出 —— 这是"每拍都翻转"）
+        D1 接的是 Q0 ⊕ Q1（两个输出的异或）
+   题目：求它的状态转移方程、输出方程、状态表、状态图、时序图，并说明功能。</code></pre>
+          </div>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 1 步：写驱动方程。</b>这一步就是把电路图"读"成表达式，从每个触发器的 D 端顺着线往回找，遇到门就写逻辑：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="驱动方程（直接从电路读出）">
+          <pre><code>   D0 = ¬Q0                 （Q0 经过反相器回到自己的 D 端）
+   D1 = Q0 ⊕ Q1             （Q0 与 Q1 进异或门）
+   Z  = Q1 · Q0             （两个输出进与门）</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 2 步：换成状态转移方程。</b>D 触发器最省事，Q<sup>*</sup> = D，直接替换：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="状态转移方程与输出方程">
+          <pre><code>   Q0* = ¬Q0
+   Q1* = Q0 ⊕ Q1
+   Z   = Q1 · Q0
+
+   ★ 这两个方程有个共同特点：右边只出现 Q，没有外部输入 X。
+     这说明电路没有输入 —— 它是一个"自由运行"的时序电路，
+     每来一个时钟就自己往前走一步。这种电路必然是计数器或分频器。</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 3 步：列状态表。</b>两位触发器共 4 个状态，逐个代进方程算次态，顺便算出输出 Z：</p>
+
+        <div class="table-scroll mt-3">
+          <table class="table-mcu">
+            <thead>
+              <tr><th>现态 Q<sub>1</sub>Q<sub>0</sub></th><th>Q<sub>0</sub>* = ¬Q<sub>0</sub></th><th>Q<sub>1</sub>* = Q<sub>0</sub> ⊕ Q<sub>1</sub></th><th>次态 Q<sub>1</sub>*Q<sub>0</sub>*</th><th>输出 Z = Q<sub>1</sub>Q<sub>0</sub></th></tr>
+            </thead>
+            <tbody>
+              <tr><td>00</td><td>1</td><td>0 ⊕ 0 = 0</td><td>01</td><td>0</td></tr>
+              <tr><td>01</td><td>0</td><td>1 ⊕ 0 = 1</td><td>10</td><td>0</td></tr>
+              <tr><td>10</td><td>1</td><td>0 ⊕ 1 = 1</td><td>11</td><td>0</td></tr>
+              <tr><td>11</td><td>0</td><td>1 ⊕ 1 = 0</td><td>00</td><td>1</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 4 步：画状态图。</b>把状态表里的四个箭头画出来：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="状态图：4 个状态首尾相接">
+          <pre><code>        ┌─────┐        ┌─────┐        ┌─────┐        ┌─────┐
+        │ 00  │───────▶│ 01  │───────▶│ 10  │───────▶│ 11  │
+        │ Z=0 │        │ Z=0 │        │ Z=0 │        │ Z=1 │
+        └─────┘        └─────┘        └─────┘        └──┬──┘
+           ▲                                             │
+           └─────────────────────────────────────────────┘
+                        第 5 个时钟沿回到 00
+
+   ★ 4 个状态全在循环里，没有"未用态"，所以这个电路天然自启动
+     —— 不管上电时触发器落在哪个码上，最多 4 拍之内都会进入正常循环。</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 5 步：画时序图。</b>状态序列是 00 → 01 → 10 → 11 → 00…，把两个输出和 Z 画成波形：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="时序图（每个状态占一个时钟周期）">
+          <pre><code>   时钟脉冲   ①      ②      ③      ④      ⑤
+   现态     00     01     10     11     00
+   Q0   ────┐‾‾‾‾‾‾┐──────┐‾‾‾‾‾‾┐──────
+            └──────┘      └──────┘
+   Q1   ────────────┐‾‾‾‾‾‾‾‾‾‾‾‾‾┐──────
+                    └─────────────┘
+   Z    ──────────────────┐‾‾‾‾‾‾┐──────
+                           └──────┘
+
+   观察：
+     Q0 的周期 = 2 个时钟周期   → 对 CP 做 2 分频
+     Q1 的周期 = 4 个时钟周期   → 对 CP 做 4 分频
+     Z 在每个循环的最后 1 拍为高 → 它是"数到 3"的译码输出
+     Q0、Q1 都是 50% 占空比的方波（高电平持续整整一半周期）</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 6 步：说明功能。</b>综合以上四点，结论是：</p>
+
+        <ul class="mt-3 list-disc space-y-2.5 pl-5">
+          <li><b class="font-semibold text-ink">这是一个模 4（四进制）同步二进制加法计数器</b>：状态按 00→01→10→11 递增，第 5 个时钟沿回到 00，正好 4 个状态。</li>
+          <li><b class="font-semibold text-ink">Z 是进位/计满输出</b>：只在状态 11（也就是计到 3）时为 1。如果要级联下一片计数器，正好可以拿 Z 作为下一级的使能——这和 74LS161 的 RCO 是同一个角色。</li>
+          <li><b class="font-semibold text-ink">Q0 和 Q1 分别是 ÷2 和 ÷4 的分频输出</b>，而且都是 50% 占空比。这两个信号可以直接当方波源用（比如驱动蜂鸣器、给别的芯片当时钟）。</li>
+          <li><b class="font-semibold text-ink">"每拍都翻转"（D0 = ¬Q0）是二进制计数器最低位的标志</b>：最低位每来一个时钟就翻一次，这正是二进制加法的规则。你以后看任何计数器电路，只要看到某个触发器把自己的反相输出接回 D 端（或者在 JK 里把 J、K 都接高），那它就是这一位。</li>
+        </ul>
+
+        <div class="callout callout-tip mt-4">
+          <div class="callout-title">分析方法固定五步走：这套流程对任何时序电路都适用</div>
+          <p><b>① 写方程</b>：从每个触发器的输入端往回读，得到驱动方程；如果是 J-K 或 T，还要用特性方程换成状态转移方程。<br>
+          <b>② 列状态表</b>：把所有现态组合逐个代入，算出次态和输出。<br>
+          <b>③ 画状态图</b>：把状态表画成箭头，立刻能看出"有没有死循环、能不能自启动"。<br>
+          <b>④ 画时序图</b>：波形能暴露状态表看不出的东西（延迟、毛刺、占空比）。<br>
+          <b>⑤ 说功能</b>：用一句人话说清它是干什么的（计数器？分频器？序列检测器？控制器？）。</p>
+          <p class="mt-2">这五步和"设计"的五步正好互为逆过程：设计是"需求 → 状态图 → 方程 → 电路"，分析是"电路 → 方程 → 状态图 → 功能"。考试和实际调试各占一半，两边都得会。</p>
+        </div>
+
+        <hr class="hr-soft my-10">
+
+        <h3 id="calc-fmax" class="mt-7 text-base font-semibold">例五：建立/保持时间预算——这个电路能跑多快？</h3>
+
+        <div class="callout callout-info mt-4">
+          <div class="callout-title">题目</div>
+          <p>一个同步时序系统，两个触发器之间夹着一团组合逻辑（就是第 2 节图里那个标准结构）。已知参数（按典型值给的，不是某个具体型号）：</p>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>参数</th><th>含义</th><th>取值</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>t<sub>cq</sub></td><td>时钟沿到触发器输出稳定的延迟（clock-to-Q）</td><td>8 ns</td></tr>
+                <tr><td>t<sub>comb(max)</sub></td><td>组合逻辑最坏情况（最长路径）延迟</td><td>25 ns</td></tr>
+                <tr><td>t<sub>comb(min)</sub></td><td>组合逻辑最好情况（最短路径）延迟</td><td>3 ns</td></tr>
+                <tr><td>t<sub>su</sub></td><td>后级触发器的建立时间</td><td>5 ns</td></tr>
+                <tr><td>t<sub>h</sub></td><td>后级触发器的保持时间</td><td>2 ns</td></tr>
+                <tr><td>t<sub>skew</sub></td><td>时钟偏斜（两个触发器的时钟到达时刻之差）</td><td>1 ns</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-2">问：① 最高时钟频率是多少？② 用 30 MHz 行不行？③ 24 MHz 行不行？④ 保持时间有没有问题？⑤ 如果保持时间违例了，降频能不能解决？</p>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 1 步：写建立时间约束。</b>建立时间的物理含义是："数据必须在时钟沿之前，提前 t<sub>su</sub> 到达后级触发器的 D 端并稳住"。所以从时钟沿出发算一笔时间账：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="建立时间约束：一个时钟周期里必须走完的路">
+          <pre><code>   时钟沿到来
+      │
+      ├─ t_cq ──────────▶ 前级触发器输出稳定（数据出发）
+      │
+      ├─ t_comb(max) ───▶ 数据穿过组合逻辑（最长路径）
+      │
+      ├─ t_skew ────────▶ 后级时钟可能比前级晚到这么久（更不利）
+      │
+      └─ t_su ──────────▶ 数据必须提前这么久到达并稳住
+      ────────────────────────────────────────────────────
+      合计必须 ≤ 一个时钟周期 T
+
+   建立时间约束：   T ≥ t_cq + t_comb(max) + t_su + t_skew
+
+   代入数字：       T ≥ 8 + 25 + 5 + 1 = 39 ns
+
+   最高频率：       f_max = 1 / T_min = 1 / 39 ns ≈ 25.64 MHz</code></pre>
+        </div>
+
+        <div class="callout callout-tip mt-4">
+          <div class="callout-title">ns 和 MHz 怎么换算（很多人在这里错）</div>
+          <p>1 ns = 10⁻⁹ s，所以 1/39 ns = 1/(39 × 10⁻⁹) Hz = 10⁹/39 Hz = 25.64 × 10⁶ Hz = 25.64 MHz。心算口诀：<b>周期 10 ns 对应 100 MHz，周期 100 ns 对应 10 MHz</b>（因为 100 MHz 的周期正好是 10 ns）。有了这个锚点，39 ns 大概就是 25 MHz 多一点，不用每次都按计算器。</p>
+          <p class="mt-2">反过来算"某个频率行不行"，就把周期算出来和 T<sub>min</sub> 比：<b>时钟越快，周期越短，越容易违例。</b></p>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 2 步：逐个频率核对。</b></p>
+
+        <div class="table-scroll mt-3">
+          <table class="table-mcu">
+            <thead>
+              <tr><th>时钟频率</th><th>周期 T</th><th>与 T<sub>min</sub> = 39 ns 比较</th><th>结论</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>30 MHz</td><td>1000/30 = 33.33 ns</td><td>33.33 − 39 = −5.67 ns</td><td><b>违例</b>：比需要的少了 5.67 ns，数据到得太晚，会被采到亚稳态或旧值</td></tr>
+              <tr><td>25 MHz</td><td>40 ns</td><td>40 − 39 = +1 ns</td><td>勉强通过，但只有 1 ns 余量——温度、电压、器件批次一变就可能失效</td></tr>
+              <tr><td>24 MHz</td><td>41.67 ns</td><td>41.67 − 39 = +2.67 ns</td><td>通过，余量约 6.8%，属于可以接受的保守设计</td></tr>
+              <tr><td>20 MHz</td><td>50 ns</td><td>+11 ns</td><td>通过，余量充足（28%）</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-3">所以答案 ①：<b class="font-semibold text-ink">理论最高约 25.64 MHz</b>；② 30 MHz 不行；③ 24 MHz 可以。注意 25 MHz 那一行：<b class="font-semibold text-ink">"刚好算得过"不等于"能用"</b>。工程上一般要求留出 10%~20% 的余量，因为手册给的 t<sub>su</sub>、t<sub>cq</sub> 都是在特定电压和 25℃ 下测的，而实际系统要在 −40~85℃、电压波动 ±5%、器件离散的范围内都工作。</p>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 3 步：检查保持时间。</b>保持时间管的是相反的方向：<b>数据不能"跑太快"</b>。同一个时钟沿，前级触发器把新数据推出来，如果这团组合逻辑太短（延迟太小），新数据可能在时钟沿还没"走开"的时候就冲到了后级——后级本来应该采到旧数据，结果被新数据抢了先。</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="保持时间约束：新数据不能冲得太快">
+          <pre><code>   保持时间约束：   t_cq + t_comb(min)  ≥  t_h + t_skew
+
+   左边：前级把新数据推到后级 D 端，最早能有多早
+   右边：后级需要旧数据再稳住 t_h 这么久（还要加上偏斜的不利影响）
+
+   代入数字：       8 + 3 = 11 ns   ≥   2 + 1 = 3 ns     ✔ 通过
+
+   余量：           11 − 3 = 8 ns —— 非常充裕，完全没有风险。</code></pre>
+        </div>
+
+        <p class="mt-3">答案 ④：<b class="font-semibold text-ink">保持时间没问题</b>。这里的关键是"组合逻辑最小延迟"这一项——它也不为零（3 ns），所以左边有 11 ns，远远大于右边要求的 3 ns。</p>
+
+        <div class="callout callout-danger mt-4">
+          <div class="callout-title">答案 ⑤：保持时间违例，降频修不好！这是一个必须刻进脑子的结论</div>
+          <p>把保持时间的约束式子再读一遍：<code class="icode">t_cq + t_comb(min) ≥ t_h + t_skew</code>。<b>式子里根本没有周期 T。</b>也就是说，不管你把时钟降到 1 MHz 还是 1 kHz，这个不等式成立与否都一样——降频对保持时间违例毫无帮助。</p>
+          <p class="mt-2">为什么？因为保持时间是"同一个时钟沿"前后的竞争：赚钱的（新数据出发）和花钱的（旧数据要保持住）都发生在同一个沿上，跟下一个沿什么时候来没关系。而建立时间管的是"这一拍的数据要在下一拍之前赶到"，中间隔着一整个周期，所以它跟频率直接相关。</p>
+          <p class="mt-2">这个结论的实际意义很大：<b>如果你的设计出现了建立时间违例（跑快就错），降频、加等待周期、少跑点逻辑都能救；但如果出现了保持时间违例（跑着跑着偶尔错、跟频率无关），唯一的出路是在那条太短的路径上<b>人为加延迟</b></b>——串一个缓冲器、在综合工具里加约束、或者调整布线。这也是为什么很多老工程师遇到"偶尔算错、降频也没用"的故障时，第一反应是查保持时间，而不是先怀疑代码。</p>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 4 步：想跑更快，能改什么？</b>把 T<sub>min</sub> = t<sub>cq</sub> + t<sub>comb(max)</sub> + t<sub>su</sub> + t<sub>skew</sub> 拆开看，四项里最值得动的是第三项和第二项：</p>
+
+        <ul class="mt-3 list-disc space-y-2.5 pl-5">
+          <li><b class="font-semibold text-ink">砍组合逻辑深度（最有效）：</b>把 25 ns 的长路径用流水线（pipeline）切成两段，每段 12~13 ns，频率立刻能翻倍。代价是结果要晚一拍出来。这就是 CPU 从 1 级流水做到 20 级流水的动机。</li>
+          <li><b class="font-semibold text-ink">减小时钟偏斜：</b>1 ns 的 skew 直接吃掉 1 ns 的预算。用更好的时钟树、等长布线、专用时钟缓冲器/时钟网络，能把它压到几百皮秒。</li>
+          <li><b class="font-semibold text-ink">换更快的器件/工艺：</b>74HC 换成 74AC、或者干脆换成一款更快的芯片——t<sub>cq</sub>、t<sub>su</sub> 都会变小。这也是为什么 STM32 内部能跑 72 MHz，而你用 74HC 搭同频率的电路几乎不可能。</li>
+          <li><b class="font-semibold text-ink">降低 t<sub>su</sub> 需求的手段还有一个：</b>让后级触发器"多做一点事"（比如用带使能的触发器减少采样次数）是没用的，t<sub>su</sub> 是器件属性，只能靠选型改变。</li>
+        </ul>
+
+        <div class="callout callout-info mt-4">
+          <div class="callout-title">回到你手上的单片机：72 MHz 是怎么来的</div>
+          <p>STM32F103 的额定主频是 72 MHz，一个周期 13.9 ns。而它内部的触发器 t<sub>su</sub> 只有几百皮秒量级、t<sub>cq</sub> 也在 1 ns 上下——所以即便扣掉偏斜、扣掉 FLASH 等待周期带来的额外开销，也还能凑出一个完整的周期来。<b>"FLASH 等待周期（wait state）"这个参数的本质，就是把存储器的读取延迟算进这笔时间账里</b>：V<sub>DD</sub> = 2.7~3.6V、主频 24 MHz 以内不用等（0WS），24~48 MHz 要插 1 个等待周期，48~72 MHz 要插 2 个。</p>
+          <p class="mt-2">而"超频"（比如把 STM32F103 拉到 100 MHz）为什么会不稳定，也就有了统一的解释：<b>你压缩的是整个系统的建立时间预算。</b>预算被压到几乎没有余量后，有的芯片在室温下还能跑（因为典型值比保证值宽），温度一升、电压一跌，长路径就开始违例——表现出来就是"偶尔算错一次、串口偶尔错一个字节、跑久了就死机"，而不是痛痛快快地不启动。这也解释了为什么超频的故障总是"偶发"的：它是在赌那几条最长路径的运气。</p>
+        </div>
+
+        <hr class="hr-soft my-10">
+
+        <h3 id="calc-divide" class="mt-7 text-base font-semibold">例六：12 MHz 变 1 Hz，要几片计数器？</h3>
+
+        <div class="callout callout-info mt-4">
+          <div class="callout-title">题目</div>
+          <p>手上有 12 MHz 晶振和一堆 74LS161（÷16）、74LS160（÷10），要做出一个精确的 1 Hz 信号。① 最少要用几片？怎么分配？② 如果只有 74LS161，能不能凑出来？误差多大？③ 换成 STM32 的定时器怎么做？</p>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 1 步：把需要的分频比写出来。</b>分频比就是"输入频率 ÷ 输出频率"：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="总的分频比">
+          <pre><code>   M = 12 MHz ÷ 1 Hz = 12,000,000
+
+   把这个数分解成"器件能提供的模数"的乘积：
+        12,000,000 = 12 × 1,000,000
+                   = 12 × 10 × 10 × 10 × 10 × 10 × 10
+                     └┬┘   └────────┬─────────────┘
+                  改一片 161        六片 160（每片 ÷10）
+                  为 ÷12
+
+   ★ 关键认识：分频比必须能被"器件模数"精确分解。
+     这里之所以轻松，是因为 12,000,000 里有 10 的幂，
+     而 74LS160 正好提供 ÷10。</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 2 步：排级联顺序，逐级验算频率。</b></p>
+
+        <div class="table-scroll mt-3">
+          <table class="table-mcu">
+            <thead>
+              <tr><th>级数</th><th>器件</th><th>模数</th><th>本级输出频率</th><th>怎么实现的</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>第 1 级</td><td>74LS161</td><td>÷12</td><td>12 MHz ÷ 12 = 1 MHz</td><td>例二方案 B：检测 11 同步装入 0</td></tr>
+              <tr><td>第 2 级</td><td>74LS160</td><td>÷10</td><td>1 MHz ÷ 10 = 100 kHz</td><td>器件天生十进制，RCO 直接接下一级</td></tr>
+              <tr><td>第 3 级</td><td>74LS160</td><td>÷10</td><td>100 kHz ÷ 10 = 10 kHz</td><td>同上</td></tr>
+              <tr><td>第 4 级</td><td>74LS160</td><td>÷10</td><td>10 kHz ÷ 10 = 1 kHz</td><td>同上</td></tr>
+              <tr><td>第 5 级</td><td>74LS160</td><td>÷10</td><td>1 kHz ÷ 10 = 100 Hz</td><td>同上</td></tr>
+              <tr><td>第 6 级</td><td>74LS160</td><td>÷10</td><td>100 Hz ÷ 10 = 10 Hz</td><td>同上</td></tr>
+              <tr><td>第 7 级</td><td>74LS160</td><td>÷10</td><td>10 Hz ÷ 10 = <b>1 Hz</b></td><td>同上</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-3">所以答案 ①：<b class="font-semibold text-ink">7 片</b>——1 片 161 改成 ÷12，再加 6 片 160 各做 ÷10。总模数 12 × 10⁶ = 12,000,000，正好把 12 MHz 压到 1 Hz，<b>误差为 0</b>（前提是晶振本身准确，而且每级都按"同步级联"接：所有片的 CP 并在一起，低片的 RCO 接高片的 ENT）。</p>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 3 步：如果手上只有 74LS161（只能 ÷16 或改成别的模数），凑得出 1 Hz 吗？</b>来算两种"硬凑"的方案：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="只用 ÷16 硬凑的两种尝试">
+          <pre><code>   尝试 A：全部用 74LS161，6 片级联（每片 ÷16）
+       总模数 = 16⁶ = 16,777,216
+       输出   = 12,000,000 ÷ 16,777,216 = 0.7153 Hz
+       误差   = (0.7153 − 1) ÷ 1 = −28.5%
+       → 钟会走得非常慢，一天差好几个小时，完全不能用
+
+   尝试 B：先用 1 片 161 做成 ÷12，后面串 5 片 ÷16
+       总模数 = 12 × 16⁵ = 12 × 1,048,576 = 12,582,912
+       输出   = 12,000,000 ÷ 12,582,912 = 0.9537 Hz
+       误差   = −4.63%
+       → 一天慢约 1.1 小时，做"秒表"都不合格
+
+   想达到 1 Hz，总模数必须精确等于 12,000,000。
+   而 12,000,000 = 2⁸ × 3 × 5⁶ × ... 分解下去会看到：
+   它需要"10 的幂"这一族因子，16 的幂（2⁴ 的幂）
+   怎么乘都凑不出 5⁶ 这一部分。
+   → 结论：只有 ÷16 的话，无论摆多少片都精确凑不出 1 Hz。</code></pre>
+        </div>
+
+        <p class="mt-3">这里有一个值得记住的数论小事实：<b class="font-semibold text-ink">用 16 的幂相乘，永远只能得到 2 的幂；而 12,000,000 里含有因子 5⁶ = 15625，是不可能由 2 的幂凑出来的。</b>所以答案 ②：只有 161 的话凑不出精确 1 Hz，最好误差也在 −4.63%（约一天慢一小时）——做分频器时，"器件模数能否整除目标分频比"是第一件要确认的事，比电路怎么连重要得多。</p>
+
+        <p class="mt-3">顺带说一个折中做法：<b class="font-semibold text-ink">用 161 做 ÷16、再用 160 做 ÷10 混搭</b>，一切都精确；或者干脆买一片 12 MHz 的专用时钟芯片／用带 1 Hz 输出能力的 RTC 芯片。<b>能用对的器件，就别用巧的门电路</b>——这是这一章反复出现的主题。</p>
+
+        <p class="mt-3"><b class="font-semibold text-ink">第 4 步：换成 STM32 的定时器，这题变得多简单？</b>STM32 的定时器本质上就是"可编程的计数器 + 比较器"，它的分频比是两级相乘：</p>
+
+        <div class="code-block mt-3" data-lang="c" data-title="STM32：分频比 = (PSC + 1) × (ARR + 1)">
+          <pre><code>/* 目标：72 MHz 的定时器时钟 → 1 Hz 更新事件（溢出频率） */
+/* 公式：f_out = f_clk / (PSC + 1) / (ARR + 1)                        */
+
+/* 第一步：先分到 1 kHz（方便理解，两级各管一段） */
+/* 72,000,000 / (71 + 1) / (999 + 1) = 72,000,000 / 72 / 1000 = 1000 Hz */
+
+/* 直接做到 1 Hz：72,000,000 = 7200 × 10000 */
+TIM_HandleTypeDef htim2;
+
+htim2.Instance               = TIM2;
+htim2.Init.Prescaler         = 7199;    /* 7200 分频：72 MHz → 10 kHz */
+htim2.Init.CounterMode       = TIM_COUNTERMODE_UP;
+htim2.Init.Period            = 9999;    /* 10000 计数：10 kHz → 1 Hz  */
+htim2.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
+htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+
+/* 算一下：72,000,000 / (7199+1) = 10,000 Hz
+           10,000 / (9999+1)    =  1 Hz      —— 精确，没有误差     */</code></pre>
+        </div>
+
+        <div class="table-scroll mt-3">
+          <table class="table-mcu">
+            <thead>
+              <tr><th>做法</th><th>分频比的实现</th><th>片数/资源</th><th>精度</th><th>能不能改</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>74LS 计数器级联</td><td>模数相乘：12 × 10⁶</td><td>7 片芯片 + 走线</td><td>取决于晶振（理想情况无误差）</td><td>要改分频比就重新连线，很麻烦</td></tr>
+              <tr><td>STM32 定时器</td><td>(PSC+1) × (ARR+1)</td><td>0 片，纯软件配置</td><td>取决于晶振；误差 = 时钟源误差</td><td>改两个寄存器即可，任意分频比</td></tr>
+              <tr><td>STM32 + LSE 晶振 + RTC</td><td>32.768 kHz → 15 级二分频</td><td>一颗晶振</td><td>32.768 kHz 是 2¹⁵，天生适合 ÷2 链</td><td>RTC 硬件自动分频，最省电</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout-tip mt-4">
+          <div class="callout-title">为什么实时时钟都用 32.768 kHz 这个奇怪的频率？</div>
+          <p>因为 32768 = 2<sup>15</sup>。<b>只要用 15 级二分频（就是 15 个 T 触发器首尾相接，或者一个 15 位二进制计数器取最高位），就能得到精确的 1 Hz，不需要任何反馈逻辑、不需要与非门、不需要凑模数。</b>这就是第 2 节讲异步计数器时说的"纯分频场合用行波结构最省"——RTC 芯片的分频链正是这么做的，而且分频链越简单，功耗越低（对靠纽扣电池跑几年的手表来说，这是决定性的）。</p>
+          <p class="mt-2">再看一眼 STM32 的分频公式 <code class="icode">f = f_clk / (PSC+1) / (ARR+1)</code>：<b>PSC 就是前一级分频器，ARR 就是后一级计数器的模数</b>。你在第 2 节学的"计数器级联，总模数 = 各级模数相乘"，在这里原封不动地变成了两行寄存器配置。硬件结构和软件配置之间，差的只是一层封装。</p>
+        </div>
+
+<hr class="hr-soft my-10">
+
+        <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+
+        <p class="mt-3">学到这里，你手上已经有一套"看得见门、看得见触发器"的时序逻辑了。接下来把镜头拉近到你自己焊过的那块板子：<b class="font-semibold text-ink">单片机里几乎每一个"寄存器"，物理上就是一组触发器；每一次"配置"，本质都是给这组触发器加了一个时钟沿。</b>这一节的七个小节，就是把第 2、3 节的概念映射回你熟悉的代码、寄存器和现象上。</p>
+
+        <h3 id="mcu-config" class="mt-7 text-base font-semibold">配置寄存器就是一组触发器：为什么"配置一次就一直生效"</h3>
+
+        <p class="mt-3">回想一下你写过的 STM32 代码里最熟悉的一段：</p>
+
+        <div class="code-block mt-3" data-lang="c" data-title="一段最普通的 GPIO 初始化代码">
+          <pre><code>/* 使能 GPIOA 的时钟：这一步是在给 GPIOA 的"触发器阵列"供电。
+   没有时钟，触发器不工作，后面写什么都是白写 —— 这是新手最常见的坑。 */
+RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
+
+/* 把 PA5 配置成"推挽输出、最大 2 MHz"：
+   这一句写进去之后，CRL 这个寄存器里的 4 个位就一直在保持这个值 */
+GPIOA->CRL &amp;= ~(0xFUL &lt;&lt; 20);          /* 先清掉 PA5 对应的 4 位  */
+GPIOA->CRL |=  (0x2UL &lt;&lt; 20);           /* 再写入 0010 = 推挽输出  */
+
+/* 让 PA5 输出高电平，点亮 LED */
+GPIOA->BSRR = GPIO_PIN_5;</code></pre>
+        </div>
+
+        <p class="mt-3">问题来了：<b class="font-semibold text-ink">为什么 <code class="icode">GPIOA-&gt;CRL</code> 写完这一句就"记住"了？为什么不用像操作内存变量那样反复赋值？</b>因为 CRL 不是一个变量，它是<b>一片实实在在的 D 触发器阵列</b>——32 个触发器（CRL 是 32 位寄存器），它们的 D 端接在内部总线上，时钟来自"地址译码 + 写使能"这根线。</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="一个外设寄存器的物理结构（以 32 位为例）">
+          <pre><code>   内部总线 D[31:0] ──────┬───┬───┬───┬─ … ─┬───┐
+                          │   │   │   │      │   │
+                        ┌─▼─┐┌─▼─┐┌─▼─┐    ┌─▼─┐ │
+   写使能（地址译码）──▶│FF0││FF1││FF2│ …  │FF31│ │
+                        └─┬─┘└─┬─┘└─┬─┘    └─┬─┘ │
+                          │    │    │        │   │
+                          ▼    ▼    ▼        ▼   │
+                      Q[31:0]  →  去控制真正的电路（输出驱动器、时钟树…）
+
+   你执行 "GPIOA-&gt;CRL = 0x...;" 时，硬件上发生的事：
+     ① CPU 把这个 32 位数放到内部总线上
+     ② 地址译码器发现"地址落在 GPIOA 的 CRL 上"且是写操作
+     ③ 它把那根"写使能"线拉高 —— 这就是这一组触发器的时钟沿
+     ④ 32 个触发器同时把总线上的值锁存下来
+     ⑤ 之后总线上的数据怎么变，CRL 的值都不受影响，直到下一次写
+
+   —— 这不就是第 2 节讲的"共用时钟的并行寄存器"吗？一模一样。</code></pre>
+        </div>
+
+        <p class="mt-3">理解了这一层，好几件事就同时说通了：</p>
+
+        <ul class="mt-3 list-disc space-y-2.5 pl-5">
+          <li><b class="font-semibold text-ink">"配置一次就一直生效"，是因为触发器会保持。</b>只要不断电、不复位、不再写它，CRL 里的 32 位就一直稳稳地保持着你写进去的值，每个时钟周期都在驱动后面那团电路。这跟第 2 节讲的"寄存器会一直保持值直到下一个时钟沿"是同一件事——只不过这里的"下一个时钟沿"要等你下次写它才会来。</li>
+          <li><b class="font-semibold text-ink">断电就丢，所以每次上电都要重新初始化。</b>触发器靠电维持状态，掉电之后内容全没了（CMOS 触发器是易失性存储）。这就是为什么每个 <code class="icode">main()</code> 开头都得跑一遍 <code class="icode">SystemInit()</code> 和一堆 <code class="icode">MX_GPIO_Init()</code>——你不是在"加载配置"，你是在把一片触发器一个一个摆到正确的位置上。同理，看门狗复位、软件复位之后，所有外设配置都会回到复位默认值，得重新来一遍。</li>
+          <li><b class="font-semibold text-ink">读手册的"寄存器映射表"，就等于读电路的接线图。</b>手册里写 "Bits 3:2 MODE5[1:0]: Port x mode bits"，翻译成电路就是"CRL 的第 2、3 号触发器的 Q 输出，接到了 PA5 输出驱动器的模式选择端"。<b>每个位域背后都有一根真实的线，都通向某几个门或者某个多路选择器。</b>你以后读任何外设手册，都可以用这个视角去看：这一位控制谁？它改变的是哪条通路？</li>
+          <li><b class="font-semibold text-ink">"写 1 清零（W1C）"这类特殊行为，是触发器外围加的逻辑。</b>比如 STM32 的 <code class="icode">TIMx-&gt;SR</code> 状态寄存器，很多标志位是"写 1 才清零"。这在触发器层面很好理解：每个标志位前面加了一个小小的组合逻辑，只有"你写 1"且"这一位地址被选中"时才产生复位脉冲。<b>这也解释了为什么 <code class="icode">TIM3-&gt;SR |= TIM_SR_UIF;</code> 是个危险写法</b>——这句读-改-写会把 SR 里其它本来就是 1 的标志位一起写回 1，等于顺手把它们也清掉了，于是你可能丢了一次捕获、一次比较事件。正确写法是 <code class="icode">TIM3-&gt;SR = ~TIM_SR_UIF;</code>（或者直接用库函数只清这一位）。</li>
+        </ul>
+
+        <div class="callout callout-tip mt-4">
+          <div class="callout-title">一个能立刻用上的思维工具</div>
+          <p>下次你调一个外设调不出来时，试着问自己三个"触发器问题"：<b>① 这片触发器的时钟开了吗？</b>（RCC 使能了吗——没时钟，写寄存器的"时钟沿"永远不来。）<b>② 我把值写进去了吗？</b>（地址对不对？是不是写了个只读寄存器？）<b>③ 它保持住了吗？</b>（有没有别的代码、中断、DMA 在我之后又写了同一个寄存器？）这三个问题覆盖了外设调试里绝大多数"配置不生效"的情况，而它们全都是时序逻辑的基本问题。</p>
+        </div>
+
+        <hr class="hr-soft my-10">
+
+        <h3 id="mcu-rmw" class="mt-7 text-base font-semibold">"读-改-写"IO 为什么会丢位：P1 |= 0x01 与 P1 = P1 | 0x01 的差别</h3>
+
+        <p class="mt-3">这一节讲一个 8051 时代的经典陷阱——它到现在还在每年坑一批人，而且在 STM32 上换了个形式继续存在。</p>
+
+        <p class="mt-3">先看两句看起来"完全一样"的 C 代码：</p>
+
+        <div class="code-block mt-3" data-lang="c" data-title="两句代码，编译出来是两个完全不同的指令序列">
+          <pre><code>/* 写法 A：复合赋值 */
+P1 |= 0x01;          /* 等价于 P1 = P1 | 0x01，但编译器认识这个模式 */
+
+/* 写法 B：显式地先读出来、再算、再写回去 */
+P1 = P1 | 0x01;</code></pre>
+        </div>
+
+        <p class="mt-3">在普通变量上，这两句完全等价。但 <code class="icode">P1</code> 在 Keil C51 里不是普通变量，它是<b>特殊功能寄存器（SFR）</b>，映射到 8051 的端口 1。8051 的端口结构很特别：<b class="font-semibold text-ink">每个引脚背后有两个可以"读"的东西——端口锁存器（你写出去的值）和引脚本身（外部电路上的真实电平）。</b></p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="8051 一个 I/O 引脚的内部结构（极简版）">
+          <pre><code>   内部总线 ──▶┌──────────────┐
+               │  端口锁存器   │  ← 你写 P1 时，值存在这里（一组触发器）
+               │   （D 触发器） │
+               └───┬──────┬───┘
+                   │      │
+        读锁存器 ◀─┘      └──▶ 输出驱动级 ──┬──▶ 引脚 P1.x
+        （读-改-写指令                   │      │
+          走这条路）                     │      │
+                                         │      ▼
+        读引脚 ◀─────────────────────────┘   外部电路
+        （MOV A,P1 走这条路）              （按键、LED、上拉电阻…）
+
+   ★ 同一根引脚，两个"读"的入口，读到的可能是不同的值！</code></pre>
+        </div>
+
+        <p class="mt-3">关键在于：<b class="font-semibold text-ink">8051 的读-改-写指令（ANL、ORL、XRL、INC、DEC、CPL、CLR、SETB、MOV Px.y 等）读的是"锁存器"，而 <code class="icode">MOV A, P1</code> 这种"把端口当数据读进累加器"的指令读的是"引脚"。</b>编译器生成哪一种，取决于你写的代码形式：</p>
+
+        <div class="table-scroll mt-3">
+          <table class="table-mcu">
+            <thead>
+              <tr><th>你写的 C 代码</th><th>Keil C51 生成的汇编</th><th>读的是哪个</th><th>安全性</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code class="icode">P1 |= 0x01;</code></td><td><code class="icode">ORL P1, #01H</code></td><td>端口锁存器（读-改-写指令）</td><td><b>安全</b>：读回的就是你写出去的值</td></tr>
+              <tr><td><code class="icode">P1 = P1 | 0x01;</code></td><td><code class="icode">MOV A, P1</code><br><code class="icode">ORL A, #01H</code><br><code class="icode">MOV P1, A</code></td><td>引脚（MOV A,P1 是"读引脚"指令）</td><td><b>有风险</b>：读回的是引脚真实电平，可能与你写出去的值不同</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">那么，什么情况下"引脚电平"会和"锁存器里的值"不一样？</b>只要这个引脚上还挂着别的东西，而且外部电路能把它的电平拉向相反的方向，就会出现差异。最典型的场景是这样一块板子：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="一个真实的丢位现场：同一个端口既驱动 LED 又接按键">
+          <pre><code>   P1.0 ──[限流电阻]──[LED]── GND      ← 输出：写 1 点亮
+   P1.1 ──[限流电阻]──[LED]── GND      ← 输出：写 1 点亮
+   P1.2 ──[限流电阻]──[LED]── GND      ← 输出：写 1 点亮
+   P1.3 ──[限流电阻]──[LED]── GND      ← 输出：写 1 点亮
+   P1.4 ──┬── 按键 ── GND              ← 输入：按键按下 = 被拉低
+          └── 上拉电阻 ── VCC
+
+   现在执行：   P1 = P1 | 0x01;      /* 想点亮 P1.0 的 LED */
+
+   实际发生的：
+     ① MOV A, P1   —— 读的是引脚！此刻 P1.4 的按键正被按下（pin = 0）
+                       假设 P1.0~P1.3 的 LED 都是亮的（锁存器 = 1111）
+                       于是读回来的是： 1110 1111  = 0xEF
+     ② ORL A,#01H  —— A = 0xEF | 0x01 = 0xEF
+     ③ MOV P1,A    —— 把 0xEF 写回锁存器
+                       → 锁存器全面变成 1110 1111
+                       → P1.0 本来就是 1，没变化……
+                       但如果原来 P1.0 是 0 想点亮，写回后 P1.4 被清成 0，
+                         而这个 0 是"按键的状态"，不是"你想要的值"！
+
+   更糟的情形：如果你的代码是想"把 P1.4 之外的其他位保持不变"，
+   那么每一次读-改-写，都会把 4 个 LED 的状态按"读回来的引脚值"重写一遍。
+   按键一按，LED 就可能集体变化 —— 这就是"丢位"。
+   最要命的是：这个故障只在按键按下的瞬间出现，松手就正常，
+   于是现象表现为"偶尔闪一下 / 偶尔失灵"，极难定位。</code></pre>
+        </div>
+
+        <p class="mt-3">还要补一个 8051 特有的坑：<b class="font-semibold text-ink">P0~P3 是"准双向口"，要当输入用，必须先往锁存器写 1。</b>因为引脚内部有一个弱上拉（P0 除外）和一个下拉管；如果你锁存器里是 0，那个下拉管就导通着，外部电路就算想把这个脚拉高也拉不动，你读回永远是 0。所以标准写法人人都背过一句：<code class="icode">P1 = 0xFF;</code>（或 <code class="icode">P1 |= 0x10;</code>）先"写 1 释放引脚"，然后再去读它。</p>
+
+        <p class="mt-3"><b class="font-semibold text-ink">现在换到 STM32，这个问题的形态变了，但根子一样。</b>STM32 的 GPIO 把"两个读的入口"做成了两个不同的寄存器：</p>
+
+        <div class="table-scroll mt-3">
+          <table class="table-mcu">
+            <thead>
+              <tr><th>寄存器</th><th>读它得到什么</th><th>写它有什么用</th><th>典型用法</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>ODR（输出数据寄存器）</td><td><b>你写出去的值</b>（输出锁存器的 Q）</td><td>控制引脚输出电平</td><td><code class="icode">GPIOA-&gt;ODR |= (1&lt;&lt;5);</code> 可以放心用（读回的正是锁存器）</td></tr>
+              <tr><td>IDR（输入数据寄存器）</td><td><b>引脚上的真实电平</b></td><td>只读，写它没有意义</td><td><code class="icode">if (GPIOA-&gt;IDR &amp; (1&lt;&lt;3)) ...</code> 读按键、读外部信号</td></tr>
+              <tr><td>BSRR（置位/复位寄存器）</td><td>—（一般不用读）</td><td>低 16 位写 1 = 置位对应脚，高 16 位写 1 = 复位对应脚</td><td><code class="icode">GPIOA-&gt;BSRR = (1&lt;&lt;5);</code> 置位<br><code class="icode">GPIOA-&gt;BSRR = (1&lt;&lt;21);</code> 复位 PA5</td></tr>
+              <tr><td>BRR（复位寄存器，F1 系列有）</td><td>—</td><td>写 1 = 复位对应脚</td><td><code class="icode">GPIOA-&gt;BRR = (1&lt;&lt;5);</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">为什么 GPIO 一定要把输出锁存器（ODR）和输入寄存器（IDR）分开？</b>因为它们要回答的是两个不同的问题：</p>
+
+        <ul class="mt-3 list-disc space-y-2.5 pl-5">
+          <li><b class="font-semibold text-ink">ODR 要回答"我想输出什么"。</b>输出必须能"记住"，否则引脚就无法保持一个电平——就像第 2 节讲的，没有触发器，输出只能跟着输入变，那就不叫输出了。</li>
+          <li><b class="font-semibold text-ink">IDR 要回答"引脚上现在是什么"。</b>外部电路（按键、传感器、另一片芯片）随时可以把引脚拉高拉低，这个信息必须能被读到。而且很多引脚是"开漏 + 外部上拉"的用法（I²C 就是这样），这时候你写出去的是 0、引脚上却是 1，两者必然不同。</li>
+          <li><b class="font-semibold text-ink">如果只有一个寄存器，这两件事就没法同时做到。</b>你把"我写的值"和"引脚的实际电平"塞进同一个触发器，那么外部一拉低，你的输出意图就被改掉了——这恰恰就是 8051 那个丢位陷阱的根源。</li>
+        </ul>
+
+        <div class="callout callout-warn mt-4">
+          <div class="callout-title">那 STM32 上写 <code class="icode">GPIOA-&gt;ODR |= (1&lt;&lt;5);</code> 就绝对安全吗？不一定</div>
+          <p>读回 ODR 拿到的是锁存器值，这一点没问题。但 <code class="icode">|=</code> 在机器层面是<b>三条指令</b>：读 ODR → 或运算 → 写回 ODR。如果在这三条指令中间来了一次中断，而中断里也改了同一个端口，那么中断改的那一位会在你写回时被覆盖掉——这就是经典的<b>读-改-写竞争</b>。</p>
+          <p class="mt-2">所以 STM32 提供了 BSRR：<b>它是"只写寄存器"，你写 1 就直接置位/复位对应的脚，不需要先读回来</b>。一条 <code class="icode">STR</code> 指令完成，天然原子，中断也插不进去。这就是为什么老手的代码里到处是 <code class="icode">GPIOA-&gt;BSRR = ...;</code> 而不是 <code class="icode">GPIOA-&gt;ODR |= ...;</code>。</p>
+          <p class="mt-2">反过来说，只要你确认某个寄存器只有一处代码会写它（或者已经关了中断），用 <code class="icode">|=</code> 读-改-写 ODR 是安全的。<b>真正的规则是：读写同一个存储单元的多条指令序列，在它可能被别处修改时就不安全。</b>这条规则跟具体芯片无关，回到触发器层面就是这么朴素。</p>
+        </div>
+
+        <hr class="hr-soft my-10">
+
+        <h3 id="mcu-595" class="mt-7 text-base font-semibold">74HC595 串行扩展：三根线怎么驱动 8 位数码管</h3>
+
+        <p class="mt-3">第 2 节讲了 74HC595 内部的两级结构，现在把它接到单片机上，看看那三根线（数据、移位时钟、锁存时钟）到底怎么用，以及为什么"忘了拉锁存"会让显示乱闪。</p>
+
+        <p class="mt-3">先明确一个最容易被忽略的顺序问题：<b class="font-semibold text-ink">级联时，先送进去的字节最终会停在"最远端"的那片芯片里。</b>因为每一片的 Q7' 接下一片的 SER，数据像在传送带上一样往前走：先送进去的会被后来的推得最远。</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="两片 595 级联：16 位链条，谁先送谁在远端">
+          <pre><code>   MCU                    近端 595（#1）              远端 595（#2）
+   ─────                   ──────────────              ──────────────
+   DS  ──────────────────▶ SER                          SER ◀── Q7'(#1)
+   SHCP ──────┬──────────▶ SHCP ────── Q7' ────────────▶ SHCP
+              └──────────────────────────────────────────┘
+   STCP ──────┬──────────▶ STCP ────────────────────────▶ STCP
+              └──────────────────────────────────────────┘
+   （两片的 STCP、SHCP 都并联，只有 DS 是"串"过去的）
+
+   送 16 位的顺序：
+     先送第 1 个字节 → 它在链条里被推得最远 → 停在 #2
+     后送第 2 个字节 → 它留在最近处    → 停在 #1
+
+   所以：如果你要让 #2 负责"位选"、#1 负责"段选"，
+         那就要先送位选字节，再送段选字节。</code></pre>
+        </div>
+
+        <div class="code-block mt-3" data-lang="c" data-title="hc595.c：三根线 + 一次锁存">
+          <pre><code>#include "stm32f1xx_hal.h"
+
+/* 三根线的引脚定义（按你的板子改） */
+#define DS_PIN    GPIO_PIN_5   /* 14 脚 SER  ：串行数据 */
+#define SHCP_PIN  GPIO_PIN_6   /* 11 脚 SHCP ：移位时钟 */
+#define STCP_PIN  GPIO_PIN_7   /* 12 脚 STCP ：锁存时钟 */
+#define HC595_GPIO  GPIOA
+
+/* 把 1 个字节按"高位先出"移进移位寄存器 —— 这一阶段输出端纹丝不动 */
+static void hc595_shift8(uint8_t byte)
+{
+    for (uint8_t i = 0; i &lt; 8; i++) {
+        /* 先把数据位摆到 DS 上 */
+        HAL_GPIO_WritePin(HC595_GPIO, DS_PIN,
+                          (byte &amp; 0x80) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+        byte = (uint8_t)(byte &lt;&lt; 1);
+
+        /* 再给一个移位时钟上升沿：595 在这一刻把 DS 采进 FF0 */
+        HAL_GPIO_WritePin(HC595_GPIO, SHCP_PIN, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(HC595_GPIO, SHCP_PIN, GPIO_PIN_RESET);
+    }
+}
+
+/* 关键的一步：把移位寄存器的内容整体复制到输出锁存器 */
+static void hc595_latch(void)
+{
+    HAL_GPIO_WritePin(HC595_GPIO, STCP_PIN, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(HC595_GPIO, STCP_PIN, GPIO_PIN_RESET);
+}
+
+/* 写 16 位：先送高字节（会到远端），再送低字节（留在近端），最后锁存 */
+void hc595_write16(uint16_t value)
+{
+    hc595_shift8((uint8_t)(value &gt;&gt; 8));   /* 远端：位选 */
+    hc595_shift8((uint8_t)(value &amp; 0xFF)); /* 近端：段选 */
+    hc595_latch();                         /* ★ 少了这一句，屏幕不会更新 */
+}</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">为什么 <code class="icode">hc595_latch()</code> 不能省？</b>把两个后果分开看：</p>
+
+        <ul class="mt-3 list-disc space-y-2.5 pl-5">
+          <li><b class="font-semibold text-ink">如果你完全不调它：</b>输出锁存器永远保持上电时的值（上电默认是全 0），你移进去的数据只是"躺在草稿纸上"，屏幕什么都不显示，或者一直显示第一次锁存的那个图案。新手最常见的现象是"代码看着没错、就是没反应"。</li>
+          <li><b class="font-semibold text-ink">如果你移一位就锁一次（或者一边移一边显示）：</b>那等于把第 2 节讲的那条"半成品"路径打开了。数码管会在移位的 8 个时钟里依次显示各种中间状态——因为每移一位，段选的图案就变一次，肉眼看到的就是"乱闪 / 雪花 / 残影"。</li>
+        </ul>
+
+        <p class="mt-3">所以正确的节奏永远是：<b class="font-semibold text-ink">先安静地把所有位都移位到位（DS + SHCP），最后一次性给一个 STCP 上升沿让它们同时亮相。</b>这就是"双缓冲"在代码里的样子。</p>
+
+        <p class="mt-3">接下来是 8 位数码管的扫描。8 位数码管不可能同时点亮（8 位 × 8 段 = 64 个段，需要 64 根线），标准做法是<b class="font-semibold text-ink">动态扫描</b>：一次只点亮一位，8 位轮流点亮，每位的段码不同——利用人眼的视觉暂留，看起来就是 8 位同时显示。</p>
+
+        <div class="code-block mt-3" data-lang="c" data-title="数码管扫描：每 1 ms 换一位，8 ms 刷完一帧">
+          <pre><code>/* 共阴数码管段码：bit0~bit7 依次对应 a,b,c,d,e,f,g,dp */
+static const uint8_t seg7[10] = {
+    0x3F, /* 0 */ 0x06, /* 1 */ 0x5B, /* 2 */ 0x4F, /* 3 */ 0x66, /* 4 */
+    0x6D, /* 5 */ 0x7D, /* 6 */ 0x07, /* 7 */ 0x7F, /* 8 */ 0x6F  /* 9 */
+};
+
+static uint8_t disp_buf[8] = {0, 1, 2, 3, 4, 5, 6, 7};  /* 要显示的内容 */
+
+/* 由定时器每 1 ms 调用一次（不要在 while(1) 里死等！） */
+void display_scan_1ms(void)
+{
+    static uint8_t pos = 0;
+
+    /* 位选：一次只让一位导通。这里假设位选 595 的输出低电平有效 */
+    uint8_t digit_sel = (uint8_t)~(1u &lt;&lt; pos);
+
+    /* 组装 16 位：高字节 = 位选（远端 595），低字节 = 段选（近端 595） */
+    uint16_t frame = ((uint16_t)digit_sel &lt;&lt; 8) | seg7[disp_buf[pos]];
+    hc595_write16(frame);
+
+    pos = (uint8_t)((pos + 1) &amp; 0x07);   /* 8 位轮流，回到第 0 位 */
+}
+
+/* 人眼看到的刷新率：
+   每位停留 1 ms，8 位一轮 = 8 ms → 帧率 125 Hz
+   每位点亮时间占 1/8 → 占空比 1/8 → 亮度只有"一直点亮"的 1/8
+   这就是为什么扫描显示的数码管看起来比静态驱动的暗 */</code></pre>
+        </div>
+
+        <div class="callout callout-danger mt-4">
+          <div class="callout-title">真要动手接线之前，先算一遍电流（很多人在这里烧芯片）</div>
+          <p>按上面这个方案：每段点亮电流设成 10 mA，一位数码管最多 8 段同时亮，那么<b>同一时刻流过 595 的总电流是 8 × 10 mA = 80 mA</b>。而 74HC595 数据手册给出的限制是：<b>每个输出脚连续电流约 ±35 mA，但整片芯片经 V<sub>CC</sub> 或 GND 的总电流上限只有约 ±70 mA</b>（绝对最大额定值）。</p>
+          <p class="mt-2">80 mA 已经超过 70 mA 了。而且别忘了，段选 595 要"出"这 80 mA、位选 595 要"入"这 80 mA，两片同时超限。三个可行的改法：</p>
+          <p class="mt-2"><b>① 把每段电流降到 8 mA 以下</b>（加大限流电阻），8 × 8 = 64 mA，仍在 70 mA 以内，但余量很小；<br>
+          <b>② 位选不用 595 直接驱动，改用三极管/MOS 管</b>——位选那一路是 80 mA 的大电流，交给三极管去扛，595 只提供基极电流（几毫安）；<br>
+          <b>③ 减少同时点亮的段数</b>（比如限制显示内容），但这在通用显示里做不到。</p>
+          <p class="mt-2">这个例子想说明的是：<b>数字电路的"逻辑"对了，不代表"模拟/电气"上就能用。</b>你在第 2 节看到的"触发器"只是逻辑模型，真实的芯片还有电流、电压、温度的限制，两者都要满足。</p>
+        </div>
+
+        <p class="mt-3">最后补一个实用效率对比：软件模拟的三线移位，一个字节要 8 次 <code class="icode">HAL_GPIO_WritePin</code>（每次都是函数调用），16 位大约要几十微秒；<b>换成硬件 SPI（把 DS 接 MOSI、SHCP 接 SCK），在 1 MHz 时钟下移 16 位只要 16 µs，而且 CPU 可以同时干别的</b>（用 DMA 更是连中断都不用进）。<b>STCP 仍然要单独用一根普通 GPIO 来控制</b>——因为它是"锁存"，必须由你决定"什么时候亮相"。这正好呼应一句话：<b>移位可以交给硬件流水线，但"何时拍照"永远是你的决定。</b></p>
+
+<hr class="hr-soft my-10">
+
+        <h3 id="mcu-div" class="mt-7 text-base font-semibold">用计数器分频得到精确时钟：定时器的 PSC 与 ARR 就是级联的计数器</h3>
+
+        <p class="mt-3">第 3 节例六里，你为了把 12 MHz 变成 1 Hz，用了 7 片 74LS 计数器级联。而在单片机上做同一件事，你只需要填两个数字：<b class="font-semibold text-ink">预分频器（PSC）和自动重装值（ARR）</b>。它们和那 7 片芯片的关系，值得掰开来看——因为看懂这一层，你以后看任何定时器手册都是"复习"而不是"新学"。</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="STM32 定时器的结构：三级串联，每一级都是一个计数器">
+          <pre><code>   定时器时钟源          预分频器              主计数器           自动重装寄存器
+   （如 72 MHz）         （PSC）               （CNT）                （ARR）
+        │                  │                     │                     │
+        ▼                  ▼                     ▼                     ▼
+   ┌─────────┐      ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+   │ 时钟源   │─────▶│ ÷(PSC + 1)  │─────▶│  每个时钟    │─────▶│ 数到 ARR 就  │
+   │ 72 MHz  │      │ 一个计数器   │      │  +1 的计数器 │      │ 归零，产生   │
+   └─────────┘      └─────────────┘      └─────────────┘      │ 更新事件(UEV)│
+                                                              └─────────────┘
+   对照第 2 节的计数器级联：
+     · PSC 就是第 1 片计数器（只不过它的"模数"可以由软件设成 1~65536 任意值）
+     · CNT 配合 ARR 就是第 2 片计数器（ARR 就是这一片的"模数"）
+     · 两级级联 → 总模数相乘 → 总的分频比 = (PSC + 1) × (ARR + 1)
+     · 更新事件（UEV）= 74LS161 的 RCO（进位输出），只不过它还能触发中断/DMA
+
+   ★ 你当年为"只能 ÷16"发愁，现在 PSC 可以设成任意值 ——
+     因为它的"反馈清零逻辑"是硬件写好的，改个数就行。</code></pre>
+        </div>
+
+        <div class="code-block mt-3" data-lang="c" data-title="72 MHz → 1 kHz 中断 + 1 Hz 精确秒信号">
+          <pre><code>/* ── 目标 1：1 kHz 的定时中断（每 1 ms 一次，用来做任务节拍和数码管扫描）── */
+/* 分频比 = 72,000,000 / 1000 = 72,000 = 72 × 1000
+   拆成两级：PSC+1 = 72，ARR+1 = 1000                                */
+
+TIM_HandleTypeDef htim2;
+
+static void tim2_init_1khz(void)
+{
+    htim2.Instance               = TIM2;
+    htim2.Init.Prescaler         = 71;      /* 72 分频：72 MHz → 1 MHz   */
+    htim2.Init.CounterMode       = TIM_COUNTERMODE_UP;
+    htim2.Init.Period            = 999;     /* 1000 个计数：1 MHz → 1 kHz */
+    htim2.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
+    htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+    HAL_TIM_Base_Init(&amp;htim2);
+    HAL_TIM_Base_Start_IT(&amp;htim2);          /* 开更新中断 */
+}
+
+/* 中断服务函数：每 1 ms 进来一次。
+   注意这里只置标志、做轻量的事，绝不要在里面 delay 或打印！ */
+volatile uint32_t g_tick_ms = 0;
+volatile uint8_t  g_flag_1s = 0;
+
+void TIM2_IRQHandler(void)
+{
+    if (__HAL_TIM_GET_FLAG(&amp;htim2, TIM_FLAG_UPDATE)) {
+        __HAL_TIM_CLEAR_FLAG(&amp;htim2, TIM_FLAG_UPDATE);  /* 写 1 清零，只清这一位 */
+        g_tick_ms++;
+        if ((g_tick_ms % 1000) == 0) {
+            g_flag_1s = 0;      /* 占位：下面用更规范的方式 */
+            g_flag_1s = 1;
+        }
+        display_scan_1ms();     /* 顺带做一次数码管扫描，见上一小节 */
+    }
+}
+
+/* ── 目标 2：要一个"方波"而不是"事件"？用 PWM 模式 ── */
+/* 分频比 = 72,000,000 / 1 = 72,000,000 = 7200 × 10000         */
+static void tim3_pwm_1hz_50pct(void)
+{
+    TIM_HandleTypeDef htim3 = {0};
+    TIM_OC_InitTypeDef sConfigOC = {0};
+
+    htim3.Instance               = TIM3;
+    htim3.Init.Prescaler         = 7199;    /* 72 MHz → 10 kHz */
+    htim3.Init.Period            = 9999;    /* 10 kHz → 1 Hz   */
+    htim3.Init.CounterMode       = TIM_COUNTERMODE_UP;
+    htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+    HAL_TIM_PWM_Init(&amp;htim3);
+
+    sConfigOC.OCMode     = TIM_OCMODE_PWM1;
+    sConfigOC.Pulse      = 5000;            /* 5000 / 10000 = 50% 占空比 */
+    sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+    HAL_TIM_PWM_ConfigChannel(&amp;htim3, &amp;sConfigOC, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&amp;htim3, TIM_CHANNEL_1);
+}</code></pre>
+        </div>
+
+        <p class="mt-3">几个容易忽略但很关键的点：</p>
+
+        <ul class="mt-3 list-disc space-y-2.5 pl-5">
+          <li><b class="font-semibold text-ink">"定时器输出"默认是"事件"，不是"引脚上的方波"。</b>CNT 数到 ARR 就产生一次更新事件（可以触发中断或 DMA），但引脚上什么都不会变。要一根真实的方波，得用 PWM 模式或者输出比较的"翻转（toggle）"模式。<b>很多人第一次用定时器时会困惑："我明明配了 1 Hz，为什么示波器上没波形？"——因为你需要把通道的输出使能、还要把引脚配成复用功能。</b></li>
+          <li><b class="font-semibold text-ink">分频比就是"两个模数相乘"，和 74LS 计数器级联完全一致。</b><code class="icode">f = f_clk / (PSC+1) / (ARR+1)</code>。这里唯一的"新东西"是你可以把 PSC 设成任意值——这相当于把例六里"必须凑出 10 的幂"那个约束彻底解除了。</li>
+          <li><b class="font-semibold text-ink">硬件计数器的精度不受 CPU 影响。</b>软件 <code class="icode">for</code> 循环延时受编译器优化、主频、中断打断的影响，误差常在百分之几；硬件定时器由晶振直接驱动，误差就是晶振本身的误差（普通晶振 ±20~50 ppm，即一天差几秒；好的晶振或 TCXO 能到 ±1 ppm 以内）。<b>做时钟、做通信波特率、做精确定时，一律用硬件定时器。</b></li>
+          <li><b class="font-semibold text-ink">中断里能做的事要尽量少。</b>上面那个 1 kHz 中断里调了一次数码管扫描是可以的（移位 16 位大约几微秒到几十微秒），但如果中断里 <code class="icode">HAL_Delay()</code>、<code class="icode">printf()</code>、或者等一个标志位，系统立刻就"卡"了——因为中断优先级通常高于主循环里的一切。<b>定时器给你的是"时间的骨架"，别把它用成"阻塞的睡眠"。</b></li>
+        </ul>
+
+        <div class="table-scroll mt-3">
+          <table class="table-mcu">
+            <thead>
+              <tr><th>做法</th><th>精度</th><th>会不会阻塞 CPU</th><th>适合什么</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>软件空循环 <code class="icode">for(i=0;i&lt;1000;i++);</code></td><td>差（受编译优化、主频、中断影响，误差百分之几）</td><td>阻塞，循环期间什么都干不了</td><td>教学演示、"约等一会儿"这种无所谓精度的场合</td></tr>
+              <tr><td><code class="icode">HAL_Delay(20)</code></td><td>一般（基于 SysTick，1 ms 分辨率）</td><td>阻塞，但可以进中断</td><td>初始化时序、简单的消抖（但会拖慢整个主循环）</td></tr>
+              <tr><td>定时器中断置标志</td><td>好（取决于晶振，ppm 级）</td><td>不阻塞，主循环轮询标志</td><td>任务节拍、按键扫描、数码管刷新、软件定时器</td></tr>
+              <tr><td>定时器 PWM / 翻转输出</td><td>最好（纯硬件，不受软件影响）</td><td>完全不占用 CPU</td><td>蜂鸣器方波、精确时钟输出、LED 调光、电机驱动</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <hr class="hr-soft my-10">
+
+        <h3 id="mcu-key" class="mt-7 text-base font-semibold">按键的边沿检测与消抖：从 delay(20) 到状态机</h3>
+
+        <p class="mt-3">按键是最便宜的输入设备，也是最容易写出坏代码的地方。先看一个物理事实：<b class="font-semibold text-ink">机械按键在按下和松开的瞬间，触点会在几毫秒到二十几毫秒内反复通断（抖动，bounce）。</b>如果你在代码里直接读引脚，一次按压会被读成十几个"按下—松开"，于是你的"按一下加一"可能变成加十七。</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="按键抖动：一次按压，引脚上的真实波形">
+          <pre><code>   理想情况（你脑子里的）：
+        按下
+   ────────┐                        ┌────────
+           │                        │
+           └────────────────────────┘
+           └──── 按下期间一直低 ────┘
+
+   实际情况（示波器上的）：
+        按下                                    松开
+   ────────┐┌┐┌─┐┌──┐┌──────────────┐┌─┐┌┐┌──────
+           └┘└┘ └┘  └┘              └┘ └┘└┘
+           └─ 抖动 ─┘                └─ 抖动 ─┘
+           5~20 ms                    5~20 ms
+
+   ★ 抖动是"机械"的，不是"电"的 —— 无法用电路完全避免，
+     只能用"等一会儿再看"（时间消抖）或者"连续看几次都一样才算数"（计数消抖）。</code></pre>
+        </div>
+
+        <p class="mt-3">教科书式的第一反应是这样写：</p>
+
+        <div class="code-block mt-3" data-lang="c" data-title="阻塞式消抖：能工作，但会把整个系统拖住">
+          <pre><code>/* 阻塞式写法：在 while(1) 里轮询按键 */
+while (1) {
+    if (HAL_GPIO_ReadPin(KEY_GPIO, KEY_PIN) == GPIO_PIN_RESET) {
+        HAL_Delay(20);                 /* ← 死等 20 ms，这 20 ms 里 CPU 什么都干不了 */
+        if (HAL_GPIO_ReadPin(KEY_GPIO, KEY_PIN) == GPIO_PIN_RESET) {
+            count++;                   /* 认为真的按下了 */
+            while (HAL_GPIO_ReadPin(KEY_GPIO, KEY_PIN) == GPIO_PIN_RESET) {
+                /* 还在按着：这里如果还想做别的事，就得全部塞进来 */
+            }
+        }
+    }
+    /* 糟糕：数码管扫描、串口处理、其他任务全都被这个 delay 挤到一边了 */
+}</code></pre>
+        </div>
+
+        <p class="mt-3">这段代码"能用"，但有两个致命问题：<b class="font-semibold text-ink">① 那 20 ms 里 CPU 被完全占用</b>——如果你同时还在扫数码管，显示就会在这 20 ms 里停一拍，肉眼能看到闪烁；如果串口正在收数据，可能就丢字节了。<b class="font-semibold text-ink">② 最后那个 <code class="icode">while</code> 等待松开更糟</b>，手指按住不放，整个程序就停在那里。随着功能变多，这种代码会变成"什么都塞进按键处理里"的一团乱麻。</p>
+
+        <p class="mt-3"><b class="font-semibold text-ink">正确的思路是把它写成一个状态机，由 1 ms 的定时器节拍驱动。</b>注意这里和硬件的对应关系：<b class="font-semibold text-ink">"检测边沿"在硬件上需要一级 D 触发器来记住上一次的值；在软件里，就是用一个变量记住上一次的读数。</b></p>
+
+        <div class="code-block mt-3" data-lang="c" data-title="key.c：非阻塞按键状态机（由 1 ms 节拍驱动）">
+          <pre><code>#include "stm32f1xx_hal.h"
+
+#define KEY_GPIO   GPIOA
+#define KEY_PIN    GPIO_PIN_0
+#define DEBOUNCE_MS  20        /* 消抖时间：一般 10~30 ms */
+
+typedef enum {
+    KEY_IDLE = 0,      /* 松开且稳定 */
+    KEY_DEBOUNCE,      /* 刚发现按下，正在等稳定 */
+    KEY_PRESSED,       /* 已确认按下 */
+    KEY_WAIT_RELEASE   /* 等松开（可选，用于"松手才触发"的设计） */
+} key_state_t;
+
+static key_state_t s_state = KEY_IDLE;
+static uint16_t    s_cnt   = 0;
+
+/* 对外的事件标志：主循环里轮询它即可 */
+volatile uint8_t g_key_pressed_event = 0;   /* 按下沿事件 */
+
+/* 由 1 ms 定时中断调用（和数码管扫描共用同一个节拍） */
+void key_scan_1ms(void)
+{
+    /* 读出当前电平：低电平表示按下（按键一端接 GND，另一端上拉） */
+    uint8_t is_down = (HAL_GPIO_ReadPin(KEY_GPIO, KEY_PIN) == GPIO_PIN_RESET);
+
+    switch (s_state) {
+    case KEY_IDLE:
+        if (is_down) {              /* 发现疑似按下 */
+            s_cnt   = 0;
+            s_state = KEY_DEBOUNCE; /* 先别急着确认，等它稳 20 ms */
+        }
+        break;
+
+    case KEY_DEBOUNCE:
+        if (!is_down) {             /* 又弹回去了：是抖动，不算数 */
+            s_state = KEY_IDLE;
+        } else if (++s_cnt &gt;= DEBOUNCE_MS) {
+            /* 连续 20 ms 都是按下 —— 这次是真的 */
+            g_key_pressed_event = 1;    /* 产生"按下"事件（按下沿） */
+            s_state = KEY_PRESSED;
+        }
+        break;
+
+    case KEY_PRESSED:
+        if (!is_down) {             /* 松开了，也消抖一次 */
+            s_cnt   = 0;
+            s_state = KEY_WAIT_RELEASE;
+        }
+        break;
+
+    case KEY_WAIT_RELEASE:
+        if (is_down) {
+            s_state = KEY_PRESSED;  /* 又是抖动，回到已按下 */
+        } else if (++s_cnt &gt;= DEBOUNCE_MS) {
+            s_state = KEY_IDLE;     /* 真正松开，回到空闲，等下一次按下 */
+        }
+        break;
+    }
+}
+
+/* 主循环里这样用：完全不阻塞 */
+void app_loop(void)
+{
+    while (1) {
+        if (g_key_pressed_event) {
+            g_key_pressed_event = 0;
+            count++;                 /* 处理"按下"事件 */
+        }
+        /* 这里还能干别的事：串口、显示、计算…… 都不会被按键拖住 */
+    }
+}</code></pre>
+        </div>
+
+        <div class="callout callout-tip mt-4">
+          <div class="callout-title">把这个状态机和硬件对应起来看，你会发现它们在讲同一件事</div>
+          <p><b>① 那个 <code class="icode">s_state</code> 变量就是一组触发器的 Q</b>（4 个状态用 2 位二进制编码就够了，和例四里那个 2 位状态机一模一样）。<b>② <code class="icode">switch (s_state)</code> 里算出来的"下一个状态"就是次态方程 Q<sup>*</sup> = f(Q, X)</b>，X 就是 <code class="icode">is_down</code>。<b>③ 最后 <code class="icode">s_state = 新状态</code> 这一句赋值，就是给触发器加了个时钟沿</b>——在软件里这个"时钟沿"就是每 1 ms 的那次中断。</p>
+          <p class="mt-2">所以你在硬件课上学的那套"状态图 → 状态表 → 次态方程"的方法，在这里一个字都没浪费：画得出状态图，就写得出 <code class="icode">switch</code> 的每个分支；反过来，代码里少写一个分支（比如忘了处理"无效状态"），就等价于硬件里那个未用态死锁——现象也一样：程序卡在某个状态里再也不响应。</p>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">"边沿检测"这件事本身也值得单独记一下。</b>你需要的是"刚按下的那一下"（事件），而不是"现在按着"（状态）。在软件里，一行位运算就能实现硬件里那个 D 触发器：</p>
+
+        <div class="code-block mt-3" data-lang="c" data-title="软件边沿检测：一行代码等于一级 D 触发器">
+          <pre><code>static uint8_t s_prev = 0;          /* 这就是那个"记忆一位"的触发器 */
+
+void edge_detect_1ms(void)
+{
+    uint8_t cur = (HAL_GPIO_ReadPin(KEY_GPIO, KEY_PIN) == GPIO_PIN_SET) ? 1 : 0;
+
+    uint8_t rising  = cur &amp; ~s_prev;   /* 本次为 1、上次为 0 → 上升沿 */
+    uint8_t falling = ~cur &amp; s_prev;   /* 本次为 0、上次为 1 → 下降沿 */
+
+    if (rising)  { /* 松手的那一下 */ }
+    if (falling) { /* 按下的那一下（如果按下是低电平） */ }
+
+    s_prev = cur;                       /* ★ 更新"触发器"：相当于时钟沿 */
+}</code></pre>
+        </div>
+
+        <p class="mt-3">这三行代码在硬件上对应的就是第 2 节那张图：<b>输入信号接 D，输出 Q 是"上一拍的值"，<code class="icode">cur &amp; ~prev</code> 是组合逻辑（一个与门加一个反相器），检测出来的就是"上升沿脉冲"。</b>你在 FPGA 里写 <code class="icode">assign rising = din &amp; ~din_r;</code>，在这条 C 代码里写 <code class="icode">cur &amp; ~s_prev</code>，逻辑是完全同一个式子。<b>凡是要"检测变化"而不是"检测电平"，都需要这样一位记忆。</b></p>
+
+        <hr class="hr-soft my-10">
+
+        <h3 id="mcu-sync" class="mt-7 text-base font-semibold">跨时钟域为什么要打两拍：亚稳态、毛刺与那两级触发器</h3>
+
+        <p class="mt-3">先回顾第 2 节的结论：<b class="font-semibold text-ink">如果数据在时钟沿附近的"禁止窗口"（t<sub>su</sub> 之前到 t<sub>h</sub> 之后）里发生变化，触发器可能进入亚稳态</b>——输出停在门限电压附近，过一会儿才随机地倒向 0 或 1。这个现象有一个特别讨厌的性质：<b>它什么时候倒、倒向哪边，都是随机的。</b></p>
+
+        <p class="mt-3">而"异步信号"恰恰就是最不听话的输入：<b class="font-semibold text-ink">异步信号和你的时钟没有任何约定，它随时可能在你时钟沿的那一瞬间变化</b>。比如：</p>
+
+        <ul class="mt-3 list-disc space-y-2.5 pl-5">
+          <li>按键输入（人手按的，和 72 MHz 时钟毫无关系）</li>
+          <li>另一个系统、另一个时钟域发来的信号（UART 接收线、SPI 的从机片选、外部中断引脚）</li>
+          <li>经过长线传输、带毛刺的信号（编码器输出、比较器输出）</li>
+        </ul>
+
+        <p class="mt-3">如果把这个异步信号<b class="font-semibold text-ink">直接接进组合逻辑</b>，会同时踩两个雷：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="异步信号直接进组合逻辑的两个雷">
+          <pre><code>   雷一：毛刺（glitch）
+     异步信号本身可能带毛刺；更糟的是，同一根信号分成两路走不同的
+     组合路径，两条路径的延迟不同，重新会合时就会在输出上凭空造出
+     一个又窄又尖的脉冲。
+
+        IN ─┬───────────────────────────────┐
+            │                               ├── AND ──▶ 输出上出现窄脉冲！
+            └──[几个非门，延迟 15 ns]───────┘
+                                   ↑
+                          IN 变化时，这两条路径的到达时间不同步
+
+     如果这个"输出"接的是时钟脚、中断脚、计数器的清零脚，
+     那就会被当成一个真实事件 —— 假触发、多计数、误清零。
+
+   雷二：亚稳态传播（metastability）
+     异步信号在时钟沿附近变化 → 触发器进入亚稳态 →
+     它的输出在门限附近悬着 → 后级电路（尤其是组合逻辑）
+     会把这个"半高电平"当成什么？不知道。不同的门对
+     门限附近的输入反应不同，于是同一个信号被两路逻辑
+     解读成不同的值 → 整个系统状态自相矛盾。</code></pre>
+        </div>
+
+        <p class="mt-3"><b class="font-semibold text-ink">所以跨时钟域/异步输入的第一条规矩是：先同步，再用。</b>"同步"的具体做法就是在最前面串两级（有时是三级）触发器，这就是"打两拍"：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="两级同步器：第一级可能亚稳态，第二级给它一年时间稳定">
+          <pre><code>   异步输入                    第一级              第二级
+   （随时可能变）              （可能亚稳态）      （拿来用，已经稳了）
+        │                        │                    │
+        ▼                        ▼                    ▼
+   ─────────▶┌───────┐      ┌───────┐          ┌───────┐
+              │  FF1  │─────▶│  FF2  │─────────▶│ 后续逻辑 │
+   系统时钟 ─▶│  ▷    │      │  ▷    │          └───────┘
+              └───────┘      └───────┘
+                  同一时钟域（两个触发器共用系统时钟）
+
+   为什么这样能解决问题：
+     · FF1 是"敢死队"：它直接面对异步输入，有可能进入亚稳态
+     · 但从 FF1 到 FF2 之间，留了整整一个时钟周期的时间
+     · 亚稳态按指数规律衰减，一个周期（比如 13.9 ns @72 MHz）
+       足够让它稳定下来的概率极高
+     · FF2 采到的是"已经稳定了的 FF1 输出"，于是 FF2 的输出干净
+
+   ★ 严格来说亚稳态永远无法被"消除"，只能把概率压到可接受：
+     每多一级同步触发器，MTBF（平均无故障时间）就按指数级上升。
+     这就是为什么"打两拍"是最低配置，高速/高可靠场合会打三拍。</code></pre>
+        </div>
+
+        <div class="code-block mt-3" data-lang="c" data-title="sync.c：两级同步 + 边沿检测（异步输入的标准处理流程）">
+          <pre><code>/* 场景：一个外部信号（比如红外接收头、或者另一个板子发来的脉冲）
+   随时可能变化，我们要在自己的定时器节拍里"检测它的上升沿"。 */
+
+static uint8_t s_sync1 = 0;    /* 第一级：敢死队，可能亚稳态 */
+static uint8_t s_sync2 = 0;    /* 第二级：已经稳定，可以用了 */
+static uint8_t s_prev  = 0;    /* 第三级记忆：用于边沿检测 */
+
+volatile uint8_t g_ext_rising_event = 0;
+
+/* 由 1 ms 定时中断调用（真实项目里节拍可能更快） */
+void ext_signal_sync_1ms(void)
+{
+    uint8_t raw = (HAL_GPIO_ReadPin(EXT_GPIO, EXT_PIN) == GPIO_PIN_SET) ? 1 : 0;
+
+    s_sync1 = raw;              /* 第一拍：可能采到亚稳态 */
+    s_sync2 = s_sync1;          /* 第二拍：此时 s_sync2 已经稳定 */
+    /* 注意：这三行必须按顺序执行，而且不能被别的代码插进来改 s_sync1 */
+
+    uint8_t cur = s_sync2;      /* 只用第二级之后的信号 */
+    if (cur &amp; ~s_prev) {
+        g_ext_rising_event = 1; /* 检测到上升沿事件 */
+    }
+    s_prev = cur;
+
+    /* ★ 只在 s_sync2 这一级上做判断 —— 千万不要用 raw 或 s_sync1 */
+}</code></pre>
+        </div>
+
+        <div class="callout callout-danger mt-4">
+          <div class="callout-title">多比特信号：光"打两拍"是不够的</div>
+          <p>上面这套做法只适用于<b>单根信号</b>（或者每一根信号之间互不相关的情况）。如果跨时钟域的是一个<b>多位的数据</b>（比如一个 16 位的计数值、一个 ADC 采样结果），每根线各打两拍会有致命问题：</p>
+          <p class="mt-2"><b>各位的亚稳态衰减时间不一样，可能这一位已经稳定、那一位还在抖。于是你在某一个时刻读到的值，可能是"新旧混合"的——比如从 7（0111）变到 8（1000）的中间，读到 15（1111）。</b>这个值在你的系统里根本不存在，比单纯读到旧值危险得多。</p>
+          <p class="mt-2">正确的做法有三种：<b>① 用格雷码</b>（相邻数值只变一位，混合也只会得到相邻值，最多差 1，不会出现离谱的跳变——FIFO 的读写指针跨时钟域就是这么做的）；<b>② 用握手（handshake）</b>（把多比特拆成单比特的"数据准备好了"信号，先锁存数据、再通知对方来取）；<b>③ 用异步 FIFO / 双口 RAM</b>（硬件帮你解决，代价是资源）。</p>
+          <p class="mt-2">这也正好回应了第 2 节讲状态编码时格雷码那一行：<b>"相邻状态只变一位"这个性质，最大的价值就是在跨时钟域和异步采样时，把"可能读到什么"限制在可接受的范围内。</b></p>
+        </div>
+
+        <p class="mt-3">最后说一句"什么时候真的需要这套"。如果你的异步信号是<b>按键</b>，人手的动作比 1 ms 慢得多，20 ms 的消抖本身就"顺便"完成了同步（抖动窗口远大于一个时钟周期）。但如果这个信号是<b>外部中断输入、编码器脉冲、另一颗芯片的握手线、或者高频的外部事件</b>，那就必须老老实实打两拍——因为"偶尔错一次"在通信、测量、控制里都是不能接受的。</p>
+
+        <hr class="hr-soft my-10">
+
+        <h3 id="mcu-fmax" class="mt-7 text-base font-semibold">建立/保持时间与"能不能超频"</h3>
+
+        <p class="mt-3">第 3 节例五算过一笔账：<code class="icode">T ≥ t_cq + t_comb(max) + t_su + t_skew</code>。现在把这条式子套到 STM32 自己身上，你会发现它解释了一个所有人都想知道的问题——<b class="font-semibold text-ink">为什么 STM32F103 官方标 72 MHz，论坛上却有人说"我能跑到 128 MHz"？</b></p>
+
+        <p class="mt-3">先看它的时钟树。72 MHz 这个数字不是随便定的，它和"FLASH 等待周期"这个参数严格绑定：</p>
+
+        <div class="table-scroll mt-3">
+          <table class="table-mcu">
+            <thead>
+              <tr><th>HCLK（内核与总线频率）</th><th>需要的 FLASH 等待周期（V<sub>DD</sub> = 2.7~3.6V）</th><th>含义</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>0 ~ 24 MHz</td><td>0 WS（Latency = 0）</td><td>FLASH 读一次就能取到指令，一个周期搞定</td></tr>
+              <tr><td>24 ~ 48 MHz</td><td>1 WS（Latency = 1）</td><td>取指要等 1 个额外周期</td></tr>
+              <tr><td>48 ~ 72 MHz</td><td>2 WS（Latency = 2）</td><td>取指要等 2 个额外周期</td></tr>
+              <tr><td>超过 72 MHz</td><td>寄存器里没有更大的值了</td><td>——也就是"官方不支持"的那条线</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="code-block mt-3" data-lang="c" data-title="超频的关键一步：告诉 FLASH 多等几个周期">
+          <pre><code>/* 这段代码通常藏在 SystemInit() / HAL_RCC_ClockConfig() 里 */
+/* 但你要知道它在干什么：把"每一次取指要等多久"告诉 FLASH 控制器 */
+
+/* 使能预取缓冲区（Prefetch Buffer）：提前把后面的指令取进缓存 */
+FLASH-&gt;ACR |= FLASH_ACR_PRFTBE;
+
+/* 设置等待周期：72 MHz 需要 2 WS。这一步必须在提高主频之前做！ */
+FLASH-&gt;ACR &amp;= ~FLASH_ACR_LATENCY;
+FLASH-&gt;ACR |= FLASH_ACR_LATENCY_2;      /* 2 个等待周期 */
+
+/* 然后再切 PLL、把 SYSCLK 从 8 MHz 拉到 72 MHz …… */
+/* 顺序反了会怎样？—— FLASH 还没准备好"要等"，CPU 已经在全速取指，
+   前几十个周期取到的指令是错的，芯片可能直接跑飞。 */</code></pre>
+        </div>
+
+        <p class="mt-3">现在把例五的式子翻译成 STM32 的语言：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="超频到底在压缩哪一段时间">
+          <pre><code>   一个时钟周期 T 里必须完成的事（CPU 取指—译码—执行的一条链路）：
+
+   ┌─ t_cq ─────▶ 寄存器（PC）把地址推出去
+   │
+   ├─ FLASH 访问时间 ─▶ 取回指令
+   │     · 0 WS：1 个周期
+   │     · 2 WS：3 个周期（1 + 2）    ← 72 MHz 时的实际情况
+   │     · 预取缓冲命中时可以"抵消"掉一部分
+   │
+   ├─ 译码 + 运算（组合逻辑）──▶ 得到结果
+   │
+   └─ t_su ────▶ 结果必须在下一个时钟沿之前稳稳送到目的寄存器
+
+   提高主频 = 把 T 变小。
+     · 官方 72 MHz：T = 13.9 ns，各项刚好塞得下（而且留了余量）
+     · 超频到 128 MHz：T = 7.8 ns
+
+   厂商在设计芯片时，是拿"72 MHz + 最坏情况（高温、低压、慢工艺角）"
+   去跑时序签核（timing sign-off）的，并留出安全余量。
+   你超频，等于把这层余量吃掉，去赌"我这颗芯片在室温下够快"。</code></pre>
+        </div>
+
+        <div class="callout callout-warn mt-4">
+          <div class="callout-title">所以超频为什么表现为"偶尔出错、热了就不稳"</div>
+          <p>因为超频破坏的是<b>建立时间余量</b>，而余量被吃掉后，最先违例的永远是那几条<b>最长的路径</b>——它们可能只在特定数据组合下才被激活（比如某个除法指令、某次跨越 4 字节边界的取指、某个中断响应的取向量）。于是：</p>
+          <p class="mt-2"><b>① 它不是"跑不起来"，而是"绝大部分时候都对"。</b>这比彻底不启动更难查：你会怀疑代码、怀疑外设、怀疑接线，唯独不会怀疑主频。<br>
+          <b>② 温度升高会让它更容易出错。</b>CMOS 电路的延迟随温度升高而增大（温度越高越慢），所以你室温调通了、机箱一关就出错。<br>
+          <b>③ 每颗芯片的"极限"都不一样。</b>同一批晶圆上不同位置的芯片，速度有快有慢（工艺角差异）。别人能跑 128 MHz，不代表你这颗能跑；你自己这颗今天能跑，也不代表夏天能跑。<br>
+          <b>④ 电压可以"续一点命"但很危险。</b>提高 V<sub>DD</sub> 会让门变快，所以超频圈常用"加压"这一招。但 STM32F103 的绝对最大额定电压只有 4.0V，长期在 3.6V 以上工作会加速老化，甚至直接损坏。</p>
+        </div>
+
+        <p class="mt-3">那该怎么回答"能不能超频"这个问题？我的建议是分三层说：</p>
+
+        <ul class="mt-3 list-disc space-y-2.5 pl-5">
+          <li><b class="font-semibold text-ink">学习实验：可以玩。</b>知道自己在赌什么（建立时间余量），知道出问题时先降频验证，这就是一次很有价值的实践——它把"时序"这个抽象概念变成了你亲眼见过的现象。</li>
+          <li><b class="font-semibold text-ink">产品/要长期稳定运行的场合：不要超。</b>你要的是"在 −40~85℃、电压波动、器件离散、老化五年之后依然正确"，而超频恰恰是把这些余量提前花掉。<b>真正需要更快，请选更高主频的型号（比如 STM32F4/F7/H7），而不是压榨一颗已经标定好的芯片。</b></li>
+          <li><b class="font-semibold text-ink">不管超不超频，都该知道"约束在哪里"。</b>如果程序跑得慢，先看是不是在等延时、等 FLASH、等外设；很多时候把 <code class="icode">HAL_Delay</code> 换成状态机、把 FLASH 等待周期配对、把重的计算移到 DMA/硬件外设上，比超频 20% 有用得多——<b>而且这些优化不花任何时序余量。</b></li>
+        </ul>
+
+        <div class="callout callout-tip mt-4">
+          <div class="callout-title">把这一节收个尾：寄存器、端口、定时器、按键、亚稳态、超频，其实是同一套知识</div>
+          <p>回头看这七个小节，它们全都落在第 2、3 节那几个概念上：<b>配置寄存器 = 一组触发器</b>（并行寄存器）；<b>读-改-写丢位 = 输出锁存器与引脚的分工</b>（锁存器 vs 引脚）；<b>74HC595 = 移位寄存器 + 输出锁存器</b>（边沿触发的双缓冲）；<b>定时器分频 = 计数器级联与模数相乘</b>；<b>按键状态机 = 用软件实现的状态机 + 一位记忆做边沿检测</b>；<b>打两拍 = 建立/保持时间与亚稳态</b>；<b>超频 = 建立时间预算被压缩</b>。</p>
+          <p class="mt-2">所以你在这一章学的东西不是"过时的 74 系列知识"——它是一层<b>底图</b>。单片机的数据手册、外设框图、时序图、甚至你写的每一行初始化代码，都是在这张底图上作画。看得见底图，你就不会再把寄存器当成"魔法数字"，也不会再把偶发故障归结为"玄学"。</p>
+        </div>
+
+<hr class="hr-soft my-10">
+
+        <h2 id="sec-pitfall" class="text-xl font-semibold">常见误解与坑</h2>
+
+        <p class="mt-3">下面这十条，每一条我都见过有人真的栽进去过。写法统一成三段：<b class="font-semibold text-ink">你可能这么想 → 为什么这么想是错的 → 正确的做法是什么</b>。第十条后面还附了三个"小坑"，一起收掉。</p>
+
+        <h3 class="mt-7 text-base font-semibold">坑 1 · "锁存器和触发器就是一回事，只是叫法不同"</h3>
+
+        <p class="mt-3"><b class="font-semibold text-ink">你可能这么想：</b>教材里两个词换着用，考试也经常混着考，反正都是"能存一位的器件"。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>它们的触发方式根本不同。<b>锁存器是电平触发（透明的）</b>——使能有效期间，输出跟着输入变；<b>触发器是边沿触发</b>——只在时钟跳变的那一瞬间采样，其余时间输出与输入隔离。这个差别不是"细节"，而是"能不能搭出可靠同步系统"的分水岭。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>把所有"状态"都放进边沿触发的触发器里；锁存器只在确实需要"透明"的场合用（比如异步总线接口里要"看穿"一拍、或者低功耗设计里当时钟门控）。<b>看到电路图里出现锁存器，先问一句："这个透明窗口会不会让信号一个周期里穿过好几级？"</b></p>
+
+        <h3 class="mt-7 text-base font-semibold">坑 2 · "用 D 锁存器当时钟器件，搭一个同步系统"</h3>
+
+        <p class="mt-3"><b class="font-semibold text-ink">你可能这么想：</b>D 锁存器也有使能端，把时钟接上去，不就跟 D 触发器一样了吗？而且锁存器更快、更省门。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>时钟高电平期间锁存器一直是"透明"的，输出 Q 等于输入 D。如果 D 又是由 Q 经过组合逻辑反馈回来的（状态机几乎都是这样），那么<b>在同一个时钟高电平期间，Q 会随着组合逻辑的延迟一级一级地"跑"下去——这就是空翻（race-through）</b>。举例：一个 D 锁存器接成 <code class="icode">D = ¬Q</code>，使能一直为高，它会以"门延迟"为周期疯狂振荡，而不是每个时钟翻转一次。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>凡是"每个时钟沿更新一次"的状态，一律用<b>边沿触发</b>的 D 触发器。如果因为资源紧张非要用锁存器，必须保证<b>时钟高电平期间输入不再变化</b>（即"单相不重叠时钟"设计，或者把组合逻辑的延迟严格控制在半个周期内）——这属于高级技巧，初学阶段不要碰。</p>
+
+        <h3 class="mt-7 text-base font-semibold">坑 3 · "边沿触发不就是'更快的电平触发'吗？把透明窗口做窄一点就行了"</h3>
+
+        <p class="mt-3"><b class="font-semibold text-ink">你可能这么想：</b>既然电平触发的问题是"透明时间太长"，那把使能脉冲弄得非常窄，窄到输入来不及变化，不就等价于边沿触发了吗？</p>
+        <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>两个原因。第一，<b>窄脉冲很难做得又窄又稳定</b>——它会受工艺、温度、电压影响，而且窄脉冲在传输中容易被衰减掉。第二，也是更本质的：<b>即使脉冲很窄，只要它和输入变化的时刻重叠，输出仍是不确定的</b>；而真正的边沿触发靠的是内部<b>维持-阻塞结构（或主从结构）</b>，它保证"一次时钟跳变只采样一次"，这个性质与脉冲宽度无关。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>把"边沿触发"理解成一种<b>结构上的保证</b>，而不是"时间上的巧合"。看芯片内部框图时，注意那两级锁存器（主级、从级）用互补的时钟相位控制——<b>这才是"边沿"两个字的物理来源</b>。</p>
+
+        <h3 class="mt-7 text-base font-semibold">坑 4 · "异步置位/复位端就是个额外的输入，需要时拉一下就行"</h3>
+
+        <p class="mt-3"><b class="font-semibold text-ink">你可能这么想：</b>既然 <code class="icode">S̄<sub>D</sub></code>、<code class="icode">R̄<sub>D</sub></code> 能把触发器置成 1 或 0，那我在需要"清零"或者"强制置位"的逻辑里直接用它，比走 D 端方便多了。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>异步端<b>绕过时钟</b>——它一有效，输出立刻改变，跟时钟沿没有任何约定。<b>这意味着它破坏了整个同步系统"所有状态只在时钟沿变化"的前提。</b>后果有两个：一是它可能与时钟沿"撞车"，让触发器进入亚稳态或产生不确定的短暂状态；二是下游的组合逻辑可能在时钟沿那一瞬间看到"半清半不清"的状态，做出错误决策。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>异步置位/复位只用在两类场景：<b>① 上电初始化</b>（用 POR 电路或 RC 复位产生一个上电脉冲，把所有触发器摆到确定的状态——这也是为什么每个芯片都有 RESET 脚）；<b>② 故障强制保护</b>（比如过流时立刻封锁输出，这时候"快"比"同步"更重要，但也要接受它可能带来的不确定窗口）。<b>正常的逻辑功能一律走 D 端（同步置位/复位）。</b>在 STM32 里，<code class="icode">HAL_NVIC_SystemReset()</code>、看门狗复位就是"异步复位"的角色：它们不管你的时钟跑到哪了，直接把整个系统拉回初始状态。</p>
+
+        <h3 class="mt-7 text-base font-semibold">坑 5 · "功能仿真对了、低速测试也对了，时序就没问题"</h3>
+
+        <p class="mt-3"><b class="font-semibold text-ink">你可能这么想：</b>我用 1 kHz 的时钟跑了一遍，逻辑全对；波形也对。那这个电路就是好的。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>建立/保持时间是<b>与频率相关的约束</b>。1 kHz 一个周期是 1 ms，而一条路径可能只需要 40 ns——余量大得离谱，什么毛病都看不出来。等到你把时钟提到 30 MHz（周期 33 ns），余量就变成负数了，故障开始出现，而且是"偶尔"出现。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>低速验证<b>功能</b>，高速验证<b>时序</b>，两者都要做。具体地：<b>① 按例五那样把每一项延迟列出来算一遍预算</b>；<b>② 用示波器/逻辑分析仪在最高工作频率下长时间观察</b>；<b>③ 做温度测试</b>（吹热风或放进温箱，看是否在高温下出错——CMOS 越热越慢，这是最有效的"照妖镜"）；<b>④ 如果是 FPGA/ASIC，跑静态时序分析（STA）</b>，让工具把所有路径的余量报给你。</p>
+
+        <h3 class="mt-7 text-base font-semibold">坑 6 · "时序违例了？把时钟降一点就好了"</h3>
+
+        <p class="mt-3"><b class="font-semibold text-ink">你可能这么想：</b>频率高就出错、频率低就正常，那说明是"太快了"，降频是万能药。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>降频只能修<b>建立时间（setup）违例</b>，因为建立约束的式子里有周期 T：<code class="icode">T ≥ t_cq + t_comb(max) + t_su + t_skew</code>。但<b>保持时间（hold）违例的式子里没有 T</b>：<code class="icode">t_cq + t_comb(min) ≥ t_h + t_skew</code>。<b>也就是说，保持违例跟时钟频率完全无关——你把时钟降到 1 Hz，它照样违例。</b></p>
+        <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>先说清是哪种违例。建立违例：降频、缩短组合逻辑（流水线）、减小时钟偏斜。保持违例：<b>只能在那条"太短的路径"上增加延迟</b>（插入缓冲器/延时单元），或者改善时钟树让偏斜更可控。这条区分在 FPGA 里尤其重要——工具报 hold violation 时，你改时钟约束是没用的。</p>
+
+        <h3 class="mt-7 text-base font-semibold">坑 7 · "反馈清零法做出来的 M 进制计数器，能用就行，哪有什么毛刺"</h3>
+
+        <p class="mt-3"><b class="font-semibold text-ink">你可能这么想：</b>我用 74LS161 加一个与非门做了 ÷12，LED 显示也对，计数器也确实 12 个状态一循环，看着挺好啊。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>异步清零器件（74LS161 的 <code class="icode">CLR̄</code>）在被触发后<b>立刻</b>清输出，不等待时钟。于是计数器确实会短暂地停在越界码 1100（12）上，<b>这个"瞬时态"持续约 30 ns（例一算过）</b>。对大对数应用（驱动 LED、人眼看）完全没影响，但如果你<b>同时还把这个计数器的输出送到译码器或者别的电路</b>，那 30 ns 里就会冒出一个不该存在的输出（"假码"）——它可能点亮一个不该亮的段、让下游多计一次数、或者让一个比较器误动作。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>三条路，按顺序考虑：<b>① 换成同步清零器件（74LS163），检测最后一个合法码 M−1</b>——清零动作发生在时钟沿，不会有瞬时态；<b>② 改用反馈置数法</b>（74LS161 的 <code class="icode">LD̄</code> 是同步的），同样无毛刺；<b>③ 如果必须用清零法</b>，就把这个"瞬时态"隔离掉：用清零信号同时去封锁下游的译码器（消隐），或者只把计数器的输出在时钟沿附近采样（打一拍）。</p>
+
+        <h3 class="mt-7 text-base font-semibold">坑 8 · "状态机只要把用到的状态写对，没用的状态不用管"</h3>
+
+        <p class="mt-3"><b class="font-semibold text-ink">你可能这么想：</b>我的状态机只用了 3 个状态，编码成 00、01、11，那个 10 根本不会出现，卡诺图上打叉就行。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>上电瞬间触发器是随机的，干扰、亚稳态、或一次复位不彻底都可能让你落进 10。<b>如果你在化简时把"无关项"随意当成 0 或 1 用掉了，10 的次态就可能变成它自己——一旦进去，永远出不来。</b>例三里的 JK 版就是这样：贪最简写成 <code class="icode">J<sub>0</sub> = ¬Q<sub>1</sub>·¬Q<sub>0</sub>·X</code> 会让 10 无论输入什么都停在 10，整个系统"死了"，而且现象是"用一会儿就不动了"，极难查。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>三个办法，任选其一：<b>① 在次态方程里显式给所有未用态指定一个合法去向</b>（例三里那个 <code class="icode">Q<sub>0</sub><sup>*</sup> = X·(¬Q<sub>1</sub>+Q<sub>0</sub>)</code> 里的或项就是干这个的，代价是多一个门）；<b>② 选一种不会产生无效组合的编码</b>（独热码：每个状态一个触发器，上电最多是"没有状态"或"多个状态"，配合复位就好办）；<b>③ 老老实实按完整状态表化简</b>，把未用态当成正常状态指定去向（多花一点逻辑，换来"自启动"）。<b>检查方法：把每个未用态代进次态方程，看它几拍之内能不能走到合法状态。</b></p>
+
+        <div class="callout callout-danger mt-4">
+          <div class="callout-title">坑 9 · "读-改-写丢位是 8051 的老毛病，STM32 不会有这种问题"</div>
+          <p><b>你可能这么想：</b>STM32 是 32 位 ARM，寄存器都是老老实实的存储单元，<code class="icode">GPIOA-&gt;ODR |= (1&lt;&lt;5);</code> 读回来就是自己写的值，怎么会有问题？</p>
+          <p class="mt-2"><b>为什么错：</b>要分成两件事看。第一件，<b>"读到的东西"对不对</b>：ODR 读回的是输出锁存器，确实是你写的值，这一点 STM32 比 8051 的"读引脚"干净；但 IDR 读的是引脚真实电平，两者语义不同（第 4 节那张表）。第二件，<b>"读-改-写这件事本身是不是原子的"</b>：<code class="icode">|=</code> 编译出来是三条指令（读 → 或 → 写回），<b>如果在这三条指令中间来了一次中断，而中断里也修改了同一个端口，你写回时就会把中断改的那一位覆盖掉</b>。这跟芯片型号无关，是读-改-写这个模式固有的竞争。</p>
+          <p class="mt-2"><b>正确的做法：</b>① 只改一位时用 <b>BSRR</b>（一条 STR，只写不读，天然原子）：<code class="icode">GPIOA-&gt;BSRR = (1&lt;&lt;5);</code> 置位、<code class="icode">GPIOA-&gt;BSRR = (1&lt;&lt;21);</code> 复位；② 非要读-改-写时，先把中断关掉（临界区）或者确认只有一处代码会写这个寄存器；③ 涉及"写 1 清零"的状态寄存器，<b>绝对不要用 <code class="icode">|=</code></b>——<code class="icode">TIM3-&gt;SR |= TIM_SR_UIF;</code> 会把其它本来就是 1 的标志位一起写 1、全部清掉，应该写成 <code class="icode">TIM3-&gt;SR = ~TIM_SR_UIF;</code> 或直接用库函数清单独一位。</p>
+        </div>
+
+        <h3 class="mt-7 text-base font-semibold">坑 10 · "跨时钟域嘛，打两拍就完事了"</h3>
+
+        <p class="mt-3"><b class="font-semibold text-ink">你可能这么想：</b>网上的文章都说"异步信号打两拍"，我照做了，应该没问题了。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>"打两拍"只解决<b>单根信号</b>的亚稳态问题，而且是把"出错的概率"压到可接受，不是"消除"。<b>如果跨时钟域的是一个多比特的数据</b>（计数值、ADC 结果、地址），每根线各打两拍仍然会出问题：各位的亚稳态衰减时间不一样，你有可能读到一个"新旧混合"的值——比如从 7（0111）变到 8（1000）的中间读到 15（1111），这个值在你的系统里根本不存在。另外，<b>如果你同步后的信号又去驱动组合逻辑，还要小心重新会合（reconvergence）造出的毛刺</b>。</p>
+        <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>① 单比特事件信号（按键、外部触发）：两级同步 + 边沿检测，够用；② 多比特数据：用<b>格雷码</b>（相邻值只变一位）、<b>握手</b>（把多比特拆成"数据稳定"的单比特信号）、或者<b>异步 FIFO / 双口 RAM</b>；③ 高速、高可靠场合考虑三级同步；④ <b>能用硬件外设解决的，别用软件跨时钟域</b>——STM32 的定时器有专门的"从模式"和输入捕获，很多跨时钟域测量交给它比你自己打拍子稳得多。</p>
+
+        <div class="callout callout-warn mt-4">
+          <div class="callout-title">另外三个小坑，一并收掉</div>
+          <p><b>① "74LS161 的 RCO 只有数到 15 的时候才有用"。</b>错。RCO 的定义式是 <code class="icode">RCO = ENT · Q<sub>3</sub>Q<sub>2</sub>Q<sub>1</sub>Q<sub>0</sub></code>（74LS160 是 <code class="icode">ENT · Q<sub>3</sub>¬Q<sub>2</sub>¬Q<sub>1</sub>Q<sub>0</sub></code>，即数到 9）。<b>它不是"到了 15 才有输出"，而是"到了本片的模数减一才输出"</b>——理解这一点，你才能放心地在反馈置数（例二方案 A）和级联里使用它。</p>
+          <p class="mt-2"><b>② "74HC595 忘了拉锁存引脚，顶多就是不更新，不严重"。</b>分两种情况：完全不拉，屏幕上永远是上电时的内容（"代码没错但没反应"）；如果是在移位过程中反复拉，那就会出现乱闪/雪花/残影——因为你把"半成品"展示出去了。<b>正确节奏永远是"先安静移完所有位，最后一次锁存"。</b></p>
+          <p class="mt-2"><b>③ "仿真波形对了，这个电路就设计对了"。</b>仿真器默认理想延迟为零、没有偏斜、没有亚稳态、没有建立保持检查（除非你显式跑时序仿真）。<b>仿真能验证"逻辑功能"，不能验证"时序"。</b>真正的时序验证要靠 STA（静态时序分析）或者在真实硬件上用示波器量——这也是第 3 节例五存在的意义。</p>
+        </div>
+
+<hr class="hr-soft my-10">
+
+        <h2 id="sec-summary" class="text-xl font-semibold">小结与自检</h2>
+
+        <p class="mt-3">这一章的内容不少，但骨架其实只有一根：<b class="font-semibold text-ink">"有记忆"这件事怎么用电路实现，以及实现之后会带来哪些必须遵守的约束。</b>下面把要点收拢成一份清单，你可以拿它当复习提纲；后面是八道自测题和四道练习，做完这一页就算过关了。</p>
+
+        <h3 class="mt-7 text-base font-semibold">要点清单</h3>
+
+        <ul class="mt-3 list-disc space-y-2.5 pl-5">
+          <li><b class="font-semibold text-ink">分界线是"记忆"。</b>组合逻辑的输出只取决于当前输入；时序逻辑的输出还取决于"过去发生过什么"——因为电路里有能保持状态的存储元件。</li>
+          <li><b class="font-semibold text-ink">结构恒定：组合电路 + 存储电路 + 反馈。</b>存储电路由触发器（或锁存器）组成，它把"过去"变成一组可见的二进制状态 Q；组合电路则根据 Q 和当前输入 X 算出"下一刻的 Q"和"现在的输出"。</li>
+          <li><b class="font-semibold text-ink">三句话描述一个时序电路：</b>状态转移方程 Q<sup>*</sup> = f(Q, X)、输出方程 Z = g(Q, X)（Moore 型则是 Z = g(Q)）、驱动方程（各触发器输入端的表达式）。</li>
+          <li><b class="font-semibold text-ink">三种等价的语言：</b>状态表（表格，适合化简和写方程）、状态图（圆圈加箭头，适合看流程和自启动）、时序图（波形，适合和示波器对照、查毛刺）。三者可以互相翻译，复习时试着在它们之间来回转换，比死记更有用。</li>
+          <li><b class="font-semibold text-ink">锁存器是电平触发，触发器是边沿触发。</b>锁存器在使能期间"透明"，输入能穿透到输出；触发器只在时钟跳变的一瞬间采样。<b>只有边沿触发才能构成可靠的同步系统</b>——因为"一个周期内状态只变一次"是同步设计的前提。</li>
+          <li><b class="font-semibold text-ink">基本 RS 锁存器（两个与非门交叉耦合）有四个状态：</b>置位、复位、保持、不定。<b>不定态是设计中的禁止项</b>——它意味着两个输出同时为低，违反"Q 与 Q̄ 互补"的前提。</li>
+          <li><b class="font-semibold text-ink">D 锁存器的"透明"会带来空翻（race-through）。</b>解决思路是<b>主从结构</b>（两级锁存器用互补时钟，输入在从级开门之前就已经被主级锁住）和<b>维持-阻塞结构</b>，它们共同构成了边沿触发 D 触发器。</li>
+          <li><b class="font-semibold text-ink">JK 与 T 是"可配置"的触发器。</b>JK 有保持 / 翻转 / 置位 / 复位四种功能，是通用性最强的一种；T 只有保持和翻转两种功能，<b>它天生就是计数器的基础</b>（T 端为 1 时每个时钟翻转一次 = 二分频）。</li>
+          <li><b class="font-semibold text-ink">异步置位/复位端绕过时钟</b>，一有效立刻改变输出。它只应该用在<b>上电初始化</b>（POR / 复位电路）和<b>故障强制保护</b>上；正常逻辑功能一律走 D 端，保持"所有状态只在时钟沿变化"。</li>
+          <li><b class="font-semibold text-ink">建立时间 t<sub>su</sub> 与保持时间 t<sub>h</sub> 是触发器的"禁止窗口"约束。</b>数据必须在时钟沿之前稳定至少 t<sub>su</sub>、之后继续保持至少 t<sub>h</sub>，否则触发器可能进入亚稳态，输出在一段时间内既不是 0 也不是 1。</li>
+          <li><b class="font-semibold text-ink">两条时序约束决定了最高工作频率：</b>建立约束 <code class="icode">T ≥ t<sub>cq</sub> + t<sub>comb(max)</sub> + t<sub>su</sub> + t<sub>skew</sub></code>（降频可以修）；保持约束 <code class="icode">t<sub>cq</sub> + t<sub>comb(min)</sub> ≥ t<sub>h</sub> + t<sub>skew</sub></code>（<b>与频率无关，降频修不好</b>）。</li>
+          <li><b class="font-semibold text-ink">寄存器就是共用时钟的一组 D 触发器。</b>并行寄存器（74HC374/273）、移位寄存器（74HC595/165/194）。<b>74HC595 内部是"移位寄存器 + 输出锁存器"两级</b>：第一级负责安静地收数据，第二级负责在恰当时刻"整体亮相"——这就是双缓冲，也是它能消除乱闪的原因。</li>
+          <li><b class="font-semibold text-ink">计数器 = 触发器 + 组合反馈。</b>同步计数器所有触发器共用一个时钟（快、无毛刺、功耗平稳）；异步（行波）计数器逐级翻转（简单、但累积延迟、中间态会产生译码毛刺）。74LS161（模 16）与 74LS160（模 10）的 <code class="icode">CLR̄</code> 是<b>异步</b>清零、<code class="icode">LD̄</code> 是<b>同步</b>置数——这个差别决定了你的改造方案有没有毛刺。</li>
+          <li><b class="font-semibold text-ink">改模数的两条路：</b>反馈清零法（检测越界码 M，靠异步 CLR̄ 拉回；有瞬时态毛刺）与反馈置数法（检测某个码，靠同步 LD̄ 装进预设值；无毛刺）。<b>级联时总模数 = 各片模数相乘</b>，每一级输出本身就是一路分频，且是 50% 占空比。</li>
+          <li><b class="font-semibold text-ink">Moore 与 Mealy 的分界是"输出方程里有没有 X"。</b>Moore 输出只与状态有关（稳定、慢一拍、状态多）；Mealy 输出与状态和输入都有关（响应快、状态少、输出可能有毛刺）。拿不准时选 Moore，或者把 Mealy 的输出再打一拍。</li>
+          <li><b class="font-semibold text-ink">分析方法固定五步：</b>电路 → 写方程（驱动 + 次态 + 输出）→ 状态表 → 状态图 → 时序图 → 说明功能。<b>设计过程就是把它反过来走</b>（需求 → 状态图 → 状态表 → 编码 → 次态方程 → 驱动方程 → 电路），并且一定要检查自启动。</li>
+        </ul>
+
+        <h3 class="mt-7 text-base font-semibold">自测题（先自己答，再看答案）</h3>
+
+        <div class="mt-4 space-y-4">
+          <div class="card card-pad">
+            <p class="text-sm font-semibold">1. 为什么只有边沿触发的触发器才能构成可靠的同步系统？电平触发的锁存器差在哪？</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>同步系统的前提是"一个时钟周期内，每个状态只更新一次"。电平触发的锁存器在使能有效期间是透明的，输出跟着输入变；只要它的输入来自反馈的组合逻辑，同一个使能脉冲内就可能翻来覆去变化很多次（空翻），状态数量与时钟周期失去对应关系。边沿触发只在跳变瞬间采样一次，之后输入再怎么变都不影响输出，这才让"时钟周期"与"状态更新次数"严格一一对应。</p>
+          </div>
+
+          <div class="card card-pad">
+            <p class="text-sm font-semibold">2. t<sub>su</sub> 和 t<sub>h</sub> 各自约束什么？违反了会发生什么？为什么它们能决定最高工作频率？</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>t<sub>su</sub>（建立时间）约束数据在时钟沿<b>之前</b>必须已经稳定的时长；t<sub>h</sub>（保持时间）约束时钟沿<b>之后</b>数据还要继续保持的时长。违反任何一条，触发器都可能进入亚稳态（输出悬在门限附近，随机倒向 0 或 1），把错误传播到整个系统。它们决定最高频率，是因为建立约束把 t<sub>su</sub> 算进了周期预算：<code class="icode">T ≥ t<sub>cq</sub> + t<sub>comb(max)</sub> + t<sub>su</sub> + t<sub>skew</sub></code>，T 越小（频率越高）留给组合逻辑的时间就越少，超过某个频率就没有余量了。</p>
+          </div>
+
+          <div class="card card-pad">
+            <p class="text-sm font-semibold">3. 用 74LS161 的反馈清零法设计一个十二进制计数器：检测哪个码？CLR̄ 的表达式是什么？有什么风险，怎么补救？</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>稳定态要 0~11，而 74LS161 的清零是异步的，所以要<b>检测越界码 12 = 1100</b>，<code class="icode">CLR̄ = ¬(Q<sub>3</sub>·Q<sub>2</sub>)</code>（用一个 74LS00 与非门）。风险是：清零动作不等时钟，计数器会在这个瞬时态上停留约 30 ns（按典型值估算：74LS00 的 10 ns 加上 CLR̄ 到输出清零的 20 ns），如果此时它的输出正被译码或比较，就会产生"假码"。补救办法：① 换同步清零的 74LS163，改为检测最后一个合法码 11，<code class="icode">CLR̄ = ¬(Q<sub>3</sub>·Q<sub>1</sub>·Q<sub>0</sub>)</code>；② 改用反馈置数法（74LS161 的 LD̄ 是同步的）；③ 用清零信号同时封锁下游译码器（消隐）。</p>
+          </div>
+
+          <div class="card card-pad">
+            <p class="text-sm font-semibold">4. 为什么反馈置数法没有这个毛刺问题？</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>因为 74LS161 的 <code class="icode">LD̄</code> 是同步端：置数动作只在下一个时钟沿发生，计数器的输出在整个稳定期间都是合法码，不会出现"越界码停留"的瞬时状态。（代价是：置数从"检测到那个码的下一个时钟沿"才生效，所以你的状态范围要与检测码匹配，比如检测 15 装 0100，稳定态就是 4~15。）</p>
+          </div>
+
+          <div class="card card-pad">
+            <p class="text-sm font-semibold">5. 要把 12 MHz 变成 1 Hz，需要几片计数器？为什么不能全用 74LS161？</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>分频比 M = 12,000,000 = 12 × 10⁶。用 1 片 74LS161 做 ÷12、再用 6 片 74LS160 做 ÷10⁶，共 <b>7 片</b>，误差为零（各级频率：12 MHz → 1 MHz → 100 kHz → 10 kHz → 1 kHz → 100 Hz → 10 Hz → 1 Hz）。全用 161 凑不出，因为 12,000,000 = 2⁹ × 3 × 5⁶ 含有因子 5⁶，而 16 的幂只有因子 2——6 片全 ÷16 得到 16⁶ = 16,777,216，输出 0.7153 Hz（偏低 28.5%）；就算先用一片 ÷12 再串 5 片 ÷16，也只有 12 × 16⁵ = 12,582,912，输出 0.9537 Hz（偏低 4.63%）。</p>
+          </div>
+
+          <div class="card card-pad">
+            <p class="text-sm font-semibold">6. Moore 型和 Mealy 型的输出方程有什么差别？各自更适合什么场合？</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>Moore 型的输出只取决于当前状态：Z = g(Q)；Mealy 型的输出还取决于当前输入：Z = g(Q, X)。所以 Mealy 型响应更快（输入一到输出就变，不用等时钟沿）、通常状态更少；代价是输出可能随输入出现毛刺，而且输出与输入的组合逻辑延迟会叠加到下一级的建立时间预算里。Moore 型输出只在时钟沿变化，波形干净、时序好算，代价是"慢一拍"、状态数更多。<b>口诀：输出求稳选 Moore，求快选 Mealy；拿不准时选 Moore，或者把 Mealy 的输出再打一拍变成 Moore 式的时序输出。</b></p>
+          </div>
+
+          <div class="card card-pad">
+            <p class="text-sm font-semibold">7. 设计状态机时怎么检查"自启动"？发现不能自启动怎么办？</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>把每个<b>未用状态</b>分别代入次态方程，看它经过几拍能不能进入合法状态循环；只要有一个未用态最终回到自己（自锁）或者形成另一个非法循环，就不能自启动。补救：① 在次态方程里给未用态显式指定一个合法去向（加"引导项"，代价是多一点逻辑，如例三里的 <code class="icode">J<sub>0</sub> = ¬Q<sub>0</sub>·(X+Q<sub>1</sub>)</code>）；② 改用独热码等不会产生无效组合的编码；③ 增加复位逻辑，让上电后一定进入合法状态。</p>
+          </div>
+
+          <div class="card card-pad">
+            <p class="text-sm font-semibold">8. 在 8051 上，<code class="icode">P1 |= 0x01;</code> 和 <code class="icode">P1 = P1 | 0x01;</code> 有什么区别？STM32 上有对应的问题吗？</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>前者被编译成 <code class="icode">ORL P1,#01H</code>，属于"读-改-写"指令，读的是<b>端口锁存器</b>（你写出去的值），安全；后者被编译成 <code class="icode">MOV A,P1</code> + <code class="icode">ORL A,#01H</code> + <code class="icode">MOV P1,A</code>，其中 <code class="icode">MOV A,P1</code> 读的是<b>引脚上的真实电平</b>——如果这个引脚上挂着按键等外部电路，读回来的值可能与你写出去的不同，再写回去就会"丢位"。STM32 上：<code class="icode">GPIOA-&gt;ODR</code> 读回的是输出锁存器（所以 <code class="icode">|=</code> 在语义上没问题），但 <code class="icode">|=</code> 本身是"读-改-写"三条指令，<b>中断插在中间时仍可能丢位</b>；只改一位应该用只写、原子的 <code class="icode">BSRR</code>。另外 "写 1 清零" 的状态寄存器（如 <code class="icode">TIMx-&gt;SR</code>）绝对不能用 <code class="icode">|=</code> 清标志，否则会误清其它位。</p>
+          </div>
+        </div>
+
+        <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+
+        <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+          <li><b class="font-semibold text-ink">用 74LS160（十进制计数器）设计一个 ÷60 的计数器</b>，用于数字钟的"分"计数（0~59）。要求写出：用几片、怎么级联、反馈信号取自哪几位、接同步端还是异步端，并说明你的方案有没有毛刺、为什么。（提示：60 = 6 × 10，可以用"个位十进制 + 十位六进制"的思路，也可以两片都用反馈置数。）</li>
+          <li><b class="font-semibold text-ink">给第 3 节例三的 Moore 版「110」检测器写出 JK 驱动方程</b>，然后<b>检查自启动</b>：把未用状态（Moore 版没有未用态，那你把它改成三状态编码试试）代入次态方程，确认几拍之内能回到合法循环；如果不能，加上引导项再验证一次。</li>
+          <li><b class="font-semibold text-ink">把例五的参数改一下：</b>设 t<sub>comb(max)</sub> = 30 ns（其余不变：t<sub>cq</sub> = 8 ns、t<sub>su</sub> = 5 ns、t<sub>skew</sub> = 1 ns）。重新算 f<sub>max</sub>，并回答：在 20 MHz 下工作是否安全？余量是多少纳秒？如果这时又发现保持约束违例（比如 t<sub>comb(min)</sub> 变成 0.5 ns），你能靠降频解决吗？</li>
+          <li><b class="font-semibold text-ink">给第 4 节的按键状态机加两个功能：</b>① 长按超过 1 秒后每 100 ms 连续触发一次（像键盘的自动重复）；② 长按超过 3 秒进入"设置模式"（产生一个一次性事件）。要求仍然不阻塞主循环，并说明你的状态机为此增加了哪些状态、状态转移条件是什么。</li>
+        </ol>
+
+        <div class="callout callout-info mt-6">
+          <div class="callout-title">接下来看什么</div>
+          <ul class="mt-2 space-y-2 text-[13px] leading-relaxed">
+            <li>这一篇是数字电子的"下半场"，它的上半场是 → <a class="text-brand-600 dark:text-brand-300" href="ee-combinational.html">组合逻辑电路：门、编码器与加法器</a></li>
+            <li>把本篇的状态机部分单独展开、讲到能直接写代码的深度 → <a class="text-brand-600 dark:text-brand-300" href="ee-fsm.html">有限状态机：从状态图到可综合的代码</a></li>
+            <li>数制、码制与逻辑代数的基础如果还不牢 → <a class="text-brand-600 dark:text-brand-300" href="ee-logic-algebra.html">逻辑代数与门电路基础</a></li>
+            <li>想看这些触发器在 51 上最朴素的样子 → <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-digital.html">51 单片机：数字电路基础与 I/O 扩展</a></li>
+            <li>想看寄存器、ODR/IDR/BSRR 的实战用法 → <a class="text-brand-600 dark:text-brand-300" href="stm32-gpio.html">STM32 GPIO：八种模式与寄存器操作</a></li>
+            <li>想看定时器分频、PSC/ARR 与 PWM 的完整用法 → <a class="text-brand-600 dark:text-brand-300" href="stm32-timer-pwm.html">STM32 定时器：PWM、输入捕获与编码器</a></li>
+          </ul>
+        </div>
+      </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="ee-combinational.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">组合逻辑电路</p>
+            <p class="mt-1 text-[12.5px] text-muted">从真值表到门级电路，组合逻辑的"没有记忆"是什么样</p>
+          </a>
+          <a href="ee-fsm.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：状态机的完整设计流程 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">有限状态机：从状态图到单片机程序</p>
+            <p class="mt-1 text-[12.5px] text-muted">Moore / Mealy、状态编码、自启动与一段能直接用的状态机代码</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

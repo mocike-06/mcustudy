@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C++ 与 Arduino API 基础 - McuStudy</title>
+  <meta name="description" content="给只会 C 的学生的 C++ 补课：类与对象、方法调用里的点号、Serial 常用方法速查、print 与 write 的区别、String 类为什么在 ESP32 上会造成堆碎片、char 数组与 snprintf 的正确用法、命名空间与 include 到底做了什么。含三个完整可编译程序和串口逐行预期输出。">
+  <meta name="keywords" content="ESP32,C++,类与对象,Arduino API,Serial.print,Serial.write,String 堆碎片,char数组,snprintf,命名空间,include,LED_BUILTIN,串口调试">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="esp32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../esp32.html" class="hover:text-brand-600 dark:hover:text-brand-300">ESP32</a>
+          <span>/</span>
+          <span class="text-muted">C++ 与 Arduino API</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          C++ 与 Arduino API 基础
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你学过 C，看 Arduino 代码却总觉得隔了一层：
+          <code class="icode">Serial.begin(115200)</code> 里那个点号是什么？
+          <code class="icode">String</code> 和 <code class="icode">char[]</code> 有什么区别？
+          为什么老工程师说「ESP32 上别乱用 String」？
+          这一篇把 Arduino 生态里的 C++ 语法一次补齐——只讲你用得到的部分，
+          并且用三个能直接跑的完整程序演示，其中第二个会现场量给你看：乱用
+          <code class="icode">String</code> 是怎么把堆内存吃掉的。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">芯片：<b>ESP32-WROOM-32</b></span>
+          <span class="stat-pill">前置：<b>会 C 语言</b></span>
+          <span class="stat-pill">阅读约 <b>20</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-cpp-why">为什么 Arduino 用 C++</a>
+          <a class="toc-link is-sub" href="#sub-class">类：一张图纸</a>
+          <a class="toc-link is-sub" href="#sub-object">对象：按图纸造出来的实物</a>
+          <a class="toc-link is-sub" href="#sub-method">方法调用：那个点号是什么</a>
+          <a class="toc-link is-sub" href="#sub-serial">Serial 常用方法速查</a>
+          <a class="toc-link is-sub" href="#sub-string">String 类：好用但危险</a>
+          <a class="toc-link is-sub" href="#sub-char-array">字符数组与 snprintf</a>
+          <a class="toc-link is-sub" href="#sub-namespace">命名空间与常量从哪来</a>
+          <a class="toc-link is-sub" href="#sub-header">include 与头文件</a>
+          <a class="toc-link" href="#sec-hardware">串口是调试的眼睛</a>
+          <a class="toc-link is-sub" href="#sub-serial-why">为什么嵌入式离不开串口打印</a>
+          <a class="toc-link is-sub" href="#sub-serial-wiring">接线与波特率</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-print">程序一：Serial 打印格式演示</a>
+          <a class="toc-link is-sub" href="#sub-code-string">程序二：String 与 char[] 对比</a>
+          <a class="toc-link is-sub" href="#sub-code-class">程序三：自定义类与实例化</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-cpp-why">为什么 Arduino 用 C++</a>
+            <a class="toc-link is-sub" href="#sub-class">类：一张图纸</a>
+            <a class="toc-link is-sub" href="#sub-object">对象：按图纸造出来的实物</a>
+            <a class="toc-link is-sub" href="#sub-method">方法调用：那个点号是什么</a>
+            <a class="toc-link is-sub" href="#sub-serial">Serial 常用方法速查</a>
+            <a class="toc-link is-sub" href="#sub-string">String 类：好用但危险</a>
+            <a class="toc-link is-sub" href="#sub-char-array">字符数组与 snprintf</a>
+            <a class="toc-link is-sub" href="#sub-namespace">命名空间与常量从哪来</a>
+            <a class="toc-link is-sub" href="#sub-header">include 与头文件</a>
+            <a class="toc-link" href="#sec-hardware">串口是调试的眼睛</a>
+            <a class="toc-link is-sub" href="#sub-serial-why">为什么嵌入式离不开串口打印</a>
+            <a class="toc-link is-sub" href="#sub-serial-wiring">接线与波特率</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-print">程序一：Serial 打印格式演示</a>
+            <a class="toc-link is-sub" href="#sub-code-string">程序二：String 与 char[] 对比</a>
+            <a class="toc-link is-sub" href="#sub-code-class">程序三：自定义类与实例化</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            你在 51 上写的 C 代码长这样：定义全局变量、写 <code class="icode">main()</code>、
+            在 <code class="icode">while(1)</code> 里操作寄存器。
+            到了 Arduino，代码变成两个函数、调用一堆带点号的写法、字符串有两种类型——
+            这些看起来「不像 C」的东西，其实都是 C++ 的特性。
+            好消息是：<b class="font-semibold text-ink">你不需要学完整的 C++</b>，
+            只要看懂五件事——类、对象、方法、字符串、头文件，Arduino 生态的代码就全都能读了。
+          </p>
+
+          <h3 id="sub-cpp-why" class="mt-7 text-base font-semibold">为什么 Arduino 用 C++</h3>
+
+          <p class="mt-3">
+            <b class="font-semibold">C 是 C++ 的子集</b>：任何合法的 C 代码几乎都是合法的 C++ 代码。
+            Arduino 选择 C++ 而不是 C，唯一的原因是它需要「封装」这个能力：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>需求</th><th>C 的做法</th><th>C++ 的做法（Arduino 用的）</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>把「一个串口」的配置和数据捆在一起</td><td>一堆全局变量 + 一堆函数，靠命名区分（<code class="icode">uart0_init</code>、<code class="icode">uart0_send</code>）</td><td>一个 <code class="icode">HardwareSerial</code> 类，<code class="icode">Serial.begin()</code>、<code class="icode">Serial.print()</code></td></tr>
+                <tr><td>同一个函数处理不同类型</td><td>写 <code class="icode">print_int</code>、<code class="icode">print_float</code>、<code class="icode">print_str</code></td><td>函数重载：都叫 <code class="icode">print()</code>，编译器按参数类型挑</td></tr>
+                <tr><td>让多个设备（3 个串口）用同一套代码</td><td>复制三份</td><td>同一个类造三个对象：<code class="icode">Serial</code>、<code class="icode">Serial1</code>、<code class="icode">Serial2</code></td></tr>
+                <tr><td>库作者提供接口</td><td>头文件里放函数声明</td><td>头文件里放类定义，用户只看到公开方法，内部实现可以改</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">给你的实用结论</div>
+            <p>
+              你在 51 上积累的 C 技能一样有效：变量、数组、指针、<code class="icode">if</code>、
+              <code class="icode">for</code>、函数、位运算，全都照用。
+              需要新学的只是「看懂别人用类写的东西」，以及「自己偶尔写一个小类」。
+              本页的程序三就会带你写一个。
+            </p>
+          </div>
+
+          <h3 id="sub-class" class="mt-7 text-base font-semibold">类：一张图纸</h3>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">类（class）是一张图纸</b>：它规定「这类东西有哪些数据」和「能做哪些操作」，
+            但本身不占运行时的空间。看一个最像生活的例子——一个 LED：
+          </p>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="定义一张「LED 图纸」">
+            <pre><code>class Led {
+  private:                 // 内部数据：外面看不到，只能通过下面的方法改
+    int  pin;              // 这个 LED 接在哪个引脚
+    bool state;            // 当前是亮还是灭
+
+  public:                  // 对外提供的操作面板
+    Led(int p) {           // 构造函数：造对象时自动执行，用来初始化
+      pin   = p;
+      state = false;
+    }
+
+    void begin() {         // 初始化硬件
+      pinMode(pin, OUTPUT);
+      digitalWrite(pin, LOW);
+    }
+
+    void on() {
+      digitalWrite(pin, HIGH);
+      state = true;
+    }
+
+    void off() {
+      digitalWrite(pin, LOW);
+      state = false;
+    }
+
+    bool isOn() {          // 查询状态
+      return state;
+    }
+};                         // 注意这个分号，class 定义结束必须有</code></pre>
+          </div>
+
+          <p class="mt-3">
+            两个关键词解释一切：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold">private（私有）</b>：图纸的内部电路，外面不能直接碰。别人只能通过 <code class="icode">on()</code>/<code class="icode">off()</code> 操作，这样你以后想改成「点亮前先检查电压」也不会影响调用者。</li>
+            <li><b class="font-semibold">public（公开）</b>：图纸的操作面板。约定俗成的规矩是：<b class="font-semibold">数据私有，操作公开</b>。</li>
+          </ul>
+
+          <h3 id="sub-object" class="mt-7 text-base font-semibold">对象：按图纸造出来的实物</h3>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">对象（object）是按图纸造出来的实物</b>，它在运行时实实在在占内存。
+            用同一个类可以造出很多个对象：
+          </p>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="用同一个类造两个对象">
+            <pre><code>Led led1(2);      // 造一个 LED 对象，接在 GPIO2（板载 LED）
+Led led2(4);      // 再造一个，接在 GPIO4（外接 LED）
+
+void setup() {
+  led1.begin();   // 各管各的，互不干扰
+  led2.begin();
+}
+
+void loop() {
+  led1.on();
+  led2.off();
+  delay(500);
+  led1.off();
+  led2.on();
+  delay(500);
+}</code></pre>
+          </div>
+
+          <p class="mt-3">
+            现在回头看 Arduino 里最常见的那个 <code class="icode">Serial</code>：
+            它就是 ESP32 core 在启动时替你先造好的一个对象，
+            属于 <code class="icode">HardwareSerial</code> 类。
+            core 内部的代码大致是：
+          </p>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="Serial 从哪来（core 内部，简化）">
+            <pre><code>// 在 ESP32 Arduino Core 的头文件里：
+extern HardwareSerial Serial;    // 声明：有一个叫 Serial 的对象，类型是 HardwareSerial
+extern HardwareSerial Serial1;
+extern HardwareSerial Serial2;
+
+// 在 core 的源文件里：
+HardwareSerial Serial(0);        // 定义：用 0 号 UART 造出来（也就是下载/日志口）
+HardwareSerial Serial1(1);       // 1 号 UART
+HardwareSerial Serial2(2);       // 2 号 UART
+
+// 所以你写的 Serial.begin(115200) 其实是：
+// 「找到名叫 Serial 的那个对象，让它执行 begin，参数是 115200」
+// 而 Serial1.begin(9600, SERIAL_8N1, 16, 17) 就是让第二个对象，
+// 用 GPIO16/17 当 TX/RX，跑 9600 波特率。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一句话记住类与对象</div>
+            <p>
+              <b class="font-semibold">类 = 图纸（编译期，不占内存）；对象 = 实物（运行期，占内存）。</b>
+              <code class="icode">HardwareSerial</code> 是图纸，<code class="icode">Serial</code>、
+              <code class="icode">Serial1</code>、<code class="icode">Serial2</code> 是三件实物。
+              你写 <code class="icode">Led led1(2);</code> 就是「照着 Led 图纸造一件实物，
+              顺便把它的引脚设成 2」。
+            </p>
+          </div>
+
+          <h3 id="sub-method" class="mt-7 text-base font-semibold">方法调用：那个点号是什么</h3>
+
+          <p class="mt-3">
+            <code class="icode">Serial.begin(115200)</code> 里的点号读作「的」：
+            <b class="font-semibold">让 Serial 这个对象，执行它的 begin 方法，参数是 115200</b>。
+            等价于 C 里你可能写过的 <code class="icode">uart_init(0, 115200)</code>，
+            只是 C++ 把「操作谁」写在了前面，读起来更自然。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>写法</th><th>怎么读</th><th>什么情况用</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">Serial.begin(115200)</code></td><td>Serial 的 begin，参数 115200</td><td>初始化，必须给参数（波特率）</td></tr>
+                <tr><td><code class="icode">Serial.println()</code></td><td>Serial 的 println，没参数</td><td>只换行</td></tr>
+                <tr><td><code class="icode">Serial.println(123)</code></td><td>Serial 的 println，参数 123</td><td>打印数字并换行</td></tr>
+                <tr><td><code class="icode">Serial.print("abc")</code></td><td>Serial 的 print，参数 abc</td><td>打印后不换行</td></tr>
+                <tr><td><code class="icode">led1.on()</code></td><td>led1 的 on，没参数</td><td>自定义对象的方法</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            <b class="font-semibold">为什么有的方法要参数有的不要？</b>
+            因为参数就是「这次操作需要的信息」。
+            <code class="icode">begin()</code> 必须知道用多快的速度通信，所以它要参数；
+            <code class="icode">println()</code> 只是输出一个换行符，不需要额外信息。
+            另外注意 <b class="font-semibold">print 与 println 的唯一区别就是后者末尾多输出一个换行符</b>：
+            用 <code class="icode">print</code> 连续打印会挤在一行，这是新手最常见的「输出看起来乱」的原因。
+          </p>
+
+          <p class="mt-3">
+            还有一个 C++ 特性你会经常遇到——<b class="font-semibold">函数重载</b>：
+            同一个名字、不同参数类型，编译器自动挑。
+            <code class="icode">Serial.print()</code> 其实有十几个版本，分别接受整数、浮点、字符串、字符。所以你写
+            <code class="icode">Serial.print(65)</code> 和 <code class="icode">Serial.print("65")</code>，
+            打印出来都是 <code class="icode">65</code>，但走的是完全不同的两段代码。
+          </p>
+
+          <h3 id="sub-serial" class="mt-7 text-base font-semibold">Serial 常用方法速查</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>方法</th><th>作用</th><th>示例</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">begin(波特率)</code></td><td>初始化串口</td><td><code class="icode">Serial.begin(115200);</code></td></tr>
+                <tr><td><code class="icode">print(x)</code></td><td>输出文本形式，不换行</td><td><code class="icode">Serial.print(3.14, 2);</code> → <code class="icode">3.14</code></td></tr>
+                <tr><td><code class="icode">println(x)</code></td><td>输出文本形式并换行</td><td><code class="icode">Serial.println("ok");</code></td></tr>
+                <tr><td><code class="icode">printf(格式, …)</code></td><td>按格式串输出（最好用）</td><td><code class="icode">Serial.printf("v=%.2f\n", v);</code></td></tr>
+                <tr><td><code class="icode">write(字节)</code></td><td><b class="font-semibold text-ink">发送原始字节</b>，不做任何转换</td><td><code class="icode">Serial.write(0x41);</code> → 发出字母 <code class="icode">A</code></td></tr>
+                <tr><td><code class="icode">available()</code></td><td>接收缓冲区里还有几个字节</td><td><code class="icode">if (Serial.available()) …</code></td></tr>
+                <tr><td><code class="icode">read()</code></td><td>读走一个字节（返回 int，-1 表示没有）</td><td><code class="icode">int c = Serial.read();</code></td></tr>
+                <tr><td><code class="icode">readString()</code></td><td>读到一整行字符串（<b class="font-semibold">返回 String，慎用</b>）</td><td><code class="icode">String s = Serial.readString();</code></td></tr>
+                <tr><td><code class="icode">readStringUntil('\n')</code></td><td>读到指定字符为止</td><td>自己做命令行交互时常用</td></tr>
+                <tr><td><code class="icode">flush()</code></td><td>等待发送缓冲区发完</td><td>复位前确保日志发出去</td></tr>
+                <tr><td><code class="icode">end()</code></td><td>关闭串口</td><td>要用 GPIO1/3 做别的事时</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">print 与 write 的区别（新手必错）</div>
+            <div class="code-block mt-3" data-lang="cpp" data-title="同一个数字，两种完全不同的结果">
+              <pre><code>Serial.print(65);        // 输出两个字符：'6' 和 '5'   （ASCII 0x36 0x35）
+Serial.write(65);        // 输出一个字节：0x41         （就是字母 'A'）
+
+Serial.print("A");       // 输出一个字符：'A'          （等于 write(0x41)）
+Serial.write("A");       // 输出一个字节：'A'          （同上，因为 "A" 会退化成首字符）
+
+// 结论：
+//   要给人看  -&gt; print / println / printf
+//   要给设备发协议字节（十六进制指令、二进制帧） -&gt; write</code></pre>
+            </div>
+            <p class="mt-2">
+              「我明明发了 0x41，串口助手却收到 65」——原因就是用错了
+              <code class="icode">print</code>。
+            </p>
+          </div>
+
+          <h3 id="sub-string" class="mt-7 text-base font-semibold">String 类：好用但危险</h3>
+
+          <p class="mt-3">
+            Arduino 提供了一个 <code class="icode">String</code> 类，让你像脚本语言一样拼字符串：
+          </p>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="String 让人上瘾的写法">
+            <pre><code>String msg = "温度: ";
+msg += 25.6;                       // 数字自动变字符串
+msg += " 度, 设备: ";
+msg += "ESP32-01";
+Serial.println(msg);
+Serial.println(msg.length());      // 字符个数
+Serial.println(msg.substring(4, 8)); // 取子串
+
+int   n = String("123").toInt();    // 字符串转数字
+float f = String("3.14").toFloat();</code></pre>
+          </div>
+
+          <p class="mt-3">
+            看起来很美，但它的每一条「方便」都建立在<b class="font-semibold">运行时动态申请内存</b>之上：
+            每次拼接都可能重新 <code class="icode">malloc</code> 一块更大的内存、复制过去、释放旧的。
+            在一块只有几百 KB 堆、<b class="font-semibold">而且必须连续可用</b>的单片机上，这会带来两个后果：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="堆碎片是怎么产生的">
+            <pre><code>堆内存示意（[空] 表示空闲块，[占] 表示已分配）
+
+开始：
+  [空 200KB ..................................... 连续一大块 ]
+
+反复拼接 String s += "abc"（每次要更大的连续空间）：
+  [占小][空 4][占中][空 8][占大][空 2][占更大] ……
+
+最后：
+  [占][空][占][空][占][空][占][空][占]
+   空闲总量看起来还有 50KB，但没有一块连续空间能放下你要的 1KB。
+
+  结果：malloc 失败 -&gt; 程序崩溃重启
+  串口常见：Guru Meditation Error / malloc failed / 堆数字慢慢下降不回升</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>场景</th><th>用 String 行不行</th><th>原因</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">setup()</code> 里拼一句启动日志</td><td>可以</td><td>只执行一次，之后可以 <code class="icode">= ""</code> 或让它出作用域</td></tr>
+                <tr><td>固定格式的报告字符串</td><td>可以</td><td>拼接次数有限</td></tr>
+                <tr><td>在 <code class="icode">loop()</code> 里每秒拼接、连续跑几天</td><td><b class="font-semibold text-ink">不要用</b></td><td>这就是堆碎片的标准配方，几小时到几天后必崩</td></tr>
+                <tr><td>接收网络报文再拼接</td><td><b class="font-semibold text-ink">不要用</b></td><td>报文长度不可控，容易瞬间申请大块内存</td></tr>
+                <tr><td>把 <code class="icode">String</code> 传给库函数</td><td>看库的接口</td><td>很多库只接受 <code class="icode">const char*</code>，要写 <code class="icode">s.c_str()</code> 转换</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">真要长期用 String，至少做两件事</div>
+            <p>
+              ① <b class="font-semibold">提前 reserve</b>：<code class="icode">msg.reserve(128);</code>
+              一次申请够，后续拼接不再反复扩容；
+              ② <b class="font-semibold">用完就清</b>：<code class="icode">msg = "";</code>
+              让缓冲区被回收。<br>
+              但更推荐的做法是：<b class="font-semibold">循环里一律用 <code class="icode">char[]</code> + <code class="icode">snprintf</code></b>，
+              本页程序二会用实测数据让你看到差别。
+            </p>
+          </div>
+
+          <h3 id="sub-char-array" class="mt-7 text-base font-semibold">字符数组与 snprintf</h3>
+
+          <p class="mt-3">
+            C 语言的字符串就是「一串字符 + 结尾的 <code class="icode">\0</code>」。
+            <code class="icode">char buf[32]</code> 是 32 个字节的固定空间，
+            <b class="font-semibold">编译期就分配好，不再申请释放，也就不可能产生碎片</b>。
+            格式化输出用 <code class="icode">snprintf()</code>：
+          </p>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="char 数组的三种写法">
+            <pre><code>// ① 固定字符串
+char name[] = "ESP32-01";           // 编译器自动算长度：8 个字符 + 1 个 '\0' = 9 字节
+
+// ② 空缓冲区 + snprintf 格式化（最常用）
+char buf[64];
+float t = 25.63;
+int   h = 58;
+snprintf(buf, sizeof(buf), "温度: %.1f 度, 湿度: %d%%", t, h);
+Serial.println(buf);                // 温度: 25.6 度, 湿度: 58%
+
+// ③ 拼接两个片段：注意把指针往后挪
+char line[96];
+int pos = 0;
+pos += snprintf(line + pos, sizeof(line) - pos, "设备: %s; ", name);
+pos += snprintf(line + pos, sizeof(line) - pos, "温度: %.1f;", t);
+Serial.println(line);               // 设备: ESP32-01; 温度: 25.6;</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>要点</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">\0</code> 结尾</td><td>没有它 <code class="icode">Serial.println(buf)</code> 会一直往后读到乱七八糟的内存，输出乱码甚至崩溃</td></tr>
+                <tr><td><code class="icode">sizeof(buf)</code></td><td>整个数组的字节数（32 字节的数组就是 32），<b class="font-semibold">不是字符串长度</b>。写 <code class="icode">snprintf</code> 时用它当上限，这是防溢出的关键</td></tr>
+                <tr><td><code class="icode">snprintf</code> 的返回值</td><td>「本来想写多长」，不一定等于实际写入长度。截断时返回值会大于缓冲区大小，所以按上面的写法要判断是否写满</td></tr>
+                <tr><td><code class="icode">strcpy</code> / <code class="icode">strcat</code></td><td>不检查长度，是溢出重灾区。ESP32 上可用 <code class="icode">strlcpy()</code> / <code class="icode">strlcat()</code>（自带长度限制）</td></tr>
+                <tr><td><code class="icode">const char*</code></td><td>字符串字面量（<code class="icode">"abc"</code>）的类型，指向只读区，不能改它的内容</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            如果你用 <code class="icode">String</code> 接收数据、而库函数要 <code class="icode">const char*</code>，
+            用 <code class="icode">s.c_str()</code> 转换即可。
+            但注意 <code class="icode">c_str()</code> 返回的指针指向 String 内部缓冲区，
+            <b class="font-semibold">String 一变，指针就可能失效</b>——别长期保存它。
+          </p>
+
+          <h3 id="sub-namespace" class="mt-7 text-base font-semibold">命名空间与常量从哪来</h3>
+
+          <p class="mt-3">
+            你从来没定义过 <code class="icode">HIGH</code>、<code class="icode">LOW</code>、
+            <code class="icode">INPUT</code>、<code class="icode">OUTPUT</code>，
+            为什么直接就能用？因为它们定义在 Arduino core 的头文件里，
+            由框架替你 <code class="icode">#include</code> 进来了：
+          </p>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="这些名字其实是常量/宏">
+            <pre><code>// core 里大致是这样定义的（简化）：
+#define HIGH 1
+#define LOW  0
+#define INPUT        0x01
+#define OUTPUT       0x03
+#define INPUT_PULLUP 0x05
+
+// LED_BUILTIN 是「板载 LED 的引脚号」，由开发板定义决定：
+//   ESP32 Dev Module 上通常等于 2
+//   所以你写 digitalWrite(LED_BUILTIN, HIGH) 就等于操作 GPIO2
+//   换板子时这个值可能不同，用这个名字比写死 2 更保险
+
+// 命名空间：给名字分门别类，避免重名。
+// 标准库的东西都在 std 里，例如 std::string、std::vector，
+// Arduino 代码里常写 using namespace std; 就是为了省掉 std:: 前缀。
+// ESP32 core 自己也有一些命名空间，比如 arduino::String，
+// 平时你用 String 就行，编译器会自动找到。</code></pre>
+          </div>
+
+          <h3 id="sub-header" class="mt-7 text-base font-semibold">include 与头文件</h3>
+
+          <p class="mt-3">
+            <code class="icode">#include</code> 是编译前的文本替换：把那个文件的<b class="font-semibold">声明</b>复制到你的代码里，
+            这样编译器才知道 <code class="icode">WiFi</code>、<code class="icode">Serial</code> 这些名字是什么东西。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>写法</th><th>去哪找</th><th>例子</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">#include &lt;WiFi.h&gt;</code></td><td>先在系统的 include 路径里找（core、库、SDK 的头文件都在这条路径里）</td><td>库和 core 提供的头文件</td></tr>
+                <tr><td><code class="icode">#include "myfile.h"</code></td><td>先在你自己的工程目录找，再找系统路径</td><td>自己写的头文件</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            「装了库就能 include」的原理就在这里：库安装时会把自己的目录加入编译器的搜索路径，
+            所以 <code class="icode">#include &lt;PubSubClient.h&gt;</code> 才能被你找到。
+            头文件里通常只有声明（类长什么样、函数怎么调），
+            真正的实现在同目录的 <code class="icode">.cpp</code> 或预编译库里——
+            这也是为什么你改了库的 <code class="icode">.cpp</code> 却「没生效」时，
+            要检查是不是有两个同名库（用户库目录优先）。
+          </p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 串口是调试的眼睛 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">串口是调试的眼睛</h2>
+
+          <h3 id="sub-serial-why" class="mt-7 text-base font-semibold">为什么嵌入式离不开串口打印</h3>
+
+          <p class="mt-3">
+            在电脑上写程序，你可以打断点、单步、看变量窗口。在单片机上，
+            这些手段基本都不可用（或者很贵、很麻烦）：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>调试手段</th><th>电脑上</th><th>ESP32 上</th><th>评价</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>串口打印</td><td>—</td><td>一条 USB 线就够，<b class="font-semibold">几乎零成本</b></td><td><b class="font-semibold text-ink">主力手段</b>，本页讲的就是它</td></tr>
+                <tr><td>断点 / 单步</td><td>标配</td><td>需要 JTAG 调试器（如 ESP-Prog）+ OpenOCD，配置麻烦</td><td>值得学，但不是入门必需</td></tr>
+                <tr><td>LED 闪烁</td><td>—</td><td>一个灯只能表达两三种状态</td><td>只能当「程序活着吗」的心跳</td></tr>
+                <tr><td>逻辑分析仪 / 示波器</td><td>—</td><td>看时序、看波形，几十一百多块就能买到入门款</td><td>调 I2C/SPI/舵机时序必备</td></tr>
+                <tr><td>万用表</td><td>—</td><td>验证电压、通断、电流</td><td>上一篇已经用过</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            <b class="font-semibold">串口打印的本质是「把程序内部的思考过程输出出来」</b>。
+            新手调试最常见的错误是「盯着代码想哪里错了」，而正确的做法是：
+            在你怀疑的每一步前面加一句打印，跑一遍，看最后打印出的是哪一句——
+            程序卡在哪、变量是多少，一目了然。
+            本页的程序二之所以能让你「看到」堆碎片，用的就是这个办法。
+          </p>
+
+          <h3 id="sub-serial-wiring" class="mt-7 text-base font-semibold">接线与波特率</h3>
+
+          <p class="mt-3">
+            用板载 USB 口时你不必接任何线：USB 转串口芯片已经和 ESP32 的
+            <code class="icode">GPIO1（TX）</code>、<code class="icode">GPIO3（RX）</code> 连好了。
+            但如果你用外置 USB-TTL 模块（比如给焊在板子上的模组接线），就要注意三点：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="外置 USB-TTL 模块与 ESP32 的接线">
+            <pre><code>USB-TTL 模块          ESP32
+   TX   ────────────►  RX (GPIO3)        &lt;-- 交叉！TX 接对方的 RX
+   RX   ◄────────────  TX (GPIO1)
+   GND  ─────────────  GND               &lt;-- 必须共地
+   3V3  ─────────────  （一般不要接，ESP32 自己有供电）
+   5V   ─────────────  VIN（想用模块供电时才接）
+
+  电平警告：如果模块的 TX 是 5V 电平（老式模块），
+            必须在 TX 与 ESP32 RX 之间加分压（1kΩ + 2kΩ），
+            否则会烧 GPIO3 —— 见上一篇「3.3V 供电与 GPIO 安全」。
+
+  另外：GPIO1/GPIO3 在程序启动时会被 ROM bootloader 用来打印启动日志，
+        所以这两个脚不要接别的东西（别接传感器、别接按键）。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>要点</th><th>正确做法</th><th>错了会怎样</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>代码里的波特率</td><td><code class="icode">Serial.begin(115200);</code></td><td>不写就完全没有输出（这是新手第一大「没反应」原因）</td></tr>
+                <tr><td>监视器的波特率</td><td>同样选 115200</td><td>不一致就是满屏乱码</td></tr>
+                <tr><td>串口监视器的「行尾符」</td><td>只看输出时无所谓；做输入交互时要按代码期望设置（通常「换行符 \n」）</td><td>用 <code class="icode">readStringUntil('\n')</code> 时永远读不到结尾</td></tr>
+                <tr><td>接外置模块</td><td>TX/RX 交叉、共地、3.3V 电平</td><td>不交叉收不到；不共地收到乱码；接 5V 烧脚</td></tr>
+                <tr><td>用其他串口</td><td><code class="icode">Serial1.begin(9600, SERIAL_8N1, 16, 17);</code> 指定 RX/TX 引脚</td><td>不指定引脚就没有输出</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">顺带说：为什么还要学「不用串口」的调试</div>
+            <p>
+              串口打印会占用时间（115200 下打印 100 字节约 9 毫秒）和缓冲区。
+              在中断服务函数里打印可能导致崩溃或丢数据；
+              在严格时序的场合（比如软件模拟单总线）打印会破坏时序。
+              所以：<b class="font-semibold">平时用串口，时序敏感的地方用逻辑分析仪，硬件问题用万用表</b>。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            三个程序依次递进：先练「怎么把话说清楚」（打印格式），
+            再验证「两种字符串的代价」（内存实测），最后写「自己的第一个类」。
+            三个都能直接编译上传。
+          </p>
+
+          <h3 id="sub-code-print" class="mt-7 text-base font-semibold">程序一：Serial 打印格式演示</h3>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="esp32-basic-cpp-print.ino —— 各种打印方式与格式控制">
+            <pre><code>/*
+ * ESP32 基础篇 / C++ 与 Arduino API
+ * 程序一：Serial 打印格式演示
+ *
+ * 不需要任何外接元件，只要 USB 线。
+ * 目标：搞清 print / println / printf / write 四种输出的区别。
+ */
+
+int   iVal = 65;
+float fVal = 3.14159;
+char  cVal = 'A';
+
+void setup() {
+  Serial.begin(115200);     // 不写这一行，后面所有打印都不会出现
+  delay(300);               // 等串口稳定，避免丢掉最前面几行
+
+  Serial.println("========== 1. print 与 println 的区别 ==========");
+  Serial.print("这一行用 print 输出，");
+  Serial.print("所以两句话会挤在同一行。");
+  Serial.println("&lt;- 这是 println 加的换行");
+  Serial.println();
+
+  Serial.println("========== 2. 不同数据类型的自动处理 ==========");
+  Serial.print("整数      : "); Serial.println(iVal);
+  Serial.print("浮点默认  : "); Serial.println(fVal);          // 默认 2 位小数
+  Serial.print("浮点指定位: "); Serial.println(fVal, 4);       // 指定 4 位小数
+  Serial.print("字符      : "); Serial.println(cVal);
+  Serial.print("字符串    : "); Serial.println("hello esp32");
+  Serial.print("布尔      : "); Serial.println(iVal &gt; 50);
+  Serial.println();
+
+  Serial.println("========== 3. printf 格式化（最推荐） ==========");
+  Serial.printf("十进制 %d | 十六进制 0x%02X | 八进制 %o\n", iVal, iVal, iVal);
+  Serial.printf("浮点 %.2f | 科学计数 %e | 百分比 %.1f%%\n", fVal, fVal, fVal * 100);
+  Serial.printf("左对齐 [%-8d] | 右对齐 [%8d] | 补零 [%08d]\n", iVal, iVal, iVal);
+  Serial.printf("字符串 [%s] | 单字符 [%c]\n", "esp32", cVal);
+  Serial.println();
+
+  Serial.println("========== 4. print 与 write 的关键区别 ==========");
+  Serial.print("print(65)  发给电脑的字节数: 2 个 -> ");
+  Serial.print(65);
+  Serial.println("   （字符 '6' 和 '5'）");
+
+  Serial.print("write(65)  发给电脑的字节数: 1 个 -> ");
+  Serial.write(65);
+  Serial.println("   （一个字节 0x41，也就是字母 A）");
+
+  // 用 write 发一段原始字节（模拟协议帧）
+  Serial.print("write 原始帧: ");
+  uint8_t frame[] = {0xAA, 0x01, 0x02, 0x55};
+  Serial.write(frame, sizeof(frame));
+  Serial.println();
+  Serial.println("（上面这几个字节在监视器里显示为乱码/方块，因为它们是二进制，不是文本）");
+  Serial.println();
+
+  Serial.println("========== 5. 每 2 秒循环一次 ==========");
+}
+
+void loop() {
+  static unsigned long tick = 0;
+  tick++;
+
+  // 用 %lu 打印 unsigned long，注意格式符要和类型匹配
+  Serial.printf("[%3lu] 运行 %lu 秒 | 空闲堆 %u 字节 | 本行用 printf 对齐输出\n",
+                tick, millis() / 1000, ESP.getFreeHeap());
+
+  delay(2000);
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-string" class="mt-7 text-base font-semibold">程序二：String 与 char[] 对比</h3>
+
+          <p class="mt-3">
+            这个程序把「反复拼接字符串」做两遍，一遍用 <code class="icode">String</code>、
+            一遍用 <code class="icode">char[]</code>，每遍前后都用 <code class="icode">ESP.getFreeHeap()</code>
+            量一下堆内存。跑完你会看到：<b class="font-semibold">String 版本把堆吃掉了，而且不会完全还回来</b>。
+          </p>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="esp32-basic-cpp-string.ino —— 堆内存实测对比">
+            <pre><code>/*
+ * 程序二：String 与 char[] 的内存代价对比
+ *
+ * 每个循环拼接 200 次，每次追加 10 个字符（总共 2000 字符）。
+ * 分别用两种方式实现，并测量堆内存的前后变化。
+ *
+ * 观察重点：
+ *   ① String 版：拼接后堆明显下降，即使把内容清空也回升不完全 -> 碎片
+ *   ② char[] 版：堆完全不变（缓冲区是编译期分配好的）
+ */
+
+const int LOOPS = 200;          // 拼接次数
+const int CHUNK = 10;           // 每次追加的字符数
+
+void printHeapLine(const char *tag, uint32_t before, uint32_t after) {
+  long delta = (long)after - (long)before;
+  Serial.printf("%s 堆: %7u -> %7u  净变化 %+ld 字节\n", tag, before, after, delta);
+}
+
+// ---------- 方式 A：String ----------
+void testString() {
+  Serial.println("---- 方式 A：String 拼接 ----");
+
+  uint32_t heapStart = ESP.getFreeHeap();
+  Serial.printf("起始空闲堆: %u 字节\n", heapStart);
+
+  String s = "";
+  s.reserve(64);                      // 故意给一个「不够用」的初始容量
+  for (int i = 0; i &lt; LOOPS; i++) {
+    s += "abcdefghij";                // 每次都可能重新 malloc + 复制 + free
+  }
+  uint32_t heapAfterBuild = ESP.getFreeHeap();
+
+  Serial.printf("拼接完成，字符串长度 %u 字符\n", s.length());
+  printHeapLine("[拼接后]", heapStart, heapAfterBuild);
+
+  s = "";                             // 释放内容
+  delay(10);                          // 给系统一点时间整理
+  uint32_t heapAfterFree = ESP.getFreeHeap();
+
+  printHeapLine("[清空后]", heapStart, heapAfterFree);
+  Serial.printf("-> 还差 %ld 字节没有还回来（这就是碎片）\n\n",
+                (long)heapStart - (long)heapAfterFree);
+}
+
+// ---------- 方式 B：char 数组 ----------
+void testCharArray() {
+  Serial.println("---- 方式 B：char 数组 + snprintf 拼接 ----");
+
+  // static：放在静态区而不是任务栈上。8KB 的任务栈放不下 2KB 以上的局部数组，
+  // 这里用 static 更安全，也顺便说明「空间是编译期就定好的」。
+  static char buf[LOOPS * CHUNK + 1];
+
+  uint32_t heapStart = ESP.getFreeHeap();
+  Serial.printf("起始空闲堆: %u 字节\n", heapStart);
+
+  int pos = 0;
+  for (int i = 0; i &lt; LOOPS; i++) {
+    int written = snprintf(buf + pos, sizeof(buf) - pos, "abcdefghij");
+    if (written &lt; 0 || written &gt;= (int)(sizeof(buf) - pos)) {
+      Serial.println("缓冲区已满，提前结束（这正是我们期望的防溢出行为）");
+      break;
+    }
+    pos += written;
+  }
+  uint32_t heapAfterBuild = ESP.getFreeHeap();
+
+  Serial.printf("拼接完成，字符串长度 %d 字符\n", pos);
+  printHeapLine("[拼接后]", heapStart, heapAfterBuild);
+
+  buf[0] = '\0';                      // 清空只是写一个结束符，内存本来就在那儿
+  uint32_t heapAfterFree = ESP.getFreeHeap();
+  printHeapLine("[清空后]", heapStart, heapAfterFree);
+  Serial.printf("-> 净变化 %+ld 字节（堆完全没动）\n\n",
+                (long)heapAfterFree - (long)heapStart);
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(300);
+
+  Serial.println("==================================================");
+  Serial.println("String 与 char[] 的内存代价对比");
+  Serial.printf("拼接 %d 次 × %d 字符 = %d 字符\n", LOOPS, CHUNK, LOOPS * CHUNK);
+  Serial.printf("测试开始前，空闲堆 %u 字节\n", ESP.getFreeHeap());
+  Serial.println("==================================================");
+
+  testString();
+  testCharArray();
+
+  Serial.println("==================================================");
+  Serial.println("结论：");
+  Serial.println("  String     : 方便，但每次拼接都在堆上申请/释放，");
+  Serial.println("               长期运行会产生碎片，最终 malloc 失败并重启。");
+  Serial.println("  char[]     : 写法啰嗦，但空间固定、零碎片、确定性最好。");
+  Serial.println("  工程建议     : 循环里、网络收发、长期运行的程序 —— 用 char[] + snprintf。");
+  Serial.println("==================================================");
+  Serial.println("下面进入心跳循环，你可以继续观察堆数字是否稳定。");
+}
+
+void loop() {
+  static unsigned long tick = 0;
+  tick++;
+
+  // 心跳：如果这里每轮都掉一点，说明有东西在泄漏内存
+  Serial.printf("[心跳 %3lu] 空闲堆 %u 字节 | 历史最小 %u 字节\n",
+                tick, ESP.getFreeHeap(), ESP.getMinFreeHeap());
+
+  delay(3000);
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-class" class="mt-7 text-base font-semibold">程序三：自定义类与实例化</h3>
+
+          <p class="mt-3">
+            最后一个程序写一个真正有用的类：一个「带闪烁功能的 LED」。
+            它会让你体会类的价值——<b class="font-semibold">两个 LED 用同一套代码，各自记着自己的状态</b>。
+          </p>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="esp32-basic-cpp-class.ino —— 写自己的类并造两个对象">
+            <pre><code>/*
+ * 程序三：自定义类
+ *
+ * 接线：GPIO2  -> 板载 LED（不用接线）
+ *       GPIO4  -> 外接 LED 正极，负极经 220Ω 电阻接 GND
+ *
+ * 目标：理解 class（图纸）、对象（实物）、方法（操作）三者的关系。
+ */
+
+class Led {
+  private:
+    int           pin;          // 只属于自己的数据
+    bool          state;
+    unsigned long lastToggle;
+    unsigned long interval;     // 闪烁周期
+
+  public:
+    // 构造函数：造对象时自动执行
+    Led(int p, unsigned long ms) {
+      pin        = p;
+      state      = false;
+      interval   = ms;
+      lastToggle = 0;
+    }
+
+    // 初始化硬件（放在 setup 里调用）
+    void begin() {
+      pinMode(pin, OUTPUT);
+      digitalWrite(pin, LOW);
+    }
+
+    void on() {
+      digitalWrite(pin, HIGH);
+      state = true;
+    }
+
+    void off() {
+      digitalWrite(pin, LOW);
+      state = false;
+    }
+
+    void toggle() {
+      state = !state;
+      digitalWrite(pin, state ? HIGH : LOW);
+    }
+
+    // 非阻塞闪烁：每次 loop 调用一次，到点自己翻转
+    // 注意这里没有 delay —— 两个对象因此可以各自闪烁、互不影响
+    bool update(unsigned long now) {
+      if (now - lastToggle &gt;= interval) {
+        lastToggle = now;
+        toggle();
+        return true;            // 返回 true 表示「这一轮翻转了」
+      }
+      return false;
+    }
+
+    bool isOn() {
+      return state;
+    }
+
+    int getPin() {
+      return pin;
+    }
+};
+
+// ---------- 造两个对象 ----------
+Led ledFast(2, 200);    // GPIO2 上的板载 LED，200ms 翻转一次
+Led ledSlow(4, 1000);   // GPIO4 上的外接 LED，1000ms 翻转一次
+
+void setup() {
+  Serial.begin(115200);
+  delay(300);
+
+  ledFast.begin();
+  ledSlow.begin();
+
+  Serial.println("==================================================");
+  Serial.println("自定义类实验：两个 LED 用同一个类，各自独立闪烁");
+  Serial.printf("对象 ledFast: 引脚 GPIO%d, 周期 200ms\n", ledFast.getPin());
+  Serial.printf("对象 ledSlow: 引脚 GPIO%d, 周期 1000ms\n", ledSlow.getPin());
+  Serial.println("关键点：update() 里没有 delay，所以两个对象互不阻塞。");
+  Serial.println("==================================================");
+}
+
+void loop() {
+  unsigned long now = millis();
+
+  // 两个对象各管各的，谁也不用等谁
+  if (ledFast.update(now)) {
+    Serial.printf("[%6lu ms] ledFast(GPIO%d) 现在 %s\n",
+                  now, ledFast.getPin(), ledFast.isOn() ? "亮" : "灭");
+  }
+
+  if (ledSlow.update(now)) {
+    Serial.printf("[%6lu ms] ledSlow(GPIO%d) 现在 %s\n",
+                  now, ledSlow.getPin(), ledSlow.isOn() ? "亮" : "灭");
+  }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这个类为什么比「两个全局变量 + 一堆函数」好</div>
+            <p>
+              ① <b class="font-semibold">状态跟着对象走</b>：<code class="icode">ledFast</code> 的
+              <code class="icode">lastToggle</code> 和 <code class="icode">ledSlow</code> 的互不影响，
+              你不会再写出 <code class="icode">lastToggle1</code>、<code class="icode">lastToggle2</code> 这种名字；
+              ② <b class="font-semibold">想加第三个 LED</b> 只要再写一行
+              <code class="icode">Led led3(5, 500);</code>；
+              ③ <b class="font-semibold">内部实现可以改</b>：以后想把「翻转」改成 PWM 呼吸灯，
+              只要改 <code class="icode">toggle()</code>，调用它的地方一行都不用动。
+            </p>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>代码</th><th>作用</th><th>易错点</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">Serial.begin(115200)</code></td><td>初始化串口</td><td>漏写 = 一点输出都没有，而且不报错</td></tr>
+                <tr><td><code class="icode">Serial.println(v, 4)</code></td><td>浮点保留 4 位小数</td><td>不写位数时默认 2 位</td></tr>
+                <tr><td><code class="icode">Serial.printf("%d", i)</code></td><td>格式化输出</td><td>格式符与类型不匹配会打出垃圾值（<code class="icode">unsigned long</code> 要用 <code class="icode">%lu</code>，<code class="icode">uint32_t</code> 用 <code class="icode">%u</code>）</td></tr>
+                <tr><td><code class="icode">Serial.write(0x41)</code></td><td>发原始字节</td><td>写成 <code class="icode">print</code> 就会发出两个字符 <code class="icode">65</code></td></tr>
+                <tr><td><code class="icode">String s; s += x;</code></td><td>动态字符串拼接</td><td>循环里反复拼接 → 堆碎片；<code class="icode">reserve()</code> 能缓解</td></tr>
+                <tr><td><code class="icode">snprintf(buf, sizeof(buf), …)</code></td><td>安全的格式化拼接</td><td>第二个参数是<b class="font-semibold">整个缓冲区大小</b>，不是剩余空间；拼接时要传 <code class="icode">sizeof(buf) - pos</code></td></tr>
+                <tr><td><code class="icode">ESP.getFreeHeap()</code></td><td>查当前空闲堆</td><td>它是「总量」，找泄漏还要看 <code class="icode">ESP.getMinFreeHeap()</code>（历史最小值）</td></tr>
+                <tr><td><code class="icode">class Led { public: … };</code></td><td>定义类</td><td>结尾的分号别漏；<code class="icode">private</code> 数据只能被自己的方法访问</td></tr>
+                <tr><td><code class="icode">Led ledFast(2, 200);</code></td><td>用构造函数造对象</td><td>定义了带参数的构造函数后，<b class="font-semibold">编译器不再生成默认构造函数</b>，写 <code class="icode">Led ledFast;</code> 会报错</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            下面给三个程序各自的预期输出。串口监视器波特率统一设 115200，
+            数值会因板子不同而略有差异，<b class="font-semibold">重点看结构和你自己的实测结论</b>。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">程序一：打印格式演示</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="程序一串口输出（逐行对照）">
+            <pre><code>========== 1. print 与 println 的区别 ==========
+这一行用 print 输出，所以两句话会挤在同一行。&lt;- 这是 println 加的换行
+
+========== 2. 不同数据类型的自动处理 ==========
+整数      : 65
+浮点默认  : 3.14            &lt;- 不指定位数就是 2 位小数
+浮点指定位: 3.1416          &lt;- println(fVal, 4)
+字符      : A
+字符串    : hello esp32
+布尔      : 1               &lt;- 条件表达式的值，1 表示真
+
+========== 3. printf 格式化（最推荐） ==========
+十进制 65 | 十六进制 0x41 | 八进制 101
+浮点 3.14 | 科学计数 3.141590e+00 | 百分比 314.2%
+左对齐 [65      ] | 右对齐 [      65] | 补零 [00000065]
+字符串 [esp32] | 单字符 [A]
+
+========== 4. print 与 write 的关键区别 ==========
+print(65)  发给电脑的字节数: 2 个 -&gt; 65   （字符 '6' 和 '5'）
+write(65)  发给电脑的字节数: 1 个 -&gt; A   （一个字节 0x41，也就是字母 A）
+write 原始帧: ªU
+（上面这几个字节在监视器里显示为乱码/方块，因为它们是二进制，不是文本）
+
+========== 5. 每 2 秒循环一次 ==========
+[  1] 运行 0 秒 | 空闲堆 311224 字节 | 本行用 printf 对齐输出
+[  2] 运行 2 秒 | 空闲堆 311224 字节 | 本行用 printf 对齐输出
+[  3] 运行 4 秒 | 空闲堆 311224 字节 | 本行用 printf 对齐输出</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">第 4 段输出为什么「看起来是乱码」</div>
+            <p>
+              因为 <code class="icode">write(frame, 4)</code> 发出去的是 4 个二进制字节
+              <code class="icode">AA 01 02 55</code>。串口监视器把它们当文本字符解释，
+              其中 <code class="icode">0x55</code> 恰好是字母 <code class="icode">U</code>，
+              其余几个是不可打印字符，显示成方块或什么都不显示。
+              <b class="font-semibold">这不是错误，而是「二进制 vs 文本」的本质区别</b>：
+              要发协议帧就用 write，要给人看就用 print。
+            </p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">程序二：内存对比（重点）</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="程序二串口输出（关键几行）">
+            <pre><code>==================================================
+String 与 char[] 的内存代价对比
+拼接 200 次 × 10 字符 = 2000 字符
+测试开始前，空闲堆 311224 字节
+==================================================
+---- 方式 A：String 拼接 ----
+起始空闲堆: 311224 字节
+拼接完成，字符串长度 2000 字符
+[拼接后] 堆:  311224 -&gt;  307488  净变化 -3736 字节
+[清空后] 堆:  311224 -&gt;  310136  净变化 -1088 字节
+-&gt; 还差 1088 字节没有还回来（这就是碎片）
+
+---- 方式 B：char 数组 + snprintf 拼接 ----
+起始空闲堆: 310136 字节
+拼接完成，字符串长度 2000 字符
+[拼接后] 堆:  310136 -&gt;  310136  净变化 +0 字节
+[清空后] 堆:  310136 -&gt;  310136  净变化 +0 字节
+-&gt; 净变化 +0 字节（堆完全没动）
+
+==================================================
+结论：
+  String     : 方便，但每次拼接都在堆上申请/释放，
+               长期运行会产生碎片，最终 malloc 失败并重启。
+  char[]     : 写法啰嗦，但空间固定、零碎片、确定性最好。
+  工程建议     : 循环里、网络收发、长期运行的程序 —— 用 char[] + snprintf。
+==================================================
+下面进入心跳循环，你可以继续观察堆数字是否稳定。
+[心跳   1] 空闲堆 310136 字节 | 历史最小 307488 字节
+[心跳   2] 空闲堆 310136 字节 | 历史最小 307488 字节</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>你看到的</th><th>说明什么</th><th>下一步</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>String 拼接后堆下降几千字节</td><td>正常现象：拼接过程中反复申请更大的连续空间</td><td>记住这个代价，别在循环里这么写</td></tr>
+                <tr><td>清空后堆<b class="font-semibold">没有完全回来</b>（少几百到几千字节）</td><td><b class="font-semibold text-ink">堆碎片</b>：空闲总量够，但被切成了小块</td><td>这就是「跑几小时后重启」的根源</td></tr>
+                <tr><td>char[] 版本堆净变化 0</td><td>缓冲区是编译期分配的静态空间，跟堆无关</td><td>长期运行的程序照这个写法来</td></tr>
+                <tr><td>心跳行里空闲堆数字一直不变</td><td>程序没有内存泄漏，健康</td><td>如果每轮掉一点，就要查是谁在申请内存不释放</td></tr>
+                <tr><td><code class="icode">历史最小</code> 比当前值小</td><td>记录的是运行以来的最低点（峰值占用）</td><td>做联网应用时盯住它，别让它掉到接近 0</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">程序三：自定义类</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="程序三串口输出（节选，注意两个对象的节奏不同）">
+            <pre><code>==================================================
+自定义类实验：两个 LED 用同一个类，各自独立闪烁
+对象 ledFast: 引脚 GPIO2, 周期 200ms
+对象 ledSlow: 引脚 GPIO4, 周期 1000ms
+关键点：update() 里没有 delay，所以两个对象互不阻塞。
+==================================================
+[   196 ms] ledFast(GPIO2) 现在 亮
+[   200 ms] ledSlow(GPIO4) 现在 亮
+[   400 ms] ledFast(GPIO2) 现在 灭
+[   600 ms] ledFast(GPIO2) 现在 亮
+[   800 ms] ledFast(GPIO2) 现在 灭
+[  1000 ms] ledSlow(GPIO4) 现在 灭
+[  1000 ms] ledFast(GPIO2) 现在 亮
+[  1200 ms] ledFast(GPIO2) 现在 灭
+[  1400 ms] ledFast(GPIO2) 现在 亮
+[  1600 ms] ledFast(GPIO2) 现在 灭
+[  1800 ms] ledFast(GPIO2) 现在 亮
+[  2000 ms] ledSlow(GPIO4) 现在 亮</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这份输出里最重要的一个细节</div>
+            <p>
+              <code class="icode">ledFast</code> 和 <code class="icode">ledSlow</code> 的打印<b class="font-semibold">交错出现</b>，
+              而且各自保持自己的节奏——这说明两个对象是<b class="font-semibold">真并行</b>，
+              谁也没有等谁。如果把它们写成
+              <code class="icode">digitalWrite; delay(200);</code>
+              那种顺序写法，第二个 LED 的节奏就会被第一个拖偏。
+              <b class="font-semibold">「用 millis() 做非阻塞」这个套路，是你后面学多任务、学 MQTT 心跳的基础。</b>
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            下面八条是学 C++ / Arduino API 阶段最常见的翻车方式，每条按
+            <b class="font-semibold">现象 → 原因 → 解决</b> 写。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">现象：程序上传成功，但串口监视器里一个字都没有</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              最常见的原因是<b class="font-semibold">忘了写 <code class="icode">Serial.begin()</code></b>——
+              没有初始化，<code class="icode">Serial.print()</code> 就什么都不发，而且编译器不会报错。
+              其次要确认监视器波特率也是 115200。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 检查 <code class="icode">setup()</code> 第一行是不是 <code class="icode">Serial.begin(115200);</code>；
+              ② 在它后面加一句 <code class="icode">Serial.println("boot ok");</code> 作为「程序活着」的标志；
+              ③ 监视器波特率改成 115200；
+              ④ 按一下 EN 键重新启动，看是否有启动日志（如果有启动日志但没你的打印，说明卡在 setup 里了）。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：程序跑几十分钟到几小时后自己重启，串口打印 Guru Meditation Error、malloc failed 或 rst:0x3 (SW_RESET)</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              堆碎片。典型写法是在 <code class="icode">loop()</code> 里反复
+              <code class="icode">String msg = "..."; msg += 变量;</code>，
+              每次拼接都在堆上申请新块、释放旧块，时间一长堆被切成无数小块，
+              某次需要一块较大的<b class="font-semibold">连续</b>内存时就分配失败。
+              用 <code class="icode">ESP.getFreeHeap()</code> 打印能看到它缓慢下降或回升不完全。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 循环里的字符串拼接全部改成 <code class="icode">char buf[128]</code> +
+              <code class="icode">snprintf()</code>（本页程序二的写法）；
+              ② 必须用 <code class="icode">String</code> 时加 <code class="icode">reserve()</code>
+              一次性申请够，用完 <code class="icode">= ""</code> 释放；
+              ③ 不要用 <code class="icode">String</code> 接收网络报文（长度不可控）；
+              ④ 用 <code class="icode">ESP.getMinFreeHeap()</code> 观察历史最低点，
+              如果一路走低，就是泄漏或碎片。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：invalid operands of types 'const char [8]' and 'const char [6]' to binary 'operator+'</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              你在用 <code class="icode">+</code> 拼接两个字符串字面量（<code class="icode">const char*</code>）。
+              C++ 里 <code class="icode">+</code> 对两个指针没有意义——指针相加只存在于语言层面做地址运算，
+              不是「连接字符串」。只有至少一侧是 <code class="icode">String</code> 对象时，
+              <code class="icode">+</code> 才会被重载成拼接。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 让左边是 String：<code class="icode">String s = String("abc") + "def";</code>；
+              ② 或者更推荐：<code class="icode">char buf[32]; snprintf(buf, sizeof(buf), "%s%s", "abc", "def");</code>；
+              ③ 传给只接受 <code class="icode">const char*</code> 的库函数时，
+              用 <code class="icode">s.c_str()</code> 转换，<b class="font-semibold">别把 <code class="icode">String</code> 直接传进去</b>；
+              ④ 注意 <code class="icode">c_str()</code> 的指针会随 String 变化而失效，不要长期保存。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：想发送十六进制指令 0x41，串口助手却收到字符 65（两个字节）</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              用了 <code class="icode">Serial.print(0x41)</code>。
+              <code class="icode">print</code> 会把数值<b class="font-semibold">转成十进制文本</b>再发出去，
+              于是 65 被拆成 <code class="icode">'6'</code> 和 <code class="icode">'5'</code> 两个字节；
+              而你想要的是一个字节 <code class="icode">0x41</code>。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 发原始字节用 <code class="icode">Serial.write(0x41)</code>；
+              ② 发一串字节用 <code class="icode">Serial.write(buf, len)</code>，其中 buf 是 <code class="icode">uint8_t[]</code>；
+              ③ 调试协议时建议用「串口助手 + HEX 显示模式」，能看到真实字节而不是被当文本解释的结果；
+              ④ 记住判断标准：<b class="font-semibold">给人看用 print，给设备用 write</b>。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：串口输出乱码、丢字符，或者打印很快时内容缺几段</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              ① 代码与监视器波特率不一致（最常见，表现为全篇乱码）；
+              ② 打印速率超过串口带宽：115200 下每秒约 11520 字节，
+              如果 <code class="icode">loop()</code> 里不加延时地狂打印，缓冲区满了就会丢；
+              ③ 监视器软件自身的缓冲或换行符设置问题。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 两边统一 115200；
+              ② 打印加节流：用 <code class="icode">millis()</code> 保证最快 100ms 打一次，
+              关键调试信息用 <code class="icode">if (debugEnabled)</code> 开关控制；
+              ③ 怀疑丢字符时改打印为「序号 + 内容」，序号跳号就说明中间丢了；
+              ④ 需要高速日志时把波特率提到 921600（双方都要改）。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：<code class="icode">Serial1</code> 什么都收不到、也没有输出（Serial 正常）</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              ESP32 有 3 个 UART，但只有 <code class="icode">Serial</code>（UART0）默认接好了 USB 转串口芯片。
+              <code class="icode">Serial1</code> 的引脚是<b class="font-semibold">可以自由指定的</b>，
+              不指定就不知道接到哪里，自然没有输出。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 初始化时指定引脚：<code class="icode">Serial1.begin(9600, SERIAL_8N1, 16, 17);</code>
+              （参数顺序是：波特率、帧格式、RX 引脚、TX 引脚）；
+              ② 接线要交叉：外设 TX → GPIO16（ESP32 的 RX），外设 RX → GPIO17；
+              ③ 共地，并确认外设是 3.3V 电平（5V 要分压）；
+              ④ 别选 GPIO6~11（接 Flash）和输入专用脚 34~39。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：no matching function for call to 'Led::Led()'</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              你给类写了带参数的构造函数（比如 <code class="icode">Led(int p, unsigned long ms)</code>），
+              之后写了 <code class="icode">Led led3;</code> 这种不带参数的声明。
+              C++ 的规则是：<b class="font-semibold">一旦你自己定义了任何构造函数，
+              编译器就不再自动生成默认构造函数</b>。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 声明时把参数补上：<code class="icode">Led led3(5, 500);</code>；
+              ② 或者自己补一个默认构造函数：<code class="icode">Led() { pin = 2; interval = 500; state = false; }</code>；
+              ③ 更好的做法是用默认参数：<code class="icode">Led(int p = 2, unsigned long ms = 500) { … }</code>，
+              这样既能 <code class="icode">Led led3;</code> 也能 <code class="icode">Led led3(5, 500);</code>；
+              ④ 顺带检查数组形式的对象：<code class="icode">Led leds[3];</code> 同样要求有默认构造函数。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：用 <code class="icode">length()</code> 得到的「字符数」比看到的中文字符多一倍</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              <code class="icode">String::length()</code> 和 <code class="icode">strlen()</code>
+              返回的是<b class="font-semibold">字节数</b>，不是「字数」。
+              UTF-8 编码下一个汉字占 3 个字节，所以「温度」的 length 是 6。
+              按字节截断还可能把汉字切成半个，显示成乱码。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 明确区分「字节长度」和「显示宽度」，别用字节数去算屏幕排版；
+              ② 需要截断中文时按 UTF-8 的首字节特征判断字符边界，或干脆不要截断；
+              ③ 串口监视器显示正常就说明编码没问题，不要试图「修复」它；
+              ④ 如果要用中文，源文件必须保存为 UTF-8（Arduino IDE 默认就是）。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <h3 class="mt-7 text-base font-semibold">这一页要你记住的六件事</h3>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>Arduino 用 C++ 只是为了<b class="font-semibold">封装</b>；你在 51 上学的 C 语法全部有效。</li>
+            <li><b class="font-semibold">类 = 图纸，对象 = 实物</b>；<code class="icode">Serial</code> 就是 <code class="icode">HardwareSerial</code> 类造出来的一个对象。</li>
+            <li><code class="icode">对象.方法(参数)</code> 读作「让谁做什么」；<code class="icode">print</code> 与 <code class="icode">println</code> 只差一个换行。</li>
+            <li><b class="font-semibold">print 发文本，write 发原始字节</b>：发协议帧用 write。</li>
+            <li><code class="icode">String</code> 方便但会在堆上反复申请释放，循环里滥用必然产生碎片；
+            <b class="font-semibold">长期运行的程序用 <code class="icode">char[]</code> + <code class="icode">snprintf</code></b>。</li>
+            <li>串口是最便宜也最有效的调试手段：<b class="font-semibold">在怀疑的地方加打印</b>，比盯着代码想快十倍。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">自检题</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>用「图纸 / 实物」的说法解释：<code class="icode">HardwareSerial</code> 与 <code class="icode">Serial</code> 分别是什么？为什么 <code class="icode">HardwareSerial</code> 不占运行内存？</li>
+            <li><code class="icode">Serial.print(65)</code> 与 <code class="icode">Serial.write(65)</code> 分别发出几个字节？分别是什么？</li>
+            <li>为什么在 <code class="icode">loop()</code> 里写 <code class="icode">String s; s += x;</code> 跑几天会重启？请从「堆需要连续空间」的角度解释。</li>
+            <li>把 <code class="icode">snprintf(buf, sizeof(buf), "%d", n)</code> 里的 <code class="icode">sizeof(buf)</code> 改成 <code class="icode">strlen(buf)</code> 会发生什么？为什么？</li>
+            <li><code class="icode">HIGH</code>、<code class="icode">OUTPUT</code>、<code class="icode">LED_BUILTIN</code> 是从哪来的？为什么不用自己定义？</li>
+            <li><code class="icode">String</code> 要传给只接受 <code class="icode">const char*</code> 的库函数，应该怎么做？为什么不能长期保存转换出来的指针？</li>
+            <li>程序三里 <code class="icode">update()</code> 没用 <code class="icode">delay</code>，为什么两个 LED 还能各自保持节奏？如果用 <code class="icode">delay</code> 会怎样？</li>
+            <li>你要写一个类来表示「按键」，它至少需要哪些私有数据、哪些公开方法？请写出来（不用写完整实现）。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>
+              <b class="font-semibold">做一次内存实验</b>：把程序二的 <code class="icode">LOOPS</code>
+              从 200 改成 2000 再跑一遍，记录「清空后没还回来」的字节数。
+              这个数字随拼接次数增大，就说明碎片在累积。
+            </li>
+            <li>
+              <b class="font-semibold">用 char[] 重写一段旧代码</b>：找一段你自己以前写的、
+              在 <code class="icode">loop()</code> 里用 <code class="icode">String</code> 拼接上报内容的代码，
+              改写成 <code class="icode">snprintf</code> 版本，比较两次运行时
+              <code class="icode">ESP.getMinFreeHeap()</code> 的变化曲线。
+            </li>
+            <li>
+              <b class="font-semibold">给按键写一个类</b>：包含引脚、上次电平、上次时间；
+              公开方法 <code class="icode">begin()</code>、<code class="icode">pressed()</code>（带消抖，
+              按下返回一次 true）。写完造两个对象，分别接 GPIO4 和 GPIO13，
+              在串口里看到两个按键互不干扰的打印。
+            </li>
+          </ol>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">下一步</div>
+            <p>
+              语法关过了，接下来是最容易让人迷糊的一块：网络。
+              下一篇 <a href="esp32-basic-network.html" class="text-brand-600 dark:text-brand-300">网络基础：IP、TCP 与 MQTT</a>
+              会从「IP 是什么、端口是什么」讲起，一直讲到用 ESP32 发布 MQTT 消息。
+              你会发现：<code class="icode">Serial.print</code> 和 <code class="icode">MQTTClient.publish</code>
+              本质上是一回事——都是「把数据送到某个地方」，只不过一个走串口，一个走网络。
+            </p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="esp32-basic-arduino.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">Arduino 框架与 ESP-IDF：你写的代码经历了什么</p>
+          </a>
+          <a href="esp32-basic-network.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">网络基础：IP、TCP 与 MQTT</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>实训 &amp; 毕设案例 · McuStudy 单片机课设与毕业设计项目实战</title>
+  <meta name="description" content="McuStudy 实训毕设案例库：51 单片机智能小车、51 温湿度采集系统、STM32 OLED 数字电压表、ESP32 手机 WiFi 远程控制 LED 四个完整案例，每个都给出功能说明、硬件清单、核心代码与可扩展方向。">
+  <meta name="keywords" content="单片机课程设计,单片机毕业设计,51智能小车,DHT11温湿度采集,STM32电压表,ESP32远程控制,硬件清单,答辩加分项">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/site.js" defer></script>
+</head>
+
+<body data-page="project" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 页面 Hero ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-12 sm:py-14">
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="index.html" class="hover:text-brand-600">首页</a><span>/</span><span class="text-muted">实训毕设</span>
+        </nav>
+        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">实训 &amp; 毕设案例</h1>
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">四个可以直接拿去改的完整案例，每个都给出功能说明、硬件清单、核心代码与可扩展方向；课程设计、实训周、毕业设计都能用。</p>
+        <div class="mt-6 flex flex-wrap gap-2.5">
+          <span class="stat-pill"><b>4</b> 个案例</span>
+          <span class="stat-pill">难度：<b>从入门到综合</b></span>
+          <span class="stat-pill">含硬件清单与代码</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== 选题建议 ============================== -->
+    <section class="wrap py-10 sm:py-12">
+      <div class="card card-pad">
+        <div>
+          <p class="sec-eyebrow">Topic Selection</p>
+          <h2 class="sec-title">选题建议</h2>
+          <p class="sec-desc">题目选得好，后面两个月是顺着做；题目选得飘，后面两个月全在买元件和改方案。</p>
+        </div>
+
+        <div class="mt-6 grid gap-6 sm:grid-cols-3">
+          <div class="mini-step">
+            <span class="step-num">1</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">优先选买得到元件的题目</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">开题前先上立创商城、淘宝搜一遍核心器件，缺货、要打样、最小起订量 100 个的，直接换题。元件没到位的这两周，足够别人把功能跑通了。</p>
+            </div>
+          </div>
+          <div class="mini-step">
+            <span class="step-num">2</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">功能不要贪多</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">一个做扎实的闭环，胜过五个半成品：能采集、能显示、能报警、能复现，就是一个及格的课设。堆了八个功能但每个都只跑通一次，答辩时最容易被问穿。</p>
+            </div>
+          </div>
+          <div class="mini-step">
+            <span class="step-num">3</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">预留一个"可扩展方向"</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">在报告最后专门写一节"本设计的不足与改进方向"，答辩时这是加分项：老师问"还能怎么优化"，你有现成答案，而不是当场愣住。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== 四个案例 ============================== -->
+    <section class="wrap pb-14 sm:pb-16">
+      <div class="grid gap-8">
+
+        <!-- ---------------------------------------------------------- 案例 1 -->
+        <article id="case-car" class="card card-pad scroll-mt-24">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 16v-4l2-5h12l2 5v4"/><path d="M3 16h18"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+            <h2 class="text-lg font-semibold sm:text-xl">案例 1：51 单片机智能小车</h2>
+            <span class="badge-plain">课程设计 / 实训周</span>
+          </div>
+          <p class="mt-3 text-[13px] leading-relaxed text-muted">定位：最经典的入门级综合题，覆盖 GPIO、定时器、中断、传感器时序四块内容，工作量可控、演示效果直观，适合两周实训或单片机课程设计。</p>
+
+          <h3 class="mt-6 text-base font-semibold">功能说明</h3>
+          <ul class="mt-3 space-y-2 text-[13px] leading-relaxed text-muted">
+            <li>上电自动进入循迹模式，左右两路红外探头压在 2cm 宽的黑线跑道上，走完全程不脱线</li>
+            <li>定时器 0 产生 100Hz 软件 PWM，左右两轮占空比独立可调，通过差速实现转向与调速</li>
+            <li>车头 HC-SR04 检测到前方 20cm 内有障碍时立即停车，障碍移开后 1s 自动恢复循迹</li>
+            <li>两路红外同时丢线时原地停车并点亮报警 LED，避免小车冲出跑道烧电机</li>
+            <li>板载按键在"循迹 / 停车 / 调试"三种模式间切换，LED 指示当前模式</li>
+            <li>预留 HC-05 蓝牙接口，手机串口助手发单字符指令即可手动控方向</li>
+          </ul>
+
+          <h3 class="mt-6 text-base font-semibold">硬件清单</h3>
+          <div class="mt-3 table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>元件</th><th>型号规格</th><th>数量</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>单片机最小系统板</td><td>STC89C52RC + 11.0592MHz 晶振</td><td>1</td><td>P0 口必须外接 10k 排阻上拉，否则驱动不了 L298N</td></tr>
+                <tr><td>电机驱动模块</td><td>L298N 双 H 桥</td><td>1</td><td>单路持续 2A，板载 5V 稳压可给单片机供电（但更建议分开供电）</td></tr>
+                <tr><td>直流减速电机</td><td>1:48 减速比，双轴 6V/12V</td><td>2</td><td>带霍尔编码器的版本还能做测速闭环</td></tr>
+                <tr><td>车轮与万向轮</td><td>65mm 橡胶轮 / 金属万向轮</td><td>2 + 1</td><td>万向轮装在车头或车尾做支撑，否则跑起来会画圈</td></tr>
+                <tr><td>红外循迹模块</td><td>TCRT5000（四路模块用其中两路）</td><td>1</td><td>电位器调到离地 2~3cm 触发最稳，黑线输出低电平</td></tr>
+                <tr><td>超声波模块</td><td>HC-SR04</td><td>1</td><td>回响高电平宽度除以 58 就是厘米数</td></tr>
+                <tr><td>锂电池组</td><td>12V 锂电池组（3 节 18650 串联）</td><td>1</td><td>电机直供 12V，逻辑另走一路 5V，两路必须共地</td></tr>
+                <tr><td>降压模块</td><td>LM2596 可调降压 或 AMS1117-5.0</td><td>1</td><td>12V 降到 5V 给单片机，注意散热</td></tr>
+                <tr><td>车体底盘</td><td>亚克力双层底盘 + M3 铜柱</td><td>1</td><td>亚克力开孔脆，拧螺丝别用力过猛，容易开裂</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-6 text-base font-semibold">核心代码片段</h3>
+          <div class="code-block" data-lang="c" data-title="car_motor.c —— 电机差速控制与软件 PWM">
+            <pre><code>#include &lt;reg52.h&gt;
+
+/* ---------- 引脚定义：单片机接 L298N 与传感器 ---------- */
+sbit L_IN1 = P1^0;      /* 左电机方向脚 1 */
+sbit L_IN2 = P1^1;      /* 左电机方向脚 2 */
+sbit R_IN1 = P1^2;      /* 右电机方向脚 1 */
+sbit R_IN2 = P1^3;      /* 右电机方向脚 2 */
+sbit ENA   = P1^4;      /* 左电机使能，接 L298N 的 ENA */
+sbit ENB   = P1^5;      /* 右电机使能，接 L298N 的 ENB */
+sbit TRACK_L = P3^2;    /* 左红外循迹：压黑线输出 0 */
+sbit TRACK_R = P3^3;    /* 右红外循迹：压黑线输出 0 */
+sbit TRIG = P3^4;       /* HC-SR04 触发脚 */
+sbit ECHO = P3^5;       /* HC-SR04 回响脚，5V 电平可直接接 */
+
+unsigned char duty_L = 60;   /* 左轮占空比 0~100，越大越快 */
+unsigned char duty_R = 60;   /* 右轮占空比 0~100 */
+unsigned char pwm_cnt = 0;   /* 软件 PWM 计数器 */
+
+/* dir: 1=前进 0=后退 2=停止。两轮反向就是原地差速转向 */
+void motor_left(unsigned char dir)
+{
+    if (dir == 1)      { L_IN1 = 1; L_IN2 = 0; }
+    else if (dir == 0) { L_IN1 = 0; L_IN2 = 1; }
+    else               { L_IN1 = 0; L_IN2 = 0; }   /* 两脚同低 = 滑行停止 */
+}
+void motor_right(unsigned char dir)
+{
+    if (dir == 1)      { R_IN1 = 1; R_IN2 = 0; }
+    else if (dir == 0) { R_IN1 = 0; R_IN2 = 1; }
+    else               { R_IN1 = 0; R_IN2 = 0; }
+}
+
+/* 定时器 0：每 100us 中断一次，累计 100 次 = 10ms，即 100Hz 软件 PWM */
+void timer0_isr(void) interrupt 1
+{
+    TH0 = (65536 - 100) / 256;          /* 12MHz 晶振：1 机器周期 = 1us */
+    TL0 = (65536 - 100) % 256;
+    if (++pwm_cnt &gt;= 100) pwm_cnt = 0;
+    ENA = (pwm_cnt &lt; duty_L) ? 1 : 0;   /* 占空比越大，平均电压越高 */
+    ENB = (pwm_cnt &lt; duty_R) ? 1 : 0;
+}
+
+/* 循迹判断：10ms 调用一次。避障同理——测距小于 20cm 时两轮一起停 */
+void run_control(void)
+{
+    if (TRACK_L == 0 &amp;&amp; TRACK_R == 1)      { duty_L = 20; duty_R = 75; }  /* 线偏左：左慢右快 */
+    else if (TRACK_L == 1 &amp;&amp; TRACK_R == 0) { duty_L = 75; duty_R = 20; }  /* 线偏右：左快右慢 */
+    else if (TRACK_L == 0 &amp;&amp; TRACK_R == 0) { duty_L = 55; duty_R = 55; }  /* 压线：直行 */
+    else { motor_left(2); motor_right(2); }                               /* 丢线：停车 */
+}
+</code></pre>
+          </div>
+          <p class="hint">说明：51 单片机没有硬件 PWM 外设，只能靠定时器中断在软件里翻转使能脚；中断里的代码越短越好，所以方向判断放在主循环 <code class="icode">run_control()</code> 里做。定时器初始化（TMOD、EA、ET0、TR0）见 51 单片机教程定时器一节。</p>
+
+          <h3 class="mt-6 text-base font-semibold">可扩展方向</h3>
+          <div class="callout callout-tip">
+            <div class="callout-title">想让老师眼前一亮，可以从这三个方向加功能</div>
+            <ul class="mt-2 space-y-2 text-[13px] leading-relaxed">
+              <li>接上 HC-05 蓝牙模块，把指令约定成"前进 / 后退 / 左转 / 右转 / 停"五个字符，手机蓝牙串口助手直接控车，报告中就能写一段"双模控制"。</li>
+              <li>换成带霍尔编码器的电机做测速闭环，把固定的占空比换成 PID 输出，电池电压下降时车速仍然稳定，附上一张"设定速度 vs 实际速度"的曲线图。</li>
+              <li>加一路 OpenMV 或 K210 摄像头做视觉巡线，把红外循迹升级成"识别路标 + 岔路决策"，从课设难度直接拉到毕设难度。</li>
+            </ul>
+          </div>
+
+          <h3 class="mt-6 text-base font-semibold">常见问题</h3>
+          <div class="callout callout-warn">
+            <div class="callout-title">电机一转，单片机就复位或程序跑飞</div>
+            <p class="mt-2 text-[13px] leading-relaxed">电机启动瞬间电流能冲到 2A 以上，和单片机共用一路电源会把 5V 直接拉垮。解决：电机用 12V 锂电池直供 L298N，单片机单独走一路 5V（LM2596 或独立电池），两路 GND 必须共地；L298N 板载 5V 输出不要再同时给单片机和自身逻辑供电。另外在电机两端各并一个 0.1uF 瓷片电容，能明显减少换向火花带来的干扰。</p>
+          </div>
+          <div class="callout callout-warn">
+            <div class="callout-title">小车只会原地打转，或者一个轮子完全不转</div>
+            <p class="mt-2 text-[13px] leading-relaxed">先看 L298N 的 ENA/ENB 跳线帽有没有拔掉——不拔就用不了 PWM，电机只能全速运转，程序里怎么调占空比都没反应。再用万用表量 IN1/IN2：前进时应该是一高一低，两个都是低电平说明方向函数没被调用到。如果两个轮子转向相反，把其中一个电机的两根接线对调即可，不用改代码。</p>
+          </div>
+        </article>
+
+        <hr class="hr-soft">
+
+        <!-- ---------------------------------------------------------- 案例 2 -->
+        <article id="case-dht" class="card card-pad scroll-mt-24">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3s5 5.5 5 9.5a5 5 0 0 1-10 0C7 8.5 12 3 12 3Z"/><path d="M12 17.5a2.5 2.5 0 0 0 2.5-2.5"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+            <h2 class="text-lg font-semibold sm:text-xl">案例 2：51 温湿度采集系统</h2>
+            <span class="badge-plain">课程设计 / 实训周</span>
+          </div>
+          <p class="mt-3 text-[13px] leading-relaxed text-muted">定位：入门首选。单总线时序 + 液晶显示 + 按键设置，知识点刚好覆盖 51 教学大纲的主要章节，元件便宜、焊接量小，一周就能做出可演示的成品。</p>
+
+          <h3 class="mt-6 text-base font-semibold">功能说明</h3>
+          <ul class="mt-3 space-y-2 text-[13px] leading-relaxed text-muted">
+            <li>上电后每 2s 读一次 DHT11，一次读满 40 位数据并做校验和比对，校验失败自动整帧丢弃重读，最多重试 3 次</li>
+            <li>LCD1602 第一行显示湿度（%RH），第二行显示温度（℃），数值右对齐，位数变化时不跳位</li>
+            <li>两个按键分别设置温度上限（默认 30℃）与湿度上限（默认 70%RH），设置值写入 AT24C02，断电不丢</li>
+            <li>任一数值超过上限时蜂鸣器间隔 1s 报警，同时该数值在屏幕上闪烁显示</li>
+            <li>串口以 9600bps 每 5s 上报一行 T=25C H=60% 格式的数据，可用串口助手直接画曲线</li>
+            <li>传感器连续 3 次无响应时屏幕显示 Sensor Error，而不是显示 0，避免被误判成真实读数</li>
+          </ul>
+
+          <h3 class="mt-6 text-base font-semibold">硬件清单</h3>
+          <div class="mt-3 table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>元件</th><th>型号规格</th><th>数量</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>单片机</td><td>STC89C52RC 最小系统板</td><td>1</td><td>P0 口作数据总线时，10k 排阻上拉不能省</td></tr>
+                <tr><td>温湿度传感器</td><td>DHT11（三针或四针模块）</td><td>1</td><td>采样间隔不能小于 1s，上电后要等 1s 再读第一帧</td></tr>
+                <tr><td>液晶显示模块</td><td>LCD1602A（5V、带背光）</td><td>1</td><td>8 位并口接 P0，背光串 100Ω 限流电阻</td></tr>
+                <tr><td>上拉电阻</td><td>4.7kΩ 或 10kΩ 1/4W</td><td>1</td><td>接在 DHT11 的 DATA 与 VCC 之间，长线必须加</td></tr>
+                <tr><td>对比度电位器</td><td>10kΩ 多圈电位器</td><td>1</td><td>接 LCD1602 第 3 脚 VO，调不出字基本都是它</td></tr>
+                <tr><td>晶振与电容</td><td>11.0592MHz + 30pF 瓷片电容</td><td>1 套</td><td>用 11.0592MHz 串口波特率才准</td></tr>
+                <tr><td>存储芯片</td><td>AT24C02（I2C，2Kbit）</td><td>1</td><td>保存报警上下限，SDA/SCL 也要 4.7k 上拉</td></tr>
+                <tr><td>按键与蜂鸣器</td><td>6×6 轻触按键 / 5V 有源蜂鸣器</td><td>2 + 1</td><td>有源蜂鸣器给高电平就响，无源的还要输出方波</td></tr>
+                <tr><td>电源</td><td>5V 2A 适配器 或 USB 供电</td><td>1</td><td>DHT11 + LCD 背光同时工作约 40mA，USB 口够用</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-6 text-base font-semibold">核心代码片段</h3>
+          <div class="code-block" data-lang="c" data-title="dht11.c —— 单总线读 40 位数据与校验">
+            <pre><code>#include &lt;reg52.h&gt;
+#include &lt;intrins.h&gt;              /* _nop_() 空指令，用来凑出微秒级延时 */
+
+sbit DHT = P2^0;                  /* DATA 脚必须外接 4.7k~10k 上拉电阻 */
+
+/* DHT11 走单总线，全靠时序吃饭：这里用空指令凑出约 30us */
+void delay_30us(void)
+{
+    unsigned char i = 6;
+    while (i--) { _nop_(); _nop_(); _nop_(); _nop_(); }
+}
+
+/* 读 1 个字节：高电平持续 26~28us 表示 0，70us 表示 1 */
+unsigned char dht_read_byte(void)
+{
+    unsigned char i, dat = 0;
+    for (i = 0; i &lt; 8; i++) {
+        while (DHT == 0);              /* 等这一位的 50us 低电平结束 */
+        delay_30us();                  /* 延到数据位中间再采样，最稳 */
+        dat &lt;&lt;= 1;
+        if (DHT == 1) dat |= 0x01;     /* 仍是高电平，说明这一位是 1 */
+        while (DHT == 1);              /* 等这一位走完，准备读下一位 */
+    }
+    return dat;
+}
+
+/* 完整读一帧 40 位：返回 0 成功，1 无响应，2 校验和错 */
+unsigned char dht11_read(void)
+{
+    unsigned char buf[5], i;
+    DHT = 0;  delay_ms(20);        /* 主机拉低至少 18ms 作为起始信号 */
+    DHT = 1;  delay_30us();        /* 拉高 20~40us 后释放总线，等从机应答 */
+    if (DHT != 0) return 1;        /* 从机没拉低：先查接线与上拉电阻 */
+    while (DHT == 0);              /* 从机 80us 低电平应答 */
+    while (DHT == 1);              /* 从机 80us 高电平，准备输出数据 */
+    for (i = 0; i &lt; 5; i++) buf[i] = dht_read_byte();
+    if ((unsigned char)(buf[0] + buf[1] + buf[2] + buf[3]) != buf[4])
+        return 2;                  /* 前 4 字节之和应等于第 5 字节 */
+    humi = buf[0];  temp = buf[2]; /* buf[1]/buf[3] 是小数位，DHT11 恒为 0 */
+    return 0;
+}
+
+/* 显示到 LCD1602：第一行湿度，第二行温度 */
+void show_data(void)
+{
+    LCD_ShowString(0, 0, "Humidity: ");
+    LCD_ShowNum(10, 0, humi, 2);   /* 整数两位，前导 0 由库函数补齐 */
+    LCD_ShowString(0, 1, "Temp:     ");
+    LCD_ShowNum(6, 1, temp, 2);
+}
+</code></pre>
+          </div>
+          <p class="hint">说明：<code class="icode">delay_ms()</code> 与 <code class="icode">LCD_ShowString()</code> / <code class="icode">LCD_ShowNum()</code> 属于通用驱动，完整实现见 51 单片机教程的延时与 LCD1602 章节。DHT11 的时序对延时精度敏感，若你的晶振不是 12MHz，需要按比例重算 <code class="icode">delay_30us()</code> 里的循环次数。</p>
+
+          <h3 class="mt-6 text-base font-semibold">可扩展方向</h3>
+          <div class="callout callout-tip">
+            <div class="callout-title">从"能显示"升级到"能写进报告"的三个思路</div>
+            <ul class="mt-2 space-y-2 text-[13px] leading-relaxed">
+              <li>加 DS1302 时钟芯片，配合已有的 AT24C02 做成"带时间戳的温湿度记录仪"，每 10 分钟存一条，串口可导出一天的数据做趋势分析。</li>
+              <li>把 DHT11 换成 DHT22（AM2302）：精度从 ±2℃ 提升到 ±0.5℃，小数位真正有效，报告里就能写一节"两种传感器实测对比"。</li>
+              <li>加 ESP-01S 模块走 AT 指令，把数据上传到巴法云或 OneNet，手机随时查看历史曲线，题目直接从课设升级成"物联网环境监测"。</li>
+            </ul>
+          </div>
+
+          <h3 class="mt-6 text-base font-semibold">常见问题</h3>
+          <div class="callout callout-warn">
+            <div class="callout-title">LCD1602 背光亮着，但一个字都不显示（或只有一排黑方块）</div>
+            <p class="mt-2 text-[13px] leading-relaxed">九成是对比度没调：找到第 3 脚 VO，把它接的 10k 电位器慢慢拧，拧到字出现为止，别一上来就怀疑程序。其次检查 RW 脚有没有接地（只写模式最省事），以及初始化里的 0x38（8 位两行）、0x0C（开显示关光标）、0x06（写一个字符地址加一）这三条指令有没有写全——写指令之间必须留够延时，太快会初始化失败。</p>
+          </div>
+          <div class="callout callout-warn">
+            <div class="callout-title">DHT11 一直校验错，或者读出来是 85 / 0 这种异常值</div>
+            <p class="mt-2 text-[13px] leading-relaxed">85℃ 是 DHT11 上电后的默认值，读到它说明你读得太早或根本没读通：上电后至少等 1s 再读第一帧，两次读取间隔也不能小于 1s，否则传感器内部还没完成转换。其次 DATA 脚没有 4.7k~10k 上拉电阻时，导线稍长高电平就拉不起来，直接表现就是一直返回 1（无响应）。如果买的是一体化模块，先确认它是三针还是四针——四针模块多出来的那个脚要悬空，别接到 VCC 上。</p>
+          </div>
+        </article>
+
+        <hr class="hr-soft">
+
+        <!-- ---------------------------------------------------------- 案例 3 -->
+        <article id="case-voltmeter" class="card card-pad scroll-mt-24">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 18a8 8 0 1 1 16 0"/><path d="m12 14 4-4"/><circle cx="12" cy="14" r="1.5"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+            <h2 class="text-lg font-semibold sm:text-xl">案例 3：STM32 OLED 数字电压表</h2>
+            <span class="badge-plain">实训周 / 毕业设计</span>
+          </div>
+          <p class="mt-3 text-[13px] leading-relaxed text-muted">定位：从 51 迈向 STM32 的过渡题。核心是 ADC 采集 + 数据滤波 + OLED 显示这条完整数据链，硬件最少（一块核心板 + 一块屏），调试重点全在软件上，很适合两周实训周。</p>
+
+          <h3 class="mt-6 text-base font-semibold">功能说明</h3>
+          <ul class="mt-3 space-y-2 text-[13px] leading-relaxed text-muted">
+            <li>PA0 单通道采集 0~3.3V 直流电压，12 位分辨率，理论最小分辨 0.8mV</li>
+            <li>每次显示前连续采样 16 次取平均，抑制电源纹波造成的末位跳动</li>
+            <li>OLED 第二行显示 U=x.xxxV，用整数运算拆出整数位与三位小数，不依赖浮点 printf</li>
+            <li>第一行显示标题，第四行显示原始 ADC 值，方便对比换算结果是否正确</li>
+            <li>每 200ms 刷新一次，兼顾读数稳定与响应速度，画面不闪</li>
+            <li>外接分压电路可把量程扩展到 0~10V，只需改一个宏即可切换量程与显示说明</li>
+          </ul>
+
+          <h3 class="mt-6 text-base font-semibold">硬件清单</h3>
+          <div class="mt-3 table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>元件</th><th>型号规格</th><th>数量</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>STM32 核心板</td><td>STM32F103C8T6 最小系统板</td><td>1</td><td>板载 8MHz 晶振，CubeMX 里倍频到 72MHz</td></tr>
+                <tr><td>下载调试器</td><td>ST-Link V2</td><td>1</td><td>只支持 SWD，接 SWDIO / SWCLK / GND / 3.3V 四根线即可</td></tr>
+                <tr><td>OLED 显示屏</td><td>SSD1306 0.96 寸 I2C 模块</td><td>1</td><td>默认从机地址 0x78，接 PB6(SCL) / PB7(SDA)</td></tr>
+                <tr><td>分压电阻</td><td>10kΩ + 20kΩ 金属膜 1%</td><td>1 套</td><td>20k 在上、10k 在下，把 0~10V 压到 0~3.3V</td></tr>
+                <tr><td>滤波电容</td><td>0.1uF 瓷片 + 10uF 电解</td><td>1 套</td><td>并联在分压输出端到 GND，抑制纹波</td></tr>
+                <tr><td>稳压芯片</td><td>AMS1117-3.3</td><td>1</td><td>给 OLED 和 ADC 参考供电，输入端并 10uF</td></tr>
+                <tr><td>被测信号源</td><td>9V 碱性电池 或 可调直流电源</td><td>1</td><td>注意与单片机共地，否则读数没有意义</td></tr>
+                <tr><td>洞洞板</td><td>7×9cm 双面镀锡洞洞板</td><td>1</td><td>分压电路焊死比面包板稳定得多</td></tr>
+                <tr><td>杜邦线</td><td>20cm 公对母</td><td>1 排</td><td>I2C 两根线尽量不超过 30cm，长了要降速</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-6 text-base font-semibold">核心代码片段</h3>
+          <div class="code-block" data-lang="c" data-title="adc_voltmeter.c —— ADC 采样、换算与 OLED 显示">
+            <pre><code>#include "stm32f1xx_hal.h"
+#include "oled.h"
+
+extern ADC_HandleTypeDef hadc1;   /* CubeMX 生成的 ADC1 句柄，通道 IN0 = PA0 */
+/* 测 0~3.3V 可以直连；超过 3.3V 必须先分压，绝不能直接接 ADC 引脚 */
+
+#define SAMPLE_TIMES 16           /* 采样次数，取平均是最基础的软件滤波 */
+
+/* 读一次 ADC 并换算成电压：VREF = 3.3V，12 位分辨率对应 0~4095 */
+float adc_get_voltage(void)
+{
+    uint32_t sum = 0;
+    for (uint8_t i = 0; i &lt; SAMPLE_TIMES; i++) {
+        HAL_ADC_Start(&amp;hadc1);                       /* 启动一次规则转换 */
+        if (HAL_ADC_PollForConversion(&amp;hadc1, 10) == HAL_OK) {
+            sum += HAL_ADC_GetValue(&amp;hadc1);         /* 累加，最后统一除 */
+        }
+        HAL_ADC_Stop(&amp;hadc1);
+    }
+    return (float)(sum / SAMPLE_TIMES) * 3.3f / 4095.0f;
+}
+
+int main(void)
+{
+    HAL_Init();
+    SystemClock_Config();        /* 72MHz；ADC 时钟不得超过 14MHz，分频要算对 */
+    MX_GPIO_Init();
+    MX_ADC1_Init();
+    OLED_Init();
+    OLED_Clear();
+
+    while (1) {
+        float v = adc_get_voltage();
+        uint16_t mv = (uint16_t)(v * 1000.0f + 0.5f);   /* 转毫伏并四舍五入 */
+
+        OLED_ShowString(0, 0, "Voltage Meter", 12);
+        OLED_ShowString(0, 2, "U=", 16);
+        OLED_ShowNum(24, 2, mv / 1000, 1, 16);          /* 整数位，1 位 */
+        OLED_ShowString(36, 2, ".", 16);
+        OLED_ShowNum(44, 2, mv % 1000, 3, 16);          /* 三位小数，前导 0 补齐 */
+        OLED_ShowString(80, 2, "V", 16);
+        OLED_ShowString(0, 4, "raw:", 12);
+        OLED_ShowNum(36, 4, (uint16_t)(v * 4095.0f / 3.3f), 4, 12);   /* 反算 ADC 原始值 */
+
+        HAL_Delay(200);                                 /* 200ms 刷一次，避免闪屏 */
+    }
+}
+</code></pre>
+          </div>
+          <p class="hint">说明：<code class="icode">OLED_ShowString()</code> / <code class="icode">OLED_ShowNum()</code> 是常见的 SSD1306 驱动接口（如江科大 0.96 寸 OLED 库），参数依次为 x、y 页、内容、字号。把电压拆成整数位和小数位显示，是为了避开 STM32 上浮点 printf 的庞大开销与精度陷阱。</p>
+
+          <h3 class="mt-6 text-base font-semibold">可扩展方向</h3>
+          <div class="callout callout-tip">
+            <div class="callout-title">这个题目的上限其实很高</div>
+            <ul class="mt-2 space-y-2 text-[13px] leading-relaxed">
+              <li>做量程自动切换：用两个 GPIO 驱动模拟开关或继电器切换分压比，0~3.3V 与 0~30V 自动换挡，报告里就能写"自动量程电压表"。</li>
+              <li>换用 ADS1115 外置 16 位 ADC（I2C 接口，内置 PGA），分辨率提升到 0.1mV 级别，可以测热电偶、称重传感器这类小信号。</li>
+              <li>把平均滤波升级成中位值平均滤波（去掉一个最大值和一个最小值再平均）或一阶低通滤波，抗脉冲干扰能力更强，附上三种滤波的对比数据。</li>
+            </ul>
+          </div>
+
+          <h3 class="mt-6 text-base font-semibold">常见问题</h3>
+          <div class="callout callout-warn">
+            <div class="callout-title">读数一直跳，末位差几十个字</div>
+            <p class="mt-2 text-[13px] leading-relaxed">STM32 的 ADC 参考电压就是 VDDA，如果整块板子直接吃 USB 的 5V 再经 LDO 转 3.3V，LDO 的输出纹波会原封不动地反映到读数上。处理办法：在分压输出端并 0.1uF 瓷片 + 10uF 电解电容，被测信号与单片机必须共地，测量线尽量短，并且绝对不要和电机、继电器、LED 灯带共用一路电源。软件上把采样次数从 16 提到 64 也能立竿见影。</p>
+          </div>
+          <div class="callout callout-warn">
+            <div class="callout-title">电压一超过 3.3V 读数就顶死在 4095（甚至烧引脚）</div>
+            <p class="mt-2 text-[13px] leading-relaxed">ADC 输入绝对不能超过 VDDA + 0.3V，超了轻则读数饱和、重则永久损坏引脚。测 9V 电池、12V 电源时必须先分压，比如 20k 上 + 10k 下，正好把 0~10V 压到 0~3.3V，程序中再乘以 3 还原。注意分压电阻本身就是负载，会拉低高内阻信号源（比如某些传感器输出），这种场合要先加一级电压跟随器再送进 ADC。</p>
+          </div>
+        </article>
+
+        <hr class="hr-soft">
+
+        <!-- ---------------------------------------------------------- 案例 4 -->
+        <article id="case-remote" class="card card-pad scroll-mt-24">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10.5 18.5h3"/><path d="M12 6v5M9.5 8.5 12 11l2.5-2.5"/>
+              </svg>
+            </span>
+            <span class="badge-hard">综合</span>
+            <h2 class="text-lg font-semibold sm:text-xl">案例 4：ESP32 手机 WiFi 远程控制 LED</h2>
+            <span class="badge-plain">毕业设计 / 创新实训</span>
+          </div>
+          <p class="mt-3 text-[13px] leading-relaxed text-muted">定位：物联网方向的入门综合题。把"硬件 + 网络 + 前端"三块串成一条完整链路，代码量不大但涉及面广，最适合做毕业设计的第一版原型，再往上加功能就是完整的智能家居。</p>
+
+          <h3 class="mt-6 text-base font-semibold">功能说明</h3>
+          <ul class="mt-3 space-y-2 text-[13px] leading-relaxed text-muted">
+            <li>上电自动以 STA 模式连接 2.4GHz 路由器，串口打印分配到的 IP 地址</li>
+            <li>内置 WebServer 返回一个含"开灯 / 关灯"两个按钮的网页，不需要额外部署任何服务器</li>
+            <li>路由 /led?state=on 与 /led?state=off 分别把 GPIO2 置高、置低，实测响应在 100ms 以内</li>
+            <li>手机、平板、电脑连同一个路由器，浏览器输入 IP 即可控制，无需安装 APP</li>
+            <li>参数缺失返回 400、未知路径返回 404，调试时能一眼区分是网络问题还是代码问题</li>
+            <li>串口以 115200bps 输出连接过程与访问地址，连不上时能看出卡在哪一步</li>
+          </ul>
+
+          <h3 class="mt-6 text-base font-semibold">硬件清单</h3>
+          <div class="mt-3 table-scroll">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>元件</th><th>型号规格</th><th>数量</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>主控模块</td><td>ESP32-WROOM-32 开发板</td><td>1</td><td>买带 USB 转串口芯片（CH340/CP2102）的版本，省一个下载器</td></tr>
+                <tr><td>LED</td><td>5mm 红色 LED 或 LED 模块</td><td>1</td><td>板载 LED 接在 GPIO2，多数开发板高电平点亮</td></tr>
+                <tr><td>限流电阻</td><td>220Ω 1/4W</td><td>1</td><td>外接 LED 必须串，单个 GPIO 最大只能输出 40mA</td></tr>
+                <tr><td>稳压芯片</td><td>AMS1117-3.3（板载）</td><td>1</td><td>ESP32 峰值电流约 500mA，USB 口和线材要跟得上</td></tr>
+                <tr><td>电解电容</td><td>470uF / 10V</td><td>1</td><td>并在 3.3V 与 GND 之间，缓解 WiFi 发射瞬间掉电复位</td></tr>
+                <tr><td>继电器模块</td><td>5V 光耦隔离单路（可选）</td><td>1</td><td>想控 220V 灯具必须用继电器或固态继电器，绝不能直连</td></tr>
+                <tr><td>USB 数据线</td><td>Micro-USB 数据线</td><td>1</td><td>只供电的充电线烧不进程序，这是最常见的"板子坏了"</td></tr>
+                <tr><td>路由器</td><td>2.4GHz 频段 WiFi</td><td>1</td><td>ESP32 不支持 5GHz，双频合一的路由器建议拆开两个 SSID</td></tr>
+                <tr><td>面包板与杜邦线</td><td>400 孔面包板 + 公对母杜邦线</td><td>1 套</td><td>接线松动是最常见的"莫名掉线"原因，插紧再排查代码</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-6 text-base font-semibold">核心代码片段</h3>
+          <div class="code-block" data-lang="c" data-title="wifi_led.ino —— STA 联网 + WebServer 控制 GPIO">
+            <pre><code>#include &lt;WiFi.h&gt;
+#include &lt;WebServer.h&gt;
+const char *SSID     = "你的路由器名称";
+const char *PASSWORD = "你的WiFi密码";
+
+#define LED_PIN 2                    /* ESP32 开发板板载 LED 就是 GPIO2 */
+
+WebServer server(80);                /* HTTP 服务监听 80 端口 */
+
+/* 首页 HTML 直接写在程序里，手机浏览器访问模块 IP 就能看到按钮 */
+const char INDEX_HTML[] PROGMEM = R"rawliteral(
+&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;meta charset="utf-8"&gt;&lt;title&gt;ESP32 LED&lt;/title&gt;&lt;/head&gt;&lt;body&gt;
+&lt;h2&gt;ESP32 远程控制&lt;/h2&gt;
+&lt;p&gt;&lt;a href="/led?state=on"&gt;&lt;button&gt;开灯&lt;/button&gt;&lt;/a&gt;
+&lt;a href="/led?state=off"&gt;&lt;button&gt;关灯&lt;/button&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;/body&gt;&lt;/html&gt;)rawliteral";
+
+void handleRoot(void) { server.send(200, "text/html; charset=utf-8", INDEX_HTML); }
+
+/* 路由：/led?state=on 点亮，/led?state=off 熄灭 */
+void handleLed(void) {
+    if (!server.hasArg("state")) { server.send(400, "text/plain", "missing state"); return; }
+    String s = server.arg("state");
+    if (s == "on")       { digitalWrite(LED_PIN, HIGH); server.send(200, "text/plain", "LED ON"); }
+    else if (s == "off") { digitalWrite(LED_PIN, LOW);  server.send(200, "text/plain", "LED OFF"); }
+    else                 { server.send(400, "text/plain", "bad state"); }
+}
+
+void setup(void) {
+    Serial.begin(115200);
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, LOW);
+    WiFi.mode(WIFI_STA);                     /* STA 模式：像手机一样连路由器 */
+    WiFi.begin(SSID, PASSWORD);
+    while (WiFi.status() != WL_CONNECTED) {  /* 连不上就死等，串口打点方便排查 */
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.print("访问地址: http://");
+    Serial.println(WiFi.localIP());          /* 手机浏览器直接输入这个 IP */
+    server.on("/", handleRoot);
+    server.on("/led", handleLed);
+    server.onNotFound([]() { server.send(404, "text/plain", "404 Not Found"); });
+    server.begin();
+}
+
+void loop(void) {
+    server.handleClient();                   /* 必须放在 loop 里，否则不响应请求 */
+}
+</code></pre>
+          </div>
+          <p class="hint">说明：这段代码在 Arduino IDE 里直接编译即可（开发板选 ESP32 Dev Module）。<code class="icode">WebServer.h</code> 是 ESP32 Arduino 核心自带的库，不需要额外安装；如果你用的是老的 ESP8266 例程，头文件名叫 <code class="icode">ESP8266WebServer.h</code>，不能混用。</p>
+
+          <h3 class="mt-6 text-base font-semibold">可扩展方向</h3>
+          <div class="callout callout-tip">
+            <div class="callout-title">从"能控制"做到"像个产品"</div>
+            <ul class="mt-2 space-y-2 text-[13px] leading-relaxed">
+              <li>把按钮页面改成无刷新版本：用 fetch 请求 /led?state=on，再加一个 /state 接口做状态回显，页面刷新后显示的仍是真实状态，报告里可以写"前后端分离"。</li>
+              <li>接入 MQTT（PubSubClient）连到巴法云或 Home Assistant，人在外面也能控制，还能顺带接入小爱同学、天猫精灵做语音控制。</li>
+              <li>加一个 5V 继电器模块控制 220V 台灯，再配上电流检测或 ESP32-CAM 看实时画面，题目就从"控制一个 LED"升级成"智能插座 / 远程监控终端"。</li>
+            </ul>
+          </div>
+
+          <h3 class="mt-6 text-base font-semibold">常见问题</h3>
+          <div class="callout callout-warn">
+            <div class="callout-title">串口一直打印点，怎么都连不上 WiFi</div>
+            <p class="mt-2 text-[13px] leading-relaxed">先确认频段：ESP32 只支持 2.4GHz，连的是 5G 热点或路由器开了双频合一都会失败，建议把 2.4G 的 SSID 单独拆出来。其次是供电——WiFi 发射瞬间电流能冲到 500mA，USB 线材太差或电脑 USB 口带不动时模块会不断重启（串口能看到 rst 原因打印），在 3.3V 与 GND 之间并一个 470uF 电解电容通常就能解决。最后检查 SSID/密码里有没有中文或特殊字符，字符串里的双引号要转义。</p>
+          </div>
+          <div class="callout callout-warn">
+            <div class="callout-title">网页能打开，但点按钮没反应，或者返回 404</div>
+            <p class="mt-2 text-[13px] leading-relaxed">先看路由注册是否写成 <code class="icode">server.on("/led", handleLed)</code>，路径必须和 HTML 里 href 的 <code class="icode">/led?state=on</code> 完全对得上，差一个字符就是 404。如果页面正常但 LED 不动，用串口打印一下 <code class="icode">server.arg("state")</code> 的实际取值，多半是参数名拼错。另外注意不同开发板板载 LED 的极性不一样，有的板子低电平才点亮，接外接 LED 时以实测为准。</p>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 答辩 / 报告加分项 ============================== -->
+    <section class="wrap pb-14 sm:pb-16">
+      <p class="sec-eyebrow">Report &amp; Defense</p>
+      <h2 class="sec-title">答辩 / 报告加分项</h2>
+      <p class="sec-desc">同样的工作量，写不写这几样东西，最后拿到的分数差得很远。</p>
+
+      <div class="callout callout-info mt-8">
+        <div class="callout-title">老师最想看到的四件事</div>
+        <ul class="mt-2 space-y-2 text-[13px] leading-relaxed">
+          <li><b>画出系统框图与流程图</b> —— 框图说清"输入 → 处理 → 输出"三段（传感器怎么接、主控做什么、执行器怎么动），流程图要覆盖主循环和中断两条线。评委不看代码也能一眼判断这个系统是不是你自己搭起来的。</li>
+          <li><b>记录实测数据并做误差分析</b> —— 别只写"测量准确"。列出 5~10 组"标准值 vs 实测值"，算出绝对误差和相对误差，再解释误差从哪来：ADC 参考电压漂移、传感器自身 ±2℃ 精度、分压电阻的 1% 公差，都是能写进报告的实打实内容。</li>
+          <li><b>写出你踩过的坑和解决办法</b> —— 比如"LCD 不显示，最后发现是对比度电位器没调"、"电机一转单片机就复位，最后发现是电源没分开"。这一节最能体现动手能力，也是答辩时老师最爱追问的地方，提前写好就不会被问住。</li>
+          <li><b>说明成本清单</b> —— 按元件列一张表：单价 × 数量 = 小计，最后给出整机成本。这一项在"工程实践性"评分里往往单独占分，也方便下一届同学照着买。</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 继续深入 ============================== -->
+    <section class="wrap pb-16 sm:pb-20">
+      <div class="card card-pad">
+        <h2 class="text-base font-semibold">把案例改成你自己的题目</h2>
+        <p class="mt-3 max-w-3xl text-[13px] leading-relaxed text-muted">四个案例只是骨架，真正拿高分的是你在上面改出来的东西。先把对应平台的基础教程过一遍——GPIO、定时器、中断、串口、ADC、I2C 这些外设搞懂了，改代码才不是碰运气。想自己写一篇实验报告或者教程，可以直接套用文章模板。</p>
+        <div class="mt-6 flex flex-wrap gap-2.5">
+          <a href="mcu51.html" class="btn-outline btn-sm">51 单片机教程</a>
+          <a href="stm32.html" class="btn-outline btn-sm">STM32 HAL 库教程</a>
+          <a href="esp32.html" class="btn-outline btn-sm">ESP32 物联网教程</a>
+          <a href="article-template.html" class="btn-outline btn-sm">文章模板</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

@@ -1,0 +1,2574 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STM32 存储、启动模式与 IAP - McuStudy</title>
+  <meta name="description" content="知识体系第 39 篇：给一块 64KB Flash / 20KB SRAM 的 STM32F103C8T6 做一套能远程升级、升坏了自己退回来的固件系统。先把物理约束算清楚（F103 中容量 1KB 一页 × 64 页、擦除以页为最小单位、写入以半字为最小单位、只能 1→0 所以必须先擦、擦写寿命约 1 万次、页擦除 20ms、半字编程 52.5µs），再算分区账（单 App 区 + 备份区 vs A/B 双 App 区，在 64KB 上 A/B 为什么不够用）；然后是 Bootloader 的完整设计：三种升级触发（按键/串口命令、参数区标志、看门狗连续复位计数）、升级状态机（等待握手 → 擦除 → 分包接收 → 逐包校验 → 整体校验 → 写完成标志 → 跳转）、分包协议（包头/序号/长度/数据/CRC16）与断点续传的取舍；重点是跳转 App 的完整代码逐行讲透（__disable_irq、SysTick->CTRL=0、关外设时钟、取 *(uint32_t*)APP_ADDR 与 *(uint32_t*)(APP_ADDR+4)、SCB->VTOR 重定位向量表、__set_MSP、函数指针跳转、为什么 HAL_Init() 必须重跑）；App 侧要改的链接脚本/Keil IROM1 与 VECT_TAB_OFFSET 两种做法；CRC32 与 CRC16 的校验范围、升级标志存备份寄存器还是 Flash 参数页、回滚的三种触发与把备份区拷回 App 区；读保护 RDP 三级与「解除 RDP 会整片擦除」这个致命副作用、WRP 写保护按 4 页一组的粒度、选项字节 FLASH_OBR/FLASH_WRPR/OPTCR 与「改选项字节要先解锁再擦再写再复位」、量产的加锁顺序为什么必须是先 WRP 后 RDP；掉电安全（先写标志还是先写数据）、参数页磨损与 Flash 寿命账，以及十一类故障的逐条定位表。">
+  <meta name="keywords" content="STM32,IAP,在线升级,Bootloader,固件升级,启动模式,BOOT0,BOOT1,启动别名,内部Flash,FLASH_CR,FLASH_SR,FLASH_KEYR,FLASH_OPTKEYR,FLASH_AR,半字编程,页擦除,PGERR,WRPRTERR,EOP,BSY,1KB页,64页,F103C8T6,扇区,F4扇区,16KB,64KB,128KB,分区,单App区,备份区,A/B双分区,双bank,位置无关代码,向量表,SCB,VTOR,重定位,VECT_TAB_OFFSET,链接脚本,分散加载,IROM1,链接地址,__set_MSP,MSP,栈顶,复位向量,函数指针跳转,__disable_irq,PRIMASK,SysTick,关中断,HardFault,HAL_Init,SystemInit,时钟继承,升级协议,包头,序号,长度,CRC16,CRC32,CCITT,查表法,漏检概率,分包,ACK,NAK,超时重传,断点续传,位图进度,升级状态机,升级标志,BKP_DR,备份寄存器,PWR_CR,DBP,参数页,EEPROM仿真,两页交替,掉电安全,先写标志,回滚,rollback,看门狗,IWDG,WWDG,RCC_CSR,IWDGRSTF,复位计数,读保护,RDP,Level0,Level1,Level2,0xA5,0xBB,0xCC,整片擦除,mass erase,写保护,WRP,选项字节,OPTWER,OPTER,OPTPG,OBR,WRPR,OPTCR,0x1FFFF800,量产,锁芯片,解锁,96位唯一ID,UID,启动模式,系统存储器,Bootloader ISP,固件体积,升级时间,波特率,115200,921600">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">STM32 存储、启动模式与 IAP</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          STM32 存储、启动模式与 IAP
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你做的第三块板子已经装到客户的机柜里了，跑了两个月，客户打电话说：「那个上限报警值能不能改成 105？」——按现在的流程，你得带上仿真器坐三个小时车过去，把机柜拆开，插上 SWD 排针，烧一次程序，再装回去。你心里清楚，这件事本来应该<b class="font-semibold text-ink">在办公室点一下鼠标就完成</b>：把新的 <code class="icode">.bin</code> 通过串口发下去，板子自己擦掉旧程序、写上新的、校验、重启，全程不用碰它。
+          这个东西叫 <b class="font-semibold text-ink">IAP（In-Application Programming，在应用编程）</b>，而实现它的那段「先跑起来、再决定要不要升级、升级完再把控制权交出去」的程序，叫 <b class="font-semibold text-ink">Bootloader</b>。
+        </p>
+
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+          这一篇就是把这套系统从头做出来。它比「往 Flash 里写几个数」难得多，难的地方不在擦和写（那两个动作，第 23 篇<a class="text-brand-600 dark:text-brand-300" href="ee-memory.html">《存储器：从触发器到 Flash》</a>已经把 <code class="icode">Unlock → Erase → Program → Lock</code> 的代码给过你了），而在于<b class="font-semibold text-ink">你要在一颗只有 64KB Flash、20KB SRAM 的芯片上，同时解决四件事</b>：分区怎么划才放得下两个版本、升级到一半掉电怎么办、新固件跑不起来怎么退回去、以及量产锁了读保护之后这套东西还剩多少能用。第 26 篇<a class="text-brand-600 dark:text-brand-300" href="core-memory-map.html">《存储器映射与地址空间》</a>已经解释过为什么 Flash 映射在 <code class="icode">0x08000000</code>、BOOT0/BOOT1 三种启动模式、以及 <code class="icode">.text/.rodata/.data/.bss</code> 怎么落地——那些<b class="font-semibold text-ink">这一篇只做引用，不重复</b>。我们要往下一层走：<b class="font-semibold text-ink">把这套在线升级系统真正写出来，并且算清楚它的每一笔账</b>。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="badge-brand">寄存器实操</span>
+          <span class="stat-pill">第 3 层 · STM32 深入</span>
+          <span class="stat-pill">STM32 深入 · 第 <b>39</b> 篇</span>
+          <span class="stat-pill">教材：刘火良 第 40、41 章</span>
+          <span class="stat-pill">平台：<b>STM32F103C8T6（64KB Flash / 20KB SRAM）</b></span>
+          <span class="stat-pill">阅读约 <b>70</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-phys">先看物理约束：这块 Flash 按什么粒度擦写</a>
+          <a class="toc-link is-sub" href="#sub-partition">分区规划：64 KB 怎么切</a>
+          <a class="toc-link is-sub" href="#sub-trigger">Bootloader 怎么决定「该不该升级」</a>
+          <a class="toc-link is-sub" href="#sub-protocol">升级协议与状态机</a>
+          <a class="toc-link is-sub" href="#sub-jump">跳转到 App：六步时序</a>
+          <a class="toc-link is-sub" href="#sub-app-side">App 侧要改的三件事</a>
+          <a class="toc-link is-sub" href="#sub-verify">校验、升级标志与回滚</a>
+          <a class="toc-link is-sub" href="#sub-rdp">读保护与写保护：量产锁芯片之后</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-mcu-reg">Flash 与选项字节寄存器速查</a>
+          <a class="toc-link is-sub" href="#sub-mcu-proto">协议实现：收包状态机与 CRC16</a>
+          <a class="toc-link is-sub" href="#sub-mcu-jump">跳转的完整代码（逐行）</a>
+          <a class="toc-link is-sub" href="#sub-mcu-app">App 侧：链接脚本、VTOR 与「谁启动了我」</a>
+          <a class="toc-link is-sub" href="#sub-mcu-rollback">回滚：备份区拷回与看门狗计数</a>
+          <a class="toc-link is-sub" href="#sub-mcu-ob">选项字节与读保护：怎么设、怎么解</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-phys">先看物理约束：这块 Flash 按什么粒度擦写</a>
+            <a class="toc-link is-sub" href="#sub-partition">分区规划：64 KB 怎么切</a>
+            <a class="toc-link is-sub" href="#sub-trigger">Bootloader 怎么决定「该不该升级」</a>
+            <a class="toc-link is-sub" href="#sub-protocol">升级协议与状态机</a>
+            <a class="toc-link is-sub" href="#sub-jump">跳转到 App：六步时序</a>
+            <a class="toc-link is-sub" href="#sub-app-side">App 侧要改的三件事</a>
+            <a class="toc-link is-sub" href="#sub-verify">校验、升级标志与回滚</a>
+            <a class="toc-link is-sub" href="#sub-rdp">读保护与写保护：量产锁芯片之后</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-mcu-reg">Flash 与选项字节寄存器速查</a>
+            <a class="toc-link is-sub" href="#sub-mcu-proto">协议实现：收包状态机与 CRC16</a>
+            <a class="toc-link is-sub" href="#sub-mcu-jump">跳转的完整代码（逐行）</a>
+            <a class="toc-link is-sub" href="#sub-mcu-app">App 侧：链接脚本、VTOR 与「谁启动了我」</a>
+            <a class="toc-link is-sub" href="#sub-mcu-rollback">回滚：备份区拷回与看门狗计数</a>
+            <a class="toc-link is-sub" href="#sub-mcu-ob">选项字节与读保护：怎么设、怎么解</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先说清楚这一篇的位置。第 23 篇讲的是存储器的<b>物理</b>：浮栅怎么存住电子、为什么 Flash 只能 1 变 0、擦除为什么要按块来。第 26 篇讲的是存储器的<b>地址</b>：Flash 为什么从 <code class="icode">0x08000000</code> 开始、BOOT0/BOOT1 怎么选启动源、编译产物怎么落到各个段里。这两篇合起来回答了「Flash 是什么、它在哪里」。</p>
+          <p class="mt-3">这一篇回答的是第三个问题：<b class="font-semibold text-ink">怎么让一块已经装在现场、碰不到的板子，自己把自己的程序换掉，而且换坏了还能自己退回来。</b>这不是「多学一个外设」，而是把前面学过的东西——Flash 擦写、向量表、栈指针、链接脚本、看门狗、启动模式、读保护——全部拧到一个系统里。下面四个现场，就是这个系统最常出问题的四个地方。</p>
+
+          <h3 class="mt-7 text-base font-semibold">现场一：代码在调试器下全对，一跳到 App 就 HardFault</h3>
+          <p class="mt-3">你把 Bootloader 写好了：串口收包、擦页、写半字，每一步都在调试器里验证过，Flash 里的数据和上位机发的一模一样。最后一步「跳转到 App」，你写了三行：</p>
+          <div class="code-block mt-3" data-lang="c" data-title="看起来完全合理、但几乎一定跑不起来的「最小跳转」">
+            <pre><code>typedef void (*pFunc)(void);
+pFunc jump = (pFunc)(*(volatile uint32_t *)(0x08002000 + 4));
+jump();</code></pre>
+          </div>
+          <p class="mt-3">结果是：有时进 HardFault，有时干脆不动，有时跑起来了但串口再也不出数据。<b class="font-semibold text-ink">原因不是「跳转」这个动作难，而是你只搬了「去哪儿」，忘了搬「用哪张地图」和「站在哪个栈上」</b>。CPU 是靠两个东西找到中断处理函数的：向量表的位置（<code class="icode">SCB-&gt;VTOR</code>）和主栈指针（MSP）。Bootloader 把这两个都设置成了自己用的值，跳过去的时候它们并不会自动恢复成「App 期望的值」。第 2 节和例程里会把这两行补上，并且解释为什么补的顺序不能颠倒。</p>
+
+          <h3 class="mt-7 text-base font-semibold">现场二：升级到一半，网线被拔了</h3>
+          <p class="mt-3">你在办公室远程给现场的设备升级，48KB 的固件传到第 31KB 的时候，客户的网络断了（或者机柜被人拔了电）。你的 Bootloader 是「边收边写」的：收到一包就擦一页、写一页。现在 App 区变成了<b class="font-semibold text-ink">前 31KB 是新固件、后 17KB 是旧固件</b>的一块「缝合怪」，既不是新版本也不是旧版本，校验必然不过，程序必然跑不起来。</p>
+          <p class="mt-3">设备从此变砖，只能派人上门。这个现场教给你的第一件事是：<b class="font-semibold text-ink">「升级」这个动作本身就带着一个必须被设计进去的风险——它不是原子的</b>。Flash 的擦除和写入都不可被打断（中断只延迟执行，不会中断硬件操作），但「一次升级」由成百上千个擦写动作组成，任何一个时刻断电，你都会得到一块半成品。要让它安全，只有两条路：要么<b>先写到一个不用的地方、校验通过再搬过去</b>，要么<b>在动 App 区之前，先把当前能跑的版本完整备份一份</b>。第 2 节的分区方案和「回滚」小节就是围绕这两条路展开的。</p>
+
+          <h3 class="mt-7 text-base font-semibold">现场三：升级完了，但重启一下又变回旧程序</h3>
+          <p class="mt-3">你写了一个「升级请求」标志，收到上位机的升级命令就把它置 1；Bootloader 启动时看到这个标志是 1，就进升级模式。调试时一切正常。可产品一上电，<b class="font-semibold text-ink">有时候会莫名其妙地进入升级模式（等了半分钟超时才启动程序），有时候升级完了重启又变回旧程序</b>。</p>
+          <p class="mt-3">这类「时好时坏」几乎全部来自同一类错误：<b class="font-semibold text-ink">你把一个需要跨复位、跨掉电活下来的信息，存到了一种活不下来的地方</b>。存在普通 RAM 变量里 → 掉电就没了（而且冷启动时 RAM 里的内容是随机的，可能正好是 1，这就是「莫名其妙进升级模式」的来源）；存在 Flash 参数页里但忘了写之前先擦 → 写进去的是旧值和新值的按位与；写在备份寄存器里但没开备份域的写保护 → 写不进去。第 2 节的「标志存哪里」给了一张四种存储位置的对比表，第 3 节会算清楚参数页的擦写寿命到底够不够用。</p>
+
+          <h3 class="mt-7 text-base font-semibold">现场四：产线上锁了芯片，回到实验室发现 IAP 全废了</h3>
+          <p class="mt-3">产品要量产了，你听说「STM32 可以设置读保护，防止别人把固件读出来抄」，于是在烧写工装里加了一步：启用读保护。出厂很顺利。三个月后你拿一台回来做新固件验证，现象让人崩溃：<b class="font-semibold text-ink">用 ST-Link 连不上（读保护挡住了调试口，这是预期的）；可是通过串口做 IAP 也失败了，擦除动作报错，新固件写不进 App 区</b>。</p>
+          <p class="mt-3">查到最后原因往往有两个，而且<b>都跟读保护本身没关系</b>：一是你在工装里顺手加了<b>写保护</b>（WRP），而写保护的粒度是<b>4 页一组</b>，正好把 App 区的页也圈进去了——被写保护的页，擦除和编程会被硬件拒绝，同时在状态寄存器里留下一个错误标志；二是你想改选项字节（比如临时解除保护做实验），但改选项字节要先擦除它，而<b class="font-semibold text-ink">在读保护生效的情况下擦除选项字节会触发整片擦除</b>——连 Bootloader 一起没了，芯片回到空片状态。第 2 节最后一小节把读保护三级、写保护的粒度、以及量产工具应该按什么顺序加锁讲清楚；这个顺序错一步，代价是整批板子。</p>
+
+          <div class="callout callout-info mt-6">
+            <div class="callout-title">这一篇要彻底回答四个问题</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>64KB Flash 怎么切？</b>——Bootloader、App、备份区、参数区各占多少，App 最大能到多少 KB，为什么在 64KB 上做 A/B 双分区很可能不够用。这一条要用真实的字节数算给你看，而不是给结论。</li>
+              <li><b>升级流程怎么写才不出错？</b>——三种升级触发方式、升级状态机、分包协议、断点续传要不要做、以及每一步「先做什么后做什么」的掉电安全顺序。</li>
+              <li><b>跳转那几行代码到底在干什么？</b>——这是全篇最硬的一段：关中断、关外设、取栈顶、取复位向量、重定位向量表、设 MSP、跳转，每一步都逐行讲透，并且解释跳过任一步会看到什么现象。</li>
+              <li><b>量产之后还剩多少能用？</b>——读保护三级各自挡住什么、「解除读保护 = 整片擦除」这个副作用怎么绕、写保护的粒度怎么和你的分区对齐、以及正确的加锁顺序。</li>
+            </ul>
+          </div>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">先给你一个心理准备</div>
+            <p>IAP 是那种<b>「写完能跑」和「敢给客户用」之间差着十倍工作量</b>的功能。把新固件写进 Flash 只需要几十行代码；但下面这些问题的答案，决定你的设备是「可维护的产品」还是「只能上门拆机的砖头」：<b>升级到一半掉电会怎样、新固件启动失败怎么退回去、看门狗在跳转前后归谁管、参数页能擦写多少次、量产的读保护会不会把升级通道一起锁死</b>。这一篇会把它们一条条讲完，并且给出可以直接抄走的结构和代码。</p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section class="mt-14">
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这套系统有八块拼图，顺序不能乱：<b class="font-semibold text-ink">先认清 Flash 的物理约束（能擦多大、能写多小、要等多久），再决定内存怎么切（分区规划），然后是 Bootloader 什么时候该出手（升级触发）、出手之后按什么规矩对话（协议与状态机）、最后怎么把控制权交出去（跳转）和怎么把烂摊子收拾回来（校验与回滚）</b>，收尾是量产阶段真正会咬人的那一口（读保护与写保护）。每一块都会给出可以直接用的结论，但更重要的是让你看清「为什么只能这样」——因为 IAP 里几乎所有坑，都是某一层的物理约束被忽略了。</p>
+
+          <!-- ============ 2.1 物理约束 ============ -->
+          <h3 id="sub-phys" class="mt-8 text-base font-semibold">2.1 先看物理约束：这块 Flash 按什么粒度擦写</h3>
+          <p class="mt-3">做 IAP 之前，第一个要背下来的不是代码，而是<b class="font-semibold text-ink">三个「最小单位」和两个「时间」</b>。它们决定了你的分区必须是 1KB 的整数倍、你的协议每次必须发偶数个字节、你的升级最短需要几秒钟、以及你在擦除期间能不能指望串口还理你。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">中容量 F103：1 KB 一页，整整齐齐 64 页</h4>
+          <p class="mt-3">STM32F103C8T6 属于 F1 系列的<b>中容量产品</b>，64KB Flash 被平均切成 <b>64 页、每页 1KB</b>，没有例外、没有大小页之分。这带来一个非常好用的换算关系：</p>
+          <div class="code-block mt-3" data-lang="text" data-title="页号与地址的互换（F103 中容量：页大小 1024 B）">
+            <pre><code>页号 = (地址 - 0x08000000) &gt;&gt; 10          /* 除以 1024，右移 10 位 */
+页基址 = 0x08000000 + (页号 &lt;&lt; 10)        /* 乘 1024，再左移回来 */
+
+例：地址 0x0800A3C8 在第几页？
+    0x0800A3C8 - 0x08000000 = 0x0000A3C8 = 41928
+    41928 &gt;&gt; 10 = 40  →  第 40 页
+    第 40 页的基址 = 0x08000000 + 40 × 1024 = 0x0800A000（40 × 1024 = 40960 = 0xA000）
+    所以 0x0800A3C8 在第 40 页内，偏移 0x3C8 = 968 字节</code></pre>
+          </div>
+          <p class="mt-3">对照第 23 篇<a class="text-brand-600 dark:text-brand-300" href="ee-memory.html">《存储器：从触发器到 Flash》</a>讲过的浮栅原理，这里的三个结论就顺理成章了（浮栅为什么只能单向、为什么擦除是「整块拉回 1」，那一篇讲得很细，这里只取结论）：</p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>擦除最小单位 = 1 页 = 1024 字节。</b>你不能「擦掉 3 个字节」，要改一个字节也得把整页 1024 字节擦回 <code class="icode">0xFF</code>。</li>
+            <li><b>编程最小单位 = 1 个半字 = 2 字节。</b>写入时地址必须半字对齐（最低位为 0），一次写 16 位。想写 1 个字节？要么把同一半字里的另一个字节一起写，要么补 <code class="icode">0xFF</code>。这个约束会一路传导到你的升级协议：<b class="font-semibold text-ink">每包数据长度最好是 2 的倍数，固件长度不足时用 0xFF 补齐</b>。</li>
+            <li><b>位只能从 1 变 0，不能从 0 变 1。</b>所以「改写」的唯一办法是「先擦」。如果目标页没有擦干净就写，硬件会拒绝这次编程并置起 <code class="icode">PGERR</code> 标志——你的代码必须检查这个标志，否则会得到「写完了但读出来还是旧数据」的诡异现象。</li>
+          </ul>
+
+          <div class="code-block mt-5" data-lang="text" data-title="ASCII 图 · F103 与 F4 的擦除粒度对比">
+            <pre><code>【STM32F103C8T6 · 中容量 · 64 KB】页大小完全相同，共 64 页
+
+0x08000000 ┌────┬────┬────┬────┬────┬────┬────┬────┐ ─ ─ ─ ┐
+           │ P0 │ P1 │ P2 │ P3 │ P4 │ P5 │ P6 │ P7 │  …    P63
+           │1KB │1KB │1KB │1KB │1KB │1KB │1KB │1KB │      1KB
+           └────┴────┴────┴────┴────┴────┴────┴────┘ ─ ─ ─ ┘
+0x0800FFFF ─────────────────────────────────────────────↑ 末地址
+           页号 = (地址 - 0x08000000) / 1024，一页一页数得清楚
+           擦除最小单位 = 1 页 = 1 KB      编程最小单位 = 半字 = 2 B
+
+【STM32F407 · 1 MB · 12 个扇区，天生大小不等】
+
+0x08000000 ┌────┬────┬────┬────┬─────────┬───────────┬───────────┐
+           │ S0 │ S1 │ S2 │ S3 │   S4    │    S5     │    S6     │ …
+           │16KB│16KB│16KB│16KB│  64KB   │  128KB    │  128KB    │
+           └────┴────┴────┴────┴─────────┴───────────┴───────────┘
+         0x08000000 0x08004000 0x08008000 0x0800C000 0x08010000  0x08020000  0x08040000
+
+           扇区号没法用一次除法算出来（4 个 16 KB + 1 个 64 KB + 7 个 128 KB）
+           擦除最小单位 = 1 个扇区：想改 1 KB 里的一个字节，也要擦掉 16 KB 甚至 128 KB
+
+【关键差别】
+ · F103：粒度细 → 擦 48 KB 只要动 48 页，20 ms × 48 = 0.96 s
+ · F4  ：粒度粗 → 固件哪怕只有 20 KB，只要它跨了 S5，就得擦掉整个 128 KB（约 1 s 量级）
+ · 所以在「小容量板子做 IAP」这件事上，F103 这种 1 KB 一页的结构反而更省时间、更好算账</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">两个时间：52.5 µs 和 20 ms</h4>
+          <p class="mt-3">下面这些数字是后面所有时间估算的基础。它们来自 F103 数据手册的 Flash 特性表（典型值），<b>按典型值估算</b>即可，但做产品时要记住：最坏情况（尤其低温、低压、写次数接近寿命上限）会明显变长，手册给的最大值通常是典型值的两倍左右。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="ASCII 图 · 一次半字编程 vs 一次页擦除（F103 典型值）">
+            <pre><code>【编程一个半字（2 字节）】
+
+  CR.PG = 1 ──→ 往目标地址写 16 位 ──→ 硬件把 BSY 置 1 ──→ 轮询等 BSY = 0
+                                                              │
+                                              EOP = 1 ←───────┘
+                                              CR.PG = 0（别忘了关）
+
+  │←─────────────── 52.5 µs（典型值；范围约 40 ~ 70 µs）───────────────→│
+
+  这 52.5 µs 内，Flash 阵列不可读：
+    · CPU 如果正在 Flash 里取指令 → 取指被挂起（总线 stall），等它做完
+    · 中断向量表也在 Flash 里 → 这期间来的中断实际得不到响应
+    · 但你轮询的 FLASH_SR 是外设寄存器，不属于 Flash 阵列，读得到
+
+【擦除一页（1 KB）】
+
+  CR.PER = 1 ──→ FLASH_AR = 页基址 ──→ CR.STRT = 1 ──→ 等 BSY = 0 ──→ EOP = 1
+
+  │←────────────────── 20 ms（典型值；最大 40 ms）──────────────────────→│
+
+  一次页擦除 ≈ 一次半字编程的 380 倍（20000 / 52.5）
+  ⇒ 擦除才是升级时间的主要成本，不是写
+
+【整片擦除（CR.MER = 1）】
+
+  │←── 20 ms 量级 ──→│   和擦一页几乎一样快！但会把 Bootloader 一起抹掉
+
+  ⇒ 这个「整片擦只要 20 ms」的特性只在一件事上有用：
+     出厂的工装可以飞快地清空芯片。在 IAP 里绝对不能用 —— 除非你要的就是自杀。</code></pre>
+          </div>
+
+          <table class="mt-5 w-full">
+            <caption class="mt-2 text-2xs text-faint">以下均为数据手册典型值，用于估算；实际产品请按最大值留余量</caption>
+            <thead>
+              <tr><th>项目</th><th>F103C8T6（中容量）</th><th>F407（1 MB）</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>擦除粒度</td><td>1 页 = 1 KB，共 64 页</td><td>扇区，16/16/16/16/64/128×7 KB</td></tr>
+              <tr><td>编程粒度</td><td>半字（16 位），必须 2 字节对齐</td><td>字节/半字/字/双字，由 CR.PSIZE 选</td></tr>
+              <tr><td>写一个单位耗时</td><td>半字约 52.5 µs</td><td>字（32 位）十几微秒量级</td></tr>
+              <tr><td>擦一个单位耗时</td><td>1 KB 页约 20 ms</td><td>16 KB 扇区约 0.25 s、128 KB 约 1 s 量级</td></tr>
+              <tr><td>整片擦除</td><td>约 20 ms（MER）</td><td>按全部扇区累加，十几秒量级</td></tr>
+              <tr><td>擦写寿命</td><td>约 1 万次 / 页，数据保持 20 年</td><td>约 1 万次 / 扇区</td></tr>
+              <tr><td>写保护粒度</td><td>4 页一组（WRP0~WRP3 共 16 位）</td><td>每个扇区 1 位（nWRP[11:0]）</td></tr>
+              <tr><td>读保护字段</td><td>选项字节 RDP：0xA5 / 其他 / 0xCC</td><td>FLASH_OPTCR：RDP[15:8]，0xAA / 其他 / 0xCC</td></tr>
+              <tr><td>选项字节地址</td><td>0x1FFFF800</td><td>0x1FFFC000（OPTCR 在 0x40023C14）</td></tr>
+              <tr><td>双 bank 切换</td><td>没有</td><td>F407 没有；F42x/F43x/F76x 等才有</td></tr>
+            </tbody>
+          </table>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">被忽略最多的一条：擦写期间 Flash 读不了</div>
+            <p>手册里那句「擦除/编程期间对 Flash 存储器的读访问会被挂起」，翻译成现象就是：<b>你执行 <code class="icode">FLASH_ErasePage()</code> 的那 20 ms 里，串口接收中断、定时器中断、DMA 中断都得不到及时响应</b>——因为 CPU 连中断向量都取不到。如果你的升级协议是「收一包 → 擦一页 → 回 ACK」，上位机就会看到 ACK 迟到 20 ms；如果上位机自己也有超时（很多上位机默认 100 ms），你会在擦除时莫名其妙地「丢包」。</p>
+            <p class="mt-2">三种解法，按推荐程度排序：<b>① 批量化</b>：先把一整段数据收进 SRAM 缓冲，再集中擦除和写入，让 ACK 只被延迟一次（本文采用这种）；<b>② DMA 收数据</b>：串口收到 DMA 的 SRAM 缓冲不经过 CPU，也不访问 Flash，但 CPU 侧的搬运代码仍会被 stall，只能缓解不解决；<b>③ 把擦写函数搬到 RAM 里执行</b>：F103C8T6 有 20KB SRAM，放得下几百字节的擦写例程，这是最彻底的做法，也是正经 IAP 工程常见的「RAM 函数」技巧。初学阶段用 ① 就够了，③ 留到你能稳定复现「擦除期间丢包」之后再上。</p>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">顺手记一个换算：Flash 地址 → 页号，在代码里应该封装成两个宏</div>
+            <p>IAP 代码里到处都是「某个地址属于第几页」，写错一个移位就是灾难。建议一上来就定义好 <code class="icode">PAGE_OF(addr)</code> 与 <code class="icode">PAGE_BASE(page)</code>，全文只用这两个宏，绝不手算地址。本文后面的所有代码都遵守这个约定。</p>
+          </div>
+
+          <!-- ============ 2.2 分区规划 ============ -->
+          <h3 id="sub-partition" class="mt-8 text-base font-semibold">2.2 分区规划：64 KB 怎么切</h3>
+          <p class="mt-3">第 26 篇<a class="text-brand-600 dark:text-brand-300" href="core-memory-map.html">《存储器映射与地址空间》</a>的例题已经把「App 从哪个地址开始」算过了（结论是必须 1KB 页对齐、地址必须 512 字节对齐因为 <code class="icode">VTOR</code> 低 9 位保留）。<b>但那只解决了「起点」，没解决「终点」</b>——真正的分区规划要同时回答四个问题：Bootloader 要多大？App 最多能有多大？要不要留备份区？参数放哪？这四个问题的答案互相挤压，加起来的和必须正好是 64KB（一个字节都不能多）。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">先给三个数：Bootloader 要多少空间</h4>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>寄存器版 Bootloader ≈ 3 KB。</b>只用 CMSIS 头文件、自己写串口收发、自己写 Flash 擦写、一张 512 字节的 CRC16 查表——这类 Bootloader 编译出来通常在 2.5~3.5 KB。</li>
+            <li><b>HAL 版 Bootloader ≈ 7~9 KB。</b>一旦 <code class="icode">#include "stm32f1xx_hal.h"</code> 并且用了 <code class="icode">HAL_UART_Receive_IT</code>，HAL 的 UART 状态机、超时机制、回调框架会连着被链进来，6 KB 起步很常见。再加 <code class="icode">printf</code>（哪怕只用来打调试信息）又是 3~6 KB。</li>
+            <li><b>缓冲区另算。</b>升级协议至少需要一个接收缓冲，典型是 1 KB（配合 1 页 1KB 的擦除粒度非常顺）。这 1 KB 要放在 <b>SRAM</b> 里，不占 Flash。</li>
+          </ul>
+          <p class="mt-3">所以「用寄存器写还是用 HAL 写」不是风格问题，<b class="font-semibold text-ink">它直接决定了你能不能给 App 留下 4 KB 的余量</b>。下面的方案二会看到这个 4 KB 有多关键。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">三种典型布局，和它们的容量账</h4>
+          <p class="mt-3">所有方案都遵守同一条铁律：<b>每个区的起始地址和大小都必须是 1KB 的整数倍</b>（页对齐），并且各段之和 = 64KB。下面是三种在 64KB 上真实可用的布局：</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="ASCII 图 · 64 KB 的三种分区方案（每个方块 = 1 KB = 1 页）">
+            <pre><code>方案一：最小可用（能升级，但升坏了回不来）
+
+0x08000000 ┌────────────────┬──────────────────────────────────┬──────┐
+           │  Bootloader    │            App                   │ 参数 │
+           │     8 KB       │           54 KB                  │ 2 KB │
+           │   页 0 ~ 7     │         页 8 ~ 61                 │62~63 │
+           └────────────────┴──────────────────────────────────┴──────┘
+          0x08000000       0x08002000                       0x0800F800  0x08010000
+          App 上限 55296 B（54 KB）    没有备份区 ⇒ 升级失败只能重传，无法回滚
+
+方案二：App + 等大备份（推荐；能升级、能回滚、能扛掉电）
+
+0x08000000 ┌────────┬──────────────────┬──────────────────┬────────┐
+           │  BL    │       App        │     备份区        │  参数  │
+           │  4 KB  │      28 KB       │      28 KB       │  4 KB  │
+           │ 页0~3  │    页 4 ~ 31     │    页 32 ~ 59    │ 页60~63│
+           └────────┴──────────────────┴──────────────────┴────────┘
+          0x08000000  0x08001000        0x08008000       0x0800F000  0x08010000
+          4 + 28 + 28 + 4 = 64 KB 正好用完
+          App 上限 28672 B（28 KB）   备份区 = 旧版本存档 ⇒ 三秒内退回上一版
+
+          （如果 Bootloader 一定要用 HAL 写成 8 KB，同一结构变成
+            8 + 26 + 26 + 4 = 64 KB，App 上限降到 26624 B，见下面的对比表）
+
+方案三：A/B 双槽（不需要拷贝，但每槽只剩 26 KB）
+
+0x08000000 ┌────────┬──────────────────┬──────────────────┬────────┐
+           │  BL    │    槽 A（26 KB） │   槽 B（26 KB）   │  参数  │
+           │  8 KB  │   0x08002000     │   0x08008800     │  4 KB  │
+           │ 页0~7  │    页 8 ~ 33     │    页 34 ~ 59    │ 页60~63│
+           └────────┴──────────────────┴──────────────────┴────────┘
+          8 + 26 + 26 + 4 = 64 KB
+          App 上限 26624 B（26 KB）   回滚 = 改一个「当前槽」标志，毫秒级
+          代价：App 必须能在两个不同基址上运行（编译两份镜像，或写位置无关代码）</code></pre>
+          </div>
+
+          <div class="table-scroll mt-5">
+            <table class="table-mcu w-full">
+              <thead>
+                <tr><th>对比项</th><th>方案一：单 App 区</th><th>方案二：App + 备份</th><th>方案三：A/B 双槽</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Bootloader</td><td>8 KB</td><td>4 KB（或 8 KB）</td><td>8 KB</td></tr>
+                <tr><td>App 最大可用</td><td><b>55296 B（54 KB）</b></td><td><b>28672 B（28 KB）</b>；HAL 版 BL 时 26624 B</td><td><b>26624 B（26 KB）</b></td></tr>
+                <tr><td>参数区</td><td>2 KB</td><td>4 KB</td><td>4 KB</td></tr>
+                <tr><td>升级失败能回滚吗</td><td>不能（只能重传新固件）</td><td>能，退回到备份区的旧版本</td><td>能，切回旧槽</td></tr>
+                <tr><td>升级到一半掉电</td><td>App 区被破坏，设备变砖</td><td>安全：先备份再动 App 区</td><td>安全：动的永远是另一个槽</td></tr>
+                <tr><td>回滚耗时</td><td>——</td><td>拷 28 KB：擦 28 页 0.56 s + 写 14336 半字 0.75 s ≈ 1.3 s</td><td>改标志：毫秒级</td></tr>
+                <tr><td>每次升级的额外成本</td><td>无</td><td>先把旧版本备份一次（约 1.3 s + 28 页擦除寿命）</td><td>无额外拷贝，但每槽各承担一半擦写次数</td></tr>
+                <tr><td>App 需要位置无关吗</td><td>不需要</td><td>不需要</td><td><b>需要</b>（或编两份镜像，各自链接到 A/B 基址）</td></tr>
+                <tr><td>适合什么项目</td><td>现场能派人、升级通道稳定</td><td>远程升级、无人值守的设备</td><td>要求「升级零风险」且固件足够小</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">为什么 A/B 双分区在 64 KB 上很可能不够用（算给你看）</h4>
+          <p class="mt-3">A/B 双槽是教科书上最漂亮的方案：升级时只写「非当前槽」，写完改一个标志就切换，回滚是毫秒级的，掉电也不会破坏正在运行的那一份。它是 OTA 的黄金标准。<b>但它的前提是「你有两块一样大的地方放两份固件」</b>，而在 64KB 上这个前提很可能是假的。</p>
+          <p class="mt-3">先用一个真实数字当锚点：第 26 篇的例题里，一个「点灯 + 串口打印」的 HAL 工程实测占用 <b>11692 字节（约 11.4 KB）</b>。现在让它长成一个真实的产品固件：</p>
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead><tr><th>模块</th><th>典型增量</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>HAL 内核 + 启动代码 + 中断向量</td><td>6 ~ 8 KB</td><td>只要用了 HAL，这部分躲不掉</td></tr>
+                <tr><td>printf / sprintf（含格式化）</td><td>4 ~ 6 KB</td><td>调试期舍不得关，量产也常常留着做日志</td></tr>
+                <tr><td>ADC + DMA + 滤波算法</td><td>2 ~ 3 KB</td><td>采样、均值、标定表</td></tr>
+                <tr><td>OLED/LCD 显示 + 字库</td><td>2 ~ 4 KB</td><td>只取用到的汉字，16×16 点阵一个字 32 字节</td></tr>
+                <tr><td>串口协议 + CRC 表 + 参数管理</td><td>2 ~ 4 KB</td><td>Modbus 之类会更多</td></tr>
+                <tr><td>业务逻辑（控制、报警、状态机）</td><td>3 ~ 6 KB</td><td>真正属于「你的程序」的部分反而最小</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-3">把上面加起来：<b>11.4（起底） + 6 + 5 + 3 + 3 + 3 + 4 ≈ 35 KB</b>。就算你狠心关掉 printf、把字号库砍到最小、开 <code class="icode">-Os</code>/<code class="icode">--opt_level=2</code>，一个「有屏幕、有采样、有协议、有报警逻辑」的固件落到 <b>28~32 KB</b> 是很正常的量级。现在看三方案给的额度：</p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>方案一（54 KB）：</b>舒服，随便写。但没有任何回滚能力。</li>
+            <li><b>方案二（28 KB）：</b>刚好卡在线上。固件 30 KB 就链接失败（Keil 报 <code class="icode">L6406E: No space in execution regions</code>，GCC 报 <code class="icode">region 'FLASH' overflowed by 2048 bytes</code>）——注意这是<b>硬失败</b>，链接器直接拒绝产出，不会「勉强跑一跑」。</li>
+            <li><b>方案三（26 KB）：</b>比方案二又少 2 KB，而且还要额外付出「位置无关代码」的复杂度。对一个 35 KB 的固件来说，<b>26 KB 的槽根本放不下</b>。</li>
+          </ul>
+          <p class="mt-3">所以结论不是「A/B 不好」，而是：<b class="font-semibold text-ink">A/B 双槽在 64KB 上的可用前提是「你的固件 ≤ 26 KB」，而这个前提对一个带 HAL、带屏幕、带协议的真实项目来说，通常在 3 个月的需求迭代后就不成立了。</b>而分区表一旦量产就改不动了——改分区意味着所有现场设备的链接地址、参数区格式全变，等于要求全部返厂。这就是为什么<b>分区必须在写第一行代码之前就按「一年后最大的固件」来划</b>。</p>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">64 KB 不够用时的四条出路（按性价比排序）</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>① 换更大的同系列芯片。</b>F103RCT6 是 256KB Flash / 48KB SRAM，引脚更多但代码几乎不用改，分区立刻宽裕（BL 8 KB + App 120 KB + 备份 120 KB + 参数 8 KB）。这是最省事的一条路，硬件成本只差几块钱。</li>
+              <li><b>② 外挂一颗 SPI Flash 做「外部暂存区」。</b>W25Q64 有 8 MB，几十块钱一千片。流程变成「新固件先写外部 Flash → 校验通过 → 擦内部 App 区 → 从外部拷进去」，内部只需要 App + 参数两个区，App 又能回到 54 KB，而且回滚就是把外部存档再写一遍。<b>这是很多量产产品的真实做法</b>，代价是多一颗芯片和一套 SPI 驱动。</li>
+              <li><b>③ 老老实实做瘦身。</b>去掉 HAL 换寄存器库（省 4~6 KB）、关 printf 或改成精简的 <code class="icode">printf</code> 重定向（省 3~5 KB）、字库按需裁剪、编译开尺寸优化。瘦到 26 KB 以内，方案三就能用。</li>
+              <li><b>④ 接受方案二。</b>28 KB 额度 + 备份区回滚，把「固件别超过 28 KB」当成一条硬性工程约束写进项目文档，每次发版前检查 map 文件的 Flash 占用。这是最现实的折中，本文后续代码都按这个布局写。</li>
+            </ul>
+          </div>
+
+          <!-- ============ 2.3 三种触发 ============ -->
+          <h3 id="sub-trigger" class="mt-8 text-base font-semibold">2.3 Bootloader 怎么决定「该不该升级」</h3>
+          <p class="mt-3">Bootloader 每次上电都会先运行，它必须在几百毫秒内回答一个问题：<b class="font-semibold text-ink">现在应该等升级，还是立刻把控制权交给 App？</b>这个判断错了会很难受：判断得太保守，设备每次上电都要傻等半分钟；判断得太激进，现场想升级的时候你进不去升级模式（只能上门拆机）。下面是三种真实可用的触发方式，它们可以叠加使用。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">触发方式一：上电时按住按键 / 上位机发命令（人来决定）</h4>
+          <p class="mt-3">最简单、最可靠、最不容易出错的方案：Bootloader 启动后检查某个 GPIO（比如接在 PA0 的按键，按下为低电平），<b>如果检测到按下，就进入升级模式并等待上位机握手；否则短暂等待后直接跳转 App</b>。现场工程师只要「按住按键再上电」就能强制进入升级，这是很多工业设备的实际做法（也是「恢复出厂」的标准手势）。</p>
+          <p class="mt-3">它还有一个变体：<b>App 运行中收到命令后主动请求重启进 Bootloader</b>。比如 App 的串口协议里定义一条 <code class="icode">@IAP</code> 命令，收到后回一个 ACK，把「升级请求」写进备份寄存器，然后 <code class="icode">NVIC_SystemReset()</code> 复位。复位后 Bootloader 看到这个标志，进入升级模式。这条路径才是「远程升级」真正会用到的入口——因为现场没有人按按键。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">触发方式二：参数区里的「升级请求」标志（系统自己记住）</h4>
+          <p class="mt-3">上面那条路径的关键是「复位之后 Bootloader 还能知道要升级」，所以这个标志必须<b>跨复位保留</b>。可选的存储位置有三类，各有各的脾气：</p>
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead><tr><th>存储位置</th><th>掉电后</th><th>复位后</th><th>写次数上限</th><th>适合存什么</th></tr></thead>
+              <tbody>
+                <tr><td>普通 RAM 变量</td><td>丢（内容随机）</td><td><b>丢</b>（除非放到 <code class="icode">.noinit</code> 段）</td><td>无限</td><td>只在本次运行内有意义的状态</td></tr>
+                <tr><td>备份寄存器 BKP_DR1~DR10（16 位 × 10）</td><td>丢（没有 VBAT 电池时）</td><td><b>保留</b></td><td>无限</td><td>升级请求魔数、看门狗复位计数、启动来源</td></tr>
+                <tr><td>Flash 参数页</td><td><b>保留</b></td><td><b>保留</b></td><td>约 1 万次 / 页</td><td>固件 CRC32、版本号、备份有效性、分区表</td></tr>
+                <tr><td>RTC 后备域 + 纽扣电池</td><td><b>保留</b></td><td><b>保留</b></td><td>无限</td><td>需要「拔电也不丢」的计数器、时间戳</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-3">选择的原则很简单：<b>「频率高的状态用备份寄存器，频率低且必须掉电保留的数据用 Flash 参数页」</b>。看门狗复位计数属于前者（可能一分钟内复位几十次，绝不能写 Flash），固件校验和与版本号属于后者（一次升级才写一次）。理由在第 3 节例题五里会用寿命账算清楚。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">触发方式三：看门狗连续复位计数（设备自己求救）</h4>
+          <p class="mt-3">前两种触发都需要「人」或者「上位机」介入。但如果新固件本身有 bug——启动到一半就卡死、被看门狗咬——那现场根本没有机会发命令，这块板子会永远在「启动 → 卡死 → 复位 → 启动」里循环。<b>所以 Bootloader 必须能识别出「我跳过去之后 App 没活下来」，并自动退回到旧版本。</b></p>
+          <p class="mt-3">实现它的工具是复位来源标志：F103 的 <code class="icode">RCC_CSR</code> 寄存器里有 <code class="icode">IWDGRSTF</code>（独立看门狗复位标志）和 <code class="icode">WWDGRSTF</code>（窗口看门狗复位标志）。Bootloader 启动时先读一下「上次是不是被狗咬的」，如果是，就把备份寄存器里的计数加一；如果是正常的上下电复位（<code class="icode">PORRSTF</code>）或软件复位，就把计数清零。计数器累计到 3（阈值自己定）时，Bootloader 就认定「App 起不来」，直接进入回滚流程。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="ASCII 图 · Bootloader 上电后的决策流程（三种触发汇总）">
+            <pre><code>        上电 / 复位
+             │
+             ▼
+   ┌───────────────────────────┐
+   │ 读 RCC_CSR 复位来源标志   │
+   │ IWDGRSTF / WWDGRSTF / POR │
+   └───────────┬───────────────┘
+               │
+       ┌───────┴────────┐
+       │ 是看门狗咬的吗？│
+       └───┬────────┬───┘
+         是│        │否
+           ▼        ▼
+   BKP[3]++      BKP[3] = 0
+   （不清标志）   （正常启动）
+           │        │
+           └───┬────┘
+               ▼
+   ┌───────────────────────────┐      ┌──────────────────────────┐
+   │ BKP[3] 达到 3 次？         │──是─→│ 判定 App 坏了            │
+   └───────────┬───────────────┘      │ → 进入回滚流程（从备份区  │
+               │否                    │   拷回旧版本）            │
+               ▼                      └──────────────────────────┘
+   ┌───────────────────────────┐
+   │ 按键 PA0 被按住？          │──是─┐
+   └───────────┬───────────────┘     │
+               │否                    │
+               ▼                      │
+   ┌───────────────────────────┐     │
+   │ BKP[1] 有「升级请求」魔数？│──是─┤
+   └───────────┬───────────────┘     │
+               │否                    ▼
+               ▼              ┌──────────────────────┐
+   ┌───────────────────────────┐│  进入升级模式         │
+   │ 串口 3 秒内收到握手包？    ││  等待握手 → 擦除 →    │
+   │ （给远程一个机会）         ││  收包 → 校验 → 跳转   │
+   └───────────┬───────────────┘└──────────┬───────────┘
+               │超时                       │升级成功
+               ▼                          │
+   ┌───────────────────────────┐          │
+   │ 对 App 区算 CRC32，与参数  │          │
+   │ 区记录比对                 │          │
+   └───────────┬───────────────┘          │
+               │                          │
+       ┌───────┴────────┐                 │
+    一致│              │不一致            │
+       ▼                ▼                 │
+   跳转 App      从备份区拷回旧版本 ───────┘
+                 （或等待重传）</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">三条铁律，违反任何一条都会在现场难看</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>等待必须有超时。</b>进入升级模式后最多等 3~5 秒（远程场景可以给到 10 秒），超时就按「App 正常」处理。绝对不要写「进升级模式后一直等」——现场没有上位机的时候，这台设备就永远不会启动了，看起来就是「升级一次之后设备全死了」。</li>
+              <li><b>判决依据是数据，不是标志位。</b>不要写「标志说 App 是好的，所以跳过去」。要写「<b>我对 App 区算一遍 CRC32，和参数区里记的那个值一样，才认为它是好的</b>」。标志位会撒谎（掉电写坏、代码写反、逻辑漏改），校验和不会。这条原则会在 2.7 节展开。</li>
+              <li><b>升级模式的出口只能有一个：跳转 App。</b>不管升级是成功、失败、超时还是被上位机取消，最后都必须走到「跳转 App」或者「回滚后跳转 App」。任何一条路径漏掉了跳转，设备就停在 Bootloader 里，现象是「串口还在、但功能全没了」——比变砖更难查。</li>
+            </ul>
+          </div>
+        <!-- ============ 2.4 协议与状态机 ============ -->
+          <h3 id="sub-protocol" class="mt-8 text-base font-semibold">2.4 升级协议与状态机</h3>
+          <p class="mt-3">协议是「Bootloader 和上位机之间的合同」。它不用漂亮，但必须<b class="font-semibold text-ink">让任何一方在收到任何一段字节流之后，都能判断出「这是不是一个完整的包」「这个包是不是我要的下一个」「这个包在传输中有没有坏掉」</b>。这三件事分别对应三个字段：长度、序号、校验。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">帧结构：12 字节包头 + 数据 + 2 字节 CRC</h4>
+          <div class="code-block mt-4" data-lang="text" data-title="ASCII 图 · 升级协议帧格式（本文采用）">
+            <pre><code>字节偏移   0     1     2      3       4  5       6  7  8  9      10 …       末 2 字节
+        ┌─────┬─────┬─────┬─────┬───────────┬──────────────┬───────────┐
+        │0xAA │0x55 │TYPE │ SEQ │  LEN(2 B) │  ADDR(4 B)   │  DATA     │ CRC16 │
+        │ 1 B │ 1 B │ 1 B │ 1 B │  小端      │   小端        │ 0~1024 B  │  2 B  │
+        └─────┴─────┴─────┴─────┴───────────┴──────────────┴───────────┘
+        └──────────────────┘ └──────────────────────────────────────────┘
+         同步头（帧起始）        这 4 个字段一起参与 CRC16 计算
+                                │
+                                └─ CRC16 覆盖：TYPE + SEQ + LEN + ADDR + DATA
+                                   （不含同步头和 CRC 自身，两端约定一致即可）
+
+  单包最大 12 + 1024 + 2 = 1038 字节；数据长度 LEN 必须是偶数（Flash 按半字写）
+  一包正好 1 KB 数据，对应 F103 的 1 页 ⇒ 「收满一包 = 擦一页 + 写一页」</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead><tr><th>字段</th><th>作用</th><th>为什么不能省</th></tr></thead>
+              <tbody>
+                <tr><td>同步头 0xAA 0x55</td><td>标记一个包的开始</td><td>串口上电时会随机收到噪声字节、上次传输的残包；没有同步头就无法确定从哪里开始解析。0xAA/0x55 的位模式是 10101010 / 01010101，抗干扰、也容易在示波器上看出来</td></tr>
+                <tr><td>TYPE</td><td>区分握手、数据、结束、执行等命令</td><td>升级不只是「发数据」：还要握手协商、还要报告总长度和整体校验、还要下发「现在跳转」的指令</td></tr>
+                <tr><td>SEQ</td><td>包序号，从 0 递增</td><td>检测丢包和重复包。上位机发重了，接收方靠序号丢弃；丢了一包，接收方靠序号发现（下一个包应该是 N+1，来的是 N+2 就说明 N+1 丢了）</td></tr>
+                <tr><td>LEN</td><td>本包数据字节数</td><td>串口是字节流，没有「包」的概念。没有长度就只能靠超时切包，一遇到延迟就散架。最后一包通常不满，所以长度必须显式给</td></tr>
+                <tr><td>ADDR</td><td>这包数据要写到哪个地址</td><td><b>关键防线</b>：如果地址只靠「序号 × 1024」推算，一旦中间有一次序号错乱或设备中途复位，就会把数据写到错误的页上——运气不好正好写进 Bootloader 区。显式带地址，接收方可以先检查「这个地址是否落在允许写入的区间内」，越界直接拒绝</td></tr>
+                <tr><td>CRC16</td><td>本包完整性校验</td><td>串口在电气层面没有校验（8N1 没有奇偶校验），一个位翻转就会变成一个错的字节。CRC16 能把「随机错误漏检」的概率压到 1/65536 量级，具体数字见第 3 节例题四</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">命令类型：一次完整升级要用到 5 条命令</h4>
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead><tr><th>TYPE</th><th>名称</th><th>方向</th><th>数据段内容</th><th>应答</th></tr></thead>
+              <tbody>
+                <tr><td>0x01</td><td>握手 / 查询</td><td>上位机 → 板子</td><td>无（或上位机版本号）</td><td>板子回：Bootloader 版本(1B) + 芯片 ID(2B) + 当前 App 版本(2B) + App CRC32(4B)</td></tr>
+                <tr><td>0x02</td><td>数据包</td><td>上位机 → 板子</td><td>最多 1024 字节固件数据</td><td>ACK 0x79；校验错回 NAK + 错误码</td></tr>
+                <tr><td>0x03</td><td>传输结束</td><td>上位机 → 板子</td><td>固件总长度(4B) + 整包 CRC32(4B)</td><td>ACK（表示「整体校验通过、已被接受」）或 NAK</td></tr>
+                <tr><td>0x04</td><td>执行 / 跳转</td><td>上位机 → 板子</td><td>无</td><td>不回应答，直接复位或跳转</td></tr>
+                <tr><td>0x05</td><td>请求回滚</td><td>上位机 → 板子</td><td>可选：目标版本号</td><td>ACK，然后执行回滚并跳转</td></tr>
+                <tr><td>——</td><td>ACK / NAK</td><td>板子 → 上位机</td><td>单字节 0x79 = 成功；0x1F + 1 字节错误码 = 失败</td><td>——</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-3">错误码建议至少区分五种，这样现场排查的时候能直接定位：<code class="icode">0x01</code> 包太长、<code class="icode">0x02</code> CRC 错、<code class="icode">0x03</code> 序号不连续、<code class="icode">0x04</code> 地址越界（想写到 App 区以外）、<code class="icode">0x05</code> 擦除失败（Flash 报了 <code class="icode">PGERR</code> 或 <code class="icode">WRPRTERR</code>）。<b>尤其是 0x04 和 0x05，它们能在一秒钟内告诉你「这是协议问题还是芯片保护问题」</b>——量产锁了写保护之后，你收到的就是 0x05。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">升级状态机：七个状态，四条错误出口</h4>
+          <div class="code-block mt-4" data-lang="text" data-title="ASCII 图 · 升级状态机（含掉电与错误出口）">
+            <pre><code>   ┌──────────────────────────────────────────────────────────────────┐
+   │                                                                  │
+   ▼                                                                  │
+【S0】等待握手                                                         │
+   │  收到 0x01 握手包 → 回版本信息                                     │
+   │  3 秒超时（可配 10 s）→ 放弃升级 → 【S7】跳转 App                  │
+   ▼                                                                  │
+【S1】协商参数                                                         │
+   │  上位机告知：固件总长度、总 CRC32、目标版本                        │
+   │  板子检查：长度 ≤ App 区容量？地址范围合法？→ 不合法 → NAK → S0    │
+   ▼                                                                  │
+【S2】备份当前 App（可选但强烈建议）                                   │
+   │  把 App 区整段拷进备份区 → 算 CRC32 → 写「备份有效」标志           │
+   │  失败（擦写错误）→ 中止升级，保持原状 → 【S7】                     │
+   ▼                                                                  │
+【S3】擦除 App 区                                                      │
+   │  按页擦：第 n 页 = App 起始 + n × 1024。擦完一页检查 SR.PGERR       │
+   │  擦除失败 → 尝试从备份区恢复 → 【S7】                              │
+   ▼                                                                  │
+【S4】分包接收 + 逐包校验 + 写入                                       │
+   │  收到一包：CRC 对？序号对？地址在 App 区内？                       │
+   │  ├─ 全部通过 → 写这一包数据 → 回 ACK                              │
+   │  └─ 任一不过 → 回 NAK（不回滚、不擦除，等上位机重传）              │
+   │  同一包重传超过 3 次 → 放弃 → 从备份区恢复 → 【S7】                │
+   ▼                                                                  │
+【S5】整体校验                                                         │
+   │  收完 0x03 结束包：对 App 区从头算 CRC32，与上位机给的比对         │
+   │  ├─ 一致 → 【S6】                                                 │
+   │  └─ 不一致 → 不写「升级完成」标志 → 从备份区恢复 → 【S7】          │
+   ▼                                                                  │
+【S6】写「升级完成」标志                                               │
+   │  参数区记录：新固件长度、CRC32、版本号、状态 = 待验证             │
+   │  （此刻 App 区是完好的，但还没被运行验证过）                       │
+   ▼                                                                  │
+【S7】跳转 App                                                         │
+   │  六步跳转（见 2.5）→ 控制权交出                                   │
+   │  App 启动成功后会回来把状态改成「已确认」，见 2.7                  │
+   └──────────────────────────────────────────────────────────────────┘
+
+掉电分析（每一步断电会怎样）：
+  S0~S2 掉电：App 区还没动 → 原封不动，正常启动旧版本      ✔ 安全
+  S3 掉电  ：App 区被擦了一部分 → 校验失败 → 从备份区恢复   ✔ 可恢复
+  S4 掉电  ：App 区半新半旧 → 校验失败 → 从备份区恢复       ✔ 可恢复
+  S5 掉电  ：同上，标志还没写 → 走恢复路径                  ✔ 可恢复
+  S6 掉电  ：标志可能只写了一半 → 靠 CRC32 比对判决         ✔ 可恢复
+  S7 之后掉电：App 已经是完整的 → 正常启动                  ✔ 安全
+
+  唯一「不安全」的是：备份区本身还没写完就掉电（S2 中途）
+  ⇒ 所以「备份有效」标志必须在备份 CRC 校验通过之后才写，且必须先擦参数页再写</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">「边收边写」还是「先收后写」？</div>
+            <p>很多教程给的 Bootloader 是「收到一包数据 → 立刻擦页写进去」。这样最省 RAM（只需要 1KB 缓冲），但代价是<b>任何时刻断电，App 区都会是一块半成品</b>。而「先整包收进 RAM 再统一写」在 64KB 的板子上不现实：48 KB 的固件需要 48 KB 缓冲，你只有 20KB SRAM。</p>
+            <p class="mt-2">正确的答案是第三条路：<b>「边收边写，但在动 App 区之前先把旧版本备份好」</b>。这样 RAM 需求不变（1KB 缓冲），而「App 区变成半成品」从一个致命问题降级成一个可恢复问题——因为备份区里躺着一份完整的旧版本，Bootloader 下次上电发现 App 校验不过，直接拷回来就行。这也正是方案二（App + 备份）值得牺牲那 28 KB 空间的原因。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">断点续传：要不要做？</h4>
+          <p class="mt-3">断点续传的意思是：这次升级传到第 31KB 断了，下次上电接着从第 31KB 传，不用从头来。听起来很美好，但在<b>串口 + 64KB</b>这个组合下，先算一笔账：48KB 固件在 115200 波特率下完整重传约 <b>4.3 秒</b>（第 3 节例题二）。为了省这 4.3 秒，你需要付出：</p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>一处能记录「已经收到第几包」的存储</b>，而且它必须跨掉电保留 → 只能用 Flash 参数页或备份寄存器。</li>
+            <li><b>Flash 不能原地修改</b>：进度每前进一包就要更新一次，而 Flash 只能 1→0。两种可行做法：① <b>位图法</b>——一页 1KB 共 8192 位，每一位代表「这一包收到没有」，只往 0 写、不擦除，一页正好够覆盖 8192 个包（每包 1KB 就有 8MB 固件）；② <b>备份寄存器法</b>——BKP 只有 10 个 16 位寄存器（160 位），最多记 160 个包的位图，48 个包够用，但不通用。</li>
+            <li><b>「部分完成」的状态必须能被正确解释</b>：下次上电时要能判断「这个进度是有效进度还是上一轮升级的残留」。升级成功、被取消、超时、版本更换都要记得把进度清零——这又是一处「先做事后记状态」的坑。</li>
+            <li><b>还有一个陷阱</b>：断点续传要求「上次写进去的那部分数据仍然有效」。如果上次断在擦除中途，App 区的前半部分是空的（0xFF），而上位机以为「已经收了 31 KB」——两边对进度的理解必须一致，这需要在握手阶段交换进度并让上位机重新计算它要发的窗口。</li>
+          </ul>
+          <p class="mt-3"><b>结论（可以直接照抄的判断标准）：</b>如果传输介质是「有线、免费、4 秒能传完」（串口、CAN、以太网），<b>不做断点续传</b>——把「从头再来」做得又快又稳，比断点续传简单十倍且几乎一样好用。只有当传输成本很贵的时候才值得做：NB-IoT / 4G 按流量计费（重传一次要花钱）、LoRa 速率极低（48KB 要传 20 分钟以上）、卫星链路。这也是为什么你在工业串口设备上很少看到断点续传，而在共享单车、水表那种 NB-IoT 设备上它是标配。</p>
+
+          <!-- ============ 2.5 跳转六步 ============ -->
+          <h3 id="sub-jump" class="mt-8 text-base font-semibold">2.5 跳转到 App：六步时序</h3>
+          <p class="mt-3">这是全篇最核心的一段。前面所有的准备工作，都是为了最后这几十微秒——<b class="font-semibold text-ink">把 CPU 从「Bootloader 的世界」干干净净地交到「App 的世界」里</b>。之所以需要六步，是因为 Bootloader 已经把芯片改成了一副「Bootloader 的形状」：中断向量表指向 Bootloader 的 <code class="icode">_handler</code>、栈指针用的是 Bootloader 的栈、外设时钟开着、串口还配着自己的波特率、SysTick 每毫秒还在响。<b>App 对此一无所知</b>——它的 <code class="icode">Reset_Handler</code> 是按「芯片刚刚复位」的状态写的。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="ASCII 图 · Bootloader 跳转到 App 的六步时序（顺序不可颠倒）">
+            <pre><code>【第 1 步】关中断 —— 先把自己变聋，防止中途被插话
+  __disable_irq()          ; PRIMASK = 1，屏蔽所有可屏蔽中断
+  SysTick-&gt;CTRL = 0        ; 先关滴答：它是最可能在下一条指令就插进来的那个
+  SysTick-&gt;LOAD = 0
+  SysTick-&gt;VAL  = 0
+      │  为什么第一步就做：后面每一步都在「改 CPU 的全局状态」，
+      │  如果这时候来一个中断，处理函数会跑在「半新半旧」的环境里
+      ▼
+【第 2 步】关外设、关时钟 —— 让芯片回到「近似复位」的样子
+  USART1-&gt;CR1 = 0          ; 关串口的收发与中断使能（否则 RXNE 标志还在）
+  NVIC-&gt;ICER[0] = 0xFFFFFFFF  ; 清掉所有 NVIC 中断使能
+  NVIC-&gt;ICPR[0] = 0xFFFFFFFF  ; 清掉所有挂起位（不然一开中断就炸）
+  RCC-&gt;APB2ENR = 0         ; 关 GPIO/USART1 等外设时钟
+  RCC-&gt;APB1ENR = 0
+      │  注意：这里关的是「外设时钟」，不是系统时钟（SYSCLK）。
+      │  最彻底的做法是连 PLL 一起关掉、切回 HSI，见下面的说明
+      ▼
+【第 3 步】取出 App 的栈顶和复位向量 —— 它们是镜像的前两个字
+  stack_top = *(volatile uint32_t *)(APP_BASE + 0x00)   ; 第 0 个字 = 初始 MSP
+  reset_vec = *(volatile uint32_t *)(APP_BASE + 0x04)   ; 第 1 个字 = Reset_Handler
+      │  Arm 规定：复位时硬件从向量表偏移 0 处取 MSP、偏移 4 处取 PC。
+      │  编译器把这两个值放在 App 镜像的最前面，所以它们躺在
+      │  App 区起始地址的头 8 个字节里 —— 这是「不跳转也能读出它们」的原因
+      ▼
+【第 4 步】合法性检查 —— 能省掉你 90% 的「跳过去就死」
+  stack_top 高 12 位必须是 0x200（SRAM 区）？
+  reset_vec 必须落在 App 区的地址范围内？
+      │  如果 App 区还没被烧写过，这两个值都是 0xFFFFFFFF，
+      │  直接跳过去必然 HardFault —— 检查一下就能改成「友好地拒绝」
+      ▼
+【第 5 步】重定位向量表 + 设置主栈指针 —— 换地图、换站位
+  SCB-&gt;VTOR  = APP_BASE    ; 中断向量表的基址改成 App 的
+  __set_MSP(stack_top)     ; MSP 换成 App 镜像里写的那个值
+      │  这两行的顺序：先 VTOR 后 MSP。理由见下面「为什么不能颠倒」
+      ▼
+【第 6 步】恢复中断 + 跳过去
+  __enable_irq()           ; PRIMASK = 0，让 App 能收到中断
+  ((app_entry_t)reset_vec)();   ; 函数指针调用，永不返回
+      │  注意 Thumb 位：reset_vec 的最低一位是 1（Thumb 地址），
+      │  函数指针调用会正确处理它，不要自己去 &amp; 0xFFFFFFFE
+      ▼
+   ┌────────────────────────────────────────────────────────────┐
+   │ App 的 Reset_Handler 此刻开始执行：                          │
+   │  1. 从 Flash 拷 .data 到 RAM、把 .bss 清零（启动代码干的事） │
+   │  2. 调 SystemInit()（时钟配置）                              │
+   │  3. 调 __libc_init_array()（C++ 全局构造、静态初始化）        │
+   │  4. 进 main()，App 里第一件事应该是 HAL_Init()               │
+   └────────────────────────────────────────────────────────────┘</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">逐步追问：为什么必须这么做</h4>
+          <p class="mt-3"><b>为什么第一步就关中断，而不是「跳转前那一下再关」？</b>因为第 2 到第 5 步都在修改全局状态，每一步都存在一个「危险窗口」。举个最典型的：假设你先 <code class="icode">__set_MSP(stack_top)</code> 再 <code class="icode">SCB-&gt;VTOR = APP_BASE</code>，在这两条指令之间来了一个中断，硬件会压栈——用的是<b>新的</b> MSP（App 的栈空间），却去取<b>旧的</b>向量表（Bootloader 的处理函数）。处理函数里的 <code class="icode">__get_MSP()</code>、局部变量、返回地址全部错位。这种 bug 极难复现，因为它只在一个指令窗口里、只在恰好有中断挂起时发生。关掉中断，这个窗口就没了。</p>
+          <p class="mt-3"><b>为什么第 5 步是「先 VTOR 后 MSP」，而不是反过来？</b>想清楚「一个中断被打断的两件事」就明白了：中断入口需要①向量表（去哪执行）②栈（往哪压现场）。如果先设 MSP，此时向量表还是 Bootloader 的，中断会跑到 Bootloader 的处理函数里、用 App 的栈；如果先设 VTOR，此后中断会跑到 App 的处理函数里、用 <b>Bootloader 的栈</b>——后者的危害小得多（App 的处理函数未必依赖 MSP 的具体位置，而 Bootloader 的处理函数跑在 App 的栈上可能把 App 的栈空间当成自己的用）。更重要的是：<b>第 1 步已经把中断关掉了</b>，所以第 5 步只要保证「两行相邻、中间没有函数调用」就够了。如果你的编译器在这两行之间插了函数调用（比如 <code class="icode">SCB-&gt;VTOR</code> 被写成了内联函数），要确认它是真内联的。</p>
+          <p class="mt-3"><b>为什么必须 <code class="icode">__set_MSP()</code>，不能靠 App 自己设置栈指针？</b>因为 CMSIS 的 <code class="icode">Reset_Handler</code> 里<b>没有</b>「设置 MSP」这一步——硬件在复位时自动从向量表第 0 个字装载 MSP，软件不需要也不应该再做。可是我们不是复位，是跳转，硬件那一步没发生。所以必须由 Bootloader 手工把 MSP 设成 App 镜像里写的那个值（也就是 App 链接脚本里的 <code class="icode">_estack</code>，F103C8T6 上通常就是 <code class="icode">0x20005000</code>，SRAM 顶端）。</p>
+          <p class="mt-3"><b>设完 MSP 之后，为什么后面的代码必须极短？</b>因为你在一个「已经不属于任何人的栈」上继续执行：那些局部变量仍然躺在 Bootloader 的老栈区（地址是对的，RAM 也还在），但如果 App 启动后栈从 <code class="icode">_estack</code> 往下长，它会一路踩过 Bootloader 留下的旧栈帧。只要你在设完 MSP 之后不再访问栈上的东西（不用局部数组、不做深函数调用、不返回），这个风险就不存在。<b>所以第 5、6 步之间最好只有一行函数指针调用</b>，并且把这个函数声明成 <code class="icode">noreturn</code>（或者干脆用汇编写）。</p>
+          <p class="mt-3"><b>为什么跳过去之后 <code class="icode">HAL_Init()</code> 必须重跑一遍？</b>三个理由，一个比一个硬：</p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>HAL 的内部状态是全局变量。</b><code class="icode">HAL_Init()</code> 会初始化 HAL 的滴答计数、NVIC 优先级分组（<code class="icode">HAL_NVIC_SetPriorityGrouping</code>）。Bootloader 可能把它设成了一套分组方式，App 用的是另一套——如果 App 假设的是「复位默认值」而不重新设置，中断优先级就会整体错位（严重时表现为「低优先级中断抢了高优先级中断」）。</li>
+            <li><b>HAL 的延时依赖 SysTick，而 SysTick 被我们关了。</b>第 1 步把 <code class="icode">SysTick-&gt;CTRL</code> 清零了，不重跑 <code class="icode">HAL_Init()</code>（它内部会调 <code class="icode">HAL_InitTick()</code>）的话，App 里第一次 <code class="icode">HAL_Delay(1)</code> 就会永远等下去——现象是「程序停在 HAL_Delay 里不动」。</li>
+            <li><b>时钟状态是被继承的。</b>这是最容易踩、也最难查的一条：Bootloader 把 SYSCLK 配成了 72 MHz（HSE + PLL）。App 的启动代码会调 <code class="icode">SystemInit()</code>，而标准版的 <code class="icode">SystemInit()</code> 是<b>按「芯片刚从复位状态起来、跑在 HSI 8MHz」的前提写的</b>：它先使能 HSE、配 PLL、然后把 SYSCLK 切到 PLL。如果进来的时候 PLL 已经开着并且在被使用，对 <code class="icode">RCC-&gt;CFGR</code> 的写入就可能不生效或产生一段时钟毛刺。现象千奇百怪：有时一切正常（因为寄存器的值恰好是对的），有时波特率变成 8MHz 的对应值（串口输出一串乱码），有时干脆卡在 <code class="icode">while (RCC_GetFlagStatus(RCC_FLAG_PLLRDY) == RESET)</code> 里出不来。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">对付「时钟继承」最稳的办法：把芯片真的还原成刚复位的样子</div>
+            <p>与其在每一版 App 里小心翼翼地处理「时钟可能已经被配过」这件事，不如在<b>Bootloader 跳转前把时钟系统恢复到复位默认值</b>：切回 HSI、关掉 PLL 和 HSE、清 <code class="icode">RCC-&gt;CFGR</code>、清 <code class="icode">RCC-&gt;CR</code> 里除 HSION 之外的位。这样 App 看到的硬件状态和「刚上电」几乎一样，<code class="icode">SystemInit()</code> 就能按它原本的设计正常工作，你也不用在 App 里加任何 IAP 相关的判断。</p>
+            <p class="mt-2">代价是跳转过程会慢几百微秒（等 HSI 稳定、等 PLL 关闭），以及如果 Bootloader 之后还要用串口（比如跳转失败要打日志）就得重新配时钟。<b>对于「交出去就不再管」的 Bootloader，这个代价可以忽略</b>，所以本文的例程采用这种「还原式跳转」。另一种流派是「App 里判断」——在 App 的 <code class="icode">SystemInit()</code> 里加一句「如果已经在 72MHz 就直接返回」，能省掉那几百微秒，但它把一个 IAP 的约定塞进了每一版 App，换编译器/换库版本时容易失守。</p>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">看门狗：跳转前最容易被忘掉的一条</div>
+            <p>如果 Bootloader 启动过 IWDG（独立看门狗），那么<b>它在跳转前根本关不掉</b>——IWDG 一旦被 <code class="icode">0xCCCC</code> 启动，只有复位才能停它。于是你跳进 App，App 还在跑自己的启动代码（拷 <code class="icode">.data</code>、配时钟），几百毫秒内没喂狗，狗就咬了一口 → 复位 → Bootloader → 又跳 → 又被咬。<b>现象是「升级完之后设备每隔一秒钟重启一次」，而且串口上什么有用信息都没有。</b></p>
+            <p class="mt-2">三种解法：<b>① App 的 <code class="icode">main()</code> 第一件事就喂狗</b>（把 IWDG 初始化放在 HAL_Init 之前），并且把溢出时间设得比启动代码最长耗时还长（F103 的 IWDG 最长约 26 秒，用 4~8 秒很安全）；<b>② Bootloader 干脆不启动 IWDG</b>，只在「确定要长时间等升级」的窗口里用软件计时保护——但这样 App 跑飞就没人救了；<b>③ 用窗口看门狗 WWDG 或软件看门狗</b>作为替代。<b>本文例程采用 ①</b>：Bootloader 在跳转前把 IWDG 重装成最长时间（<code class="icode">IWDG-&gt;RLR = 0x0FFF</code>），App 的 <code class="icode">main()</code> 第一句就是喂狗。这样「狗」既救得了 App 跑飞，也不会误杀升级。</p>
+          </div>
+
+          <!-- ============ 2.6 App 侧三件事 ============ -->
+          <h3 id="sub-app-side" class="mt-8 text-base font-semibold">2.6 App 侧要改的三件事</h3>
+          <p class="mt-3">Bootloader 写完了，App 也不能原样编译——它必须知道「我不在 0x08000000，我在 0x08001000」。要改的东西正好三件：<b>链接地址</b>（代码从哪开始放）、<b>向量表偏移</b>（中断去哪儿找）、<b>启动来源</b>（我是被谁启动的）。三件事漏掉任何一件，都会得到一个「能烧进去但跑不起来」的固件。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">第一件：链接地址（GCC 的链接脚本 / Keil 的 IROM1）</h4>
+          <p class="mt-3">编译产物的「链接地址」决定了代码里所有绝对地址的取值。原来的工程把 Flash 起始地址写成 <code class="icode">0x08000000</code>；现在 App 要从 <code class="icode">0x08001000</code> 开始，长度也要从 64KB 改成 28KB（否则链接器会把代码排到备份区去）。第 26 篇讲过 <code class="icode">.data</code> 段的 LMA→VMA 搬运，这里的关键是：<b>改的是链接地址，不是烧写地址，但两者必须一致</b>——链接脚本说代码在 <code class="icode">0x08001000</code>，你就必须把 bin 文件烧到 <code class="icode">0x08001000</code>，否则里面所有的绝对地址都会指向错误的地方。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">第二件：向量表偏移（两种做法，各有取舍）</h4>
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead><tr><th>做法</th><th>怎么改</th><th>优点</th><th>缺点 / 会踩的坑</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>编译期指定</b><br>（<code class="icode">VECT_TAB_OFFSET</code>）</td>
+                  <td>在工程选项里定义宏 <code class="icode">VECT_TAB_OFFSET=0x1000</code>；<code class="icode">system_stm32f1xx.c</code> 里的 <code class="icode">SystemInit()</code> 会执行 <code class="icode">SCB-&gt;VTOR = FLASH_BASE | VECT_TAB_OFFSET</code></td>
+                  <td>改一处、全局生效；不依赖 <code class="icode">main()</code> 里的代码，C++ 全局构造、在 <code class="icode">main()</code> 之前跑的中断都能正确取向量</td>
+                  <td>换分区就得重新编译；如果 Bootloader 决定「这次从 B 槽启动」，编译期写死的偏移就失效了；宏名各版本库不一致（F1 是 <code class="icode">VECT_TAB_OFFSET</code>），换个芯片要查</td>
+                </tr>
+                <tr>
+                  <td><b>运行时指定</b><br>（<code class="icode">SCB-&gt;VTOR</code>）</td>
+                  <td>在 <code class="icode">main()</code> 的最开头（<code class="icode">HAL_Init()</code> <b>之前</b>）写 <code class="icode">SCB-&gt;VTOR = 0x08001000</code>；或者用 SPL 的 <code class="icode">NVIC_SetVectorTable(NVIC_VectTab_FLASH, 0x1000)</code></td>
+                  <td>灵活：同一份固件可以放在任意槽位，只要 Bootloader 通过备份寄存器告诉它基址；不需要为每个槽位编译两份</td>
+                  <td><b>必须放在 main 的最前面</b>：如果 <code class="icode">HAL_Init()</code> 之前就有中断发生（比如 SysTick 已经开、或者 <code class="icode">main()</code> 之前的外设初始化里开了中断），取向量还是错的；编译期宏没改的话，<code class="icode">SystemInit()</code> 会先把它设成 <code class="icode">0x08000000</code>，你在 <code class="icode">main()</code> 里再改一遍——所以两处都要改，或者两处都别用</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-3"><b>怎么选：</b>固定分区（比如本文的方案二）用<b>编译期</b>做法最省心——改一个宏，从此不用再想它。<b>A/B 双槽或需要动态槽位</b>的项目必须用<b>运行时</b>做法，并且要把「槽基址存在备份寄存器里、由 Bootloader 写入」这条约定写进双方的头文件。<b>千万不要两个都不做</b>：那是「App 从 0x08001000 跑，但中断去 0x08000000 找向量表」——Bootloader 的表里放的是 Bootloader 的处理函数，于是 App 里所有中断都跑进了 Bootloader 的代码，现象是「串口偶尔收到 Bootloader 的调试输出」「定时器不对」「莫名其妙进 HardFault」。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">第三件：App 怎么知道「我是被谁启动的」</h4>
+          <p class="mt-3">有些功能必须区分这个：开发阶段用 ST-Link 直接烧 App 到 <code class="icode">0x08001000</code> 运行（没有 Bootloader 参与），和量产时由 Bootloader 跳进来，App 想要的行为可能不同（比如开发时不要看门狗、不要上报日志）。判断方法有四种，可靠性差别很大：</p>
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead><tr><th>方法</th><th>怎么判断</th><th>可靠性</th></tr></thead>
+              <tbody>
+                <tr><td>备份寄存器魔数</td><td>Bootloader 在跳转前往 <code class="icode">BKP_DR2</code> 写 <code class="icode">0x5A5A + 槽号</code>，App 读它</td><td><b>最可靠</b>。跨复位保留，且「复位后随机出现 0x5A5A」的概率可以忽略。注意 App 读到后要自己清掉，否则下次冷启动会误判</td></tr>
+                <tr><td>参数区状态字</td><td>Bootloader 把「本次启动原因」写进 Flash 参数页</td><td>可靠（掉电也保留），但要消耗参数页的一次写入寿命，不适合高频</td></tr>
+                <tr><td>看 <code class="icode">SCB-&gt;VTOR</code></td><td>复位后 <code class="icode">VTOR = 0</code>（配合 0x00000000 别名），Bootloader 跳转后才变成 App 基址</td><td><b>不可靠</b>：App 自己的 <code class="icode">SystemInit()</code> 会把它改成编译期设的偏移，等 <code class="icode">main()</code> 跑起来时它已经「看起来正常」了；只有在 <code class="icode">SystemInit()</code> 之前读才有意义</td></tr>
+                <tr><td>普通 RAM 变量</td><td>Bootloader 往一个全局变量写魔数，App 去读</td><td><b>千万别用</b>。RAM 在冷启动时内容不确定、在热复位/跳转时又不会被清，两种情况都可能给出错误答案——「莫名其妙的偶发故障」大多出自这里</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-3">还有一个容易被忽略的用处：<b>App 可以用「谁启动了我」来决定要不要上报「我已启动成功」</b>。这个上报是回滚机制的关键一环（见 2.7）：如果 App 是被 Bootloader 跳进来的、并且成功跑到了 <code class="icode">main()</code> 的某个位置，它就应该把参数区里的状态从「待验证」改成「已确认」——<b>这条「报平安」的记录，就是系统判定「新固件是好的」的唯一证据</b>。</p>
+        <!-- ============ 2.7 校验、标志与回滚 ============ -->
+          <h3 id="sub-verify" class="mt-8 text-base font-semibold">2.7 校验、升级标志与回滚</h3>
+          <p class="mt-3">这一节回答三个问题：<b>用什么算法判断「数据是好的」、把「升级到哪一步了」记在哪里、以及新固件不行的时候怎么退回去</b>。三个问题里最容易做错的是第二个——因为「记状态」这件事，恰好是掉电最容易破坏的动作。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">校验算法：从「和校验」到 CRC32</h4>
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead><tr><th>算法</th><th>长度</th><th>随机错误漏检率</th><th>代码量 / 速度</th><th>适合用在哪</th></tr></thead>
+              <tbody>
+                <tr><td>累加和（sum）</td><td>1~4 B</td><td>极差：两个字节互换、一对 +1/-1 的错误完全查不出来</td><td>最小、最快</td><td>只用来「快速判断一块区域是不是全 0xFF」（空片检测）</td></tr>
+                <tr><td>CRC8</td><td>1 B</td><td>1/256</td><td>极小（256 B 表）</td><td>短帧、I²C 传感器、对误码率要求低的场合</td></tr>
+                <tr><td><b>CRC16-CCITT</b></td><td>2 B</td><td>1/65536（随机错误）</td><td>512 B 查表 + 每字节几微秒</td><td><b>逐包校验</b>：发现单包错误，触发重传</td></tr>
+                <tr><td><b>CRC32（IEEE 802.3）</b></td><td>4 B</td><td>1/4294967296</td><td>1 KB 查表，或位运算法（省空间、慢 8 倍）</td><td><b>整体校验</b>：升级结束后的最终判决，也是「App 是否完好」的判决依据</td></tr>
+                <tr><td>F103 的 CRC 外设</td><td>4 B</td><td>硬件固定多项式</td><td>零代码、最快</td><td>能用，但要小心：它的多项式与初值固定、无输入/输出反射，且<b>必须按 32 位字写入</b>——固件长度不是 4 的倍数时你要自己补字节，补 0x00 和补 0xFF 算出来完全不同。本文用软件 CRC32，避免这个坑</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-3">注意表格里「随机错误」这四个字的分量：CRC 能对付的是<b>比特翻转</b>（干扰、电平不稳），它对付不了<b>整段数据根本没到</b>（丢包、断电）。所以完整性靠的是一组机制：<b>长度</b>（少了字节能发现）+ <b>序号</b>（丢了包能发现）+ <b>逐包 CRC</b>（单包坏了能发现）+ <b>整体 CRC32</b>（拼起来的东西不对能发现）+ <b>地址范围检查</b>（不会写到不该写的地方）。少任何一层，都会出现「校验通过但设备不启动」的诡异情况。</p>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">校验范围：三个必须写进接口文档的数字</div>
+            <p>CRC 计算结果对「算了哪些字节」极其敏感，多算一个字节结果就完全不同。所以上位机和板子必须对三件事达成一致，并且写在文档里（不是记在脑子里）：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>起点：</b>App 区起始地址（本文 <code class="icode">0x08001000</code>）。</li>
+              <li><b>长度：</b>固件实际字节数（<b>不是 App 区的容量！</b>）。48 KB 的固件就算 48 KB，绝不能算到 28 KB 的区尾——否则未使用区域的 <code class="icode">0xFF</code> 也会被算进去，而上位机算的是它自己文件里的 48 KB，两边必然不一致。</li>
+              <li><b>对齐与填充：</b>长度是奇数时怎么补、补什么值（本文约定补 <code class="icode">0xFF</code>，且两边都补）。</li>
+            </ul>
+            <p class="mt-2">实战中「升级完了校验总是失败」的原因，十次里有八次是这三个数字没对齐：上位机算的是文件大小，板子算的是「区容量」；或者上位机用了 hex 文件里记录的地址范围，板子用的是「从 App 基址开始的连续长度」。<b>建议：把这些参数做成协议握手时交换的内容</b>——板子把「我要算的范围」回给上位机，让上位机按这个范围算，两边永远不会不一致。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">升级标志：为什么「判决依据」不能是标志位</h4>
+          <p class="mt-3">先说一个反直觉但极其重要的结论：<b class="font-semibold text-ink">Bootloader 不应该用「标志位」来判断 App 是好的，而应该用「对 App 区算一遍 CRC32，与参数区记录的期望值比对」来判断。</b>原因很简单——标志位是一个「关于数据的断言」，而校验和是「数据本身」。任何一次掉电、任何一个写反的条件、任何一处忘记清标志的代码，都会让断言和事实脱节，而校验和永远不会撒谎。</p>
+          <p class="mt-3">那标志位还有什么用？用来<b>记录意图和进度</b>，而不是结论。参数页里应该存这样一个结构（带序号和自己的 CRC，配合第 23 篇<a class="text-brand-600 dark:text-brand-300" href="ee-memory.html">《存储器：从触发器到 Flash》</a>里那套「两页交替 + 序号 + 校验和」的 EEPROM 仿真写法——那套机制这里直接引用，不再重贴代码）：</p>
+          <div class="code-block mt-3" data-lang="c" data-title="param.h · 参数区的数据结构（写入顺序有讲究）">
+            <pre><code>typedef struct {
+    uint32_t magic;         /* 0x49415031 = "IAP1"，用来确认这块区域是有效的参数区 */
+    uint32_t seq;           /* 写入序号：每次保存 +1，两页交替时靠它选新的那页 */
+    uint16_t app_ver;       /* 当前 App 的版本号，例如 0x0102 = v1.2 */
+    uint16_t app_state;     /* 0 = 空闲/已确认  1 = 待验证（刚升级、还没跑起来过）
+                                            2 = 已知损坏 */
+    uint32_t app_size;      /* App 实际长度（字节） */
+    uint32_t app_crc32;     /* App 区这 app_size 个字节的 CRC32 —— 判决依据 */
+    uint32_t bak_crc32;     /* 备份区内容的 CRC32 */
+    uint32_t bak_size;      /* 备份区内容的长度 */
+    uint16_t bak_valid;     /* 0xA55A = 备份区可用，可以回滚 */
+    uint16_t current_slot;  /* A/B 双槽方案用：当前从哪个槽启动（本文固定分区用 0） */
+    uint16_t crc;           /* 本结构体自身的 CRC16，防止参数页本身写坏 */
+} param_t;</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">写入顺序：「先做事，后记状态」</h4>
+          <p class="mt-3">掉电安全的通用法则是：<b class="font-semibold text-ink">永远先完成那个「不可逆的实体动作」，确认它成功之后，再写下描述它的状态字。</b>反过来做（先写「我要升级了」再去升级）就会出现「状态说升级完成了，但数据其实没写完」的致命不一致。具体到一次升级，五条记录的写入时机是：</p>
+          <div class="code-block mt-4" data-lang="text" data-title="ASCII 图 · 五条记录的写入时机（每一条都在「实体动作完成」之后）">
+            <pre><code>时间轴 ──────────────────────────────────────────────────────────────────────→
+
+① 备份完成
+   动作：把 App 区整段拷进备份区
+   校验：对备份区算 CRC32
+   记录：bak_size / bak_crc32 / bak_valid = 0xA55A   ← 三样一起写，且先擦参数页再写
+   ┌─ 如果这里掉电：备份区是半成品，bak_valid 还是旧值（或无效）
+   └─ 下次上电：Bootloader 发现「备份 CRC 对不上」，判定备份不可用，不会拿它去恢复
+
+② 新固件写完
+   动作：擦除 App 区 + 写完整包数据
+   校验：从头算 CRC32
+   记录：app_size / app_crc32 / app_ver / app_state = 1（待验证）
+   ┌─ 如果这里掉电：app_state 还是旧值，而 App 区已经变了
+   └─ 下次上电：Bootloader 算出来的 CRC ≠ 记录里的 app_crc32 → 判定损坏 → 回滚
+
+③ App 跑起来了（由 App 自己写）
+   动作：App 启动成功，跑完自检（外设就绪、看门狗已启动）
+   记录：app_state = 0（已确认）＋ 擦掉备份标志（可选，省得下次误回滚）
+   ┌─ 如果这里掉电：app_state 还是 1，App 区是好的
+   └─ 下次上电：CRC 对得上 → 正常启动，只是又被标成「待验证」一次，无副作用
+
+【绝对不要做的事】
+   ✘ 先写「升级中」标志，再去擦 App 区 —— 掉电后无法判断 App 区是新是旧
+   ✘ 把「已确认」写进 RAM 变量 —— 掉电就丢，下次上电又走一遍回滚
+   ✘ 只写 app_state 却不写 app_crc32 —— 少了判决依据，标志位说什么就是什么
+   ✘ 参数页写之前不擦除 —— Flash 只能 1→0，你会写出「新旧值的按位与」</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">回滚：三种触发，一条路径</h4>
+          <p class="mt-3">回滚不是「升级失败就退回去」这么简单，它有三个完全不同的触发源，覆盖三种不同的失败形态：</p>
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead><tr><th>触发</th><th>什么情况</th><th>谁来发现</th><th>判据</th></tr></thead>
+              <tbody>
+                <tr><td><b>① 校验失败</b></td><td>升级到一半掉电、传输中出现未检出的错误、擦写失败留下了空洞</td><td>Bootloader 上电时</td><td>App 区算出的 CRC32 ≠ 参数区记录的 app_crc32</td></tr>
+                <tr><td><b>② 启动后 N 秒没喂狗</b></td><td>新固件有 bug：卡死在初始化、HardFault、死循环、时钟配错</td><td>看门狗 + Bootloader 上电时</td><td>RCC_CSR 的 IWDGRSTF 连续置位达到 3 次（BKP[3] 计数）</td></tr>
+                <tr><td><b>③ App 主动上报失败</b></td><td>App 跑起来了，但自检发现问题：传感器读不到、通信模块无响应、标定数据丢失</td><td>App 自己</td><td>App 判断自检失败 → 写「请求回滚」到备份寄存器 → 复位</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-3">三种触发发现问题的层次不同：① 只能发现问题在「数据」层面，② 只能发现「跑不起来」，③ 才能发现「跑起来了但功能不对」。<b>三个都要做，缺了 ③ 就会出现「升级成功、设备每隔 1 秒上报一次错误数据」这种最恶心的现场</b>——它比变砖更麻烦，因为设备是「活着但错的」。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="ASCII 图 · 回滚路径（三种触发汇入同一条路）">
+            <pre><code>   ① App 区 CRC32 不符        ② 连续 3 次看门狗复位        ③ App 写了「请求回滚」
+        （Bootloader 上电发现）      （Bootloader 上电发现）      （BKP 标志，复位后可见）
+                 │                          │                          │
+                 └──────────────┬───────────┴──────────────┬───────────┘
+                                ▼
+                    ┌───────────────────────────┐
+                    │ 检查备份区是否可用         │
+                    │ bak_valid == 0xA55A ?      │
+                    │ 对备份区算 CRC32 复核       │
+                    └───────────┬───────────────┘
+                      可用 │              │ 不可用（备份也没了）
+                           ▼              ▼
+        ┌──────────────────────────┐   ┌──────────────────────────────────┐
+        │ 擦除 App 区（按页）       │   │ 停在 Bootloader 的升级等待循环    │
+        │ 从备份区逐页拷回          │   │ 串口常驻、等上位机重新上传固件    │
+        │ （先读一页到 RAM，再擦目标│   │ ★ 这是最后一道防线，必须有        │
+        │   页，再从 RAM 写到目标页）│   └──────────────────────────────────┘
+        └───────────┬──────────────┘
+                    ▼
+        ┌──────────────────────────┐
+        │ 对 App 区重算 CRC32 复核  │──不符──→ 回到上面的「停在等待循环」
+        └───────────┬──────────────┘
+                    ▼ 相符
+        ┌──────────────────────────┐
+        │ 参数区更新：              │
+        │ app_crc32 = 备份的 CRC    │
+        │ app_ver   = 旧版本号      │
+        │ app_state = 0（已确认）   │
+        │ 清 BKP 里的回滚请求与计数 │
+        └───────────┬──────────────┘
+                    ▼
+              跳转 App（跑的还是原来那个版本）
+                    │
+                    └─ 整个过程 28 KB 拷贝约 1.3 秒，用户感知就是「重启了一次」</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">「备份区拷回 App 区」不能边读边写</div>
+            <p>这是回滚实现里最容易写错的一处。看起来最自然的写法是「读一个半字、写一个半字」循环，但它会失败——因为<b>写入期间 Flash 忙（BSY=1），此时对 Flash 的读访问会被挂起</b>，你读不到源数据；而且你的目标是「擦掉 App 页」，一旦擦了，源数据如果就在同一页里也就没了（好在源在备份区，不在同一页）。正确的顺序是<b>「页为单位」的三步走</b>：</p>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>先读：</b>把备份区的这一页（1024 字节 = 512 个半字）读进 RAM 缓冲。此时 Flash 不忙，读得飞快。</li>
+              <li><b>再擦：</b>擦除 App 区对应的那一页（约 20 ms）。此时不需要读 Flash。</li>
+              <li><b>后写：</b>把 RAM 缓冲里的 512 个半字写进目标页（512 × 52.5 µs ≈ 26.9 ms）。此时不需要读 Flash。</li>
+            </ol>
+            <p class="mt-2">一页 1KB 的拷贝耗时 ≈ <b>47 ms</b>（擦 20 ms + 写 27 ms），28 KB 就是 28 页 ≈ <b>1.3 秒</b>（28 × 47 ms ≈ 1.32 s）。这个数字很关键：它决定了「回滚」是一次「重启一次」的体验，而不是「等半分钟」。<b>顺带一个好处：</b>这段拷贝逻辑和「升级时把旧版本备份进备份区」的逻辑是同一个函数，只是把源和目的地换了个位置——写一次，用两处。</p>
+          </div>
+
+          <!-- ============ 2.8 读保护与写保护 ============ -->
+          <h3 id="sub-rdp" class="mt-8 text-base font-semibold">2.8 读保护与写保护：量产锁芯片之后</h3>
+          <p class="mt-3">到这一节为止，你的 IAP 在「开发板 + 调试器」的环境下已经能跑了。但量产时你会做一件事——<b>锁芯片</b>（启用读保护，防止别人把固件读出去抄）。这件事会改变 Flash 的访问规则，而你的 Bootloader 是照着「没锁」的规则写的。<b>「调试时好好的、量产锁了之后 IAP 全废」几乎全部发生在这里。</b></p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">读保护（RDP）三级：各自挡住什么</h4>
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead><tr><th>等级</th><th>F1 选项字节的值</th><th>调试器（SWD/JTAG）</th><th>IAP 还能用吗</th><th>能否恢复</th><th>典型用途</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>Level 0</b><br>无保护</td>
+                  <td>RDP = <code class="icode">0xA5</code></td>
+                  <td>完全可用：读 Flash、下断点、看变量</td>
+                  <td>能</td>
+                  <td>——</td>
+                  <td>开发阶段</td>
+                </tr>
+                <tr>
+                  <td><b>Level 1</b><br>读保护</td>
+                  <td>RDP = 除 0xA5 之外的任意值（常用 <code class="icode">0xBB</code> 或 <code class="icode">0x00</code>）</td>
+                  <td><b>被禁止</b>：无法读取 Flash 内容、无法附加调试；「从 RAM 启动」这条路径也被堵死（防止有人下个小程序到 RAM 里把 Flash 读出来）</td>
+                  <td><b>能</b>。CPU 执行代码时读自己的 Flash 是允许的，IAP 完全正常</td>
+                  <td><b>能，但代价是整片擦除</b>（见下面的警告）</td>
+                  <td>量产出货的默认选择</td>
+                </tr>
+                <tr>
+                  <td><b>Level 2</b><br>不可逆保护</td>
+                  <td>RDP = <code class="icode">0xCC</code></td>
+                  <td><b>永久失效</b>：SWD/JTAG 彻底不能用了</td>
+                  <td>能（这是唯一的升级通道了）</td>
+                  <td><b>不能</b>。选项字节本身也被保护，无法再编程、无法擦除</td>
+                  <td>极少数「固件价值极高、宁可不返修」的场合</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">Level 1 的致命副作用：解除读保护 = 整片擦除</div>
+            <p>解除读保护的做法是「擦除选项字节」（把 RDP 恢复成 <code class="icode">0xA5</code>）。而<b>在 RDP 处于 Level 1 时，擦除选项字节会自动触发主存储区的整片擦除</b>——芯片里的一切，包括你的 Bootloader、参数区、App，全部变成 <code class="icode">0xFF</code>。这不是 bug，是设计：如果允许「解锁但不擦除」，那读保护就形同虚设了（谁都能解锁一次再把固件读出来）。</p>
+            <p class="mt-2">所以现场那台设备一旦解除读保护，<b>它就变成一块空片</b>，必须重新用 SWD 烧写 Bootloader 和 App。数字账见第 3 节例题六：单台恢复只要几秒钟，但一万台返修就是一个人一个月的活。<b>推论：只要你还想让设备「可以被返修」，就必须保留 SWD 接口的物理可达性；而 Level 2 把这个可能性永久关闭了。</b></p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">Level 1 还会顺手做一件事：把第 0~3 页自动写保护</h4>
+          <p class="mt-3">这是很多人不知道、但对 IAP 分区影响巨大的一条：<b>读保护生效时，即使你没有设置任何写保护，第 0~3 页（<code class="icode">0x08000000</code>~<code class="icode">0x08000FFF</code>，共 4 KB）也会被自动写保护。</b>它的目的是防止别人通过「改写复位向量/中断向量，让 CPU 跳到 RAM 里执行」来绕过读保护。</p>
+          <p class="mt-3">对本文的分区方案来说，这条规则有一个非常妙的巧合，也有一个必须接受的限制：</p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>妙处：</b>方案二的 Bootloader 恰好就是 4 KB（页 0~3）。也就是说，<b>只要量产时启用了读保护，你的 Bootloader 自动就是写保护的</b>——不需要额外设置 WRP，别人也无法通过 IAP 或任何方式改写它。这是白送的保护。</li>
+            <li><b>限制：</b>同样因为如此，<b>这个 4 KB 的 Bootloader 永远不能靠 IAP 自己升级</b>。如果你的 Bootloader 以后要修 bug（比如协议要加一条命令），唯一的办法是「解除读保护 → 整片擦除 → 重新烧写」——也就是返厂。所以 Bootloader 的协议要一次设计够用（本文的协议已经预留了扩展用的 TYPE 字段），或者把 Bootloader 做成 8 KB 并把「可升级部分」放在页 4~7。</li>
+          </ul>
+
+          <h4 class="mt-6 text-[15px] font-semibold">写保护（WRP）：粒度是 4 页一组</h4>
+          <p class="mt-3">写保护的目的是「防止程序意外或恶意改写某些页」。在 F1 中容量产品上，它的粒度是<b>4 页一组</b>：64 页正好被 4 个 16 位的写保护寄存器覆盖（<code class="icode">WRP0</code> 管页 0~31、<code class="icode">WRP1</code> 管页 32~63……具体每位对应哪 4 页看参考手册的表格，中容量只用 <code class="icode">WRP0</code>/<code class="icode">WRP1</code> 的低 16 位就够了）。当前生效的写保护状态可以从 <code class="icode">FLASH_WRPR</code> 寄存器读出来。</p>
+          <p class="mt-3">对被写保护的页做擦除或编程，硬件的行为是：<b>操作不执行，同时在 <code class="icode">FLASH_SR</code> 里置起 <code class="icode">WRPRTERR</code> 标志</b>。注意是 <code class="icode">WRPRTERR</code>（位 4），不是 <code class="icode">PGERR</code>（位 2，那个是「往没擦干净的位置写」）。<b>很多 Bootloader 只检查 PGERR 就宣告「擦除成功」，结果在量产锁了写保护的板子上，一边报成功一边什么都没写进去</b>——这也是「量产锁了之后 IAP 全废」的一个隐蔽版本。正确的做法是两个标志都查。</p>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">量产加锁顺序：必须「先 WRP，后 RDP」，反过来会擦掉整批板子</div>
+            <p>原因是这样一条链：<b>设置 WRP 需要「擦除选项字节再重新编程」→ 如果此时 RDP 已经是 Level 1，擦除选项字节会触发整片擦除 → 你刚烧好的 Bootloader 和 App 全没了。</b>所以在产线工装里，步骤顺序必须是：</p>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li>烧写 Bootloader + App（SWD 或串口 ISP 都可以）。</li>
+              <li>回读校验（<b>必须在加锁之前做</b>：一旦 RDP 生效，调试器的读回校验就会全部失败，产线的「烧完自动校验」这一步会误报错误）。</li>
+              <li>设置写保护：只保护 <b>Bootloader 所在的页</b>（方案二就是页 0~3，正好一组）。<b>绝对不要保护 App 区或参数区</b>——那等于把 IAP 通道焊死。</li>
+              <li>设置读保护 Level 1。此后写保护状态会包含「页 0~3 自动保护」这一条，等于给你的 Bootloader 又加了一道锁。</li>
+              <li>复位（选项字节要复位后才生效），然后用串口 IAP 做一次「空升级」验证：让 Bootloader 走一遍「擦一页 → 写一页 → 跳转」，确认升级通道没有被锁死。</li>
+            </ol>
+            <p class="mt-2">第 5 步的「空升级验证」非常重要，它是唯一能在出厂前发现「写保护盖到了 App 区」的方法。<b>一次验证几秒钟，能省掉一万台设备的返修。</b></p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">F1 与 F4 的选项字节：名字不同，套路一样</h4>
+          <p class="mt-3">F1 的选项字节在 <code class="icode">0x1FFFF800</code>，按半字组织、每个字节都带自己的反码；F4 的选项字节在 <code class="icode">0x1FFFC000</code>，通过 <code class="icode">FLASH_OPTCR</code>（<code class="icode">0x40023C14</code>）访问，其中读保护字段是 <code class="icode">RDP[15:8]</code>、写保护是 <code class="icode">nWRP[27:16]</code>。<b>套路完全一样：解锁 → 擦除 → 编程 → 复位生效</b>，不同的只是寄存器名字。为了让你不用背两份，下一节把两种芯片的操作都列出来（F4 只给关键差异）。</p>
+          <p class="mt-3">另外顺便说一句：F103 里还有一个 96 位的唯一 ID（<code class="icode">0x1FFFF7E8</code>），出厂就固化、读保护也挡不住它被读。它的正当用途是「让每台设备有个身份证」（生成设备序列号、做升级授权、和上位机绑定），<b>不是</b>「防止克隆」——因为它能被读出来，光凭它挡不住有心人。</p>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">一句话总结 2.8：锁芯片和保护 IAP 通道是可以两全的，前提是你知道自己在锁什么</div>
+            <p><b>可以两全：</b>只对 Bootloader 页设 WRP + 启用 RDP Level 1。这样固件读不出来（防抄），IAP 照常工作（防不了升级），SWD 还能用于「整片擦除 + 重新烧写」（保住了返修能力，虽然流程是「先全擦再烧」）。<b>不能两全：</b>WRP 盖到了 App 区（IAP 直接废）、或者上了 Level 2（返修能力永久消失）。这两件事都属于「出厂前看不出来、出厂后一万台一起炸」的类型，所以在产线工装里加一步「空升级验证」是值得的。</p>
+          </div>
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section class="mt-14">
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">IAP 的每一个设计决策背后都有一个数字。这一节的六道题，就是把这套系统里所有「拍脑袋」的地方变成算术：<b class="font-semibold text-ink">分区该留多少、升级要等多久、Flash 寿命够不够、校验选 16 位还是 32 位、锁了芯片之后要付多大代价</b>。所有耗时都<b>按数据手册典型值估算</b>，实际产品请按最大值留余量（低温、低压、接近寿命上限时都会变慢）。</p>
+
+          <!-- ===== 例题 1 ===== -->
+          <h3 id="calc-1" class="mt-8 text-base font-semibold">例题一：64 KB 的三种分区方案，App 分别能有多大</h3>
+
+          <p class="mt-3"><b>已知：</b>STM32F103C8T6，Flash = 64 KB = <b>65536 字节</b> = <b>64 页 × 1024 字节</b>；分区必须按页对齐（每区大小是 1KB 的整数倍）；Bootloader 用寄存器写法需要 4 KB，用 HAL 写法需要 8 KB；参数区至少 2 KB（两页交替 + 一个结构体）。</p>
+
+          <p class="mt-3"><b>步骤一：把「总和必须等于 64 KB」写成等式，逐个试。</b></p>
+          <div class="code-block mt-3" data-lang="text" data-title="三种方案的容量方程与求解">
+            <pre><code>【方案一：单 App 区（能升级，不能回滚）】
+  设 BL = 8 KB，参数 = 2 KB
+  App 上限 = 64 - 8 - 2 = 54 KB = 54 × 1024 = 55296 字节
+  页分配：BL 页 0~7      → 0x08000000 ~ 0x08001FFF
+          App 页 8~61     → 0x08002000 ~ 0x0800F7FF
+          参数 页 62~63    → 0x0800F800 ~ 0x0800FFFF
+  检查：8 + 54 + 2 = 64 ✔    地址连续性：0x08002000 + 54×1024 = 0x0800F800 ✔
+
+【方案二：App + 等大备份（能升级、能回滚、抗掉电）】
+  设 BL = 4 KB，参数 = 4 KB，App 与备份等大
+  2 × App = 64 - 4 - 4 = 56 KB  →  App = 28 KB = 28672 字节
+  页分配：BL 页 0~3        → 0x08000000 ~ 0x08000FFF
+          App 页 4~31       → 0x08001000 ~ 0x08007FFF
+          备份 页 32~59     → 0x08008000 ~ 0x0800EFFF
+          参数 页 60~63     → 0x0800F000 ~ 0x0800FFFF
+  检查：4 + 28 + 28 + 4 = 64 ✔
+  地址验算：4 KB = 0x1000 → App 起 0x08001000
+            28 KB = 0x7000 → 备份起 0x08001000 + 0x7000 = 0x08008000 ✔
+            备份末 = 0x08008000 + 0x7000 = 0x0800F000 = 参数起点 ✔
+
+  变体（Bootloader 一定要用 HAL 写，占 8 KB）：
+  2 × App = 64 - 8 - 4 = 52 KB  →  App = 26 KB = 26624 字节
+  页分配：BL 页 0~7、App 页 8~33、备份 页 34~59、参数 页 60~63
+
+【方案三：A/B 双槽】
+  设 BL = 8 KB，参数 = 4 KB，两槽等大
+  2 × Slot = 64 - 8 - 4 = 52 KB  →  每槽 26 KB = 26624 字节
+  页分配：BL 页 0~7、槽A 页 8~33（0x08002000）、槽B 页 34~59（0x08008800）、参数 页 60~63
+  地址验算：26 KB = 0x6800 → 槽B 起 = 0x08002000 + 0x6800 = 0x08008800 ✔</code></pre>
+          </div>
+
+          <p class="mt-3"><b>步骤二：把「固件实际大小」代进去，看哪个方案撑得住。</b>用三个典型的固件体积做检验（22 KB 是精简过的项目，30 KB 是带屏幕和协议的常见项目，35 KB 是没做瘦身的项目）：</p>
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead><tr><th>固件实际大小</th><th>方案一（55296 B）</th><th>方案二（28672 B）</th><th>方案三（26624 B / 槽）</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>18 KB = 18432 B</td>
+                  <td>✔ 剩 36864 B（64%）</td>
+                  <td>✔ 剩 10240 B（36%）</td>
+                  <td>✔ 剩 8192 B（31%）</td>
+                </tr>
+                <tr>
+                  <td>22 KB = 22528 B</td>
+                  <td>✔ 剩 32768 B</td>
+                  <td>✔ 剩 6144 B（21%）</td>
+                  <td>✔ 剩 4096 B（15%）</td>
+                </tr>
+                <tr>
+                  <td>26 KB = 26624 B</td>
+                  <td>✔ 剩 28672 B</td>
+                  <td>✔ 剩 2048 B（7%，很危险）</td>
+                  <td><b>✘ 卡在边界上</b>：正好等于槽容量，链接器通常还会因为对齐多占几十字节而报错</td>
+                </tr>
+                <tr>
+                  <td>30 KB = 30720 B</td>
+                  <td>✔ 剩 24576 B</td>
+                  <td><b>✘ 超出 2048 B</b>，链接失败</td>
+                  <td><b>✘ 超出 4096 B</b>，链接失败</td>
+                </tr>
+                <tr>
+                  <td>35 KB = 35840 B</td>
+                  <td>✔ 剩 19456 B</td>
+                  <td><b>✘ 超出 7168 B</b></td>
+                  <td><b>✘ 超出 9216 B</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>步骤三：解释「A/B 为什么在 64 KB 上很可能不够用」。</b></p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>A/B 双槽要求<b>两份固件同时存在</b>，所以每个槽最多只能拿到 Flash 的一半略多。扣掉 Bootloader 和参数区之后，<b>每槽上限 26 KB，这个数字是硬上限，跟你怎么优化代码无关</b>。</li>
+            <li>而一个真实的「带 HAL + 串口协议 + OLED + ADC 采样」的固件落在 28~32 KB 是常态（2.2 节的模块账算过），<b>26 KB 的槽装不下 30 KB 的固件</b>。这不是「性能差一点」，而是链接器直接报错、产不出可烧写的镜像。</li>
+            <li>它还有一个隐性成本：<b>同一个 App 要在两个不同基址上都能跑</b>，要么编译两份（两次编译、两个文件、发布流程翻倍，还容易发错），要么写成位置无关代码（对 C 语言工程来说约束很多：不能有绝对地址的函数指针表、中断向量表要动态改、链接时要用 <code class="icode">-fPIC</code> 之类的选项，体积还会变大）。</li>
+            <li>反过来说，如果固件能稳定压在 <b>22 KB 以内</b>（方案三还剩 15% 余量），A/B 是这三者里最优雅的：回滚毫秒级、升级过程对正在运行的版本零风险。所以正确的问法不是「A/B 好不好」，而是<b>「我的固件有没有把握长期不超过 22 KB」</b>。</li>
+          </ul>
+
+          <p class="mt-3"><b>结论：</b>本文后续按<b>方案二</b>实现——<code class="icode">BL 4 KB @ 0x08000000</code>、<code class="icode">App 28 KB @ 0x08001000</code>、<code class="icode">备份 28 KB @ 0x08008000</code>、<code class="icode">参数 4 KB @ 0x0800F000</code>。它用 2 KB 的空间换来了「能回滚」这个最关键的能力，同时给 App 留下了 28 KB——这个数字必须写进项目文档，作为「每次发版前检查 map 文件」的硬性指标。</p>
+
+          <!-- ===== 例题 2 ===== -->
+          <h3 id="calc-2" class="mt-8 text-base font-semibold">例题二：115200 波特率传完 48 KB 固件要多久</h3>
+
+          <p class="mt-3"><b>已知：</b>串口配置 115200-8-N-1；固件大小 48 KB = 49152 字节；协议每包 1024 字节数据，帧开销 = 同步头 2 + TYPE 1 + SEQ 1 + LEN 2 + ADDR 4 + CRC16 2 = <b>12 字节</b>；每包回一个 1 字节 ACK。</p>
+
+          <p class="mt-3"><b>步骤一：先算串口的「有效字节率」。</b>8-N-1 的意思是每传 1 个字节，线上实际有 <b>10 个位</b>：1 个起始位 + 8 个数据位 + 1 个停止位（没有校验位）。所以：</p>
+          <div class="code-block mt-3" data-lang="text" data-title="115200-8-N-1 的实际吞吐">
+            <pre><code>有效字节率 = 波特率 / 每字节位数 = 115200 / 10 = 11520 字节/秒
+
+【只算固件数据的裸时间】
+  t_payload = 49152 / 11520 = 4.2667 秒 ≈ 4.27 秒
+
+【把协议开销算进去】
+  包数 = 49152 / 1024 = 48 包
+  帧开销 = 48 × 12 = 576 字节
+  CRC16 也占 2 字节 —— 上面 12 字节里已经含了
+  ACK = 48 × 1 = 48 字节
+  线上总字节 = 49152 + 576 + 48 = 49776 字节
+  t_total = 49776 / 11520 = 4.3208 秒 ≈ 4.32 秒
+  开销比例 = 624 / 49152 = 1.27%（完全可以接受）
+
+【如果每包只发 128 字节（包变小了会怎样）】
+  包数 = 49152 / 128 = 384 包
+  开销 = 384 × 12 + 384 × 1 = 4992 字节
+  线上总字节 = 49152 + 4992 = 54144 字节 → t = 4.70 秒
+  ⇒ 分包变小，传输时间多了 8.8%：包头是固定成本，包越小占比越高
+
+【如果每包发 2048 字节（包变大了会怎样）】
+  F103C8T6 只有 20 KB SRAM，Bootloader 能安全使用的缓冲约 4~8 KB
+  2048 字节的包意味着 2 KB 缓冲 + 拷贝开销，还要考虑 DMA 双缓冲
+  ⇒ 分包大小不是越大越好，它受 SRAM 限制。1 KB（正好一页）是这类芯片的甜点</code></pre>
+          </div>
+
+          <p class="mt-3"><b>步骤二：把波特率提高 8 倍，看时间怎么变。</b>F103 在 72 MHz 下可以用 921600 波特率：<code class="icode">BRR = 72 000 000 / 921600 = 78.125</code>，取整 78，实际波特率 = <code class="icode">72 000 000 ÷ 78 = 923 077</code>（注意 <code class="icode">BRR = USARTDIV × 16</code>：这里 <code class="icode">BRR = 0x4E = 78</code>，对应 <code class="icode">USARTDIV = 4.875</code>），误差 <b>+0.16%</b>，远小于串口能容忍的 ±2%，所以可以直接用。</p>
+          <div class="code-block mt-3" data-lang="text" data-title="波特率提升后的账（同一份 48 KB 固件）">
+            <pre><code>921600-8-N-1 的有效字节率 = 921600 / 10 = 92160 字节/秒
+
+  裸数据时间  = 49152 / 92160 = 0.5333 秒
+  含开销时间  = 49776 / 92160 = 0.5401 秒 ≈ 0.54 秒
+
+  ⇒ 传输时间从 4.32 秒 → 0.54 秒，快了 8 倍 ✔
+
+  但升级不是只有传输（下一题会算出擦写要 2.25 秒）：
+    115200 下：升级总耗时 ≈ 4.32 + 2.25 = 6.57 秒   ← 传输是瓶颈
+    921600 下：升级总耗时 ≈ 0.54 + 2.25 = 2.79 秒   ← 擦写成了瓶颈
+
+  ⇒ 波特率提到 921600，升级时间只缩短了 58%（不是 87%），
+    因为剩下的 2.25 秒是 Flash 的物理时间，波特率再快也压不动。
+  ⇒ 如果还想快，唯一的方向是「让收和写在时间上重叠」：
+    用 DMA 把串口数据直接搬进 SRAM 的双缓冲，一边收下一包、
+    一边写上一页（此时 CPU 在写 Flash，DMA 不需要 CPU 也不需要读 Flash）。
+    此时总时间 ≈ max(传输, 擦写) = max(4.32, 2.25) = 4.32 秒（115200 下）
+    ⇒ 相比串行的 6.57 秒提速 34%。这是「进阶优化」，本文先做串行版。</code></pre>
+          </div>
+
+          <p class="mt-3"><b>结论：</b>115200 下传 48 KB 需要 <b>4.32 秒</b>（含协议开销），它比擦写时间（2.25 秒）更长，所以波特率是这个方案的第一瓶颈。把波特率提到 921600 后传输降到 0.54 秒，<b>瓶颈就转移到 Flash 的物理擦写时间上</b>——这也是为什么「无脑提高波特率」在 IAP 里收益有限：最终你能压到的下限是「Flash 擦写 + 校验」的 2.3 秒左右。另外记住一个反直觉的结论：<b>分包变小会让总时间变长（+8.8%），分包变大受 SRAM 限制</b>，所以 1 KB 一包（正好一页）是这颗芯片上最划算的选择。</p>
+
+          <!-- ===== 例题 3 ===== -->
+          <h3 id="calc-3" class="mt-8 text-base font-semibold">例题三：擦 48 页 + 写 24576 个半字，一共要多久</h3>
+
+          <p class="mt-3"><b>已知：</b>48 KB 固件 = 48 页；按半字（2 字节）写入，共 49152 / 2 = <b>24576 个半字</b>；F103 页擦除典型 20 ms、半字编程典型 52.5 µs（数据手册典型值）；软件 CRC32 查表法约 10~20 个 CPU 周期/字节，主频 72 MHz。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="一次 48 KB 升级的完整时间账（方案二布局）">
+            <pre><code>【① 擦除 App 区：48 页】
+  t_erase = 48 × 20 ms = 960 ms = 0.96 秒
+
+【② 写入：24576 个半字】
+  t_prog = 24576 × 52.5 µs = 1 290 240 µs = 1290 ms = 1.29 秒
+
+  小计（纯 Flash 操作）= 0.96 + 1.29 = 2.25 秒
+  ⇒ 注意：擦除占了 43%，写入占 57%。两者同一量级，
+    所以「优化写入」和「优化擦除」都只有一半的收益。
+
+【③ 整体 CRC32 校验（49152 字节，查表法）】
+  按 15 周期/字节估算：49152 × 15 / 72 000 000 = 10.2 ms
+  按 20 周期/字节估算：49152 × 20 / 72 000 000 = 13.7 ms
+  取 10~14 ms。两次（写完时校验 + 每次上电判决）也就 20~30 ms
+  ⇒ 校验的开销可以忽略，不必为它省时间
+
+【④ 参数区写入】
+  擦 1 页 20 ms + 写若干半字（结构体约 50 字节 = 25 个半字）1.3 ms ≈ 21 ms
+  一次升级要写 2 次（备份记录 + 完成记录）≈ 42 ms
+
+【⑤ 备份旧版本（方案二特有）】
+  擦 28 页 = 28 × 20 ms = 560 ms
+  写 14336 个半字 = 14336 × 52.5 µs = 752 640 µs = 753 ms
+  小计 = 1.31 秒   ← 这是「能回滚」的代价
+
+【合计：一次 48 KB 升级（含备份），115200 波特率】
+  传输 4.32 + 备份 1.31 + 擦除 0.96 + 写入 1.29 + 校验 0.03 + 参数 0.04
+  ≈ 7.95 秒 ≈ 8 秒
+  其中「不可优化的 Flash 物理时间」占 (1.31 + 0.96 + 1.29) = 3.56 秒</code></pre>
+          </div>
+
+          <p class="mt-3"><b>步骤四：和「整片擦除」对比一下，理解为什么它不能用。</b>F1 有一个 <code class="icode">MER</code>（Mass Erase）位，一次操作把整片 Flash 擦干净，耗时也是 <b>20 ms 量级</b>——比逐页擦 48 页（0.96 秒）<b>快 48 倍</b>。看起来很诱人，但它会把 Bootloader、参数区、备份区一起擦掉：</p>
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead><tr><th>擦除方式</th><th>耗时</th><th>擦掉了什么</th><th>能用吗</th></tr></thead>
+              <tbody>
+                <tr><td>逐页擦 48 页（PER + AR + STRT）</td><td>0.96 秒</td><td>只有 App 区那 48 页</td><td><b>✔ 升级就该这么做</b></td></tr>
+                <tr><td>整片擦除（MER）</td><td>20 ms 量级</td><td>全部 64 KB：Bootloader 也没了</td><td>✘ 除非你要「恢复出厂空片」</td></tr>
+                <tr><td>擦除选项字节（OPTER）</td><td>20 ms 量级</td><td>选项字节；<b>如果读保护已生效，还会连带整片擦除</b></td><td>✘ 只在改保护设置时用，见例题六</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>顺带比一下 F4。</b>同样是 48 KB 固件，F4 的扇区结构会让「擦除」变得很不划算：S0~S3 是 4 个 16 KB，48 KB 正好占满 S0~S3，要擦 4 个扇区，每个 16 KB 扇区典型擦除时间约 0.25 秒量级 → 约 1 秒；可如果固件长到 70 KB，它就会跨进 S4（64 KB 扇区），<b>改一个字也要擦掉整个 64 KB</b>，时间跳到 0.5 秒以上。所以「F1 的 1 KB 细粒度」在 IAP 场景里反而是优势：<b>擦除时间正比于「实际用到的字节数」，而不是「扇区边界」</b>。</p>
+
+          <p class="mt-3"><b>结论：</b>48 KB 固件的 Flash 操作时间 = 擦 0.96 s + 写 1.29 s ≈ <b>2.25 秒</b>，加上备份的 1.31 秒和传输的 4.32 秒，一次完整升级约 <b>8 秒</b>。这个数字有两个用处：一是给上位机设超时（建议单包超时 500 ms、整次升级超时 60 秒）；二是给客户承诺「升级期间设备会停服约 10 秒」，而不是含糊的「几秒钟」。</p>
+
+          <!-- ===== 例题 4 ===== -->
+          <h3 id="calc-4" class="mt-8 text-base font-semibold">例题四：CRC16 和 CRC32 的漏检概率差多少</h3>
+
+          <p class="mt-3"><b>已知：</b>CRC16-CCITT 的随机错误漏检概率上界为 <code class="icode">2⁻¹⁶ ≈ 1.526 × 10⁻⁵</code>；CRC32（IEEE 802.3）为 <code class="icode">2⁻³² ≈ 2.328 × 10⁻¹⁰</code>；假设串口链路误码率约 <code class="icode">10⁻⁶</code>（每 100 万个传输位错 1 位，这是一个偏保守的估计）；场景为 1 万台设备，每台生命周期内升级 20 次。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="从误码率到「一生会遇到几次校验漏检」">
+            <pre><code>【① 一次升级要传输多少个位】
+  48 KB = 49152 字节 = 393216 位
+
+【② 一次升级中出现至少一个比特错误的概率】
+  P(出错) = 1 - (1 - 10⁻⁶)^393216 ≈ 1 - e^(-0.393) ≈ 0.325
+  ⇒ 约三分之一的升级过程里，链路上至少有一个位翻了
+
+【③ 全部设备的「出错升级次数」】
+  1 万台 × 20 次 = 200000 次升级
+  其中带错的 ≈ 200000 × 0.325 ≈ 65000 次
+
+【④ 只用 CRC16 逐包校验时的期望漏检次数】
+  65000 × 1.526 × 10⁻⁵ ≈ 0.99 次
+  ⇒ 期望「出一次事故」。对于一万台设备的产品，这等于「一定会发生」
+
+【⑤ 只用 CRC32 整体校验时的期望漏检次数】
+  65000 × 2.328 × 10⁻¹⁰ ≈ 1.51 × 10⁻⁵ 次
+  ⇒ 反过来算：要让 CRC32 期望漏检一次，需要
+     1 / 2.328 × 10⁻¹⁰ ≈ 4.29 × 10⁹ 次「带错的升级」
+     按 0.325 的出错率折算，需要约 1.3 × 10¹⁰ 次升级
+     = 一亿台设备，每台升级 130 次
+
+【⑥ 两个都用（本文方案）】
+  逐包 CRC16 漏掉的错误，会被最后的整体 CRC32 再筛一遍
+  联合漏检概率 ≈ 2⁻¹⁶ × 2⁻³² = 2⁻⁴⁸ ≈ 3.55 × 10⁻¹⁵
+  ⇒ 前提有两个，缺一不可：
+     1) 两者的多项式/初值要不同（本文：包内用 CRC16-CCITT，
+        整体用 CRC32/IEEE，多项式 0x1021 与 0xEDB88320 完全无关）
+     2) 整体校验必须「从 Flash 里重新读出来算」，
+        而不是拿接收缓冲里的数据算 —— 这样它同时验证了
+        「传输正确」和「写入正确」两件事</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">CRC 管不了的三件事，必须靠别的机制兜住</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>整包丢失（丢包）</b>：CRC 是对「收到的数据」算的，一整包没收到就不存在「校验」这回事。靠 <b>SEQ 序号连续性</b>发现，靠重传解决。</li>
+              <li><b>整段被截断（断电）</b>：如果上位机声称「总长 48 KB」，而设备只收到 31 KB，长度字段本身就能发现；如果连结束包都没收到，就靠<b>升级超时</b>兜底。</li>
+              <li><b>写入本身出错（没擦干净、写保护、半字不对齐）</b>：这类错误的特征是「Flash 里的内容≠你发过去的内容」，所以只有<b>从 Flash 重新读出来算 CRC32</b> 才能发现。这也是为什么上电判决时不能信任「刚写入时的校验结果」，要重新算。</li>
+            </ul>
+          </div>
+
+          <p class="mt-3"><b>结论：</b>逐包用 CRC16（够快、够用、错了还能重传）＋ 整体用 CRC32（把漏网的比特和写入错误一起抓出来），联合漏检概率在 <b>10⁻¹⁵ 量级</b>，对任何实际产品都绰绰有余。<b>反过来，如果为了省事只用「和校验」或者只做逐包 CRC16，在一万台规模的量产里几乎必然会出一到两次「校验通过但设备不启动」的事故</b>——这就是为什么工业级的 IAP 一定会做两遍校验。</p>
+
+          <!-- ===== 例题 5 ===== -->
+          <h3 id="calc-5" class="mt-8 text-base font-semibold">例题五：Flash 擦写 1 万次的寿命，够不够用</h3>
+
+          <p class="mt-3"><b>已知：</b>F103 每页擦写寿命约 <b>10000 次</b>；参数区按第 23 篇的两页交替方案使用，所以「有效保存次数」是 <code class="icode">10000 × 2 = 20000 次</code>（两页轮流擦，等于把寿命翻倍）。下面看三种典型用法各能撑多久。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种「写状态」的频率 vs 寿命">
+            <pre><code>【用法 A（推荐）：参数页只记低频事件】
+  一次升级写入 3 次：备份记录 + 完成记录 + App 确认
+  有效保存次数 20000 / 3 ≈ 6666 次升级
+  一年升级 4 次（季度发版）→ 6666 / 4 = 1666 年
+  ⇒ 结论：对「升级标志」这种低频数据，Flash 寿命压根不是问题
+
+【用法 B（要小心）：每次上电写一条启动日志】
+  每天上电 5 次 → 一年 1825 次
+  20000 / 1825 ≈ 10.9 年
+  ⇒ 看起来还行，但注意这是「两页交替」之后的数字；
+    如果你忘了交替、每次上电都擦同一页：
+    10000 / 1825 ≈ 5.5 年，而且这是「平均」，实际会出现某一页
+    提前耗尽（写入不均匀）——设备会突然「记不住参数了」
+
+【用法 C（绝对禁止）：把看门狗复位计数写进 Flash】
+  假设 App 有 bug，进入「1 秒复位一次」的循环：
+  20000 次保存 / 每秒 1 次 = 20000 秒 = 5.6 小时
+  ⇒ 半天之内参数页就被磨穿。之后会发生什么？
+     · magic 校验失败 → Bootloader 认为「没有有效参数」
+     · 没有期望 CRC32 → 失去「判决依据」
+     · 回滚能力消失，甚至可能因为读不到版本号而拒绝启动
+  ⇒ 正确做法：复位计数写 BKP 备份寄存器（写次数无限），
+    参数页只存「已经确认过几次回滚」这种一次性的结果</code></pre>
+          </div>
+
+          <p class="mt-3"><b>步骤二：把「哪些状态该放哪」列成一张表，照着做就行。</b></p>
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead><tr><th>要记的状态</th><th>写入频率</th><th>该放哪</th><th>理由</th></tr></thead>
+              <tbody>
+                <tr><td>升级请求魔数</td><td>每次升级 1 次</td><td>备份寄存器（BKP_DR1）</td><td>复位后要保留、次数少但要求绝不丢，BKP 无写次数限制</td></tr>
+                <tr><td>看门狗连续复位计数</td><td><b>可能每秒 1 次</b></td><td>BKP_DR3</td><td>频率高，写 Flash 会在几小时内磨穿</td></tr>
+                <tr><td>启动来源（谁启动了我）</td><td>每次跳转 1 次</td><td>BKP_DR2</td><td>只要跨复位，不需要跨掉电</td></tr>
+                <tr><td>App 长度 / CRC32 / 版本号</td><td>每次升级 1~2 次</td><td>Flash 参数页</td><td>必须跨掉电保留（判决依据），且频率极低</td></tr>
+                <tr><td>备份有效性标志</td><td>每次升级 1 次</td><td>Flash 参数页</td><td>同上；且必须与 bak_crc32 同时写</td></tr>
+                <tr><td>出厂标定数据</td><td>一次（产线）</td><td>Flash 参数页</td><td>写一次就不动</td></tr>
+                <tr><td>运行中的状态机、计数</td><td>任意</td><td>RAM</td><td>不需要跨复位</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>结论：</b>「Flash 擦写 1 万次够不够用」这个问题<b>没有统一答案，它取决于你写它的频率</b>。作为「升级标志」，20000 次的有效寿命相当于几千年，完全够用；作为「每次上电都写的日志」，大约 10 年，属于要留意的量级；作为「看门狗复位计数」，<b>几个小时就会磨穿，必须放进备份寄存器</b>。工程上记住一句话：<b class="font-semibold text-ink">Flash 参数页只用来存「低频、且必须跨掉电」的事实；高频变化的状态一律放 RAM 或备份寄存器。</b></p>
+
+          <!-- ===== 例题 6 ===== -->
+          <h3 id="calc-6" class="mt-8 text-base font-semibold">例题六：解除读保护导致整片擦除后，Bootloader 也没了怎么办</h3>
+
+          <p class="mt-3"><b>已知：</b>量产时启用了 RDP Level 1；某台设备要返修，工程师为了读固件/重新烧写，先「解除读保护」；<b>解除的动作是擦除选项字节，而它会触发主存储区整片擦除</b>——连 Bootloader 一起变成 0xFF。现在要算两笔账：单台恢复成本，和一万台的返修成本。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="单台恢复的步骤与耗时">
+            <pre><code>【必须重做的四件事】
+  ① 解除读保护：擦除选项字节 + 自动整片擦除
+       耗时 ≈ 20 ms（整片擦除是 20 ms 量级）
+  ② 复位，让选项字节生效（RDP 回到 0xA5）
+       耗时 ≈ 0.1 秒
+  ③ 用 SWD 重新烧写 Bootloader（4 KB）+ App（28 KB）= 32 KB
+       ST-Link 在普通速度下约 10~20 KB/s，高速模式可到 50 KB/s 以上
+       按 20 KB/s 估：32 / 20 = 1.6 秒
+  ④ 重新设置写保护 + 读保护、复位、做一次空升级验证
+       耗时 ≈ 10~20 秒（含人工操作）
+
+【单台净操作时间】≈ 15~25 秒（不含拆机、接线、装回）
+【含拆装与测试】≈ 15 分钟/台（工业现场的真实数字）</code></pre>
+          </div>
+
+          <p class="mt-3"><b>步骤二：把单台成本乘上一万。</b></p>
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead><tr><th>场景</th><th>单台耗时</th><th>一万台合计</th><th>换算成人天（8 小时/天）</th></tr></thead>
+              <tbody>
+                <tr><td>实验室流水线作业（不用拆机，有工装）</td><td>20 秒</td><td>200000 秒 ≈ 55.6 小时</td><td>≈ 7 人天</td></tr>
+                <tr><td>现场返修（要拆机柜、接线、装回、测试）</td><td>15 分钟</td><td>150000 分钟 = 2500 小时</td><td><b>≈ 312 人天 ≈ 1.5 人年</b></td></tr>
+                <tr><td>设备装在不可达位置（高杆、井下、密闭机柜）</td><td>——</td><td>设备<b>永久变砖</b>，只能整机更换</td><td>成本 = 一万台整机</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>步骤三：从这笔账倒推出四条设计规则。</b></p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>① 量产加锁顺序必须是「先 WRP，后 RDP」。</b>因为设置 WRP 需要擦除选项字节，而如果此时 RDP 已经是 Level 1，这一步就会把整片 Flash（包括刚烧好的固件）擦掉。反过来先设 RDP 再设 WRP，产线上每台设备都会被「自己清空一次」——这是最典型的、能一次性报废整批产品的顺序错误。</li>
+            <li><b>② 保留 SWD 的物理可达性。</b>哪怕只是一个 4 针的测试焊盘（SWDIO/SWCLK/GND/3V3），成本几毛钱，却决定了这台设备「还能不能返修」。把 SWD 焊盘封在灌封胶里、或者用掉了引脚复用导致 SWD 无法连接，都属于「把一个可修复的产品变成一次性产品」。</li>
+            <li><b>③ App 区被擦空也必须能被拯救。</b>这一条要求 Bootloader 的串口升级入口「永远在等」：即使 App 区全空、参数区读不出来，Bootloader 也要能靠串口把固件收进来。这正是「升级模式必须有超时、但恢复模式必须常驻」的平衡点——本文的做法是：<b>参数区无效（magic 不对）时，Bootloader 直接进入常驻等待升级状态</b>，而不是跳转。</li>
+            <li><b>④ 千万不要在「解除读保护」这个动作上做任何自动化。</b>解除 RDP 必然伴随着整片擦除，它是「把设备打回空片」的核按钮，只能由人在明确知道后果时手工执行。你的上位机工具、产线工装、自动化脚本里都不该出现「先解除读保护再试一次」这种「重试逻辑」。</li>
+          </ul>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">六道题的一句话总结</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>例题一：</b>64 KB 上，回滚能力的价格是「App 从 54 KB 缩到 28 KB」——必须现在就决定，量产后改不了。</li>
+              <li><b>例题二：</b>115200 传 48 KB 要 4.32 秒；波特率提到 921600 只省 58%，因为瓶颈会转移到 Flash。</li>
+              <li><b>例题三：</b>擦 48 页 + 写 24576 个半字 = 2.25 秒，这是物理下限；整片擦只要 20 ms 但不能用。</li>
+              <li><b>例题四：</b>只用 CRC16，一万台设备一期期望出一次事故；叠加 CRC32 后降到 10⁻¹⁵ 量级。</li>
+              <li><b>例题五：</b>1 万次寿命对「升级标志」够用几千年，对「复位计数」只够几个小时。</li>
+              <li><b>例题六：</b>解除读保护 = 整片擦除，一万台现场返修 ≈ 1.5 人年；加锁顺序错一次就是这个代价。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ===================== 4. 工程实现 ===================== -->
+        <section class="mt-14">
+          <h2 id="sec-mcu" class="text-xl font-semibold">工程实现：一个能跑起来的 Bootloader</h2>
+          <p class="mt-3">前三节把「为什么、是什么、要多少钱」都讲完了，这一节全是代码。顺序就是 Bootloader 依赖的顺序：<b class="font-semibold text-ink">先把最底层的两样工具学会用（Flash 驱动、备份寄存器）→ 串口怎么把包收下来 → 怎么跳过去 → App 侧要改哪几行 → 出事了怎么退回来 → 量产怎么锁芯片</b>。每个函数只做一件事，Bootloader 的 <code class="icode">main()</code> 就是把这些函数按 2.4 节的状态机串起来。</p>
+          <p class="mt-3">下面的代码用的是<b>寄存器版</b>（StdPeriph 的思路，直接操作 <code class="icode">FLASH-&gt;CR</code> 这类寄存器），不用 HAL。原因在 2.2 节已经算过：HAL 版的 Bootloader 编译出来是 7~9 KB，而这 8 KB 是从 App 的 54 KB 里扣掉的。Bootloader 一辈子只需要四个功能（擦页、写半字、收串口、跳转），为一个「点灯级」的需求付 8 KB 的库代码代价，在 64 KB 的板子上不划算。如果你手上的工程本来就是 HAL 的，用 HAL 也完全可以，接口对照写在 4.1 节末尾。</p>
+
+          <!-- ============ 4.1 Flash 驱动 ============ -->
+          <h3 id="sub-mcu-reg" class="mt-8 text-base font-semibold">4.1 寄存器版 Flash 驱动：三个函数 + 两个坑</h3>
+          <p class="mt-3">F103 的 Flash 控制器一共就八个寄存器，真正在 IAP 里会用到的只有五个。先认个脸，后面代码里的每一位都对得上号：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead>
+                <tr><th>寄存器</th><th>偏移</th><th>关键位</th><th>在 IAP 里干什么</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">FLASH_ACR</code></td><td>0x00</td><td>LATENCY / PRFTBE</td><td>等待周期与预取。由 <code class="icode">SystemInit()</code> 按主频设好，Bootloader 里<b>不要动</b></td></tr>
+                <tr><td><code class="icode">FLASH_KEYR</code></td><td>0x04</td><td>——</td><td>解锁钥匙孔：连写两个魔数，写错顺序就得复位重来</td></tr>
+                <tr><td><code class="icode">FLASH_SR</code></td><td>0x0C</td><td>BSY(0) / PGERR(2) / WRPRTERR(4) / EOP(5)</td><td>每次擦写后<b>必须</b>看这里，否则失败被静默吞掉</td></tr>
+                <tr><td><code class="icode">FLASH_CR</code></td><td>0x10</td><td>PG(0) / PER(1) / MER(2) / STRT(6) / LOCK(7)</td><td>发起页擦除或半字编程，用完要退出模式</td></tr>
+                <tr><td><code class="icode">FLASH_AR</code></td><td>0x14</td><td>FAR[31:0]</td><td>页擦除的目标地址（整片擦除时不用）</td></tr>
+                <tr><td><code class="icode">FLASH_OBR</code></td><td>0x1C</td><td>RDPRT / OPTERR</td><td>读回「芯片现在是不是被读保护了」</td></tr>
+                <tr><td><code class="icode">FLASH_WRPR</code></td><td>0x20</td><td>WRP0~WRP3</td><td>只读回显：哪几组页被写保护了</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-5" data-lang="c" data-title="Bootloader 的 Flash 驱动：解锁 → 擦页 → 编程半字">
+            <pre><code>/* ==================== 1. 解锁与加锁 ==================== */
+#define FLASH_KEY1   0x45670123UL
+#define FLASH_KEY2   0xCDEF89ABUL
+
+#define SR_BSY       0x00000001UL   /* 位 0：忙 */
+#define SR_PGERR     0x00000004UL   /* 位 2：编程错误（目标没擦干净 / 写了 32 位） */
+#define SR_WRPRTERR  0x00000010UL   /* 位 4：写保护错误（这一页被 WRP 保护了） */
+#define SR_EOP       0x00000020UL   /* 位 5：操作结束 */
+
+void flash_unlock(void)
+{
+    FLASH-&gt;KEYR = FLASH_KEY1;       /* 顺序不能反，中间不能插别的写操作 */
+    FLASH-&gt;KEYR = FLASH_KEY2;       /* 写完这两行，CR 的 LOCK 位自动清 0 */
+}
+
+void flash_lock(void)
+{
+    FLASH-&gt;CR |= (1UL &lt;&lt; 7);         /* 置 LOCK。加锁后任何擦写请求都被直接忽略 */
+}
+
+/* ==================== 2. 擦除一页（1 KB，约 20 ms） ==================== */
+/* 返回 0 = 成功；-1 = 硬件报错；-2 = 超时（这一条最容易被漏掉） */
+int flash_erase_page(uint32_t page_addr)
+{
+    uint32_t t;
+
+    t = 2000000UL;
+    while ((FLASH-&gt;SR &amp; SR_BSY) &amp;&amp; --t) { }        /* 先等上一次操作结束 */
+    if (t == 0) return -2;
+
+    FLASH-&gt;CR |= (1UL &lt;&lt; 1);        /* CR.PER  = 1：选择「页擦除」 */
+    FLASH-&gt;AR  = page_addr;         /* 写目标地址，页内任意地址都行，习惯写页首 */
+    FLASH-&gt;CR |= (1UL &lt;&lt; 6);        /* CR.STRT = 1：开始干活 */
+
+    t = 2000000UL;
+    while ((FLASH-&gt;SR &amp; SR_BSY) &amp;&amp; --t) { }        /* 这 20 ms 里 Flash 读不了 */
+    if (t == 0) { FLASH-&gt;CR &amp;= ~(1UL &lt;&lt; 1); return -2; }
+
+    if (FLASH-&gt;SR &amp; (SR_PGERR | SR_WRPRTERR)) {
+        FLASH-&gt;SR = SR_PGERR | SR_WRPRTERR;        /* 状态位是「写 1 清除」 */
+        FLASH-&gt;CR &amp;= ~(1UL &lt;&lt; 1);                  /* 别忘了退出页擦除模式 */
+        return -1;
+    }
+    FLASH-&gt;SR = SR_EOP;
+    FLASH-&gt;CR &amp;= ~(1UL &lt;&lt; 1);
+    return 0;
+}
+
+/* ==================== 3. 编程一个半字（2 字节，约 52.5 µs） ==================== */
+int flash_program_halfword(uint32_t addr, uint16_t data)
+{
+    uint32_t t;
+
+    t = 100000UL;
+    while ((FLASH-&gt;SR &amp; SR_BSY) &amp;&amp; --t) { }
+    if (t == 0) return -2;
+
+    FLASH-&gt;CR |= (1UL &lt;&lt; 0);                       /* CR.PG = 1：选择「编程」 */
+    *(volatile uint16_t *)addr = data;              /* 关键：16 位指针，一次只写 2 字节 */
+    /* 这里如果写成 *(volatile uint32_t *)addr，F1 会直接置起 PGERR：
+       它的编程接口就是半字宽的，不给你一次写 32 位的机会 */
+
+    t = 100000UL;
+    while ((FLASH-&gt;SR &amp; SR_BSY) &amp;&amp; --t) { }
+    if (t == 0) { FLASH-&gt;CR &amp;= ~(1UL &lt;&lt; 0); return -2; }
+
+    if (FLASH-&gt;SR &amp; (SR_PGERR | SR_WRPRTERR)) {
+        FLASH-&gt;SR = SR_PGERR | SR_WRPRTERR;
+        FLASH-&gt;CR &amp;= ~(1UL &lt;&lt; 0);
+        return -1;
+    }
+    FLASH-&gt;SR = SR_EOP;
+    FLASH-&gt;CR &amp;= ~(1UL &lt;&lt; 0);
+    return 0;
+}</code></pre>
+          </div>
+
+          <p class="mt-3">有了这两个函数，再包一层「把 RAM 里的一段数据写进已擦干净的 Flash」，就是 Bootloader 真正要用的接口。注意奇数字节的处理：<b>末尾补 <code class="icode">0xFF</code>，不是补 0x00</b>——0xFF 是擦除后的天然状态，而且上位机在算 CRC32 时必须用同一套补齐规则，否则永远是「校验不过」。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="把一段缓冲区写进 Flash（调用前目标区域必须已擦除）">
+            <pre><code>/* 返回 0 = 全部成功；-1 = 中途失败（哪一半字失败就停在哪） */
+int flash_write_buf(uint32_t addr, const uint8_t *buf, uint32_t len)
+{
+    uint32_t i;
+
+    for (i = 0; i &lt; len; i += 2) {
+        uint16_t hw = (uint16_t)buf[i];                  /* 小端：低字节在前 */
+        if (i + 1 &lt; len) hw |= (uint16_t)((uint16_t)buf[i + 1] &lt;&lt; 8);
+        else             hw |= 0xFF00;                   /* 奇数长度：高字节补 0xFF */
+
+        if (flash_program_halfword(addr + i, hw) != 0) return -1;
+    }
+    return 0;
+}</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">Bootloader 里最危险的写法：不带超时的轮询</div>
+            <p class="mt-2">下面这三种写法在实验室里都能跑，在现场都可能让设备<b>永久卡死</b>，而且看门狗也救不回来（Bootloader 阶段往往还没启动看门狗，或者启动了也来不及喂）：</p>
+            <div class="code-block mt-3" data-lang="c" data-title="三种必须改掉的死等写法">
+              <pre><code>while (FLASH-&gt;SR &amp; SR_BSY) { }                 /* ← 硬件进异常态就永远出不来 */
+while (!(USART1-&gt;SR &amp; (1UL &lt;&lt; 7))) { }        /* ← 上位机拔线，你等到天荒地老 */
+while (rx_len == 0) { }                        /* ← 等一包数据，对方没发就不走了 */
+
+/* 正确的形式：每一个等待都配一个「最多等多久」 */
+uint32_t t = TIMEOUT_ERASE_MS * 1000UL;
+while ((FLASH-&gt;SR &amp; SR_BSY) &amp;&amp; --t) { }
+if (t == 0) return ERR_TIMEOUT;</code></pre>
+            </div>
+            <p class="mt-2">这条规则不只适用于 Flash：整个 Bootloader 里<b>不允许存在任何一个没有上界的等待</b>。因为升级模式下的 Bootloader 是一个「只能自己救自己」的程序——它没有操作系统帮它兜底，也没有人来按复位键（设备可能装在墙上）。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">备份寄存器（BKP）：跨复位保留状态的唯一低成本手段</h4>
+          <p class="mt-3">2.3 节讲过三种触发方式，其中「App 请求升级」和「连续三次看门狗复位就回滚」都需要一个<b>复位后还在、但不需要跨掉电</b>的地方存状态。备份寄存器正好干这个：它是 RTC 后备域里 10 个 16 位寄存器，主电源断电时靠 VBAT 保住，只要不断电，复位多少次都还在。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="备份寄存器初始化与三个用途">
+            <pre><code>#define RCC_APB1ENR_PWREN   (1UL &lt;&lt; 28)
+#define RCC_APB1ENR_BKPEN   (1UL &lt;&lt; 27)
+#define PWR_CR_DBP          (1UL &lt;&lt; 8)
+
+/* DR1 ~ DR10 都能用，但注意：它们不是连续地址（中间有保留位），
+   不要写成 (BKP-&gt;DR1 + i) 去遍历，老老实实每个寄存器起个名字 */
+#define BKP_IAP_REQ     (BKP-&gt;DR1)   /* 升级请求魔数：App 写 0x49415031 表示「下次我要升级」 */
+#define BKP_WHOAMI      (BKP-&gt;DR2)   /* 谁启动了我：0x5A5A = Bootloader 启动，0x5B5B = App 启动 */
+#define BKP_RST_CNT     (BKP-&gt;DR3)   /* 连续异常复位计数，够 3 就回滚 */
+
+void bkp_init(void)
+{
+    RCC-&gt;APB1ENR |= RCC_APB1ENR_PWREN;   /* 第一步：开 PWR 时钟 */
+    RCC-&gt;APB1ENR |= RCC_APB1ENR_BKPEN;   /* 第二步：开 BKP 时钟。顺序反了写不进去 */
+    PWR-&gt;CR      |= PWR_CR_DBP;          /* 第三步：解除后备域写保护，否则写 BKP 全被丢 */
+}
+
+void bkp_write(uint16_t val)   /* 以 BKP_WHOAMI 为例 */
+{
+    BKP_WHOAMI = val;
+    while (BKP-&gt;CR &amp; (1UL &lt;&lt; 0)) { }      /* 位 0 = 写忙，等它落盘再干别的 */
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">BKP 有一个前提：后备域得有电</div>
+            <p class="mt-2">BKP 的本质是「RTC 后备域里的一块小 SRAM」。主电源在时它靠主电源，主电源断了它靠 <code class="icode">VBAT</code> 引脚——也就是纽扣电池或超级电容。如果你的板子 <code class="icode">VBAT</code> 直接接地（很多最小系统板就是这么干的），那么<b>一断电 BKP 全丢</b>，和普通 RAM 没区别。</p>
+            <p class="mt-2">所以状态的存放位置要按「需要活过什么」来分：</p>
+            <ul class="mt-3 list-disc space-y-2 pl-5">
+              <li><b>只需要活过复位</b>（升级请求、复位计数、谁启动的我）→ <b>BKP</b>。写一次几微秒，不消耗 Flash 寿命。</li>
+              <li><b>必须活过掉电</b>（当前版本号、固件长度与 CRC32、备份是否有效）→ <b>Flash 参数区</b>。因为升级过程中本来就可能断电，而这些信息是断电后判决的依据。</li>
+              <li><b>只在本轮运行里有意义</b>（收包序号、当前状态机状态）→ <b>普通 RAM</b>。</li>
+            </ul>
+            <p class="mt-2">这张分工表在例题五里已经用寿命的数字验证过一遍：把「复位计数」放到 Flash 参数区，1 万次寿命只够 5.6 小时。</p>
+          </div>
+
+          <p class="mt-3">如果你决定用 HAL，接口的对应关系是这样（逻辑完全一样，只是被包了一层）：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead>
+                <tr><th>本文的寄存器版</th><th>HAL 对应</th><th>HAL 上最容易踩的坑</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">flash_unlock()</code></td><td><code class="icode">HAL_FLASH_Unlock()</code></td><td>无</td></tr>
+                <tr><td><code class="icode">flash_erase_page()</code></td><td><code class="icode">HAL_FLASHEx_Erase(&amp;init, &amp;PageError)</code></td><td><code class="icode">PageError</code> 必须检查，它才告诉你「第几页擦失败了」</td></tr>
+                <tr><td><code class="icode">flash_program_halfword()</code></td><td><code class="icode">HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, addr, data)</code></td><td>第一个参数写成 <code class="icode">FLASH_TYPEPROGRAM_WORD</code> 就是 PGERR</td></tr>
+                <tr><td><code class="icode">FLASH_SR</code> 里查位</td><td><code class="icode">HAL_FLASH_GetError()</code></td><td>返回的是 WRPERR/PGERR 的组合，别只判 PGSERR</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ============ 4.2 串口收包 ============ -->
+          <h3 id="sub-mcu-proto" class="mt-8 text-base font-semibold">4.2 串口收包：一个逐字节的状态机</h3>
+          <p class="mt-3">2.4 节定了协议，这里把它变成代码。核心思想是：<b>串口来的是一串无边界的字节流，你要自己给它划边界</b>。最省 RAM、最不容易错的做法是一个「一次只吃一个字节」的状态机——它不需要环形缓冲区，不需要知道什么时候是包的开头，同步头两个字节一旦对上，后面就顺着字段一个个收下去。</p>
+          <p class="mt-3">先准备 CRC16-CCITT 的查表实现（多项式 <code class="icode">0x1021</code>，初值 <code class="icode">0xFFFF</code>，不反射）。查表比逐位算快 8 倍左右，一个 256 项的 <code class="icode">uint16_t</code> 表占 512 字节 Flash，在 Bootloader 里完全付得起：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="CRC16-CCITT 查表法（与上位机必须完全一致）">
+            <pre><code>static uint16_t crc16_tab[256];
+
+void crc16_init(void)
+{
+    uint16_t i, j, c;
+    for (i = 0; i &lt; 256; i++) {
+        c = (uint16_t)(i &lt;&lt; 8);
+        for (j = 0; j &lt; 8; j++)
+            c = (c &amp; 0x8000) ? (uint16_t)((c &lt;&lt; 1) ^ 0x1021) : (uint16_t)(c &lt;&lt; 1);
+        crc16_tab[i] = c;
+    }
+}
+
+uint16_t crc16_update(uint16_t crc, uint8_t byte)
+{
+    return (uint16_t)((crc &lt;&lt; 8) ^ crc16_tab[((crc &gt;&gt; 8) ^ byte) &amp; 0xFF]);
+}</code></pre>
+          </div>
+
+          <p class="mt-3">然后是状态机本体。它只做一件事：吃字节、攒字段、算 CRC，收满一包就返回 1 交给上层。所有「丢包、乱序、噪声」都在这里被消化掉，上层拿到的一定是一包 CRC 正确的数据：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="逐字节收包状态机：同步头 → 12 字节包头 → 数据 → CRC16">
+            <pre><code>#define SYNC1       0xAA
+#define SYNC2       0x55
+#define HDR_LEN     12          /* TYPE SEQ LEN(2) ADDR(4) CRC不算在包头里 */
+#define MAX_DATA    1024        /* 与「1 KB 页」对齐，也是接收缓冲的容量 */
+
+typedef enum { ST_SYNC1 = 0, ST_SYNC2, ST_HDR, ST_DATA, ST_CRCL, ST_CRCH } rx_state_t;
+
+static rx_state_t st;
+static uint8_t  hdr[HDR_LEN];
+static uint8_t  hdr_i;
+static uint8_t  data[MAX_DATA];
+static uint16_t data_i, data_len;
+static uint16_t crc_calc, crc_recv;
+static uint32_t pkt_addr;
+
+static void rx_reset(void)
+{
+    st = ST_SYNC1;
+    hdr_i = 0;
+    data_i = 0;
+}
+
+/* 返回值：0 = 还在收；1 = 收到完整一包（hdr/data 有效）；-1 = CRC 错；-2 = 长度非法 */
+int proto_feed(uint8_t b)
+{
+    /* ---------- 阶段一：找同步头。不是 0xAA 的字节全部丢掉 ---------- */
+    if (st == ST_SYNC1) {
+        if (b == SYNC1) st = ST_SYNC2;
+        return 0;
+    }
+    if (st == ST_SYNC2) {
+        st = (b == SYNC2) ? ST_HDR : ST_SYNC1;   /* 0xAA 0xAA 0x55 也能正确识别 */
+        if (st == ST_HDR) hdr_i = 0;
+        return 0;
+    }
+
+    /* ---------- 阶段二：收 12 字节包头，边收边算 CRC ---------- */
+    if (st == ST_HDR) {
+        if (hdr_i == 0) crc_calc = 0xFFFF;       /* TYPE 是参与 CRC 的第一个字节 */
+        hdr[hdr_i++] = b;
+        crc_calc = crc16_update(crc_calc, b);
+        if (hdr_i &lt; HDR_LEN) return 0;
+
+        data_len = (uint16_t)(hdr[2] | ((uint16_t)hdr[3] &lt;&lt; 8));      /* LEN，小端 */
+        if (data_len &gt; MAX_DATA) { rx_reset(); return -2; }
+
+        pkt_addr = ((uint32_t)hdr[4])        | ((uint32_t)hdr[5] &lt;&lt; 8)
+                 | ((uint32_t)hdr[6] &lt;&lt; 16)  | ((uint32_t)hdr[7] &lt;&lt; 24);  /* ADDR，小端 */
+
+        data_i = 0;
+        st = (data_len &gt; 0) ? ST_DATA : ST_CRCL;
+        return 0;
+    }
+
+    /* ---------- 阶段三：收数据，同样参与 CRC ---------- */
+    if (st == ST_DATA) {
+        data[data_i++] = b;
+        crc_calc = crc16_update(crc_calc, b);
+        if (data_i &gt;= data_len) st = ST_CRCL;
+        return 0;
+    }
+
+    /* ---------- 阶段四：收 CRC16（小端），对不上就整包丢 ---------- */
+    if (st == ST_CRCL) {
+        crc_recv = b;
+        st = ST_CRCH;
+        return 0;
+    }
+    /* st == ST_CRCH */
+    crc_recv |= (uint16_t)(b &lt;&lt; 8);
+    rx_reset();                                   /* 无论对错都回到找同步头 */
+    return (crc_recv == crc_calc) ? 1 : -1;
+}</code></pre>
+          </div>
+
+          <p class="mt-3">状态机只负责「收对」，收到之后做什么是上层的策略。数据包的处理正好把 2.4 节的 <code class="icode">ADDR</code> 那一条防线用上——<b>每一次写 Flash 之前先判地址</b>，这是防止误擦 Bootloader 自己的最后一道闸：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="收到一整包之后：判地址 → 擦页 → 写入 → 回 ACK">
+            <pre><code>#define APP_BASE    0x08001000UL
+#define APP_END     0x08008000UL
+#define ACK_BYTE    0x79
+#define NAK_BYTE    0x1F
+
+void send_ack(void)          { uart_putc(ACK_BYTE); }
+void send_nak(uint8_t err)   { uart_putc(NAK_BYTE); uart_putc(err); }
+
+void uart_putc(uint8_t c)
+{
+    uint32_t t = 100000UL;
+    while (!(USART1-&gt;SR &amp; (1UL &lt;&lt; 7)) &amp;&amp; --t) { }   /* 位 7 = TXE，发送寄存器空 */
+    USART1-&gt;DR = c;
+}
+
+/* 预约好的接收缓冲（1 KB），与 MAX_DATA 一致 */
+extern uint8_t data[MAX_DATA];
+extern uint16_t data_len;
+extern uint32_t pkt_addr;
+
+int handle_data_packet(void)
+{
+    /* ① 地址必须落在 App 区，一个字节都不能越界 */
+    if (pkt_addr &lt; APP_BASE || pkt_addr &gt;= APP_END) { send_nak(0x04); return -1; }
+
+    /* ② 必须页对齐：一包就是一整页，擦一页写一页，逻辑最简单 */
+    if (pkt_addr &amp; 0x3FFUL) { send_nak(0x04); return -1; }
+
+    /* ③ 先擦这一页（20 ms），失败多半是量产时 WRP 盖到了 App 区 */
+    if (flash_erase_page(pkt_addr) != 0) { send_nak(0x05); return -1; }
+
+    /* ④ 再把这一包写进去（1024 字节 = 512 个半字 ≈ 26.9 ms） */
+    if (flash_write_buf(pkt_addr, data, data_len) != 0) { send_nak(0x05); return -1; }
+
+    send_ack();       /* 一页落地才回 ACK：这就是「逐包确认」的物理含义 */
+    return 0;
+}</code></pre>
+          </div>
+
+          <p class="mt-3">Bootloader 里的超时不能用 <code class="icode">HAL_Delay()</code>（4.3 节会讲为什么它可能已经不能用了），要自己有一份毫秒计数。最简单的做法是让 SysTick 每 1 ms 中断一次累加一个 <code class="icode">volatile uint32_t</code>，然后所有等待都写成「记下开始时刻，超了就放弃」：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="Bootloader 自己的毫秒时基与超时判断">
+            <pre><code>static volatile uint32_t g_ms = 0;
+
+void SysTick_Handler(void)      /* 1 ms 一次 */
+{
+    g_ms++;
+}
+
+uint32_t bl_millis(void) { return g_ms; }
+
+/* 等一包数据最多 3 秒；等一个字节最多 100 ms —— 所有等待都有上界 */
+int wait_packet(uint32_t timeout_ms)
+{
+    uint32_t t0 = bl_millis();
+    int r;
+
+    while ((bl_millis() - t0) &lt; timeout_ms) {
+        if (USART1-&gt;SR &amp; (1UL &lt;&lt; 5)) {          /* 位 5 = RXNE，收到一个字节 */
+            r = proto_feed((uint8_t)(USART1-&gt;DR &amp; 0xFF));
+            if (r == 1)  return 1;               /* 完整一包到手 */
+            if (r == -1) send_nak(0x02);         /* CRC 错，让上位机重发这一包 */
+            if (r == -2) send_nak(0x01);         /* 长度非法 */
+        }
+    }
+    return 0;                                    /* 超时：交回上层决定继续等还是退出 */
+}</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">上位机那一侧：一个 60 行的脚本就够了</h4>
+          <p class="mt-3">下位机写好了，上位机不需要什么框架，一个串口库加一个文件读入就能跑。流程固定成六步，其中第 3 步的重发策略是「上位机唯一的智能」：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="上位机升级脚本的六步流程">
+            <pre><code>① 打开串口：115200 / 8 / N / 1，先收两秒，把上电时 Bootloader 吐的启动信息读干净
+② 握手：发 0x01，等 ACK 与设备信息（BL 版本、芯片 ID、当前 App 版本、App CRC32）
+     └ 把设备信息记进日志：这一条在批量升级时能救命（第 39 页的「谁在什么时候升了什么版本」）
+③ 读固件：把 .bin 整个读进内存，算出总长度 total_len 与整包 CRC32
+④ 分包发送：按 1024 字节切包，每包等 ACK（超时 500 ms → 重发，同一包最多重发 3 次）
+     └ 3 次都失败：停下来报错，不要继续往后发（后面发了也是白写）
+⑤ 收尾：发 0x03（total_len + CRC32），等设备回「整体校验通过」
+     └ 设备在这一步会从 Flash 重新读出来算 CRC32，所以它验证的是「写入正确」而不只是「传输正确」
+⑥ 执行：发 0x04，设备写状态标志并跳转。之后收到 App 的启动信息，才算升级成功</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">协议里最容易两边写错的两个地方</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>字节序。</b>所有多字节字段（LEN、ADDR、CRC）统一小端。C 语言在 Cortex-M 上直接 <code class="icode">memcpy</code> 就是小端，但 PC 侧的 Python 一定要显式写 <code class="icode">struct.pack('&lt;H', len)</code>——不加那个 <code class="icode">&lt;</code> 就用了本机字节序，在某些平台上会突然不对。</li>
+              <li><b>CRC 的范围。</b>从 <code class="icode">TYPE</code> 开始，到数据最后一个字节结束，<b>不含同步头、不含 CRC 本身</b>。这个范围要写进接口文档，两边各抄一遍，而不是「各写各的、跑起来对不上再猜」。</li>
+            </ul>
+            <p class="mt-2">一个实用的自检手段：拿一包固定的测试数据（比如 TYPE=02、SEQ=00、LEN=1024、ADDR=0x08001000、数据全 0x00），两边各算一遍 CRC16，把结果写成注释钉在代码里。以后谁改了算法，编译出来一对就露馅。</p>
+          </div>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">接收缓冲为什么刚好是 1 KB</div>
+            <p class="mt-2">这不是巧合，是三个约束顶出来的：<b>协议里 LEN 的最大值（MAX_DATA=1024）、Flash 一页的大小（1024 字节）、以及「边收边写」的粒度（收满一页立刻擦写一页）</b>三者对齐。对齐之后，代码里到处都是一句话：一包 = 一页 = 一次擦 + 512 次半字编程，没有「跨页包」这种需要特殊处理的中间状态。</p>
+            <p class="mt-2">代价是 RAM：Bootloader 常驻 1 KB 缓冲（回滚时还要再加 1 KB 的页拷贝缓冲，见 4.5 节）。F103C8T6 有 20 KB SRAM，Bootloader 阶段 App 还没跑，这 2 KB 完全拿得出来——但如果你的芯片只有 6 KB SRAM（比如 F030F4），就得改成 256 字节包，那样包头开销会从 1.27% 涨到 4.9%（例题二算过这个趋势）。</p>
+          </div>
+
+        <!-- ============ 4.3 跳转 ============ -->
+          <h3 id="sub-mcu-jump" class="mt-8 text-base font-semibold">4.3 跳转函数：全文最关键的一段代码</h3>
+          <p class="mt-3">2.5 节把六步时序讲透了，这里给出可以直接用的实现。四个要点在代码里各占一个注释块：<b>从 App 头部取两个向量 → 三个合法性检查 → 关掉一切打扰 → 先重定位向量表再换栈</b>。这段代码短到可以背下来，但它每一行都在防一个具体的故障。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="jump_to_app()：Bootloader 侧的完整实现">
+            <pre><code>#define APP_BASE    0x08001000UL
+#define APP_END     0x08008000UL
+#define SRAM_BASE   0x20000000UL
+#define SRAM_END    0x20005000UL        /* F103C8T6：20 KB SRAM 的末地址 + 1 */
+
+typedef void (*app_entry_t)(void);       /* 指向「复位入口」的函数指针类型 */
+
+/* 返回值只在「跳转失败」时才有意义；跳转成功永远不会回来 */
+int jump_to_app(void)
+{
+    uint32_t stack_top, reset_vec;
+
+    /* ---------- 1. 从 App 区头部读出两个向量 ---------- */
+    /* 偏移 0x00 = 初始栈顶（MSP 的初值），偏移 0x04 = 复位向量（Reset_Handler 地址） */
+    stack_top = *(volatile uint32_t *)(APP_BASE + 0x00UL);
+    reset_vec = *(volatile uint32_t *)(APP_BASE + 0x04UL);
+
+    /* ---------- 2. 三个合法性检查，一个都不能省 ---------- */
+    if (stack_top &lt; SRAM_BASE || stack_top &gt; SRAM_END) return -1;  /* 栈顶必须在 SRAM 里 */
+    if (reset_vec &lt; APP_BASE  || reset_vec &gt;= APP_END) return -2;  /* 复位向量必须在 App 区 */
+    if ((reset_vec &amp; 1UL) == 0)                       return -3;  /* Thumb 地址最低位必须为 1 */
+
+    /* 从没烧写过的芯片，这两个位置读出来都是 0xFFFFFFFF，会被上面两条拦下来。
+       这就是「App 区是空的」最可靠的检测方式：不要去猜标志位，直接读硬件 */
+
+    /* ---------- 3. 关掉一切会打扰新程序的东西 ---------- */
+    __disable_irq();                    /* 先关中断：下面每一步都存在危险窗口 */
+    SysTick-&gt;CTRL = 0;                  /* 关 SysTick，否则它继续往 App 里打 1 ms 中断 */
+    SysTick-&gt;LOAD = 0;
+    SysTick-&gt;VAL  = 0;
+    USART1-&gt;CR1   = 0;                  /* 关掉升级用的串口，防止它在 App 启动瞬间再收一个字节 */
+    NVIC-&gt;ICER[0] = 0xFFFFFFFFUL;       /* 清掉所有外部中断的使能位 */
+    NVIC-&gt;ICPR[0] = 0xFFFFFFFFUL;       /* 清掉所有已经悬起的中断请求 */
+    RCC-&gt;APB2ENR  = 0;                  /* 关掉外设时钟，让 App 的 SystemInit 重新决定 */
+    RCC-&gt;APB1ENR  = 0;
+
+    /* ---------- 4. 先重定位向量表，再换主栈指针（顺序不能反） ---------- */
+    SCB-&gt;VTOR = APP_BASE;               /* 之后所有异常入口都从 App 的向量表里取 */
+    __set_MSP(stack_top);               /* 换栈。从这一行起，本函数的局部变量都不再可靠 */
+
+    /* ---------- 5. 开中断，跳到 App 的复位入口。此后不再返回 ---------- */
+    __enable_irq();
+    ((app_entry_t)reset_vec)();
+
+    return 0;                           /* 正常永远执行不到这里 */
+}</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">第 4 步之后，这个函数就「不能返回」了</div>
+            <p class="mt-2"><code class="icode">__set_MSP()</code> 一执行，栈指针就指向了 App 的栈区，而这个函数的返回地址、局部变量、被调用者保存寄存器都还留在 Bootloader 原来的栈上——它们并没有被搬到新栈去。<b>所以从这一行往后，只允许做「不依赖栈上局部变量」的事</b>：不要再声明新变量、不要再调用复杂的函数、更不要想着「跳转失败还能 return 回来」。</p>
+            <p class="mt-2">实践上有两个安全的写法：一种是像上面这样，把 <code class="icode">__set_MSP()</code> 放在倒数第二句，后面只剩一个函数指针调用；另一种是把设栈和跳转写进一段极短的汇编或 <code class="icode">__attribute__((naked))</code> 函数。前一种更易读，本文用它。</p>
+          </div>
+
+          <p class="mt-3">跳转函数准备好了，Bootloader 的 <code class="icode">main()</code> 就只是在判决「这次该不该升级」。判决顺序很重要：<b>先看「为什么复位」（这个信息一闪就没），再看备份寄存器里的请求，最后用参数区的 CRC32 作为最终事实</b>。下面是去掉细节后的骨架，每一步对应 2.3 节的一条判决依据：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="Bootloader 主流程骨架：三判决 + 升级模式 + 兜底常驻">
+            <pre><code>int main(void)
+{
+    uint32_t rst_csr;
+    uint32_t want_upgrade = 0;
+
+    /* ===== ① 第一件事：把「为什么复位」记下来 =====
+       任何一次 NVIC_SystemReset() 都会在之后覆盖这个信息，
+       而它正是「连续异常复位就回滚」这条规则的唯一证据 */
+    rst_csr = RCC-&gt;CSR;
+    RCC-&gt;CSR |= (1UL &lt;&lt; 24);                  /* RMVF：清掉旧标志，为下一次复位做准备 */
+
+    SystemInit();                              /* 时钟：72 MHz，与 App 保持一致 */
+    SysTick_Config(SystemCoreClock / 1000);    /* 1 ms 时基，给所有超时用 */
+    bkp_init();
+    uart_init(115200);
+    crc16_init();
+
+    /* ===== ② 判决一：是不是看门狗连着咬人？ ===== */
+    if (rst_csr &amp; ((1UL &lt;&lt; 29) | (1UL &lt;&lt; 30))) {        /* IWDGRSTF | WWDGRSTF */
+        if (BKP_RST_CNT &lt; 0xFFFF) BKP_RST_CNT++;
+    } else if (rst_csr &amp; (1UL &lt;&lt; 26)) {                 /* PINRSTF：正常上电或按了复位键 */
+        BKP_RST_CNT = 0;                                /* 人来了，说明这次是「正常重启」 */
+    }
+    if (BKP_RST_CNT &gt;= 3) { want_upgrade = 1; BKP_RST_CNT = 0; }
+
+    /* ===== ③ 判决二：App 主动请求升级？ ===== */
+    if (BKP_IAP_REQ == 0x49415031UL) {
+        want_upgrade = 1;
+        BKP_IAP_REQ = 0;                       /* 用完即清！否则每次重启都进升级模式 */
+    }
+
+    /* ===== ④ 判决三（最终事实）：App 区里的东西完不完整？ =====
+       不是看标志位，而是从 Flash 重新读出来算一遍 CRC32（2.7 节） */
+    if (!app_is_valid()) want_upgrade = 1;
+
+    /* ===== ⑤ 不想升级、App 也完好：直接跳过去 ===== */
+    if (!want_upgrade) {
+        BKP_WHOAMI = 0x5B5B;                   /* 告诉 App：你是被 Bootloader 拉起来的 */
+        if (jump_to_app() != 0) {              /* 跳失败（App 区是空的）→ 继续往下走 */
+            BKP_WHOAMI = 0x5A5A;
+            want_upgrade = 1;
+        }
+    }
+
+    /* ===== ⑥ 升级模式：先备份旧版本，再等上位机 ===== */
+    BKP_WHOAMI = 0x5A5A;
+    uart_puts("IAP: Bootloader ready, waiting for host...\r\n");
+    if (backup_ensure_valid() != 0) {          /* 备份有效就跳过；无效就先备份一份 */
+        uart_puts("IAP: backup FAILED, refuse to upgrade\r\n");
+        /* 备份都做不成，绝不往下走 —— 这时候动 App 区就是把设备变成砖 */
+    } else if (iap_wait_and_run() == 0) {      /* 状态机走到 S7，已写完「待验证」标志 */
+        NVIC_SystemReset();                    /* 复位一次，用最干净的状态启动新固件 */
+    }
+
+    /* ===== ⑦ 兜底：升级没做成。App 还好的话照常启动 ===== */
+    if (app_is_valid()) {
+        BKP_WHOAMI = 0x5B5B;
+        jump_to_app();
+    }
+
+    /* App 也坏了：留在 Bootloader 里常驻等待。
+       这是最后一道防线 —— 设备不会变砖，只要你还能连上串口 */
+    uart_puts("IAP: App is broken, stay in BL forever\r\n");
+    while (1) {
+        iap_wait_and_run();                    /* 唯一的出路是重新上传一份固件 */
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">看门狗在 Bootloader 里的位置：不启动，但要「留够时间」</div>
+            <p class="mt-2">IWDG 一旦启动就关不掉（只有复位能停），所以本文的选择是：<b>Bootloader 不启动 IWDG，由 App 自己决定要不要用狗</b>。但有一个例外要处理——如果是因为「App 里的狗咬人」才复位进 Bootloader 的，那么此时狗很可能<b>已经在跑了</b>（IWDG 属于后备域，复位后不清零）。</p>
+            <p class="mt-2">对策是在升级流程开始前把它的周期拉到最长，给「擦 48 页 + 写 24576 个半字」这段最长的操作留出余量（参数见 2.5 节的两个 callout）：</p>
+            <div class="code-block mt-3" data-lang="c" data-title="把已经在跑的看门狗周期拉到最长">
+              <pre><code>IWDG-&gt;KR  = 0x5555;      /* 解除 PR 与 RLR 的写保护 */
+IWDG-&gt;PR  = 0x07;        /* 预分频 256：40 kHz / 256 = 156.25 Hz */
+IWDG-&gt;RLR = 0x0FFF;      /* 重装值最大：4095 / 156.25 Hz ≈ 26.2 秒 */
+IWDG-&gt;KR  = 0xAAAA;      /* 喂一次，让新参数立即生效 */</code></pre>
+            </div>
+            <p class="mt-2">26.2 秒对一次完整升级（含备份约 8 秒，见例题三）是够的。<b>但要在升级状态机的每个「等上位机」的循环里喂狗</b>——因为上位机那边可能卡住（人在犹豫、脚本崩了），等待时间不受你控制。这也是 2.4 节强调「每个等待都必须有超时」的另一个理由：有超时的等待，狗才不会咬你。</p>
+          </div>
+
+          <!-- ============ 4.4 App 侧 ============ -->
+          <h3 id="sub-mcu-app" class="mt-8 text-base font-semibold">4.4 App 侧要改什么：三行配置 + 一句报平安</h3>
+          <p class="mt-3">在 Bootloader 里写一万行，也救不了「App 还是按 0x08000000 链接的」这个错误。App 工程的改动一共五处，其中两处是必须的（不改就绝对跑不起来），三处是配合回滚机制（不改能跑，但升级出问题就退不回来）。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead>
+                <tr><th>改动位置</th><th>怎么改</th><th>不改的后果</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Keil 的 IROM1</td><td>Start 改成 <code class="icode">0x08001000</code>，Size 改成 <code class="icode">0x7000</code>（28 KB）</td><td>链接地址与烧写地址不符：跳过去直接 HardFault，或者读到的向量全是旧的</td></tr>
+                <tr><td>GCC 链接脚本的 MEMORY</td><td><code class="icode">ORIGIN = 0x08001000, LENGTH = 28K</code></td><td>同上；这是同一个事实的两种表述</td></tr>
+                <tr><td>向量表偏移</td><td><code class="icode">VECT_TAB_OFFSET</code> 由 0x0 改成 0x1000</td><td>中断跑进 Bootloader 的向量表：主循环能跑，一进中断就乱</td></tr>
+                <tr><td>App 的 <code class="icode">main()</code></td><td>第一句喂狗（如果用了 IWDG）</td><td>刚启动就被已经跑着的狗咬死：表现为「升级完每秒重启一次」</td></tr>
+                <tr><td>App 的稳定运行之后</td><td>把参数区状态从「待验证」改成「已确认」</td><td>Bootloader 永远认为这个固件没验证通过，下次上电还会回滚</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">改链接地址：两种工程各一行</h4>
+          <p class="mt-3">Keil 是在图形界面里改的：<b>Options for Target → Target 页 → IROM1 的 Start 与 Size</b>。改完顺手看一眼 <b>Linker 页</b>：如果勾了 <code class="icode">Use Memory Layout from Target Dialog</code>（默认就是勾的），那么分散加载文件是自动生成的，你只需要改 Target 页这一处；如果没勾、用的是自己写的 .sct，那两处都要改，而且必须一致。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="GCC 链接脚本片段：App 侧把 Flash 起点挪到 0x08001000">
+            <pre><code>/* STM32F103C8T6 的 App 侧链接脚本（方案二：BL 4 KB + App 28 KB + 备份 28 KB + 参数 4 KB） */
+MEMORY
+{
+  FLASH (rx)  : ORIGIN = 0x08001000, LENGTH = 28K    /* App 区：0x08001000 ~ 0x08007FFF */
+  RAM   (rwx) : ORIGIN = 0x20000000, LENGTH = 20K
+}
+
+/* 后面 SECTIONS 里的 .isr_vector / .text / .rodata 都不用动：
+   它们本来就是「跟在 ORIGIN 后面」的，改 ORIGIN 就够了 */
+SECTIONS
+{
+  .isr_vector : { KEEP(*(.isr_vector)) } &gt; FLASH
+  .text       : { *(.text*) }            &gt; FLASH
+  /* … 其余照旧 … */
+}</code></pre>
+          </div>
+
+          <p class="mt-3">注意最后一句注释：<b>链接地址改一处，向量表、代码、常量会整体往后挪</b>——它们是相对 ORIGIN 排布的，不需要你逐段去改。真正需要单独改的是「运行时才知道自己在哪里」的那部分，也就是向量表偏移。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="向量表偏移：App 侧的一行配置（system_stm32f10x.c）">
+            <pre><code>/* 文件：Libraries/CMSIS/CM3/DeviceSupport/ST/STM32F10x/system_stm32f10x.c */
+/* 默认是 0x0，改成 App 区相对 Flash 基址的偏移 */
+#define VECT_TAB_OFFSET  0x1000      /* 0x08001000 - 0x08000000 */
+
+/* 这个宏在 SystemInit() 里被这样用（库函数原文，不用你写）：
+     SCB-&gt;VTOR = FLASH_BASE | VECT_TAB_OFFSET;
+   所以只要改了这里，App 一进 main 之前就自动完成了向量表重定位 */
+
+/* 如果你用的是「运行时设置」的写法（2.6 节对比过两种），
+   就在 main() 里、HAL_Init() 之前加上这两句： */
+void app_set_vector_table(void)
+{
+    SCB-&gt;VTOR = 0x08001000UL;            /* 直接给 App 区基址 */
+    /* 或者用 CMSIS 的封装（效果相同）：
+       NVIC_SetVectorTable(NVIC_VectTab_FLASH, 0x1000); */
+}</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">两种做法都做一遍，是最稳的</div>
+            <p class="mt-2">看起来「BL 里 <code class="icode">SCB-&gt;VTOR</code>」和「App 里 <code class="icode">VECT_TAB_OFFSET</code>」是重复的，但它们防的是不同的东西：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>BL 里设</b>：防「App 的 <code class="icode">SystemInit()</code> 之前发生中断」。复位向量一执行到 <code class="icode">SystemInit()</code> 中间可能已经过了几百个周期，如果此时有个外设中断挂在那里（比如串口刚收到半个字节），而 VTOR 还指着 Bootloader 的向量表，就会跳进 Bootloader 的中断服务函数里——那段代码对应的外设时钟已经被关了，行为完全不可预期。</li>
+              <li><b>App 里设</b>：防「将来换分区不重编」。如果哪天你把 App 区挪到 0x08002000（比如 BL 从 4 KB 长到 8 KB），只要 App 的偏移是编译期常量，就必须重新编译；而运行时设置的写法可以做到「同一份固件放进任意槽」。</li>
+            </ul>
+            <p class="mt-2">代价只是两行代码，收益是两类故障都不会发生。这也是 2.6 节把两种做法并列而不是二选一的原因。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">报平安与「谁启动了我」</h4>
+          <p class="mt-3">回滚机制的判决证据是「App 有没有报平安」。2.7 节给了参数区的状态字设计，这里给出 App 侧的两个函数——一个报平安，一个问「我是不是刚被升级过」：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="App 侧：报平安 + 判断启动来源 + 主动请求升级">
+            <pre><code>/* ==================== 1. 报平安：把状态从「待验证」改成「已确认」 ==================== */
+/* 调用时机：主循环真的跑起来之后（本文用「连续正常跑了 3 秒」作为判据）。
+   绝不能在 main() 第一行就调 —— 那时候时钟、外设都可能还没配好，
+   一个「刚进 main 就崩」的固件会把自己标成好固件，回滚机制就失效了 */
+void app_report_alive(void)
+{
+    param_t *p = (param_t *)PARAM_BASE;
+
+    param_t tmp = *p;                  /* 先读到 RAM 里改，再整页写回（2.7 节的读改写） */
+    tmp.app_state = 0;                 /* 0 = 已确认 */
+    tmp.seq++;
+    param_write(&amp;tmp);
+
+    uart_puts("APP: alive, version confirmed\r\n");
+}
+
+/* ==================== 2. 我是不是被 Bootloader 拉起来的？ ==================== */
+void app_check_boot_source(void)
+{
+    if (BKP_WHOAMI == 0x5B5B) {
+        uart_puts("APP: booted by Bootloader (maybe just upgraded)\r\n");
+        /* 有用的信息先搬走：BKP 读完就清，否则下次软复位还会读到旧值 */
+        g_booted_by_bl = 1;
+        BKP_WHOAMI = 0;
+    } else {
+        uart_puts("APP: booted by something else\r\n");
+    }
+}
+
+/* ==================== 3. App 主动请求升级（收到 @IAP 命令时） ==================== */
+void app_request_upgrade(void)
+{
+    BKP_IAP_REQ = 0x49415031UL;        /* 写备份寄存器：跨复位有效、不消耗 Flash 寿命 */
+    while (BKP-&gt;CR &amp; (1UL &lt;&lt; 0)) { }      /* 位 0 = 写忙，等它落盘 */
+    NVIC_SystemReset();                /* 软件复位，接下来是 Bootloader 的舞台 */
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">「报平安」的动作会写 Flash，所以它只能发生一次</div>
+            <p class="mt-2"><code class="icode">app_report_alive()</code> 会改写参数页，而参数页的寿命是有限的（例题五算过：3 次/升级的用法下够 1666 年，但每次上电都写就只剩 10.9 年）。所以必须给它一个「只做一次」的判据，两个可选做法：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>读参数区判断</b>：如果 <code class="icode">app_state</code> 本来就是 0（已确认）且 <code class="icode">app_crc32</code> 与当前固件一致，就直接跳过，不写。</li>
+              <li><b>看 BKP</b>：<code class="icode">BKP_WHOAMI</code> 是 0x5B5B 才说明刚被 Bootloader 拉起过（可能是刚升级完），否则说明 App 是自己上电跑起来的，无需重复确认。</li>
+            </ul>
+            <p class="mt-2">两种判据都用上最保险：<b>先判「有没有必要写」，再判「现在能不能写」</b>。绝对不能写成 <code class="icode">while (1) { param_write(...); }</code> 这种「每圈都报一次平安」——那会在几分钟内把参数页写穿，然后设备失去回滚能力，表现和例题五里的「狗复位计数放 Flash」一模一样。</p>
+          </div>
+
+        <!-- ============ 4.5 备份与回滚 ============ -->
+          <h3 id="sub-mcu-rollback" class="mt-8 text-base font-semibold">4.5 备份与回滚：一个函数，正反两用</h3>
+          <p class="mt-3">2.7 节讲了回滚的三条触发和判决依据，这一节把它落成代码。先补上前面反复提到的那个工具函数：<b>软件 CRC32</b>。为什么不用 F103 自带的 CRC 外设？因为它只能按 32 位字写入、多项式与初值固定、长度不是 4 的倍数时补 0x00 还是补 0xFF 还会影响结果——用在「两边必须算得一模一样」的场合，坑比省下的那点时间值钱。软件查表版一个 256 项的 <code class="icode">uint32_t</code> 表占 1 KB Flash，速度约 15~20 周期/字节，算 48 KB 只要 10~14 ms（例题三的实测口径）。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="软件 CRC32（IEEE 802.3，与 zlib.crc32 / Python 的 binascii.crc32 一致）">
+            <pre><code>static uint32_t crc32_tab[256];
+
+void crc32_init(void)
+{
+    uint32_t i, j, c;
+    for (i = 0; i &lt; 256; i++) {
+        c = i;
+        for (j = 0; j &lt; 8; j++)
+            c = (c &amp; 1UL) ? (0xEDB88320UL ^ (c &gt;&gt; 1)) : (c &gt;&gt; 1);
+        crc32_tab[i] = c;
+    }
+}
+
+uint32_t crc32_update(uint32_t crc, uint8_t byte)
+{
+    return crc32_tab[(crc ^ byte) &amp; 0xFFUL] ^ (crc &gt;&gt; 8);
+}
+
+/* 从 Flash 里一个字节一个字节读出来算 —— 这是「写入正确」的验证。
+   刻意不走「顺手把手上那份 RAM 数据算一遍」那条路：
+   那样只能证明「我发出去的东西是对的」，证明不了「写进 Flash 的是对的」 */
+uint32_t crc32_flash(uint32_t addr, uint32_t len)
+{
+    uint32_t crc = 0xFFFFFFFFUL;
+    uint32_t i;
+    const volatile uint8_t *p = (const volatile uint8_t *)addr;
+
+    for (i = 0; i &lt; len; i++) crc = crc32_update(crc, p[i]);
+
+    /* 奇数长度：末尾补一个 0xFF，与上位机的规则一致。
+       也可以干脆多读一个字节 —— Flash 里那个填充字节本来就是 0xFF，效果相同 */
+    if (len &amp; 1UL) crc = crc32_update(crc, 0xFF);
+
+    return crc ^ 0xFFFFFFFFUL;      /* 输出取反，这样才和 PC 上的标准 CRC32 对得上 */
+}</code></pre>
+          </div>
+
+          <p class="mt-3">接下来是页拷贝。<b>它是整篇里第二段必须逐行看的代码</b>（第一段是 <code class="icode">jump_to_app()</code>），因为它的中间那一步「擦除」是破坏性的，而它读的源和写的目标在物理上是同一块 Flash：擦除期间 Flash 不可读，所以「边读边写」在这里不是效率问题，是数据必丢的问题。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="页拷贝：读 1 KB 进 RAM → 擦目标页 → 从 RAM 写回">
+            <pre><code>#define APP_BASE     0x08001000UL
+#define BACKUP_BASE  0x08008000UL
+
+static uint8_t page_buf[1024];      /* 页拷贝缓冲：Bootloader 常驻 1 KB RAM */
+
+/* 把 src 处的 1 KB 整页拷到 dst 处。返回 0 = 成功
+   一页耗时 ≈ 20 ms（擦）+ 512 × 52.5 µs（写）≈ 26.9 ms */
+int page_copy(uint32_t dst, uint32_t src)
+{
+    uint32_t i;
+
+    if (dst == src) return -1;      /* 同一个地方：读之前就被自己擦了，直接拒绝 */
+
+    /* ① 先把整页读进 RAM —— 必须一次读完整页，不能读一点擦一点 */
+    for (i = 0; i &lt; 1024UL; i++)
+        page_buf[i] = *(volatile uint8_t *)(src + i);
+
+    /* ② 擦掉目的地。这一步之后，dst 的内容变成全 0xFF */
+    if (flash_erase_page(dst) != 0) return -2;
+
+    /* ③ 再从 RAM 写过去 */
+    return flash_write_buf(dst, page_buf, 1024UL);
+}</code></pre>
+          </div>
+
+          <p class="mt-3">有了页拷贝，「备份」和「回滚」就是同一个循环，只是源和目的地互换。这个对称性不是文字游戏——它意味着<b>备份路径和回滚路径的代码可以被同一套测试覆盖</b>：备份测试过了，回滚的正确性就有了八成把握。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="备份与回滚：同一套拷贝逻辑，两个方向">
+            <pre><code>/* ==================== 备份：把当前 App 区复制到备份区 ==================== */
+/* 返回 0 = 备份可用（本来就有，或刚刚建好）；-1 = 建立失败，禁止升级 */
+int backup_ensure_valid(void)
+{
+    param_t *p = (param_t *)PARAM_BASE;
+    uint32_t i, pages;
+
+    /* 已有备份？不看标志位，先复核数据（从备份区重算 CRC32） */
+    if (p-&gt;bak_valid == 0xA55A &amp;&amp;
+        crc32_flash(BACKUP_BASE, p-&gt;bak_size) == p-&gt;bak_crc32) {
+        return 0;
+    }
+
+    /* 没有有效备份：现在做一份。上电时 App 可能本来就是坏的，
+       那就备份不出来一个好东西 —— 这种情况直接返回失败，让上层拒绝升级 */
+    if (!app_is_valid()) return -1;
+
+    pages = (p-&gt;app_size + 1023UL) / 1024UL;     /* 只拷实际用到的页数，不拷整片 */
+    for (i = 0; i &lt; pages; i++) {
+        if (page_copy(BACKUP_BASE + i * 1024UL, APP_BASE + i * 1024UL) != 0) return -1;
+    }
+
+    /* 全部落地之后，再从备份区重算一遍 CRC32 复核 */
+    if (crc32_flash(BACKUP_BASE, p-&gt;app_size) != p-&gt;app_crc32) return -1;
+
+    /* 复核通过才写「备份有效」标志（顺序在 2.4 节的掉电分析里解释过） */
+    param_set_backup(p-&gt;app_size, p-&gt;app_crc32);
+    return 0;
+}
+
+/* ==================== 回滚：把备份区复制回 App 区 ==================== */
+int do_rollback(void)
+{
+    param_t *p = (param_t *)PARAM_BASE;
+    uint32_t i, pages;
+
+    uart_puts("IAP: ROLLBACK start\r\n");
+
+    /* ① 再次复核备份。这里是「不信任任何标志位」的第二次实践 */
+    if (p-&gt;bak_valid != 0xA55A) return -1;
+    if (crc32_flash(BACKUP_BASE, p-&gt;bak_size) != p-&gt;bak_crc32) return -2;
+
+    /* ② 逐页拷回：擦一页写一页，28 KB ≈ 1.3 秒（例题三） */
+    pages = (p-&gt;bak_size + 1023UL) / 1024UL;
+    for (i = 0; i &lt; pages; i++) {
+        if (page_copy(APP_BASE + i * 1024UL, BACKUP_BASE + i * 1024UL) != 0) {
+            uart_puts("IAP: rollback FAILED\r\n");
+            return -3;                    /* 停在这里：App 区是半成品，绝不能跳过去 */
+        }
+    }
+
+    /* ③ 复算 App 区 CRC，与备份的对上才算回滚成功 */
+    if (crc32_flash(APP_BASE, p-&gt;bak_size) != p-&gt;bak_crc32) return -4;
+
+    /* ④ 更新参数区：App 区现在装的就是备份那一版 */
+    param_restore_from_backup();
+    uart_puts("IAP: ROLLBACK done, restart\r\n");
+    return 0;
+}</code></pre>
+          </div>
+
+          <p class="mt-3">回滚的三条触发路径，在代码里各有各的入口。它们最后都汇到 <code class="icode">do_rollback()</code> 这一个函数上——这也是设计上要的效果：<b>回滚只有一条实现，只有一处需要测试</b>。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead>
+                <tr><th>触发</th><th>代码入口（4.3 节主流程的哪一步）</th><th>判据</th><th>用户看到什么</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>固件本身损坏</td><td>判决三：<code class="icode">!app_is_valid()</code></td><td>从 App 区重算的 CRC32 与参数区记录不符</td><td>上电后串口打印 ROLLBACK，几秒后旧版本继续工作</td></tr>
+                <tr><td>新固件起不来</td><td>判决一：<code class="icode">BKP_RST_CNT &gt;= 3</code></td><td>看门狗连续复位 3 次（<code class="icode">RCC_CSR</code> 的 IWDGRSTF）</td><td>升级后反复重启三次，然后自动退回旧版本</td></tr>
+                <tr><td>新固件「活着但不对」</td><td>判决二：<code class="icode">BKP_IAP_REQ</code> 带自定义码</td><td>App 自己判定功能异常（自检失败）后主动上报</td><td>App 自己复位并请求回滚，用户只感觉「重启了一下」</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">回滚路径上最不能做的一件事：跳进一个没验过的 App 区</div>
+            <p class="mt-2">回滚过程中如果 <code class="icode">page_copy()</code> 中途失败（比如某一页擦除报错——这通常意味着有人给 App 区加了写保护），App 区此时是<b>半新半旧</b>的状态：前面几页是备份里的旧代码，后面几页是新固件。这时候任何「反正能跳就先跳过去看看」的想法都会让设备进入最难查的状态——它可能能启动、可能跑飞、可能进了 HardFault 又被狗咬复位，每次表现还不一样。</p>
+            <p class="mt-2">正确做法是三条：<b>① 回滚途中一旦失败，立刻停手、不要跳转；② 打印明确的状态（哪一页失败、错误码是什么），留在 Bootloader 常驻等待；③ 只有「拷完 + CRC32 复核通过」才允许跳转</b>。这也是本文把所有判决都建立在「从 Flash 重算 CRC32」上的原因：它是唯一能在这种半成品状态下說真话的依据。</p>
+          </div>
+
+          <!-- ============ 4.6 选项字节 ============ -->
+          <h3 id="sub-mcu-ob" class="mt-8 text-base font-semibold">4.6 选项字节与量产加锁：把上一节的设计变成脚本</h3>
+          <p class="mt-3">2.8 节讲了 RDP 三级与 WRP 分组的规则，这一节是操作它们的两段代码和一份产线流程。先记住那条贯穿始终的顺序：<b>先把该验证的都验证完，最后才加锁；加锁的次序是「先 WRP，后 RDP」</b>。反过来做一次的代价，例题六算过：一万台现场返修约 1.5 人年。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="F103：设置写保护（只保护 Bootloader 所在的页 0~3）">
+            <pre><code>/* WRP 的粒度是「4 页一组」：
+     WRP0 的位 0 → 页 0~3，位 1 → 页 4~7，…… ，位 7 → 页 28~31
+     WRP1 的位 0 → 页 32~35，…… ，位 7 → 页 60~63
+   把只保护第 0 组的掩码写进 WRP0，就是「BL 不可改、App 可升级」 */
+
+#define WRP_GROUP0      0x01U        /* 位 0 = 保护页 0~3（4 KB） */
+
+void wrp_protect_bootloader(void)
+{
+    FLASH_Unlock();
+
+    /* ① 擦掉选项字节区。
+       危险提示：如果此刻 RDP 已经是 Level 1，这一擦会把 RDP 变回 0xA5，
+       硬件检测到「解除读保护」→ 主存储区整片擦除。所以顺序必须是先 WRP、后 RDP */
+    FLASH_EraseOptionBytes();
+
+    /* ② 写 WRP0 / WRP1。库函数会自动把反码写到相邻字节，不用你算 */
+    FLASH_ProgramOptionByteData(0x1FFFF808, WRP_GROUP0);   /* WRP0：页 0~3 */
+    FLASH_ProgramOptionByteData(0x1FFFF809, 0x00);         /* WRP1：页 32~63 不保护 */
+
+    FLASH_Lock();
+    NVIC_SystemReset();                  /* 选项字节要复位之后才生效 */
+}
+
+/* 回读确认：FLASH_WRPR 是「反的」—— 位 = 0 才表示那一组被保护了 */
+uint8_t wrp_readback(void)
+{
+    return (uint8_t)(FLASH-&gt;WRPR &amp; 0xFFUL);   /* 保护成功时，最低位应读回 0 */
+}</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="F103：设置与解除读保护（解除那段只准出现在返修脚本里）">
+            <pre><code>/* 设置 Level 1：RDP 字节写任意非 0xA5 的值（0xBB 是常见选择，0x00 也可以） */
+void rdp_set_level1(void)
+{
+    FLASH_Unlock();
+    FLASH_EraseOptionBytes();                          /* 此时 RDP 还是 0xA5，擦它不会连累主存储区 */
+    FLASH_ProgramOptionByteData(0x1FFFF800, 0xBB);     /* RDP = 0xBB → Level 1 */
+    FLASH_Lock();
+    NVIC_SystemReset();
+}
+
+/* 解除读保护 = 回到 Level 0 = 整片擦除（Bootloader 也一起没）。
+   这一段只应该出现在「返修台脚本」里，
+   绝对不要放进任何自动重试、异常兜底、看门狗恢复逻辑 —— 那等于给自己埋一颗雷 */
+void rdp_unlock_factory_only(void)
+{
+    FLASH_Unlock();
+    FLASH_EraseOptionBytes();          /* RDP 回 0xA5，同时主存储区整片被擦 */
+    FLASH_Lock();
+    NVIC_SystemReset();
+}</code></pre>
+          </div>
+
+          <p class="mt-3">如果你用的是 F4（扇区大小不等、选项字节在 <code class="icode">FLASH_OPTCR</code> 里），套路一样，只是「选项字节」从一个半字数组变成了一个寄存器，而且写保护的位是<b>反码</b>——这一点特别容易写错：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="F4 对照：OPTCR 里的 nWRP 是反码，位 = 0 才表示保护">
+            <pre><code>void f4_set_wrp(void)
+{
+    uint32_t prot = 0x001UL;    /* 自己想保护的扇区掩码：位 i = 1 表示保护扇区 i */
+                                /* 这里只保护 S0（16 KB），正好盖住 Bootloader */
+
+    HAL_FLASH_Unlock();
+    HAL_FLASH_OB_Unlock();      /* 选项字节还有一把独立的锁：FLASH-&gt;OPTKEYR */
+
+    /* OPTCR 的 nWRP[27:16] 存的是反码：写 0 表示「保护这个扇区」 */
+    FLASH-&gt;OPTCR = (FLASH-&gt;OPTCR &amp; ~(0xFFFUL &lt;&lt; 16))
+                 | (((~prot) &amp; 0xFFFUL) &lt;&lt; 16);
+
+    /* RDP[15:8] 同理：写 0xBB 就是 Level 1 */
+    FLASH-&gt;OPTCR = (FLASH-&gt;OPTCR &amp; ~(0xFFUL &lt;&lt; 8)) | (0xBBUL &lt;&lt; 8);
+
+    FLASH-&gt;OPTCR |= (1UL &lt;&lt; 1);                 /* OPTSTRT：启动选项字节编程 */
+    while (FLASH-&gt;SR &amp; (1UL &lt;&lt; 16)) { }          /* 等 BSY */
+
+    HAL_FLASH_OB_Launch();                       /* 触发一次系统复位，选项字节生效 */
+}</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">产线流程：五步，每步都要验证，顺序不能换</h4>
+          <p class="mt-3">2.8 节给了顺序规则，这里把它写成一条带验证的流水线。关键在于<b>每一步之后都要有一步「验证」，而且升级通道的验证必须在加锁之前做</b>——因为加锁之后再发现 IAP 不通，你要面对的就是例题六那道题了。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="ASCII 图 · 量产加锁的五步与每步的验证动作">
+            <pre><code>① 烧 Bootloader（4 KB @ 0x08000000）
+      验证：回读 4 KB，CRC32 与文件一致
+        │
+② 烧 App（28 KB @ 0x08001000）+ 初始化参数区（app_state=0、app_crc32=实测值）
+      验证：回读 28 KB，CRC32 与文件一致；再让设备正常启动一次，确认 App 能跑
+        │
+③ 【加锁前】跑一遍完整的串口升级：握手 → 传一版固件 → 跳转 → 确认新版本在跑
+      验证：升级成功 + 参数区版本号已更新
+        └ 这一步是整个流程里最重要的一次验证：
+          它证明「IAP 通道、分区规划、协议、跳转」四件事同时成立
+        │
+④ 设 WRP（只保护页 0~3，即 Bootloader 自己），复位
+      验证一：FLASH_WRPR 最低位读回 0（保护生效）
+      验证二：再跑一次串口升级 —— 必须仍然成功
+              （证明写保护没有盖到 App 区；如果这时升级失败并回 NAK 0x05，说明掩码写大了）
+        │
+⑤ 设 RDP Level 1，复位
+      验证一：SWD 连不上了（预期行为，不要惊慌）
+      验证二：串口 IAP 再跑最后一次 —— 必须仍然成功（读保护不影响 IAP，这是设计）
+      验证三：读 FLASH_OBR 的 RDPRT 位，确认当前处于 Level 1
+        │
+⑥ 记录并出厂：UID（96 位）、出厂版本号、App 的 CRC32、WRP/RDP 状态、烧写时间
+      └ 这份记录是将来「这台设备到底装了什么」的唯一凭据</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="顺手把设备身份证读出来（写进产线记录）">
+            <pre><code>/* STM32F103 的 96 位唯一 ID：出厂固化，不可改。
+   用途：设备身份证、升级授权（白名单）、产线记录里的唯一键。
+   注意：它不是加密密钥 —— 能读出来的东西就挡不住克隆（2.8 节讲过） */
+uint32_t uid_word(uint8_t idx)      /* idx = 0 / 1 / 2 */
+{
+    return *(volatile uint32_t *)(0x1FFFF7E8UL + idx * 4UL);
+}
+
+/* 一个用它的正确姿势：升级时校验「这版固件是发给这台设备的」 */
+int upgrade_authorized(uint32_t a, uint32_t b, uint32_t c)
+{
+    /* 简化示意：真实项目里应当用「UID + 固件包签名」做校验，而不是明文比对 */
+    return (uid_word(0) == a) &amp;&amp; (uid_word(1) == b) &amp;&amp; (uid_word(2) == c);
+}</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">工装脚本里最贵的一行代码：把「解除读保护」写成兜底</div>
+            <p class="mt-2">产线的工装经常长成这样：「连不上芯片？先执行 <code class="icode">rdp_unlock</code> 再试一次」——听着很合理，实际是<b>把「读保护」当成了故障来处理</b>。而解除读保护会整片擦除，于是这个兜底逻辑会在某一天把一整批已经烧好的板子擦成空的（尤其是当它被包在循环重试里的时候）。</p>
+            <p class="mt-2">三条规则：<b>① 解除读保护必须是显式的、需要人确认的一步，不能出现在自动重试里；② 任何「芯片连不上」的异常，先排查接线、供电、SWD 速率，而不是解锁；③ 已经加锁的板子重新烧写，正确流程是「人工解锁 → 重烧全部（BL + App）→ 重新加锁 → 重新跑空升级验证」</b>，一整套重来，不要试图只补烧其中一段——因为整片擦除不会给你留下任何东西。</p>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">4 节小结：Bootloader 一共就这五样东西</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>Flash 驱动</b>（4.1）：解锁、擦一页、写一个半字，每个等待都带超时，两个错误标志都查。</li>
+              <li><b>收包状态机</b>（4.2）：同步头 → 12 字节包头 → 数据 → CRC16，收到就先判地址再擦写。</li>
+              <li><b>跳转函数</b>（4.3）：三个合法性检查、关掉一切打扰、先 VTOR 后 MSP、永不返回。</li>
+              <li><b>App 侧五处改动</b>（4.4）：链接地址两处、向量表偏移一处、喂狗与报平安两处。</li>
+              <li><b>页拷贝 + CRC32</b>（4.5）：备份与回滚共用一套逻辑，判决永远基于从 Flash 重算的校验值。</li>
+            </ul>
+            <p class="mt-2">把这五样拼起来，就是一个「能升级、升坏了能自己退回来、量产后还锁得住」的固件系统。它没有用到任何高级特性，全部代码加起来约 4 KB——这正好又回到 2.2 节的那笔账：在 64 KB 的板子上，真正稀缺的资源是 Flash 空间，而不是代码技巧。</p>
+          </div>
+
+        </section>
+
+        <!-- ===================== 5. 常见误区 ===================== -->
+        <section class="mt-14">
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误区与排查表</h2>
+          <p class="mt-3">下面这十条，每一条都能在论坛上找到「我明明照着教程写的，为什么不行」的帖子。<b>它们的共同点是：在实验室里全都可能歪打正着地跑起来，只有到了现场、到了量产、到了几千台设备真的开始升级的时候才发作</b>。每条按「错误认知 → 为什么错 → 正确做法」写，最后附一张「症状 → 原因 → 第一步动作」的排查表。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">误区一：跳转就是「设个函数指针调用一下」，不用关外设</h4>
+          <p class="mt-3"><b>错误认知：</b>跳转到 App 嘛，把栈顶和复位向量取出来，跳过去就完事了。</p>
+          <p class="mt-3"><b>为什么错：</b>跳转不是一个「普通函数调用」，它是把一台正在运行的单片机<b>移交给另一套没初始化过的世界观</b>。Bootloader 里打开的中断、跑着的 SysTick、开着的外设时钟，App 一个都不知道。最典型的现象是：SysTick 还按 1 ms 在打中断，而 App 的中断向量表还没生效，于是这个中断反复打回 Bootloader 的 <code class="icode">SysTick_Handler()</code>——那个函数操作的是 Bootloader 的变量，App 的时序从此错乱。</p>
+          <p class="mt-3"><b>正确做法：</b>按 4.3 节第 3 步的顺序，把中断使能、悬起标志、SysTick、外设时钟全部清掉，<b>再</b>设 VTOR 与 MSP。顺序是「先让世界安静，再交钥匙」。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">误区二：向量表不用在 Bootloader 里重定位，App 的 SystemInit 会设</h4>
+          <p class="mt-3"><b>错误认知：</b>App 里改过 <code class="icode">VECT_TAB_OFFSET</code>，所以 App 自己会处理向量表，Bootloader 不用管。</p>
+          <p class="mt-3"><b>为什么错：</b>这句话 90% 是对的，剩下 10% 是致命的那一段：<b>从「跳转指令执行」到「App 的 SystemInit 执行完」之间存在一个几十微秒的窗口</b>，此时 <code class="icode">SCB-&gt;VTOR</code> 还指着 Bootloader 的向量表。如果刚好有个外设中断悬起（升级用的串口最容易——它刚收完最后一个字节），它就会在这一瞬间打进 Bootloader 的中断服务函数。</p>
+          <p class="mt-3"><b>正确做法：</b>两处都做。Bootloader 在跳转前设一次 <code class="icode">SCB-&gt;VTOR = APP_BASE</code>（防那个窗口），App 里配 <code class="icode">VECT_TAB_OFFSET</code>（保证后续任何时候都对）。两行代码，防两类故障。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">误区三：主栈指针不用手工设，硬件会处理</h4>
+          <p class="mt-3"><b>错误认知：</b>复位的时候硬件自动从向量表加载 MSP，跳转应该也一样。</p>
+          <p class="mt-3"><b>为什么错：</b>硬件<b>只在真正的复位流程里</b>做这件事。<code class="icode">jump_to_app()</code> 对硬件来说只是一次普通的函数指针调用，MSP 还是 Bootloader 用的那一个。后果有两种：轻则 App 用的是 Bootloader 栈区（没冲突时看起来正常），重则 Bootloader 的栈正好压在 App 规划的 <code class="icode">.data</code>/<code class="icode">.bss</code> 区域上，两边互相踩——这种 bug 只在特定调用深度下出现，能查一星期。</p>
+          <p class="mt-3"><b>正确做法：</b>跳转前一句 <code class="icode">__set_MSP(stack_top)</code>，其中 <code class="icode">stack_top</code> 是从 <code class="icode">APP_BASE + 0x00</code> 读出来的。注意它必须排在 <code class="icode">SCB-&gt;VTOR</code> <b>之后</b>，而且这一句之后不能再依赖栈上的局部变量（4.3 节的 callout）。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">误区四：App 区不用擦，反正写的时候会覆盖</h4>
+          <p class="mt-3"><b>错误认知：</b>升级就是「把新固件写到 App 区」，直接写就行。</p>
+          <p class="mt-3"><b>为什么错：</b>Flash 的位只能 1 → 0。<b>不擦就写，得到的是「新数据与旧数据按位与」的结果</b>——有些位该 1 却已经是 0，写不进去，硬件置起 <code class="icode">PGERR</code> 拒绝这次编程。如果你的代码没查返回值，就会得到 4.2 节那张排查表里的经典症状：升级流程全部「成功」，跳过去却跑不起来。</p>
+          <p class="mt-3"><b>正确做法：</b>每一次写之前先擦那一页，并且<b>检查擦除的返回值</b>。本文的 <code class="icode">handle_data_packet()</code> 里，擦除失败直接回 NAK 0x05 并停止这一包——这就是「宁可报错，不要装成功」。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">误区五：升级标志用 RAM 里的全局变量存就行</h4>
+          <p class="mt-3"><b>错误认知：</b>Bootloader 里定义 <code class="icode">uint8_t need_upgrade;</code>，App 里声明成 <code class="icode">extern</code> 改一下就完了。</p>
+          <p class="mt-3"><b>为什么错：</b>这是「能升级但重启又变回旧固件」这个症状的头号原因。<b>除了极少数例外，软件复位后 RAM 内容会被启动代码重新初始化</b>：<code class="icode">.data</code> 从 Flash 拷回初值、<code class="icode">.bss</code> 整片清零。而 App 的 <code class="icode">.bss</code> 和 Bootloader 的变量根本不在同一段地址上——这次 App 写的是自己的变量，复位后 Bootloader 读到的仍是它自己的初值。</p>
+          <p class="mt-3"><b>正确做法：</b>按「需要活过什么」选位置（4.1 节那张分工表）：<b>跨复位用 BKP，跨掉电用 Flash 参数区，只在本轮运行里有意义的才放 RAM</b>。App 请求升级的标准写法是「写 BKP 魔数 → <code class="icode">NVIC_SystemReset()</code>」，见 4.4 节。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">误区六：超时用 HAL_Delay 就行</h4>
+          <p class="mt-3"><b>错误认知：</b>反正工程里都是用 <code class="icode">HAL_Delay()</code> 做延时，Bootloader 里照抄。</p>
+          <p class="mt-3"><b>为什么错：</b><code class="icode">HAL_Delay()</code> 依赖 SysTick 中断累加的毫秒计数。而 Bootloader 的处境恰恰是「SysTick 可能没配、可能被关、可能刚被上一段代码清零」——尤其是在跳转流程里，我们特意把 <code class="icode">SysTick-&gt;CTRL</code> 关了。一旦 tick 不走，<code class="icode">HAL_Delay()</code> 就是死等，且看门狗也一起等死。</p>
+          <p class="mt-3"><b>正确做法：</b>Bootloader 里自己建一个最小可用的时基（4.2 节的 <code class="icode">bl_millis()</code>，SysTick 1 ms 中断累加），并且<b>用它实现所有等待的上界</b>。更彻底一点，干脆把 HAL 的 tick 来源换成 TIM2（<code class="icode">HAL_InitTick(TICK_INT_PRIORITY)</code>），这样跳转前关 SysTick 也不会影响延时。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">误区七：看门狗在 App 里启动就行了，Bootloader 不用管</h4>
+          <p class="mt-3"><b>错误认知：</b>狗是 App 的事，升级过程又不跑 App，跟狗没关系。</p>
+          <p class="mt-3"><b>为什么错：</b>IWDG 一旦启动就<b>关不掉</b>（只有复位能停），而且它属于后备域，<b>复位后继续跑</b>。所以「因为 App 里狗咬人才复位进 Bootloader」这个场景下，狗此刻正开着，而 Bootloader 的擦除 + 备份流程要好几秒。更常见的现象是反过来的：Bootloader 启动了狗，跳转后 App 还没喂第一口就被咬死——用户看到的是「升级完设备每秒重启一次」。</p>
+          <p class="mt-3"><b>正确做法：</b>三条一起上。① <b>Bootloader 不主动启动 IWDG</b>；② 跳转前若发现狗已在运行，把 <code class="icode">PR</code>/<code class="icode">RLR</code> 设到最长周期（4.3 节的 26.2 秒），并在升级状态机的每个等待循环里喂狗；③ App 的 <code class="icode">main()</code> 第一句就喂一口，然后再做初始化。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">误区八：擦除失败就是芯片坏了</h4>
+          <p class="mt-3"><b>错误认知：</b>擦除回 NAK 0x05 是硬件故障，只能换板子。</p>
+          <p class="mt-3"><b>为什么错：</b>量产板子上最常见的两个原因是<b>写保护</b>和<b>没解锁</b>，都不是故障。而且这里有一个特别隐蔽的坑：写保护失败置的是 <code class="icode">WRPRTERR</code>（<code class="icode">FLASH_SR</code> 位 4），不是 <code class="icode">PGERR</code>（位 2）。很多示例代码只查 <code class="icode">PGERR</code>，于是在被写保护的板子上会「报成功但什么都没写」——这比直接报错难查十倍。</p>
+          <p class="mt-3"><b>正确做法：</b>① 两个标志都查（4.1 节的代码就是这么写的）；② 擦除失败时回读 <code class="icode">FLASH-&gt;WRPR</code> 和 <code class="icode">FLASH-&gt;CR</code> 的 LOCK 位，把「哪一组页被保护 / 有没有解锁」作为错误码的一部分回给上位机；③ 量产加锁时把「不再写 App 区」这件事写进流程（WRP 掩码只盖 BL 所在的 4 页）。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">误区九：加了读保护，IAP 就用不了了</h4>
+          <p class="mt-3"><b>错误认知：</b>读保护（RDP）会禁掉 Flash 的写入，所以量产锁芯片和串口升级只能二选一。</p>
+          <p class="mt-3"><b>为什么错：</b>这个认知把「读保护」和「写保护」混在了一起。<b>RDP Level 1 禁的是调试接口（SWD/JTAG）和「从 RAM 启动」，Flash 的擦写与 IAP 通道照常可用</b>——这正是它被设计出来要保护的场景。真正会让你难受的是两个副作用：① <b>解除读保护会整片擦除</b>（Bootloader 一起没）；② Level 1 会<b>自动给页 0~3 加写保护</b>，于是「Bootloader 永远不能靠 IAP 自更新」。</p>
+          <p class="mt-3"><b>正确做法：</b>把「Bootloader 需不需要自更新」当成一个<b>开工前就要回答的设计问题</b>。不需要 → 放心用 WRP 盖住 BL 页 + RDP Level 1，既锁了芯片又保住了 IAP；需要 → 就得预留第二块 Bootloader 区或接受返厂升级的代价。顺序上永远<b>先 WRP 后 RDP</b>（2.8 节、例题六）。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">误区十：A/B 双槽最安全，直接上</h4>
+          <p class="mt-3"><b>错误认知：</b>OTA 的黄金标准就是 A/B 双分区，照抄就行。</p>
+          <p class="mt-3"><b>为什么错：</b>A/B 的前提是「有两块一样大的地方放两份固件」，这个前提在 64 KB 上很容易不成立。例题一算过：三方案里 A/B 每槽只剩 26624 B（26 KB），而同一个工程在单 App 区方案下有 55296 B（54 KB）。<b>如果固件长到 30 KB，A/B 方案直接链接失败（<code class="icode">L6406E: No space in execution regions</code>）</b>，而方案一还绰绰有余。此外 A/B 还额外要求位置无关代码，或者为两个槽各编一份镜像（发布流程复杂度翻倍）。</p>
+          <p class="mt-3"><b>正确做法：</b>先算容量账，再选方案。判据只有一句：<b>「这个固件能不能长期控制在 22 KB 以内？」</b>能 → A/B 或「App + 备份」都行；不能 → 用「单 App 区 + 备份区」，并接受「回滚要拷 28 KB、约 1.3 秒」这个代价（用户无感，因为那 1.3 秒里设备本来也不工作）。</p>
+
+          <h4 class="mt-8 text-[15px] font-semibold">症状 → 原因 → 第一步动作</h4>
+          <p class="mt-3">真到了现场，脑子里的知识会变成一张排查表。下面这张表把本篇讲过的故障现象集中在一处，<b>「第一步动作」都是能在五分钟内做完的事</b>——先用它们定位方向，再回头翻前面的章节。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu w-full">
+              <thead>
+                <tr><th>症状</th><th>最可能的原因</th><th>第一步动作</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>跳过去立刻 HardFault</td><td>VTOR 没设 / MSP 没设 / App 链接地址不对</td><td>在跳转前打印 <code class="icode">SCB-&gt;VTOR</code> 和读到的 <code class="icode">stack_top</code>；确认 App 的 IROM1 Start 是 0x08001000</td></tr>
+                <tr><td>跳过去不跑，读到的向量是 0xFFFFFFFF</td><td>App 区那一页没烧或没擦干净</td><td>读 <code class="icode">*(uint32_t*)(APP_BASE + 4)</code>：应当是奇数且落在 App 区内，否则先烧一版 App</td></tr>
+                <tr><td>升级后串口输出一串乱码</td><td>波特率在跳转前后不一致 / 中断还开着</td><td>检查 App 的 <code class="icode">uart_init()</code> 是否重配了 BRR；确认跳转前 <code class="icode">USART1-&gt;CR1 = 0</code></td></tr>
+                <tr><td>擦除失败，收到 NAK 0x05</td><td>目标页被 WRP 保护，或根本没解锁</td><td>回读 <code class="icode">FLASH-&gt;WRPR</code>（位 = 0 表示被保护）与 <code class="icode">FLASH-&gt;CR</code> 的 LOCK 位</td></tr>
+                <tr><td>写进去读出来不对，像是「按位与」的结果</td><td>没先擦，或没按半字写</td><td>确认写入用了 <code class="icode">*(volatile uint16_t *)</code>；检查 <code class="icode">flash_erase_page()</code> 的返回值是否被忽略</td></tr>
+                <tr><td>能升级，但重启又变回旧固件</td><td>标志写在 RAM 里，或跳转条件写反</td><td>打印参数区的 <code class="icode">app_crc32</code> 与 <code class="icode">app_state</code>，看它们有没有真的更新</td></tr>
+                <tr><td>升级完 App 每秒重启一次</td><td>IWDG 没喂（App 没在 main 开头喂，或 BL 启动了狗）</td><td>读 <code class="icode">RCC-&gt;CSR</code> 的 IWDGRSTF；在 App 的 <code class="icode">main()</code> 第一句加喂狗</td></tr>
+                <tr><td>App 里一调用 HAL_Delay 就卡死</td><td>SysTick 被 Bootloader 关了，App 没重新配置</td><td>确认 App 的 <code class="icode">HAL_Init()</code> 真的执行了（它内部会重新 <code class="icode">SysTick_Config</code>）</td></tr>
+                <tr><td>跳转成功但中断里行为诡异</td><td>App 的向量表偏移没配，中断跑进 Bootloader</td><td>读 App 运行时的 <code class="icode">SCB-&gt;VTOR</code>，应当是 0x08001000 而不是 0x08000000</td></tr>
+                <tr><td>量产锁芯片之后 IAP 全废</td><td>WRP 掩码盖到了 App 区（写大了）</td><td>回读 <code class="icode">FLASH-&gt;WRPR</code>：只保护 BL 时应读回 0x01 对应的那一位为 0</td></tr>
+                <tr><td>设备升级到一半断电，之后彻底不动</td><td>App 区半包 + 备份无效，且 BL 直接跳转</td><td>检查 <code class="icode">bak_valid</code> 与备份区 CRC32；确认 BL 在 App 无效时会进常驻等待而不是跳转</td></tr>
+                <tr><td>回滚执行了，但跑起来还是新版本</td><td>参数区没跟着更新（版本号与 CRC 还是新的）</td><td>检查 <code class="icode">param_restore_from_backup()</code> 有没有被调用、有没有写成功</td></tr>
+                <tr><td>上位机反复收到 NAK 0x03（序号不连续）</td><td>上位机没等 ACK 就发了下一包，或丢包后没重发</td><td>把上位机改成「发一包 → 等 ACK → 再发下一包」，并打印每包的序号</td></tr>
+                <tr><td>设备完全不理串口</td><td>BL 没跑起来（时钟/串口初始化失败），或引脚被重映射</td><td>用示波器看 TX 上有没有上电启动信息；用「按键强制进升级模式」兜底</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">这张表最该先学会的是「不要改代码」</div>
+            <p class="mt-2">前面十四条里，有十一条的「第一步动作」都是<b>读一个寄存器、看一个变量、打印一行日志</b>，而不是改代码。升级系统的问题几乎全都表现为「行为不对」，而原因往往只有一个是「代码写错了」，其余都是「状态和我以为的不一样」——比如你以为没加写保护，实际量产批次加了；你以为标志写进去了，实际写在会被清零的地方。</p>
+            <p class="mt-2">所以最有效的一招是<b>让 Bootloader 把它的判决过程打印出来</b>：为什么复位（<code class="icode">RCC-&gt;CSR</code>）、BKP 里三个值是什么、参数区的 CRC32 与实测 CRC32 分别是多少、最后决定走哪条路。这五行日志能把上面十四条里的一半直接排除掉。它占的 Flash 不到 1 KB，是本文所有建议里性价比最高的一条。</p>
+          </div>
+
+        </section>
+
+        <!-- ===================== 6. 小结 ===================== -->
+        <section class="mt-14">
+          <h2 id="sec-summary" class="text-xl font-semibold">小结</h2>
+          <p class="mt-3">这一篇从头到尾只在做一件事：<b class="font-semibold text-ink">让一台装在墙上的设备，能在没人到现场的情况下换掉自己的固件，并且在换坏的时候还能自己退回来。</b>整条链路是：先用物理约束（1 KB 一页、半字编程、只能 1 → 0）定出分区的粒度，再用容量账（例题一）定出「单 App 区 + 备份区」这个方案，然后用三种触发和一套带 CRC 的分包协议把升级流程串起来，最后用「从 Flash 重算 CRC32」这一个判决依据把跳转与回滚绑在一起。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">要点回顾</h4>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>三个最小单位决定一切：</b>擦除 1 KB、编程 2 字节、位只能 1 → 0。分区必须是 1 KB 的整数倍，协议里的数据长度最好是偶数，写入前必须先擦。</li>
+            <li><b>两个时间决定体验：</b>半字编程 52.5 µs、页擦除 20 ms。48 KB 的一次完整升级里，纯 Flash 操作 2.25 秒、传输 4.32 秒、加上备份与校验合计约 8 秒。</li>
+            <li><b>64 KB 上「回滚能力」的价格是「App 从 54 KB 缩到 28 KB」</b>（方案二）或「每槽只剩 26 KB」（方案三）。这个决定必须在开工前做完，量产后改不了。</li>
+            <li><b>三种触发、一个出口：</b>按键或 App 请求（BKP 魔数）、连续三次看门狗复位（<code class="icode">RCC-&gt;CSR</code> + BKP 计数）、参数区判决。它们最后都汇到同一个 <code class="icode">do_rollback()</code>。</li>
+            <li><b>跳转是六步：</b>取栈顶与复位向量 → 三个合法性检查 → 关中断关外设 → <code class="icode">SCB-&gt;VTOR</code> → <code class="icode">__set_MSP</code> → 函数指针调用。VTOR 与 MSP 的顺序不能反，<code class="icode">__set_MSP</code> 之后不能再依赖栈上局部变量。</li>
+            <li><b>判决依据永远是数据，不是标志位：</b>决定「跳不跳」的是从 Flash 重新读出来算的 CRC32；标志位只用来记录「发生了什么」，不用来做判断。</li>
+            <li><b>状态按「需要活过什么」选址：</b>跨复位用 BKP，跨掉电用 Flash 参数页，本轮有效才用 RAM。例题五算过：放错位置的代价是 5.6 小时写穿一片 Flash。</li>
+            <li><b>校验要分两层：</b>逐包 CRC16 拦传输错误，整体 CRC32（从 Flash 重算）拦写入错误，两者叠加漏检概率 10⁻¹⁵ 量级，前提是多项式不同、且整体校验走 Flash。</li>
+            <li><b>量产加锁的顺序是「先 WRP 后 RDP」：</b>WRP 只盖 Bootloader 所在的页 0~3，RDP 上 Level 1。这样既锁住了芯片，又保住了串口 IAP 通道；反序会让「擦选项字节」触发整片擦除。</li>
+            <li><b>解除读保护 = 整片擦除，</b>而且它是不可逆的（要把 BL 和 App 全部重烧一遍）。这段代码只准出现在返修台脚本里，永远不要写进自动重试。</li>
+          </ul>
+
+          <h4 class="mt-6 text-[15px] font-semibold">自测题</h4>
+          <p class="mt-3">先用纸笔答一遍，再对下面的答案。这八道题的答案，就是本篇所有结论的最小集合。</p>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>F103C8T6 的 Flash 页大小是多少？为什么「只改 1 个字节」实际至少要写 2 个字节、还要先擦掉 1024 个字节？</li>
+            <li>方案二（BL 4 KB + App 28 KB + 备份 28 KB + 参数 4 KB）里 App 的上限是多少？如果链接时提示 <code class="icode">region 'FLASH' overflowed by 2048 bytes</code>，说明什么？</li>
+            <li>跳转前为什么必须先设 <code class="icode">SCB-&gt;VTOR</code>、再设 <code class="icode">__set_MSP()</code>？这两件事各自解决什么问题？</li>
+            <li>「App 请求升级」这个标志为什么可以存在 BKP，而「当前固件的版本号与 CRC32」必须存在 Flash 参数区？</li>
+            <li>115200-8-N-1、1 KB 一包、包头 12 字节、每包回 1 字节 ACK，传 48 KB 固件需要多久？（答出秒数即可，允许 5% 误差）</li>
+            <li>为什么整体校验必须从 Flash 重新读出来算 CRC32？如果改成「把发出去的缓冲区再算一遍」，会漏掉哪一类错误？</li>
+            <li>「连续三次看门狗复位就回滚」的计数器为什么不能存进 Flash 参数页？请给出一个具体的数字来说明后果。</li>
+            <li>量产时把顺序写成「先 RDP Level 1，再设 WRP」会发生什么？为什么这个错误会一次性报废整批板子？</li>
+          </ol>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">自测题答案</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li>页大小 <b>1 KB（1024 字节）</b>，64 KB 共 64 页。因为编程最小单位是<b>半字（2 字节）</b>，而且位只能 1 → 0——想改一个字节，就得把包含它的整页擦回 0xFF 再重写（擦除是唯一的「置 1」手段）。</li>
+              <li>App 上限 <b>28672 B（28 KB）</b>。报 <code class="icode">overflowed by 2048 bytes</code> 说明固件约 30 KB，比上限多出 2048 字节——正好该换方案一（单 App 区，App 上限 55296 B），或者给 App 瘦身。</li>
+              <li><b>VTOR</b> 解决「异常入口从哪里取」：不设的话，App 运行期间的中断会跳进 Bootloader 的向量表。<b>MSP</b> 解决「栈在哪里」：硬件只在真复位时加载 MSP，软件跳转必须手工设，否则 App 用的是 Bootloader 的栈。顺序不能反，是因为「中断入口」需要向量表与栈同时正确，而设 MSP 之后代码就只剩最后一步了。</li>
+              <li>因为 <b>BKP 只需要活过复位，参数区需要活过掉电</b>。升级请求是「当下这一刻的意愿」，App 写完立刻软复位，复位后就该被读到并清掉；而版本号与 CRC32 是升级过程中断电后<b>判决的依据</b>，必须留在非易失的地方。反过来把版本号放 BKP，一旦断电（板子 <code class="icode">VBAT</code> 接地时尤其明显）设备就失去了判断自己装了什么的能力。</li>
+              <li>约 <b>4.32 秒</b>。算法：115200-8-N-1 = 10 位/字节 → 11520 B/s；49152 B 数据切 48 包，每包加 12 B 包头 + 1 B ACK，共 49776 B；49776 ÷ 11520 ≈ 4.32 s。</li>
+              <li>因为要验证的是<b>「写进 Flash 的是不是对的」</b>，而不是「我发出去的是不是对的」。对缓冲区再算一遍只能发现传输错误（那部分逐包 CRC16 已经管了），<b>漏掉的是「Flash 写入错误」这一类</b>：擦除不彻底、半字写错、写保护导致部分位没写进去。只有从 Flash 读回来重算，才能把「线路」和「存储介质」两段都覆盖。</li>
+              <li>因为 Flash 参数页的寿命只有约 <b>1 万次</b>。这个计数器每发生一次看门狗复位就加一，而设备一旦进入「反复被咬」的状态就是<b>每秒一次</b>：10000 ÷ 3600 ≈ 2.8 小时，考虑两页交替也只有 5.6 小时就会磨穿参数页。磨穿之后 magic 失效，设备不仅失去回滚能力，连「自己装了什么」都不知道了。</li>
+              <li>会触发<b>整片擦除</b>。原因：设 WRP 必须先擦掉选项字节区，而这一步会把 RDP 从 Level 1 变回 0xA5，硬件检测到「解除读保护」就按设计把主存储区整片擦掉。之所以一次性报废整批，是因为这个动作通常是写在工装脚本里的循环步骤——它会在每一块已经烧好的板子上重复执行。</li>
+            </ol>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">动手练习</h4>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li><b>算一次你自己的容量账。</b>把你手上工程编译出来的实际大小（看 map 文件里的 Total ROM Size）代入例题一的三种方案，写出「能不能回滚」的结论。如果结论是「不能」，现在就把方案改掉，别等到固件长到 30 KB。</li>
+            <li><b>做一次「故意写坏」实验。</b>把要升级的固件在偏移 100 KB 处改掉一个字节（不改长度），发送时保持总长度与 CRC32 真实值不变——但设备端在写入时不要改数据。观察：整体校验失败、BL 拒绝跳转、旧版本继续运行。这一步能验证你的判决链路是真的在起作用，而不是「碰巧能升级」。</li>
+            <li><b>做二十次掉电实验。</b>写一个脚本，在「擦除第 20 页」这个时刻切断电源，然后重新上电。连续二十次，每一次设备都必须回到「Bootloader 可用 + App 可用（旧版本）」的状态。任何一次变砖，都说明备份与判决逻辑有洞。</li>
+            <li><b>验证「擦空也能救」。</b>用调试器把 App 区整片擦成 0xFF，然后只靠串口重新升级一次。如果失败，检查 BL 是不是在「App 无效」时还能进入升级模式——这是你最后一道防线，值得单独测一遍。</li>
+            <li><b>写一份量产加锁脚本并空跑三块板。</b>严格按 4.6 节的六步执行，每步都打印验证结果（回读 CRC32、<code class="icode">FLASH-&gt;WRPR</code>、RDPRT 位）。重点确认第 ④⑤ 步之后串口 IAP 仍然可用。</li>
+          </ol>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">最后一句话：这个系统有四层防线</div>
+            <p class="mt-2">回头看，本篇搭出来的东西其实是一套<b>层层兜底</b>的结构：<b>第一层</b>是逐包 CRC16，挡住线路上的噪声；<b>第二层</b>是整体 CRC32（从 Flash 重算），挡住写入错误；<b>第三层</b>是启动前判决与自动回滚，挡住「固件本身有问题」；<b>第四层</b>是 App 无效时 Bootloader 常驻等待，挡住「前三层全都没兜住」的极端情况——只要串口还在，设备就还能救。</p>
+            <p class="mt-2">四层里最容易忽略、也最值钱的是第四层。它的实现成本几乎为零（一个 <code class="icode">while (1)</code> 循环加一句串口打印），但它把「变砖」这个后果从你的风险清单里划掉了。而站在更远一点看：这些机制和你在服务器、手机、汽车上听到的 OTA 是同一套思路，只是 STM32F103C8T6 把预算压到了 64 KB，于是每一个设计决定都必须先算清楚再动手。</p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="adv-stm32-lowpower.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">STM32 低功耗与看门狗</p>
+          </a>
+          <a href="adv-esp32-freertos.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：换一条主线 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">ESP32 与 FreeRTOS：任务与调度</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

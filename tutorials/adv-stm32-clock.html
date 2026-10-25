@@ -1,0 +1,2590 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STM32 时钟树与 RCC 配置 - McuStudy</title>
+  <meta name="description" content="知识体系第 34 篇，第三层「STM32 深入」的开篇：把 STM32F103 的完整时钟树一次算清楚。四个时钟源（HSI 8MHz RC / HSE 4~16MHz 晶振 / LSI 约 40kHz / LSE 32.768kHz）到 SYSCLK 的每一条路径、AHB 与 APB 预分频、定时器时钟为什么不是 PCLK、SYSCLK = HSE × PLLMUL ÷ PLLXTPRE 的完整算式与常用晶振配置表，以及 RCC_CR 的使能-轮询-超时握手、RCC_CFGR 的 SW/SWS 回读、HPRE/PPRE 编码、APB1ENR/APB2ENR/AHBENR 门控、RCC_BDCR 与 PWR_CR.DBP、FLASH_ACR 等待周期与 2.7V 电压限制、MCO 输出到 PA8 的验证方法、HAL 与 CubeMX 界面的逐项对应，附可直接编译的寄存器版 SystemInit 与上电三频率自检代码。">
+  <meta name="keywords" content="STM32时钟树,RCC,RCC_CR,RCC_CFGR,RCC_CIR,RCC_APB1ENR,RCC_APB2ENR,RCC_AHBENR,RCC_BDCR,PWR_CR DBP,HSI,HSE,LSI,LSE,PLL,PLLMUL,PLLXTPRE,PLLSRC,HPRE,PPRE1,PPRE2,SWS,SW,MCO,PA8,SYSCLK,HCLK,PCLK1,PCLK2,定时器时钟,PWM频率,Flash等待周期,FLASH_ACR,LATENCY,预取缓冲,ADCPRE,USBPRE,SystemClock_Config,HAL_RCC_OscConfig,HAL_RCC_ClockConfig,FLASH_LATENCY_2,HAL_RCC_GetSysClockFreq,CubeMX时钟树,72MHz,超频,晶振不起振,串口乱码">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">STM32 时钟树与 RCC 配置</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          STM32 时钟树与 RCC 配置
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          <b class="font-semibold text-ink">从这里开始，我们进入第三层「STM32 深入」。</b>前两层讲的是「所有单片机共通的原理」——CPU 怎么取指、中断怎么嵌套、定时器怎么数数，这些在 51、STM32、ESP32 上都成立。
+          这一层不一样：<b class="font-semibold text-ink">我们挑一颗具体的芯片（STM32F103），把它内部真正的外设一层层拆开</b>，讲到寄存器名、位域、手册页码、以及配错之后板子上会出现什么现象。
+          结论不再是「原理上应该怎样」，而是「这颗芯片上就是这几个位，写错了就是这个后果」。
+        </p>
+
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+          第一站必须是时钟。因为在这颗芯片上，<b class="font-semibold text-ink">时钟不是「一个外设」，而是所有外设共同签署的一份合同</b>：
+          串口的波特率、定时器的 PWM 频率、ADC 的采样时间、SysTick 的 1ms、SPI 的速率、RTC 的走时，全部是从同一个源头分下来、除下来、倍上来的。
+          这一篇不重讲「时钟是什么」（那是基础篇的事），只讲三件更硬的事：<b class="font-semibold text-ink">完整时钟树怎么算、RCC 的寄存器怎么配、配完怎么证明它真的对了</b>。
+          最后一件事最重要——因为「时钟配错了但程序还能跑」是这颗芯片上最阴险的故障形态。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="badge-brand">寄存器实操</span>
+          <span class="stat-pill">第 3 层 · STM32 深入</span>
+          <span class="stat-pill">STM32 深入 · 第 <b>34</b> 篇</span>
+          <span class="stat-pill">教材：刘火良 第 15 章</span>
+          <span class="stat-pill">阅读约 <b>65</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-tree">完整时钟树：从四个源到每一个外设</a>
+          <a class="toc-link is-sub" href="#sub-timer-clk">定时器时钟不是 PCLK</a>
+          <a class="toc-link is-sub" href="#sub-pll">PLL：8MHz 怎么算成 72MHz</a>
+          <a class="toc-link is-sub" href="#sub-reg-core">RCC_CR / RCC_CFGR / RCC_CIR</a>
+          <a class="toc-link is-sub" href="#sub-reg-gate">外设门控与备份域：三个 ENR 与 BDCR</a>
+          <a class="toc-link is-sub" href="#sub-flash">等待周期、预取与电压-频率约束</a>
+          <a class="toc-link is-sub" href="#sub-hal">HAL 与 CubeMX：数字对应哪个寄存器</a>
+          <a class="toc-link is-sub" href="#sub-verify">怎么验证时钟配对了</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link is-sub" href="#calc-1">例 1：8MHz 晶振配 72MHz 的完整算式</a>
+          <a class="toc-link is-sub" href="#calc-2">例 2：APB1 分频 2 时 TIM2 的时钟与 PWM 频率</a>
+          <a class="toc-link is-sub" href="#calc-3">例 3：HSE 失败回退 HSI 后串口会错成什么样</a>
+          <a class="toc-link is-sub" href="#calc-4">例 4：MCO 量波形，量到什么才算对</a>
+          <a class="toc-link is-sub" href="#calc-5">例 5：由等待周期与预取估算指令速度</a>
+          <a class="toc-link is-sub" href="#calc-6">例 6：超频 80MHz 与欠频 64MHz 会怎样</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#mcu-init">手写寄存器版 SystemInit</a>
+          <a class="toc-link is-sub" href="#mcu-hal">SystemClock_Config 逐行读</a>
+          <a class="toc-link is-sub" href="#mcu-selfcheck">上电自检：打印三个频率并比对</a>
+          <a class="toc-link is-sub" href="#mcu-mco">MCO 输出到 PA8</a>
+          <a class="toc-link is-sub" href="#mcu-measure">用定时器与 DWT 反推主频</a>
+          <a class="toc-link is-sub" href="#mcu-power">关掉未用外设时钟省电</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-tree">完整时钟树：从四个源到每一个外设</a>
+            <a class="toc-link is-sub" href="#sub-timer-clk">定时器时钟不是 PCLK</a>
+            <a class="toc-link is-sub" href="#sub-pll">PLL：8MHz 怎么算成 72MHz</a>
+            <a class="toc-link is-sub" href="#sub-reg-core">RCC_CR / RCC_CFGR / RCC_CIR</a>
+            <a class="toc-link is-sub" href="#sub-reg-gate">外设门控与备份域：三个 ENR 与 BDCR</a>
+            <a class="toc-link is-sub" href="#sub-flash">等待周期、预取与电压-频率约束</a>
+            <a class="toc-link is-sub" href="#sub-hal">HAL 与 CubeMX：数字对应哪个寄存器</a>
+            <a class="toc-link is-sub" href="#sub-verify">怎么验证时钟配对了</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link is-sub" href="#calc-1">例 1：8MHz 晶振配 72MHz 的完整算式</a>
+            <a class="toc-link is-sub" href="#calc-2">例 2：APB1 分频 2 时 TIM2 的时钟与 PWM 频率</a>
+            <a class="toc-link is-sub" href="#calc-3">例 3：HSE 失败回退 HSI 后串口会错成什么样</a>
+            <a class="toc-link is-sub" href="#calc-4">例 4：MCO 量波形，量到什么才算对</a>
+            <a class="toc-link is-sub" href="#calc-5">例 5：由等待周期与预取估算指令速度</a>
+            <a class="toc-link is-sub" href="#calc-6">例 6：超频 80MHz 与欠频 64MHz 会怎样</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#mcu-init">手写寄存器版 SystemInit</a>
+            <a class="toc-link is-sub" href="#mcu-hal">SystemClock_Config 逐行读</a>
+            <a class="toc-link is-sub" href="#mcu-selfcheck">上电自检：打印三个频率并比对</a>
+            <a class="toc-link is-sub" href="#mcu-mco">MCO 输出到 PA8</a>
+            <a class="toc-link is-sub" href="#mcu-measure">用定时器与 DWT 反推主频</a>
+            <a class="toc-link is-sub" href="#mcu-power">关掉未用外设时钟省电</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              这一篇的钥匙是一句反直觉的话：<b>时钟配错了，程序往往照样能跑</b>。<br>
+              它不报错、不进 HardFault，只是让每一个跟时间有关的数字都错一点点——
+              直到你在串口里看到一屏乱码，或者在示波器上量到一个差一倍的 PWM。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先看三个真实现场。它们的共同点是：<b class="font-semibold text-ink">你盯着代码看，代码全都是对的；问题不在代码里，在你对这颗芯片时钟的假设里。</b></p>
+
+          <h3 class="mt-7 text-base font-semibold">现场一：串口每秒钟吐出一屏乱码</h3>
+
+          <p class="mt-3">你按教程把 USART1 配成 115200，编译、下载、打开串口助手——满屏的乱码方块。你换了三根 USB 线、两个串口助手、四种波特率，全都一样。然后你开始怀疑代码：把 <code class="icode">HAL_UART_Init()</code> 抄了三遍。</p>
+          <p class="mt-3">真实的答案往往和你写的代码无关：<b class="font-semibold text-ink">这颗芯片实际跑的不是 72MHz</b>。可能是外部晶振根本没起振（焊接不良、负载电容配错、晶振是坏的），HAL 在 <code class="icode">HAL_RCC_OscConfig()</code> 里等了 100ms 之后放弃，返回了一个你没检查的错误码；于是程序继续以复位默认的 <b>HSI 8MHz</b> 往下跑——<b>USART1 的 BRR 寄存器还是按 72MHz 算出来的那个值</b>，波特率差了 9 倍，除了乱码不可能有别的结果。</p>
+
+          <h3 class="mt-7 text-base font-semibold">现场二：PWM 频率和算出来差整整一倍</h3>
+
+          <p class="mt-3">你用 TIM2 输出 1kHz 的 PWM 驱动一个蜂鸣器。计算书上写着：定时器时钟 72MHz，预分频 <code class="icode">PSC = 71</code>，重装载 <code class="icode">ARR = 999</code>，于是 <code class="icode">72MHz / (72 × 1000) = 1kHz</code>。示波器一量：<b>2kHz</b>，正好一倍。你回头把 ARR 改成 1999，波形对了，但你不明白为什么公式里要多乘一个 2。</p>
+          <p class="mt-3">这就是这篇最值钱的一条规则：<b class="font-semibold text-ink">TIM2 挂在 APB1 上，而 APB1 的时钟是 36MHz；但 APB1 预分频系数不为 1 时，挂在它上面的定时器时钟会被硬件自动乘 2，也就是 72MHz。</b>所以那套公式本来就是对的——错的是你以为「定时器时钟 = PCLK1 = 36MHz」，于是套了一个错的前提去反算参数。这是 PWM 频率算错的头号原因，第 2 节会把它彻底讲透。</p>
+
+          <h3 class="mt-7 text-base font-semibold">现场三：程序下载进去，压根不跑</h3>
+
+          <p class="mt-3">第三种现场最直接：LED 一点都不亮，串口一个字都不吐，调试器一暂停，发现 PC 停在 <code class="icode">SystemInit()</code> 或者 <code class="icode">HAL_RCC_OscConfig()</code> 里面不出来了。原因非常简单——代码在等一个永远不会到来的「HSE 就绪」标志：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="一个会卡死整个程序的等待：晶振不起来，它就永远等下去">
+            <pre><code>/* 传统写法：使能 HSE，然后死等就绪标志 */
+RCC-&gt;CR |= RCC_CR_HSEON;
+while (!(RCC-&gt;CR &amp; RCC_CR_HSERDY)) {
+    /* 空转。晶振没起振 → HSERDY 永远是 0 → 永远出不去 */
+}
+/* 于是时钟切不到 PLL，SYSCLK 还停在 HSI 8MHz，
+ * 而你连串口都还没初始化，什么也打印不出来 —— 板子看起来「死」了 */</code></pre>
+          </div>
+
+          <p class="mt-3">这三个现场分别对应了这篇的三条主线：<b class="font-semibold text-ink">算不对（时钟树与定时器时钟）、配不牢（使能-轮询-超时的握手）、验不出（不检查、不回读、不打印）</b>。而且它们的破坏力是递进的：算不对只是功能错，配不牢是程序不跑，<b>验不出最危险——因为你根本不知道自己在错的那条路上走了多远</b>。</p>
+
+          <h3 class="mt-7 text-base font-semibold">这块知识在项目里，具体长什么样</h3>
+
+          <p class="mt-3">「时钟树」在教科书里像一张漂亮的框图，但在你日常开发里，它的形态非常具体，就是下面这六件事：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>你会碰到的东西</th><th>背后需要的知识</th><th>不懂会怎样</th></tr></thead>
+              <tbody>
+                <tr><td>串口乱码 / 波特率对不上</td><td>PCLK2 到底是多少、BRR 由谁算</td><td>换线、换助手、换波特率，永远找不到原因</td></tr>
+                <tr><td>PWM 频率差一倍、舵机抖动</td><td>APB 预分频与「定时器时钟 ×2」规则</td><td>公式是对的，前提是错的</td></tr>
+                <tr><td>程序下载后不跑、卡在启动代码里</td><td>使能 → 轮询 RDY → 超时判据</td><td>以为是芯片坏了或者下载器有问题</td></tr>
+                <tr><td>CubeMX 里那棵花花绿绿的时钟树</td><td>每个数字对应 RCC_CFGR 的哪几个位</td><td>只会照着默认值点，改一个就亮红灯（频率超限）</td></tr>
+                <tr><td>「寄存器写了没反应」</td><td>外设门控时钟 APB1ENR / APB2ENR / AHBENR</td><td>怀疑寄存器地址写错，其实是时钟没使能</td></tr>
+                <tr><td>莫名其妙的跑飞、偶发 HardFault</td><td>FLASH_ACR 等待周期与供电电压的关系</td><td>把它当成「玄学干扰」，其实是一个静态配置错误</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">先划清分工：这一篇和基础篇不重复</div>
+            <p>如果你是第一次接触「时钟」这个概念，请先去读基础篇 <a href="stm32-basic-clock.html" class="text-brand-600 dark:text-brand-300 hover:underline">《STM32 基础 · 时钟系统》</a>：它讲的是<b>入门概念</b>——时钟为什么是数字电路的心跳、为什么要有一棵时钟树、HSI/HSE/PLL 各自是什么、CubeMX 里怎么点出 72MHz。</p>
+            <p class="mt-2">这一篇<b>默认你已经知道那些概念</b>，只回答三个更硬的问题：<b>① 整棵树怎么算（每一条路径、每一处分频、每个上限）；② 寄存器层怎么配（哪一位管什么、什么顺序写、写完怎么确认）；③ 配完怎么验证（示波器量哪里、代码里打印什么）</b>。</p>
+            <p class="mt-2">另外，<b>时钟精度</b>（HSI ±1% 与晶振 20ppm 的差距、波特率容差怎么推、晶振不起振的排查清单）已经在 <a href="ee-pulse.html" class="text-brand-600 dark:text-brand-300 hover:underline">《脉冲波形的产生与整形》</a> 里完整算过一遍，本篇不再重复那些算式，只在需要时给你指路。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">看完这一篇，你应该能做到什么</h3>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">拿到任何一个 STM32F103 工程，能看着代码把它的时钟树还原出来</b>：SYSCLK 几兆、HCLK 几兆、PCLK1/PCLK2 几兆、TIM2 的计数时钟几兆、ADC 采样时钟几兆，全部能从寄存器配置反推。</li>
+            <li><b class="font-semibold text-ink">能不看库、直接写寄存器配出 72MHz</b>，并且知道每一步在等什么标志、超时了该怎么回退。</li>
+            <li><b class="font-semibold text-ink">能在板子上证明主频</b>：MCO 输出到 PA8 用示波器量、SysTick 数时间、定时器输出方波、打印三个频率自查——四种方法互相印证。</li>
+            <li><b class="font-semibold text-ink">能一眼看穿六类时钟故障</b>：不跑、乱码、PWM 差倍、延时不准、ADC 不准、RTC 走时错，各自该去查哪一个寄存器。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">关于这一层的阅读方式</div>
+            <p>第三层的文章会比前两层「密」：出现大量寄存器名、位号、手册表格。别背，<b>要建立的是「查」的能力</b>——知道遇到哪个现象该去翻哪张表。所有位号与门限值我都会标出出处（RM0008 参考手册 / STM32F103 数据手册），你手上的芯片如果是别的型号（比如 F4、G0），<b>结构是一样的，数字和位号要换手册</b>，这句话在整层里都成立。</p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section class="mt-14">
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节按「从源头到外设」的顺序走一遍，一共八个小节。前三个小节回答「<b class="font-semibold text-ink">频率是多少</b>」（树怎么长、定时器为什么特殊、PLL 怎么算），
+          中间三个小节回答「<b class="font-semibold text-ink">寄存器怎么写</b>」（三个决定主频的寄存器、门控使能、Flash 等待周期），
+          最后两个小节回答「<b class="font-semibold text-ink">库和界面怎么对应、配完怎么验</b>」。</p>
+
+          <h3 id="sub-tree" class="mt-8 text-base font-semibold">完整时钟树：从四个源到每一个外设</h3>
+
+          <p class="mt-3">STM32F103 的时钟树可以粗暴地分成四段：<b>四个时钟源 → PLL 与选择器 → AHB 预分频 → APB 预分频 → 外设</b>。
+          下一张图把整棵树画完，所有的倍频器、分频器、选择器和手册上限都标在上面。这张图值得你打印出来贴在显示器边上——后面所有算不出来的频率，都是在这张图上丢了一段。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="STM32F103 完整时钟树（含每一处分频、倍频与手册上限）">
+            <pre><code>╔════════════════════════════════ 第一段：四个时钟源 ════════════════════════════════╗
+║                                                                                    ║
+║   HSI ── 内部 8MHz RC 振荡器           RCC_CR.HSION 使能 · HSIRDY 就绪             ║
+║         出厂校准 ±1%（25℃）            上电复位后的默认时钟，几微秒就稳            ║
+║         可用 HSITRIM[4:0] 小幅微调      精度差 → 只能当启动跳板                    ║
+║              │                                                                     ║
+║              ├──────────────────────────────────────────────→ SYSCLK（SW=00）      ║
+║              │                                                                     ║
+║              └──/2──→ 4MHz ──────────────┐                                         ║
+║                                          │                                         ║
+║   HSE ── 外部 4~16MHz 晶振/陶振          RCC_CR.HSEON 使能 · HSERDY 就绪           ║
+║         精度 20~50ppm 量级               不起振 → 等不到 HSERDY → 必须超时回退     ║
+║              │                                                                     ║
+║              ├──────────────────────────────────────────────→ SYSCLK（SW=01）      ║
+║              │                                                                     ║
+║              ├──/2 (PLLXTPRE=1)──┐                                                 ║
+║              └──/1 (PLLXTPRE=0)──┤                                                 ║
+║                                  │                                                 ║
+║                          ┌───────┴────────┐    PLLSRC 选择输入源：                 ║
+║                          │  输入选择器    │      0 = HSI/2（固定 4MHz）            ║
+║                          └───────┬────────┘      1 = HSE 或 HSE/2                  ║
+║                                  │                                                 ║
+║                          PLL 输入必须在 4~16MHz 之间（数据手册）                   ║
+║                                  ↓                                                 ║
+║                          ┌───────────────┐                                         ║
+║                          │  PLL 倍频器   │  ×2 ~ ×16 整数，由 PLLMUL[3:0] 决定     ║
+║                          └───────┬───────┘  PLL 输出必须在 16~72MHz 之间            ║
+║                                  │                                                 ║
+║                                  └──────────────────────────→ SYSCLK（SW=10）      ║
+║                                                                                    ║
+║   LSI ── 内部约 40kHz RC    典型 40kHz（手册范围可能 30~60kHz，按典型值估）        ║
+║              ├──→ 独立看门狗 IWDG 的计数时钟（不经过 APB，主时钟死了它还活着）     ║
+║              ├──→ RTC 的低功耗时钟源（RTCSEL=10）                                   ║
+║              └──→ MCO 输出（MCO=010）                                               ║
+║                                                                                    ║
+║   LSE ── 外部 32.768kHz 晶振  精度 20ppm 量级                                      ║
+║              ├──→ RTC 主时钟源（RTCSEL=01，最常用的走时方案）                       ║
+║              └──→ MCO 输出（MCO=011）                                               ║
+╚════════════════════════════════════════╤═══════════════════════════════════════════╝
+                                         ↓
+                     ┌───────────────────────────────────────┐
+                     │  SYSCLK 选择器  RCC_CFGR.SW[1:0]      │
+                     │    00 = HSI   01 = HSE   10 = PLL     │
+                     │  切完必须回读 SWS[1:0] 确认切换完成   │
+                     └───────────────────┬───────────────────┘
+                                         ↓
+                              SYSCLK ═══ 上限 72MHz ═══
+                                         ↓
+                          ┌──────────────────────────────┐
+                          │  AHB 预分频  HPRE[3:0]       │
+                          │  /1 /2 /4 /8 /16 /64 /128    │
+                          │  /256 /512                   │
+                          └──────────────┬───────────────┘
+                                         ↓
+                              HCLK ═══ 上限 72MHz ═══
+                                         │
+        ┌────────────────────────────────┼────────────────────────────────┐
+        ↓                                ↓                                ↓
+  Cortex-M3 内核                  AHB 总线与外设                   SysTick 时基
+  （取指、执行）                  DMA1/DMA2、SRAM、Flash 接口      （由 HCLK 驱动，
+        │                          CRC、FSMC、SDIO                   HAL 的 1ms 心跳）
+        │                          （RCC_AHBENR 门控）
+        │
+        ├───────────────────────────────┐
+        ↓                               ↓
+┌──────────────────────┐      ┌──────────────────────┐
+│ APB1 预分频 PPRE1    │      │ APB2 预分频 PPRE2    │
+│ /1 /2 /4 /8 /16      │      │ /1 /2 /4 /8 /16      │
+└──────────┬───────────┘      └──────────┬───────────┘
+           ↓                             ↓
+   PCLK1 ══ 上限 36MHz ══        PCLK2 ══ 上限 72MHz ══
+           │                             │
+     ┌─────┴──────────┐            ┌─────┴──────────────┐
+     ↓                ↓            ↓                    ↓
+ APB1 外设      定时器 TIM2~7    APB2 外设       定时器 TIM1/TIM8
+ USART2/3       的计数时钟        GPIOA~E         的计数时钟
+ UART4/5        ══ 规则 ══       USART1          ══ 规则 ══
+ I2C1/2         PPRE1 = 1：      SPI1            PPRE2 = 1：
+ SPI2/3         TIMxCLK = PCLK1  ADC1/2          TIMxCLK = PCLK2
+ CAN、USB       PPRE1 ≠ 1：      TIM1/TIM8       PPRE2 ≠ 1：
+ TIM2~7         TIMxCLK = PCLK1×2 AFIO、EXTI     TIMxCLK = PCLK2×2
+ WWDG、PWR、BKP                   TIM9/10/11
+     │                                                  │
+     └──────────────┬───────────────────────────────────┘
+                    ↓
+        ┌───────────────────────────┐    ┌──────────────────────────────┐
+        │ ADC 预分频 ADCPRE[1:0]    │    │ USB 预分频 USBPRE            │
+        │ /2 /4 /6 /8（源 = PCLK2） │    │ 1 或 1.5（源 = PLL 输出）    │
+        │ ADC 时钟 ══ 上限 14MHz ══ │    │ USB 时钟 必须 = 48MHz        │
+        └───────────────────────────┘    └──────────────────────────────┘</code></pre>
+          </div>
+
+          <p class="mt-3">这张图里有 <b class="font-semibold text-ink">四个容易被忽略的「暗门」</b>，先点出来，后面逐个展开：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">暗门一：HSI 和 HSE 都能直接当 SYSCLK，不必过 PLL</b>。所以「时钟切换失败」不一定意味着没时钟——你很可能是在 8MHz 上正常跑着，只是自己不知道（现场一）。</li>
+            <li><b class="font-semibold text-ink">暗门二：挂在 APB 上的定时器，时钟不等于 PCLK</b>。预分频系数不为 1 时硬件自动 ×2，这是第 2 小节的全部内容。</li>
+            <li><b class="font-semibold text-ink">暗门三：ADC 和 USB 的时钟不在 APB 树上直连</b>，它们各自还有一级专属预分频（ADCPRE、USBPRE），各有各的上限。</li>
+            <li><b class="font-semibold text-ink">暗门四：LSI 和 LSE 完全不经过上面任何一个分频器</b>。它们直接喂给 RTC、IWDG 和 MCO——这也是为什么「主时钟全死了，看门狗和 RTC 还活着」。</li>
+          </ul>
+
+          <p class="mt-6 font-semibold text-ink">全树上限速查表（这一层后面会反复用到）</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>节点</th><th>手册上限</th><th>超了会怎样</th><th>出处</th></tr></thead>
+              <tbody>
+                <tr><td>SYSCLK（系统时钟）</td><td><b>72MHz</b></td><td>时序不保证，取指错误 → 跑飞、HardFault</td><td>STM32F103 数据手册（Fmax）</td></tr>
+                <tr><td>HCLK（AHB 时钟 = 内核时钟）</td><td><b>72MHz</b></td><td>内核与 AHB 外设时序超限</td><td>数据手册</td></tr>
+                <tr><td>PCLK1（APB1）</td><td><b>36MHz</b></td><td>APB1 上的外设（USART2/3、I2C、SPI2、CAN…）时序异常</td><td>数据手册 / RM0008</td></tr>
+                <tr><td>PCLK2（APB2）</td><td><b>72MHz</b></td><td>APB2 外设（USART1、SPI1、TIM1…）时序异常</td><td>数据手册 / RM0008</td></tr>
+                <tr><td>PLL 输入（PLLXTPRE / PLLSRC 之后）</td><td><b>4~16MHz</b></td><td>PLL 可能不锁或输出抖动，表现为系统不稳定</td><td>RM0008 / 数据手册</td></tr>
+                <tr><td>PLL 输出（倍频之后，进 SYSCLK 之前）</td><td><b>16~72MHz</b></td><td>同上；低于 16MHz 也可能锁不住</td><td>RM0008</td></tr>
+                <tr><td>ADC 时钟（PCLK2 ÷ ADCPRE）</td><td><b>14MHz</b></td><td>采样值跳变、精度崩坏、转换结果不可信</td><td>STM32F103 数据手册</td></tr>
+                <tr><td>USB 时钟</td><td><b>48MHz</b>（且精度 ±0.25% 量级）</td><td>USB 枚举失败或通信断续</td><td>数据手册 / USB 规范</td></tr>
+                <tr><td>HSE 晶振频率</td><td><b>4~16MHz</b></td><td>超出范围驱动能力不足 → 不起振</td><td>数据手册</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">本层所有数字都来自 STM32F103（中/高密度）</div>
+            <p>本层的寄存器名、位号、上限值都以 <b>STM32F103C8T6 / RCT6 这一类中高密度产品</b>为准，出处是 ST 的 <b>RM0008 参考手册</b>与 <b>STM32F103x8/B 数据手册</b>。
+            换成 STM32F4、G0、H7，<b>时钟树的「形状」是同一套思路（源 → PLL → AHB → APB → 外设），但分频器档位、位号、上限全都不同</b>（比如 F4 有 PLLM/PLLN/PLLP 三个参数、APB 上限变成 45MHz/90MHz、还有 48MHz 的 USB 专用时钟域）。
+            所以换芯片时你要换的是<b>数字和表格</b>，不是<b>方法</b>。</p>
+          </div>
+
+          <h3 id="sub-timer-clk" class="mt-8 text-base font-semibold">定时器时钟不是 PCLK</h3>
+
+          <p class="mt-3">现在把「暗门二」打开。这是整篇里最容易被误解、也最容易在项目里咬人的一条规则。先把它写成一句话：</p>
+
+          <div class="callout callout-danger mt-3">
+            <div class="callout-title">定时器时钟规则（APB1 与 APB2 都适用）</div>
+            <p><b>若该 APB 的预分频系数 = 1，则挂在它上面的定时器时钟 = PCLK；<br>
+            若该 APB 的预分频系数 ≠ 1，则定时器时钟 = PCLK × 2。</b></p>
+            <p class="mt-2">注意「×2」不是近似、不是额外误差，而是<b>硬件里真的有一条 ×2 的旁路</b>：APB 总线本身被分频了，但定时器的计数时钟从分频器<b>之前</b>取，并且额外翻倍。</p>
+          </div>
+
+          <p class="mt-3">为什么 ST 要这么设计？因为 APB1 的上限只有 36MHz，而定时器（尤其是电机控制里的 TIM1）需要 72MHz 的计数分辨率。如果定时器老老实实跟着 PCLK1 走，那在标准 72MHz 配置下，TIM2~TIM4 就只能拿到 36MHz——PWM 的分辨率凭空掉一半。
+          于是硬件做了这件事：<b>让总线变慢（照顾外设），让定时器保持快（照顾时间精度）</b>。你只要记住「总线速度」和「定时器速度」在这颗芯片上是两个独立的概念，就不会再算错。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="标准 72MHz 配置下，每个定时器实际拿到多少时钟">
+            <pre><code>配置前提：HSE 8MHz → PLL ×9 → SYSCLK = 72MHz
+          HPRE  = /1  → HCLK  = 72MHz
+          PPRE1 = /2  → PCLK1 = 36MHz      ← 正好压在 APB1 的 36MHz 上限
+          PPRE2 = /1  → PCLK2 = 72MHz      ← 正好是 APB2 的 72MHz 上限
+
+┌─────────────┬─────────┬──────────────┬──────────────┬────────────────────────────┐
+│ 定时器      │ 挂在    │ 该 APB 的    │ 计数时钟     │ 怎么来的                   │
+│             │ 哪条总线│ 预分频系数   │ TIMxCLK      │                            │
+├─────────────┼─────────┼──────────────┼──────────────┼────────────────────────────┤
+│ TIM1        │ APB2    │ /1（=1）     │ 72MHz        │ = PCLK2（不 ×2）           │
+│ TIM8        │ APB2    │ /1（=1）     │ 72MHz        │ = PCLK2（不 ×2）           │
+│ TIM9/10/11  │ APB2    │ /1（=1）     │ 72MHz        │ = PCLK2（不 ×2）           │
+│ TIM2        │ APB1    │ /2（≠1）     │ 72MHz        │ = PCLK1 × 2 = 36 × 2       │
+│ TIM3        │ APB1    │ /2（≠1）     │ 72MHz        │ = PCLK1 × 2 = 36 × 2       │
+│ TIM4        │ APB1    │ /2（≠1）     │ 72MHz        │ = PCLK1 × 2 = 36 × 2       │
+│ TIM5/6/7    │ APB1    │ /2（≠1）     │ 72MHz        │ = PCLK1 × 2                │
+└─────────────┴─────────┴──────────────┴──────────────┴────────────────────────────┘
+
+结论：标准配置下，F103 上所有定时器的计数时钟都是 72MHz。
+      但这是「配置的巧合」，不是「芯片的定律」——换个分频系数就变了，见下表。</code></pre>
+          </div>
+
+          <p class="mt-3">换几种分频系数，你就会看到这条规则的边界在哪里：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>PPRE1（APB1 分频）</th><th>PCLK1</th><th>APB1 上的定时器时钟</th><th>是否 ×2</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>/1</td><td>36MHz 级（需 SYSCLK ≤ 36MHz 才合规）</td><td>= PCLK1</td><td><b>否</b></td><td>唯一不 ×2 的情况，最容易算错</td></tr>
+                <tr><td>/2</td><td>36MHz（72MHz 系统）</td><td>= PCLK1 × 2 = 72MHz</td><td><b>是</b></td><td>F103 的标准配置</td></tr>
+                <tr><td>/4</td><td>18MHz</td><td>= 36MHz</td><td><b>是</b></td><td>降频系统常用，定时器也跟着降</td></tr>
+                <tr><td>/8</td><td>9MHz</td><td>= 18MHz</td><td><b>是</b></td><td>低功耗场景</td></tr>
+                <tr><td>/16</td><td>4.5MHz</td><td>= 9MHz</td><td><b>是</b></td><td>极低功耗场景</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">同一张规则表也适用于 APB2：如果哪天你把 PPRE2 设成 /2（比如为了让 APB2 的分频比好看），那么 <code class="icode">PCLK2 = 36MHz</code>，而 <b>TIM1 的计数时钟会变成 72MHz</b>——TIM1 反而比 PCLK2 快一倍。这种「定时器比总线还快」的情形在 F103 上是完全正常的，别以为配错了。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一条能救命的检查习惯</div>
+            <p>以后你写出任何一个 PWM 频率不对、定时中断周期不对的问题，<b>第一件事不是改 ARR，而是先确认三件事</b>：
+            ① 该定时器挂在哪条 APB 上（TIM1/TIM8 在 APB2，TIM2~7 在 APB1）；② 这条 APB 的预分频系数是多少（看 RCC_CFGR 的 PPRE1/PPRE2）；③ 按上面的规则算出 TIMxCLK。
+            <b>把 TIMxCLK 写成注释贴在定时器初始化函数上面</b>，下次接手你代码的人（包括三个月后的你）会感谢你。</p>
+          </div>
+
+          <h3 id="sub-pll" class="mt-8 text-base font-semibold">PLL：8MHz 怎么算成 72MHz</h3>
+
+          <p class="mt-3">PLL（锁相环）本身是一个模拟电路，但在这颗芯片上你只需要把它当成一个<b class="font-semibold text-ink">「只能整数倍频的黑盒子」</b>：给它一个 4~16MHz 的输入，它输出输入频率的 2~16 倍，但输出必须落在 16~72MHz 之间。你要做的唯一一件事就是<b>把倍频系数选对</b>。</p>
+
+          <p class="mt-3">完整算式只有一行，但每个符号都要对上寄存器里的位：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="SYSCLK 的完整算式（PLL 路径）">
+            <pre><code>                    ┌──────────────────────────────────────────────┐
+                    │            HSE                                 │
+                    │  SYSCLK = ─────────── × PLLMUL                 │
+                    │           (PLLXTPRE + 1)                       │
+                    │                                                │
+                    │  其中：PLLSRC = 1（选 HSE 路径，SW 最终切 PLL）│
+                    │        PLLXTPRE = 0 → 除以 1（不分频）         │
+                    │        PLLXTPRE = 1 → 除以 2（HSE/2）          │
+                    │        PLLMUL = 2 ~ 16 的整数，见下面的编码表  │
+                    └──────────────────────────────────────────────┘
+
+  走 HSI 时（PLLSRC = 0）那条路是固定的：
+                    SYSCLK = 4MHz × PLLMUL        ← HSI 8MHz 先被硬件固定 /2
+
+  三个必须同时满足的约束（少一个都可能不锁或超限）：
+    ① PLL 输入（上式括号里算完的结果）       必须在 4 ~ 16MHz
+    ② PLL 输出（= SYSCLK 的本值）            必须在 16 ~ 72MHz
+    ③ 最终 SYSCLK                            不得超过 72MHz</code></pre>
+          </div>
+
+          <p class="mt-3">把它写成流程，就是你每次配置时钟时脑子里应该走的那五步：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="PLL 配置流程：五步走完，不会漏约束">
+            <pre><code>  【第 1 步】晶振是多少？              看板子上的实物 + 原理图，假设 8MHz
+              ↓
+  【第 2 步】要不要过 PLLXTPRE 除 2？  目标是让输入落进 4~16MHz
+              8MHz  → 不用除，PLLXTPRE = 0
+              16MHz → 除 2 得 8MHz 更好用，PLLXTPRE = 1
+              ↓
+  【第 3 步】目标 SYSCLK 是多少？      F103 的答案是 72MHz（性能上限）
+              ↓
+  【第 4 步】反算 PLLMUL = 72 / 输入   = 72 / 8 = 9 → 整数，可行 ✓
+              若除不尽（比如 12MHz 想要 72：72/12 = 6 ✓；10MHz 想要 72：7.2 ✗）
+              → 要么换晶振，要么接受一个不是 72 的 SYSCLK
+              ↓
+  【第 5 步】校验三个约束：
+              输入 8MHz   ∈ [4, 16]     ✓
+              输出 72MHz  ∈ [16, 72]    ✓
+              SYSCLK 72MHz ≤ 72MHz      ✓
+              ↓
+  【写寄存器】PLLSRC = 1、PLLXTPRE = 0、PLLMUL = 0111（×9）
+              ↓
+  【最后一步】切 SW = 10，然后回读 SWS 直到读到 10 —— 才算真的切过去了</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">PLLMUL 编码表（RCC_CFGR 的 PLLMUL[3:0]）</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>PLLMUL[3:0]</th><th>倍频</th><th>8MHz 输入时得到</th><th>PLLMUL[3:0]</th><th>倍频</th><th>8MHz 输入时得到</th></tr></thead>
+              <tbody>
+                <tr><td><code class="icode">0000</code></td><td>×2</td><td>16MHz</td><td><code class="icode">1000</code></td><td>×10</td><td>80MHz（超限）</td></tr>
+                <tr><td><code class="icode">0001</code></td><td>×3</td><td>24MHz</td><td><code class="icode">1001</code></td><td>×11</td><td>88MHz（超限）</td></tr>
+                <tr><td><code class="icode">0010</code></td><td>×4</td><td>32MHz</td><td><code class="icode">1010</code></td><td>×12</td><td>96MHz（超限）</td></tr>
+                <tr><td><code class="icode">0011</code></td><td>×5</td><td>40MHz</td><td><code class="icode">1011</code></td><td>×13</td><td>104MHz（超限）</td></tr>
+                <tr><td><code class="icode">0100</code></td><td>×6</td><td>48MHz</td><td><code class="icode">1100</code></td><td>×14</td><td>112MHz（超限）</td></tr>
+                <tr><td><code class="icode">0101</code></td><td>×7</td><td>56MHz</td><td><code class="icode">1101</code></td><td>×15</td><td>120MHz（超限）</td></tr>
+                <tr><td><code class="icode">0110</code></td><td>×8</td><td>64MHz</td><td><code class="icode">1110</code></td><td>×16</td><td>128MHz（超限）</td></tr>
+                <tr><td><code class="icode">0111</code></td><td><b>×9</b></td><td><b>72MHz ← 标准配置</b></td><td><code class="icode">1111</code></td><td>×16</td><td>与 1110 等效</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">表里右侧那半边的「超限」是<b>故意的</b>：PLLMUL 一共 4 位、能表示 ×2~×16，但 8MHz 输入时凡是大过 ×9 的组合都会把 PLL 输出推到 72MHz 以上，<b>硬件不会拦你</b>。这就是「超频」在寄存器层面的样子——你写进去一个 <code class="icode">1010</code>，芯片就真的去尝试输出 96MHz。第 3 节例 6 会算它会怎么坏。</p>
+
+          <p class="mt-6 font-semibold text-ink">常用晶振配置表（F103，目标 72MHz 或低功耗档）</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>板载晶振</th><th>PLLXTPRE</th><th>PLL 输入</th><th>PLLMUL</th><th>PLL 输出 / SYSCLK</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td><b>8MHz</b>（最常见）</td><td>/1</td><td>8MHz</td><td>×9（<code class="icode">0111</code>）</td><td><b>72MHz</b></td><td>正点原子 / 野火等多数 F103 开发板的出厂配置</td></tr>
+                <tr><td>8MHz</td><td>/1</td><td>8MHz</td><td>×8（<code class="icode">0110</code>）</td><td>64MHz</td><td>想留余量或降功耗时的稳妥档</td></tr>
+                <tr><td>8MHz</td><td>/1</td><td>8MHz</td><td>×6（<code class="icode">0100</code>）</td><td>48MHz</td><td>正好给 USB 用（USBPRE=1 时 USB 时钟 = PLL = 48MHz，此时 SYSCLK 也被限制在 48MHz）</td></tr>
+                <tr><td><b>12MHz</b></td><td>/1</td><td>12MHz</td><td>×6（<code class="icode">0100</code>）</td><td><b>72MHz</b></td><td>12MHz 晶振的标准配法</td></tr>
+                <tr><td><b>16MHz</b></td><td>/2（<code class="icode">1</code>）</td><td>8MHz</td><td>×9（<code class="icode">0111</code>）</td><td><b>72MHz</b></td><td>16MHz 晶振想要 72MHz，必须先用 PLLXTPRE 除 2</td></tr>
+                <tr><td>16MHz</td><td>/1</td><td>16MHz</td><td>×4（<code class="icode">0010</code>）</td><td>64MHz</td><td>不除 2 的上限档（×4.5 在 F103 上不存在）</td></tr>
+                <tr><td>4MHz</td><td>/1</td><td>4MHz</td><td>×16（<code class="icode">1110</code>）</td><td>64MHz</td><td>4MHz 晶振的最高档</td></tr>
+                <tr><td>4MHz</td><td>/1</td><td>4MHz</td><td>×9（<code class="icode">0111</code>）</td><td>36MHz</td><td>低功耗档，PCLK1 可直接用 /1</td></tr>
+                <tr><td>无晶振（HSI）</td><td>—</td><td>4MHz（HSI/2 固定）</td><td>×16（<code class="icode">1110</code>）</td><td>64MHz</td><td>晶振坏了时的应急路径，精度只有 ±1% 量级</td></tr>
+                <tr><td>无晶振（HSI）</td><td>—</td><td>4MHz（HSI/2 固定）</td><td>×9（<code class="icode">0111</code>）</td><td>36MHz</td><td>更保守的应急档</td></tr>
+                <tr><td>无晶振（HSI）</td><td>—</td><td>—（不过 PLL）</td><td>—</td><td>8MHz（SW=00）</td><td>复位默认状态，什么外设都别指望准</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">顺手澄清一个跨型号的误会</div>
+            <p>很多教程里的例程用 <b>25MHz</b> 晶振配 PLL——那是 <b>STM32F4</b> 系列（HSE 可以到 26MHz，PLL 参数是 PLLM/PLLN/PLLP 三件套）。<b>在 F103 上 25MHz 超出 HSE 的 4~16MHz 范围，不能直接用</b>。所以抄例程时第一件事是核对晶振频率与型号，别把 F4 的配置抄到 F103 上。</p>
+            <p class="mt-2">另一件常见事：手头的板子是 16MHz 晶振，直接套「×9 = 144MHz」——那是把 PLLXTPRE 当成不存在了。16MHz 想上 72MHz，<b>必须先除 2</b>（见上表第 5 行）。</p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">算错的后果：超频与欠频，表现完全不一样</p>
+
+          <p class="mt-3">时钟算错有两个方向，它们的症状<b>几乎不会混</b>，所以你可以靠现象反推方向：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th></th><th>超频（配得比 72MHz 高）</th><th>欠频（配得比预期低）</th></tr></thead>
+              <tbody>
+                <tr><td><b>典型成因</b></td><td>PLLMUL 选大了（8MHz ×10 = 80MHz）；16MHz 忘了除 2</td><td>HSE 没起振退回 HSI 8MHz；PLLMUL 选小了；SW 没切成功</td></tr>
+                <tr><td><b>Flash 取指</b></td><td>等待周期不够（F103 最多 2WS，只能保证到 72MHz）→ <b>取指拿到错数据</b></td><td>等待周期偏多 → 只是变慢，不影响正确性</td></tr>
+                <tr><td><b>典型现象</b></td><td>跑飞、HardFault、随机死机；<b>常温能跑、加热或降压就挂</b>；烧进去的程序偶尔正常偶尔不启动</td><td>不崩，但一切都「慢」或「偏」：串口乱码、定时偏长、PWM 偏慢</td></tr>
+                <tr><td><b>能不能跑</b></td><td>经常能跑——这正是它可怕的地方</td><td>基本都能跑，只是所有时间量都不对</td></tr>
+                <tr><td><b>危害等级</b></td><td><b>极高</b>：属于「出厂能过、客户手里挂掉」的批次性问题</td><td>中：功能错但可复现、可定位</td></tr>
+                <tr><td><b>怎么发现</b></td><td>MCO 量频率（超过 72MHz 就是它）；查 FLASH_ACR 与 SYSCLK 是否匹配</td><td>MCO 量频率、打印三个频率、器件手册反查</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">「能跑」不是合格判据</div>
+            <p>超频的板子在实验室里往往表现完美：室温 25℃、USB 供电 5.0V、只跑点灯和串口。<b>但芯片的时序余量是随温度、电压、批次一起变的</b>——数据手册给的 72MHz 上限，是「全温度范围、全电压范围、全批次」都保证的值。你超到 80MHz，本质上是把「保证」换成了「抽奖」。</p>
+            <p class="mt-2">这一类问题在毕设答辩或小批量试产时通常看不出来，在两个月的现场运行里才集中爆发。所以规则很简单：<b>不要超频，一个兆赫兹也不要。</b></p>
+          </div>
+
+          <h3 id="sub-reg-core" class="mt-8 text-base font-semibold">RCC_CR / RCC_CFGR / RCC_CIR：三个决定主频的寄存器</h3>
+
+          <p class="mt-3">整个时钟系统，日常要打交道的寄存器其实不多。最核心的是三个，它们的地址固定在 <code class="icode">0x40021000</code> 开始的 RCC 区块里（<code class="icode">RCC_CR = 0x40021000</code>、<code class="icode">RCC_CFGR = 0x40021004</code>、<code class="icode">RCC_CIR = 0x40021008</code>，见 RM0008 的 RCC 寄存器映射表）。</p>
+
+          <p class="mt-6 font-semibold text-ink">① RCC_CR：谁开着、谁就绪了、谁出事了</p>
+
+          <p class="mt-3">这个寄存器的结构可以概括成<b class="font-semibold text-ink">四组「使能 / 就绪」配对</b>：你写使能位，硬件通过就绪位回答你。这是分频器以外最重要的一个心智模型。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>位</th><th>名称</th><th>读写</th><th>含义与用法</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td><code class="icode">HSION</code></td><td>读写</td><td>内部 8MHz RC 使能。<b>复位值 = 1</b>，所以芯片一上电就有时钟（HSI）</td></tr>
+                <tr><td>1</td><td><code class="icode">HSIRDY</code></td><td>只读</td><td>HSI 就绪标志。HSI 起振很快（几微秒），一般不需要长等</td></tr>
+                <tr><td>7:3</td><td><code class="icode">HSITRIM[4:0]</code></td><td>读写</td><td>HSI 微调，复位值 <code class="icode">10000</code>（=16，即出厂校准点）。能小幅拉频率，但救不了精度量级</td></tr>
+                <tr><td>15:8</td><td><code class="icode">HSICAL[7:0]</code></td><td>只读</td><td>出厂校准值，上电自动装载，你不用管它</td></tr>
+                <tr><td>16</td><td><code class="icode">HSEON</code></td><td>读写</td><td>外部晶振使能。<b>复位值 = 0</b>，必须自己开</td></tr>
+                <tr><td>17</td><td><code class="icode">HSERDY</code></td><td>只读</td><td>HSE 就绪标志。晶振起振要毫秒级时间，<b>必须带超时等待</b></td></tr>
+                <tr><td>18</td><td><code class="icode">HSEBYP</code></td><td>读写</td><td>旁路模式：不接晶振、直接由外部有源时钟源从 OSC_IN 灌入时置 1</td></tr>
+                <tr><td>19</td><td><code class="icode">CSSON</code></td><td>读写</td><td>时钟安全系统使能：HSE 失效时自动切到 HSI 并产生 NMI（见下文 RCC_CIR）</td></tr>
+                <tr><td>24</td><td><code class="icode">PLLON</code></td><td>读写</td><td>PLL 使能。注意：<b>PLL 只能在 SYSCLK 由 HSI/HSE 驱动时开关</b>，不能一边用 PLL 当 SYSCLK 一边关它</td></tr>
+                <tr><td>25</td><td><code class="icode">PLLRDY</code></td><td>只读</td><td>PLL 锁定标志。锁相环锁定需要几十到几百微秒，同样要带超时</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">于是「启动时钟」这件事，在寄存器层面永远是这个三段式：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="使能 → 轮询就绪 → 超时判据：三段式握手，缺一不可">
+            <pre><code>① 使能      RCC-&gt;CR |= RCC_CR_HSEON;             把请求写下去
+                ↓
+② 轮询      while (!(RCC-&gt;CR &amp; RCC_CR_HSERDY))   等硬件回答
+                ↓
+③ 超时判据  等不到怎么办？—— 这才是关键的一步
+                ↓
+        ┌───────────────────┴────────────────────┐
+        ↓                                        ↓
+   有超时（正确）                            没有超时（错误，会卡死）
+   while (等待 &amp;&amp; 计数 &lt; 上限);              while (等待);
+   超了就回退 HSI 并报警                      晶振坏 → 永远出不来 → 板子「死」
+        ↓                                        ↓
+   程序继续跑（在 8MHz 上）                   LED 不亮、串口不响，
+   并且你知道自己在 8MHz 上                   你还以为芯片坏了</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">为什么超时判据不是「可选项」</div>
+            <p>因为「晶振不起振」在这颗芯片上<b>不是异常，而是常态</b>：负载电容配错、晶振是次品、焊盘虚焊、走线太长、板子受潮、-20℃ 冷启动——每一条都能让 HSERDY 永远不置位。
+            没有超时判据的代码，遇到这些情况的表现是「整块板子像死了一样」；有超时判据的代码，表现是「在 8MHz 上跑起来了，LED 快闪报警」。
+            <b>后者是产品，前者是废板。</b></p>
+            <p class="mt-2">第 4 节的 <code class="icode">SystemInit()</code> 会给出带超时回退的完整实现，第 3 节例 3 会算出「回退之后串口会错成什么样」——先剧透一句：<b>如果你不改 BRR，串口会是 12800 波特率的乱码</b>。</p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">② RCC_CFGR：切换开关 + 全部分频器 + PLL 参数</p>
+
+          <p class="mt-3">如果说 RCC_CR 管「源开没开」，那么 RCC_CFGR 管「选哪个源、怎么分、倍几倍」。它一个寄存器里塞了整棵树的<b>所有旋钮</b>，所以位域必须背下来（或者说，必须知道去哪儿查）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>位</th><th>字段</th><th>作用</th><th>取值</th></tr></thead>
+              <tbody>
+                <tr><td>1:0</td><td><code class="icode">SW[1:0]</code></td><td>SYSCLK 源选择（写）</td><td><code class="icode">00</code>=HSI、<code class="icode">01</code>=HSE、<code class="icode">10</code>=PLL</td></tr>
+                <tr><td>3:2</td><td><code class="icode">SWS[1:0]</code></td><td>SYSCLK 源<b>实际状态</b>（只读）</td><td>编码同 SW；<b>切完必须读它确认</b></td></tr>
+                <tr><td>7:4</td><td><code class="icode">HPRE[3:0]</code></td><td>AHB 预分频（SYSCLK → HCLK）</td><td>见下方 HPRE 编码表</td></tr>
+                <tr><td>10:8</td><td><code class="icode">PPRE1[2:0]</code></td><td>APB1 预分频（HCLK → PCLK1）</td><td>见下方 PPRE 编码表</td></tr>
+                <tr><td>13:11</td><td><code class="icode">PPRE2[2:0]</code></td><td>APB2 预分频（HCLK → PCLK2）</td><td>见下方 PPRE 编码表</td></tr>
+                <tr><td>15:14</td><td><code class="icode">ADCPRE[1:0]</code></td><td>ADC 预分频（PCLK2 → ADC 时钟）</td><td><code class="icode">00</code>=/2、<code class="icode">01</code>=/4、<code class="icode">10</code>=/6、<code class="icode">11</code>=/8</td></tr>
+                <tr><td>16</td><td><code class="icode">PLLSRC</code></td><td>PLL 输入源</td><td><code class="icode">0</code>=HSI/2（固定 4MHz）、<code class="icode">1</code>=HSE（是否再 /2 看 PLLXTPRE）</td></tr>
+                <tr><td>17</td><td><code class="icode">PLLXTPRE</code></td><td>HSE 分频后再进 PLL</td><td><code class="icode">0</code>=不分频、<code class="icode">1</code>=HSE/2</td></tr>
+                <tr><td>21:18</td><td><code class="icode">PLLMUL[3:0]</code></td><td>PLL 倍频系数</td><td><code class="icode">0000</code>=×2 … <code class="icode">1110</code>=×16（编码表在第 2 小节）</td></tr>
+                <tr><td>22</td><td><code class="icode">USBPRE</code></td><td>USB 预分频（源 = PLL 输出）</td><td><code class="icode">0</code>=PLL/1.5、<code class="icode">1</code>=PLL/1。<b>结果必须正好 48MHz</b></td></tr>
+                <tr><td>26:24</td><td><code class="icode">MCO[2:0]</code></td><td>时钟输出引脚（PA8）的源</td><td><code class="icode">010</code>=LSI、<code class="icode">011</code>=LSE、<code class="icode">100</code>=SYSCLK、<code class="icode">101</code>=HSI、<code class="icode">110</code>=HSE、<code class="icode">111</code>=PLL/2</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">SW 和 SWS 是两回事——这是「切了但没切过去」的根源</div>
+            <p><code class="icode">SW</code> 是你写的<b>请求</b>，<code class="icode">SWS</code> 是硬件报告的<b>现状</b>。你写 <code class="icode">SW = 10</code>（请求用 PLL），硬件要等 PLL 稳定、等几个周期同步之后，才把 <code class="icode">SWS</code> 从 <code class="icode">00</code> 改成 <code class="icode">10</code>。
+            如果你写完就走、从不回读 SWS，那你永远不知道这次切换到底成没成功——<b>而失败时程序不会报错，它只会继续用 HSI 8MHz 跑下去</b>。</p>
+            <p class="mt-2">正确写法是一句 while 加超时：<code class="icode">while (((RCC-&gt;CFGR &gt;&gt; 2) &amp; 0x3) != 0x2) { /* 等 SWS 变成 10，带超时 */ }</code>。第 4 节的代码里你会看到它，第 4 节的自检函数会把它变成一条常驻的保险。</p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">HPRE 编码表（RCC_CFGR.HPRE[3:0]）</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>HPRE[3:0]</th><th>HCLK = SYSCLK /</th><th>72MHz 时得到</th><th>HPRE[3:0]</th><th>HCLK = SYSCLK /</th><th>72MHz 时得到</th></tr></thead>
+              <tbody>
+                <tr><td><code class="icode">0xxx</code></td><td><b>1</b>（不分频）</td><td><b>72MHz</b></td><td><code class="icode">1100</code></td><td>64</td><td>1.125MHz</td></tr>
+                <tr><td><code class="icode">1000</code></td><td>2</td><td>36MHz</td><td><code class="icode">1101</code></td><td>128</td><td>562.5kHz</td></tr>
+                <tr><td><code class="icode">1001</code></td><td>4</td><td>18MHz</td><td><code class="icode">1110</code></td><td>256</td><td>281.25kHz</td></tr>
+                <tr><td><code class="icode">1010</code></td><td>8</td><td>9MHz</td><td><code class="icode">1111</code></td><td>512</td><td>140.625kHz</td></tr>
+                <tr><td><code class="icode">1011</code></td><td>16</td><td>4.5MHz</td><td colspan="3">注意档位不是等比的：<b>16 之后直接跳到 64</b>，中间没有 32</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">PPRE1 / PPRE2 编码表（RCC_CFGR.PPRE1[2:0] 与 PPRE2[2:0]，两者编码完全相同）</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>PPREx[2:0]</th><th>PCLKx = HCLK /</th><th>HCLK = 72MHz 时</th><th>该总线上定时器时钟</th><th>合规性</th></tr></thead>
+              <tbody>
+                <tr><td><code class="icode">0xx</code></td><td><b>1</b>（不分频）</td><td>72MHz</td><td>= PCLKx（<b>不 ×2</b>）</td><td>APB1 上是<b>违规</b>（超 36MHz）；APB2 上合规</td></tr>
+                <tr><td><code class="icode">100</code></td><td><b>2</b></td><td>36MHz</td><td>= PCLKx × 2 = 72MHz</td><td><b>APB1 的标准配置</b></td></tr>
+                <tr><td><code class="icode">101</code></td><td>4</td><td>18MHz</td><td>= 36MHz</td><td>合规，降频用</td></tr>
+                <tr><td><code class="icode">110</code></td><td>8</td><td>9MHz</td><td>= 18MHz</td><td>合规，低功耗用</td></tr>
+                <tr><td><code class="icode">111</code></td><td>16</td><td>4.5MHz</td><td>= 9MHz</td><td>合规，极低功耗用</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">把这两张表和你手上的 <code class="icode">RCC-&gt;CFGR</code> 值对一下，就能一眼看出系统跑在什么频率上。比如最常见的 <code class="icode">RCC-&gt;CFGR = 0x001D8402</code>：低两位 <code class="icode">10</code> = PLL 当 SYSCLK，<code class="icode">HPRE = 0</code>（÷1）、<code class="icode">PPRE1 = 100</code>（÷2）、<code class="icode">PPRE2 = 0</code>（÷1）——正是「72 / 36 / 72」那套标准配置。练习里会让你做几次这样的反查。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">写分频器与切时钟的顺序，是有讲究的</div>
+            <p><b>升频（8MHz → 72MHz）时</b>：先把 Flash 等待周期调到 2，再把 HPRE/PPRE1/PPRE2 设好，最后才写 SW 切到 PLL。原因很直接：分频器<b>必须先就位</b>，否则在切过去的那一瞬间 APB1 会短暂地跑在 72MHz，超过它 36MHz 的上限。</p>
+            <p class="mt-2"><b>降频（72MHz → 8MHz）时顺序相反</b>：先切 SW 回 HSI，再改分频器，最后把等待周期降下来。</p>
+            <p class="mt-2">这不是「风格问题」，而是这颗芯片的硬件要求。HAL 的 <code class="icode">HAL_RCC_ClockConfig()</code> 内部就是按这个顺序做的（先设 latency、再设分频、再切源、再等 SWS），第 4 节会逐行拆给你看。</p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">③ RCC_CIR：时钟出事的「报警电话」</p>
+
+          <p class="mt-3">正常开发用不到它，但你会想知道它存在——因为它解释了「为什么我的程序突然跳到 NMI 里去了」：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>位</th><th>名称</th><th>作用</th></tr></thead>
+              <tbody>
+                <tr><td>0 / 1 / 2 / 3 / 4</td><td><code class="icode">LSIRDYF</code> … <code class="icode">PLLRDYF</code></td><td>五个就绪标志的「中断挂起位」：某个源从不就绪变成就绪时置位</td></tr>
+                <tr><td>7</td><td><code class="icode">CSSF</code></td><td><b>时钟安全系统标志</b>：HSE 失效时硬件置位</td></tr>
+                <tr><td>8 ~ 12</td><td><code class="icode">LSIRDYIE</code> … <code class="icode">PLLRDYIE</code></td><td>上面五个标志的中断使能</td></tr>
+                <tr><td>15</td><td><code class="icode">CSSIE</code></td><td>CSS 中断使能</td></tr>
+                <tr><td>16 ~ 20</td><td><code class="icode">LSIRDYC</code> … <code class="icode">PLLRDYC</code></td><td>写 1 清除对应标志</td></tr>
+                <tr><td>23</td><td><code class="icode">CSSC</code></td><td>写 1 清除 CSS 标志（并在 NMI 里解除报警）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">其中真正重要的是 <b>CSS（Clock Security System，时钟安全系统）</b>。把 <code class="icode">RCC_CR</code> 的 <code class="icode">CSSON</code> 置 1 之后，硬件会替你盯着 HSE：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="CSS 使能后，HSE 失效时硬件自动做的事">
+            <pre><code>使能：RCC-&gt;CR |= RCC_CR_CSSON;      /* 时钟安全系统上线，硬件帮你盯 HSE */
+
+HSE 因为某种原因失效（晶振裂了、线断了、驱动不足）
+        ↓
+硬件立刻做三件事（不需要 CPU 参与）：
+   ① SYSCLK 自动切回 HSI 8MHz —— 保证程序还能跑
+   ② 把 HSE 关掉（HSEON 清 0），并置位 RCC_CIR.CSSF
+   ③ 产生 NMI（不可屏蔽中断）—— 而不是普通中断
+        ↓
+你在 NMI_Handler 里能做的事：
+   · 记下「发生过时钟失效」（写 Flash / 备份寄存器）
+   · 把外设恢复到 8MHz 下的参数（重算 BRR、重设定时器）
+   · 报警：LED 频闪 / 蜂鸣器 / 上报
+        ↓
+注意：CSS 只是「保命」，不解决精度问题。
+      切到 HSI 之后串口波特率的误差是 ±1% 量级起步，
+      所有跟时间有关的功能都不再可靠。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">CSS 与「自己写超时回退」的分工</div>
+            <p>两者解决的是不同时刻的问题：<b>自己写的超时回退管「上电启动阶段」</b>（HSE 从一开始就没起来）；<b>CSS 管「运行过程中」</b>（晶振跑着跑着失效了，比如温度剧变、机械振动、虚焊）。
+            产品级的固件两个都要有：启动时超时回退到 HSI 并报警，运行时开 CSS 让硬件兜底。</p>
+            <p class="mt-2">要留意的是，CSS 触发的是 <b>NMI</b>——它不能被普通的中断优先级屏蔽，也不能被 <code class="icode">__disable_irq()</code> 关掉。所以你如果在 NMI 处理函数里写下不去的循环，整块板子就会死在那里。NMI 里只做「记录 + 报警」两件事，剩下的交给主循环。</p>
+          </div>
+
+          <h3 id="sub-reg-gate" class="mt-8 text-base font-semibold">外设门控与备份域：三个 ENR 与 BDCR</h3>
+
+          <p class="mt-3">到这里，SYSCLK / HCLK / PCLK1 / PCLK2 都已经算对了。但<b class="font-semibold text-ink">总线上的时钟信号并不会自动送到每一个外设</b>——每个外设前面还有一道独立的闸门（gating），默认<b>全部关闭</b>。
+          这就是为什么你会遇到那个经典现象：寄存器地址没写错、位也没写错，可<b>写进去读回来全是 0，外设一点反应没有</b>。</p>
+
+          <div class="callout callout-danger mt-3">
+            <div class="callout-title">「寄存器写了没反应」的第一嫌疑人：外设时钟没使能</div>
+            <p>时钟被闸断时，外设的寄存器接口<b>没有时钟驱动</b>：写进去的数据被静默丢弃，读回来是复位值（多数情况下是 0）。
+            它不报错、不进 HardFault、不产生任何提示——只是「没反应」。所以以后碰到某个外设完全不工作，<b>第一件事是查它的 ENR 位</b>，而不是怀疑地址或数据类型。</p>
+            <p class="mt-2">复位之后 <code class="icode">RCC_APB1ENR</code>、<code class="icode">RCC_APB2ENR</code>、<code class="icode">RCC_AHBENR</code> 的值都是 <code class="icode">0x00000000</code>——<b>一个外设都没开</b>，包括 GPIO。</p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">RCC_APB2ENR（高速外设，挂在 PCLK2 上）</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>位</th><th>外设</th><th>位</th><th>外设</th><th>位</th><th>外设</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td><b>AFIO</b>（重映射、EXTI 配置）</td><td>8</td><td>GPIOG</td><td>15</td><td>ADC3</td></tr>
+                <tr><td>2</td><td><b>GPIOA</b></td><td>9</td><td>ADC1</td><td>19</td><td>TIM9</td></tr>
+                <tr><td>3</td><td><b>GPIOB</b></td><td>10</td><td>ADC2</td><td>20</td><td>TIM10</td></tr>
+                <tr><td>4</td><td><b>GPIOC</b></td><td>11</td><td><b>TIM1</b></td><td>21</td><td>TIM11</td></tr>
+                <tr><td>5</td><td>GPIOD</td><td>12</td><td>SPI1</td><td colspan="2">bit 1、16、17、18 保留</td></tr>
+                <tr><td>6</td><td>GPIOE</td><td>13</td><td>TIM8</td><td colspan="2">（互联型另有 TIM15~17，见手册）</td></tr>
+                <tr><td>7</td><td>GPIOF</td><td>14</td><td><b>USART1</b></td><td colspan="2">写 1 使能，写 0 关闭</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">RCC_APB1ENR（低速外设，挂在 PCLK1 上）</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>位</th><th>外设</th><th>位</th><th>外设</th><th>位</th><th>外设</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td><b>TIM2</b></td><td>11</td><td>WWDG</td><td>21</td><td>I2C1</td></tr>
+                <tr><td>1</td><td><b>TIM3</b></td><td>14</td><td>SPI2</td><td>22</td><td>I2C2</td></tr>
+                <tr><td>2</td><td><b>TIM4</b></td><td>15</td><td>SPI3</td><td>23</td><td>USB</td></tr>
+                <tr><td>3</td><td>TIM5</td><td>17</td><td><b>USART2</b></td><td>25</td><td>CAN1</td></tr>
+                <tr><td>4</td><td>TIM6</td><td>18</td><td><b>USART3</b></td><td>26</td><td>CAN2（互联型）</td></tr>
+                <tr><td>5</td><td>TIM7</td><td>19</td><td>UART4</td><td>27</td><td><b>BKP</b>（备份域寄存器）</td></tr>
+                <tr><td>6</td><td>TIM12</td><td>20</td><td>UART5</td><td>28</td><td><b>PWR</b>（电源控制，写 PWR_CR 的前提）</td></tr>
+                <tr><td>7</td><td>TIM13</td><td colspan="2">bit 9、10、12、13、16、24 保留</td><td>29</td><td>DAC</td></tr>
+                <tr><td>8</td><td>TIM14</td><td colspan="2">使能方式与 APB2ENR 相同</td><td>30、31</td><td>保留</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">RCC_AHBENR（AHB 上的「大件」）</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>位</th><th>外设</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>DMA1</td><td>用 DMA1 的任何通道之前必须开</td></tr>
+                <tr><td>1</td><td>DMA2</td><td>只有大容量型号才有</td></tr>
+                <tr><td>2</td><td>SRAM</td><td>SRAM 时钟</td></tr>
+                <tr><td>4</td><td>FLITF</td><td><b>Flash 接口时钟</b>。做 Flash 编程/擦除时必须使能，否则 FLASH 寄存器写不进</td></tr>
+                <tr><td>6</td><td>CRC</td><td>硬件 CRC 计算单元</td></tr>
+                <tr><td>8</td><td>FSMC</td><td>外部存储器控制器（大容量型号）</td></tr>
+                <tr><td>10</td><td>SDIO</td><td>SD 卡接口</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">位号请以手册为准，代码里请用宏名</div>
+            <p>上面三张表的位号来自 RM0008（STM32F103 中/高密度）。不同型号（互联型、小容量、F4/G0）位号会变，<b>所以写代码时不要写裸位号</b>，用库给的宏：
+            <code class="icode">__HAL_RCC_GPIOA_CLK_ENABLE()</code>、<code class="icode">__HAL_RCC_USART1_CLK_ENABLE()</code>、<code class="icode">__HAL_RCC_TIM2_CLK_ENABLE()</code>。
+            宏名把「哪个外设 + 哪条总线」绑在一起，换成别的型号时改宏名就能编译过，而裸位号会静默地开到别的外设上去——那是最难查的一类 bug。</p>
+          </div>
+
+          <h4 class="mt-6 font-semibold text-ink">三个容易踩的门控细节</h4>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">AFIO 必须单独使能</b>。不做引脚重映射、不用 EXTI 的人常常忘记它；一旦你要「把 USART1 挪到 PB6/PB7」或者「用 EXTI 做外部中断」，就得先 <code class="icode">__HAL_RCC_AFIO_CLK_ENABLE()</code>，否则重映射寄存器（AFIO_MAPR）和 EXTI 配置写不进去。</li>
+            <li><b class="font-semibold text-ink">PWR 时钟是写电源寄存器的前提</b>。低功耗、备份域、电压监测都涉及 <code class="icode">PWR_CR</code>，而它同样有闸门：<code class="icode">__HAL_RCC_PWR_CLK_ENABLE()</code> 之后写 <code class="icode">PWR-&gt;CR</code> 才有效。忘了它的典型症状是「明明把 STOP 位写进去了，芯片却不睡」。</li>
+            <li><b class="font-semibold text-ink">关时钟 ≠ 复位外设</b>。闸断时钟只是让外设「停止工作并冻结寄存器」，它内部的状态和寄存器值还在。要让外设回到复位状态，得用 <code class="icode">RCC_APB1RSTR</code> / <code class="icode">RCC_APB2RSTR</code>（HAL 里是 <code class="icode">__HAL_RCC_USART1_FORCE_RESET()</code> / <code class="icode">__HAL_RCC_USART1_RELEASE_RESET()</code>）。重新开时钟之后接着用旧配置，是一种很隐蔽的 bug 来源。</li>
+          </ul>
+
+          <p class="mt-6 font-semibold text-ink">RCC_BDCR：备份域、LSE 与 RTC 的时钟源</p>
+
+          <p class="mt-3">备份域（Backup Domain）是一块<b class="font-semibold text-ink">独立供电、独立复位</b>的小天地：它包含 RTC、备份寄存器（BKP_DRx）和 LSE 振荡器。主电源断了，只要 VBAT 上还挂着一颗纽扣电池，RTC 就继续走时——这正是「设备断电后时间不丢」的实现方式。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>位</th><th>名称</th><th>作用</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td><code class="icode">LSEON</code></td><td>外部 32.768kHz 晶振使能</td></tr>
+                <tr><td>1</td><td><code class="icode">LSERDY</code></td><td>LSE 就绪（只读）。<b>LSE 起振很慢，手册给的启动时间是秒级量级</b>，HAL 默认给它 5 秒超时，而 HSE 只有 100ms</td></tr>
+                <tr><td>2</td><td><code class="icode">LSEBYP</code></td><td>旁路：不接晶振，从 OSC32_IN 直接灌入外部 32.768kHz 时钟源</td></tr>
+                <tr><td>9:8</td><td><code class="icode">RTCSEL[1:0]</code></td><td>RTC 时钟源：<code class="icode">00</code>=无时钟、<code class="icode">01</code>=LSE、<code class="icode">10</code>=LSI、<code class="icode">11</code>=HSE/128</td></tr>
+                <tr><td>15</td><td><code class="icode">RTCEN</code></td><td>RTC 时钟使能</td></tr>
+                <tr><td>16</td><td><code class="icode">BDRST</code></td><td>备份域软件复位。<b>这是更改 RTCSEL 的唯一途径（除非 VBAT 也断电）</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">但它前面还站着一个守卫：<b class="font-semibold text-ink">备份域写保护</b>。默认情况下，往 RCC_BDCR 写的任何东西都会被丢弃。要开锁，得先给 PWR 时钟、再置 <code class="icode">PWR_CR.DBP</code>（bit 8，Disable Backup Domain write Protection）：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="打开备份域写保护的顺序：少一步都写不进 BDCR">
+            <pre><code>/* ① 先给电源控制器（PWR）时钟，否则下面那行写不进去 */
+RCC-&gt;APB1ENR |= RCC_APB1ENR_PWREN;
+__DSB();                                   /* 等时钟真正到位再访问，保险起见 */
+
+/* ② 解除备份域写保护：PWR_CR 的 bit 8 = DBP */
+PWR-&gt;CR |= PWR_CR_DBP;
+
+/* ③ 现在才能配置 LSE 与 RTC 时钟源 */
+RCC-&gt;BDCR |= RCC_BDCR_LSEON;                       /* 开 LSE */
+while (!(RCC-&gt;BDCR &amp; RCC_BDCR_LSERDY)) {          /* 等就绪 —— 这一等可能是秒级 */
+    if (++timeout &gt; 5000000U) break;               /* 记得带超时 */
+}
+
+/* ④ 选 RTC 时钟源并打开 RTC —— RTCSEL 一旦写定，只能靠 BDRST 改 */
+RCC-&gt;BDCR = (RCC-&gt;BDCR &amp; ~RCC_BDCR_RTCSEL) | RCC_BDCR_RTCSEL_0;  /* 01 = LSE */
+RCC-&gt;BDCR |= RCC_BDCR_RTCEN;
+
+/* ⑤ 用完可以重新锁上（可选）：PWR-&gt;CR &amp;= ~PWR_CR_DBP; */</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">两个和 RTC 有关的「坑王」</div>
+            <p><b>坑一：忘了 DBP，一切静默失败。</b>你写了 <code class="icode">RCC-&gt;BDCR |= RCC_BDCR_LSEON;</code>，读回来还是 0，LSE 永远不就绪，RTC 也不走。程序不报错，只是「时间永远是 0」。</p>
+            <p class="mt-2"><b>坑二：LSE 没起振，RTC 悄悄退回 LSI。</b>有些例程的写法是「LSE 起不来就用 LSI」，这在功能上是对的，但 LSI 是 ±50% 量级的 RC 振荡器——<b>用它走时，一天能差几十分钟</b>（第 3 节例 3 的姊妹题里会用 ee-pulse 的精度算式说明）。所以回退 LSI 时一定要<b>置一个标志位、报警、或者干脆不启动 RTC</b>，而不是「假装什么都没发生」。</p>
+            <p class="mt-2">顺带一提：32.768kHz 之所以是这个奇怪数字，是因为 32768 = 2¹⁵，做 15 级二分频正好得到 1Hz。这条来自 <a href="ee-pulse.html" class="text-brand-600 dark:text-brand-300 hover:underline">《脉冲波形的产生与整形》</a> 里讲晶体振荡器的部分，不重复了。</p>
+          </div>
+
+          <h3 id="sub-flash" class="mt-8 text-base font-semibold">等待周期、预取与电压-频率约束</h3>
+
+          <p class="mt-3">时钟树把频率送到了 CPU，但 CPU 的指令存在 <b>Flash</b> 里。Flash 的读取速度<b class="font-semibold text-ink">跟不上 72MHz 的内核</b>——这就是「等待周期」（wait state）存在的原因。它是时钟配置里唯一一个「不在 RCC 里、但配错会让 CPU 跑飞」的寄存器。</p>
+
+          <p class="mt-6 font-semibold text-ink">FLASH_ACR：三个有用的位</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>位</th><th>名称</th><th>作用</th></tr></thead>
+              <tbody>
+                <tr><td>2:0</td><td><code class="icode">LATENCY[2:0]</code></td><td>等待周期数：0 / 1 / 2。<b>这是唯一会「配错就崩」的位</b></td></tr>
+                <tr><td>3</td><td><code class="icode">HLFCYA</code></td><td>半周期访问使能：低频（≤ 8MHz 量级）时可以让 Flash 访问只花半个周期，省电省时间</td></tr>
+                <tr><td>4</td><td><code class="icode">PRFTBE</code></td><td>预取缓冲使能。<b>复位值就是 1（开）</b>，通常不用动</td></tr>
+                <tr><td>5</td><td><code class="icode">PRFTBS</code></td><td>预取缓冲状态（只读）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">等待周期表：频率越高，等得越多</p>
+
+          <p class="mt-3">下面是 STM32F103 数据手册里那张 wait state 表的常见形式（<b>以你手上型号的数据手册为准</b>）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>供电电压 V<sub>DD</sub></th><th>LATENCY = 0</th><th>LATENCY = 1</th><th>LATENCY = 2</th><th>最高能跑到</th></tr></thead>
+              <tbody>
+                <tr><td><b>2.7V ~ 3.6V</b>（3.3V 正常供电）</td><td>0 ~ 24MHz</td><td>24 ~ 48MHz</td><td><b>48 ~ 72MHz</b></td><td><b>72MHz</b></td></tr>
+                <tr><td><b>2.4V ~ 2.7V</b>（电池供电、低压场景）</td><td>0 ~ 16MHz</td><td>16 ~ 32MHz</td><td>32 ~ 48MHz</td><td><b>只有 48MHz</b></td></tr>
+                 <tr><td><b>2.0V ~ 2.4V</b>（更低电压，限制最紧）</td><td>0 ~ 8MHz</td><td>8 ~ 16MHz</td><td>16 ~ 24MHz</td><td><b>只有 24MHz</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">官方 72MHz 的完整前提，是「3.3V + 2 个等待周期」</div>
+            <p>很多人只记得「F103 能跑 72MHz」，忘了这句话前面还有两个前提：<b>V<sub>DD</sub> 在 2.7~3.6V 之间</b>，而且 <b>FLASH_ACR.LATENCY = 2</b>。
+            如果你用两节干电池供电（约 2.4~3.0V，随电量下滑），芯片在电池电量充足时能跑 72MHz，电量掉到 2.7V 以下之后就<b>不再保证</b>——这时候的正确做法是把主频降到 48MHz（LATENCY 仍为 2），而不是祈祷。</p>
+            <p class="mt-2">这也是「低压低功耗设计」的一个硬约束：<b>频率和电压是一对绑在一起的参数</b>，不是两个独立的旋钮。第 38 篇讲低功耗时会再回到这张表。</p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">配错的后果：一边是跑飞，一边只是慢</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>情形</th><th>Flash 能不能跟上</th><th>后果</th></tr></thead>
+              <tbody>
+                <tr><td>频率 72MHz，LATENCY = <b>2</b>（正确）</td><td>能</td><td>正常，CPU 在等 Flash 的时间里顺便降了功耗</td></tr>
+                <tr><td>频率 72MHz，LATENCY = <b>1 或 0</b>（配小）</td><td><b>不能</b></td><td>取指读到错误数据 → <b>跑飞、HardFault、随机死机</b>；而且现象随温度、代码布局变化</td></tr>
+                <tr><td>频率 8MHz，LATENCY = 2（配大）</td><td>绰绰有余</td><td>只是每条取指多等 2 个周期，功能完全正常、只是慢</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">所以 Flash 等待周期的正确策略是：<b>按当前 SYSCLK 查表取值，并且「宁大勿小」</b>。手动改主频时，最容易漏掉的就是它——把 PLL 从 ×9 改成 ×2 却忘了改 LATENCY，或者反过来把频率拉上去却没加等待周期，都会得到「程序莫名其妙跑飞」这个最难查的现象。</p>
+
+          <p class="mt-6 font-semibold text-ink">预取缓冲，以及一个常见的名词混淆</p>
+
+          <p class="mt-3">CPU 取指是<b class="font-semibold text-ink">顺序</b>的（执行完这一条，下一条多半就在后面），而 Flash 的等待周期是「每次访问都要等」的。于是 Flash 接口里放了一个<b>预取缓冲</b>：它在你还没要下一条指令的时候，就提前把后面的指令读回来放着。等 CPU 真的要时，数据已经在缓冲区里了，<b>等周期就被「藏」掉了一部分</b>。</p>
+
+          <p class="mt-3">代价是<b>遇到分支就失效</b>：<code class="icode">if</code>、<code class="icode">for</code>、函数调用会让 CPU 跳到一个新地址，缓冲区里预取的内容全作废，得重新填。所以「预取带来的加速」和你的代码里分支的密度直接相关——循环体紧密的代码受益最大，一堆 <code class="icode">if-else</code> 和函数调用的代码受益最小。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">F103 只有预取缓冲，没有 F4 那种 cache</div>
+            <p>你在别的教程里一定看过「指令 cache / 数据 cache」的说法——<b>那是 STM32F4 的 ART Accelerator</b>（自适应实时加速器），它有独立的指令 cache 和数据 cache，命中时零等待周期。
+            <b>STM32F103 没有 cache</b>，它只有一个简单的预取缓冲。所以：
+            ① 不要把 F4 的「开了 cache 就几乎没有等待周期」的经验套到 F103 上；
+            ② 在 F103 上评估「这段代码跑多快」时，必须老老实实把等待周期算进去（第 3 节例 5 就是这件事）；
+            ③ 反过来，如果你从 F103 换到 F4，会发现同样的代码快得多——很大一部分功劳就是 cache 与更宽的 Flash 接口。</p>
+          </div>
+
+          <p class="mt-3">那么这 2 个等待周期到底把 CPU 拖慢了多少？数据手册里有一组常被引用的典型值：<b>开预取、2 个等待周期时，顺序执行的代码平均约 1.5 个周期一条指令；关掉预取则要约 3 个周期一条指令</b>（按 STM32F103 数据手册的性能表典型值估算，具体数字以你手上的手册版本为准）。第 3 节例 5 会把这两个数字换算成 MIPS 和实际代码耗时。</p>
+
+          <h3 id="sub-hal" class="mt-8 text-base font-semibold">HAL 与 CubeMX：界面上的每个数字对应哪个寄存器</h3>
+
+          <p class="mt-3">前面三小节全是寄存器。现在把镜头拉到另一端：你在 CubeMX 里点的每一个下拉框，在 HAL 里写的每一个结构体字段，落到芯片上到底是什么。这一小节的目的不是「教你用 HAL」，而是让这两端<b class="font-semibold text-ink">在你脑子里焊死</b>——以后界面上任何一个数字你都能反查到寄存器，任何一个寄存器你都能反查到界面上该点哪里。</p>
+
+          <p class="mt-6 font-semibold text-ink">两个结构体：RCC_OscInitTypeDef 与 RCC_ClkInitTypeDef</p>
+
+          <p class="mt-3">HAL 把「配时钟」这件事拆成了两个函数，对应两个结构体。<b>第一个管「源」</b>（振荡器和 PLL 开不开、倍几倍），<b>第二个管「分配」</b>（用哪个源当 SYSCLK、各级怎么分频）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>结构体字段</th><th>作用</th><th>落到哪个寄存器位</th></tr></thead>
+              <tbody>
+                <tr><td><code class="icode">OscillatorType</code></td><td>本次要配置哪些源（可多选，如 <code class="icode">RCC_OSCILLATORTYPE_HSE</code>）</td><td>决定函数体里对哪些位操作</td></tr>
+                <tr><td><code class="icode">HSEState</code></td><td>HSE 开/关/旁路</td><td><code class="icode">RCC_CR.HSEON</code>、<code class="icode">HSEBYP</code></td></tr>
+                <tr><td><code class="icode">HSEPredivValue</code></td><td>HSE 进 PLL 前是否除 2</td><td><code class="icode">RCC_CFGR.PLLXTPRE</code>（<code class="icode">RCC_HSE_PREDIV_DIV1/DIV2</code>）</td></tr>
+                <tr><td><code class="icode">HSIState</code> / <code class="icode">HSICalibrationValue</code></td><td>HSI 开关 / 微调值</td><td><code class="icode">RCC_CR.HSION</code>、<code class="icode">HSITRIM[4:0]</code></td></tr>
+                <tr><td><code class="icode">LSEState</code> / <code class="icode">LSIState</code></td><td>LSE / LSI 开关</td><td><code class="icode">RCC_BDCR.LSEON</code>、<code class="icode">RCC_CSR.LSION</code></td></tr>
+                <tr><td><code class="icode">PLL.PLLState</code></td><td>PLL 开/关</td><td><code class="icode">RCC_CR.PLLON</code></td></tr>
+                <tr><td><code class="icode">PLL.PLLSource</code></td><td>PLL 输入源选 HSE 还是 HSI/2</td><td><code class="icode">RCC_CFGR.PLLSRC</code></td></tr>
+                <tr><td><code class="icode">PLL.PLLMUL</code></td><td>倍频系数（<code class="icode">RCC_PLL_MUL9</code> 等）</td><td><code class="icode">RCC_CFGR.PLLMUL[3:0]</code></td></tr>
+                <tr><td><code class="icode">ClockType</code></td><td>本次要配哪几级时钟（SYSCLK/HCLK/PCLK1/PCLK2 的按位或）</td><td>决定第二个函数改哪些字段</td></tr>
+                <tr><td><code class="icode">SYSCLKSource</code></td><td>SYSCLK 选谁</td><td><code class="icode">RCC_CFGR.SW[1:0]</code>（并等 <code class="icode">SWS</code>）</td></tr>
+                <tr><td><code class="icode">AHBCLKDivider</code></td><td>AHB 预分频</td><td><code class="icode">RCC_CFGR.HPRE[3:0]</code></td></tr>
+                <tr><td><code class="icode">APB1CLKDivider</code> / <code class="icode">APB2CLKDivider</code></td><td>APB1 / APB2 预分频</td><td><code class="icode">RCC_CFGR.PPRE1[2:0]</code> / <code class="icode">PPRE2[2:0]</code></td></tr>
+                <tr><td><code class="icode">HAL_RCC_ClockConfig()</code> 的第二个参数</td><td><code class="icode">FLASH_LATENCY_0/1/2</code></td><td><code class="icode">FLASH_ACR.LATENCY[2:0]</code>（由 HAL 在切频之前先设好）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这两个函数的返回值必须检查</div>
+            <p><code class="icode">HAL_RCC_OscConfig()</code> 与 <code class="icode">HAL_RCC_ClockConfig()</code> 都返回 <code class="icode">HAL_StatusTypeDef</code>：<code class="icode">HAL_OK</code> / <code class="icode">HAL_ERROR</code> / <code class="icode">HAL_TIMEOUT</code>。
+            F1 的 HAL 里，等待 HSE 就绪的超时常量来自 <code class="icode">stm32f1xx_hal_conf.h</code> 的 <code class="icode">HSE_STARTUP_TIMEOUT</code>（默认 <b>100ms</b>），LSE 的等待宽松得多（<b>5000ms</b> 量级，因为 LSE 起振本身就慢）。</p>
+            <p class="mt-2">CubeMX 生成的代码是这么写的：<code class="icode">if (HAL_RCC_OscConfig(&amp;RCC_OscInitStruct) != HAL_OK) { Error_Handler(); }</code>。问题出在 <code class="icode">Error_Handler()</code> 的默认实现上——它通常是<b>关中断 + 死循环</b>。于是「晶振没起振」最终的表现就是<b>板子完全没反应</b>，和现场三一模一样。</p>
+            <p class="mt-2">所以第一件该做的事，就是<b>把 Error_Handler 改成「快闪 LED + 记录错误码 + 可选复位」</b>。同一个故障，改了之后你 3 秒钟就能判断出是时钟没配起来，而不是花两小时怀疑下载器。</p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">CubeMX 时钟树界面 ↔ 寄存器，一张对照表</p>
+
+          <p class="mt-3">CubeMX 的 Clock Configuration 页面长得像我们第 2 小节那张时钟树——这不是巧合，它就是那张图的交互版。每个输入框和下拉框都在改某一个寄存器：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>CubeMX 界面上的东西</th><th>对应寄存器位</th><th>典型值（F103 标准配置）</th></tr></thead>
+              <tbody>
+                <tr><td>Input frequency（HSE 框）</td><td>不是寄存器，是<b>告诉你填什么</b>：必须与板上晶振一致</td><td>8 MHz</td></tr>
+                <tr><td>PLL Source Mux（HSE / HSI）</td><td><code class="icode">RCC_CFGR.PLLSRC</code></td><td>HSE</td></tr>
+                <tr><td>/PLLXTPRE（HSE 下方那个分频器）</td><td><code class="icode">RCC_CFGR.PLLXTPRE</code></td><td>/1</td></tr>
+                <tr><td>PLLMul（×N 框）</td><td><code class="icode">RCC_CFGR.PLLMUL[3:0]</code></td><td>×9</td></tr>
+                <tr><td>System Clock Mux（三个源的选择）</td><td><code class="icode">RCC_CFGR.SW[1:0]</code>；结果回读 <code class="icode">SWS</code></td><td>PLLCLK</td></tr>
+                <tr><td>AHB Prescaler</td><td><code class="icode">RCC_CFGR.HPRE[3:0]</code></td><td>/1 → HCLK = 72MHz</td></tr>
+                <tr><td>APB1 Prescaler</td><td><code class="icode">RCC_CFGR.PPRE1[2:0]</code></td><td>/2 → PCLK1 = 36MHz</td></tr>
+                <tr><td>APB2 Prescaler</td><td><code class="icode">RCC_CFGR.PPRE2[2:0]</code></td><td>/1 → PCLK2 = 72MHz</td></tr>
+                <tr><td>ADC Prescaler</td><td><code class="icode">RCC_CFGR.ADCPRE[1:0]</code></td><td>/6 → 12MHz（上限 14MHz）</td></tr>
+                <tr><td>USB Prescaler（用 USB 时才出现）</td><td><code class="icode">RCC_CFGR.USBPRE</code></td><td>/1.5 → 48MHz</td></tr>
+                <tr><td>各个频率框里的数字（72 / 72 / 36 / 72）</td><td>不是寄存器，是 CubeMX <b>按上面的配置算出来的结果</b></td><td>正是你要核对的那四个数</td></tr>
+                <tr><td>框变红 / 弹出警告</td><td>不是寄存器，是 CubeMX 在替你查<b>本层那几条上限</b></td><td>例如 APB1 框变红 = PCLK1 超过 36MHz</td></tr>
+                <tr><td>Flash Latency（HCLK 下方的 WS 值）</td><td><code class="icode">FLASH_ACR.LATENCY[2:0]</code></td><td>2 WS（@72MHz、3.3V）</td></tr>
+                <tr><td>Clock Output（MCO 那一栏）</td><td><code class="icode">RCC_CFGR.MCO[2:0]</code></td><td>不勾选 = 无输出；勾上再选源</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">反着用这张表：用 CubeMX 当「算频率的计算器」</div>
+            <p>即使你的项目用的是寄存器版本或标准库，也建议装一个 CubeMX：把 HSE 频率填进去、拖一拖分频器，它会把 SYSCLK / HCLK / PCLK1 / PCLK2 以及每个定时器的实际时钟<b>实时算给你看</b>，还会在超限时变红。
+            这相当于一个带和手册同步的校验器的时钟计算器，比手算快得多，也不会算错 ×2 那类规则。</p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">为什么不建议手改 CubeMX 生成的时钟配置</p>
+
+          <p class="mt-3">你迟早会冒出这个念头：<b>「反正就是那几个位，我直接在 <code class="icode">SystemClock_Config()</code> 里把 ×9 改成 ×8 不就行了？」</b>短时间里它确实能跑，但会给你埋下三颗雷：</p>
+
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>
+              <b class="font-semibold text-ink">下次重新生成代码就被覆盖。</b>CubeMX 生成的文件（<code class="icode">main.c</code> 的 <code class="icode">SystemClock_Config()</code>）里，只有 <code class="icode">USER CODE BEGIN/END</code> 之间的内容会被保留，时钟配置函数体本身<b>每次都按 <code class="icode">.ioc</code> 文件重写</b>。你手改的那一行会在某次「重新生成」后无声无息地消失，而依赖它的外设参数还在——于是故障以「上周还好好的」的形式出现。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">联动关系断了。</b>CubeMX 生成的配置是一整套自洽的东西：<code class="icode">HAL_RCC_ClockConfig()</code> 会顺手设好 <code class="icode">FLASH_ACR.LATENCY</code>，HAL 初始化 SysTick 时会按新的 HCLK 重算重载值，<code class="icode">HAL_UART_Init()</code> 会按 <code class="icode">HAL_RCC_GetPCLKxFreq()</code> 重算 BRR。
+              你只改其中一个数字（比如把 PLLMUL 从 9 改成 8）而不同步改 <code class="icode">FLASH_LATENCY_2</code> 之类的配套项，就会出现「等待周期与频率不匹配」——回到上一小节那个「跑飞」的坑。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">时序已经算出去的外设不会自动跟着变。</b>SPI 的分频比、I²C 的时序寄存器、ADC 的采样时间、定时器的 PSC/ARR——这些都是<b>在你初始化那一刻按当时的时钟算好的</b>。你在运行中改了时钟（或者让两次上电跑在不同频率上），它们的实际速度就全变了，而代码里的注释还写着旧值。
+            </li>
+          </ol>
+
+          <p class="mt-3">所以正确做法有三条，按推荐程度排序：<b>① 要改时钟，回 CubeMX 改（它会重新校验上限、重算 Flash latency）再生成；② 如果项目不用 CubeMX，就把时钟配置集中写在自己维护的一份 <code class="icode">SystemInit()</code> / <code class="icode">bsp_clock_init()</code> 里，并且把所有「依赖时钟的常数」都改成从 <code class="icode">HAL_RCC_GetPCLKxFreq()</code> 现算，而不是写死；③ 无论哪条路，都在启动时打印一次三个频率（下一小节）。</b></p>
+
+          <h3 id="sub-verify" class="mt-8 text-base font-semibold">怎么验证时钟配对了</h3>
+
+          <p class="mt-3">前面所有内容都在说「怎么配」。但真正把新手和老手分开的，是这一步：<b class="font-semibold text-ink">你怎么知道它真的配对了？</b>靠「串口能打印」是远远不够的——串口在 8MHz 上也能打印（乱码也是打印）；靠「LED 会闪」更不行。你需要的是<b>能读到数字</b>的手段。下面四种，从最硬到最方便排列。</p>
+
+          <h4 class="mt-6 font-semibold text-ink">方法一：MCO 输出到 PA8，用示波器量（最硬的证据）</h4>
+
+          <p class="mt-3">STM32F103 有一个专门的调试引脚功能 <b>MCO（Microcontroller Clock Output）</b>：它把芯片内部的一路时钟直接送到 <b>PA8</b> 引脚上。这是唯一一个「不信任任何软件、直接看硬件」的验证手段——示波器量到的频率就是芯片真实的频率。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="MCO 验证接线与判读（MCO 在 PA8 上）">
+            <pre><code>        ┌──────────────────────┐
+        │      STM32F103       │
+        │                      │
+        │   PA8 (MCO) ●────────┼──────────●  示波器探头（CH1）
+        │                      │          │
+        │   GND       ●────────┼──────────●  探头地线夹（必须共地！）
+        │                      │
+        └──────────────────────┘
+
+  MCO 可选源（RCC_CFGR.MCO[2:0]）与你应该量到的频率（假设 SYSCLK = 72MHz）：
+  ┌──────────┬──────────────┬────────────────────┬──────────────────────────┐
+  │ MCO[2:0] │ 输出源       │ 应该量到           │ 判读                     │
+  ├──────────┼──────────────┼────────────────────┼──────────────────────────┤
+  │   100    │ SYSCLK       │ 72MHz（周期 13.9ns)│ 最直接的证据             │
+  │   101    │ HSI          │ 8MHz（周期 125ns） │ 验证内部 RC 是否工作     │
+  │   110    │ HSE          │ 8MHz（周期 125ns） │ 验证晶振起振与实际频率   │
+  │   111    │ PLL / 2      │ 36MHz（周期 27.8ns)│ PLL 锁没锁、倍频对不对   │
+  │   010    │ LSI          │ 约 40kHz           │ 看门狗/RTC 的备用源      │
+  │   011    │ LSE          │ 32.768kHz          │ RTC 晶振起没起           │
+  └──────────┴──────────────┴────────────────────┴──────────────────────────┘
+
+  【量不到 / 量不准的常见原因，按概率排】
+   ① 探头地线太长：几厘米的地线在 36MHz 上就是一根天线，
+      波形会变成圆钝的正弦、幅度不足 —— 换成弹簧地针或短线。
+   ② 探头带宽不够：100MHz 探头量 72MHz 方波只能看到「勉强能辨认的方波」，
+      频率读数仍然可信，但上升沿不可信。
+   ③ GPIO 没配成复用推挽：PA8 必须配成 AF 推挽输出（CRH 的 CNF=10, MODE=11），
+      配成普通输出则 MCO 出不来。
+   ④ MCO 源没选：MCO[2:0] = 000/001 时该引脚没有时钟输出。
+   ⑤ AFIO 时钟没开（部分型号需要）：__HAL_RCC_AFIO_CLK_ENABLE()。
+   ⑥ 量到的频率是「一半」：看看是不是选了 PLL/2（MCO=111），那不是故障。</code></pre>
+          </div>
+
+          <p class="mt-3">MCO 最大的价值在于<b class="font-semibold text-ink">它能把所有「软件以为」的东西一次性推翻</b>。比如你以为在 72MHz 上跑（代码里写了 PLLMUL=9），MCO 一量是 8MHz——立刻就知道问题出在「HSE 没起来 / SW 没切过去」，而不用再猜串口乱码是谁的错。</p>
+
+          <h4 class="mt-6 font-semibold text-ink">方法二：SysTick 已知延时反推</h4>
+
+          <p class="mt-3">SysTick 的重载值是由 HAL 按 HCLK 算出来的（1ms 一次中断）。于是「SysTick 中断里翻转一次 LED，示波器量周期」就变成了一个主频探针：<b>量到 2ms 的方波周期，说明 SysTick 每 2ms 才中断一次，也就是 HCLK 只有预期的一半</b>（或者反过来，你配置的重载值是按更低的频率算的）。</p>
+
+          <p class="mt-3">这个方法的优点是<b>不需要额外引脚和示波器以外的设备</b>，而且顺带验证了「HAL_Delay 到底准不准」——因为 <code class="icode">HAL_Delay()</code> 就是靠 SysTick 累加出来的。</p>
+
+          <h4 class="mt-6 font-semibold text-ink">方法三：用定时器输出一个「人眼可读」的方波</h4>
+
+          <p class="mt-3">把 TIM4 配成 1 秒更新一次、在中断里翻转 LED（或者直接输出 PWM），然后用秒表量「LED 亮灭 10 次」的总时间。<b>预期 20 秒（每 2 秒一个完整亮灭周期，10 次 = 20 秒）</b>。如果量到 2 秒或者 160 秒，你就知道定时器时钟差了 10 倍或 8 倍——顺着这个倍数回去查 PSC/ARR 和 TIMxCLK 的算法，很快能定位。</p>
+
+          <p class="mt-3">方法一和二需要示波器，这个方法只需要一块表——所以在没有仪器的场合特别有用。第 4 节会给完整代码。</p>
+
+          <h4 class="mt-6 font-semibold text-ink">方法四：上电打印三个频率（最省事，也最该做的习惯）</h4>
+
+          <p class="mt-3">HAL 提供了三个函数，它们<b class="font-semibold text-ink">直接读寄存器算出频率</b>，不是读你代码里的常量：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>函数</th><th>返回什么</th><th>怎么算出来的</th></tr></thead>
+              <tbody>
+                <tr><td><code class="icode">HAL_RCC_GetSysClockFreq()</code></td><td>SYSCLK</td><td>读 <code class="icode">SWS</code> 判断当前源，再按 HSI/HSE/PLLMUL 算出频率</td></tr>
+                <tr><td><code class="icode">HAL_RCC_GetHCLKFreq()</code></td><td>HCLK</td><td>SYSCLK ÷ HPRE 对应的分频值</td></tr>
+                <tr><td><code class="icode">HAL_RCC_GetPCLK1Freq()</code></td><td>PCLK1</td><td>HCLK ÷ PPRE1 对应的分频值</td></tr>
+                <tr><td><code class="icode">HAL_RCC_GetPCLK2Freq()</code></td><td>PCLK2</td><td>HCLK ÷ PPRE2 对应的分频值</td></tr>
+                <tr><td><code class="icode">SystemCoreClock</code>（变量）</td><td>HCLK</td><td>由 <code class="icode">SystemCoreClockUpdate()</code> 刷新；HAL 里通常等于 HCLK</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">把这个习惯刻进你的工程模板</div>
+            <p><b>在 <code class="icode">main()</code> 的开头、初始化任何外设之前，先把这四个频率打印出来</b>（或者至少打印 SYSCLK / HCLK / PCLK1），并且与你在设计文档里写的预期值比对，不一致就报警并停下来。</p>
+            <p class="mt-2">这一行打印的价值，超过你后面写的所有调试代码：<b>它把「时钟对不对」这个前提，从一个假设变成了一条有证据的日志。</b>
+            以后遇到串口乱码、定时偏长、PWM 差倍，你第一眼就能排除掉最大的一类原因。第 4 节的 <code class="icode">clock_selfcheck()</code> 就是这个习惯的完整实现。</p>
+          </div>
+
+          <p class="mt-3">这四个方法不是四选一，而是<b>互相印证</b>的组合：MCO 量到 72MHz（硬件证据）+ 打印出来 72/72/36（软件视角）+ 定时器 1 秒方波量到 2 秒总周期（时间视角）。三个都对上，你才可以说「时钟这块没问题了」。任何一个对不上，就去查那一段路径上的选择器与分频器——时钟树的每一处都只有「对」和「错」两种状态，没有「大概对」。</p>
+
+          </section>
+
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section class="mt-14">
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">下面六道题，全部用真实数字、全部给出完整过程。<b class="font-semibold text-ink">建议你先拿纸自己算一遍再看答案</b>——时钟这件事看别人算一百遍，不如自己错一次。</p>
+
+          <h3 id="calc-1" class="mt-8 text-base font-semibold">例 1：8MHz 晶振配 72MHz 的完整算式</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>板子上是一颗 <b>8MHz</b> 晶振，V<sub>DD</sub> = 3.3V。请给出把 SYSCLK 配到 72MHz 的完整过程：PLL 的每一个参数（PLLSRC / PLLXTPRE / PLLMUL）、各级预分频（HPRE / PPRE1 / PPRE2 / ADCPRE）、Flash 等待周期，以及最终各定时器的计数时钟。顺便回答：如果换成 12MHz 或 16MHz 晶振，参数怎么变？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 1 解答：一步不跳地算完">
+            <pre><code>【第 1 步】PLL 输入源
+    PLLSRC = 1                    /* 选 HSE，不用 HSI/2 */
+    理由：有晶振就必须用晶振（精度差 500 倍，见 ee-pulse 例六）
+
+【第 2 步】HSE 要不要先除 2（PLLXTPRE）
+    HSE = 8MHz，PLL 输入要求 4 ~ 16MHz
+    8MHz 已经在范围内 → 不需要除 2
+    PLLXTPRE = 0                  /* ÷1 */
+
+【第 3 步】反算倍频系数
+    PLLMUL = 目标 SYSCLK ÷ PLL 输入 = 72MHz ÷ 8MHz = 9
+    是整数 → 可行 ✓
+    PLLMUL = 9 → 编码 0111（见第 2 节编码表）
+
+【第 4 步】校验三条约束
+    ① PLL 输入  8MHz  ∈ [4, 16]    ✓
+    ② PLL 输出  72MHz ∈ [16, 72]   ✓
+    ③ SYSCLK    72MHz ≤ 72MHz      ✓
+    三条同时成立，这套参数是合法的。
+
+【第 5 步】各级预分频
+    HPRE  ：想让内核跑满 → HCLK = SYSCLK ÷ 1 = 72MHz   → HPRE  = 0xxx
+    PPRE1 ：APB1 上限 36MHz → 只能 ÷2   → PCLK1 = 36MHz → PPRE1 = 100
+    PPRE2 ：APB2 上限 72MHz → 可以 ÷1   → PCLK2 = 72MHz → PPRE2 = 0xx
+    ADCPRE：ADC 上限 14MHz，源是 PCLK2 = 72MHz
+            72 ÷ 2 = 36MHz  ✗ 超限
+            72 ÷ 4 = 18MHz  ✗ 超限
+            72 ÷ 6 = 12MHz  ✓ 合规，且是「合规档里最高的一档」
+            72 ÷ 8 =  9MHz  ✓ 合规但更慢
+            → ADCPRE = 10（÷6），ADC 时钟 = 12MHz
+
+【第 6 步】Flash 等待周期
+    72MHz、VDD 在 2.7~3.6V → 查表得 LATENCY = 2
+    → FLASH_ACR.LATENCY = 010，HAL 里写 FLASH_LATENCY_2
+
+【第 7 步】定时器实际拿到多少
+    TIM1 / TIM8（APB2，PPRE2 = 1）→ TIMxCLK = PCLK2 = 72MHz（不 ×2）
+    TIM2~TIM7（APB1，PPRE1 = 2 ≠ 1）→ TIMxCLK = PCLK1 × 2 = 36 × 2 = 72MHz
+    结论：标准配置下，所有定时器都是 72MHz
+
+【第 8 步】汇总：要写进寄存器的值
+    RCC_CFGR = 0x001D8402   ← 标准 72MHz 配置的实际值
+      拆开看：SW=10(PLL)  HPRE=0000(÷1)  PPRE1=100(÷2)  PPRE2=000(÷1)
+              ADCPRE=10(÷6)  PLLSRC=1(HSE)  PLLXTPRE=0(÷1)  PLLMUL=0111(×9)
+    FLASH_ACR.LATENCY = 2</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">换晶振：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>晶振</th><th>PLLXTPRE</th><th>PLL 输入</th><th>PLLMUL = 72 ÷ 输入</th><th>结论</th></tr></thead>
+              <tbody>
+                <tr><td>8MHz</td><td>÷1</td><td>8MHz</td><td>72 ÷ 8 = <b>9</b> ✓</td><td>编码 <code class="icode">0111</code>，得到 72MHz</td></tr>
+                <tr><td>12MHz</td><td>÷1</td><td>12MHz</td><td>72 ÷ 12 = <b>6</b> ✓</td><td>编码 <code class="icode">0100</code>，得到 72MHz</td></tr>
+                <tr><td>16MHz</td><td>÷1</td><td>16MHz</td><td>72 ÷ 16 = 4.5 <b>✗ 不是整数</b></td><td>F103 没有 ×4.5 这一档，配不出 72MHz；只能 ×4 得 64MHz</td></tr>
+                <tr><td>16MHz</td><td><b>÷2</b></td><td>8MHz</td><td>72 ÷ 8 = <b>9</b> ✓</td><td>先 <code class="icode">PLLXTPRE = 1</code> 再 ×9，得到 72MHz</td></tr>
+                <tr><td>4MHz</td><td>÷1</td><td>4MHz</td><td>72 ÷ 4 = 18 <b>✗ 超过 ×16 上限</b></td><td>最高 ×16 = 64MHz；想上 72MHz 得换晶振</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这道题真正要你记住的三件事</div>
+            <p>① <b>PLLXTPRE 不是装饰品</b>：它存在的意义就是把 16MHz 这类「偏高」的晶振降到 8MHz 再用 ×9，从而凑出 72MHz。忘了它，16MHz 晶振最多只能到 64MHz。
+            ② <b>ADCPRE 是被动选出来的</b>：不是你想要多少，而是「在不超过 14MHz 的前提下取最高档」。PCLK2 = 72MHz 时答案是 ÷6（12MHz），写成 ÷4 就是 18MHz——ADC 直接不准。
+            ③ <b>这整套数字是可以反查的</b>：给你 <code class="icode">0x001D8402</code>，你应该能倒着拆出 72/36/72 和 ×9。这是第 6 节自测题的必考项。</p>
+          </div>
+
+          <h3 id="calc-2" class="mt-8 text-base font-semibold">例 2：APB1 分频 2 时 TIM2 的时钟，以及据此算 PWM 频率</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>标准 72MHz 配置（SYSCLK = HCLK = 72MHz、PPRE1 = ÷2、PPRE2 = ÷1）。
+          （1）TIM2 的计数时钟是多少？（2）要用 TIM2 输出 <b>1kHz</b> 的 PWM，PSC 与 ARR 怎么取？（3）如果错误地认为 TIM2 的时钟是 PCLK1 = 36MHz，会算出什么参数、实际输出多少赫兹？（4）用 TIM1 输出 50Hz 的舵机信号，又该怎么取。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 2 解答：×2 那一步决定了一切">
+            <pre><code>【(1) TIM2 的计数时钟】
+    TIM2 挂在 APB1 上
+    PPRE1 = ÷2 ≠ 1  → 套用「定时器时钟 = PCLK × 2」规则
+    PCLK1 = 72 ÷ 2 = 36MHz
+    TIM2CLK = 36MHz × 2 = 72MHz          ← 关键的一步
+
+【(2) 1kHz PWM 的 PSC 与 ARR】
+    PWM 频率 = TIM2CLK ÷ [(PSC+1) × (ARR+1)]
+    → (PSC+1) × (ARR+1) = 72 000 000 ÷ 1000 = 72000
+
+    分配这 72000，有几种方案：
+    方案 A：PSC+1 = 72     → PSC = 71，ARR+1 = 1000 → ARR = 999
+            分辨率 = 1/1000 = 0.1%      ← 推荐，占空比调得细
+    方案 B：PSC+1 = 720    → PSC = 719，ARR+1 = 100 → ARR = 99
+            分辨率 = 1/100 = 1%         ← 够用但粗
+    方案 C：PSC+1 = 1      → PSC = 0，ARR+1 = 72000 → ARR = 71999
+            ✗ ARR 超过 16 位上限 65535，不可行
+
+    → 取方案 A：PSC = 71，ARR = 999
+    验算：72 000 000 ÷ (72 × 1000) = 1000.0Hz，误差 0 ✓
+
+    顺便算占空比：想要 30% → CCR = 0.30 × (ARR+1) = 0.30 × 1000 = 300
+
+【(3) 如果误以为 TIM2CLK = 36MHz】
+    会算出：(PSC+1) × (ARR+1) = 36 000 000 ÷ 1000 = 36000
+    按同样的分配习惯取 PSC = 71（÷72）→ ARR+1 = 500 → ARR = 499
+    实际输出频率 = 72 000 000 ÷ (72 × 500) = 2000Hz  ← 正好差一倍！
+
+    这就是现场二：示波器量到 2kHz，于是把 ARR 改成 999 手动凑对，
+    但代码注释里那个错误的「36MHz」还留着，下次换定时器又错一遍。
+
+【(4) TIM1 输出 50Hz 舵机信号】
+    TIM1 挂在 APB2，PPRE2 = ÷1 = 1  → 不 ×2
+    TIM1CLK = PCLK2 = 72MHz
+    周期 20ms → (PSC+1) × (ARR+1) = 72 000 000 ÷ 50 = 1 440 000
+    分配：取 PSC+1 = 144 → PSC = 143（计数时钟 500kHz，1 个数 = 2µs）
+          ARR+1 = 10000 → ARR = 9999（一圈 20ms）
+    验算：72 000 000 ÷ (144 × 10000) = 50.0Hz ✓
+
+    舵机脉宽 0.5ms ~ 2.5ms 对应的 CCR：
+        0.5ms ÷ 2µs = 250     → CCR = 250
+        1.5ms ÷ 2µs = 750     → CCR = 750（中位）
+        2.5ms ÷ 2µs = 1250    → CCR = 1250
+    分辨率 2µs，对舵机来说绰绰有余（舵机本身的分辨率是几十微秒量级）。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">再补一刀：把 PPRE1 改成 ÷1 会怎样</div>
+            <p>有人为了让 PCLK1「快一点」，把 PPRE1 设成 ÷1。此时 <code class="icode">PCLK1 = 72MHz</code>——<b>直接超过 APB1 的 36MHz 上限</b>，属于违规配置。
+            有意思的是：按规则，此时 PPRE1 = 1，定时器时钟 = PCLK1 = 72MHz，<b>不做 ×2</b>——<b>TIM2 拿到的时钟仍然是 72MHz，和 ÷2 时完全一样</b>。</p>
+            <p class="mt-2">这条对比很能说明问题：<b>×2 规则的作用不是「让定时器更快」，而是「让定时器在总线被分频之后保持不变慢」</b>。你改 PPRE1 只会让 APB1 上的外设（USART2/3、I2C、SPI2）时钟变化，定时器基本不动。所以想让 PWM 更快/更慢，该改的是 PSC 和 ARR，不是 APB 预分频。</p>
+          </div>
+
+          <h3 id="calc-3" class="mt-8 text-base font-semibold">例 3：HSE 起振失败回退 HSI 后，串口会错成什么样</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>USART1 挂在 APB2 上，目标 <b>115200</b> 8N1。代码原本按 72MHz 设计。现在 HSE 起振失败，程序按你写的超时逻辑回退到 HSI，<b>SYSCLK 变成 8MHz</b>。
+          （1）如果 BRR 是按 72MHz 算的旧值，实际波特率是多少、偏差多少？（2）如果 <code class="icode">HAL_UART_Init()</code> 是在回退之后才执行的（BRR 按实际 PCLK2 重算），结果如何？（3）这两种情形分别该怎么修？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 3 解答：先算 BRR，再算实际波特率">
+            <pre><code>【预备知识】USART 的波特率公式
+    波特率 = PCLKx ÷ (16 × USARTDIV)
+    BRR 寄存器 = 整数部分 × 16 + 小数部分 × 16（小数只有 4 位，即 1/16 的刻度）
+    即：USARTDIV 的整数部分放 BRR[15:4]，小数部分（0~15）放 BRR[3:0]
+
+【(1) BRR 按 72MHz 算，但实际 PCLK2 = 8MHz】
+    ① 按 72MHz 算 USARTDIV：
+       USARTDIV = 72 000 000 ÷ (16 × 115200) = 39.0625
+       整数 39，小数 0.0625 × 16 = 1
+       → BRR = 39 × 16 + 1 = 625 = 0x271
+
+    ② 实际 PCLK2 只有 8MHz，而这个 BRR 没变：
+       实际波特率 = 8 000 000 ÷ (16 × (39 + 1/16))
+                  = 8 000 000 ÷ (16 × 39.0625)
+                  = 8 000 000 ÷ 625
+                  = 12 800 bps
+
+    ③ 偏差 = (12800 − 115200) ÷ 115200 = −88.9%
+       —— 相当于双方速率差了 9 倍，收到的每一个位都对不齐采样点，
+          结果只能是「一屏乱码」，没有任何一个字节能对。
+
+【(2) HAL_UART_Init() 在回退之后才执行】
+    此时 HAL_RCC_GetPCLK2Freq() 读到的是真实值 8MHz：
+       USARTDIV = 8 000 000 ÷ (16 × 115200) = 4.3403
+       整数 4，小数 0.3403 × 16 = 5.44 → 取最近的 5
+       → USARTDIV = 4 + 5/16 = 4.3125
+       实际波特率 = 8 000 000 ÷ (16 × 4.3125) = 115 942 bps
+       偏差 = (115942 − 115200) ÷ 115200 = +0.64%
+       —— 能正常通信（远小于串口允许的百分之几量级）
+
+    再把 HSI 本身的精度算进来（±1% 量级，25℃ 出厂校准）：
+       最坏情况偏差 ≈ 0.64% + 1% = 1.64% 量级
+       —— 已经接近一帧 10 位所能容忍的边界，
+          短帧大多能过，长时间运行会偶发错字节。
+
+【(3) 两种情形分别怎么修】
+    情形 (1)：真正的病根是「时钟假设与现实不一致」。
+             修法有两种：
+               · 上策：超时回退时立刻把 BRR 重算一遍，并把「已降级」的标志
+                       置起来、报警、降低功能等级（比如只保证 9600 的调试口）；
+               · 下策（不可取）：不管，靠运气 —— 于是你得到一屏乱码。
+    情形 (2)：功能能跑，但你有责任让用户知道这块板子「不完整」：
+              打印一条时钟降级告警，并且不要在这块板子上做任何
+              依赖精确时间的功能（PWM 调光、长积分采样、RTC）。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">这道题最重要的结论，与你的直觉相反</div>
+            <p><b>「HSE 挂了 → 串口乱码」这个因果链里，真正的凶手不是 HSI 精度不够，而是「时钟变了但 BRR 没跟着变」。</b>
+            情形 (2) 里 HSI 的 ±1% 只贡献了 0.64% 左右的额外误差，串口照样能通——这也解释了为什么很多人用 HSI 调试也能看到正常打印。</p>
+            <p class="mt-2">所以：<b>看到乱码先查时钟假设与 BRR，而不是先怪晶振精度。</b>反过来，如果 BRR 是按真实 PCLK 算的、字还是偶尔错，那才轮到 HSI 精度出场（这时候去看 <a href="ee-pulse.html" class="text-brand-600 dark:text-brand-300 hover:underline">《脉冲波形的产生与整形》</a> 例六的容差推导）。</p>
+            <p class="mt-2">另外注意一个细节：<b>HAL_Delay 在这个故障里仍然是准的</b>，因为 SysTick 的重载值是 HAL 按当前 HCLK（8MHz）重算的。所以「延时正常但串口乱码」是一对非常有辨识度的症状组合——它几乎可以直接指认「某个外设的参数是按旧的时钟假设算出来的」。</p>
+          </div>
+
+          <h3 id="calc-4" class="mt-8 text-base font-semibold">例 4：MCO 输出 72MHz÷2，示波器上该看到什么</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>你把 MCO 配成输出 <b>PLL 的 2 分频</b>（<code class="icode">RCC_CFGR.MCO = 111</code>），程序里 PLLMUL = ×9、HSE = 8MHz。
+          （1）示波器上应该量到多少赫兹、一个周期多少纳秒？（2）如果用 100MHz 带宽的探头，波形会是什么样、读数还可信吗？（3）如果量到的是 <b>18MHz</b>，最可能是什么错了？（4）如果量到 <b>8MHz</b>，又说明什么？（5）量到 <b>什么都没有</b>，查什么？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 4 解答：把「应该量到什么」先算出来">
+            <pre><code>【(1) 应该量到什么】
+    HSE = 8MHz，PLLXTPRE = ÷1，PLLMUL = ×9
+    PLL 输出 = 8MHz × 9 = 72MHz
+    MCO = 111 → 输出 PLL ÷ 2 = 72MHz ÷ 2 = 36MHz
+
+    周期 T = 1 ÷ 36 000 000 = 27.78ns
+    半周期 = 13.89ns
+
+    示波器设置建议：
+      时基 5ns/div  → 一个完整周期约 5.6 格，看着舒服
+      或  10ns/div  → 一个周期约 2.8 格，能同时看几个周期
+      触发电平取幅值的一半，边沿触发、上升沿
+
+【(2) 100MHz 探头下会看到什么】
+    36MHz 方波的主要谐波在 36MHz、108MHz、180MHz…（奇次谐波）
+    100MHz 带宽意味着 108MHz 以上的谐波被大幅衰减：
+      → 波形不再是方波，而是一个「圆角、略有倾斜」的近似正弦波
+      → 幅度会比理论值略小（探头/示波器都是低通特性）
+      → 上升沿明显变缓（可能到 3~5ns 而不是理想的亚纳秒）
+    但「频率读数」仍然完全可信：
+      因为基波 36MHz 远在带宽之内，周期/频率测量只依赖过零点间隔。
+      → 结论：波形丑 ≠ 频率错。判读时钟看读数，不要看形状。
+      要看清沿的形状，需要 ≥200MHz 带宽的探头（或至少 100MHz 探头 + 短地线）。
+
+【(3) 量到 18MHz 说明什么】
+    MCO = 111 输出的是 PLL ÷ 2，量到 18MHz
+    → 反推 PLL 输出 = 18 × 2 = 36MHz
+    → PLL 只有 36MHz，而预期是 72MHz
+
+    36MHz 是怎么来的？8 ÷ 2 × 9 = 36MHz
+    → 输入是 4MHz，正是 HSI(8MHz) ÷ 2 的结果
+    → 结论：PLLSRC 选成了 HSI/2，而不是 HSE！
+       （RCC_CFGR.PLLSRC = 0 而不是 1）
+
+    这是非常有价值的一次判读：它一句话告诉你
+    「晶振没被用上，芯片现在跑在 36MHz」
+    ——瞬间解释了串口乱码和 PWM 频率不对两个现象。
+
+【(4) 量到 8MHz 说明什么】
+    8MHz 恰好是 HSI 和 HSE 的频率，但 MCO = 111 是 PLL/2：
+      若真是 PLL/2 = 8MHz → PLL 输出只有 16MHz
+      → 不可能来自 8MHz 输入（×2 才是 16MHz，可你就配了 ×9）
+      更合理的解释有两条，用 MCO = 100(SYSCLK) 复量一次即可区分：
+        A. 你选错了 MCO 源（比如实际写成了 101 = HSI，直接输出 8MHz）
+        B. 系统根本没切到 PLL：SW 还停在 HSI，SYSCLK = 8MHz，
+           而 MCO 输出的是「某一路 8MHz」——此时把 MCO 改成 100
+           再量，仍然是 8MHz，就确认是 B。
+    判读方法：把 MCO 依次设成 100 / 111 各量一次。
+       100 = 8MHz 且 111 = 8MHz  → SW 没切过去（或 PLL 没锁上）
+       100 = 72MHz 且 111 = 36MHz → 一切正常，第一次是你选错源了
+
+【(5) 什么都没有（一条直线）】
+    按概率查这几处：
+      ① GPIOA->CRH 的 PA8 没配成复用推挽（必须 MODE8=11, CNF8=10 → 0xB）
+      ② RCC_CFGR.MCO 还是 000/001（无输出）
+      ③ 忘了开 GPIOA 时钟（APB2ENR 的 IOPAEN），GPIO 配置寄存器写不进去
+      ④ 探头接错引脚（MCO 固定是 PA8，不能重映射）
+      ⑤ 探针没接触好、地线没夹（这条最常见，也最容易被忽略）
+      ⑥ 该型号/封装的 PA8 被复用为其他功能（比如用于外部晶振输入时
+         要确认你板上 PA8 是否真接到了排针）</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">把 MCO 当成「时钟树的路标」</div>
+            <p>这道题真正的技巧不是算 36MHz，而是<b>「用两级 MCO 读数把故障范围一刀切开」</b>：
+            先量 MCO = 100（SYSCLK）。<b>如果 SYSCLK 就对不上，问题在 PLL/源选择那一段，后面全都不用查；如果 SYSCLK 对了但功能不对，问题在分频器和外设参数那一段。</b></p>
+            <p class="mt-2">这个「先量总干路、再查支路」的排故思路，和电路调试里先量电源、再量各级工作点是一个道理——时钟树就是芯片里的「电源树」。</p>
+          </div>
+
+          <h3 id="calc-5" class="mt-8 text-base font-semibold">例 5：由 Flash 等待周期与预取，估算 72MHz 下每条指令几个周期</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>72MHz、2 个 Flash 等待周期、预取缓冲开启。数据手册给的经验值是「平均约 <b>1.5 个周期/指令</b>」。
+          （1）这个 1.5 是怎么来的？（2）平均一条指令多少纳秒、折合多少 MIPS？（3）关掉预取会变成多少？（4）一个 1000 次的空循环大概需要多久？（5）为什么实际程序往往到不了 48MIPS？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 5 解答：从等待周期推导指令吞吐">
+            <pre><code>【(1) 1.5 周期/指令是怎么来的】
+    先算「一次 Flash 访问要几个周期」：
+      Flash 访问周期 = 1 个访问周期 + LATENCY 个等待周期
+                     = 1 + 2 = 3 个 HCLK 周期
+
+    再看「一次访问能取回多少指令」：
+      Cortex-M3 的指令总线是 32 位宽，而 Thumb-2 指令大多是 16 位
+      → 一次 32 位取指里通常装着 2 条 16 位指令
+
+    于是：3 个周期 ÷ 2 条指令 = 1.5 个周期/指令        ← 这就是那个 1.5
+
+    这个推导同时解释了三件事：
+      · 为什么 72MHz 必须配 2WS 才「够快」——1WS 会取指出错，不是变慢的问题
+      · 为什么开预取能接近 1.5——预取把「下一次访问」提前做掉，
+        顺序执行时等待被打包隐藏
+      · 为什么 32 位指令（如 LDR.W / BL）比例高时 CPI 会上升
+        —— 一次取指只装得下 1 条指令，等于摊到 3 个周期/指令
+
+【(2) 换算成时间与 MIPS】
+    每个 HCLK 周期 = 1 ÷ 72MHz = 13.89ns
+    平均一条指令 = 1.5 × 13.89ns = 20.83ns
+
+    吞吐率 = 72 MIPS 指令周期 ÷ 1.5 = 48 MIPS
+    也就是说：72MHz 的 F103，实际指令吞吐大约 48 百万条/秒。
+
+    记忆锚点（都是按手册典型值估算，不是保证值）：
+      1 条指令   ≈ 20.8ns
+      50 条指令  ≈ 1.04µs
+      100 条指令 ≈ 2.08µs
+
+【(3) 关掉预取（PRFTBE = 0）会怎样】
+    没有预取，每次取指都老老实实等 3 个周期，
+    而一条 16 位指令要从这 3 个周期里摊到一半：
+    实际表现是每次访问只有约 1 条指令被有效利用
+
+    手册给出的经验值：关预取时约 3 个周期/指令
+      → 平均一条指令 3 × 13.89ns = 41.7ns
+      → 吞吐率降到约 24 MIPS，正好是原来的一半
+
+    → 结论：预取缓冲不是「优化」，它是 72MHz 能跑出性能的前提之一。
+      复位后 PRFTBE 的默认状态请以你芯片的参考手册为准，
+      但工程上一律显式打开：FLASH->ACR |= FLASH_ACR_PRFTBE;
+
+【(4) 1000 次空循环要多久】
+    假设循环体编译后是 4 条指令（比较、自减/自增、条件跳转、再加一条空操作，
+    具体条数取决于编译器优化等级——按典型值估算，别当成精确值）：
+      每次循环 = 4 × 20.83ns ≈ 83.3ns
+      1000 次   = 83.3µs
+
+    如果实测是 166µs，那就是「每条指令比预期多花一倍时间」——
+    请立刻回头查 Flash 等待周期与预取位，而不是怀疑编译器。
+
+    顺便：这也是「软件空循环做延时」为什么不可靠的原因之一：
+      它随编译器版本、优化等级、指令对齐而变化，
+      误差动辄 ±50%。（要精确延时请用定时器或 SysTick。）
+
+【(5) 为什么实测常常到不了 48 MIPS】
+    因为 1.5 是「顺序执行 + 预取命中」的理想值。以下情况都会让它变差：
+      · 分支/跳转：预取队列里取到的下一条指令被丢弃，流水线要重新填充
+        （if/else 密集、函数调用频繁的代码，CPI 可能升到 2~3）
+      · 32 位指令占比高（长立即数、大偏移访问、BL 调用）
+      · 访问 SRAM/外设的 LDR/STR 受总线仲裁影响
+      · 中断频繁，每次进出栈都要额外周期
+    所以「72MHz = 每秒 7200 万条指令」是常见误解。
+    工程口径：按 30~45 MIPS 估算你的时间预算，比较稳。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这道题对「性能优化」的直接指导</div>
+            <p>既然 CPI 的瓶颈在取指，那么<b>把热点代码放进 SRAM 执行</b>（F103 没有指令 cache，但有 SRAM）是一件立竿见影的事：SRAM 访问不需要等待周期。
+            不过要注意 AHB 上 SRAM 与 Flash 的分工，以及 F103 的 SRAM 只有 20KB（中容量）～64KB（大容量）——把几十字节的热点函数搬过去划算，把整个库搬过去就不划算了。</p>
+            <p class="mt-2">更常用的优化顺序是：① 先减少分支密度和函数调用开销（这对 CPI 的影响比想象中大）；② 减少 32 位指令的使用（能用 16 位立即数就别用大的）；③ 最后才考虑搬 SRAM。至于「超频到 96MHz 换取性能」——第 6 题会告诉你为什么别这么干。</p>
+          </div>
+
+          <h3 id="calc-6" class="mt-8 text-base font-semibold">例 6：超频 80MHz 与欠频 64MHz，分别会发生什么</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>两块板子，晶振都是 8MHz。
+          A 板把 PLLMUL 改成 <b>×10</b>（SYSCLK = 80MHz），B 板改成 <b>×8</b>（SYSCLK = 64MHz），其它配置（含 BRR 与定时器参数）都还是按 72MHz 算的。
+          （1）A 板的 Flash 等待周期该怎么设？设得出来吗？（2）A 板会有什么现象？（3）B 板的定时器输出多少赫兹的 PWM（原本设计 1kHz）？（4）B 板的串口会怎样？（5）B 板跑一天的时间误差是多少？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 6 解答：超频与欠频，两种完全不同的病">
+            <pre><code>【(1) A 板 80MHz 的等待周期——答案是「设不出来」】
+    查 wait state 表（2.7~3.6V）：
+      ≤ 24MHz → 0 WS
+      ≤ 48MHz → 1 WS
+      ≤ 72MHz → 2 WS
+      80MHz   → 需要 3 WS …… 但 LATENCY 只有 3 位里的 0/1/2 三档
+                （F103 只定义了 0、1、2，2 是最大值）
+
+    → 也就是说：72MHz 就是「这套 Flash 等待周期机制能支撑的上限」。
+      超出之后，没有任何合法配置能让取指可靠。
+
+【(2) A 板的现象（超频的典型症状）】
+    相对超频量 = 80 ÷ 72 = +11.1%
+    ——这不是「快一点」，而是把全部时序余量吃成负数：
+
+      常温、3.3V、短时间跑 → 大概率「看着能跑」
+      一加热到 60℃ 以上、或电压掉到 3.0V 附近 → 开始随机 HardFault、
+      变量被写坏、程序跳到奇怪的地方
+      有时表现为「下载后能跑，断电再上电就跑不起来」
+      串口可能时好时坏（外设的分频器是按 72MHz 的假设算的）
+
+    为什么会这样？因为芯片内部所有路径的时序都是按「不超过 72MHz
+    下的最坏情况」设计并测试的。你把它推到 80MHz，等于
+    把「设计余量」当成了「免费性能」——而余量本来是用来兜住
+    温度、电压、工艺分散的。
+
+    更要命的是：等一下 ADC。
+      ADC 时钟 = PCLK2 ÷ ADCPRE = 80 ÷ 6 = 13.33MHz ≤ 14MHz ✓ 侥幸没超
+      但如果你的 ADCPRE 是 ÷4：80 ÷ 4 = 20MHz，直接超限 43%，
+      采样结果会明显偏小/不稳。
+    → 结论：超频不是「有风险」，而是「没有合法等待周期可用」，
+      它属于禁止项，不该出现在任何要交付的工程里。
+
+【(3) B 板 64MHz：定时器输出多少赫兹】
+    定时器参数是按 72MHz 算的：PSC = 71、ARR = 999
+    （设计意图：(71+1) × (999+1) = 72000，72 000 000 ÷ 72000 = 1000Hz）
+
+    但实际 TIMxCLK = 64MHz：
+      实际频率 = 64 000 000 ÷ (72 × 1000) = 888.9 Hz
+      偏差 = (888.9 − 1000) ÷ 1000 = −11.1%
+
+    → 和频率偏差完全一致（时钟本质上就是「时间的尺子」，
+      尺子短了 11.1%，量出来的所有频率都少 11.1%）。
+    现象：PWM 调光会有可感知的闪烁差；舵机周期变成 22.5ms 而不是 20ms，
+      会有轻微抖动甚至「行程不足」；步进电机的转速差 11.1%。
+
+【(4) B 板的串口】
+    分两种情况（和例 3 同一个道理）：
+      情况一：BRR 是写死的 / 按 72MHz 算的（BRR = 0x271，USARTDIV = 39.0625）
+              实际波特率 = 64 000 000 ÷ (16 × 39.0625) = 102 400 bps
+              偏差 = (102400 − 115200) ÷ 115200 = −11.1%
+              → 远超串口容差，乱码
+      情况二：HAL_UART_Init() 在时钟配置之后调用，BRR 按实际 PCLK2 重算
+              → 串口正常。也就是说：单纯降频不一定会让串口坏，
+                坏的是「假设与实际的错配」。
+
+【(5) B 板跑一天的时间误差】
+    时钟慢 11.1%，任何基于主频的计时都会慢 11.1%：
+      1 天 = 86400 秒 → 误差 = 86400 × 11.1% = 9590 秒 ≈ 2.66 小时
+    → 一个「每天记录一次数据」的采集器，会在一个月后把日期整体错开。
+      （注意：这里说的是基于主频的计时；如果 RTC 用的是 LSE 32.768kHz，
+        那它不受 SYSCLK 影响——这正是 RTC 必须有自己的晶振的原因。）
+
+【两种故障的本质区别】
+  ┌──────────┬──────────────────────┬──────────────────────────┐
+  │          │ 超频（80MHz）        │ 欠频（64MHz）            │
+  ├──────────┼──────────────────────┼──────────────────────────┤
+  │ 根因     │ 没有可用的等待周期档 │ 参数假设与实际时钟不一致 │
+  │ 性质     │ 违规，不可交付       │ 不违规，但功能全偏       │
+  │ 现象     │ 随机 HardFault、跑飞 │ 一切都「慢一拍」，量值  │
+  │          │ 温度/电压敏感        │ 系统性偏 −11.1%          │
+  │ 可预测性 │ 差（随机崩溃）       │ 好（比例固定，可换算）   │
+  │ 修法     │ 回到 ≤72MHz          │ 让所有参数从实际频率算， │
+  │          │                      │ 或干脆回到 72MHz         │
+  └──────────┴──────────────────────┴──────────────────────────┘</code></pre>
+          </div>
+
+          <p class="mt-4">六道题做完，你应该已经能自己回答文章开头那三个现场了：<b class="font-semibold text-ink">串口乱码是时钟假设错配、PWM 差一倍是 ×2 规则被忽略、程序完全不跑是 HSE 超时卡在等待里。</b>下一节把这些结论变成可以直接抄进工程的代码。</p>
+
+          </section>
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section class="mt-14">
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4">这一节给的都是能直接编译、能直接上板的代码。<b class="font-semibold text-ink">三份实现，一条主线</b>：先用寄存器把「使能 → 轮询 → 超时 → 回读确认」这套动作写全，再看 HAL 把这套动作包成了什么样，最后把它变成「上电自己检查自己」的习惯。</p>
+
+          <p class="mt-3">先说清楚一件事：<b>这三份代码里的超时保护，才是它们真正的价值。</b>网上抄来的时钟初始化代码通常长这样——<code class="icode">while(!(RCC-&gt;CR &amp; RCC_CR_HSERDY));</code> 一行，没有超时。晶振一旦不起振，这一行就是<b>死循环</b>，而且是在 <code class="icode">main()</code> 之前或之初，你连一句打印都看不到。下面这份 <b>HSE 起振失败处理流程</b>，就是把你从那个死循环里救出来的东西：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="HSE 起振失败处理流程（任何「等待 RDY」都必须有出路）">
+            <pre><code>              ┌─────────────────────────┐
+              │  上电 / 复位            │
+              └───────────┬─────────────┘
+                          ▼
+              ┌─────────────────────────┐
+              │ Flash: 2WS + 预取打开   │   ← 升频之前先设好
+              └───────────┬─────────────┘
+                          ▼
+              ┌─────────────────────────┐
+              │ RCC_CR.HSEON = 1        │   ① 使能
+              └───────────┬─────────────┘
+                          ▼
+              ┌─────────────────────────┐
+              │ 轮询 RCC_CR.HSERDY      │   ② 等就绪
+              │ timeout 每轮自减        │
+              └───────────┬─────────────┘
+                          ▼
+                  ┌───────┴────────┐
+          RDY=1   │                │  timeout 用尽（约 100ms 量级）
+                  ▼                ▼
+      ┌───────────────────┐   ┌──────────────────────────────┐
+      │ 继续配 PLL ×9     │   │ ③ 超时判据命中 → 关掉 HSEON  │
+      └─────────┬─────────┘   │    切换到 HSI 8MHz（SW=00）  │
+                ▼             │    回读 SWS 确认切过去了     │
+      ┌───────────────────┐   │    降低 Flash 等待周期       │
+      │ PLLON=1，等 PLLRDY│   │    置「时钟已降级」标志      │
+      └─────────┬─────────┘   │    → 报警：LED 快闪 / 打印   │
+                ▼             │    → 或者直接复位重试        │
+      ┌───────────────────┐   └──────────────┬───────────────┘
+      │ 设 HPRE/PPRE1/PPRE2│                 ▼
+      │ （切 SW 之前就位） │   ┌──────────────────────────────┐
+      └─────────┬─────────┘   │ 以 8MHz 继续运行「安全模式」 │
+                ▼             │ 只做不需要精确定时的功能     │
+      ┌───────────────────┐   └──────────────────────────────┘
+      │ SW = 10，回读 SWS │
+      │ 确认是 PLL 在跑   │   ★ 绝不写：while(!RDY);  ← 这一个分号
+      └─────────┬─────────┘     就是「板子没反应」的全部原因
+                ▼
+      ┌───────────────────┐
+      │ 72MHz 就绪        │
+      │ 打印频率自检      │
+      └───────────────────┘</code></pre>
+          </div>
+
+          <h3 id="mcu-init" class="mt-8 text-base font-semibold">代码一：纯寄存器版时钟初始化（含 HSE 超时回退）</h3>
+
+          <p class="mt-3">这段代码不依赖 HAL，也不依赖标准库，只用 CMSIS 提供的寄存器定义，因此可以直接放进任何工程。<b class="font-semibold text-ink">请重点看每一处 <code class="icode">while</code> 旁边的那个计数器</b>——全篇的安全感都在那里。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="bsp_clock.c —— 纯寄存器版：8MHz HSE → 72MHz，失败自动回退 HSI">
+            <pre><code>/* ==========================================================================
+ * bsp_clock.c  ——  STM32F103 纯寄存器时钟初始化
+ * 目标：SYSCLK = 72MHz, HCLK = 72MHz, PCLK1 = 36MHz, PCLK2 = 72MHz
+ * 特点：不依赖 HAL / 标准库，只用 CMSIS 的寄存器定义；
+ *       每一处等待都有超时；HSE 起不来就自动降级到 HSI 8MHz 并上报。
+ * ========================================================================== */
+#include "stm32f10x.h"
+
+/* HSE 等待上限：与 ST 官方 system_stm32f10x.c 里的 HSEStartUp_TimeOut 一致 */
+#define HSE_STARTUP_TIMEOUT   ((uint32_t)0x0500)
+
+/* CMSIS 的 RCC_CFGR 里只有 SW/SWS 的位置掩码，没有「SW=PLL」这种命名值，
+   为了不依赖标准库，这里按参考手册自己定义一次 */
+#define CFGR_SW_MASK      (0x3UL &lt;&lt; 0)
+#define CFGR_SW_HSI       (0x0UL &lt;&lt; 0)
+#define CFGR_SW_HSE       (0x1UL &lt;&lt; 0)
+#define CFGR_SW_PLL       (0x2UL &lt;&lt; 0)
+#define CFGR_SWS_MASK     (0x3UL &lt;&lt; 2)
+#define CFGR_SWS_HSI      (0x0UL &lt;&lt; 2)
+#define CFGR_SWS_HSE      (0x1UL &lt;&lt; 2)
+#define CFGR_SWS_PLL      (0x2UL &lt;&lt; 2)
+
+typedef enum {
+    CLOCK_OK = 0,                 /* 72MHz，一切正常 */
+    CLOCK_ERR_HSE_TIMEOUT,        /* 晶振没起振，已回退 HSI */
+    CLOCK_ERR_PLL_TIMEOUT,        /* PLL 没锁上，已回退 HSI */
+    CLOCK_ERR_SWS                 /* SW 写了但 SWS 没跟上，已回退 HSI */
+} clock_status_t;
+
+static clock_status_t g_clock_status = CLOCK_OK;
+
+clock_status_t bsp_clock_get_status(void) { return g_clock_status; }
+
+/* --------------------------------------------------------------------------
+ * 起 HSE，带超时。返回 0 成功，-1 失败（失败时已把 HSEON 关掉）
+ * ------------------------------------------------------------------------ */
+static int hse_start(void)
+{
+    uint32_t timeout = HSE_STARTUP_TIMEOUT;
+
+    RCC-&gt;CR |= RCC_CR_HSEON;                      /* ① 使能 */
+    while ((RCC-&gt;CR &amp; RCC_CR_HSERDY) == 0) {     /* ② 轮询 RDY */
+        if (--timeout == 0) {                    /* ③ 超时判据 */
+            RCC-&gt;CR &amp;= ~RCC_CR_HSEON;             /* 关掉，别让它半死不活拖着 */
+            return -1;
+        }
+    }
+    return 0;
+}
+
+/* --------------------------------------------------------------------------
+ * 回退路径：切到 HSI 8MHz，并关掉 PLL。
+ * 这段代码必须绝对可靠——它是「已经出事了」之后才走的路，
+ * 所以里面除 HSI 就绪之外不再做任何有风险的等待（HSI 起振是纳秒级）。
+ * ------------------------------------------------------------------------ */
+static void sysclk_fallback_to_hsi(void)
+{
+    RCC-&gt;CR |= RCC_CR_HSION;
+    while ((RCC-&gt;CR &amp; RCC_CR_HSIRDY) == 0) { }   /* HSI 必起，但保留等待 */
+
+    RCC-&gt;CFGR = (RCC-&gt;CFGR &amp; ~CFGR_SW_MASK) | CFGR_SW_HSI;
+    while ((RCC-&gt;CFGR &amp; CFGR_SWS_MASK) != CFGR_SWS_HSI) { }  /* 回读确认 */
+
+    RCC-&gt;CR &amp;= ~RCC_CR_PLLON;                    /* 切走之后再关 PLL，顺序不能反 */
+    while (RCC-&gt;CR &amp; RCC_CR_PLLRDY) { }
+
+    /* 8MHz 只需要 0WS，但保留 2WS 也无害（只是慢一点），
+       这里选择保守：不动 Flash 配置，避免在降级路径上再引入新变量 */
+}
+
+/* --------------------------------------------------------------------------
+ * 时钟初始化主流程
+ * ------------------------------------------------------------------------ */
+clock_status_t bsp_clock_init(void)
+{
+    /* ---- 步骤 1：Flash 先准备好（升频前设等待周期 + 开预取） ---- */
+    FLASH-&gt;ACR = FLASH_ACR_PRFTBE | FLASH_ACR_LATENCY_2;   /* 2WS @72MHz/3.3V */
+
+    /* ---- 步骤 2：起 HSE ---- */
+    if (hse_start() != 0) {
+        g_clock_status = CLOCK_ERR_HSE_TIMEOUT;
+        sysclk_fallback_to_hsi();
+        return g_clock_status;                   /* 调用者必须处理！ */
+    }
+
+    /* ---- 步骤 3：配置并启动 PLL：源选 HSE、HSE 不分频、×9 ---- */
+    RCC-&gt;CFGR &amp;= ~(RCC_CFGR_PLLSRC | RCC_CFGR_PLLXTPRE | RCC_CFGR_PLLMULL);
+    RCC-&gt;CFGR |= RCC_CFGR_PLLSRC | RCC_CFGR_PLLMULL9;   /* PLLXTPRE=0 → ÷1 */
+
+    RCC-&gt;CR |= RCC_CR_PLLON;
+    {
+        uint32_t timeout = HSE_STARTUP_TIMEOUT;
+        while ((RCC-&gt;CR &amp; RCC_CR_PLLRDY) == 0) {         /* 等 PLL 锁定 */
+            if (--timeout == 0) {
+                g_clock_status = CLOCK_ERR_PLL_TIMEOUT;
+                sysclk_fallback_to_hsi();
+                return g_clock_status;
+            }
+        }
+    }
+
+    /* ---- 步骤 4：设各级分频。必须在切 SW 之前就位 ----
+     * 否则在「SYSCLK 已经是 72MHz、PPRE1 还是 ÷1」的那一瞬间，
+     * PCLK1 = 72MHz 会短暂超限（虽然只有几个周期，但没必要冒险）。
+     * HPRE  = 0000 → HCLK  = 72MHz
+     * PPRE1 = 0100 → PCLK1 = 36MHz（上限 36MHz）
+     * PPRE2 = 0000 → PCLK2 = 72MHz（上限 72MHz）
+     * ADCPRE= 10   → ADC   = 12MHz（上限 14MHz）
+     */
+    RCC-&gt;CFGR &amp;= ~(RCC_CFGR_HPRE | RCC_CFGR_PPRE1 | RCC_CFGR_PPRE2 | RCC_CFGR_ADCPRE);
+    RCC-&gt;CFGR |= RCC_CFGR_PPRE1_DIV2 | RCC_CFGR_ADCPRE_DIV6;
+
+    /* ---- 步骤 5：切 SYSCLK 到 PLL，并回读 SWS 确认 ---- */
+    RCC-&gt;CFGR = (RCC-&gt;CFGR &amp; ~CFGR_SW_MASK) | CFGR_SW_PLL;
+    {
+        uint32_t timeout = HSE_STARTUP_TIMEOUT;
+        while ((RCC-&gt;CFGR &amp; CFGR_SWS_MASK) != CFGR_SWS_PLL) {   /* 回读！ */
+            if (--timeout == 0) {
+                g_clock_status = CLOCK_ERR_SWS;
+                sysclk_fallback_to_hsi();
+                return g_clock_status;
+            }
+        }
+    }
+
+    g_clock_status = CLOCK_OK;
+    return CLOCK_OK;                             /* 72MHz 就绪 */
+}
+
+/* --------------------------------------------------------------------------
+ * 给上层用的小工具：读出当前四个频率（按寄存器反算，不是查表）
+ * ------------------------------------------------------------------------ */
+uint32_t bsp_get_sysclk(void)
+{
+    uint32_t pllmul, pllsrc, prediv, sysclk;
+
+    switch (RCC-&gt;CFGR &amp; CFGR_SWS_MASK) {
+    case CFGR_SWS_HSI:  return 8000000UL;                    /* HSI 固定 8MHz */
+    case CFGR_SWS_HSE:  return 8000000UL;                    /* 按板上晶振改这里 */
+    default:            break;                               /* 余下是 PLL */
+    }
+
+    pllsrc  = RCC-&gt;CFGR &amp; RCC_CFGR_PLLSRC;                   /* 0=HSI/2, 1=HSE */
+    prediv  = (RCC-&gt;CFGR &amp; RCC_CFGR_PLLXTPRE) ? 2UL : 1UL;   /* ÷1 或 ÷2 */
+    pllmul  = ((RCC-&gt;CFGR &amp; RCC_CFGR_PLLMULL) &gt;&gt; 18) + 2UL;   /* 编码 0 → ×2 */
+
+    sysclk  = pllsrc ? (8000000UL / prediv) : (4000000UL);   /* HSI/2 = 4MHz */
+    return sysclk * pllmul;
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这段代码里三个「不这么做就会出事」的细节</div>
+            <p><b>① <code class="icode">FLASH-&gt;ACR</code> 必须先设、且要在升频之前设。</b>升到 72MHz 的那一瞬间开始，取指就需要 2 个等待周期了。先切频再设等待周期，中间那几个周期的取指结果不可靠——虽然通常「侥幸能过」，但这属于不可交付的写法。</p>
+            <p class="mt-2"><b>② 回退路径里「先切 SW，再关 PLL」。</b>如果反过来（先关 PLL 再切 SW），在 PLL 被关掉、SYSCLK 还指着 PLL 的那一小段时间里，系统时钟源消失了——芯片会立刻挂掉。正确的顺序永远是：<b>先切到安全源并确认切过去了，再关掉旧源。</b></p>
+            <p class="mt-2"><b>③ <code class="icode">bsp_get_sysclk()</code> 里 <code class="icode">pllmul</code> 的算法要多加 2。</b>因为 PLLMUL 的编码是 <code class="icode">0000 → ×2</code>，不是 ×0：<code class="icode">编码 + 2 = 倍频数</code>。这个「偏移 2」在手册的编码表里一眼能看出来，但自己写代码时极易漏掉——漏掉的后果是所有频率读数都少 2 倍。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">忘记更新 SystemCoreClock 会怎样</div>
+            <p>标准库/HAL 里有一个全局变量 <code class="icode">SystemCoreClock</code>，很多延时函数、外设初始化都默认它是对的。用上面的 <code class="icode">bsp_clock_init()</code> 改了时钟之后，如果你不更新它，库里那些「按 SystemCoreClock 算时间」的函数就会算错。</p>
+            <p class="mt-2">两种做法：<b>① 自己维护</b>——在 <code class="icode">bsp_clock_init()</code> 末尾写 <code class="icode">SystemCoreClock = bsp_get_sysclk();</code>（HCLK 在这个配置里等于 SYSCLK）；<b>② 交给库</b>——如果你用的是标准库/HAL，调用 <code class="icode">SystemCoreClockUpdate()</code>，它会自己读 RCC 寄存器反算 HCLK 并刷新变量。别两个都写，重复调用无害但容易让人看糊涂。</p>
+          </div>
+
+          <h3 id="mcu-hal" class="mt-8 text-base font-semibold">代码二：HAL 版 SystemClock_Config 逐行注释</h3>
+
+          <p class="mt-3">下面是 CubeMX 生成的那段 <code class="icode">SystemClock_Config()</code> 的等价形式（去掉了 CubeMX 的注释框），<b class="font-semibold text-ink">每一行都标注了它实际写了哪个寄存器位</b>。建议对照第 2 节的寄存器表读一遍——读完你会发现，HAL 没有做任何你没学过的事，它只是把你的意图翻译成了寄存器操作，并且在每个 <code class="icode">while</code> 里加了超时。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="main.c —— HAL 版 SystemClock_Config（逐行加注寄存器）">
+            <pre><code>/**
+  * @brief  系统时钟配置：HSI 起步 → HSE 8MHz → PLL ×9 → 72MHz
+  *         对应 RCC_CFGR = 0x001D8402（可自行验算）
+  */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    /* ---------------- 第一部分：源与 PLL ---------------- */
+    __HAL_RCC_PWR_CLK_ENABLE();          /* 开 PWR 时钟（F1 上严格说不是必须，
+                                            但 CubeMX 习惯带上，为后面调压做准备） */
+
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+                                         /* → 本次只操作 HSE 相关的位 */
+    RCC_OscInitStruct.HSEState       = RCC_HSE_ON;
+                                         /* → RCC_CR.HSEON = 1，并等 HSERDY */
+    RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+                                         /* → RCC_CFGR.PLLXTPRE = 0（÷1） */
+    RCC_OscInitStruct.HSIState       = RCC_HSI_ON;
+                                         /* → RCC_CR.HSION = 1（保留 HSI 作为退路） */
+    RCC_OscInitStruct.PLL.PLLState   = RCC_PLL_ON;
+                                         /* → RCC_CR.PLLON = 1，并等 PLLRDY */
+    RCC_OscInitStruct.PLL.PLLSource  = RCC_PLLSOURCE_HSE;
+                                         /* → RCC_CFGR.PLLSRC = 1 */
+    RCC_OscInitStruct.PLL.PLLMUL     = RCC_PLL_MUL9;
+                                         /* → RCC_CFGR.PLLMUL = 0111（×9） */
+
+    if (HAL_RCC_OscConfig(&amp;RCC_OscInitStruct) != HAL_OK)
+    {
+        /* 走到这里 = HSE 没起振 / PLL 没锁上（内部等 HSERDY 的超时约 100ms）
+           → 默认的 Error_Handler() 是「关中断 + 死循环」，
+             表现出来就是「板子完全没反应」，务必改成 LED 快闪 + 记录状态！ */
+        Error_Handler();
+    }
+
+    /* ---------------- 第二部分：分配（谁当 SYSCLK、各级分频） ---------------- */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+                                | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+                                         /* → 本次要配置这四级 */
+    RCC_ClkInitStruct.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK;
+                                         /* → RCC_CFGR.SW = 10，并回读 SWS 确认 */
+    RCC_ClkInitStruct.AHBCLKDivider  = RCC_SYSCLK_DIV1;
+                                         /* → RCC_CFGR.HPRE  = 0000（HCLK  = 72MHz） */
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+                                         /* → RCC_CFGR.PPRE1 = 0100（PCLK1 = 36MHz） */
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+                                         /* → RCC_CFGR.PPRE2 = 0000（PCLK2 = 72MHz） */
+
+    if (HAL_RCC_ClockConfig(&amp;RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+    {
+        /* 第二个参数直接写成 FLASH_LATENCY_2：
+           HAL 会先设 FLASH_ACR.LATENCY = 2，再切 SW —— 顺序是对的。
+           这三档的对应关系：FLASH_LATENCY_0 → ≤24MHz
+                             FLASH_LATENCY_1 → ≤48MHz
+                             FLASH_LATENCY_2 → ≤72MHz（3.3V）
+           传错档位不会报错，但会在高频下取指出错、表现为「莫名跑飞」。 */
+        Error_Handler();
+    }
+}
+
+/* ==========================================================================
+ * 推荐的 Error_Handler：不要死循环，要「看得见 + 能恢复」
+ * ========================================================================== */
+void Error_Handler(void)
+{
+    __disable_irq();                          /* 先停掉中断，避免干扰判断 */
+
+    /* 用一个 LED 把错误码「闪」出来，人眼可读：
+       快闪 1 次 → HSE 超时；快闪 2 次 → PLL 超时；快闪 3 次 → 其它 */
+    while (1)
+    {
+        for (volatile uint32_t i = 0; i &lt; 200000; i++) { }   /* 粗延时 */
+        HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+    }
+    /* 如果板子上有独立看门狗，也可以在这里等它复位，实现「自动重试」 */
+}</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">HAL 帮你挡住的两个坑</div>
+            <p><b>① <code class="icode">HAL_RCC_ClockConfig()</code> 会在切 SW 之前先把 <code class="icode">FLASH_ACR.LATENCY</code> 设成你传的那一档</b>——顺序和上面寄存器版一致。你要是自己写而忘了这一步，就是那个「取指错误」的坑。</p>
+            <p class="mt-2"><b>② <code class="icode">HAL_RCC_OscConfig()</code> 内部对每个 RDY 位都有超时</b>，返回 <code class="icode">HAL_TIMEOUT</code>。所以你只要<b>检查返回值</b>，就自动获得了「晶振没起振不会卡死」这个保护。<b>这就是为什么「检查返回值」不是一句客套话——它是 HAL 时代版的超时保护。</b></p>
+          </div>
+
+          <h3 id="mcu-selfcheck" class="mt-8 text-base font-semibold">代码三：上电打印三个频率，不等就报警</h3>
+
+          <p class="mt-3">这是整篇文章里<b class="font-semibold text-ink">最值得抄进你工程模板的一段代码</b>：不到 100 行，却能挡掉后面 80% 的「玄学故障」。它的逻辑非常朴素——<b>把寄存器算出来的真实频率，和你设计时写在纸上的预期值比一比；不相等就打印 FAIL、快闪 LED、停在报警状态。</b></p>
+
+          <p class="mt-3">先给串口的 <code class="icode">printf</code> 重定向（用寄存器直接写 USART1，不依赖 HAL 的 UART 驱动；如果你已经在用 HAL 的串口驱动，把 <code class="icode">fputc</code> 里的发送部分换成 <code class="icode">HAL_UART_Transmit()</code> 即可）：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="retarget.c —— printf 重定向到 USART1（纯寄存器，8N1）">
+            <pre><code>#include "stm32f10x.h"
+#include &lt;stdio.h&gt;
+
+/* 按实际的 PCLK2 算 BRR，写死 0x271 只适用于 PCLK2 = 72MHz */
+void uart1_init(uint32_t pclk2, uint32_t baud)
+{
+    RCC-&gt;APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_USART1EN;
+
+    /* PA9 = TX，复用推挽输出 50MHz：CRH 的高 4 位 = 0xB */
+    GPIOA-&gt;CRH &amp;= ~(0xFUL &lt;&lt; 4);
+    GPIOA-&gt;CRH |=  (0xBUL &lt;&lt; 4);
+    /* PA10 = RX，浮空输入：CNF=01, MODE=00 → 0x4 */
+    GPIOA-&gt;CRH &amp;= ~(0xFUL &lt;&lt; 8);
+    GPIOA-&gt;CRH |=  (0x4UL &lt;&lt; 8);
+
+    /* 波特率：BRR = PCLK2 ÷ 波特率，整数部分在高 12 位、小数 4 位在低 4 位。
+       这里用「四舍五入到 1/16」的写法，避免直接截断带来的偏差。 */
+    USART1-&gt;BRR = (pclk2 + baud / 2) / baud;
+
+    USART1-&gt;CR1 = USART_CR1_UE | USART_CR1_TE | USART_CR1_RE;
+}
+
+int fputc(int ch, FILE *f)
+{
+    while ((USART1-&gt;SR &amp; USART_SR_TXE) == 0) { }   /* 等发送寄存器空 */
+    USART1-&gt;DR = (uint8_t)ch;
+    return ch;
+}</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">重定向 printf 的三个常见坑</div>
+            <p><b>① Keil（ARMCC/AC5）</b>需要勾选 <b>Use MicroLIB</b>，否则要自己实现 <code class="icode">__use_no_semihosting</code> 与 <code class="icode">_sys_exit</code> 等桩函数，否则程序会卡在未定义的信号量上。
+            <b>② 想打印浮点</b>（比如频率的 MHz 小数）还要额外加 <code class="icode">-u _printf_float</code>；滑头的做法是<b>全部用整数打印</b>——频率本来就是整数赫兹，没必要用浮点，还省 Flash。
+            <b>③ 别在中断里 printf</b>：它是阻塞式的（等 TXE），放在中断里会拖长中断时间、破坏时序。</p>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="clock_selfcheck.c —— 上电自检：三个频率 + 定时器时钟 + BRR，逐项核对">
+            <pre><code>/* ==========================================================================
+ * clock_selfcheck.c —— 上电时钟自检
+ * 用法：在 main() 里、初始化任何外设之前第一个调用：
+ *          HAL_Init();                 // 先把 SysTick 配好，才能用 HAL_Delay
+ *          clock_selfcheck();
+ *       不一致时：打印 FAIL 明细 → LED 快闪 → 停在报警状态（不进主循环）
+ * ========================================================================== */
+#include "stm32f10x.h"
+#include &lt;stdio.h&gt;
+
+/* ------- 设计预期：改板子/改配置时只改这四处 ------- */
+#define EXPECTED_SYSCLK   72000000UL
+#define EXPECTED_HCLK     72000000UL
+#define EXPECTED_PCLK1    36000000UL
+#define EXPECTED_PCLK2    72000000UL
+#define LED_GPIO_Port     GPIOB
+#define LED_Pin           GPIO_PIN_0        /* 按你的板子改 */
+
+/* ------- 内部小工具 ------- */
+static uint32_t apb_presc(uint32_t ppre_bits)
+{
+    /* PPRE 编码：0xx=÷1, 100=÷2, 101=÷4, 110=÷8, 111=÷16
+       注意 0xx（bit2=0）全是 ÷1，不能直接拿寄存器值当下标用 */
+    static const uint8_t tbl[8] = {1, 1, 1, 1, 2, 4, 8, 16};
+    return tbl[ppre_bits &amp; 0x7UL];
+}
+
+static uint32_t get_tim_clk(uint32_t pclk, uint32_t ppre_bits)
+{
+    uint32_t presc = apb_presc(ppre_bits);
+    /* ★ 核心规则：APB 预分频 = 1 → 定时器时钟 = PCLK
+                   APB 预分频 ≠ 1 → 定时器时钟 = PCLK × 2  */
+    return (presc == 1UL) ? pclk : (pclk * 2UL);
+}
+
+static void led_alarm_blink(uint8_t times)
+{
+    for (uint8_t n = 0; n &lt; times; n++) {
+        HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+        HAL_Delay(80);
+        HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+        HAL_Delay(120);
+    }
+    HAL_Delay(600);        /* 组间长间隔，方便数次数 */
+}
+
+/* ------- 主自检函数：返回 0 = 通过，-1 = 失败（失败时不会返回，停在报警里） ------- */
+int clock_selfcheck(void)
+{
+    uint32_t sysclk = HAL_RCC_GetSysClockFreq();
+    uint32_t hclk   = HAL_RCC_GetHCLKFreq();
+    uint32_t pclk1  = HAL_RCC_GetPCLK1Freq();
+    uint32_t pclk2  = HAL_RCC_GetPCLK2Freq();
+
+    uint32_t tim1_clk = get_tim_clk(pclk2, (RCC-&gt;CFGR &gt;&gt; 11) &amp; 0x7UL);  /* APB2 */
+    uint32_t tim2_clk = get_tim_clk(pclk1, (RCC-&gt;CFGR &gt;&gt; 8)  &amp; 0x7UL);  /* APB1 */
+    uint32_t adc_clk  = 0;                                   /* 下面按 ADCPRE 算 */
+
+    /* ADC 分频在 RCC_CFGR.ADCPRE[15:14]：00=÷2, 01=÷4, 10=÷6, 11=÷8 */
+    {
+        static const uint8_t adc_tbl[4] = {2, 4, 6, 8};
+        adc_clk = pclk2 / adc_tbl[(RCC-&gt;CFGR &gt;&gt; 14) &amp; 0x3UL];
+    }
+
+    /* 波特率反算：BRR 里已经包含了「整数 + 小数/16」，直接除即可 */
+    uint32_t baud = (USART1-&gt;BRR) ? (pclk2 / USART1-&gt;BRR) : 0;
+
+    int ok = 1;
+    printf("\r\n============ 时钟自检 ============\r\n");
+    printf(" SYSCLK : %9lu Hz   预期 %9lu   %s\r\n",
+           sysclk, EXPECTED_SYSCLK, (sysclk == EXPECTED_SYSCLK) ? "OK" : "FAIL");
+    printf(" HCLK   : %9lu Hz   预期 %9lu   %s\r\n",
+           hclk, EXPECTED_HCLK, (hclk == EXPECTED_HCLK) ? "OK" : "FAIL");
+    printf(" PCLK1  : %9lu Hz   预期 %9lu   %s\r\n",
+           pclk1, EXPECTED_PCLK1, (pclk1 == EXPECTED_PCLK1) ? "OK" : "FAIL");
+    printf(" PCLK2  : %9lu Hz   预期 %9lu   %s\r\n",
+           pclk2, EXPECTED_PCLK2, (pclk2 == EXPECTED_PCLK2) ? "OK" : "FAIL");
+    printf(" TIM1   : %9lu Hz  (APB2, %s)\r\n", tim1_clk,
+           (apb_presc((RCC-&gt;CFGR &gt;&gt; 11) &amp; 0x7UL) == 1) ? "预分频=1, 不×2" : "预分频≠1, ×2");
+    printf(" TIM2   : %9lu Hz  (APB1, %s)\r\n", tim2_clk,
+           (apb_presc((RCC-&gt;CFGR &gt;&gt; 8) &amp; 0x7UL) == 1) ? "预分频=1, 不×2" : "预分频≠1, ×2");
+    printf(" ADC    : %9lu Hz  (上限 14MHz)\r\n", adc_clk);
+    printf(" USART1 : BRR=0x%03lX → 实际 %lu bps\r\n", (uint32_t)USART1-&gt;BRR, baud);
+    printf("=================================\r\n");
+
+    if (sysclk != EXPECTED_SYSCLK) ok = 0;
+    if (hclk   != EXPECTED_HCLK)   ok = 0;
+    if (pclk1  != EXPECTED_PCLK1)  ok = 0;
+    if (pclk2  != EXPECTED_PCLK2)  ok = 0;
+    if (adc_clk &gt; 14000000UL)      ok = 0;      /* 硬约束也要查 */
+    if (tim2_clk != EXPECTED_SYSCLK) ok = 0;    /* 标准配置下 TIM2 应为 72MHz */
+
+    if (!ok) {
+        printf("\r\n[FAIL] 时钟与设计预期不符！\r\n");
+        printf("  最可能的原因，按概率排序：\r\n");
+        printf("   1) HSE 没起振，系统回退到 HSI 8MHz（查晶振、负载电容、焊接）\r\n");
+        printf("   2) PLLMUL / PLLXTPRE 配错，PLL 输出不是 72MHz\r\n");
+        printf("   3) HPRE/PPRE1/PPRE2 与设计不符\r\n");
+        printf("   4) SW 写了但 SWS 没切过去（PLL 没锁上）\r\n");
+        printf("  处理：停止进入主循环，LED 快闪报警，等待人工介入。\r\n");
+
+        while (1) {
+            led_alarm_blink(3);      /* 停在「看得见」的状态，而不是死循环 */
+        }
+    }
+    printf("[PASS] 时钟正常，进入主循环。\r\n\r\n");
+    return 0;
+}</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一个反直觉的用法：让「打印不出来」也成为一种诊断</div>
+            <p>这个自检函数依赖串口能读。但如果故障恰好是「串口乱码」呢——你看到的是一屏乱码，而不是这份漂亮的报告。这本身就是信息：</p>
+            <p class="mt-2"><b>乱码 = 时钟自检报告的第 8 行（USART1 的 BRR）与当前的 PCLK2 不匹配。</b>此时最有用的手段不是再调串口，而是掏出<b>示波器量 MCO</b>（下一小节）——它不依赖任何软件，能立刻告诉你真实的 SYSCLK。
+            如果你手上没有示波器，那就换个笨办法：<b>把波特率降到 9600 甚至 1200 再试一遍</b>——低波特率对时钟偏差的容忍度高得多，往往能让你把报告读出来。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">把这个函数的返回值用起来</div>
+            <p>如果你不想「停下来」，也可以把 <code class="icode">clock_selfcheck()</code> 改成返回错误码，然后由上层决定策略，例如：<b>时钟不对 → 关闭所有依赖精确时间的模块（PWM、ADC 连续采样、RTC 校准）→ 只保留一个 9600 的调试口 → 让设备进入「可服务」状态而不是彻底躺下。</b></p>
+            <p class="mt-2">这种「降级可用」的设计，比「出错就死给你看」更适合要交付的产品。<b>关键不是选哪种策略，而是你必须在代码里显式地做出这个选择</b>——不能让它默默降级然后假装一切正常。</p>
+          </div>
+
+          <h3 id="mcu-mco" class="mt-8 text-base font-semibold">代码四：把时钟输出到 PA8（MCO）</h3>
+
+          <p class="mt-3">MCO 只有两个动作：<b>把 PA8 配成复用推挽输出</b>、<b>选一路时钟送出去</b>。但这两个动作各自都有一个「忘了就什么都没有」的前提——所以两版代码都写出来，你把它们对照着看。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="mco.c —— 寄存器版与 HAL 版（输出到 PA8）">
+            <pre><code>/* ==========================================================================
+ * 版本一：纯寄存器
+ * mco_bits 取值（RCC_CFGR.MCO[2:0]）：
+ *   RCC_CFGR_MCO_SYSCLK         100 → SYSCLK
+ *   RCC_CFGR_MCO_HSI            101 → HSI
+ *   RCC_CFGR_MCO_HSE            110 → HSE
+ *   RCC_CFGR_MCO_PLLCLK_Div2    111 → PLL ÷ 2
+ *   RCC_CFGR_MCO_LSI            010 → LSI
+ *   RCC_CFGR_MCO_LSE            011 → LSE
+ * ========================================================================== */
+void mco_enable_reg(uint32_t mco_bits)
+{
+    RCC-&gt;APB2ENR |= RCC_APB2ENR_IOPAEN;      /* ★ 前提一：GPIOA 时钟必须先开，
+                                                否则下面两行「写了没反应」 */
+    GPIOA-&gt;CRH &amp;= ~(0xFUL &lt;&lt; 0);             /* 清 PA8 的 4 个配置位 */
+    GPIOA-&gt;CRH |=  (0xBUL &lt;&lt; 0);              /* MODE8=11(输出 50MHz)
+                                                CNF8 =10(复用推挽) → 0b1011 */
+    RCC-&gt;CFGR &amp;= ~RCC_CFGR_MCO;              /* 清 MCO[2:0] */
+    RCC-&gt;CFGR |= mco_bits;                   /* ★ 前提二：选一路源，否则引脚无输出 */
+}
+
+/* ==========================================================================
+ * 版本二：HAL
+ * 注意 F1 的 HAL 里第三个参数（分频）是被忽略的 —— F1 的 MCO 没有分频器，
+ *      只是为了函数签名统一才保留。F4/F7 上它才有用。
+ * ========================================================================== */
+void mco_enable_hal(uint32_t hal_source)     /* 例如 RCC_MCO1SOURCE_SYSCLK */
+{
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    __HAL_RCC_GPIOA_CLK_ENABLE();            /* ★ 同样先开时钟 */
+
+    GPIO_InitStruct.Pin   = GPIO_PIN_8;
+    GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;         /* 复用推挽 = CNF 10 */
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;    /* MODE 11 = 50MHz */
+    HAL_GPIO_Init(GPIOA, &amp;GPIO_InitStruct);
+
+    /* 可选源：RCC_MCO1SOURCE_SYSCLK / _HSI / _HSE /
+                RCC_MCO1SOURCE_PLLCLK_DIV2 / _LSI / _LSE */
+    HAL_RCC_MCOConfig(RCC_MCO1, hal_source, RCC_MCODIV_1);
+}
+
+/* ---------- 典型用法：上电先输出 SYSCLK，量完再换 ---------- */
+void mco_probe_demo(void)
+{
+    mco_enable_reg(RCC_CFGR_MCO_SYSCLK);     /* 先量总干路 */
+    HAL_Delay(3000);                         /* 给示波器留 3 秒 */
+    /* 这一步量到 72MHz → 源与 PLL 都没问题，可以往下查分频器了 */
+
+    mco_enable_reg(RCC_CFGR_MCO_PLLCLK_Div2);/* 再量 PLL ÷ 2，应为 36MHz */
+    HAL_Delay(3000);
+}</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">没有示波器也能用 MCO</div>
+            <p>如果手边只有万用表：<b>MCO 输出测不了频率，但能测到「约一半 V<sub>DD</sub> 的直流平均值」</b>（方波的平均值 = 50% × 3.3V ≈ 1.65V）。这足以证明「这一路时钟在跑」，虽然量不出频率。</p>
+            <p class="mt-2">另一个土办法：<b>把 MCO 输出接到一个 RC 低通 + 万用表</b>——频率不同、平均电压几乎不变，所以意义不大。要么找个带频率档的万用表，要么借一台示波器；<b>MCO 的价值就在于「硬件证据」，用软件手段替代它就失去意义了。</b></p>
+          </div>
+
+          <h3 id="mcu-measure" class="mt-8 text-base font-semibold">代码五：用定时器与 DWT 反推主频</h3>
+
+          <p class="mt-3">示波器不总有。下面两段代码让你用「一块表」和「一块屏幕」也能把主频量出来。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="measure.c —— 定时器 1 秒方波 + DWT 周期计数">
+            <pre><code>/* ==========================================================================
+ * 方法一：TIM4 每秒中断一次翻转 LED —— 用一块秒表反推定时器时钟
+ * 硬件：任意一个 LED（这里用 PB0，按你的板子改）
+ * 判读：见下方表格
+ * ========================================================================== */
+void tim4_1hz_init(void)
+{
+    RCC-&gt;APB2ENR |= RCC_APB2ENR_IOPBEN;      /* LED 在 PB0 */
+    GPIOB-&gt;CRL &amp;= ~(0xFUL &lt;&lt; 0);
+    GPIOB-&gt;CRL |=  (0x3UL &lt;&lt; 0);              /* PB0 推挽输出 50MHz */
+
+    RCC-&gt;APB1ENR |= RCC_APB1ENR_TIM4EN;      /* ★ TIM4 挂 APB1 */
+
+    /* 按 TIM4CLK = 72MHz 计算：
+       PSC = 7199 → 计数时钟 72MHz / 7200 = 10kHz
+       ARR = 9999 → 更新频率 10kHz / 10000 = 1Hz（每秒中断一次） */
+    TIM4-&gt;PSC  = 7199;
+    TIM4-&gt;ARR  = 9999;
+    TIM4-&gt;EGR  = TIM_EGR_UG;                 /* 产生一次更新事件，让 PSC 立即生效 */
+    TIM4-&gt;SR   = 0;                          /* 清掉 UG 顺带置起的更新标志 */
+    TIM4-&gt;DIER = TIM_DIER_UIE;               /* 允许更新中断 */
+    TIM4-&gt;CR1  = TIM_CR1_CEN;                /* 启动计数 */
+    NVIC_EnableIRQ(TIM4_IRQn);
+}
+
+void TIM4_IRQHandler(void)
+{
+    if (TIM4-&gt;SR &amp; TIM_SR_UIF) {
+        TIM4-&gt;SR = ~TIM_SR_UIF;              /* 写 0 清标志（rc_w0） */
+        GPIOB-&gt;ODR ^= (1UL &lt;&lt; 0);             /* 翻转 LED */
+    }
+}
+
+/* 判读（用秒表量「亮一次 + 灭一次」共 10 个完整循环的总时间）：
+ *
+ *   量到 20 秒  → TIM4CLK = 72MHz，全部正确
+ *   量到 40 秒  → TIM4CLK 只有 36MHz：PLL 输出不是 72MHz，
+ *                或 PPRE1 被设成了 ÷4（PCLK1 = 18MHz，×2 = 36MHz）
+ *   量到 160 秒 → TIM4CLK 只有 9MHz：PPRE1 是 ÷16 那一档
+ *   量到 10 秒  → TIM4CLK 有 144MHz？不可能 —— 先检查你的计数口径，
+ *                多半是把「亮 1 秒」当成了整个循环
+ *   完全不闪    → TIM4 时钟没开（APB1ENR.TIM4EN）或中断没使能
+ */</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="measure.c（续）—— DWT 数周期，直接算出每条指令几个周期">
+            <pre><code>/* ==========================================================================
+ * 方法二：用 DWT 的周期计数器（Cortex-M3 自带）测「每条指令花几个周期」
+ * 前提：SystemCoreClock 已经更新为真实的 HCLK（否则换算出来的 ns 是错的）
+ * ========================================================================== */
+static void dwt_init(void)
+{
+    CoreDebug-&gt;DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;   /* 打开跟踪与调试模块 */
+    DWT-&gt;CYCCNT = 0;
+    DWT-&gt;CTRL |= DWT_CTRL_CYCCNTENA_Msk;              /* 开始数周期 */
+}
+
+/* 返回 loops 次空循环总共花掉的 CPU 周期数 */
+static uint32_t dwt_bench_nop(uint32_t loops)
+{
+    dwt_init();
+    DWT-&gt;CYCCNT = 0;
+    for (volatile uint32_t i = 0; i &lt; loops; i++) {
+        __NOP();
+    }
+    return DWT-&gt;CYCCNT;
+}
+
+void measure_cpu_speed(void)
+{
+    #define LOOPS 1000UL
+    uint32_t cyc = dwt_bench_nop(LOOPS);
+    uint32_t mhz = SystemCoreClock / 1000000UL;       /* 72 */
+
+    /* 每个循环的纳秒数（整数运算，避免用浮点 printf） */
+    uint32_t ns_per_loop = cyc * 1000UL / (LOOPS * mhz);
+    /* 假设循环体编译后是 4 条指令（比较/自增/跳转/空操作）
+       —— 按编译器实际生成的条数估算，别当精确值 */
+    uint32_t cpi_x100 = cyc * 100UL / (LOOPS * 4UL);
+
+    printf("DWT: %lu 个循环 = %lu 周期\r\n", LOOPS, cyc);
+    printf("     每循环 %lu ns\r\n", ns_per_loop);
+    printf("     每条指令 %lu.%02lu 个周期（假设每循环 4 条指令）\r\n",
+           cpi_x100 / 100UL, cpi_x100 % 100UL);
+    printf("     吞吐约 %lu MIPS\r\n",
+           (mhz * 100UL) / (cpi_x100 ? cpi_x100 : 1UL));
+
+    /* 正常值参考（72MHz / 2WS / 预取开）：
+         每循环约 55 ~ 60ns，CPI 约 1.0 ~ 1.1（循环体内指令都是 16 位、连续取指）
+         吞吐约 45 ~ 50 MIPS
+       如果 CPI 明显大于 2：
+         ① Flash 等待周期配少了 → 立刻查 FLASH_ACR.LATENCY
+         ② 预取没开 → FLASH_ACR.PRFTBE 置 1
+         ③ 优化等级太低、编译器生成了大量 32 位指令
+       注意 CYCCNT 是 32 位：72MHz 下约 59.6 秒就回绕一次，
+       所以测量时间必须远小于这个数（这也是要先算周期再除以循环数的原因）。 */
+}</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么 DWT 这招值得学</div>
+            <p>因为它把「性能」变成了一个<b>可观测的数字</b>。以后你改了一段算法想知道快了多少、想确认「编译器有没有把那层循环优化掉」、想验证「热点函数搬到 SRAM 有没有效果」，都可以用这几行代码得到答案，而不是靠感觉。</p>
+            <p class="mt-2">它和时钟的关系在于：<b>同一个函数的周期数，在配错 Flash 等待周期时会直接翻倍</b>。所以它也是一个隐蔽的「时钟配置验证器」——如果你发现所有代码都慢了一倍，先查 <code class="icode">FLASH_ACR</code>，再查时钟。</p>
+          </div>
+
+          <h3 id="mcu-power" class="mt-8 text-base font-semibold">代码六：关掉不用的外设时钟，以及低功耗下的时钟处理</h3>
+
+          <p class="mt-3">外设时钟是实打实的功耗。F103 在全速 72MHz 下，一个没关的 SPI、一个没用的 ADC 都能占掉几百微安到毫安级（<b>具体数值请查你芯片数据手册的电流消耗表</b>，各型号差别很大）。<b>对于电池供电的设备，「忘了关时钟」是最常见也最容易修的功耗问题。</b></p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="power.c —— 关未用外设时钟（三个 ENR 一起清）">
+            <pre><code>/* ==========================================================================
+ * 关掉本工程用不到的外设时钟。
+ * 原则：默认全关，用到哪个开哪个 —— 而不是默认全开，出问题了再关。
+ * 用法：在时钟初始化之后、外设初始化之前调用；
+ *       之后每个外设模块自己负责开自己的那一位。
+ * ========================================================================== */
+void clock_disable_unused(void)
+{
+    /* ---------------- APB1：本工程只用 TIM2 ---------------- */
+    RCC-&gt;APB1ENR &amp;= ~( RCC_APB1ENR_TIM3EN  | RCC_APB1ENR_TIM4EN  | RCC_APB1ENR_TIM5EN
+                      | RCC_APB1ENR_TIM6EN  | RCC_APB1ENR_TIM7EN  | RCC_APB1ENR_TIM12EN
+                      | RCC_APB1ENR_TIM13EN | RCC_APB1ENR_TIM14EN | RCC_APB1ENR_WWDGEN
+                      | RCC_APB1ENR_SPI2EN  | RCC_APB1ENR_SPI3EN  | RCC_APB1ENR_USART2EN
+                      | RCC_APB1ENR_USART3EN| RCC_APB1ENR_UART4EN  | RCC_APB1ENR_UART5EN
+                      | RCC_APB1ENR_I2C1EN  | RCC_APB1ENR_I2C2EN  | RCC_APB1ENR_USBEN
+                      | RCC_APB1ENR_CAN1EN  | RCC_APB1ENR_CAN2EN  | RCC_APB1ENR_DACEN );
+
+    /* ★ 注意：不要顺手把 PWREN 和 BKPEN 关掉，如果你打算用 RTC 或改 PWR 寄存器：
+       · PWREN = 0 → PWR-&gt;CR 写不进去（调压器/低功耗模式全都配不了）
+       · BKPEN = 0 → 备份域寄存器（BKP_DRx）读写不了
+       这两个缺了会以「寄存器写了没反应」的形式出现，非常难查。 */
+
+    /* ---------------- APB2：本工程只用 GPIOA/GPIOB 与 USART1 ---------------- */
+    RCC-&gt;APB2ENR &amp;= ~( RCC_APB2ENR_IOPCEN | RCC_APB2ENR_IOPDEN | RCC_APB2ENR_IOPEEN
+                      | RCC_APB2ENR_IOPFEN | RCC_APB2ENR_IOPGEN
+                      | RCC_APB2ENR_ADC1EN | RCC_APB2ENR_ADC2EN | RCC_APB2ENR_ADC3EN
+                      | RCC_APB2ENR_TIM1EN | RCC_APB2ENR_TIM8EN
+                      | RCC_APB2ENR_TIM9EN | RCC_APB2ENR_TIM10EN| RCC_APB2ENR_TIM11EN
+                      | RCC_APB2ENR_SPI1EN );
+    /* ★ AFIOEN 也没关？对 —— 只要你还可能用到外部中断（EXTI）或引脚重映射，
+       就必须保留它。这类「按需保留」的位，宁可多留一个，也不要事后拍脑袋查。 */
+
+    /* ---------------- AHB ---------------- */
+    RCC-&gt;AHBENR &amp;= ~(RCC_AHBENR_DMA1EN | RCC_AHBENR_DMA2EN | RCC_AHBENR_CRCEN);
+    /* ★ 两个绝对不能关的：
+       · SRAMEN  —— 关了 SRAM 时钟，栈就没了，立刻 HardFault
+       · FLITFEN —— 关了 Flash 接口时钟，取不到代码与常量，立刻跑飞 */
+}
+
+/* ==========================================================================
+ * 低功耗：各时钟源在不同模式下的状态（按参考手册整理）
+ *
+ *   时钟源 │ Sleep（__WFI）  │ Stop            │ Standby
+ *   ───────┼────────────────┼─────────────────┼──────────────────
+ *   HSI    │ 运行           │ 停              │ 停
+ *   HSE    │ 运行           │ 停              │ 停
+ *   PLL    │ 运行           │ 停              │ 停
+ *   LSI    │ 运行           │ 可保持（可选）  │ 可保持（RTC/IWDG）
+ *   LSE    │ 运行           │ 可保持（可选）  │ 可保持（RTC）
+ *
+ *   ★ 关键结论：STOP / Standby 下高速时钟全停，只有 LSI/LSE 能继续跑
+ *     —— 这正是「RTC 和独立看门狗在低功耗下还能工作」的原因，
+ *        也是它们必须用 32.768kHz 晶振、不能用 HSI 的原因。
+ * ========================================================================== */
+void enter_stop_mode(void)
+{
+    RCC-&gt;APB1ENR |= RCC_APB1ENR_PWREN;       /* 先开 PWR 时钟，否则下面写不进去 */
+    PWR-&gt;CR |= PWR_CR_LPDS;                  /* 深睡：调压器进低功耗（更省电） */
+    PWR-&gt;CR &amp;= ~PWR_CR_PDDS;                 /* PDDS = 0 → 选 STOP 而不是 Standby */
+    PWR-&gt;CR |= PWR_CR_CWUF;                  /* 清唤醒标志 */
+    SCB-&gt;SCR |= SCB_SCR_SLEEPDEEP_Msk;       /* ★ 让 WFI 进入「深睡」而不是普通 Sleep */
+
+    /* 唤醒源：任意外部中断（EXTI）。注意 —— EXTI 的配置需要 AFIO 时钟，
+       所以别在省电优化时把 AFIOEN 关掉。 */
+    __WFI();
+
+    /* ★★ 唤醒之后必做的一件事 ★★
+       按参考手册，从 STOP 唤醒后系统时钟会回到 HSI，不再是你原来的 PLL 72MHz。
+       如果这里不重新配置 PLL，就会出现「休眠前一切正常、唤醒后串口乱码 /
+       定时器慢 9 倍」这种诡异故障 —— 而且它只在低功耗项目里出现，
+       排查起来非常费时间。 */
+    SystemClock_Config();                    /* 重新上一次 72MHz */
+
+    /* 顺便：IWDG（独立看门狗）挂在 LSI 上，STOP 期间它继续计数！
+       如果休眠时间可能超过看门狗超时，必须在休眠前喂狗、或改用
+       窗口看门狗 / 定期唤醒喂狗的策略。（见 ee-pulse 里关于
+       「看门狗时钟为什么必须独立」的讨论） */
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">省电优化最容易踩的两个坑</div>
+            <p><b>① 把「关时钟」当成「复位外设」。</b>关掉外设时钟只是停止它的时钟供给，<b>寄存器内容通常还在</b>（取决于该外设的时钟域设计）。所以「关掉再打开」不等于「恢复出厂设置」——要复位请用 <code class="icode">RCC_APBxRSTR</code> 里的复位位。这个区别在调试串口/SPI 卡死时很关键：<b>正确的复位顺序是「关时钟 → 置复位位 → 清复位位 → 开时钟 → 重新初始化」</b>。</p>
+            <p class="mt-2"><b>② 在中断里关时钟。</b>如果某个外设正在产生中断，而你从别处关掉了它的时钟，中断标志不会被清除、中断会反复触发（或者外设行为未定义）。关时钟之前，先 <code class="icode">NVIC_DisableIRQ()</code> 并清掉挂起标志。</p>
+            <p class="mt-2">另外提醒一句：<b>低功耗项目里，时钟配置的验证比普通项目更重要</b>——因为你会反复切换频率和模式，任何一次切换后的状态都可能和上一次不同。这也是为什么下一节的自检函数值得放进你的工程模板：<b>每次唤醒后都跑一遍。</b></p>
+          </div>
+
+          </section>
+
+        <!-- ---------------------------- 5. 常见错误 ---------------------------- -->
+        <section class="mt-14">
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见错误与排查</h2>
+
+          <p class="mt-4">下面十条，每一条都是一个<b class="font-semibold text-ink">真实的错误认知</b>。我按「错误认知 → 为什么错 → 正确做法」写，你可以当成一份自查清单：如果某一条让你心里一虚，那一节就值得回去重读。</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">错误认知 1：「TIM2 挂在 APB1 上，PCLK1 = 36MHz，所以定时器时钟就是 36MHz」</div>
+            <p><b>为什么错：</b>这是本篇最想纠正的一条。APB 预分频<b>不等于 1</b> 时，送给定时器的时钟是 <code class="icode">PCLK × 2</code>。漏掉这一步，所有定时时间会差一倍（PWM 频率差一倍、定时中断快一倍、延时短一半）。</p>
+            <p class="mt-2"><b>正确做法：</b>先看 <code class="icode">RCC_CFGR.PPRE1[2:0]</code>：是 <code class="icode">0xx</code>（÷1）就 <code class="icode">TIMxCLK = PCLK1</code>，否则 <code class="icode">TIMxCLK = PCLK1 × 2</code>。标准 72MHz 配置下它是 ÷2，所以 <code class="icode">TIMxCLK = 36 × 2 = 72MHz</code>——<b>定时器和内核跑得一样快</b>，这个结论请记牢。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">错误认知 2：「既然 ≠1 时要 ×2，那我干脆把 APB1 设成 ÷1，让定时器更快」</div>
+            <p><b>为什么错：</b>方向搞反了。÷1 时 <code class="icode">PCLK1</code> 直接等于 72MHz，<b>违反 APB1 ≤ 36MHz 的硬约束</b>；而定时器时钟此时是 <code class="icode">PCLK1</code>（不 ×2）= 72MHz——<b>和 ÷2 时完全一样，一点没变快</b>。</p>
+            <p class="mt-2"><b>正确做法：</b>×2 规则的作用是「<b>让定时器在总线被分频之后保持不变慢</b>」，不是给你超频用的。要改定时速度请改 <code class="icode">PSC</code> / <code class="icode">ARR</code>；APB 预分频就按上限来（APB1 = ÷2、APB2 = ÷1）。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">错误认知 3：「72MHz 是标称值，我超到 96MHz 就更快；不行再降回来」</div>
+            <p><b>为什么错：</b>不是「有风险」，而是<b>物理上没有可用的等待周期档</b>。2.7~3.6V 下 2WS 对应 ≤72MHz，而 <code class="icode">LATENCY</code> 只定义了 0/1/2 三档——超过 72MHz 之后，Flash 取指无法可靠完成，等于把「设计余量」当性能花掉了。它会以「常温能跑、加热后随机 HardFault」的形式报复你，而这类故障极难定位。</p>
+            <p class="mt-2"><b>正确做法：</b>守住 ≤72MHz。真需要性能，先按第 3 节例 5 的思路优化 CPI（减少分支、把热点搬 SRAM），而不是拉高频率。另外记住：<b>如果 V<sub>DD</sub> 低于 2.7V，连 72MHz 都不允许</b>——2.0~2.7V 区间 2WS 只能到 48MHz。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">错误认知 4：「<code class="icode">while(!(RCC-&gt;CR &amp; RCC_CR_HSERDY));</code> 一行搞定，最简洁」</div>
+            <p><b>为什么错：</b>这一行没有出路。晶振没起振（虚焊、负载电容不对、晶振坏、板子上没焊）时，程序会永远停在这里。<b>看起来的现象是「板子完全没反应」——没有打印、没有 LED、连下载器都可能连不上</b>，于是你把时间花在换下载器、重装驱动、怀疑工程配置上。</p>
+            <p class="mt-2"><b>正确做法：</b>每处「等待 RDY」都必须有超时判据（参考 <code class="icode">HSE_STARTUP_TIMEOUT</code> 的做法：计数 → 用尽 → 关源 → 降级 → 上报）。用 HAL 就检查 <code class="icode">HAL_RCC_OscConfig()</code> 的返回值，并把默认的 <code class="icode">Error_Handler()</code> 改成 LED 闪码或打印。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">错误认知 5：「Flash 等待周期是性能选项，配少了只是慢一点」</div>
+            <p><b>为什么错：</b>配少不是「慢」，是「错」。等待周期是「硬件答应你在这么多周期后才给数据」，你把等待周期设得比实际需要的小，Flash 就会在数据还没稳的时候就交出去——<b>取指结果错误、跳转地址错误、变量读到脏数据</b>，表现为「莫名跑飞」「程序走进不该进的 if」。</p>
+            <p class="mt-2"><b>正确做法：</b>严格按数据手册的 wait state 表设（3.3V：≤24MHz→0WS、≤48MHz→1WS、≤72MHz→2WS），并且<b>在升频之前就设好</b>；同时把预取打开（<code class="icode">FLASH_ACR.PRFTBE = 1</code>），它是 72MHz 能跑出性能的前提。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">错误认知 6：「SW 写了就切过去了，还有什么好看的」</div>
+            <p><b>为什么错：</b><code class="icode">SW</code> 只是「你的意愿」，<code class="icode">SWS</code> 才是「实际状态」。如果 PLL 没锁上（比如 PLLMUL 超范围、PLLSRC 选了个没起振的源），硬件会拒绝切换，<b>SW = 10 而 SWS 仍然是 00（HSI）</b>。此时你的代码以为自己跑在 72MHz，实际跑在 8MHz——串口乱码、定时器慢 9 倍，而所有寄存器看起来都「配对了」。</p>
+            <p class="mt-2"><b>正确做法：</b>切完必须回读 SWS 确认，并且带超时（HAL 的 <code class="icode">HAL_RCC_ClockConfig()</code> 内部就是这么做的，所以返回值一定要检查）。调试时用 MCO 量 SYSCLK，一眼就能看出 SWS 到底切没切过去。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">错误认知 7：「时钟在 main 里配一次就够了，之后它就一直是对的」</div>
+            <p><b>为什么错：</b>有三种情况会打破这个假设：<b>① 从 STOP/Standby 唤醒后，系统时钟会回到 HSI</b>（不再是你的 PLL 72MHz），不重新配置就会出现「休眠前正常、唤醒后乱码」；<b>② CSS 检测到 HSE 失效时会自动切到 HSI</b>；<b>③ 掉电/复位后从 HSI 重新起步</b>。这三种情况都不是「出故障」，而是芯片的正常行为。</p>
+            <p class="mt-2"><b>正确做法：</b>把「配置时钟」写成一个可以反复调用的函数（如 <code class="icode">SystemClock_Config()</code>），并在每个可能改变时钟状态的事件之后调用一次：<b>唤醒后、CSS 中断里、复位流程里</b>。更稳的做法是让自检函数常驻——每次状态切换后跑一遍，频率不对就上报。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">错误认知 8：「外设时钟使能位无所谓，CubeMX/库会帮我开」</div>
+            <p><b>为什么错：</b>库确实会在初始化函数里帮你开<b>它自己那个</b>外设的时钟，但有两类位是「库不会帮你开，忘了就完全没反应」的：<b><code class="icode">AFIOEN</code></b>（配外部中断、引脚重映射、<code class="icode">AFIO_MAPR</code> 时必须先开）和 <b><code class="icode">PWREN</code></b>（改 <code class="icode">PWR_CR</code>、用低功耗模式、开备份域写保护 <code class="icode">PWR_CR.DBP</code> 时必须先开）。它们缺了的表现就是那句经典的「<b>寄存器写了，但一点反应都没有</b>」。</p>
+            <p class="mt-2"><b>正确做法：</b>养成「写某个寄存器之前，先确认它的时钟开了」的条件反射（第 2 节三张 ENR 位表就是给你查这个的）。排查「写了没反应」时，<b>第一件事就是查 ENR</b>，第二件事才是查位域写错没有。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">错误认知 9：「ADC 采样不准是 ADC 的事，跟时钟没关系」</div>
+            <p><b>为什么错：</b>ADC 的时钟来自 <code class="icode">PCLK2</code> 经过 <code class="icode">ADCPRE</code> 分频，<b>上限 14MHz</b>（F103）。PCLK2 = 72MHz 时只能选 ÷6（12MHz）或 ÷8（9MHz）；如果按印象选了 ÷4，得到 18MHz——超限运行会让采样结果偏小、不稳、随温度漂。另外 ADC 的「采样时间」是按 ADC 时钟周期数的，时钟不对，采样时间就不对。</p>
+            <p class="mt-2"><b>正确做法：</b>把 ADC 时钟算出来写进注释（<code class="icode">PCLK2 ÷ ADCPRE = 12MHz</code>），并在自检里核对它是否 ≤14MHz。第 3 节代码三的自检函数已经把这一项加进去了——<b>这类「跨模块的硬约束」，只有写进自检才有机会被发现。</b></p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">错误认知 10：「RTC 走时不准是 RTC 配置问题；MCO 是高级功能，我用不上」</div>
+            <p><b>为什么错（前半句）：</b>RTC 走时不准最常见的原因是<b>时钟源不对</b>：LSE（32.768kHz 晶振）没起振，代码回退到 LSI（约 40kHz，且随温度和电压漂 ±50% 量级），一天能差出几十分钟。这时你改 RTC 的分频寄存器是白费力气——<b>要去查 LSE 起没起振</b>（先看 <code class="icode">RCC_BDCR.LSERDY</code>，再用 MCO 把 LSE 输出到 PA8 量一量）。</p>
+            <p class="mt-2"><b>为什么错（后半句）：</b>MCO 不是高级功能，它是<b>唯一一个不依赖任何软件的时钟验证手段</b>。整篇文章讲的都是「怎么配」，而 MCO 是「怎么证明你配对了」。一个引脚、两行代码，换来的排故效率远超它的成本。<b>把它当成必备的调试外设，而不是选修内容。</b></p>
+            <p class="mt-2"><b>正确做法：</b>RTC/看门狗这类「低功耗下也要活着」的功能，时钟必须是 LSE/LSI；上电自检里加上「LSE 是否就绪」这一项，并在硬件设计阶段就给它配好负载电容与走线（见 <a href="ee-pulse.html" class="text-brand-600 dark:text-brand-300 hover:underline">《脉冲波形的产生与整形》</a> 里的晶振排查清单）。</p>
+          </div>
+
+          </section>
+
+        <!-- ---------------------------- 6. 小结与自测 ---------------------------- -->
+        <section class="mt-14">
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自测</h2>
+
+          <p class="mt-4">这一篇的内容量不小，但真正的「骨架」只有几句话。先把要点收一遍，再做题——做题时如果卡住，回到对应小节重读，比看答案有用得多。</p>
+
+          <p class="mt-6 font-semibold text-ink">要点清单</p>
+
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li><b>时钟是芯片的节拍器</b>：所有波特率、定时、采样时间都是从它派生出来的。所以时钟错了，整个系统都错，而且错得「有规律」——通常成整数倍。</li>
+            <li><b>四个时钟源各有分工</b>：HSI 8MHz（内部的、精度差、但一定起振，是救命通道）、HSE 4~16MHz 晶振（精度高，正常工作的主源）、LSI 约 40kHz（独立看门狗和 RTC 的备用源）、LSE 32.768kHz（RTC 的正牌源）。</li>
+            <li><b>一主一备是核心思想</b>：所有配置流程都是「先试好源 → 失败退回坏源但一定能跑的源」；每一处等待都要有超时。</li>
+            <li><b>PLL 算式</b>：<code class="icode">SYSCLK = 输入源 ÷ (PLLXTPRE+1) × PLLMUL</code>；8MHz → ×9 = 72MHz，12MHz → ×6 = 72MHz，16MHz 要么 ÷2 再 ×9、要么只能到 64MHz。三条约束（输入 4~16MHz、输出 16~72MHz、SYSCLK ≤ 72MHz）必须同时成立。</li>
+            <li><b>标准 72MHz 分配</b>：HCLK = 72MHz（HPRE ÷1）、PCLK1 = 36MHz（PPRE1 ÷2）、PCLK2 = 72MHz（PPRE2 ÷1）、ADC = 12MHz（ADCPRE ÷6）。</li>
+            <li><b>定时器时钟那条 ×2 规则</b>：APB 预分频 = 1 → 定时器时钟 = PCLK；≠ 1 → 定时器时钟 = PCLK × 2。所以标准配置下<b>所有定时器都是 72MHz</b>。这是 PWM 频率算错的第一大原因。</li>
+            <li><b>寄存器三件套</b>：<code class="icode">RCC_CR</code> 管源的开关与就绪，<code class="icode">RCC_CFGR</code> 管选择与分频（<code class="icode">SW</code> 写、<code class="icode">SWS</code> 读），三个 <code class="icode">ENR</code> 管每个外设的时钟使能。<b>没有「默认开」的外设时钟。</b></li>
+            <li><b>Flash 等待周期是硬约束</b>：3.3V 下 0WS ≤24MHz、1WS ≤48MHz、2WS ≤72MHz；V<sub>DD</sub> 低于 2.7V 时上限还会下降。配错的后果是「取指错误、莫名跑飞」，不是「慢一点」。</li>
+            <li><b>切换顺序有讲究</b>：升频前先设 Flash 等待周期、先设好各级分频；切 <code class="icode">SW</code> 之后必须回读 <code class="icode">SWS</code>；降回安全源并确认之后，才能关掉旧源。</li>
+            <li><b>CubeMX 界面 ↔ 寄存器是一一对应的</b>，它还是个很好的时钟计算器；但生成的时钟配置不要手改（会被覆盖、会破坏联动）。要改就回 CubeMX 改。</li>
+            <li><b>验证四招</b>：MCO 输出到 PA8 用示波器量（硬件证据）、SysTick 已知延时反推、定时器 1 秒方波 + 秒表、打印三个频率（<code class="icode">HAL_RCC_GetSysClockFreq/GetHCLKFreq/GetPCLK1Freq</code>）。<b>最该养成的习惯是最后一条——上电先打印三个频率。</b></li>
+            <li><b>外设时钟速查</b>：GPIO 全在 APB2；USART1 在 APB2，USART2/3 在 APB1；TIM1/8 在 APB2，TIM2~7 在 APB1；ADC 在 APB2；DMA 在 AHB。<b>关掉不用的外设时钟是最省事的省电手段。</b></li>
+            <li><b>低功耗下高速时钟全停</b>：STOP/Standby 只保留 LSI/LSE；从 STOP 唤醒后系统时钟回到 HSI，必须重新配置 PLL——否则「唤醒后串口乱码」会来找你。</li>
+            <li><b>故障定位有一条捷径</b>：先把本文第 3 节的「症状 → 原因」对照表过一遍。串口乱码 = 时钟假设与 BRR 错配；PWM 差一倍 = 漏了 ×2；程序完全不跑 = 卡在没有超时的 <code class="icode">while</code> 里；延时不准 = SysTick 时钟源或重载值不对；ADC 不稳 = ADCPRE 超限；RTC 走时不准 = LSE 没起振退回了 LSI。</li>
+          </ol>
+
+          <p class="mt-6 font-semibold text-ink">72MHz 标准配置总表（可直接抄）</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>项目</th><th>取值</th><th>对应的寄存器位</th><th>结果频率</th></tr></thead>
+              <tbody>
+                <tr><td>HSE 晶振</td><td>8MHz</td><td><code class="icode">RCC_CR.HSEON</code> → 等 <code class="icode">HSERDY</code></td><td>8MHz</td></tr>
+                <tr><td>PLL 输入源</td><td>HSE</td><td><code class="icode">RCC_CFGR.PLLSRC = 1</code></td><td>8MHz</td></tr>
+                <tr><td>HSE 预分频</td><td>÷1</td><td><code class="icode">RCC_CFGR.PLLXTPRE = 0</code></td><td>8MHz</td></tr>
+                <tr><td>PLL 倍频</td><td>×9</td><td><code class="icode">RCC_CFGR.PLLMUL = 0111</code></td><td>72MHz</td></tr>
+                <tr><td>系统时钟源</td><td>PLL</td><td><code class="icode">RCC_CFGR.SW = 10</code> → 回读 <code class="icode">SWS = 10</code></td><td>SYSCLK 72MHz</td></tr>
+                <tr><td>AHB 预分频</td><td>÷1</td><td><code class="icode">RCC_CFGR.HPRE = 0000</code></td><td>HCLK 72MHz</td></tr>
+                <tr><td>APB1 预分频</td><td>÷2</td><td><code class="icode">RCC_CFGR.PPRE1 = 0100</code></td><td>PCLK1 36MHz</td></tr>
+                <tr><td>APB2 预分频</td><td>÷1</td><td><code class="icode">RCC_CFGR.PPRE2 = 0000</code></td><td>PCLK2 72MHz</td></tr>
+                <tr><td>ADC 预分频</td><td>÷6</td><td><code class="icode">RCC_CFGR.ADCPRE = 10</code></td><td>ADC 12MHz</td></tr>
+                <tr><td>Flash 等待周期</td><td>2WS + 预取</td><td><code class="icode">FLASH_ACR = LATENCY 010 | PRFTBE 1</code></td><td>—</td></tr>
+                <tr><td>定时器时钟（TIM1~TIM8）</td><td>—</td><td>APB2 预分频 = 1 → 不 ×2；APB1 预分频 ≠ 1 → ×2</td><td>全部 72MHz</td></tr>
+                <tr><td>整组 <code class="icode">RCC_CFGR</code></td><td colspan="3"><code class="icode">0x001D8402</code>（可以用这个值反查以上所有项）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">自测题（先自己算，再看答案）</p>
+
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>板上晶振 8MHz，请写出把 SYSCLK 配到 72MHz 所需的 <code class="icode">PLLSRC</code>、<code class="icode">PLLXTPRE</code>、<code class="icode">PLLMUL</code> 三个字段的取值，并说明为什么要校验三条约束。</li>
+            <li>某工程里 <code class="icode">RCC-&gt;CFGR = 0x001D8402</code>。请反查出它的 SYSCLK、HCLK、PCLK1、PCLK2 和 PLLMUL。</li>
+            <li>TIM3 挂在 APB1 上，<code class="icode">PPRE1 = ÷4</code>（PCLK1 = 18MHz）。TIM3 的计数时钟是多少？要输出 2kHz PWM，PSC 与 ARR 怎么取（要求占空比分辨率不低于 0.1%）？</li>
+            <li>换成 12MHz 晶振，想跑 72MHz，PLLMUL 取几？如果误配成 ×5，SYSCLK 是多少、偏差多少？串口（BRR 按 72MHz 算死）会怎样？</li>
+            <li>系统供电 2.4V，你仍然把 SYSCLK 配成 72MHz、<code class="icode">FLASH_ACR.LATENCY = 2</code>。有什么问题？应该怎么改？</li>
+            <li>MCO 配成 <code class="icode">111</code>（PLL ÷ 2），示波器量到 18MHz。请说明 PLL 的实际输出是多少，以及最可能的配置错误。</li>
+            <li>为什么 72MHz 下必须用 2 个 Flash 等待周期？而 2WS 又为什么对应「平均 1.5 个周期/指令」？</li>
+            <li>代码里写了 <code class="icode">GPIOB-&gt;CRL |= 0x3;</code> 想让 PB0 变推挽输出，但用万用表测 PB0 一直没反应。你第一时间查什么？为什么 AFIO 和 PWR 这两个时钟要单独记住？</li>
+          </ol>
+
+          <p class="mt-6 font-semibold text-ink">参考答案</p>
+
+          <p class="mt-3"><b>第 1 题：</b><code class="icode">PLLSRC = 1</code>（选 HSE）、<code class="icode">PLLXTPRE = 0</code>（8MHz 在 4~16MHz 内，不用除 2）、<code class="icode">PLLMUL = 0111</code>（×9，72 ÷ 8 = 9）。
+          校验三条约束是因为它们分别限制「PLL 的输入」「PLL 的输出」「系统的输出」，任何一条越界，硬件都可能拒绝锁定或工作不稳定——而且很多时候不会报错，只会「看起来能跑」。</p>
+
+          <p class="mt-3"><b>第 2 题：</b>按位拆开：<code class="icode">SW = 10</code>（PLL）、<code class="icode">SWS</code> 忽略、<code class="icode">HPRE = 0000</code>（÷1）、<code class="icode">PPRE1 = 100</code>（÷2）、<code class="icode">PPRE2 = 000</code>（÷1）、<code class="icode">ADCPRE = 10</code>（÷6）、<code class="icode">PLLSRC = 1</code>（HSE）、<code class="icode">PLLXTPRE = 0</code>、<code class="icode">PLLMUL = 0111</code>（×9）。于是 SYSCLK = 8 × 9 = <b>72MHz</b>，HCLK = <b>72MHz</b>，PCLK1 = <b>36MHz</b>，PCLK2 = <b>72MHz</b>，PLLMUL 为 <b>×9</b>。</p>
+
+          <p class="mt-3"><b>第 3 题：</b><code class="icode">PPRE1 = ÷4 ≠ 1</code> → <code class="icode">TIM3CLK = PCLK1 × 2 = 18 × 2 = 36MHz</code>。
+          2kHz 要求 <code class="icode">(PSC+1) × (ARR+1) = 36 000 000 ÷ 2000 = 18000</code>；取 <code class="icode">PSC = 17</code>（÷18）、<code class="icode">ARR = 999</code>（÷1000），验算 <code class="icode">36 000 000 ÷ (18 × 1000) = 2000Hz</code> ✓，占空比分辨率 1/1000 = 0.1% ✓。（若取 <code class="icode">PSC = 0</code>，<code class="icode">ARR = 17999</code> 已经超过 16 位上限 65535 的一半但仍合法——不过分辨率与灵活性不如上面的组合。）</p>
+
+          <p class="mt-3"><b>第 4 题：</b>12MHz 在 4~16MHz 内，不用除 2，<code class="icode">PLLMUL = 6</code>（编码 <code class="icode">0100</code>），得到 72MHz。
+          误配 ×5 → SYSCLK = <b>60MHz</b>，偏差 = (60 − 72) ÷ 72 = <b>−16.7%</b>。
+          串口：BRR 按 72MHz 写死（<code class="icode">0x271</code>），实际 PCLK2 = 60MHz → 实际波特率 = 60 000 000 ÷ 625 = <b>96 000 bps</b>，偏差 −16.7%，远超容差 → <b>乱码</b>。（如果 <code class="icode">HAL_UART_Init()</code> 在时钟配置之后调用、BRR 按实际 PCLK2 重算，串口反而是正常的。）</p>
+
+          <p class="mt-3"><b>第 5 题：</b>问题在于电压，而且这一档不是一个整体：<b>2.4~2.7V</b> 区间 2WS 只支持到 <b>48MHz</b>（0WS ≤16MHz、1WS ≤32MHz、2WS ≤48MHz），再低一档 <b>2.0~2.4V</b> 就只有 <b>8/16/24MHz</b>（0WS ≤8MHz、1WS ≤16MHz、2WS ≤24MHz）。跑 72MHz 属于<b>取指时序不足</b>，会出现随机的取指错误、跑飞、HardFault；而且这个区间没有更高的等待周期档可用。
+          正确做法：<b>要么把 SYSCLK 降到 ≤48MHz（同时按实际频率下调 Flash 等待周期），要么把供电电压提到 2.7V 以上</b>。另外降压时还要注意 PLL 与 Flash 的工作电压范围，别只看主频。</p>
+
+          <p class="mt-3"><b>第 6 题：</b>MCO 输出的是 PLL ÷ 2，量到 18MHz → <b>PLL 实际输出 = 36MHz</b>，而不是预期的 72MHz。
+          最可能的原因：<code class="icode">PLLSRC</code> 选成了 HSI/2（4MHz × 9 = 36MHz）——也就是 <code class="icode">PLLSRC = 0</code>，晶振根本没被用上。次可能：<code class="icode">PLLXTPRE</code> 被设成了 ÷2（8 ÷ 2 × 9 = 36MHz）。两种情况都用「读 <code class="icode">RCC-&gt;CFGR</code> 的 PLLSRC / PLLXTPRE 位」或「再用 MCO 量一次 HSE（应为 8MHz）」来区分。</p>
+
+          <p class="mt-3"><b>第 7 题：</b>因为 Flash 的访问时间跟不上 72MHz：一次取指需要 1 个访问周期 + LATENCY 个等待周期。72MHz 时必须 LATENCY = 2，于是<b>一次 Flash 访问要 3 个 HCLK 周期</b>；而 32 位的指令总线上一次能装下 <b>2 条 16 位 Thumb 指令</b>，所以 3 ÷ 2 = <b>1.5 个周期/指令</b>（这是顺序执行 + 预取命中的理想值，分支密集时会变差）。</p>
+
+          <p class="mt-3"><b>第 8 题：</b>第一时间查 <b><code class="icode">RCC_APB2ENR.IOPBEN</code> 是否为 1</b>——GPIOB 挂在 APB2 上，时钟没开的话对 <code class="icode">GPIOB-&gt;CRL</code> 的写操作<b>根本不会落到寄存器里</b>（读回来还是 0），现象就是「写了没反应」。
+          AFIO 和 PWR 要单独记住，是因为它们不属于「某个外设自己的时钟」，而是<b>配置类功能的开关</b>：AFIO 管外部中断线（EXTI）、引脚重映射、<code class="icode">AFIO_MAPR</code>；PWR 管 <code class="icode">PWR_CR</code>（低功耗模式、调压器）和备份域写保护 <code class="icode">DBP</code>（不开它，改 <code class="icode">RCC_BDCR</code> 配 RTC 会被静默拒绝）。这两类操作看起来和「时钟」没关系，所以最容易漏，而且在 CubeMX 工程里也常常需要手动补 <code class="icode">__HAL_RCC_AFIO_CLK_ENABLE()</code> / <code class="icode">__HAL_RCC_PWR_CLK_ENABLE()</code>。</p>
+
+          <p class="mt-6 font-semibold text-ink">练习（建议动手做一遍）</p>
+
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>在你自己的板子上把 MCO 依次配成 <code class="icode">100</code>（SYSCLK）、<code class="icode">110</code>（HSE）、<code class="icode">111</code>（PLL ÷ 2），各量一次频率，并把量到的值与 <code class="icode">HAL_RCC_GetSysClockFreq()</code> 的打印值做成一张对照表。这张表以后就是你的排故基线。</li>
+            <li>把第 4 节代码三的 <code class="icode">clock_selfcheck()</code> 移植进一个能跑的工程，然后<b>故意把 <code class="icode">PLLMUL</code> 从 ×9 改成 ×8</b>，观察自检报告和 LED 报警；改回来再跑一次，记录两次输出的差异。这一步能让你真正体会「有自检」和「没自检」的差距。</li>
+            <li>用 DWT 那段代码测同一段空循环，在两种条件下各测一次：① 72MHz + <code class="icode">FLASH_LATENCY_2</code> + 预取开；② 降到 24MHz + <code class="icode">FLASH_LATENCY_0</code> + 预取开。解释两次测得的「每条指令周期数」为什么不同（提示：不同频率下 Flash 等待周期占的比例不同）。</li>
+            <li>做一个「晶振失效」实验：把 <code class="icode">PLLXTPRE</code>、或者干脆让 HSE 起不来（比如把晶振一脚悬空，注意别损坏板子），验证你代码里的 HSE 超时回退路径是否真的生效——<b>并通过 LED 闪码或打印把「已降级到 HSI」这件事上报出来</b>。如果程序卡死了，说明你的 <code class="icode">while</code> 还缺超时。</li>
+            <li>用 TIM4 输出 1Hz 更新中断翻转 LED，用秒表验证「10 个完整亮灭循环 = 20 秒」；然后把 <code class="icode">PPRE1</code> 从 ÷2 改成 ÷4，重新测量并解释时间为什么翻倍（提示：<code class="icode">TIM4CLK</code> 从 72MHz 变成 36MHz）。</li>
+          </ol>
+
+          <div class="callout callout-tip mt-6">
+            <div class="callout-title">下一篇：把时钟配好之后，让中断也能按你的意思排队</div>
+            <p>时钟是一切外设的节拍源，而中断是「事件驱动的骨架」。下一篇 <a href="adv-stm32-nvic.html" class="text-brand-600 dark:text-brand-300 hover:underline">《STM32 中断系统与 NVIC 优先级》</a>会接着往下讲：NVIC 的优先级分组、抢占与响应、中断嵌套、
+            以及「为什么我的中断进不去 / 中断里不该做什么」这些和时钟同样高频的实战问题。</p>
+            <p class="mt-2">最后留一句话给你：<b>时钟这块知识的特点，是「学的时候觉得枯燥，错的时候觉得致命」。</b>它不像点灯那样立刻有成就感，但它是你后面所有实验的地基。把「上电先打印三个频率」变成习惯，你就已经比大多数人稳了。</p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="core-debug.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">调试方法与工具</p>
+          </a>
+          <a href="adv-stm32-nvic.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：继续深入 STM32 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">STM32 中断系统与 NVIC 优先级</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

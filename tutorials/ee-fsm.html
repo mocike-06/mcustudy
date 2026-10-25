@@ -1,0 +1,3589 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>有限状态机：从状态图到单片机程序 - McuStudy</title>
+  <meta name="description" content="知识体系第 18 篇（阎石《数字电子技术基础》第 6 版 第 6 章 + 数字系统设计）：为什么裸机程序终究要写成状态机、状态机的三要素与状态图/状态表/状态转移方程/输出方程四种描述、Moore 与 Mealy 的严格区别（输出会不会跟着输入抖动）、二进制/格雷/独热三种状态编码的权衡、等价状态与隐含表化简、用 D 触发器实现 FSM 的六步流程、建立保持时间如何决定最高时钟频率、非法状态的危害与四层防御、亚稳态与打两拍、HDL 一段式/两段式/三段式的取舍；含「1011」序列检测器与交通灯的完整设计，以及可直接编译的按键四事件状态机、串口帧解析、AT 指令超时重试、时间片轮转调度器 C 代码。">
+  <meta name="keywords" content="有限状态机,FSM,状态图,状态表,状态转移方程,输出方程,次态方程,Moore,Mealy,状态编码,二进制编码,格雷码,独热码,one-hot,状态化简,等价状态,隐含表,D触发器,激励方程,卡诺图,建立时间,保持时间,最高时钟频率,异步复位,同步复位,非法状态,安全编码,自恢复,看门狗,亚稳态,打两拍,三段式,状态寄存器,按键状态机,消抖,短按,长按,双击,millis,溢出,串口协议解析,AT指令,超时重试,时间片轮转,调度器,RTOS,可测试性">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">有限状态机：从状态图到单片机程序</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          有限状态机：从状态图到单片机程序
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          上一篇给电路装上了<b class="font-semibold text-ink">记忆</b>——触发器能记住一位了。但记住一位只是原材料：真正让单片机「活」起来的，是<b class="font-semibold text-ink">一串有先后、有分支、还带记忆的行为</b>。闪灯要 1 秒一次、按键按下要立刻响应、串口随时可能来一包数据、看门狗要按时喂——这几件事在时间上<b>没有先后顺序</b>，而你的程序是一条线。冲突就出在这里：那个「有时候按键不灵」「偶尔丢一包数据」「加个需求就改得到处都是」的根源，几乎都是同一个东西——<b class="font-semibold text-ink">你的程序需要记住自己走到哪一步了，但你没有给这个「记住」一个好名字</b>。这一篇讲的就是那个名字，以及它背后一整套从阎石教材一直通到 STM32 的 <code class="icode">switch</code> 语句的方法。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="badge-brand">学科基础</span>
+          <span class="stat-pill">第 1 层 · 数字电子技术</span>
+          <span class="stat-pill">第 <b>18</b> 篇</span>
+          <span class="stat-pill">教材：<b>阎石 第 6 章</b></span>
+          <span class="stat-pill">平台：<b>51 / STM32 通用</b></span>
+          <span class="stat-pill">阅读约 <b>45</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-elements">三要素与四种描述方式</a>
+          <a class="toc-link is-sub" href="#sub-moore-mealy">Moore 与 Mealy 的严格区别</a>
+          <a class="toc-link is-sub" href="#sub-encoding">状态编码：二进制 / 格雷 / 独热</a>
+          <a class="toc-link is-sub" href="#sub-illegal">非法状态：危害与四层防御</a>
+          <a class="toc-link is-sub" href="#sub-reduce">状态化简：等价状态与隐含表</a>
+          <a class="toc-link is-sub" href="#sub-design">用 D 触发器实现一个 FSM</a>
+          <a class="toc-link is-sub" href="#sub-timing">时序约束、复位与亚稳态</a>
+          <a class="toc-link is-sub" href="#sub-hdl">三种写法：一段式 / 两段式 / 三段式</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link is-sub" href="#calc-detect">例一：「1011」序列检测器</a>
+          <a class="toc-link is-sub" href="#calc-traffic">例二：交通灯状态机</a>
+          <a class="toc-link is-sub" href="#calc-reduce">例三：隐含表化简与编码对比</a>
+          <a class="toc-link is-sub" href="#calc-fmax">例四：最高时钟频率预算</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#mcu-block">阻塞闪灯 vs 状态机闪灯</a>
+          <a class="toc-link is-sub" href="#mcu-key">按键状态机：消抖 / 短按 / 长按 / 双击</a>
+          <a class="toc-link is-sub" href="#mcu-uart">串口协议解析：逐字节喂状态机</a>
+          <a class="toc-link is-sub" href="#mcu-at">AT 指令交互：超时与重试</a>
+          <a class="toc-link is-sub" href="#mcu-slice">时间片轮转：最简调度器</a>
+          <a class="toc-link is-sub" href="#mcu-rtos">状态机与 RTOS 的关系</a>
+          <a class="toc-link is-sub" href="#mcu-test">可测试性：把状态机从硬件里拆出来</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-elements">三要素与四种描述方式</a>
+            <a class="toc-link is-sub" href="#sub-moore-mealy">Moore 与 Mealy 的严格区别</a>
+            <a class="toc-link is-sub" href="#sub-encoding">状态编码：二进制 / 格雷 / 独热</a>
+            <a class="toc-link is-sub" href="#sub-illegal">非法状态：危害与四层防御</a>
+            <a class="toc-link is-sub" href="#sub-reduce">状态化简：等价状态与隐含表</a>
+            <a class="toc-link is-sub" href="#sub-design">用 D 触发器实现一个 FSM</a>
+            <a class="toc-link is-sub" href="#sub-timing">时序约束、复位与亚稳态</a>
+            <a class="toc-link is-sub" href="#sub-hdl">三种写法：一段式 / 两段式 / 三段式</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link is-sub" href="#calc-detect">例一：「1011」序列检测器</a>
+            <a class="toc-link is-sub" href="#calc-traffic">例二：交通灯状态机</a>
+            <a class="toc-link is-sub" href="#calc-reduce">例三：隐含表化简与编码对比</a>
+            <a class="toc-link is-sub" href="#calc-fmax">例四：最高时钟频率预算</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#mcu-block">阻塞闪灯 vs 状态机闪灯</a>
+            <a class="toc-link is-sub" href="#mcu-key">按键状态机：消抖 / 短按 / 长按 / 双击</a>
+            <a class="toc-link is-sub" href="#mcu-uart">串口协议解析：逐字节喂状态机</a>
+            <a class="toc-link is-sub" href="#mcu-at">AT 指令交互：超时与重试</a>
+            <a class="toc-link is-sub" href="#mcu-slice">时间片轮转：最简调度器</a>
+            <a class="toc-link is-sub" href="#mcu-rtos">状态机与 RTOS 的关系</a>
+            <a class="toc-link is-sub" href="#mcu-test">可测试性：把状态机从硬件里拆出来</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先说三个现场，你对号入座一下：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">现场一：</b>你写了一个「闪灯 + 按键切换模式」的程序。<code class="icode">LED</code> 用 <code class="icode">delay_ms(1000)</code> 一闪一闪，主循环里再读一下按键。结果按键得按好几下才偶尔灵一次，按快了完全没反应。你换了个按键、换了根线、换了上下拉电阻，都没用。</li>
+            <li><b class="font-semibold text-ink">现场二：</b>你写了个串口收包程序，协议是 <code class="icode">AA 55 + 长度 + 数据 + 校验 + 0D</code>。你的思路是「等一整包收完再解析」。实验室里单步调试一切正常，一上真实设备就丢包，而且丢得毫无规律。你在串口助手里看数据是完整的，程序却经常报校验错。</li>
+            <li><b class="font-semibold text-ink">现场三：</b>你写了个「先自检、再等待、再测量、再上传、失败就重试」的流程，用一堆 <code class="icode">if (step == 1) … else if (step == 2) …</code> 垒起来。它能跑，但加一个「重试三次」的需求，你要改五个地方；加一个「测量超时就报警」，又要再改三个地方。到后来你自己都不敢动它了。</li>
+          </ul>
+
+          <p class="mt-3">这三个现场表面上毫不相干，根子是同一个：<b class="font-semibold text-ink">你的程序需要「记住自己走到哪一步了」，但你没有给这个「记住」一个好名字，也没有把它画出来。</b></p>
+
+          <h3 class="mt-7 text-base font-semibold">顺序执行的直觉是从哪来的，什么时候开始失效</h3>
+
+          <p class="mt-3">你学 C 语言的时候，脑子里建立的程序模型是<b class="font-semibold text-ink">「一条线」</b>：从 <code class="icode">main</code> 的第一行开始，一行一行往下走，走到底再回到开头。老师反复强调「程序是顺序执行的」，这个模型在「只做一件事」的时候完美够用——点亮一个 LED、打印一句话、读一次 ADC，都是这条线上的几段。</p>
+
+          <p class="mt-3">但只要需求里出现「同时」两个字，这条线就断了。想一想一个最普通的作品需求：<b>LED 每 500ms 翻转一次、按键按下立刻改变模式、串口随时可能来数据、看门狗每秒要喂一次。</b>这四件事在时间上<b>没有先后顺序</b>——串口数据不会等你闪完灯再来，按键也不会提前通知你它要什么时候按下。它们是<b class="font-semibold text-ink">并发</b>的，而你的程序是一条线。</p>
+
+          <h3 class="mt-7 text-base font-semibold">阻塞 1 秒 = 这一秒里世界消失了</h3>
+
+          <p class="mt-3">把现场一的代码写出来，问题一目了然：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="blocking_blink.c —— 看起来没问题的阻塞式闪灯">
+            <pre><code>/* 版本 A：阻塞式闪灯 —— 15 行，编译通过，LED 也确实在闪 */
+while (1)
+{
+    LED_Write(0);
+    delay_ms(1000);          /* ← CPU 在这里等满 1000ms，什么都不做 */
+    LED_Write(1);
+    delay_ms(1000);          /* ← 又等满 1000ms */
+
+    if (KEY_Read() == 0)     /* 每 2000ms 才有一次机会看按键 */
+    {
+        mode = (mode + 1) % 3;
+    }
+}</code></pre>
+          </div>
+
+          <p class="mt-3">数一下时间：主循环一圈 <b>2000ms</b>，也就是说你每 <b>2 秒</b>才有一次机会看按键。而人手按一下键的持续时长，松松地按大约 <b>100ms</b>（按得干脆的人 60~80ms，犹豫的人 150ms 以上）。那么：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="算一算：为什么按键「大概率」不灵">
+            <pre><code>【时间轴：一个 2000ms 的主循环】
+
+  0ms      500ms     1000ms    1500ms    2000ms    2500ms
+   │         │         │         │         │         │
+   ├─ 亮 LED ─┼──── delay(1000) ─────┤        │         │
+   │         │         │         │         │         │
+   │         │         │      灭 LED → delay(1000) ────┤
+   │         │         │         │         │         │
+   ▼         ▼         ▼         ▼         ▼         ▼
+             ↑↑↑↑↑↑↑↑                        ↑↑↑↑
+           按键按下又松开                   又一次按下
+           （宽约 100ms）                 （宽约 100ms）
+
+   ★ 按键的整个「按下 → 松开」过程，全部发生在 delay 里面。
+     CPU 那一秒什么都没看见 —— 不是没响应，是根本没采样。
+
+【捕获概率】
+   采样周期       = 2000ms（主循环一圈）
+   按键持续时间   = 100ms
+   捕获概率       = 100 / 2000 = 5%
+   → 100 次按键，约 95 次被丢掉。
+   → 你感觉到的「按好几下灵一下」，正是 5% 该有的样子。
+
+【结论：这不是「偶发不灵」，这是「大概率不灵」】
+   你以为是按键硬件的问题、是上拉电阻的问题、是去抖的问题，
+   实际上你把采样率降到了 0.5Hz —— 而按键是一个 10Hz 量级的信号。
+   采样率低于信号变化率时，丢失是必然的，与硬件无关。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">「世界消失了」这句话是字面意思</div>
+            <p>在 <code class="icode">delay_ms(1000)</code> 的这一秒里，消失的不只是按键。<b>这一秒内到达的串口数据，如果没开中断/DMA，硬件接收寄存器被下一个字节覆盖，直接丢掉</b>（STM32 上表现为 ORE 溢出错误标志置位）；<b>这一秒内按下的按键，你永远不知道它存在过</b>；如果看门狗窗口设得比这一秒短，芯片还会直接复位。所以阻塞式代码的问题从来不是「慢」，而是<b>在这段时间里，程序对世界是完全瞎的、聋的</b>。</p>
+            <p class="mt-2">一个具体的数字：9600 波特率下，一个字节（含起始位和停止位共 10 位）需要 10 / 9600 ≈ <b>1.04ms</b> 才能传完。也就是说，STC89C52 或 STM32 的硬件在 1ms 内就能收到一个新字节。只要你的程序有 2ms 没去读，就一定会丢。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">思维转变：从「一条线」到「一张图」</h3>
+
+          <p class="mt-3">状态机带来的第一个改变不是代码技巧，而是<b class="font-semibold text-ink">你看程序的方式</b>。顺序执行的程序是一条线，CPU 的位置就是你正在执行的那一行；状态机的程序是一张图，CPU 的位置是<b>「我停在哪个状态上等事件」</b>。时间不再是 <code class="icode">delay</code> 出来的，而是事件到达时才产生意义的。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>你在想的问题</th><th>顺序执行的答案</th><th>状态机的答案</th></tr></thead>
+              <tbody>
+                <tr><td>程序是什么形状</td><td>一条线，从头走到尾</td><td>一张图，状态是节点、事件是边</td></tr>
+                <tr><td>CPU 现在在哪</td><td>正在执行第几行</td><td>停在哪个状态上等事件</td></tr>
+                <tr><td>时间怎么过去</td><td>用 <code class="icode">delay</code> 硬等出来</td><td>时间戳一到就产生一个「超时事件」</td></tr>
+                <tr><td>怎么处理「同时」</td><td>做不到，只能排成一队</td><td>天然支持：每个状态只关心自己的事件</td></tr>
+                <tr><td>按键不灵时怎么查</td><td>单步调试，看变量值</td><td>把状态图摊开，问「这条边我考虑了吗」</td></tr>
+                <tr><td>加一个需求要改几处</td><td>散落在各处的条件判断，到处都要改</td><td>加一个状态、加几条边，改动是局部的</td></tr>
+                <tr><td>能不能画在纸上给别人看</td><td>不能（除非画流程图，但往往和代码不一致）</td><td>能，而且画出来的图<b>就是</b>代码的结构</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">五个信号：说明你其实已经在写状态机了</h3>
+
+          <p class="mt-3">状态机不是一个「你要去学的新东西」，而是把<b>你脑子里已经有的东西</b>画出来、说清楚、写对。下面五条命中任意一条，你就该停下来画图了：</p>
+
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">你声明了 <code class="icode">step</code>、<code class="icode">phase</code>、<code class="icode">state</code>、<code class="icode">mode</code> 这样的变量</b>来记「进行到哪一步了」。那个变量<b>就是</b>状态变量，你已经写出状态机了，只是没画出来、没穷举它的取值。</li>
+            <li><b class="font-semibold text-ink">你在纸上画了流程框图和箭头。</b>那些方框和箭头，就是状态图——只不过状态图有几个更严格的规矩（边必须标输入/输出、每个状态必须对每个输入都有去处），这些规矩正是让它变得可靠的原因。</li>
+            <li><b class="font-semibold text-ink">需求描述里出现「先…然后…如果…就回到…」。</b>有先后顺序、有分支、有记忆，这三样凑齐了就是状态机。</li>
+            <li><b class="font-semibold text-ink">你说过「这个按键有时候不灵」「偶尔丢一包数据」。</b>「有时候」「偶尔」这类词，在单片机里几乎永远指向同一个原因：<b>采样率不够或者状态漏了</b>。</li>
+            <li><b class="font-semibold text-ink">你修好一个 bug，另一个又冒出来。</b>这通常意味着状态之间的耦合藏在 <code class="icode">if/else</code> 的嵌套里，而你的脑子里没有一个统一的「现在处于哪个状态」的概念。</li>
+          </ol>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一条最实用的建议：先画图，再写代码</div>
+            <p>遇到新需求，<b>先用 5 分钟把状态图画在纸上</b>：圈出所有状态，给每条边写上「什么输入 / 什么输出」。画完之后你会发现两件事——<b>①有些需求你原来根本没想清楚（比如「长按的同时松手算不算短按」）；②有些状态是多余的。</b>这 5 分钟省下的，通常是几小时的调试。而如果你跳过这一步直接写 <code class="icode">if/else</code>，那些没想清楚的地方就会变成日后某个「偶尔出现」的 bug。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">为什么说它是「通用语言」：同一台状态机，两种载体</h3>
+
+          <p class="mt-3">这是状态机最值得学的一点：<b class="font-semibold text-ink">同一台状态机，在硬件里是一组 D 触发器加组合逻辑，在软件里是一个枚举变量加一条 switch 语句。载体完全不同，描述却一模一样。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="同一台状态机的两种载体">
+            <pre><code>【硬件里的状态机】                        【软件里的状态机】
+
+   ┌──────────────┐                        uint8_t state;
+   │  D 触发器组   │  ── 状态码 Q2Q1Q0      ↑ 就是这几个触发器
+   └──────┬───────┘                          （一个字节 = 8 个触发器）
+          │ 现态
+          ▼                                 switch (state)
+   ┌──────────────┐                        {
+   │  次态组合逻辑 │  ── 卡诺图化简出的方程   case ST_IDLE:
+   └──────┬───────┘                            if (按键按下) state = ST_DEBOUNCE;
+          │ 次态                               break;
+          │                                 case ST_DEBOUNCE:
+          └──────► 打回触发器（时钟沿）           ...
+                                            }
+   ┌──────────────┐
+   │  输出译码逻辑 │  ── 输出方程 Z = f(Q, X)    switch (state) { case ...: LED_Write(1); }
+   └──────────────┘
+
+   两者的对应关系：
+     现态      ↔  state 变量当前的值
+     次态方程  ↔  switch 里对 state 的赋值
+     状态转移  ↔  一次主循环 tick（或一个时钟沿）
+     输出方程  ↔  根据 state 驱动 IO / 发串口 / 动作
+     复位到初态 ↔  init 里写 state = ST_IDLE;</code></pre>
+          </div>
+
+          <p class="mt-3">所以学会画状态图，你同时得到三种能力：<b>能跟硬件工程师讨论</b>（他画的是同一张图）、<b>能跟提需求的人确认</b>（把图给他看，问他「这里松手算不算」）、<b>能把需求直接翻译成代码或电路</b>（图上的每条边就是一行代码或一个乘积项）。这就是「通用语言」的含义。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">阎石教材第 6 章和你的单片机代码是什么关系</div>
+            <p>教材第 6 章讲的是「同步时序逻辑电路的分析与设计」，那套流程——<b>画状态图 → 列状态表 → 状态化简 → 状态编码 → 写次态方程和输出方程 → 画卡诺图 → 连电路</b>——看起来非常像考试题，和写代码好像没关系。但请记住：<b>你写 <code class="icode">switch (state)</code> 的时候，编译器在后台做的正是同一件事的逆运算。</b>它把你的 case 分支翻译成跳转表或者一串比较，本质就是「根据现态和输入决定次态」。</p>
+            <p class="mt-2">更实际的关系是：<b>教材教会你的那套方法，是唯一能保证「不漏边」的方法。</b>随手写 <code class="icode">if/else</code>，你漏掉一条边自己都不知道；而按照状态表逐个格子填，漏了哪一格一眼就能看出来。所以本篇的安排是：第 2 节讲清语言和规矩，第 3 节手算几道题（体会「不漏边」是怎么做到的），第 4 节落到 STM32 的真实代码。</p>
+          </div>
+        </section>
+
+<!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="mt-14 text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节要把状态机的「语言」讲清楚。你会看到五样东西：<b class="font-semibold text-ink">三要素</b>（状态集合、输入集合、输出集合）、<b class="font-semibold text-ink">四种描述方式</b>（状态图 / 状态表 / 状态转移方程 / 输出方程）、<b class="font-semibold text-ink">两种流派</b>（Moore 与 Mealy）、<b class="font-semibold text-ink">三种编码</b>（二进制 / 格雷 / 独热）、以及<b class="font-semibold text-ink">两条可靠性防线</b>（非法状态治理、亚稳态同步）。这些东西看着多，其实是同一台机器的不同侧面。</p>
+
+          <h3 id="sub-elements" class="mt-7 text-base font-semibold">三要素与四种描述方式：同一台机器的四个侧面</h3>
+
+          <p class="mt-3">严格地说，一个有限状态机是一个五元组 <code class="icode">M = (S, I, O, δ, λ)</code>。但真正要你记住的是<b class="font-semibold text-ink">三要素 + 两个函数</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>符号</th><th>名字</th><th>含义</th><th>规模</th><th>在单片机代码里的对应物</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">S</td><td>状态集合</td><td>这台机器所有可能「停在哪里」的取值，通常记 S0, S1, S2…</td><td><b>有限</b>个（这就是「有限」状态机的意思）</td><td><code class="icode">enum</code> 里的每一个枚举值</td></tr>
+                <tr><td class="font-mono text-xs">I</td><td>输入集合</td><td>能让机器改变行为的外部事件，通常记 X</td><td>有限个（1 位输入就是 {0,1}）</td><td>按键电平、串口来的字节、超时标志</td></tr>
+                <tr><td class="font-mono text-xs">O</td><td>输出集合</td><td>机器对外产生的动作或信号，通常记 Z</td><td>有限个</td><td>点亮 LED、发一帧数据、置一个标志位</td></tr>
+                <tr><td class="font-mono text-xs">δ</td><td>次态函数（状态转移方程）</td><td>Q* 是「下一个状态」，是现态 Q 和输入 X 的函数：<code class="icode">Q* = δ(Q, X)</code></td><td>每个状态 × 每个输入都要有一条</td><td><code class="icode">switch</code> 里对 <code class="icode">next</code> 的赋值</td></tr>
+                <tr><td class="font-mono text-xs">λ</td><td>输出函数（输出方程）</td><td>Z 怎么算出来：Mealy 是 <code class="icode">Z = λ(Q, X)</code>，Moore 是 <code class="icode">Z = λ(Q)</code></td><td>—</td><td>根据 <code class="icode">state</code> 驱动 IO 的那几行</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">「有限」这两个字很关键：状态数必须是有限的，所以<a class="text-brand-600 dark:text-brand-300" href="ee-sequential.html">上一篇</a>讲的触发器正好是它的载体——<b>m 个触发器能表示 2<sup>m</sup> 个状态，这就是「有限」的物理来源</b>。</p>
+
+          <p class="mt-3">下面用一台最简单的机器把四种描述都写一遍。<b class="font-semibold text-ink">需求：串行输入一位一位地进来，当出现序列「10」（先来 1、再来 0）时输出一个脉冲。</b>先写 Mealy 版，两个状态就够：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="描述方式①：状态图（State Diagram）">
+            <pre><code>【Mealy 型「10」检测器 —— 状态图】
+
+  图例：圆圈 = 状态；箭头 = 转移；边上的标注 = 输入 X / 输出 Z
+        因为是 Mealy 型，输出写在【边】上（跟着转移发生）
+
+                    ┌──── X=0 / Z=0（自环）────┐
+                    │                          ▼
+              ╭───────────╮   X=1 / Z=0   ╭───────────╮
+     ────────►│    S0     │──────────────►│    S1     │◄─┐
+              │  还没见到 1│               │  已经见到 1│  │
+              ╰───────────╯◄──────────────╰───────────╯  │
+                             X=0 / Z=1             X=1 / Z=0
+                          （检测到「10」！）          （自环）
+
+  读图的三个要点：
+   ① 每个状态都要为【每一个可能的输入】准备一条出去的边 —— 
+      S0 有两条（X=0 自环、X=1 去 S1），S1 也有两条。
+      少画一条 = 状态机会卡死或行为未定义，这是新手最常犯的错。
+   ② 初始状态要标出来（这里用最左边的 ────────► 表示 S0 是初始态）。
+   ③ S0 的 X=0 是一条【自环】：输入来了，但状态不变。</code></pre>
+          </div>
+
+          <p class="mt-3">把这张图逐条抄进表格，就是第二种描述：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th colspan="3">描述方式②：状态表（State Table）—— Mealy 型</th></tr>
+              <tr><th>现态</th><th>X = 0：次态 / 输出</th><th>X = 1：次态 / 输出</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">S0（还没见到 1）</td><td>S0 / 0</td><td>S1 / 0</td></tr>
+                <tr><td class="font-mono text-xs">S1（已经见到 1）</td><td><b>S0 / 1</b> ← 检测到「10」</td><td>S1 / 0</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">状态表是四种描述里<b class="font-semibold text-ink">最重要的一种</b>，因为它是唯一「不会漏格」的形式：行数 = 状态数，列数 = 输入组合数，格子数是有限的，你可以用眼睛一格一格数过去，确认没有空格。状态图做不到这一点（你可以忘记画一条边而毫无察觉），代码也做不到（<code class="icode">if</code> 少写一个分支编译器不会提醒你）。</p>
+
+          <p class="mt-3">把状态表里的编码代进去，就得到第三种和第四种描述。先给状态编码：<code class="icode">S0 = 0</code>、<code class="icode">S1 = 1</code>（两个状态，一个触发器 Q 就够）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="描述方式③④：状态转移方程与输出方程">
+            <pre><code>【记号约定】本页用 X' 表示 X 取反（NOT X），用 · 表示逻辑与，用 + 表示逻辑或。
+            教材里 X' 写成 X 上面加一横，两种写法等价。
+
+【Mealy 型「10」检测器：1 个触发器 Q】
+
+  状态编码：  S0 → Q = 0        S1 → Q = 1
+
+  ① 状态转移方程（次态方程）    Q* = δ(Q, X)
+
+        把状态表的「次态」列抄出来，按编码换成 0/1：
+
+          现态 Q   X   →   次态 Q*
+          ────────┼───┼──────────
+             0     │ 0 │    0        （S0 --X=0--> S0）
+             0     │ 1 │    1        （S0 --X=1--> S1）
+             1     │ 0 │    0        （S1 --X=0--> S0）
+             1     │ 1 │    1        （S1 --X=1--> S1）
+
+        观察这张表：次态 Q* 的值和 Q 完全无关，永远等于 X。所以
+
+              Q* = X                        ← 状态转移方程
+
+        （这就是「1 个触发器」的实惠之处：D 端直接接输入线 X 就行了。）
+
+  ② 输出方程    Z = λ(Q, X)
+
+        输出 Z 什么时候是 1？只有在「现态 Q = 1 且 X = 0」这一格：
+
+              Z = Q · X'                    ← 输出方程
+
+【Moore 型「10」检测器：需要 3 个状态、2 个触发器】
+
+  Moore 型要求输出只由状态决定，所以「检测到 10」这件事
+  必须自己变成一个状态：
+
+        状态编码：S0 = 00（输出 0）、S1 = 01（输出 0）、S2 = 10（输出 1）
+
+          现态     输出 Z   X=0 → 次态   X=1 → 次态
+          ────────┼───────┼───────────┼───────────
+            00    │   0   │    00     │    01
+            01    │   0   │    10     │    01
+            10    │   1   │    00     │    01
+
+  状态转移方程（D2 = Q1*，D1 = Q0*，注意这里把位从高到低叫 Q1 Q0）：
+
+        D1 = Q0 · X'        （只有 01 遇到 X=0 这一格让 Q1 变成 1）
+        D0 = X · (Q1 · Q0)' （X=1 时次态的最低位是 1，
+                              但非法状态 11 要强制回 000，所以多乘一项）
+  输出方程：
+
+        Z = Q1 · Q0'        （只有状态 10 输出 1，与 X 无关）
+
+【把两版摆在一起看】
+
+                 状态数  触发器数  输出方程        输出什么时候变
+   ─────────────┼───────┼────────┼──────────────┼────────────────────
+   Mealy 版     │   2   │   1    │ Z = Q · X'    │ X 一变就跟着变
+   Moore 版     │   3   │   2    │ Z = Q1 · Q0'  │ 只在时钟沿之后变
+
+   同一个功能，Moore 版多花一个触发器，换来的是「输出与输入解耦」。
+   这个交易划不划算，就是下一小节的主题。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">四种描述方式的互相转换：三条机械规则</div>
+            <p><b>图 → 表：</b>一个状态一行，一个输入组合一列，把每条边上的「次态 / 输出」抄进对应格子。格子填不满就是漏了边。</p>
+            <p class="mt-2"><b>表 → 方程：</b>①先给状态编码；②把「次态」列按编码写成 0/1，得到状态转移表；③对每个触发器（每一位）单独画一张卡诺图，圈 1 得方程；④输出列同样处理。</p>
+            <p class="mt-2"><b>方程 → 图：</b>把每个状态码代进方程，逐个算「这个状态遇到 0 去哪、遇到 1 去哪」，画出来即可。这一步也常用来自检——<b>如果你的方程算出来的转移和原图不符，说明中间某一步抄错了。</b></p>
+          </div>
+
+          <h3 id="sub-moore-mealy" class="mt-7 text-base font-semibold">Moore 与 Mealy 的严格区别：输出到底依赖不依赖输入</h3>
+
+          <p class="mt-3">这是状态机里<b class="font-semibold text-ink">最需要分清、又最容易被含糊过去</b>的一对概念。严格定义只有一句话的差别：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>类型</th><th>输出方程</th><th>输出画在哪</th><th>电路上的含义</th></tr></thead>
+              <tbody>
+                <tr><td><b>Moore 型</b></td><td><code class="icode">Z = λ(Q)</code>，<b>只和现态有关</b></td><td>写在<b>圆圈里面</b>（状态名/输出）</td><td>输出 = 状态的译码 → 输出端<b>没有</b>输入信号的路径</td></tr>
+                <tr><td><b>Mealy 型</b></td><td><code class="icode">Z = λ(Q, X)</code>，<b>和现态、当前输入都有关</b></td><td>写在<b>箭头上面</b>（输入/输出）</td><td>输出 = 状态与输入的组合逻辑 → 输入信号能<b>穿透</b>到输出</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这个「一句话的差别」会引出一连串实际后果。用上面那台「10」检测器，喂同一串输入 <code class="icode">1 1 0 1 1 0</code>（每个时钟一位），把两版的波形画出来：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="同一串输入下，Mealy 与 Moore 的输出差别">
+            <pre><code>输入序列 X =  1    1    0    1    1    0        （每个时钟周期一位）
+
+时钟周期      T1   T2   T3   T4   T5   T6   T7
+──────────────────────────────────────────────────────────────
+输入 X         1    1    0    1    1    0    …
+──────────────────────────────────────────────────────────────
+【Mealy 版】1 个触发器
+现态 (进入本周期时)   S0   S1   S1   S0   S1   S1
+次态 (本周期结束时)   S1   S1   S0   S1   S1   S0
+输出 Z         0    0   (1)   0    0   (1)   …
+                          ↑                ↑
+                     T3 的「1」在 X 变成 0 的【那一刻】就出现，
+                     不等时钟沿；T4 的 X 一变回 1，它立刻消失。
+                     → 脉宽 = X 保持为 0 的那段时间，可长可短
+
+──────────────────────────────────────────────────────────────
+【Moore 版】2 个触发器
+现态 (进入本周期时)   S0   S1   S1   S2   S1   S1   S2
+输出 Z         0    0    0    1    0    0    1
+                                    ↑              ↑
+                              整整晚了一个周期才出现；
+                              而且它的宽度【精确等于一个时钟周期】，
+                              不管 X 在这一周期里怎么变。
+
+──────────────────────────────────────────────────────────────
+【一句话总结】
+  Mealy：输出「跟着输入走」——快，但脉宽不确定、带毛刺。
+  Moore：输出「跟着时钟走」——慢一拍，但干净、宽度精确。</code></pre>
+          </div>
+
+          <p class="mt-3">注意上面 Mealy 那一行里我把 <code class="icode">1</code> 加了括号。<b class="font-semibold text-ink">这不是笔误，而是 Mealy 输出最危险的性质</b>：它在 <code class="icode">X</code> 变化的那一刻就组合穿透到输出端，<b>如果 X 恰好在一个时钟沿附近跳变，这个输出脉冲可能只有几纳秒宽</b>——慢一点的下一级电路根本采不到它，而快一点的电路可能采到两次。更要命的是，X 上的任何毛刺（按键抖动、长线反射、电源噪声）都会原样出现在输出上。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>Moore 型</th><th>Mealy 型</th></tr></thead>
+              <tbody>
+                <tr><td>输出方程</td><td><code class="icode">Z = f(Q)</code></td><td><code class="icode">Z = f(Q, X)</code></td></tr>
+                <tr><td>状态数（同一功能）</td><td>通常<b>多</b>（输出信息必须占一个状态）</td><td>通常<b>少</b>（输出信息编码在转移边上，不占状态）</td></tr>
+                <tr><td>触发器数</td><td>多（因为状态多）</td><td>少</td></tr>
+                <tr><td>响应速度</td><td>慢一个时钟周期</td><td>快：输入到达即响应，不用等时钟</td></tr>
+                <tr><td>输出脉宽</td><td><b>精确等于一个时钟周期</b></td><td>不确定，取决于输入保持多久</td></tr>
+                <tr><td>毛刺</td><td><b>无</b>（输出只跟触发器状态走）</td><td>有：输入上的任何毛刺都会穿透到输出</td></tr>
+                <tr><td>时序分析难度</td><td>容易（输出与时钟对齐）</td><td>麻烦（输出路径要单独约束）</td></tr>
+                <tr><td>组合环风险</td><td>低（输出反馈回输入也不会立刻绕环）</td><td>高（输出可能当拍就影响输入）</td></tr>
+                <tr><td>典型用途</td><td>输出要出门、要驱动边沿敏感器件、要给别人当触发信号</td><td>输出只给同步电路采样（比如给下一级寄存器的数据）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">什么情况下<b>必须</b>选 Moore（别犹豫，直接选）</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>输出会接到「边沿敏感」的东西上。</b>外部中断引脚、另一个状态机的时钟输入、异步复位端、DMA 触发、ADC 的外部触发、计数器的计数输入——这些器件把「电平变化」当成「事件」。Mealy 输出的毛刺在它们眼里就是一串真实事件，后果是<b>凭空多出几次中断、多计几个数、甚至被误复位</b>。</li>
+              <li><b>输出要出芯片、走长线。</b>板外走线是天线也是接收天线，Mealy 的组合输出会把线缆上的干扰原样放大到接收端。</li>
+              <li><b>输出要驱动机械或慢速执行器。</b>继电器、电磁阀、蜂鸣器这类器件要求脉冲宽度可控。Mealy 那种「可能只有几十纳秒」的脉冲，继电器根本来不及吸合，你却以为信号发了。</li>
+              <li><b>输出会反馈回自己的输入（闭环）。</b>Mealy 的穿透特性会让输出当拍就影响输入，一个不小心就构成组合环，产生自激振荡。</li>
+              <li><b>安全相关的判断。</b>宁可慢一拍，绝不能误触发——这是工程上一条不写在教科书里的铁律。</li>
+              <li><b>需要精确计时。</b>比如「输出持续正好 100 个时钟」，Moore 的脉宽天然是一个时钟的整数倍；Mealy 做不到。</li>
+            </ul>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">那什么时候用 Mealy？</b>三种情况：<b>①</b> 状态数要省（比如状态多到快撑爆编码位宽）；<b>②</b> 响应速度要求高，差一个时钟就来不及（高速协议里的位级判断）；<b>③</b> 输出只被同一时钟域的同步电路采样，那点毛刺在下一次采样前就已经稳定了。<b>在单片机的 C 代码里，这个区别常常被淡化</b>——因为你的 <code class="icode">switch</code> 是自己一个 tick 执行一次的，输出和输入天然「同一拍」，既不会穿透也不会滞后。但一旦你的输出是「直接写寄存器去触发一个硬件事件」（比如手动置位定时器的 EGR 位、手动触发一次 ADC），Mealy 的那套风险就会原地复活。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">一个真实的坑：Mealy 输出当异步复位用</div>
+            <p>有人为了「检测到错误就立刻复位从机」，把状态机的 Mealy 输出直接接到从机的 <code class="icode">NRST</code> 上。因为 Mealy 输出是组合的，在状态机切换的瞬间，译码逻辑上会出现<b>几十纳秒的窄毛刺</b>（不同路径延迟不同造成的竞争），从机就被这个毛刺复位了——而你的逻辑明明没有要复位它。现象是「从机偶尔自己重启」，抓破头也找不到原因。<b>正确做法：把复位信号单独寄存一拍再输出</b>（这就是三段式里「输出寄存」那一招），或者改用 Moore 输出。</p>
+          </div>
+
+          <h3 id="sub-encoding" class="mt-7 text-base font-semibold">状态编码：二进制 / 格雷 / 独热，三种方案的取舍</h3>
+
+          <p class="mt-3">状态图的圆圈是抽象的，落到电路上必须给每个状态一个二进制码——这个动作叫<b class="font-semibold text-ink">状态编码（state assignment / state encoding）</b>。同一台状态机，编码方案不同，触发器数量、译码逻辑的复杂度、速度、非法状态的数量全都不一样。设状态数为 n：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种编码方案：触发器数量与非法状态数量">
+            <pre><code>【方案一】二进制编码（Binary）—— 最少触发器
+
+    m = ⌈log2 n⌉ 个触发器 —— 这是理论最少的位数，不可能更省了。
+    n = 5  → m = 3 位，码：000 001 010 011 100（剩下 3 个码没用）
+    n = 8  → m = 3 位，刚好用满，没有多余码
+    n = 9  → m = 4 位
+
+    代价：次态方程是 m 个变量的函数，每个触发器的卡诺图都很大
+          （n=8、1 位输入时是 Q2 Q1 Q0 X 四变量，16 个格子），
+          化简后乘积项多、门多、路径深 → 慢。
+    非法状态数 = 2^m − n：
+          n=5 → 3 个      n=6 → 2 个      n=8 → 0 个      n=9 → 7 个
+
+【方案二】格雷码（Gray）—— 顺序转移时的最优解
+
+    触发器数量同样是 m = ⌈log2 n⌉，一位都不多。
+    但它要求【相邻的两个状态只差一位】：000 → 001 → 011 → 010 → 110 → …
+
+    好处一：译码无毛刺。两个相邻状态之间只有一位在变，译码逻辑
+            不会出现「两位同时翻转、先后到达」造成的瞬态错误码。
+    好处二：翻转功耗最低。每个时钟只有一位触发器翻转，
+            CMOS 电路的动态功耗 ∝ 翻转次数，可以省接近一半。
+    好处三：跨时钟域采样安全。别的时钟域来采这个状态码时，
+            最多把新值采成「一位还没变」的旧值，不会采出一个
+            完全不着边际的错误码。（多位同时变就可能采出乱码。）
+    好处四：次态逻辑常常能简化，因为「该位为 1 的那些状态」
+            在卡诺图上是相邻的，能圈成更大的圈。
+
+    适用：状态按固定顺序循环的场合 —— 计数器、扫描器、
+          流水灯、ADC 多通道轮询、DMA 链表遍历。
+
+【方案三】独热码（One-Hot）—— 触发器最浪费，逻辑最简单
+
+    m = n 个触发器：一个状态占一位，状态 S3 就是 0000 1000。
+
+    次态方程变得极其简单：第 i 位的次态 = 所有「指向 Si 的转移」
+    的【或】。不需要译码！每个状态一位，判断「我现在在不在 S3」
+    就是看一根线是高还是低，连一个门都不用。
+
+    代价一：触发器数量线性增长（n=16 就要 16 个触发器）。
+    代价二：非法状态数量【爆炸】：
+          n=5  → 2^5 − 5  = 27 个
+          n=8  → 2^8 − 8  = 248 个
+          n=16 → 2^16 − 16 = 65520 个
+            最典型的非法状态是「全 0」（一个都没选中）和
+            「多热」（好几位同时为 1，等于同时处于两个状态）。
+
+    适用：FPGA 里的状态机（触发器在 FPGA 里是「免费」的，
+          每个 LUT 后面本来就带一个触发器，不用白不用），
+          以及状态数少（≤ 16）而对时序要求高的场合。</code></pre>
+          </div>
+
+          <p class="mt-3">把三种方案放进一张表，你就能拿着尺子挑：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>二进制编码</th><th>格雷码</th><th>独热码</th></tr></thead>
+              <tbody>
+                <tr><td>触发器数量（n 个状态）</td><td><b>⌈log<sub>2</sub>n⌉</b>（最少）</td><td><b>⌈log<sub>2</sub>n⌉</b>（同左）</td><td><b>n</b>（最多）</td></tr>
+                <tr><td>次态译码逻辑</td><td>复杂（多变量卡诺图，乘积项多）</td><td>中等（可利用相邻性化简）</td><td><b>极简</b>（基本是或门，无译码）</td></tr>
+                <tr><td>组合逻辑最长路径</td><td>深（3~4 级门）</td><td>中</td><td><b>浅（1~2 级门）</b>，速度快</td></tr>
+                <tr><td>非法状态数量</td><td>2<sup>m</sup> − n（少）</td><td>2<sup>m</sup> − n（少）</td><td><b>2<sup>n</sup> − n（极多）</b></td></tr>
+                <tr><td>非法状态能否自恢复</td><td>可能锁死（默认分支没写好时）</td><td>可能锁死</td><td>写对默认分支后恢复快</td></tr>
+                <tr><td>每次时钟翻转的位数</td><td>不定（可能多位同翻）</td><td><b>固定 1 位</b></td><td>2 位（旧位清零、新位置位）</td></tr>
+                <tr><td>动态功耗</td><td>中</td><td><b>最低</b></td><td>偏高</td></tr>
+                <tr><td>跨时钟域采样安全性</td><td>差</td><td><b>好</b></td><td>差（多热歧义）</td></tr>
+                <tr><td>适合的载体</td><td>ASIC / CPLD（面积贵、触发器贵）</td><td>顺序循环型状态机</td><td>FPGA（触发器免费、LUT 贵）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">选择准则（背下这六条就够用）</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>FPGA 实现、状态数 ≤ 16 → 独热。</b>FPGA 里一个触发器约等于「一个 LUT 的零头」，而译码逻辑要吃掉宝贵的 LUT。独热把逻辑换成触发器，在 FPGA 上是净赚。事实上 Vivado / Quartus 对状态机默认就选独热（综合属性 <code class="icode">fsm_encoding</code> 的 auto 模式）。</li>
+              <li><b>ASIC 或 CPLD、面积敏感 → 二进制。</b>在 ASIC 里一个 D 触发器大约相当于 6~10 个等效门，触发器是贵东西；而门电路是便宜的。用二进制把触发器数压到最少。CPLD 的宏单元资源也紧张，同理。</li>
+              <li><b>状态按固定顺序循环（计数、扫描、轮询）→ 格雷码。</b>省功耗、无译码毛刺、跨时钟域友好，三重好处都吃到了。</li>
+              <li><b>状态数超过 16~32 → 二进制。</b>独热的触发器数和非法状态空间都随 n 指数/线性恶化，到那个规模就无法管理了。</li>
+              <li><b>状态码要送到另一个时钟域 → 格雷码。</b>这是唯一能保证「采样最多错一位」的编码。</li>
+              <li><b>用 MCU 的 C 语言实现 → 编码无所谓。</b>你用 <code class="icode">enum</code> + <code class="icode">switch</code>，编码是编译器的事；此时最重要的指标变成了<b>可读性</b>——让枚举名直接说出状态的含义（<code class="icode">ST_WAIT_HEADER</code> 比 <code class="icode">ST_3</code> 好一百倍）。</li>
+            </ol>
+          </div>
+
+          <h3 id="sub-illegal" class="mt-7 text-base font-semibold">非法状态：危害、锁死，以及四层防御</h3>
+
+          <p class="mt-3">只要编码方案没有把 2<sup>m</sup> 个码用满，就一定存在<b class="font-semibold text-ink">非法状态（unused state / illegal state）</b>——你的状态机理论上永远不会主动进入的码。问题是：<b>理论上不会，不等于实际不会。</b></p>
+
+          <p class="mt-3">非法状态从哪来？五个来源，一个比一个隐蔽：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>来源</th><th>怎么发生的</th><th>常见程度</th></tr></thead>
+              <tbody>
+                <tr><td>编码冗余</td><td>5 个状态用 3 位编码，剩下 3 个码天生非法</td><td>必然存在</td></tr>
+                <tr><td>上电初值不确定</td><td>触发器上电后的初值是随机的（不是 0！），如果复位没覆盖到某个触发器，它就从随机码开始跑</td><td>很常见</td></tr>
+                <tr><td>复位释放不同步</td><td>异步复位同时加在 m 个触发器上，但它们的复位释放时刻略有差异（走线长度不同、门延迟不同），可能在某个瞬间出现「一半复位了、一半没有」的中间码</td><td>常见</td></tr>
+                <tr><td>亚稳态</td><td>输入违反建立/保持时间，触发器输出停在中间电平，被后级解读成随机值</td><td>偶发</td></tr>
+                <tr><td>单粒子翻转 / 噪声耦合</td><td>宇宙射线、电源噪声、强电磁干扰让某个触发器自己翻了一位</td><td>罕见但真实</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">进入非法状态之后会发生什么？最坏的情况是<b class="font-semibold text-ink">锁死（lock-up）</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="非法状态锁死：三个错误码自己转圈，永远回不来">
+            <pre><code>【现象】3 位编码、5 个合法状态：000 001 010 011 100
+        非法码：101、110、111
+
+  你写次态逻辑时，对这三个码「没写」（或者写了 default: ; 空着）。
+  综合工具于是把它们当【无关项】，随手分配了次态：
+
+        101 ──► 110 ──► 111 ──► 101 ──► 110 ──► …
+        └────────── 三个非法状态自己转圈 ──────────┘
+
+  结果：状态机再也回不到合法状态。所有输出停在某个奇怪的组合上，
+        所有输入都不再被响应 —— 看起来就像「程序卡死了」。
+        而且时钟还在跑、电源还正常、看门狗（如果没开）也不会救你。
+
+【为什么「没写」会变成随机分配？】
+  在卡诺图里，「没写」的格子叫无关项（don't care，记作 × 或 d）。
+  化简的时候，工程师（或工具）为了让圈更大、方程更简单，
+  会自由地把这些 × 当成 0 或 1 —— 这在【数学上】完全合法，
+  因为「非法状态不会出现」是前提。
+  但一旦前提被打破（上电、亚稳态、噪声），
+  你圈出来的那个「最简方程」就会把状态机带进锁死环。
+
+【更危险的第二种后果：两个互斥输出同时有效】
+  比如电机驱动：正转 = 状态 A，反转 = 状态 B。
+  如果非法码让译码逻辑同时输出「正转」和「反转」，
+  H 桥的上下管同时导通 → 电源直接对地短路 → 驱动芯片当场烧掉。
+  这是非法状态在工程上最贵的后果，没有之一。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">四层防御：从「不可能发生」到「发生了也能活下来」</div>
+            <p><b>第一层：编码上留余地（最根本）。</b>能不用满就不用满。如果条件允许，选一个让非法状态数量为 0 的编码宽度（n = 2<sup>m</sup> 时刚好——这也是为什么很多教科书例子把状态数凑成 4、8、16）。另外，把复位状态选成「全 0 码」或「只差一位就能到达合法状态的码」，能显著降低上电跑飞的后果。</p>
+            <p class="mt-2"><b>第二层：给非法状态显式安排默认转移（安全编码 / safe encoding）。</b>这是最有效、最便宜的一招：<b>在写次态逻辑时，先把「默认次态 = 复位态」写在最前面，再用 case 覆盖所有合法状态。</b>这样所有你没提到的码都会自动落到复位态，而且是在一个时钟内就恢复。</p>
+            <p class="mt-2">在 HDL 里写：</p>
+            <p class="mt-2"><code class="icode">state_next = S_IDLE;</code> 写在 <code class="icode">case</code> 之前，或者写 <code class="icode">default: state_next = S_IDLE;</code> —— <b>千万不要写 <code class="icode">default: ;</code> 或者干脆不写 default</b>，那等于把非法状态的命运交给工具。</p>
+            <p class="mt-2">在 C 里写：<code class="icode">switch (st) { … default: st = ST_IDLE; break; }</code>，并且把编译器的 <code class="icode">-Wswitch-default</code> 打开，让「漏写 default」直接变成编译警告。</p>
+            <p class="mt-2"><b>第三层：加监视与自愈逻辑。</b>针对独热码，加一条「零检测 / 多热检测」：<code class="icode">if (state == 0) state &lt;= S_IDLE;</code>，或者用「优先级编码器 + 哨兵位」把多热状态强制收敛到一个合法状态。在 MCU 软件里，可以在 <code class="icode">default</code> 分支里上报一次诊断信息（串口打印 + 计数器 +1），这样你能知道「它真的跑飞过」，而不是永远蒙在鼓里。</p>
+            <p class="mt-2"><b>第四层：看门狗兜底（最后一道防线）。</b>前三层都防不住的情况（比如状态寄存器硬件损坏、两个触发器同时翻转），只有看门狗能救。<b>关键要求是：喂狗动作必须放在「状态机正常推进」的路径上，而不是放在定时器中断里无脑喂。</b>如果放在中断里喂，状态机卡死了中断照跑、狗照喂，看门狗就形同虚设——这是新手最常犯的看门狗错误。</p>
+          </div>
+
+          <h3 id="sub-reduce" class="mt-7 text-base font-semibold">状态化简：等价状态与隐含表</h3>
+
+          <p class="mt-3">状态图刚画出来的时候，几乎总是「多画了」。因为你是按需求一步步想出来的，很容易出现两条不同的思考路径落到同一个行为上。这些多余的、行为完全一样的「孪生状态」，就是可以合并的对象。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">等价状态的定义（严格版）：</b>两个状态 S<sub>i</sub> 和 S<sub>j</sub> 等价（记作 S<sub>i</sub> ≡ S<sub>j</sub>），当且仅当<b>对任意长度、任意内容的输入序列</b>，从 S<sub>i</sub> 出发和从 S<sub>j</sub> 出发产生的输出序列完全相同。</p>
+
+          <p class="mt-3">这个定义没法直接拿来用（要验证无穷多条序列），所以教材把它翻译成两条可操作的判据：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="等价状态的两条实操判据（互相依赖，所以要用迭代）">
+            <pre><code>【判据一 · 输出一致】
+   对【每一个】输入，S 和 S 的输出必须相同。
+     · Moore 型：看状态自己的输出（写在圆圈里的那个）
+     · Mealy 型：看每条边上的输出
+
+【判据二 · 次态等价】
+   对【每一个】输入，S 和 S 的次态必须【相同】或者【也等价】。
+     次态相同  → 这一条自动满足
+     次态不同  → 把这两个次态当成一对新的候选，要求它们也等价
+
+【为什么必须迭代？】
+   判据二会引出新的状态对，而新的状态对又要用判据一、二来判断 ——
+   这是一个「互相依赖」的方程组，不是一次扫一遍就能解出来的。
+   所以要反复迭代，直到不再有新的「不等价」被判定出来。
+   这个方法在教材里叫【隐含表法】，在计算理论里叫
+   「等价类逐步细分（partition refinement）」——同一个东西。
+
+【一个重要提醒：等价和「输出相同」不是一回事】
+   两个状态输出完全相同，但次态不同 —— 它们【不等价】，不能合并。
+   例子：交通灯里「EW 绿 + NS 红」阶段结束后的全红，
+        和「NS 绿 + EW 红」阶段结束后的全红，
+        两者的输出完全一样（都是全红），但一个要转到 NS 绿、
+        另一个要转到 EW 绿 —— 次态不同，所以是两个状态。
+   这是状态化简里最容易犯的错：只看输出就合并。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">隐含表法的五个步骤：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>步骤</th><th>做什么</th><th>为什么</th></tr></thead>
+              <tbody>
+                <tr><td><span class="step-num">1</span></td><td>画隐含表：n 个状态画一个右上三角表，共 n(n−1)/2 个格子，每格代表一个状态对</td><td>把「所有可能等价的状态对」一次性列全，不漏</td></tr>
+                <tr><td><span class="step-num">2</span></td><td>第一遍筛选：凡是「存在某个输入使两者输出不同」的格子，直接打叉（✗）</td><td>判据一，一步淘汰一大半</td></tr>
+                <tr><td><span class="step-num">3</span></td><td>剩下的格子里填「次态对」：对每个输入，把两者的次态写成一个状态对</td><td>记录判据二的依赖关系</td></tr>
+                <tr><td><span class="step-num">4</span></td><td>迭代：任何一格里出现了已经打叉的状态对，本格也打叉；重复直到不再变化</td><td>解那个互相依赖的方程组</td></tr>
+                <tr><td><span class="step-num">5</span></td><td>没有打叉的格子 = 等价对；取传递闭包（A≡B、B≡C 推出 A≡B≡C）得到最大等价类，每类合并成一个状态</td><td>得到化简后的状态表</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">完整的手算例子放在第 3 节<a class="text-brand-600 dark:text-brand-300" href="#calc-reduce">例三</a>，那里会走完 5 个状态化简成 4 个的全过程。<b class="font-semibold text-ink">先记住「观察法」这个快速通道</b>：如果两个状态的所有转移和所有输出<b>一模一样</b>，直接合并，不需要画隐含表——这是隐含表的特例，也是实际工作中最常遇到的情况（你复制粘贴了一段逻辑，改了名字忘了改内容）。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">化简到底省了什么？算一笔账</div>
+            <p><b>触发器数：</b>n 个状态需要 ⌈log<sub>2</sub>n⌉ 个触发器。所以只有<b>跨过 2 的幂</b>时才省得下来：9 → 8 省 1 个（4 位 → 3 位）、5 → 4 省 1 个（3 位 → 2 位）、17 → 16 省 1 个。而 6 → 5 一个都不省（都是 3 位）。</p>
+            <p class="mt-2"><b>但省下的绝不止触发器：</b>① 次态方程的乘积项变少 → 门变少 → <b>组合路径变短 → 最高时钟频率提高</b>；② 非法状态数量减少（5 状态 3 位有 3 个非法，化简到 4 状态 2 位就<b>一个都不剩</b>）；③ HDL 代码变短，可读性变好；④ 验证的状态空间变小。</p>
+            <p class="mt-2"><b>化简的代价，也要知道：</b>合并之后，原来那两个状态的差别<b>在运行时不可观测了</b>——调试时你想知道「它刚才走的是哪条路」就看不到了。工程上有时会故意不合并，保留冗余状态用于诊断（比如 <code class="icode">ST_SEND_A</code> 和 <code class="icode">ST_SEND_B</code> 行为相同，但分开写便于在串口日志里区分）。<b>能化简 ≠ 一定要化简</b>，可观测性也是一种价值。</p>
+          </div>
+
+          <h3 id="sub-design" class="mt-7 text-base font-semibold">用 D 触发器实现一个 FSM：六步流程</h3>
+
+          <p class="mt-3">这是教材第 6 章的核心方法，也是「状态图 → 电路」的标准通道。六步，一步都不能跳：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="从需求到电路的六个步骤">
+            <pre><code>【第 1 步】把需求画成状态图
+     · 先决定用 Moore 还是 Mealy（判断依据见上一小节）
+     · 明确三要素：S（状态集合）、I（输入集合）、O（输出集合）
+     · 给每个状态画全它的出边：每一个状态 × 每一个输入都要有去处
+     · 标出初始状态
+
+【第 2 步】化简
+     · 用隐含表法合并等价状态（或者先用观察法找「长得一样」的）
+     · 顺便删掉【不可达状态】：从初始状态出发、任何输入序列都到不了的状态
+       （它们既没用，又会在代码里制造「看起来有但永远不走」的死逻辑）
+
+【第 3 步】状态编码
+     · n 个状态 → m = ⌈log2 n⌉ 位（二进制/格雷），或 n 位（独热）
+     · 决定非法状态的处理方案：它们的次态统统指向复位态
+
+【第 4 步】列状态转移表（最重要的一步）
+     · 行 = 所有 2^m 个编码（【包括非法码！】），列 = 所有输入组合
+     · 每格填两样东西：次态、输出
+     · 合法状态行：从状态表抄
+     · 非法码行：填「次态 = 复位态、输出 = 0」
+     ★ 这一步是「不漏边」的保证：格子数是有限的，数一遍就知道对不对
+
+【第 5 步】求激励方程
+     · D 触发器的好处在这里体现：D = Q*（次态是什么，D 端就接什么）
+     · 所以把第 4 步的「次态」列按每一位拆开，每一位画一张卡诺图
+     · 圈 1 → 得到该位的方程 → 就是该触发器的 D 端表达式
+     · 圈 0 得到的是 Q*'，也可以直接圈（反变量有时更省门）
+
+【第 6 步】求输出方程 + 画电路
+     · 输出列同样画卡诺图（Moore：只看状态列；Mealy：状态 × 输入）
+     · 画电路：所有触发器的 CP 端【并联】接到同一个时钟，
+                所有异步复位端【并联】接到同一个复位，
+                D 端接第 5 步的方程，Q 端送回组合逻辑</code></pre>
+          </div>
+
+          <p class="mt-3">第 5 步里「D = Q*」这句话，是 D 触发器统治现代数字设计的全部原因。对比一下四种触发器的激励表就明白了：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>现态 → 次态</th><th>D 触发器</th><th>T 触发器</th><th>JK 触发器</th><th>SR 触发器</th></tr></thead>
+              <tbody>
+                <tr><td>0 → 0（保持）</td><td><b>D = 0</b></td><td>T = 0</td><td>J = 0，K = ×</td><td>S = 0，R = ×</td></tr>
+                <tr><td>0 → 1（置 1）</td><td><b>D = 1</b></td><td>T = 1</td><td>J = 1，K = ×</td><td>S = 1，R = 0</td></tr>
+                <tr><td>1 → 0（清 0）</td><td><b>D = 0</b></td><td>T = 1</td><td>J = ×，K = 1</td><td>S = 0，R = 1</td></tr>
+                <tr><td>1 → 1（保持）</td><td><b>D = 1</b></td><td>T = 0</td><td>J = ×，K = 0</td><td>S = ×，R = 0</td></tr>
+                <tr><td>激励方程的复杂度</td><td><b>D = Q*，最简</b></td><td>要额外算 T = Q ⊕ Q*</td><td>要算两个变量，最麻烦</td><td>要算两个变量，还有不允许态</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">用 JK 或 T 触发器，你会多出一层「把次态翻译成激励」的组合逻辑；用 D 触发器，这层逻辑根本不存在——<b>次态方程直接就是激励方程</b>。用一句工程黑话总结：<b class="font-semibold text-ink">D 触发器把复杂度从「器件」推给了「综合工具」</b>，而综合工具最喜欢处理的就是「一堆卡诺图圈 1」。所以今天你在芯片里能看到 D 触发器、看到 JK 只在老教材里出现。</p>
+
+          <p class="mt-3">最后是电路长什么样（以第 3 节例一的「1011」检测器为例，2 个触发器、5 个门）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="FSM 的电路结构：触发器组 + 次态逻辑 + 输出逻辑">
+            <pre><code>                      ┌────────────────────────────────────────────┐
+                      │            次态组合逻辑（第 5 步的方程）      │
+                      │                                            │
+   X ─────┬──────────►│  D1 = Q0·X' + Q1·Q0'·X                     │
+          │           │  D0 = X                                    │
+          │           └───────┬───────────────────┬────────────────┘
+          │                   │ D1                │ D0
+          │            ┌──────▼──────┐     ┌──────▼──────┐
+          │            │   D 触发器    │     │   D 触发器   │
+   CLK ───┼───────────►│   CP     Q1  │     │   CP    Q0  │
+          │            │              │     │             │
+   RST ───┼───────────►│   R      Q1' │     │   R     Q0' │
+          │            └──────┬──────┘     └──────┬──────┘
+          │                   │ Q1                │ Q0
+          │                   └─────────┬─────────┘
+          │                             │
+          │                             ▼  这两位就是「现态」，
+          │                  送回上面的组合逻辑（闭环）
+          │
+          │           ┌──────────────────────────────┐
+          └──────────►│  输出逻辑：  Z = Q1 · Q0 · X   │──────► Z
+                      └──────────────────────────────┘
+
+   三条工程规矩：
+    ① 所有触发器的 CP 端必须【并联】接同一个时钟 —— 这是「同步」的含义。
+       绝不能有的触发器用时钟、有的用输入的边沿（那就成了异步电路，
+       会出现竞争和毛刺，分析方法完全不同）。
+    ② 所有异步复位端并联接同一个复位信号，保证 m 位【同时】回到初态。
+    ③ 组合逻辑的输入只有两类：现态 Q 和外部输入 X。没有第三类。</code></pre>
+          </div>
+
+          <h3 id="sub-timing" class="mt-7 text-base font-semibold">时序约束、复位与亚稳态：状态机为什么不能无限快</h3>
+
+          <p class="mt-3">前五步做完，你得到了一个<b>逻辑上正确</b>的状态机。但它能不能按你想要的频率跑，取决于一条不等式。一个时钟周期内，信号必须从「上一个触发器输出」一路走完组合逻辑，赶在「下一个时钟沿到来之前」站稳：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="最高时钟频率：四个时间量之和">
+            <pre><code>   一个时钟周期里信号要走的路：
+
+   ┌──────────┐          ┌────────────────┐          ┌──────────┐
+   │ 触发器 A  │          │  次态组合逻辑   │          │ 触发器 B  │
+   │    Q     │─────────►│ （卡诺图化简出  │─────────►│    D     │
+   └──────────┘          │   来的那些门）  │          └──────────┘
+        ▲                └────────────────┘               ▲
+        │                                                 │
+   时钟沿到达                                        必须在下一个时钟沿
+   （Q 开始变化）                                    到来【之前】就站稳，
+                                                     并保持一段时间
+
+   ┌── t_cq ──┼──── t_logic（最坏情况）────┼─ t_setup ─┐
+   │          │                             │           │
+   │  触发器输出   │      组合逻辑传播延迟        │  建立时间  │
+   │  的延迟      │                            │           │
+   └──────────────┴────────────────────────────┴───────────┘
+                                                    + t_skew（时钟偏斜）
+
+   ══════════════════════════════════════════════════════════════
+
+        T_clk ≥ t_cq + t_logic(max) + t_setup + t_skew
+
+   其中：
+     t_cq        时钟沿到 Q 输出稳定所需的时间（触发器自己的参数）
+     t_logic     从 Q 到 D 的组合逻辑【最长路径】延迟（你的方程决定）
+     t_setup     触发器要求 D 在时钟沿之前稳定多久（器件参数）
+     t_skew      同一个时钟到达不同触发器的时间差（走线长度不同）
+
+   于是：  f_max = 1 / T_clk(min)
+
+【还有一条反向的约束：保持时间（hold）】
+
+        t_cq(min) + t_logic(min) ≥ t_hold + t_skew
+
+   注意它用的是【最短】路径延迟。这条约束的意思是：
+   D 端的新值不能来得【太快】—— 如果一个时钟沿刚把新数据推出去，
+   它太快地穿过组合逻辑冲到了下一级，而下一级的触发器还没
+   「松手」（还在保持窗口里），那么它会把新数据当成旧数据采进去，
+   相当于【这一拍被吃掉了】，状态机少走一步。
+
+   ★ 两条约束的分工：
+       建立时间约束 → 决定【最快能跑多快】 → 慢了就降频
+       保持时间约束 → 决定【逻辑不能太短】 → 与频率无关，插缓冲器解决
+   新手通常只知道第一条，但第二条才是「低速系统也会出错」的原因。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">复位：让状态机每次都从同一个地方出发。</b>上一小节说过，触发器上电后的初值是<b>随机的</b>。如果状态机没有复位，它就从随机码开始跑——而随机码很可能正是一个非法状态。所以复位不是「可选的礼貌」，而是<b>状态机能工作的前提条件</b>。两种复位各有取舍：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>异步复位</th><th>同步复位</th></tr></thead>
+              <tbody>
+                <tr><td>生效条件</td><td>复位信号一来立刻生效，<b>不需要时钟</b></td><td>要等下一个时钟沿才生效</td></tr>
+                <tr><td>时钟停了能不能复位</td><td><b>能</b>（这是它最大的优点）</td><td>不能</td></tr>
+                <tr><td>抗毛刺</td><td>差：复位线上的毛刺会直接触发复位</td><td>好：毛刺只要不在时钟沿附近就被忽略</td></tr>
+                <tr><td>资源</td><td>触发器自带异步复位端，不花额外逻辑</td><td>要占用数据通路上的一级逻辑（多路选择器）</td></tr>
+                <tr><td>释放时刻的问题</td><td><b>有风险</b>：m 个触发器释放时刻不同，可能产生中间码；而且释放沿落在时钟沿附近会导致亚稳态</td><td>无：释放本身就是同步的</td></tr>
+                <tr><td>工程上的标准做法</td><td colspan="2"><b>异步置位、同步释放</b>：用两级触发器把复位信号同步一下再送到状态机（这就是下一段要讲的「打两拍」），既保留了「时钟停了也能复位」，又消除了释放时刻的风险</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">亚稳态：异步输入直接进状态机会发生什么。</b>触发器能可靠工作，前提是数据在时钟沿附近<b>不变化</b>（守规矩的窗口就是 t_setup 和 t_hold）。如果数据刚好在窗口里跳变，触发器内部的正反馈来不及把它推向 0 或 1，输出就会停在一个<b>既不是高也不是低的中间电平上</b>，然后在一段不确定的时间之后才随机倒向某一侧——这就是<b class="font-semibold text-ink">亚稳态（metastability）</b>。</p>
+
+          <p class="mt-3">如果你把一个异步信号（按键、外部模块的中断输出、另一个时钟域的完成标志）<b>直接</b>接到状态机的输入，那么：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">状态机会「看到」一个不存在的输入。</b>中间电平被不同的后级门解读成不同的值——接在状态机前面的与门可能读成 1，直接到触发器的另一路可能读成 0，于是同一次输入变化被解读出两种结果。</li>
+            <li><b class="font-semibold text-ink">可能多走一步或者少走一步。</b>状态机的次态逻辑是用 <code class="icode">if (X)</code> 分支写的，X 处于中间电平时不同晶体管的判断结果不同，可能这一拍判 1、下一拍判 0，状态机就多转移了一次。</li>
+            <li><b class="font-semibold text-ink">而且它是「偶发」的。</b>亚稳态导致的错误和时钟频率、温度、电压、数据跳变与时钟沿的相对相位都有关，实验室里可能连续跑一个月不复现，到客户现场每天出一次。这类 bug 是最贵的。</li>
+          </ul>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">解决办法：打两拍（两级同步器）</div>
+            <p>做法简单到令人怀疑：<b>把异步输入先送进两级串联的 D 触发器（同一个时钟），再从第二级的输出接进状态机。</b>第一级触发器可能进入亚稳态，但它有一整个时钟周期的时间自己恢复；等到第二级采样的时候，第一级的输出已经稳定成合法的 0 或 1 了。</p>
+            <p class="mt-2"><b>关键认识：亚稳态不能「消除」，只能把它的概率压到可以忽略。</b>第一级输出还处于中间电平的概率随时间指数下降，所以「打两拍」把故障率降低了好几个数量级。用平均无故障时间（MTBF）来说：在典型的 100MHz 系统里，一级同步器的 MTBF 可能只有几十分钟到几天，两级同步器可以达到 10<sup>9</sup> 小时以上（这是量级估算，具体值必须拿器件手册里的 τ 和 T<sub>0</sub> 参数代入计算）。</p>
+            <p class="mt-2"><b>打两拍只能用于单比特信号！</b>如果跨时钟域的是一个多位的总线（比如一个 16 位的计数器值），打两拍是<b>不够</b>的——各位可能在不同的时钟沿被采到，你会得到一个「高 8 位是新值、低 8 位是旧值」的乱七八糟的数。多位跨时钟域要用三种办法之一：<b>①格雷码</b>（每次只变一位，最多错一位）、<b>②握手</b>（请求/应答两根线）、<b>③异步 FIFO</b>。这也是<a class="text-brand-600 dark:text-brand-300" href="#sub-encoding">状态编码</a>里推荐格雷码的第三个原因。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">回到单片机：这些时序概念在 MCU 里长什么样？</b>你用 C 写状态机，<code class="icode">state</code> 变量存在 SRAM 或寄存器里，看上去和「建立时间」毫无关系。但三件事一定要注意：<b>①</b> 如果你用外部中断来改变状态（比如按键中断里直接改 <code class="icode">state</code>），做了一次本质上的「异步输入」——正确做法是中断里只置一个标志，主循环读到标志再改状态；<b>②</b> 如果你在中断和主循环里都读写 <code class="icode">state</code>，必须加 <code class="icode">volatile</code>，否则编译器的优化会让主循环永远读到旧值；<b>③</b> 用 <code class="icode">millis()</code> 或 <code class="icode">HAL_GetTick()</code> 做超时时，<b>一定要用无符号减法 <code class="icode">(now - t0) &gt;= TIMEOUT</code>，不要写 <code class="icode">now &gt;= t0 + TIMEOUT</code></b>——前者在计时器溢出回绕时自动正确，后者会出错。下一节会详细算这个溢出。</p>
+
+          <h3 id="sub-hdl" class="mt-7 text-base font-semibold">三种写法：一段式、两段式、三段式</h3>
+
+          <p class="mt-3">到了硬件描述语言（Verilog / VHDL）里，同一台状态机有三种主流写法。它们的区别不在功能，而在<b class="font-semibold text-ink">「什么时候变」和「变成什么」有没有被分开写</b>。这个区别非常关键，因为它直接决定你的代码能不能被综合工具正确理解、能不能做时序分析、出了 bug 好不好找。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>写法</th><th>结构</th><th>优点</th><th>问题</th></tr></thead>
+              <tbody>
+                <tr><td><b>一段式</b></td><td>一个 <code class="icode">always</code> 块里同时做三件事：状态搬迁、次态计算、输出赋值</td><td>代码最短</td><td>次态变量和现态变量混用；输出与状态耦合，容易写出组合环；容易推出意外锁存器；仿真与综合结果可能不一致；无法对「次态逻辑」单独做时序约束</td></tr>
+                <tr><td><b>两段式</b></td><td>第一段：时序块，只做 <code class="icode">state &lt;= state_next</code>；第二段：组合块，算次态<b>和</b>输出</td><td>比一段式清爽很多；状态与次态分离，能看出「什么时候变」</td><td>输出仍在组合块里 → 输出是组合输出，带毛刺（本质是 Mealy）；输出路径延迟与次态逻辑纠缠在一起</td></tr>
+                <tr><td><b>三段式</b></td><td>① 时序块：状态寄存器；② 组合块：只算次态；③ 单独的输出逻辑（可以再寄存一拍）</td><td>职责单一、无毛刺（输出寄存后）、无意外锁存器、时序好约束、<code class="icode">default</code> 只写一处</td><td>代码行数最多（这是它唯一的「缺点」）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">为什么工程上<b class="font-semibold text-ink">推荐三段式</b>？一句话：<b>把「时序」和「组合」物理上分开，是同步数字设计的根本原则。</b>一段式把这两件事搅在同一句代码里，等于让「什么时候变」和「变成什么」共用一个语义空间——你改一处逻辑，可能悄悄改变了时序含义，而工具和同事都看不出来。三段式则把三件事变成三个互不干扰的问题：<b>状态存在哪（触发器）、下一拍去哪（组合逻辑）、现在输出什么（输出逻辑）</b>。任何一个出问题，你都能单独把它拿出来看。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三段式 FSM 模板（Verilog，「1011」检测器的 Mealy 版）">
+            <pre><code>module seq_det_1011 (
+    input  wire clk,
+    input  wire rst_n,          // 低电平有效的异步复位
+    input  wire x,              // 串行输入
+    output reg  z               // 输出（这里寄存一拍，彻底消毛刺）
+);
+
+    // 状态编码：4 个状态刚好用满 2 位，没有非法状态
+    localparam S0 = 2'b00,
+               S1 = 2'b01,
+               S2 = 2'b10,
+               S3 = 2'b11;
+
+    reg [1:0] state, state_next;
+    reg       z_next;
+
+    // ───────── 第 1 段：状态寄存器（只做一件事：把次态搬进现态）─────────
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) state &lt;= S0;
+        else        state &lt;= state_next;
+    end
+
+    // ───────── 第 2 段：次态逻辑（纯组合，绝对不能有副作用）─────────
+    always @(*) begin
+        state_next = S0;                 // ★ 先给默认值 = 安全编码，
+                                         //   所有没写到的码自动回 S0
+        case (state)
+            S0: state_next = x ? S1 : S0;
+            S1: state_next = x ? S1 : S2;
+            S2: state_next = x ? S3 : S0;
+            S3: state_next = x ? S1 : S2;
+            default: state_next = S0;    // 非法状态自恢复（写给读代码的人看）
+        endcase
+    end
+
+    // ───────── 第 3 段：输出逻辑（读现态和输入，算出输出）─────────
+    always @(*) begin
+        z_next = (state == S3) &amp;&amp; x;      // Mealy 输出：匹配完 1011 的那一拍
+    end
+
+    // 把输出寄存一拍：输出与时钟对齐，毛刺被彻底切断
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) z &lt;= 1'b0;
+        else        z &lt;= z_next;
+    end
+
+endmodule
+
+// 【为什么第 2 段里那行「先给默认值」的位置这么重要】
+//   Verilog 的组合 always 块有一个规则：
+//   如果某条路径下某个信号【没有被赋值】，综合工具就认为
+//   「这种情况下它要保持原值」→ 于是给你推一个锁存器（latch）出来。
+//   锁存器是电平敏感的，会带来毛刺和时序分析困难 —— 这是新手
+//   最常见的综合警告「inferred latch」的来源。
+//   把默认值写在 case 之前，保证每一次执行都给 state_next 赋了值，
+//   既消灭了锁存器，又顺手做完了非法状态的安全处理。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">好消息是：C 语言里也能写出同样结构的「三段式」。</b>这不是文字游戏——把三段式的思想搬到单片机上，你的状态机代码会变得同样清晰、同样好测。下一节的每一段代码都会用这个结构：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="fsm_three_stage.c —— C 语言里的三段式骨架">
+            <pre><code>typedef enum { S0 = 0, S1, S2, S3 } st_t;
+
+static st_t state = S0;      /* ← 第 1 段：状态寄存器（就是那个变量） */
+
+/* ── 第 2 段：次态逻辑 —— 纯函数，只算「下一拍去哪」，不碰任何硬件 ── */
+static st_t next_state(st_t s, bool x)
+{
+    switch (s) {
+    case S0:  return x ? S1 : S0;
+    case S1:  return x ? S2 : S1;
+    case S2:  return x ? S3 : S0;
+    case S3:  return x ? S2 : S1;
+    default:  return S0;            /* 非法状态自恢复 */
+    }
+}
+
+/* ── 第 3 段：输出逻辑 —— 只看现态（和输入），产生动作 ── */
+static void output(st_t s, bool x)
+{
+    if (s == S3 &amp;&amp; x) {
+        report_detected();          /* 动作集中在这里，一目了然 */
+    }
+}
+
+/* ── 第 1 段的搬运：一个 tick 执行一次 ── */
+void fsm_tick(bool x)
+{
+    st_t n = next_state(state, x);  /* 先算次态 */
+    output(state, x);               /* 再按【现态】输出 */
+    state = n;                      /* 最后才搬运 —— 顺序不能颠倒 */
+}
+
+/* 【为什么 fsm_tick 里的顺序不能颠倒】
+   如果你先写 state = next_state(state, x); 再调用 output(state, x)，
+   那么 output 拿到的已经是【新状态】，输出的语义就从 Moore 变成了
+   「提前一拍」。这一拍的差别，在 Mealy 型状态机上会直接导致
+   输出脉宽不对、甚至多输出/少输出一次。 */</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">三段式在软件里的三个具体好处</div>
+            <p><b>① <code class="icode">next_state()</code> 是一个纯函数，可以单独测试。</b>给它一个状态和一个输入，它返回一个状态，没有任何副作用——这意味着你可以在 PC 上写单元测试，把状态转移表逐格验证一遍，不需要单片机、不需要按键。</p>
+            <p class="mt-2"><b>② 输出动作集中在 <code class="icode">output()</code> 里，找 bug 时只看一处。</b>「为什么这个灯该亮没亮」这个问题，答案永远在 <code class="icode">output()</code> 里，不会散落在十几个 <code class="icode">if</code> 中间。</p>
+            <p class="mt-2"><b>③ 状态迁移只在一个地方发生。</b>整个工程里对 <code class="icode">state</code> 赋值的地方只有 <code class="icode">fsm_tick()</code> 里那一行。你可以用这个性质做静态检查：<b>搜索一下 <code class="icode">state =</code> 出现了几次，多一处就多一个隐患。</b></p>
+          </div>
+        </section>
+
+<!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="mt-14 text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">这一节四道题，从「一个完整设计」到「一次频率预算」，把第 2 节的方法全部用一遍。<b class="font-semibold text-ink">建议你拿张纸跟着画</b>——状态机这门手艺，看会了和画会了是两件事。</p>
+
+          <h3 id="calc-detect" class="mt-7 text-base font-semibold">例一：「1011」序列检测器，从状态图一路走到电路</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">需求：</b>有一路串行数据 <code class="icode">X</code>，每个时钟周期来一位。当输入序列中<b>最近四位</b>恰好是 <code class="icode">1 0 1 1</code> 时，输出一个脉冲。允许重叠（<code class="icode">1011011</code> 里应该检测到两次）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 1 步：定状态。</b>序列检测器的状态定义有一个固定套路——<b>用状态表示「已经匹配了模式的多长前缀」</b>。模式 <code class="icode">1011</code> 的前缀有四个：空、<code class="icode">1</code>、<code class="icode">10</code>、<code class="icode">101</code>。所以需要四个状态：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>状态</th><th>含义</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">S0</td><td>还没匹配上任何东西（初始态）：最近一位不是 1</td></tr>
+                <tr><td class="font-mono text-xs">S1</td><td>已经匹配了 <code class="icode">1</code></td></tr>
+                <tr><td class="font-mono text-xs">S2</td><td>已经匹配了 <code class="icode">10</code></td></tr>
+                <tr><td class="font-mono text-xs">S3</td><td>已经匹配了 <code class="icode">101</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 2 步：给每个状态画全两条出边（X=0 和 X=1）。</b>这一步的规矩是：<b>遇到「不匹配」时，不能一律回到 S0，而要回到「丢失最少、还能继续用」的那个状态</b>——也就是最长的、仍然是模式前缀的那个后缀。这是序列检测器最容易错的地方。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="「1011」检测器的状态图（Mealy 型）">
+            <pre><code>  图例：边上标的是  输入 X / 输出 Z
+        因为是 Mealy 型，输出写在【边】上
+
+                    ┌───── X=0 / Z=0 （自环）─────┐
+                    │                             ▼
+              ╭───────────╮     X=1 / Z=0    ╭───────────╮
+     ────────►│    S0     │────────────────►│    S1     │◄─┐
+              │  初始态    │                 │ 已匹配「1」│  │ X=1 / Z=0
+              ╰───────────╯                 ╰───────────╯  │ （自环）
+                                                        │
+                                       X=0 / Z=0         │
+                                            ▼            │
+              ╭───────────╮     X=1 / Z=0    ╭───────────╮
+              │    S2     │◄────────────────│    S3     │
+              │已匹配「10」│                 │已匹配「101」│
+              ╰───────────╯                 ╰───────────╯
+                    │                             │
+                    │ X=0 / Z=0                   │ X=1 / Z=1
+                    │ （失配，回 S0）               │ （命中！回 S1）
+                    ▼                             ▼
+                   S0                            S1
+
+【逐条核对四条「回退边」（序列检测器的灵魂）】
+  · S1 收到 X=0 → S2：最近两位是「10」，正好是模式的前缀 ✓
+  · S1 收到 X=1 → S1：最近两位是「11」，能当模式前缀的最长后缀是「1」→ S1 ✓
+  · S2 收到 X=0 → S0：最近三位是「100」，能当模式前缀的最长后缀？
+        「00」不行、「0」不行（前缀是「1」）→ 只能回 S0 ✓
+  · S2 收到 X=1 → S3：最近三位是「101」，是模式前缀 ✓
+  · S3 收到 X=0 → S2：最近四位「1010」，能当前缀的最长后缀是「10」→ S2 ✓
+  · S3 收到 X=1 → S1（且 Z=1）：最近四位「1011」命中！
+        同时注意重叠：「1011」的最后一位 1 可以当作下一轮的开头 → 回 S1，
+        而不是回 S0。这就是「允许重叠」的含义。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 3 步：列状态表。</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>现态</th><th>X = 0：次态 / 输出</th><th>X = 1：次态 / 输出</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">S0</td><td>S0 / 0</td><td>S1 / 0</td></tr>
+                <tr><td class="font-mono text-xs">S1</td><td>S2 / 0</td><td>S1 / 0</td></tr>
+                <tr><td class="font-mono text-xs">S2</td><td>S0 / 0</td><td>S3 / 0</td></tr>
+                <tr><td class="font-mono text-xs">S3</td><td>S2 / 0</td><td><b>S1 / 1</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 4 步：等价性检查（确认没有多余状态）。</b>这一步用「找一个能把它们区分开的输入序列」的办法，比画隐含表快：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>状态对</th><th>区分序列</th><th>从前者出发的输出</th><th>从后者出发的输出</th><th>结论</th></tr></thead>
+              <tbody>
+                <tr><td>S0 vs S1</td><td>0 1 1</td><td>0 0 0</td><td>0 0 <b>1</b></td><td>不等价</td></tr>
+                <tr><td>S0 vs S2</td><td>1 1</td><td>0 0</td><td>0 <b>1</b></td><td>不等价</td></tr>
+                <tr><td>S0 vs S3</td><td>1</td><td>0</td><td><b>1</b></td><td>不等价</td></tr>
+                <tr><td>S1 vs S2</td><td>1 1</td><td>0 0</td><td>0 <b>1</b></td><td>不等价</td></tr>
+                <tr><td>S1 vs S3</td><td>1</td><td>0</td><td><b>1</b></td><td>不等价</td></tr>
+                <tr><td>S2 vs S3</td><td>1</td><td>0</td><td><b>1</b></td><td>不等价</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">六个状态对全部不等价，<b>所以 4 个状态是理论最少的，不能再化简了</b>。（道理很直观：四个状态分别代表「已匹配前缀长度 = 0 / 1 / 2 / 3」，长度不同，未来的行为必然不同。）</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 5 步：状态编码。</b>4 个状态，用 2 位二进制刚好装满，<b>一个非法状态都没有</b>——这是最理想的编码宽度：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>状态</th><th>S0</th><th>S1</th><th>S2</th><th>S3</th></tr></thead>
+              <tbody>
+                <tr><td>编码 Q1 Q0</td><td class="font-mono text-xs">0 0</td><td class="font-mono text-xs">0 1</td><td class="font-mono text-xs">1 0</td><td class="font-mono text-xs">1 1</td></tr>
+                <tr><td>含义</td><td>空前缀</td><td>「1」</td><td>「10」</td><td>「101」</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 6 步：列状态转移表（8 行，一行都不能少）。</b>D 触发器的激励就是次态本身，所以最后两列直接抄：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>序号</th><th>现态 Q1 Q0</th><th>输入 X</th><th>次态 Q1* Q0*</th><th>输出 Z</th><th>D1 = Q1*</th><th>D0 = Q0*</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td class="font-mono text-xs">0 0</td><td>0</td><td class="font-mono text-xs">0 0</td><td>0</td><td>0</td><td>0</td></tr>
+                <tr><td>2</td><td class="font-mono text-xs">0 0</td><td>1</td><td class="font-mono text-xs">0 1</td><td>0</td><td>0</td><td>1</td></tr>
+                <tr><td>3</td><td class="font-mono text-xs">0 1</td><td>0</td><td class="font-mono text-xs">1 0</td><td>0</td><td><b>1</b></td><td>0</td></tr>
+                <tr><td>4</td><td class="font-mono text-xs">0 1</td><td>1</td><td class="font-mono text-xs">0 1</td><td>0</td><td>0</td><td>1</td></tr>
+                <tr><td>5</td><td class="font-mono text-xs">1 0</td><td>0</td><td class="font-mono text-xs">0 0</td><td>0</td><td>0</td><td>0</td></tr>
+                <tr><td>6</td><td class="font-mono text-xs">1 0</td><td>1</td><td class="font-mono text-xs">1 1</td><td>0</td><td><b>1</b></td><td>1</td></tr>
+                <tr><td>7</td><td class="font-mono text-xs">1 1</td><td>0</td><td class="font-mono text-xs">1 0</td><td>0</td><td><b>1</b></td><td>0</td></tr>
+                <tr><td>8</td><td class="font-mono text-xs">1 1</td><td>1</td><td class="font-mono text-xs">0 1</td><td><b>1</b></td><td>0</td><td>1</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 7 步：两张卡诺图，圈出 D1 和 D0。</b>卡诺图的行按格雷序 <code class="icode">00 → 01 → 11 → 10</code> 排列（相邻行只差一位，这是卡诺图能化简的前提）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="D1 与 D0 的卡诺图（每个触发器一张）">
+            <pre><code>【D1 = Q1* 的卡诺图】                 【D0 = Q0* 的卡诺图】
+
+           X=0    X=1                          X=0    X=1
+        ┌──────┬──────┐                     ┌──────┬──────┐
+   Q1Q0 │      │      │                Q1Q0 │      │      │
+    0 0 │  0   │  0   │                 0 0 │  0   │  1   │
+        ├──────┼──────┤                     ├──────┼──────┤
+    0 1 │ [1]  │  0   │                 0 1 │  0   │  1   │
+        ├──────┼──────┤                     ├──────┼──────┤
+    1 1 │ [1]  │  0   │                 1 1 │  0   │  1   │
+        ├──────┼──────┤                     ├──────┼──────┤
+    1 0 │  0   │ (1)  │                 1 0 │  0   │  1   │
+        └──────┴──────┘                     └──────┴──────┘
+
+  【圈法一】[1] 和 [1]：                       【圈法】整列 X=1 全是 1，
+     行 01 与 11 相邻，共用 Q0=1、X=0            八个格子圈成一大块 —— 与 Q1、Q0
+     → 这一圈得到一个乘积项  Q0 · X'             完全无关
+  【圈法二】(1) 是孤立的，没有邻居可以圈          → 这一列就是输入线 X 本身
+     → 单独成一个乘积项     Q1 · Q0' · X
+
+  ══════════════════════════════════════════════════════════════
+
+      D1 = Q0 · X' + Q1 · Q0' · X          D0 = X
+
+  ★ 注意 D0 = X 有多漂亮：状态机的最低位触发器，D 端【直接连输入线】，
+    一个门都不用。这不是巧合 —— 因为「匹配前缀的第 2 位是不是 1」
+    恰好等价于「当前输入是不是 1」。
+  ★ 也注意这台机器【没有无关项】：4 个状态刚好用满 2 位，
+    卡诺图 8 个格子全部有确定的值。没有无关项就没有「随便圈」
+    的风险，也就没有非法状态锁死的可能。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 8 步：输出方程。</b>Mealy 型的输出是 <code class="icode">Z = λ(Q, X)</code>，所以要在「状态 × 输入」上圈：只有第 8 行（<code class="icode">Q1 Q0 X = 1 1 1</code>）输出为 1，它孤零零一个，圈不大：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="输出方程与门数统计">
+            <pre><code>          Z 的卡诺图
+               X=0    X=1
+            ┌──────┬──────┐
+       Q1Q0 │      │      │
+        0 0 │  0   │  0   │
+            ├──────┼──────┤
+        0 1 │  0   │  0   │
+            ├──────┼──────┤
+        1 1 │  0   │ (1)  │   ← 只有这一格
+            ├──────┼──────┤
+        1 0 │  0   │  0   │
+            └──────┴──────┘
+
+        Z = Q1 · Q0 · X          （三个输入相与 —— 一个 3 输入与门搞定）
+
+【整套电路需要多少器件？】
+
+   触发器：2 个 D 触发器（例如一片 74LVC74 里正好有 2 个）
+   组合逻辑：
+     反相器 × 2      生成 X' 和 Q0'
+     2 输入与门 × 1  算 Q0 · X'
+     3 输入与门 × 2  算 Q1 · Q0' · X 和 Q1 · Q0 · X
+     2 输入或门 × 1  把 D1 的两项加起来
+     ────────────────────────────
+     合计约 6 个门
+
+   如果换成 74 系列封装：一片 74LVC74（2 个 D 触发器）
+   + 一片 74LVC00/08/32 混合逻辑，或者直接用一片小 CPLD。
+
+【验证：喂一串 1 0 1 1 进去，看它抓不抓得住】
+
+  时钟   X   现态(Q1Q0)  代入 D1 的方程                  次态   Z
+  ──────────────────────────────────────────────────────────────
+   T1    1    S0 (0 0)   D1 = 0·0 + 0·1·1 = 0 → D0 = 1    0 1    0
+   T2    0    S1 (0 1)   D1 = 1·1 + 0·1·0 = 1 → D0 = 0    1 0    0
+   T3    1    S2 (1 0)   D1 = 0·0 + 1·1·1 = 1 → D0 = 1    1 1    0
+   T4    1    S3 (1 1)   D1 = 1·0 + 1·0·1 = 0 → D0 = 1    0 1    ★1
+                          ↑ 这一拍 Z = Q1·Q0·X = 1·1·1 = 1，检测到了！
+   T5    …    S1 (0 1)   （重叠处理正确：最后那个 1 成了下一轮的开头）
+
+   再试一个「不该触发」的反例：X = 1 0 1 0 1 1
+   T1→S1, T2→S2, T3→S3, T4→S2（1010 失配，回 S2），T5→S3，T6→S1 且 Z=1
+   → 只在第 6 拍输出一次（对应序列 1 0 1 1，即 T3~T6），前面那个
+     「1010」正确地没有触发。✓</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">同一个需求换成 Moore 型：多一个触发器，换来一个「干净」的输出</div>
+            <p>Moore 型要求输出只由状态决定，所以「已经匹配完整的 1011」这件事必须<b>自己变成一个状态 S4</b>：</p>
+            <div class="table-scroll mt-3">
+              <table class="table-mcu">
+                <thead><tr><th>现态</th><th>输出 Z</th><th>X = 0 → 次态</th><th>X = 1 → 次态</th></tr></thead>
+                <tbody>
+                  <tr><td class="font-mono text-xs">S0（空前缀）</td><td>0</td><td>S0</td><td>S1</td></tr>
+                  <tr><td class="font-mono text-xs">S1（「1」）</td><td>0</td><td>S2</td><td>S1</td></tr>
+                  <tr><td class="font-mono text-xs">S2（「10」）</td><td>0</td><td>S0</td><td>S3</td></tr>
+                  <tr><td class="font-mono text-xs">S3（「101」）</td><td>0</td><td>S2</td><td>S4</td></tr>
+                  <tr><td class="font-mono text-xs">S4（「1011」）</td><td><b>1</b></td><td>S2</td><td>S1</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-2">编码：<code class="icode">S0 = 000</code>、<code class="icode">S1 = 001</code>、<code class="icode">S2 = 010</code>、<code class="icode">S3 = 011</code>、<code class="icode">S4 = 100</code>。输出方程变成 <code class="icode">Z = Q2 · Q1' · Q0'</code>——<b>里面没有 X</b>，这正是 Moore 的定义。</p>
+            <p class="mt-2">两版对比：<b>Mealy 版 4 状态 / 2 触发器 / 6 门 / 输出与输入同拍；Moore 版 5 状态 / 3 触发器 / 输出滞后一拍但脉宽精确。</b>而且 Moore 版用 3 位编码 5 个状态，<b>多出 3 个非法状态</b>（101、110、111），次态逻辑里必须显式把它们指向 S0——这是「多一个状态」的隐藏代价，很多人在数触发器的时候忘了算。</p>
+          </div>
+
+          <h3 id="calc-traffic" class="mt-7 text-base font-semibold">例二：交通灯状态机——状态表示阶段，计数表示时间</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">需求：</b>东西向（EW）和南北向（NS）两组灯，每组红/黄/绿三色。一个完整周期：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>阶段</th><th>EW 灯</th><th>NS 灯</th><th>持续时长</th><th>为什么这么设计</th></tr></thead>
+              <tbody>
+                <tr><td>①</td><td><b>绿</b></td><td>红</td><td>30s</td><td>EW 是主干道，放行时间长</td></tr>
+                <tr><td>②</td><td><b>黄</b></td><td>红</td><td>3s</td><td>黄灯是「即将变红」的预告</td></tr>
+                <tr><td>③</td><td>红</td><td>红</td><td>1s</td><td><b>全红安全间隔</b>：清空路口里还没走完的车</td></tr>
+                <tr><td>④</td><td>红</td><td><b>绿</b></td><td>20s</td><td>NS 是支路</td></tr>
+                <tr><td>⑤</td><td>红</td><td><b>黄</b></td><td>3s</td><td>—</td></tr>
+                <tr><td>⑥</td><td>红</td><td>红</td><td>1s</td><td>另一侧的清空间隔</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">先算周期和占空比</b>（这些数字后面要用来验证）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="周期与占空比：真实数值">
+            <pre><code>【总周期】
+   T = 30 + 3 + 1 + 20 + 3 + 1 = 58 s
+
+【每个方向的通行时间】
+   EW 绿 = 30 s          EW 黄 = 3 s       EW 红 = 58 − 30 − 3 = 25 s
+   NS 绿 = 20 s          NS 黄 = 3 s       NS 红 = 58 − 20 − 3 = 35 s
+
+   验算：EW 红应该等于「NS 绿 + NS 黄 + 两个全红」
+        = 20 + 3 + 1 + 1 = 25 s ✓ 对上了
+
+【通行效率】
+   EW 绿信比 = 30 / 58 = 51.7%
+   NS 绿信比 = 20 / 58 = 34.5%
+   黄灯占比   =  6 / 58 = 10.3%
+   全红占比   =  2 / 58 =  3.4%
+
+【如果不用状态机，用「延时」实现会怎样】
+   while(1) { EW绿; delay(30); EW黄; delay(3); 全红; delay(1); ... }
+   6 个 delay 加起来 58 秒不响应任何东西 —— 紧急车辆来了也没法插队，
+   行人按钮按了也不知道。这就是第 1 节那个「世界消失」的放大版。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">关键设计决策一：两个「全红」不能合并。</b>阶段③和阶段⑥的输出<b>一模一样</b>（EW 红 + NS 红），但它们<b>不等价</b>——③ 的下一个状态是「NS 绿」，⑥ 的下一个状态是「EW 绿」。次态不同 → 不能合并。这是<a class="text-brand-600 dark:text-brand-300" href="#sub-reduce">状态化简</a>里最容易犯的错：<b>只看输出就合并。</b></p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">关键设计决策二：时间不能用状态来表示。</b>这是新手最容易做错的一步。30 秒意味着 <b>30 个 1 秒的时钟节拍</b>，如果你用状态去数它，就要画 30 个状态！正确做法是：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="状态表示「在做什么」，计数器表示「做了多久」">
+            <pre><code>【错误做法】用状态表示每一个节拍
+
+    S0(EW绿第1秒) → S1(EW绿第2秒) → … → S29(EW绿第30秒) → S30(EW黄第1秒) → …
+    → 一共 58 个状态！
+    → 触发器要 ⌈log2 58⌉ = 6 个（编码位宽从 3 位暴涨到 6 位）
+    → 状态表从 6 行变成 58 行，卡诺图从 4 变量变成 7 变量
+    → 任何一个「改一下绿灯时长」的需求，都要重画整张图
+
+【正确做法】状态机管「阶段」，一个倒计时计数器管「还要等多久」
+
+    ┌──────────────────────────────┐
+    │  状态机：6 个状态、3 个触发器  │
+    │  S0: EW绿  S1: EW黄  S2: 全红 │
+    │  S3: NS绿  S4: NS黄  S5: 全红 │
+    └───────────────┬──────────────┘
+                    │ 进入一个状态时，装载该阶段的时长
+                    ▼
+    ┌──────────────────────────────┐
+    │  倒计时计数器（一个 6 位寄存器）│
+    │  每个 1Hz 节拍减 1            │
+    │  减到 0 → 产生「阶段结束」事件 │
+    └───────────────┬──────────────┘
+                    │ 事件
+                    └──────► 回到状态机，触发状态转移
+
+    ★ 这条原则在单片机代码里同样成立，而且更重要：
+      「状态表示我在做什么，变量表示我做了多久、做了几次」
+      把「计时 / 计数」塞进状态里，是状态数量爆炸的头号原因。
+      对应的 C 代码就长这样：
+          case ST_EW_GREEN:
+              if (--tick_left == 0) { tick_left = 3; st = ST_EW_YELLOW; }
+              break;
+      状态只有 6 个，而 30 这个数字只是一个可以随便改的常量。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">列状态表、编码、求方程。</b>6 个状态用 3 位二进制 <code class="icode">Q2 Q1 Q0</code>，按 <code class="icode">000 → 001 → 010 → 011 → 100 → 101</code> 顺序循环（就是模 6 计数），剩余的 <code class="icode">110</code>、<code class="icode">111</code> 是非法码，<b>强制回 000</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="交通灯：状态转移表与激励方程">
+            <pre><code>【状态转移表：8 行全列，包括两个非法码】
+
+   现态 Q2Q1Q0   阶段            次态 Q2*Q1*Q0*   D2  D1  D0
+   ─────────────────────────────────────────────────────────
+      000        ① EW绿  30s        001           0   0   1
+      001        ② EW黄   3s        010           0   1   0
+      010        ③ 全红   1s        011           0   1   1
+      011        ④ NS绿  20s        100           1   0   0
+      100        ⑤ NS黄   3s        101           1   0   1
+      101        ⑥ 全红   1s        000           0   0   0
+      110        【非法】            000           0   0   0   ← 安全编码
+      111        【非法】            000           0   0   0   ← 安全编码
+
+【对 D2、D1、D0 各画一张卡诺图，圈 1 得：】
+
+   D2 = Q2' · Q1 · Q0  +  Q2 · Q1' · Q0'      （只在 011 和 100 两行是 1）
+   D1 = Q2' · ( Q1 ⊕ Q0 )                     （只在 001 和 010 两行是 1）
+   D0 = Q0' · ( Q2' + Q1' )                   （在 000、010、100 三行是 1）
+
+   验算 D0 的三行：
+     000 → D0 = 1 · (1 + 1) = 1，次态最低位是 1 ✓（001）
+     010 → D0 = 1 · (1 + 0) = 1 ✓（011）
+     100 → D0 = 1 · (0 + 1) = 1 ✓（101）
+     110 → D0 = 1 · (0 + 0) = 0 ✓（强制 000）
+     111 → D0 = 0 · (…) = 0 ✓
+     ✓ 全部对上，而且两个非法码在【一个时钟内】就回到了 000。
+       这就是安全编码的效果：不是「祈祷它不要发生」，
+       而是「发生了也自动爬回来」。
+
+【输出方程（1 = 亮）】
+
+   EW 绿  EW_G = Q1' · Q0'          （只有 000：Q2 无所谓？
+                                      不行，000 和 100 的 Q1Q0 都是 00，
+                                      所以还要乘 Q2'）
+           EW_G = Q2' · Q1' · Q0'
+   EW 黄  EW_Y = Q2' · Q1' · Q0
+   NS 绿  NS_G = Q2' · Q1  · Q0
+   NS 黄  NS_Y = Q2  · Q1' · Q0'
+   EW 红  EW_R = Q1 ⊕ Q2            （EW 不通行 = 010、011、100、101）
+   NS 红  NS_R = ( NS_G + NS_Y )'   （NS 不通行 = 除 011、100 以外全部）</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">验证 EW_R = Q1 ⊕ Q2：</b>逐行代进去看——<code class="icode">000</code>（EW绿）→ 0⊕0 = 0 ✓；<code class="icode">001</code>（EW黄）→ 0⊕0 = 0 ✓；<code class="icode">010</code>（全红）→ 1⊕0 = 1 ✓；<code class="icode">011</code>（NS绿）→ 1⊕0 = 1 ✓；<code class="icode">100</code>（NS黄）→ 0⊕1 = 1 ✓；<code class="icode">101</code>（全红）→ 0⊕1 = 1 ✓。六行全对。一个 XOR 门就搞定了红灯，这就是卡诺图化简的实惠。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">最后对比一下两种编码方案在这道题上的成本：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>指标</th><th>二进制编码（本题采用）</th><th>独热码</th></tr></thead>
+              <tbody>
+                <tr><td>触发器数量</td><td><b>3 个</b></td><td>6 个（一个状态一位）</td></tr>
+                <tr><td>次态逻辑</td><td>3 张四变量卡诺图，化简后约 12 个门（含一个 XOR）</td><td>每位 = 入边的或，6 个或门，<b>无译码</b></td></tr>
+                <tr><td>输出逻辑</td><td>约 12 个门（6 个三输入与门 + 1 个 XOR + 1 组或非）</td><td><b>0 个门</b>：EW_G 就是第 0 位、EW_Y 就是第 1 位……</td></tr>
+                <tr><td>非法状态数</td><td>2<sup>3</sup> − 6 = <b>2 个</b>（110、111）</td><td>2<sup>6</sup> − 6 = <b>58 个</b></td></tr>
+                <tr><td>组合逻辑最长路径</td><td>3 级门左右</td><td><b>1 级门</b>（或门）</td></tr>
+                <tr><td>结论</td><td>CPLD / ASIC 上更划算</td><td>FPGA 上更划算（触发器免费、LUT 贵）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="calc-reduce" class="mt-7 text-base font-semibold">例三：隐含表化简——5 个状态压到 4 个，顺手把非法状态清零</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>下面是一台已经画好的 Mealy 型状态机（1 位输入 X，1 位输出 Z）。请用隐含表法化简，并算出化简前后触发器数量的变化。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>现态</th><th>X = 0：次态 / 输出</th><th>X = 1：次态 / 输出</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">S0</td><td>S0 / 0</td><td>S1 / 0</td></tr>
+                <tr><td class="font-mono text-xs">S1</td><td>S2 / 0</td><td>S4 / 0</td></tr>
+                <tr><td class="font-mono text-xs">S2</td><td>S0 / 0</td><td>S3 / 0</td></tr>
+                <tr><td class="font-mono text-xs">S3</td><td>S2 / 0</td><td>S1 / 1</td></tr>
+                <tr><td class="font-mono text-xs">S4</td><td>S2 / 0</td><td>S1 / 0</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 1 步：画隐含表。</b>5 个状态 → 5×4/2 = <b>10 个格子</b>。行是 S1~S4，列是 S0~S3，第 i 行第 j 列的格子代表状态对 (S<sub>i</sub>, S<sub>j</sub>)：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 1~2 步：画表 + 第一遍筛选（输出不同的直接打叉）">
+            <pre><code>                 S0          S1          S2          S3
+            ┌───────────┬───────────┬───────────┬───────────┐
+      S1    │  S2S0     │           │           │           │
+            │  S4S1     │     —     │           │           │
+            ├───────────┼───────────┼───────────┼───────────┤
+      S2    │  S3S1     │     ✗     │     —     │           │
+            ├───────────┼───────────┼───────────┼───────────┤
+      S3    │     ✗     │     ✗     │     ✗     │     —     │
+            ├───────────┼───────────┼───────────┼───────────┤
+      S4    │  S0S2     │     ?     │  S0S2     │     ✗     │
+            │           │           │  S1S3     │           │
+            └───────────┴───────────┴───────────┴───────────┘
+
+  【第一遍打叉的依据（判据一：输出一致）】
+     (S3,S0)：S3 在 X=1 时输出 1，S0 输出 0 → 输出不同 → ✗
+     (S3,S1)：S3 在 X=1 时输出 1，S1 输出 0        → ✗
+     (S3,S2)：S3 在 X=1 时输出 1，S2 输出 0        → ✗
+     (S2,S1)：X=0 时 S2→S3、S1→S2，这一步输出都是 0，
+              所以要靠【次态对】判断（见下面第 3 步）
+     (S4,S3)：S4 在 X=1 时输出 0，S3 输出 1        → ✗
+
+  【格子里填的是什么】
+     每个输入列出一对「次态对」：
+     (S1,S0)：X=0 → S1 去 S2、S0 去 S0，写「S2S0」
+              X=1 → S1 去 S4、S0 去 S1，写「S4S1」
+     意思：只要 S2≡S0 且 S4≡S1，那么 S1≡S0。
+     这就是判据二的依赖关系 —— 一个「如果…那么…」的链条。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 3 步：迭代打叉。</b>规则只有一条：<b>格子里列出的任何一个次态对如果已经被打叉，这一格也打叉。</b>反反复复做，直到不再有新的叉出现：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 3~4 步：迭代，直到矩阵稳定">
+            <pre><code>【第一轮迭代】
+   (S2,S1) 依赖 { S0S2, S3S4 }
+           → S3S4 就是 (S4,S3)，它已经打叉了 → (S2,S1) 也打叉 ✗
+
+   (S4,S2) 依赖 { S0S2, S1S3 }
+           → S1S3 就是 (S3,S1)，已打叉 → (S4,S2) 打叉 ✗
+
+   (S1,S0) 依赖 { S2S0, S4S1 }
+           → 两个依赖目前都还活着 → 暂留
+   (S2,S0) 依赖 { S3S1 }
+           → (S3,S1) 已打叉 → (S2,S0) 打叉 ✗
+   (S4,S0) 依赖 { S0S2 }
+           → (S2,S0) 刚刚打叉了 → (S4,S0) 也打叉 ✗
+
+【第二轮迭代】
+   (S1,S0) 依赖 { S2S0, S4S1 }
+           → (S2,S0) 这一轮已经打叉 → (S1,S0) 打叉 ✗
+
+【第三轮迭代】没有新的叉了，矩阵稳定。
+
+【最终结果：只剩一个格子活着】
+
+   (S4,S1) —— 它的依赖是：
+        X=0：S4 去 S2、S1 去 S2  → 次态【相同】，自动满足 ✓
+        X=1：S4 去 S1、S1 去 S4  → 次态对是 (S1,S4)，
+                                   也就是【它自己】！
+        自己依赖自己 —— 这种「循环依赖」的处理办法是：
+        先假设它成立，然后检查有没有矛盾。这里没有任何矛盾
+        （输出一致 + 依赖闭合），所以假设成立。
+
+   ⇒ S1 ≡ S4，可以合并。
+
+【合并后的状态表（5 个状态 → 4 个状态）】
+
+        现态         X = 0：次态 / 输出     X = 1：次态 / 输出
+     ─────────────┼────────────────────┼────────────────────
+        S0        │      S0 / 0        │      S1 / 0
+       S1 (= S4)  │      S2 / 0        │      S1 / 0     ← 自环！
+        S2        │      S0 / 0        │      S3 / 0
+        S3        │      S2 / 0        │      S1 / 1
+
+   注意合并带来的一个额外好处：原来 S1 --X=1--> S4 这条边，
+   合并之后变成了 S1 --X=1--> S1 的【自环】，次态方程更简单了。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现在算账：化简到底省了什么？</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>指标</th><th>化简前（5 状态）</th><th>化简后（4 状态）</th><th>变化</th></tr></thead>
+              <tbody>
+                <tr><td>需要的编码位数</td><td>⌈log<sub>2</sub>5⌉ = <b>3 位</b></td><td>⌈log<sub>2</sub>4⌉ = <b>2 位</b></td><td><b>少 1 位</b></td></tr>
+                <tr><td>触发器数量</td><td>3 个</td><td>2 个</td><td><b>省 1 个触发器</b></td></tr>
+                <tr><td>非法状态数量</td><td>2<sup>3</sup> − 5 = 3 个（101、110、111）</td><td>2<sup>2</sup> − 4 = <b>0 个</b></td><td><b>非法状态彻底清零</b></td></tr>
+                <tr><td>次态卡诺图规模</td><td>3 张（Q2、Q1、Q0），每张 4 个变量</td><td>2 张，每张 3 个变量</td><td>变量少一个，图小一半</td></tr>
+                <tr><td>需不需要写安全默认转移</td><td>需要（3 个非法码要显式处理）</td><td>不需要（没有非法码）</td><td>少一处出错的机会</td></tr>
+                <tr><td>状态表行数</td><td>5 行 + 3 行非法 = 8 行</td><td>4 行 = 4 行</td><td>验证工作量减半</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">接着比编码方案。</b>化简后的 4 状态机器，三种编码各自的成本：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>编码方案</th><th>触发器</th><th>次态逻辑</th><th>输出逻辑</th><th>非法状态</th><th>这台机器适合吗</th></tr></thead>
+              <tbody>
+                <tr><td>二进制 <code class="icode">S0=00 S1=01 S2=10 S3=11</code></td><td><b>2</b></td><td>2 张 3 变量卡诺图，约 6 个门</td><td>Mealy，逐边译码，约 4 个门</td><td><b>0</b></td><td><b>合适</b>（CPLD/ASIC 首选）</td></tr>
+                <tr><td>独热 <code class="icode">0001 0010 0100 1000</code></td><td>4</td><td>每位 = 入边的或，4 个门，<b>路径只有 1 级</b></td><td><b>0 个门</b>（状态位直接就是译码结果）</td><td>2<sup>4</sup> − 4 = <b>12 个</b></td><td>FPGA 上合适；<b>CPLD 上浪费</b></td></tr>
+                <tr><td>格雷码</td><td>2</td><td>同二进制，但要求相邻状态只差一位</td><td>—</td><td>0</td><td><b>不合适</b>，见下</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">为什么这道题格雷码不合适：不是所有状态图都能排出格雷序</div>
+            <p>格雷码的好处（只翻一位）有一个前提：<b>状态转移图必须是一条链或者一个环</b>，这样才能顺着格雷码的顺序排下去。而这道题化简后的转移图里有两个<b>三元环</b>：<code class="icode">S0→S1→S2→S0</code> 和 <code class="icode">S1→S2→S3→S1</code>。</p>
+            <p class="mt-2">2 位格雷码只有 4 个码，构成一个 4 步的环 <code class="icode">00→01→11→10→00</code>。你想把任何三个状态排在环上的连续三段里，<b>第三条边（回到起点的那条）必然要跨两位</b>。逐个试各种分配方案会发现：<b>这道题里至少有两条边无论如何都要两位同时翻转。</b></p>
+            <p class="mt-2">所以这里老老实实用二进制。<b>记住这条判据：转移图是「链条/环」才用格雷，是「网状」就用二进制（或者独热，看载体）。</b></p>
+          </div>
+
+          <h3 id="calc-fmax" class="mt-7 text-base font-semibold">例四：最高时钟频率预算——顺便发现一个保持时间违例</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>用例一的电路（<code class="icode">D1 = Q0·X' + Q1·Q0'·X</code>，<code class="icode">D0 = X</code>）搭一台真实的硬件状态机，用 74LVC74 双 D 触发器（3.3V 供电）。求它能跑多快，并检查两条时序约束。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">先列器件参数。</b>下面这些是 74LVC 系列在 3.3V、负载 15pF 条件下的典型量级（<b>按典型值估算，不是数据手册的保证值</b>；真做设计必须查手册里的 min/max 列）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>参数</th><th>符号</th><th>典型值</th><th>含义</th></tr></thead>
+              <tbody>
+                <tr><td>时钟到输出延迟</td><td class="font-mono text-xs">t<sub>cq</sub></td><td>5 ns（最大）</td><td>时钟沿来了之后，Q 稳定到新值要多久</td></tr>
+                <tr><td>建立时间</td><td class="font-mono text-xs">t<sub>setup</sub></td><td>1.5 ns</td><td>D 要在时钟沿之前稳定这么久</td></tr>
+                <tr><td>保持时间</td><td class="font-mono text-xs">t<sub>hold</sub></td><td>1 ns</td><td>时钟沿之后 D 还要保持这么久</td></tr>
+                <tr><td>单门传播延迟</td><td class="font-mono text-xs">t<sub>pd</sub></td><td>4 ns</td><td>一级逻辑门（AND/OR）的延迟</td></tr>
+                <tr><td>时钟偏斜</td><td class="font-mono text-xs">t<sub>skew</sub></td><td>1 ns</td><td>同一个时钟到达两个触发器的时间差（按走线长度差 15cm 估）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第一件事：数出最长的组合逻辑路径。</b>看 <code class="icode">D1</code> 的方程 <code class="icode">Q0·X' + Q1·Q0'·X</code>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="最长路径与最短路径">
+            <pre><code>【最长路径：到 D1】
+
+   Q0 ──────────────►┌────────┐
+                     │ AND2   │──┐
+   X ──►[NOT]──X'───►└────────┘  │
+                                 ├──►┌────────┐
+   Q1 ──────────────►┌────────┐  │   │  OR2   │──► D1
+                     │ AND3   │──┘   └────────┘
+   Q0 ──►[NOT]─Q0'──►│        │
+   X ───────────────►└────────┘
+                          ↑
+              这一条路上有：反相器 → 3 输入与门 → 或门
+              = 3 级门 = 3 × 4ns = 12 ns
+
+   ★ 反相器的延迟比普通门略小，这里保守地按一级门算。
+
+   所以  t_logic(max) = 12 ns
+
+【最短路径：到 D0】
+
+   X ─────────────────────────────────────────────► D0
+              一根线直接连过去，中间【没有任何门】
+   所以  t_logic(min) = 0 ns
+
+   ★ 这一条「太短」的路径，正是下面保持时间违例的根源。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第二件事：算最高频率（建立时间约束）。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="建立时间约束：能跑多快">
+            <pre><code>   T_clk(min) ≥ t_cq + t_logic(max) + t_setup + t_skew
+             = 5 ns + 12 ns + 1.5 ns + 1 ns
+             = 19.5 ns
+
+   f_max = 1 / 19.5ns = 51.3 MHz
+
+【占时比例分析】
+   触发器自己的开销   t_cq + t_setup = 5 + 1.5 = 6.5 ns   占 33%
+   组合逻辑           t_logic       = 12 ns            占 62%
+   时钟偏斜           t_skew        = 1 ns             占  5%
+
+   ⇒ 想跑更快，最有效的办法是【缩短组合逻辑路径】。
+     把 3 级门砍成 2 级（比如找等价方程、或共享公共项），
+     t_logic 从 12ns 降到 8ns，T 就变成 15.5ns，f_max 升到 64.5MHz。
+     —— 这就是卡诺图化简不只是"省门"，更是"提速"的原因。
+
+【要不要流水线？】
+   如果 51MHz 还不够，可以在组合逻辑中间插一级触发器（流水线）。
+   代价是状态机的语义变了：输出会晚一拍，而且「一个状态转移」
+   变成需要两个时钟周期才能完成。状态机加流水线要非常小心，
+   它不再是「一个时钟走一条边」了。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第三件事：检查保持时间约束。</b>这一步很多人会跳过，然后遇到「降频就好了、升频反而正常」的怪现象：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="保持时间约束：逻辑不能太短（与频率无关！）">
+            <pre><code>   要求：  t_cq(min) + t_logic(min) ≥ t_hold + t_skew
+
+   代入（t_cq 的最小值按 1.5ns 估 —— 触发器输出可能"跑得很快"）：
+           1.5 ns  +  0 ns      ≥  1 ns + 1 ns
+           1.5 ns               ≥  2 ns        ✗ 违反！
+
+   ★ 违例了。D0 = X 这条路径只有一个「0 级门」，
+     时钟沿一到，触发器 A 把新状态推出去（1.5ns），
+     而 X 这根线上的新数据几乎是立刻就到了触发器 B 的 D 端。
+     但触发器 B 此刻还在保持窗口里没"松手"，
+     于是它可能把【新】数据当成【旧】数据采进去 —— 状态机少走一步。
+
+   ★ 关键点：这条约束和时钟频率【完全无关】。
+     你把时钟降到 1Hz，这个违例依然存在。
+     这就是为什么有些板子"降频也没用"。
+
+【解决办法：给这条路径人为加延迟】
+
+   X ──►[BUF]──►[BUF]──► D0        两个缓冲器 ≈ 7 ns
+
+   再验算：1.5 + 7 = 8.5 ns ≥ 2 ns  ✓ 通过，还留了 6.5ns 余量。
+   加两个缓冲器可以用一片 74LVC34（六缓冲器）里多余的两个门，
+   也可以用综合工具自动插入（这叫「fix hold」，DC / Vivado 都能做）。
+
+【如果换成低速的老器件呢？】
+
+   用 74HC74（4.5V 供电，典型值）：
+     t_cq = 15 ns   t_setup = 20 ns   t_pd = 15 ns   t_skew = 2 ns
+
+   t_logic(max) = 3 级 × 15ns = 45 ns（HC 系列门延迟本来就大）
+   T_clk(min) = 15 + 45 + 20 + 2 = 82 ns  →  f_max = 12.2 MHz
+
+   ⇒ 同一台状态机，换器件从 51MHz 掉到 12MHz。
+     「我的逻辑是对的，为什么跑不起来」—— 答案常常在这里。
+
+【和单片机软件状态机比一比】
+
+   STM32F103 @ 72MHz，用 C 写同一台状态机（放在 1kHz 定时器中断里）：
+     中断响应（含入栈）        约 12 个时钟周期
+     switch 分支 + 次态计算     约 10 ~ 30 个时钟周期
+     输出动作（写 GPIO）        约 5 ~ 10 个时钟周期
+     ─────────────────────────────────────────
+     合计约 30 ~ 50 个时钟周期 = 0.42 ~ 0.69 µs
+
+   ⇒ 软件状态机的一次转移要 0.5µs 量级，硬件只要 20ns 量级 ——
+     差了大约 25~35 倍，也就是【一个半数量级】。
+     所以判据是：
+       · 响应延迟要求 &gt; 10µs、事件间隔 &gt; 100µs → 软件状态机完全够
+       · 响应延迟要求 &lt; 1µs、或者输入频率 &gt; 几 MHz → 该上 CPLD/FPGA
+       · 中间地带（比如伺服控制环、高速编码器）→ 用硬件外设
+         （定时器、DMA、比较器）配合软件状态机</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一节四道题，各留了一句话给你</div>
+            <p><b>例一：</b>「状态 = 已匹配的模式前缀长度」是序列检测器的万能套路；<b>失配时回到最长的可用后缀</b>，是它唯一的难点。</p>
+            <p class="mt-2"><b>例二：</b>输出相同的状态<b>不一定</b>能合并（次态不同就不行）；而状态机只该表示「阶段」，<b>时间要用计数器</b>，否则状态数会爆炸。</p>
+            <p class="mt-2"><b>例三：</b>隐含表的价值在于「不漏」——10 个格子摆在那里，你不可能漏掉任何一对；而化简的真正红利，是<b>把非法状态从 3 个变成 0 个</b>。</p>
+            <p class="mt-2"><b>例四：</b>时序有两条约束，一条管「不能太慢」，一条管「不能太快」。<b>第二条和频率无关</b>——这是很多人一辈子都没搞明白的一个坑。</p>
+          </div>
+        </section>
+
+<!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="mt-14 text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4">前面三节讲的都是「电路上的状态机」。这一节要把它搬到单片机上——你会发现<b class="font-semibold text-ink">同一套方法一个字都不用改</b>，只是「状态寄存器」变成了一个变量，「时钟沿」变成了一个 tick，「组合逻辑」变成了一个 <code class="icode">switch</code>。<b class="font-semibold text-ink">下面每一段代码都是完整、可以直接编译运行的</b>，不是伪代码。硬件相关的部分（读时间、读电平、写 IO）全部集中在三个小函数里，你在自己板子上补上这三个函数就能跑。</p>
+
+          <h3 id="mcu-block" class="mt-7 text-base font-semibold">为什么裸机程序终究要写成状态机：从「阻塞闪灯」说起</h3>
+
+          <p class="mt-3">所有裸机教程的第一个程序都是闪灯，第二个程序都是「按键控制闪灯」。而<b class="font-semibold text-ink">几乎所有的教程都会在这个地方给你一段会崩掉的代码</b>：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="blinky_blocking.c —— 会崩掉的版本（不要这样写）">
+            <pre><code>/* ============================================================
+ * blinky_blocking.c —— 「阻塞版」闪灯 + 按键
+ *
+ * 需求：① LED 每 1000ms 翻转一次
+ *       ② 按住按键时，翻转周期切换成 100ms
+ *
+ * 这个版本是错的。它看起来能跑，实际上是靠运气。
+ * ============================================================ */
+#include &lt;stdint.h&gt;
+#include &lt;stdbool.h&gt;
+
+void board_init(void);          /* 你的板级初始化：时钟、GPIO */
+bool key_is_pressed(void);      /* 读按键（这里故意不消抖） */
+void led_toggle(void);
+
+/* 粗糙的忙等延时：CPU 在这段时间里只在做一件事 —— 数数 */
+void delay_ms(uint32_t ms)
+{
+    /* 72MHz 下大约每毫秒 7200 次循环（具体值随优化等级而变） */
+    for (volatile uint32_t i = 0; i &lt; ms * 7200u; i++) {
+        /* 空转 */
+    }
+}
+
+int main(void)
+{
+    static uint32_t period = 1000;      /* 当前闪烁周期，单位 ms */
+
+    board_init();
+
+    for (;;) {
+        /* ★ 只有执行到这一行的那一瞬间，按键才有可能被看到 */
+        if (key_is_pressed()) {
+            period = (period == 1000u) ? 100u : 1000u;
+        }
+
+        led_toggle();
+        delay_ms(period);               /* ← 灾难在这一行 */
+    }
+}</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">它错在哪？错在「阻塞 1 秒 = 这一秒里世界消失了」。</b>把时间轴画出来就一目了然——假设读一次按键需要 1µs：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="阻塞版的时间轴：99.9999% 的时间在「数数」">
+            <pre><code>每个刻度 = 100ms，一整行 = 1 秒
+
+主循环：
+  [读按键][LED翻转][———————— 忙着数数 1000ms ————————][读按键][LED翻转][— …
+   ↑1µs                                    ↑
+   只有这一个点在看按键                     这一整段里发生了什么，
+                                          程序完全不知道
+
+用户在别处按下按键 300ms：
+  [读按键][LED翻转][———————— 忙着数数 ————————][读按键][LED翻转][— …
+                               ▓▓▓▓▓▓▓
+                               └─ 用户按了 300ms，程序根本没看，
+                                  这次按键【彻底消失】
+
+【算一下捕获概率】
+  主循环一圈              ≈ 1000ms + 几十微秒 ≈ 1000ms
+  每次读按键占用的时间      ≈ 1µs
+  人按下按键的持续时间      典型 50 ~ 150ms（颤抖的老人可能 300ms）
+
+  捕获概率 = 按键时长 / 主循环周期
+           = 100ms / 1000ms = 10%          ← 按 10 次只认出 1 次
+           用 50ms 的轻点 = 5%              ← 按 20 次只认出 1 次
+
+  而且这还是乐观估计：即使"看"到了，一次未消抖的采样也可能
+  正好采在抖动的中间，读到的是弹起的电平 —— 那就白看了。
+
+【更糟的是，这个 bug 会伪装成别的问题】
+  · 「按键不灵敏」→ 你以为要换按键、加电容
+  · 「偶尔没反应」→ 你以为电源不稳、接触不良
+  · 真正的原因：程序 99.9999% 的时间根本没在听
+
+【再加一个需求，立刻就崩】
+  「按键要响应，同时串口收到的数据也不能丢。」
+  阻塞版做不到 —— 因为 delay_ms(1000) 执行的时候，
+  串口来 10 个字节都不会有人去拿，硬件 FIFO 只有几个字节深，
+  多出来的字节直接被硬件丢掉。这不是"写得不好"，是"结构上做不到"。</code></pre>
+          </div>
+
+          <p class="mt-3">现在看正确写法。<b class="font-semibold text-ink">同一个需求，改成一个状态机 + 一个时间戳</b>，主循环一圈只要几微秒：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="blinky_fsm.c —— 非阻塞状态机版（可直接编译运行）">
+            <pre><code>/* ============================================================
+ * blinky_fsm.c —— 非阻塞状态机版闪灯（可以直接编译运行）
+ *
+ * 硬件相关只剩下面三个函数，你在自己板子上把它们实现掉就行：
+ *     uint32_t tick_ms(void);        开机以来的毫秒数（无符号 32 位）
+ *     bool     key_raw(void);        按键的原始电平，true = 按下
+ *     void     led_write(bool on);   写 LED
+ *
+ * 编译：gcc -std=c99 -Wall -Wextra blinky_fsm.c -o blinky
+ * ============================================================ */
+#include &lt;stdint.h&gt;
+#include &lt;stdbool.h&gt;
+
+/* ---------- 移植层：只有这三个函数和硬件有关 ---------- */
+extern uint32_t tick_ms(void);
+extern bool     key_raw(void);
+extern void     led_write(bool on);
+void board_init(void);
+
+/* ---------- 1. 常量：把"魔法数字"集中到一处 ---------- */
+#define LED_SLOW_MS   1000u
+#define LED_FAST_MS    100u
+
+/* ---------- 2. 状态集合：一共只有 4 个状态 ---------- */
+typedef enum {
+    ST_LED_OFF = 0,     /* LED 灭，在等"该亮了"的时刻 */
+    ST_LED_ON           /* LED 亮，在等"该灭了"的时刻 */
+} led_st_t;
+
+typedef enum {
+    KEY_IDLE = 0,       /* 按键没按下（这里的消抖是简化版） */
+    KEY_DOWN            /* 按键按下 */
+} key_st_t;
+
+/* ---------- 3. 状态变量（就是"状态寄存器"） ---------- */
+typedef struct {
+    led_st_t led_state;
+    uint32_t led_stamp;     /* 进入当前 LED 状态的时刻 */
+
+    key_st_t key_state;
+
+    bool     fast_mode;     /* 当前是慢闪还是快闪 */
+} app_t;
+
+static app_t app;
+
+/* ============================================================
+ *  第 2 段：次态逻辑 —— 纯计算，不碰任何硬件
+ * ============================================================ */
+static led_st_t led_next_state(const app_t *a, uint32_t now)
+{
+    uint32_t interval = a-&gt;fast_mode ? LED_FAST_MS : LED_SLOW_MS;
+
+    switch (a-&gt;led_state) {
+    case ST_LED_OFF:
+        /* ★ 注意用的是【无符号减法】：即使 tick_ms() 溢出回绕，
+           这个比较依然正确（详见后面的 millis 溢出小节） */
+        if ((uint32_t)(now - a-&gt;led_stamp) &gt;= interval) {
+            return ST_LED_ON;
+        }
+        return ST_LED_OFF;
+
+    case ST_LED_ON:
+        if ((uint32_t)(now - a-&gt;led_stamp) &gt;= interval) {
+            return ST_LED_OFF;
+        }
+        return ST_LED_ON;
+
+    default:                    /* 非法状态：一个 tick 之内自恢复 */
+        return ST_LED_OFF;
+    }
+}
+
+/* ============================================================
+ *  第 3 段：输出逻辑 —— 只看现态，产生动作
+ * ============================================================ */
+static void led_output(const app_t *a)
+{
+    /* Moore 型：输出只取决于"现态"，与输入无关 —— 天然无毛刺 */
+    led_write(a-&gt;led_state == ST_LED_ON);
+}
+
+/* ============================================================
+ *  第 1 段的搬运：一个 tick 执行一次
+ * ============================================================ */
+void app_tick(uint32_t now)
+{
+    /* ---- 先处理输入事件（按键） ---- */
+    bool pressed = key_raw();
+
+    switch (app.key_state) {
+    case KEY_IDLE:
+        if (pressed) {
+            app.key_state = KEY_DOWN;
+        }
+        break;
+    case KEY_DOWN:
+        if (!pressed) {
+            /* 松手：切换快慢模式。
+               这一小段消抖是故意简化的 —— 完整版见下一小节。 */
+            app.fast_mode = !app.fast_mode;
+            app.key_state = KEY_IDLE;
+        }
+        break;
+    default:
+        app.key_state = KEY_IDLE;
+        break;
+    }
+
+    /* ---- 再推进 LED 状态机 ---- */
+    {
+        led_st_t n = led_next_state(&amp;app, now);   /* ① 先算次态 */
+        led_output(&amp;app);                         /* ② 再按【现态】输出 */
+        if (n != app.led_state) {                 /* ③ 最后搬状态 + 打时间戳 */
+            app.led_state = n;
+            app.led_stamp = now;
+        }
+    }
+}
+
+/* ============================================================
+ *  主循环：一圈只要几微秒，跑几万圈才过 1 毫秒
+ * ============================================================ */
+int main(void)
+{
+    board_init();
+
+    for (;;) {
+        app_tick(tick_ms());        /* 没有任何 delay */
+    }
+}
+
+/* ============================================================
+ * 【两个版本摆在一起对比】
+ *
+ *                     阻塞版                 状态机版
+ *   ────────────────┼─────────────────────┼──────────────────────
+ *    一圈耗时        1000ms 量级            3 ~ 5µs
+ *    每秒看按键      1 次                   20 万次以上
+ *    100ms 的按键    10% 概率被看到         100% 被看到
+ *    时间精度        靠循环次数，误差累积    靠时间戳，误差 = 一个 tick
+ *    能不能加任务    不能                   想加几个加几个（见时间片小节）
+ *    代码可测性      没法测                 状态 + 输入 → 状态，可枚举
+ *
+ *  ★ 关键改变只有一句话：
+ *    把「等 1 秒」从一条【指令】（delay）变成了一次【判断】
+ *    （now - stamp 够不够 1 秒）。指令一执行就把 CPU 交出去了，
+ *    判断执行完 CPU 还是你的 —— 这就是"非阻塞"的全部秘密。
+ * ============================================================ */</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">「非阻塞」的三个固定套路，记住就能改写任何阻塞代码</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>把「等」拆成「时间戳 + 判断」。</b><code class="icode">delay(1000)</code> → 记住 <code class="icode">stamp = now</code>，然后在每个 tick 里判断 <code class="icode">(now - stamp) &gt;= 1000</code>。</li>
+              <li><b>把「顺序执行」拆成「状态 + 转移」。</b><code class="icode">A(); delay(100); B();</code> → 两个状态：<code class="icode">ST_A</code>（做完 A，记时间戳）→ <code class="icode">ST_B</code>。中间那 100ms 归世界所有，不归 A 所有。</li>
+              <li><b>把「循环等条件」拆成「每个 tick 检查一次条件」。</b><code class="icode">while (!flag);</code> → <code class="icode">if (flag) { 转移 } else { 留在原状态 }</code>。顺手再加一个超时计数，因为<b>「永远等不到」才是嵌入式里最常见的情况</b>。</li>
+            </ol>
+          </div>
+
+          <h3 id="mcu-key" class="mt-7 text-base font-semibold">按键完整状态机：消抖 / 短按 / 长按 / 双击</h3>
+
+          <p class="mt-3">按键是单片机里最典型的「有记忆的顺序行为」：<b class="font-semibold text-ink">你要判断的不是「此刻电平是高是低」，而是「从按下到现在过去了多久、中间有没有松手、松手之后有没有再按」</b>。后面这些全都是状态，全都要记。</p>
+
+          <p class="mt-3">先看机械按键到底有多脏：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="机械按键的真实波形：一次按下会产生一打边沿">
+            <pre><code>理想的按键波形          实际测到的波形（按下一次）
+
+   ────────┐             ────┐┌─┐  ┌──┐┌──────────────
+           │                 ││ │  │  ││
+           └────────        ──┘└─┘  └──┘└──────────────
+           ↑                            ↑
+        干净的一个下降沿           抖动 0.5 ~ 5ms
+
+  【抖动（bounce）的实测数字】
+     金属弹片按键：典型抖动 0.5 ~ 5ms，差的能到 10ms 以上
+     薄膜按键：    典型 1 ~ 10ms
+     一次按下产生的"假边沿"：5 ~ 20 个
+
+  【如果用「边沿检测」直接数】
+     if (level != last_level) { count++; }   ← 一次按键 = count 加了 10 几次
+     现象：「按一下，菜单跳了 8 格」。这就是抖动在代码里的样子。
+
+  【如果用「延时 20ms 再读一次」】
+     if (key_is_pressed()) { delay_ms(20); if (key_is_pressed()) { … } }
+     · 能解决抖动（20ms 大于大多数按键的抖动时间）
+     · 但付出的代价是：
+        ① 这 20ms 里 CPU 什么都干不了 —— 世界又消失了
+        ② 只知道"按下了"，不知道按了多久 → 做不出长按
+        ③ 松手时还会抖一次，于是还要在松手处再 delay(20)
+        ④ 两个按键就要 delay(40)，n 个按键线性恶化
+        ⑤ 双击？两击之间的间隔可能只有 80ms，
+           你在 delay(20) 的时候已经错过了时序
+
+  【正确思路：把"抖动"当成状态机的一个状态】
+     看到电平变化 → 不立刻相信 → 进入「疑似」状态
+     → 等 8ms 再看 → 电平还在 → 确认；电平变回去了 → 是抖动，回空闲
+     ★ 这 8ms 不需要 CPU "等"，它只是状态里的一个时间戳。</code></pre>
+          </div>
+
+          <p class="mt-3">下面是完整的四事件按键状态机。<b class="font-semibold text-ink">分成 .h 和 .c 两个文件，加上一段 PC 上的测试代码，全部可以直接编译运行。</b></p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="key_fsm.h —— 按键状态机的接口">
+            <pre><code>/* ============================================================
+ * key_fsm.h —— 消抖 / 短按 / 长按 / 长按连发 / 双击
+ * ============================================================ */
+#ifndef KEY_FSM_H
+#define KEY_FSM_H
+
+#include &lt;stdint.h&gt;
+#include &lt;stdbool.h&gt;
+
+/* ---------- 时间常量：全部集中在这里，方便按手感调 ---------- */
+#define KEY_DEBOUNCE_MS     8u      /* 消抖窗口：电平稳定这么久才算数 */
+#define KEY_SHORT_MIN_MS    20u     /* 短按的最短时长（更短的当干扰丢掉） */
+#define KEY_LONG_MS         800u    /* 长按判定阈值 */
+#define KEY_REPEAT_MS       100u    /* 长按之后，每隔多久再报一次 */
+#define KEY_DOUBLE_GAP_MS   300u    /* 双击窗口：松手后多久内再按算双击 */
+
+typedef enum {
+    KEY_EV_NONE = 0,        /* 什么都没发生 —— 绝大多数 tick 都是它 */
+    KEY_EV_SHORT,           /* 短按 */
+    KEY_EV_LONG,            /* 长按【刚】达到阈值，只报一次 */
+    KEY_EV_LONG_REPEAT,     /* 长按持续中，每隔 KEY_REPEAT_MS 报一次 */
+    KEY_EV_DOUBLE           /* 双击 */
+} key_event_t;
+
+typedef enum {
+    KS_IDLE = 0,        /* 空闲：等按下 */
+    KS_DEBOUNCE,        /* 疑似按下：等电平稳定 */
+    KS_PRESSED,         /* 已按下：数长按，等松手 */
+    KS_WAIT_DOUBLE,     /* 已松手：等一个双击窗口 */
+    KS_DEBOUNCE2        /* 疑似第二击：同样要消抖 */
+} key_state_t;
+
+typedef struct {
+    key_state_t st;
+    uint32_t    t_stamp;        /* 进入当前状态的时刻 */
+    uint32_t    t_press;        /* 按键被"确认按下"的时刻 */
+    uint32_t    t_last;         /* 上一次长按连发的时刻 / 第二击消抖起点 */
+    bool        long_reported;  /* 本次按下的长按是否已经报过 */
+    bool        is_second;      /* 本次按下是不是双击的第二击 */
+} key_fsm_t;
+
+/* 初始化：必须在开始 tick 之前调用一次 */
+void        key_fsm_init(key_fsm_t *k, uint32_t now);
+
+/* 每 1ms 调用一次（更快也行，更慢会掉手感）。
+   raw_level：按键的【原始】电平，true = 按下（低电平有效的按键请自行取反）
+   now      ：当前的毫秒时间戳
+   返回     ：本次 tick 产生的事件，没有事件就返回 KEY_EV_NONE */
+key_event_t key_fsm_tick(key_fsm_t *k, bool raw_level, uint32_t now);
+
+#endif /* KEY_FSM_H */</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="key_fsm.c —— 状态机的全部实现（约 60 行）">
+            <pre><code>/* ============================================================
+ * key_fsm.c —— 按键状态机实现
+ * ============================================================ */
+#include "key_fsm.h"
+
+/* 时间到了吗？
+ * ★ 一定写成无符号减法。tick_ms() 到了 0xFFFFFFFF 会回绕到 0，
+ *   如果用 now &gt;= start + ms，回绕的那一刻就会算错一次；
+ *   而无符号减法的结果【永远是真实的差值】，自动免疫回绕。 */
+static bool elapsed(uint32_t now, uint32_t since, uint32_t ms)
+{
+    return (uint32_t)(now - since) &gt;= ms;
+}
+
+void key_fsm_init(key_fsm_t *k, uint32_t now)
+{
+    k-&gt;st             = KS_IDLE;
+    k-&gt;t_stamp        = now;
+    k-&gt;t_press        = now;
+    k-&gt;t_last         = now;
+    k-&gt;long_reported  = false;
+    k-&gt;is_second      = false;
+}
+
+key_event_t key_fsm_tick(key_fsm_t *k, bool raw_level, uint32_t now)
+{
+    key_event_t ev = KEY_EV_NONE;
+
+    switch (k-&gt;st) {
+
+    /* ---------------- 空闲：等按下 ---------------- */
+    case KS_IDLE:
+        if (raw_level) {
+            k-&gt;st      = KS_DEBOUNCE;      /* 看到变化，先别信 */
+            k-&gt;t_stamp = now;
+        }
+        break;
+
+    /* ---------------- 疑似按下：等电平稳定 ---------------- */
+    case KS_DEBOUNCE:
+        if (!raw_level) {
+            k-&gt;st = KS_IDLE;               /* 弹回去了 → 是抖动 */
+        } else if (elapsed(now, k-&gt;t_stamp, KEY_DEBOUNCE_MS)) {
+            k-&gt;st            = KS_PRESSED; /* 稳定了 → 确认按下 */
+            k-&gt;t_press       = now;
+            k-&gt;long_reported = false;
+            k-&gt;is_second     = false;
+        }
+        break;
+
+    /* ---------------- 已按下：数长按，等松手 ---------------- */
+    case KS_PRESSED:
+        if (!raw_level) {
+            /* ===== 松手了，判断这是一次什么样的点击 ===== */
+            uint32_t held = (uint32_t)(now - k-&gt;t_press);
+
+            if (k-&gt;is_second) {
+                k-&gt;st = KS_IDLE;           /* 双击的第二击：已经报过 DOUBLE 了 */
+            } else if (held &gt;= KEY_LONG_MS) {
+                k-&gt;st = KS_IDLE;           /* 长按已报过，松手不再报短按 */
+            } else if (held &gt;= KEY_SHORT_MIN_MS) {
+                k-&gt;st      = KS_WAIT_DOUBLE;   /* 先别急着报，等等看有没有第二击 */
+                k-&gt;t_stamp = now;
+            } else {
+                k-&gt;st = KS_IDLE;           /* 短于 20ms，当干扰丢掉 */
+            }
+        } else {
+            /* ===== 还按着，看有没有到长按 ===== */
+            uint32_t held = (uint32_t)(now - k-&gt;t_press);
+
+            if (held &gt;= KEY_LONG_MS) {
+                if (!k-&gt;long_reported) {
+                    ev = KEY_EV_LONG;      /* 长按达成，报一次 */
+                    k-&gt;long_reported = true;
+                    k-&gt;t_last = now;
+                } else if (elapsed(now, k-&gt;t_last, KEY_REPEAT_MS)) {
+                    ev = KEY_EV_LONG_REPEAT;   /* 之后每 100ms 报一次 */
+                    k-&gt;t_last = now;
+                }
+            }
+        }
+        break;
+
+    /* ---------------- 松手后：等双击窗口 ---------------- */
+    case KS_WAIT_DOUBLE:
+        if (raw_level) {
+            k-&gt;st     = KS_DEBOUNCE2;      /* 第二击来了，同样要消抖 */
+            k-&gt;t_last = now;               /* t_stamp 留着，窗口时间不能重置 */
+        } else if (elapsed(now, k-&gt;t_stamp, KEY_DOUBLE_GAP_MS)) {
+            ev     = KEY_EV_SHORT;         /* 窗口过完，第一击就是一次短按 */
+            k-&gt;st  = KS_IDLE;
+        }
+        break;
+
+    /* ---------------- 疑似第二击：消抖 ---------------- */
+    case KS_DEBOUNCE2:
+        if (!raw_level) {
+            k-&gt;st = KS_WAIT_DOUBLE;        /* 又是抖动，回窗口里继续等 */
+        } else if (elapsed(now, k-&gt;t_last, KEY_DEBOUNCE_MS)) {
+            ev           = KEY_EV_DOUBLE;  /* 确认双击 */
+            k-&gt;st        = KS_PRESSED;     /* 继续当作"已按下"，长按依然可用 */
+            k-&gt;t_press   = now;
+            k-&gt;is_second = true;
+            k-&gt;long_reported = false;
+        }
+        break;
+
+    /* ---------------- 非法状态：一个 tick 内自恢复 ---------------- */
+    default:
+        k-&gt;st = KS_IDLE;
+        break;
+    }
+
+    return ev;
+}</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">注意上面代码里两个不起眼但极重要的小设计：</b><b>①</b> <code class="icode">is_second</code> 这个标志——如果少了它，双击之后松手会走到 <code class="icode">KS_WAIT_DOUBLE</code>，300ms 后再报一次 <code class="icode">KEY_EV_SHORT</code>，于是「一次双击」变成「双击 + 短按」，菜单会多跳一格。<b>这正是状态机代码最容易出的那类 bug：漏掉一条边，或者两个状态共用了本该分开的出口。</b><b>②</b> <code class="icode">KS_DEBOUNCE2</code> 用 <code class="icode">t_last</code> 记消抖起点而<b>不</b>碰 <code class="icode">t_stamp</code>——因为 <code class="icode">t_stamp</code> 还担着「双击窗口从第一击松手开始算」的职责，被覆盖掉窗口就会变长，手感发飘。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="key_fsm_test.c —— 在 PC 上把这个状态机测一遍（不需要单片机）">
+            <pre><code>/* ============================================================
+ * key_fsm_test.c —— 按键状态机的 PC 端测试
+ *
+ * 编译运行：
+ *     gcc -std=c99 -Wall -Wextra -o key_fsm_test key_fsm.c key_fsm_test.c
+ *     ./key_fsm_test
+ *
+ * 这就是状态机最被低估的优点：它【不依赖硬件】就能验证。
+ * 你不需要单片机、不需要按键、不需要示波器，就能确认
+ * "按 50ms 会报短按、按 810ms 会报长按、点两下会报双击"。
+ * ============================================================ */
+#include &lt;stdio.h&gt;
+#include &lt;stdbool.h&gt;
+#include "key_fsm.h"
+
+typedef struct {
+    uint32_t    ms;         /* 这一段持续多少毫秒 */
+    bool        level;      /* 这一段里按键电平是什么 */
+    key_event_t expect;     /* 这一段里期望收到的事件 */
+} case_step_t;
+
+typedef struct {
+    const char        *name;
+    const case_step_t *steps;
+    int                n;
+} test_case_t;
+
+/* 短按：按住 50ms，然后松开 */
+static const case_step_t s_short[] = {
+    { 100u, false, KEY_EV_NONE  },   /* 静默 100ms */
+    {  50u, true,  KEY_EV_NONE  },   /* 按住 50ms：还没到报的时候 */
+    { 400u, false, KEY_EV_SHORT },   /* 松手后过了双击窗口，报短按 */
+};
+
+/* 双击：两击之间隔 150ms */
+static const case_step_t s_double[] = {
+    { 100u, false, KEY_EV_NONE   },
+    {  60u, true,  KEY_EV_NONE   },  /* 第一击按下 */
+    { 150u, false, KEY_EV_NONE   },  /* 第一击松开，进双击窗口 */
+    {  60u, true,  KEY_EV_DOUBLE },  /* 第二击确认 → 报双击 */
+    { 400u, false, KEY_EV_NONE   },  /* ★ 这里必须什么也不报！
+                                        少了 is_second 就会多报一个 SHORT */
+};
+
+/* 长按：按住 810ms
+ * ★ 为什么是 810 而不是 800？因为前面有 8ms 的消抖窗口，
+ *   真正开始计长按的时刻比"电平变高"晚 8ms。
+ *   这种 8ms 的偏差手算极容易漏 —— 而用例表会替你记住它。 */
+static const case_step_t s_long[] = {
+    { 100u, false, KEY_EV_NONE },
+    { 810u, true,  KEY_EV_LONG },
+    {  50u, false, KEY_EV_NONE },    /* 长按之后松手，不再报短按 */
+};
+
+/* 纯抖动：电平在 6ms 里抖了三次，最后没有真的按下 */
+static const case_step_t s_bounce[] = {
+    { 100u, false, KEY_EV_NONE },
+    {   1u, true,  KEY_EV_NONE },
+    {   1u, false, KEY_EV_NONE },
+    {   1u, true,  KEY_EV_NONE },
+    {   2u, false, KEY_EV_NONE },
+    { 200u, false, KEY_EV_NONE },    /* ★ 全程必须一个事件都不产生 */
+};
+
+static const test_case_t s_cases[] = {
+    { "短按 50ms",       s_short,  (int)(sizeof(s_short)  / sizeof(s_short[0]))  },
+    { "双击间隔 150ms",  s_double, (int)(sizeof(s_double) / sizeof(s_double[0])) },
+    { "长按 810ms",      s_long,   (int)(sizeof(s_long)   / sizeof(s_long[0]))   },
+    { "纯抖动 6ms",      s_bounce, (int)(sizeof(s_bounce) / sizeof(s_bounce[0])) },
+};
+
+static const char *ev_name(key_event_t e)
+{
+    switch (e) {
+    case KEY_EV_NONE:        return "NONE";
+    case KEY_EV_SHORT:       return "SHORT";
+    case KEY_EV_LONG:        return "LONG";
+    case KEY_EV_LONG_REPEAT: return "LONG_REPEAT";
+    case KEY_EV_DOUBLE:      return "DOUBLE";
+    default:                 return "ILLEGAL";
+    }
+}
+
+static int run_case(const test_case_t *tc)
+{
+    key_fsm_t   k;
+    uint32_t    now = 0;
+    key_event_t got;
+    int         i, t, fails = 0;
+
+    key_fsm_init(&amp;k, 0);
+
+    for (i = 0; i &lt; tc-&gt;n; i++) {
+        got = KEY_EV_NONE;
+        /* 以 1ms 为步长推进，模拟真实的周期调用 */
+        for (t = 0; t &lt; (int)tc-&gt;steps[i].ms; t++) {
+            key_event_t e = key_fsm_tick(&amp;k, tc-&gt;steps[i].level, now);
+            if (e != KEY_EV_NONE) {
+                got = e;                 /* 只关心这一段里最后报出来的事件 */
+            }
+            now++;
+        }
+        if (got != tc-&gt;steps[i].expect) {
+            printf("  [FAIL] %s 第 %d 段(t=%u)：期望 %s，实际 %s\n",
+                   tc-&gt;name, i, (unsigned)now,
+                   ev_name(tc-&gt;steps[i].expect), ev_name(got));
+            fails++;
+        }
+    }
+    printf("  [%s] %s\n", fails ? "FAIL" : " OK ", tc-&gt;name);
+    return fails;
+}
+
+int main(void)
+{
+    int total = 0;
+    int i;
+
+    for (i = 0; i &lt; (int)(sizeof(s_cases) / sizeof(s_cases[0])); i++) {
+        total += run_case(&amp;s_cases[i]);
+    }
+    printf("\n共失败 %d 项\n", total);
+    return (total == 0) ? 0 : 1;      /* 直接当 CI 的退出码用 */
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">为什么不能用 <code class="icode">delay(20)</code> 消抖：五条理由</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>这 20ms 里整个世界消失了。</b>如果你还要同时收串口，波特率 115200 时一个字节 86.8µs，20ms 里会来 230 个字节——硬件 FIFO 通常只有 8~16 字节深，剩下的全丢。</li>
+              <li><b>它只能回答「按下了吗」，回答不了「按了多久」。</b>长按、连发、双击全都需要时间信息，而 <code class="icode">delay(20)</code> 把时间信息扔掉了。</li>
+              <li><b>松手时还会抖一次</b>，于是你不得不在松手的分支里再写一个 <code class="icode">delay(20)</code>。两处延时，两处阻塞。</li>
+              <li><b>它不可扩展。</b>两个按键 40ms，四个按键 80ms，按键越多越糟。而状态机版每多一个按键只多一个结构体（约 20 字节 RAM）。</li>
+              <li><b>它把「抖动」这个物理事实藏起来了。</b>状态机版里 <code class="icode">KS_DEBOUNCE</code> 是一个<b>看得见的状态</b>——你可以打印它、可以统计"有多少次抖动被滤掉了"、可以按不同按键调整不同的消抖窗口。延时版里这些全都不可能。</li>
+            </ol>
+          </div>
+
+          <h3 id="mcu-uart" class="mt-7 text-base font-semibold">通信协议解析是天然的 FSM：逐字节喂入的不定长帧</h3>
+
+          <p class="mt-3">如果说按键是「最典型的」状态机场景，那<b class="font-semibold text-ink">协议解析就是「最标准」的状态机场景</b>——因为协议本身就是用状态图定义的。<b class="font-semibold text-ink">你去看任何一份通信协议文档，它画的都是状态图。</b></p>
+
+          <p class="mt-3">我们定一个真实感的帧格式：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="帧格式定义：0xAA 0x55 LEN DATA[LEN] XOR 0x0D">
+            <pre><code>字节序：  ①      ②      ③     ④              ⑤       ⑥
+        ┌──────┬──────┬──────┬────────────┬──────┬──────┐
+        │ 0xAA │ 0x55 │ LEN  │ DATA[LEN]  │ XOR  │ 0x0D │
+        └──────┴──────┴──────┴────────────┴──────┴──────┘
+          帧头1   帧头2   长度    数据(1~32B)  校验    帧尾
+
+  LEN   ：数据长度，1 ~ 32。LEN = 0 或 LEN &gt; 32 一律视为非法帧
+  XOR   ：LEN ⊕ DATA[0] ⊕ … ⊕ DATA[LEN-1]，从长度字节开始累加
+  0x0D  ：帧尾（回车）。它只是"结束标记"，不参与校验
+
+【为什么要有两个帧头字节】
+   一个字节的帧头（比如只用 0xAA）抗干扰能力太差：
+   数据里出现一个 0xAA 就会被误认为帧头。
+   两个字节（0xAA 0x55）把误判概率降到 1/65536 量级。
+   代价是多占一个字节，而且要处理「AA AA 55」这种情况 ——
+   这正是状态机存在的意义（见下面代码里的 ★ 注释）。
+
+【为什么长度和校验都要有】
+   · 长度：让你知道"还要收几个字节"。没有它就只能靠帧尾找结尾，
+           而数据里一旦出现 0x0D 就完蛋（除非做转义）。
+   · 校验：让"收到了但收错了"能被发现。异或校验最弱但最便宜，
+           要更强就换 CRC-8 / CRC-16（多几十个周期，值）。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">六个状态，每个状态只回答一个问题：</b>「我在等哪个字节」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="协议解析的状态图">
+            <pre><code>                    不是 0xAA                不是 0x55
+                 ┌──────────────┐       ┌─────────────────┐
+                 │              ▼       │                 ▼
+            ╭─────────╮    ╭─────────╮    ╭─────────╮
+   ────────►│  PRX_H1 │───►│  PRX_H2 │───►│ PRX_LEN │
+   任意字节  │ 等 0xAA │    │ 等 0x55 │    │ 等长度   │
+            ╰─────────╯    ╰─────────╯    ╰────┬────╯
+                 ▲              ▲              │ 收到合法 LEN
+                 │              │              ▼
+                 │              │        ╭───────────╮  收满 LEN 个
+                 │              │        │ PRX_DATA  │──────────┐
+                 │              │        │ 收数据字节 │          │
+                 │              │        ╰───────────╯          ▼
+                 │              │                        ╭───────────╮
+                 │              │      校验错，丢弃        │ PRX_CHECK │
+                 │              └────────────────────────│ 校验异或   │
+                 │                                       ╰─────┬─────╯
+                 │                                    校验通过 │
+                 │                                             ▼
+                 │         帧尾不对，丢弃               ╭───────────╮
+                 └────────────────────────────────────│ PRX_TAIL  │
+                                                      │ 等 0x0D   │
+                                                      ╰─────┬─────╯
+                                                    帧尾正确 │
+                                                            ▼
+                                                      ★ 交付一整帧
+
+   ★ 三个设计要点：
+     ① 每个字节都"吃"掉：不管它是什么，一定有一个状态接住它。
+        绝不出现"这个字节我不要"的悬空 —— 悬空就意味着丢字节。
+     ② 失败要能续上：LEN 非法 / 校验错 / 帧尾错之后回到 PRX_H1，
+        但那个出错的字节本身可能正是一个新的 0xAA，别浪费它。
+     ③ 必须有超时：如果对方发一半就断了（拔线、从机复位），
+        状态机会永远停在 PRX_DATA 里等 —— 必须有一个超时把它踢回来。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="proto_rx.h + proto_rx.c —— 逐字节解析状态机（完整可编译）">
+            <pre><code>/* ============================================================
+ * proto_rx.h
+ * ============================================================ */
+#ifndef PROTO_RX_H
+#define PROTO_RX_H
+
+#include &lt;stdint.h&gt;
+#include &lt;stdbool.h&gt;
+
+#define PRX_HEAD1   0xAAu
+#define PRX_HEAD2   0x55u
+#define PRX_TAIL    0x0Du
+#define PRX_MAX_LEN 32u             /* 一帧最多带多少数据字节 */
+#define PRX_TIMEOUT_MS 50u          /* 帧内超时：这么久没新字节就丢弃重来 */
+
+typedef enum {
+    PRX_H1 = 0,     /* 等第一个帧头 0xAA */
+    PRX_H2,         /* 等第二个帧头 0x55 */
+    PRX_LEN,        /* 等长度字节 */
+    PRX_DATA,       /* 收数据 */
+    PRX_CHECK,      /* 收校验字节 */
+    PRX_TAIL        /* 等帧尾 0x0D */
+} prx_state_t;
+
+typedef struct {
+    prx_state_t st;
+    uint8_t     buf[PRX_MAX_LEN];
+    uint8_t     len;        /* 本帧声明的数据长度 */
+    uint8_t     idx;        /* 已经收到几个数据字节 */
+    uint8_t     sum;        /* 异或累加值 */
+    uint32_t    t_last;     /* 上一个字节到达的时刻 */
+} proto_rx_t;
+
+typedef struct {
+    uint8_t data[PRX_MAX_LEN];
+    uint8_t len;
+} proto_frame_t;
+
+typedef struct {
+    uint32_t ok;
+    uint32_t err_len;
+    uint32_t err_check;
+    uint32_t err_tail;
+    uint32_t err_timeout;
+} proto_stat_t;
+
+extern proto_stat_t g_stat;     /* 统计量：调试时一眼看出是哪一类错误 */
+
+void proto_rx_init(proto_rx_t *p, uint32_t now);
+
+/* 喂一个字节进去。
+ * 返回 true 表示【这一字节让一帧完整且校验通过地收完了】，
+ * 此时 out 里是完整的一帧。 */
+bool proto_rx_feed(proto_rx_t *p, uint8_t b, uint32_t now, proto_frame_t *out);
+
+/* 每个 tick 调用一次，用来处理帧内超时 */
+void proto_rx_tick(proto_rx_t *p, uint32_t now);
+
+#endif /* PROTO_RX_H */</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="proto_rx.c —— 状态机的全部实现">
+            <pre><code>/* ============================================================
+ * proto_rx.c
+ * ============================================================ */
+#include &lt;string.h&gt;
+#include "proto_rx.h"
+
+proto_stat_t g_stat;
+
+void proto_rx_init(proto_rx_t *p, uint32_t now)
+{
+    memset(p, 0, sizeof(*p));
+    p-&gt;st     = PRX_H1;
+    p-&gt;t_last = now;
+}
+
+/* 出错之后回到起点时用：这个字节本身可能是一个新帧的开头，别浪费它。
+ * 这就是"逐字节不丢"的具体体现 —— 一个检查失败不代表这一字节没用。 */
+static prx_state_t prx_resync(uint8_t b)
+{
+    return (b == PRX_HEAD1) ? PRX_H2 : PRX_H1;
+}
+
+bool proto_rx_feed(proto_rx_t *p, uint8_t b, uint32_t now, proto_frame_t *out)
+{
+    p-&gt;t_last = now;            /* 每来一个字节都刷新"最后活动时刻" */
+
+    switch (p-&gt;st) {
+
+    /* ---------- 等第一个帧头 ---------- */
+    case PRX_H1:
+        if (b == PRX_HEAD1) {
+            p-&gt;st = PRX_H2;
+        }
+        /* 不是帧头就留在原地 —— 垃圾数据被自动吃掉，
+           不需要任何"跳过噪声"的额外处理 */
+        break;
+
+    /* ---------- 等第二个帧头 ---------- */
+    case PRX_H2:
+        if (b == PRX_HEAD2) {
+            p-&gt;st = PRX_LEN;
+        } else if (b == PRX_HEAD1) {
+            p-&gt;st = PRX_H2;     /* ★ 关键：AA AA 55 要停在 H2！
+                                   如果这里写 p->st = PRX_H1，
+                                   那 0xAA 0xAA 0x55 就会被丢掉，
+                                   因为第二个 AA 把第一个 AA 顶掉了。 */
+        } else {
+            p-&gt;st = PRX_H1;
+        }
+        break;
+
+    /* ---------- 等长度 ---------- */
+    case PRX_LEN:
+        if (b == 0u || b &gt; PRX_MAX_LEN) {
+            g_stat.err_len++;
+            p-&gt;st = prx_resync(b);      /* 长度非法：不可能是一帧 */
+        } else {
+            p-&gt;len = b;
+            p-&gt;idx = 0u;
+            p-&gt;sum = b;                 /* 校验从长度字节开始算 */
+            p-&gt;st  = PRX_DATA;
+        }
+        break;
+
+    /* ---------- 收数据 ---------- */
+    case PRX_DATA:
+        p-&gt;buf[p-&gt;idx] = b;
+        p-&gt;idx++;
+        p-&gt;sum ^= b;
+        if (p-&gt;idx &gt;= p-&gt;len) {
+            p-&gt;st = PRX_CHECK;
+        }
+        break;
+
+    /* ---------- 校验 ---------- */
+    case PRX_CHECK:
+        if (b == p-&gt;sum) {
+            p-&gt;st = PRX_TAIL;
+        } else {
+            g_stat.err_check++;
+            p-&gt;st = prx_resync(b);      /* 校验错：整帧丢弃，不重试 */
+        }
+        break;
+
+    /* ---------- 帧尾 ---------- */
+    case PRX_TAIL:
+        if (b == PRX_TAIL) {
+            memcpy(out-&gt;data, p-&gt;buf, p-&gt;len);
+            out-&gt;len = p-&gt;len;
+            g_stat.ok++;
+            p-&gt;st = PRX_H1;
+            return true;                /* ★ 交付这一帧 */
+        }
+        g_stat.err_tail++;
+        p-&gt;st = prx_resync(b);
+        break;
+
+    /* ---------- 非法状态：立刻自恢复 ---------- */
+    default:
+        p-&gt;st = PRX_H1;
+        break;
+    }
+
+    return false;
+}
+
+/* 帧内超时：如果一帧收了一半就没下文了，必须主动丢掉。
+ * 没有这段代码，状态机会永远停在 PRX_DATA 里 —— 之后所有
+ * 正常的数据帧都会被当成"半帧的续传"，全部错位、全部丢弃。 */
+void proto_rx_tick(proto_rx_t *p, uint32_t now)
+{
+    if (p-&gt;st != PRX_H1 &amp;&amp;
+        (uint32_t)(now - p-&gt;t_last) &gt;= PRX_TIMEOUT_MS) {
+        g_stat.err_timeout++;
+        p-&gt;st = PRX_H1;
+    }
+}</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现在看反面教材：为什么「等一整个包收完再处理」的写法会丢数据。</b></p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="proto_rx_bad.c —— 「等整包」的写法（反面教材）">
+            <pre><code>/* ============================================================
+ * proto_rx_bad.c —— 阻塞式收包（不要这样写）
+ * ============================================================ */
+bool uart_read_byte(uint8_t *b);        /* 从硬件 FIFO 取一个字节 */
+
+void uart_task_bad(void)
+{
+    uint8_t b;
+    uint8_t len;
+    uint8_t buf[32];
+    uint8_t sum;
+    uint8_t i;
+
+    for (;;) {
+        /* ① 死等第一个帧头 */
+        while (!uart_read_byte(&amp;b)) { }
+        if (b != 0xAA) continue;            /* ← 这个字节已经被消费掉了 */
+
+        /* ② 死等第二个帧头 */
+        while (!uart_read_byte(&amp;b)) { }
+        if (b != 0x55) continue;            /* ← 如果 b 是 0xAA，新帧的开头丢了 */
+
+        /* ③ 死等长度 */
+        while (!uart_read_byte(&amp;b)) { }
+        len = b;                            /* ← 没有校验长度合法性 */
+
+        /* ④ 死等 len 个数据字节 */
+        for (i = 0; i &lt; len; i++) {
+            while (!uart_read_byte(&amp;b)) { } /* ← 对方断线了就永远卡在这里 */
+            buf[i] = b;
+        }
+
+        /* ⑤ ⑥ 还要再死等校验和帧尾 … */
+
+        process_frame(buf, len);            /* 终于可以处理了 */
+    }
+}
+
+/* ============================================================
+ * 【这段代码的六个问题，每一个都是真实会发生的】
+ *
+ *  1. 丢了字节就丢了帧头。第 ② 步里 if (b != 0x55) continue 把 b 扔了。
+ *     如果那个 b 恰好是新一帧的 0xAA，你就永远收不到那一帧了 ——
+ *     而且现象是"偶尔丢一帧"，不定期复现，极难查。
+ *     状态机版不会丢，因为每个字节都会被某个状态"接住"。
+ *
+ *  2. 没有任何超时 → 永久卡死。对方发到一半断电，while 永不返回，
+ *     整个任务停死。看门狗会复位，但那是崩溃，不是容错。
+ *
+ *  3. 长度不做校验 → 缓冲区溢出。len 是从线上来的一个字节，
+ *     最大 255。若 buf 只有 32 字节，对方发一个 len=200 就把
+ *     你的栈/全局区写穿了 —— 这是嵌入式里最经典的漏洞之一。
+ *     状态机版在 PRX_LEN 里就挡住了（b == 0 || b &gt; PRX_MAX_LEN）。
+ *
+ *  4. CPU 全被这个任务吃掉。整个函数里没有任何"干别的"的机会。
+ *
+ *  5. 不可重入、不可复用。两个串口就要复制一份，改一处忘一处。
+ *
+ *  6. 无法测试。它直接和 uart_read_byte 绑定，你不可能在 PC 上
+ *     喂它一串字节看看它会不会正确拒绝非法帧。
+ *     状态机版是纯函数：喂字节、返回结果，想测哪条边界就测哪条。
+ * ============================================================ */</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确的结构：中断只负责搬字节，主循环负责喂状态机。</b>这两件事必须分开——搬字节是硬实时的（一个字节 86.8µs 就得接住），解析不是。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="ring_buffer.c —— 中断搬字节 + 主循环喂状态机">
+            <pre><code>/* ============================================================
+ * 串口接收的标配结构：环形缓冲 + 逐字节状态机
+ * ============================================================ */
+#include "proto_rx.h"
+
+#define RXBUF_SIZE 128u                 /* 必须是 2 的幂，这样取模能用位与 */
+#define RXBUF_MASK (RXBUF_SIZE - 1u)
+
+static volatile uint8_t  rxbuf[RXBUF_SIZE];
+static volatile uint16_t rx_head;       /* 只被中断修改 */
+static volatile uint16_t rx_tail;       /* 只被主循环修改 */
+static volatile uint32_t rx_overflow;   /* 缓冲满导致的丢字节数 */
+
+static proto_rx_t  g_rx;
+static proto_frame_t g_frame;
+
+/* ------------------------------------------------------------
+ * 中断服务函数：只做一件事 —— 把字节塞进环形缓冲，然后退出。
+ * 【绝不在中断里解析】解析可能耗时、可能调用别的模块，
+ * 而中断应该尽可能短（典型要求：&lt; 10µs）。
+ * ------------------------------------------------------------ */
+void USART1_IRQHandler(void)            /* 函数名按你的芯片启动文件改 */
+{
+    if (uart_rx_data_ready()) {
+        uint8_t  b    = uart_rx_read();
+        uint16_t next = (uint16_t)((rx_head + 1u) &amp; RXBUF_MASK);
+
+        if (next == rx_tail) {
+            rx_overflow++;              /* 满了：丢掉【最新】的字节并计数。
+                                           不要覆盖旧数据 —— 旧数据是
+                                           一帧的前半段，更有价值。 */
+        } else {
+            rxbuf[rx_head] = b;
+            rx_head = next;
+        }
+    }
+    uart_rx_clear_flag();
+}
+
+/* ------------------------------------------------------------
+ * 主循环里调用：把缓冲里所有可读字节喂给状态机。
+ *
+ * 【为什么这套 head/tail 不需要关中断】
+ *   这是"单生产者单消费者"结构：
+ *     只有中断写 rx_head，只有主循环读 rx_head；
+ *     只有主循环写 rx_tail，只有中断读 rx_tail。
+ *   两个 16 位变量的读写都是原子的（32 位 MCU 上单次访问），
+ *   所以不存在竞争 —— 一个 mutex 都不用加。
+ * ------------------------------------------------------------ */
+void proto_poll(uint32_t now)
+{
+    while (rx_tail != rx_head) {
+        uint8_t b = rxbuf[rx_tail];
+        rx_tail = (uint16_t)((rx_tail + 1u) &amp; RXBUF_MASK);
+
+        if (proto_rx_feed(&amp;g_rx, b, now, &amp;g_frame)) {
+            on_frame(&amp;g_frame);         /* 一帧完整且校验通过 */
+        }
+    }
+    proto_rx_tick(&amp;g_rx, now);          /* 帧内超时检查 */
+}
+
+/* ============================================================
+ * 【算一算缓冲要多大】
+ *
+ *   波特率            每字节时间（10 位：1 起始 + 8 数据 + 1 停止）
+ *   ────────────────┼──────────────────────────────
+ *      9600 bps     │  10 / 9600  = 1.042 ms
+ *     19200 bps     │  0.521 ms
+ *     57600 bps     │  0.174 ms
+ *    115200 bps     │  10 / 115200 = 86.8 µs
+ *    921600 bps     │  10.9 µs
+ *
+ *   主循环一圈的耗时决定了缓冲至少要多大：
+ *     缓冲字节数 &gt; 主循环最坏一圈耗时 / 每字节时间
+ *
+ *   例：115200bps，主循环最坏一圈 2ms（有个慢任务）：
+ *     需要的字节数 = 2ms / 86.8µs ≈ 24 字节
+ *     一帧最长 = 2(帧头) + 1(长度) + 32(数据) + 1(校验) + 1(帧尾) = 37
+ *     所以取 64 或 128 字节，留 2~3 倍余量。本题取 128。
+ *
+ *   ★ 只要用了中断+DMA搬字节，缓冲就只需要考虑"主循环最坏延迟"，
+ *     不需要考虑"帧有多长" —— 因为缓冲是流式的，边收边解析。
+ * ============================================================ */</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">顺带一说：DMA + IDLE 中断能不能替代状态机？</div>
+            <p><b>不能，它替代的是环形缓冲，不是解析。</b><code class="icode">HAL_UARTEx_ReceiveToIdle_DMA()</code> 这类接口利用串口的「空闲线检测」中断，一次把一整帧搬进内存——它解决的是「搬运效率」，你确实不用再自己写环形缓冲和中断了。但<b>搬进来的那一块内存里有什么、合不合法、要不要重同步，仍然要靠状态机逐字节检查</b>。</p>
+            <p class="mt-2">而且它还有一个副作用：<b>IDLE 检测依赖「线路上出现空闲」</b>。如果两帧连着发、中间没有足够长的空闲间隔，DMA 会把两帧粘成一块给你。这时候你还是得靠状态机在里面找到真正的帧边界。</p>
+          </div>
+
+          <h3 id="mcu-at" class="mt-7 text-base font-semibold">AT 指令交互：发送 → 等响应 → 超时重试 → 成功 / 失败</h3>
+
+          <p class="mt-3">如果你用过 ESP8266 / ESP32 / 4G 模块 / 蓝牙模块，就一定写过这种代码：发一条 <code class="icode">AT+CWMODE=1</code>，然后等它回 <code class="icode">OK</code>。这个「发—等—重试」的流程，<b class="font-semibold text-ink">天然是五个状态的状态机</b>。<b class="font-semibold text-ink">它是「阻塞式思维」最后的堡垒</b>——很多人的写法是 <code class="icode">HAL_UART_Transmit</code> 之后 <code class="icode">HAL_UART_Receive</code> 带 1000ms 超时，然后整个系统就在这 1 秒里停摆；而 <code class="icode">AT+CWJAP</code>（连 WiFi）可能要 5~15 秒，这个写法直接不可用。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="AT 交互的状态图">
+            <pre><code>                     调用 at_start(cmd)
+                            │
+                            ▼
+                    ╭───────────────╮
+        ┌──────────►│   AT_SEND     │  把指令发出去（自动补 \r\n）
+        │           ╰───────┬───────╯
+        │                   │ 发出后立刻进入等待
+        │                   ▼
+        │           ╭───────────────╮
+        │           │   AT_WAIT     │◄──── 每收到一个响应字节就喂给
+        │           │ 等 OK / ERROR  │      at_on_byte()，它负责置标志
+        │           ╰───┬───┬───┬───╯
+        │               │   │   │
+        │   收到 ERROR   │   │   │ 超过 AT_TIMEOUT_MS 什么都没收到
+        │   或超时       │   │   └──────────────┐
+        └───────────────┘   │                  │
+          retry++ 且      收到 OK              │
+          retry ≤ 3        │                  │
+                           ▼                  ▼
+                    ╭───────────╮      ╭───────────╮
+                    │  AT_DONE  │      │ AT_FAILED │
+                    │  成功     │      │ 重试用尽   │
+                    ╰───────────╯      ╰───────────╯
+                           │                  │
+                           └────────┬─────────┘
+                                    ▼
+                            回调 on_result(ok)
+
+   ★ 两个容易被忽略的设计点：
+     ① 【ERROR 和超时要分开处理】。模块明确回 ERROR 说明指令有问题
+        （参数错、不支持），重试通常没用，但工程上还是重试一次
+        （因为模块也可能自己忙晕了）。而超时说明是链路问题，
+        重试才是对症的。
+     ② 【不同指令的超时时间不一样】。AT 查询类指令 100~200ms，
+        AT+CWJAP 连接 WiFi 要 5~15 秒。用同一个 1000ms 常量，
+        要么慢指令永远失败，要么快指令白等 15 秒。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="at_fsm.h + at_fsm.c —— 完整可编译">
+            <pre><code>/* ============================================================
+ * at_fsm.h
+ * ============================================================ */
+#ifndef AT_FSM_H
+#define AT_FSM_H
+
+#include &lt;stdint.h&gt;
+#include &lt;stdbool.h&gt;
+
+#define AT_MAX_RETRY    3u          /* 最多重试几次（加上首次共 4 次尝试） */
+#define AT_TIMEOUT_MS   1000u       /* 默认响应超时（慢指令请用 at_start_to） */
+#define AT_RESP_MAX     64u         /* 响应缓冲区大小 */
+
+typedef enum {
+    AT_IDLE = 0,        /* 空闲 */
+    AT_SEND,            /* 该把指令发出去了 */
+    AT_WAIT,            /* 已发出，等响应 */
+    AT_DONE,            /* 成功 */
+    AT_FAILED           /* 重试用尽，彻底失败 */
+} at_state_t;
+
+/* 结果回调：ok = true 成功，false 失败 */
+typedef void (*at_result_fn)(bool ok, const char *resp);
+
+typedef struct {
+    at_state_t   st;
+    const char  *cmd;
+    uint32_t     timeout_ms;        /* 本指令的超时时间 */
+    uint8_t      retry;
+    uint32_t     t_send;
+    char         resp[AT_RESP_MAX];
+    uint8_t      resp_len;
+    bool         got_ok;
+    bool         got_error;
+    at_result_fn on_result;
+} at_fsm_t;
+
+void at_init(at_fsm_t *a, at_result_fn on_result);
+void at_start(at_fsm_t *a, const char *cmd, uint32_t now);
+void at_start_to(at_fsm_t *a, const char *cmd, uint32_t timeout_ms, uint32_t now);
+void at_tick(at_fsm_t *a, uint32_t now);
+void at_on_byte(at_fsm_t *a, uint8_t b);
+bool at_is_busy(const at_fsm_t *a);
+
+/* 移植层：你来实现 */
+void at_uart_send(const char *cmd);     /* 把指令发出去（内部补 \r\n） */
+void at_log(const char *s);             /* 日志输出 */
+
+#endif /* AT_FSM_H */</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="at_fsm.c —— 状态机实现">
+            <pre><code>/* ============================================================
+ * at_fsm.c
+ * ============================================================ */
+#include &lt;string.h&gt;
+#include "at_fsm.h"
+
+void at_init(at_fsm_t *a, at_result_fn on_result)
+{
+    memset(a, 0, sizeof(*a));
+    a-&gt;st        = AT_IDLE;
+    a-&gt;timeout_ms = AT_TIMEOUT_MS;
+    a-&gt;on_result = on_result;
+}
+
+bool at_is_busy(const at_fsm_t *a)
+{
+    return (a-&gt;st != AT_IDLE);
+}
+
+/* 内部统一入口：把状态机复位成"准备发第一条" */
+static void at_begin(at_fsm_t *a, const char *cmd, uint32_t timeout_ms, uint32_t now)
+{
+    a-&gt;cmd        = cmd;
+    a-&gt;timeout_ms = timeout_ms;
+    a-&gt;retry      = 0u;
+    a-&gt;resp_len   = 0u;
+    a-&gt;got_ok     = false;
+    a-&gt;got_error  = false;
+    a-&gt;t_send     = now;
+    a-&gt;st         = AT_SEND;
+}
+
+void at_start(at_fsm_t *a, const char *cmd, uint32_t now)
+{
+    at_begin(a, cmd, AT_TIMEOUT_MS, now);
+}
+
+void at_start_to(at_fsm_t *a, const char *cmd, uint32_t timeout_ms, uint32_t now)
+{
+    at_begin(a, cmd, timeout_ms, now);
+}
+
+void at_tick(at_fsm_t *a, uint32_t now)
+{
+    switch (a-&gt;st) {
+
+    /* ---------------- 空闲 ---------------- */
+    case AT_IDLE:
+        break;                          /* 等别人调用 at_start() */
+
+    /* ---------------- 发送 ---------------- */
+    case AT_SEND:
+        a-&gt;resp_len  = 0u;              /* 每次重发都清空响应缓冲 */
+        a-&gt;got_ok    = false;
+        a-&gt;got_error = false;
+        at_uart_send(a-&gt;cmd);
+        a-&gt;t_send = now;
+        a-&gt;st     = AT_WAIT;
+        break;
+
+    /* ---------------- 等响应 ---------------- */
+    case AT_WAIT:
+        if (a-&gt;got_ok) {
+            a-&gt;st = AT_DONE;
+        } else if (a-&gt;got_error) {
+            a-&gt;retry++;
+            a-&gt;st = (a-&gt;retry &lt;= AT_MAX_RETRY) ? AT_SEND : AT_FAILED;
+        } else if ((uint32_t)(now - a-&gt;t_send) &gt;= a-&gt;timeout_ms) {
+            a-&gt;retry++;                 /* 超时也重试 */
+            a-&gt;st = (a-&gt;retry &lt;= AT_MAX_RETRY) ? AT_SEND : AT_FAILED;
+        }
+        break;
+
+    /* ---------------- 成功 ---------------- */
+    case AT_DONE:
+        a-&gt;st = AT_IDLE;                /* 先回空闲，再回调 —— 防止回调里
+                                           再次调用 at_start 造成状态混乱 */
+        if (a-&gt;on_result) {
+            a-&gt;on_result(true, a-&gt;resp);
+        }
+        break;
+
+    /* ---------------- 失败 ---------------- */
+    case AT_FAILED:
+        a-&gt;st = AT_IDLE;
+        if (a-&gt;on_result) {
+            a-&gt;on_result(false, a-&gt;resp);
+        }
+        break;
+
+    /* ---------------- 非法状态：自恢复 ---------------- */
+    default:
+        a-&gt;st = AT_IDLE;
+        break;
+    }
+}
+
+/* ------------------------------------------------------------
+ * 由串口解析状态机调用：每收到一个响应字节就喂进来。
+ * 注意这里【不解析协议】，只是"攒够字符串 + 找关键字"。
+ * 更严格的做法是把 "OK" 换成本行完全等于 "\r\nOK\r\n"，
+ * 因为数据里也可能恰好出现 "OK" 两个字母。
+ * ------------------------------------------------------------ */
+void at_on_byte(at_fsm_t *a, uint8_t b)
+{
+    if (a-&gt;st != AT_WAIT) {
+        return;                         /* 不在等响应，直接丢掉 */
+    }
+
+    if ((uint32_t)a-&gt;resp_len + 1u &lt; sizeof(a-&gt;resp)) {
+        a-&gt;resp[a-&gt;resp_len] = (char)b;
+        a-&gt;resp_len++;
+        a-&gt;resp[a-&gt;resp_len] = '\0';
+    } else {
+        a-&gt;resp_len = 0u;               /* 响应太长：清空重来，绝不溢出 */
+        a-&gt;resp[0]  = '\0';
+    }
+
+    if (strstr(a-&gt;resp, "OK")    != NULL) { a-&gt;got_ok    = true; }
+    if (strstr(a-&gt;resp, "ERROR") != NULL) { a-&gt;got_error = true; }
+}
+
+/* ============================================================
+ * 【超时时间怎么定：按最坏情况 × 2】
+ *
+ *   指令                      典型响应         建议超时
+ *   ────────────────────────┼───────────────┼──────────
+ *   AT（测试）               &lt; 10 ms        100 ms
+ *   AT+CWMODE=1              ~20 ms         200 ms
+ *   AT+CIPSTART（建 TCP）    200 ms ~ 2 s    5 s
+ *   AT+CWJAP（连 WiFi）      3 ~ 15 s        20 s
+ *   AT+CIPSEND（发数据）     50 ~ 500 ms     2 s
+ *
+ *   重试总耗时（以超时 1s、重试 3 次为例）：
+ *     首次 1s + 重试 1s + 重试 1s + 重试 1s = 最坏 4 s
+ *   ⇒ 如果有 5 条指令要依次执行且都失败，最多 20 秒。
+ *     所以界面上的"正在连接…"必须能被打断（用户点取消），
+ *     否则用户会以为死机了。
+ * ============================================================ */</code></pre>
+          </div>
+
+          <h3 id="mcu-slice" class="mt-7 text-base font-semibold">用状态机做时间片轮转：不引入 RTOS 的最简调度器</h3>
+
+          <p class="mt-3">到这一步，你手上已经有一堆状态机了：按键、协议解析、AT 交互、闪灯。<b class="font-semibold text-ink">它们各自的周期要求还不一样</b>——按键要 1ms、协议解析 10ms、闪灯 1000ms。<b class="font-semibold text-ink">把它们塞进一个主循环里依次调用，就是最简的协作式调度器</b>，一行 RTOS 代码都不用写。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="coop_sched.c —— 一个 40 行的协作式时间片调度器">
+            <pre><code>/* ============================================================
+ * coop_sched.c —— 不用 RTOS 的协作式调度器
+ *
+ * 核心思想只有一句：每个任务 = 一个函数 + 一个"下次该跑的时刻"。
+ * 调度器只做一件事：到点了就调用它，然后算出下次的时刻。
+ * ============================================================ */
+#include &lt;stdint.h&gt;
+#include &lt;stdbool.h&gt;
+
+typedef void (*task_fn_t)(uint32_t now);
+
+typedef struct {
+    task_fn_t fn;
+    uint32_t  period;       /* 周期，ms */
+    uint32_t  t_next;       /* 下次该运行的时刻 */
+    uint32_t  run_count;    /* 运行次数（调试用） */
+    uint32_t  late_count;   /* 迟到次数：说明有别的任务太占时间了 */
+} sched_task_t;
+
+#define SCHED_MAX_TASK 8u
+
+static sched_task_t s_tasks[SCHED_MAX_TASK];
+static uint8_t      s_n;
+
+bool sched_add(task_fn_t fn, uint32_t period_ms, uint32_t now)
+{
+    if (s_n &gt;= SCHED_MAX_TASK) {
+        return false;
+    }
+    s_tasks[s_n].fn         = fn;
+    s_tasks[s_n].period     = period_ms;
+    s_tasks[s_n].t_next     = now + period_ms;
+    s_tasks[s_n].run_count  = 0u;
+    s_tasks[s_n].late_count = 0u;
+    s_n++;
+    return true;
+}
+
+void sched_run(uint32_t now)
+{
+    uint8_t i;
+
+    for (i = 0u; i &lt; s_n; i++) {
+        /* ★ 用【有符号的差值】判断到点没有。
+         *   now - t_next 在无符号下会回绕，但转成有符号看符号位就对了：
+         *   只要 t_next 在"过去"（差值小于 2^31），结果就是负数。
+         *   这样即使 t_next 溢出了也依然正确。 */
+        if ((int32_t)(now - s_tasks[i].t_next) &gt;= 0) {
+
+            s_tasks[i].fn(now);
+            s_tasks[i].run_count++;
+
+            /* ★ 关键：下次时刻 = 【上一次计划 + 周期】，而不是 now + 周期。
+             *   前者能自动补偿调度抖动，长期平均周期精确；
+             *   后者会把每次的调度开销累加进去，周期越跑越长。 */
+            s_tasks[i].t_next += s_tasks[i].period;
+
+            /* ★ 但如果落后超过一整个周期（比如被一个长任务卡了 500ms），
+             *   补跑会引发"追赶风暴"：连续跑十几次，把后面所有任务
+             *   全拖垮，形成雪崩。所以落后太多就直接跳过，并记一笔。 */
+            if ((int32_t)(now - s_tasks[i].t_next) &gt;= 0) {
+                s_tasks[i].t_next = now + s_tasks[i].period;
+                s_tasks[i].late_count++;
+            }
+        }
+    }
+}
+
+/* ============================================================
+ *  三个任务，周期分别是 1ms / 10ms / 1000ms
+ *  注意：每个任务本身都是一个状态机，而且都必须【立刻返回】
+ * ============================================================ */
+extern void key_task(uint32_t now);      /* 1ms  : 按键状态机 */
+extern void proto_task(uint32_t now);    /* 10ms : 协议解析状态机 */
+extern void slow_task(uint32_t now);     /* 1000ms: 慢任务（上报、闪灯） */
+extern uint32_t tick_ms(void);
+void board_init(void);
+
+int main(void)
+{
+    uint32_t now;
+
+    board_init();
+    now = tick_ms();
+
+    sched_add(key_task,    1u,    now);
+    sched_add(proto_task,  10u,   now);
+    sched_add(slow_task,   1000u, now);
+
+    for (;;) {
+        now = tick_ms();
+        sched_run(now);
+    }
+}
+
+/* ============================================================
+ * 【这个调度器和 RTOS 最大的区别：不需要锁】
+ *
+ *   所有任务都在主循环里【顺序】执行，任何一个任务都不会在
+ *   "执行到一半"的时候被打断（除非中断里也去访问那个变量）。
+ *   所以任务之间共享数据【不需要任何互斥】——
+ *   这是协作式调度最大的优点，也是它写起来比 RTOS 简单得多的原因。
+ *
+ * 【代价：一个任务卡住，全系统卡住】
+ *   如果你在 key_task 里写了一个 delay_ms(5)，那么：
+ *     · 按键任务自己 5ms 才跑一次 → 手感变差
+ *     · proto_task 被推迟了 5ms → 可能丢字节
+ *     · 整条链路的时序全被拖偏
+ *   ⇒ 所以"每个任务必须立刻返回"不是建议，是【铁律】。
+ *     调度器里那个 late_count 就是用来抓这个问题的：
+ *     某个任务的 late_count 一直涨 → 一定有别的任务超时了。
+ *
+ * 【任务周期的经验值】
+ *     周期        适合什么
+ *     ──────────┼──────────────────────────────────
+ *       1 ms    按键扫描（手感靠它）、紧急状态监测
+ *      10 ms    协议解析、传感器轮询、PID 中速环
+ *     100 ms    显示刷新、状态上报
+ *    1000 ms    统计输出、慢速诊断
+ *   ⇒ 规则：一个任务的执行时间应当小于它周期的 10%。
+ *     1ms 的任务必须在 100µs 内返回。做不到就把它拆小或者放慢。
+ * ============================================================ */</code></pre>
+          </div>
+
+          <h3 id="mcu-rtos" class="mt-7 text-base font-semibold">状态机与 RTOS 的关系：正交，不是替代</h3>
+
+          <p class="mt-3">这是初学者最容易混淆的一对概念。<b class="font-semibold text-ink">答案只有一句话：状态机是「一个任务内部」的实现结构，RTOS 是「多个任务之间」的组织方式，两者正交，可以任意叠加。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="四种组合：每种都有人用，每种都有它的道理">
+            <pre><code>                       任务内部
+                 顺序代码          状态机
+              ┌────────────────┬────────────────┐
+     单主循环  │ ① 最简单        │ ② 最常见        │
+      （无RTOS）│ delay + 顺序    │ "主循环 + 状态机" │
+   多任务        │ 小事够用        │ 本章的主角       │
+   组织          │ 一旦并发就崩    │ 90% 的裸机项目   │
+   方式        ├────────────────┼────────────────┤
+              │ ③ 用更贵的方式   │ ④ 最强大        │
+      RTOS    │ 重新发明 delay  │ 大项目的标准做法  │
+              │ 每个任务里写     │ 任务之间用队列/   │
+              │ delay / 死等     │ 信号量，任务内部  │
+              │ 白买一个 RTOS   │ 用状态机          │
+              └────────────────┴────────────────┘
+
+  ★ ③ 是最常见的"花了钱没买到东西"：
+     用了 FreeRTOS，占了几十 KB Flash，结果每个任务内部
+     还是 vTaskDelay(1000) 的阻塞式流程 —— 你付出的调度开销
+     一点收益都没换到。
+
+  ★ ④ 才是 RTOS 的正确用法：
+     任务之间用队列/信号量传递【事件】，任务内部用状态机
+     组织【行为】。这样每个任务都是"不阻塞、可测、可画图"的。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">有了 RTOS 之后，状态机反而变得更简单了。</b>因为「等事件」这件事可以交给内核去做，状态机只需要处理「事件来了怎么办」：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="rtos_task.c —— RTOS 任务内部的状态机（以 FreeRTOS 为例）">
+            <pre><code>/* ============================================================
+ * 有 RTOS 之后：状态机不用再轮询了
+ * ============================================================ */
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "key_fsm.h"
+#include "proto_rx.h"
+
+static QueueHandle_t g_key_evt_q;       /* 中断 → 任务 的事件队列 */
+static QueueHandle_t g_frame_q;         /* 解析任务 → 应用任务 */
+
+/* ------------------------------------------------------------
+ * 按键任务：阻塞等事件，不占 CPU
+ * ------------------------------------------------------------ */
+static void key_task(void *arg)
+{
+    key_event_t ev;
+
+    (void)arg;
+
+    for (;;) {
+        /* ★ portMAX_DELAY = 一直睡到有事件为止，CPU 占用率 0%
+         *   裸机版必须每 1ms 轮询一次；RTOS 版是事件驱动的。 */
+        if (xQueueReceive(g_key_evt_q, &amp;ev, portMAX_DELAY) == pdTRUE) {
+            /* ▼ 醒来之后，状态转移逻辑和裸机版【完全一样】 */
+            switch (ev) {
+            case KEY_EV_SHORT:       ui_next_page();      break;
+            case KEY_EV_DOUBLE:      ui_enter();          break;
+            case KEY_EV_LONG:        ui_back();           break;
+            case KEY_EV_LONG_REPEAT: ui_scroll();         break;
+            default: break;
+            }
+        }
+    }
+}
+
+/* ------------------------------------------------------------
+ * 中断里往队列投事件 —— 必须用带 FromISR 后缀的版本
+ * ------------------------------------------------------------ */
+void EXTI0_IRQHandler(void)
+{
+    BaseType_t hpw = pdFALSE;
+    key_event_t ev = KEY_EV_SHORT;      /* 简化示意 */
+
+    /* ★ 错误写法：xQueueSend(g_key_evt_q, &amp;ev, 0);
+     *   ISR 里绝不能调用会阻塞的 API，而且不会触发任务切换。
+     *   正确写法是 xQueueSendFromISR + portYIELD_FROM_ISR。 */
+    xQueueSendFromISR(g_key_evt_q, &amp;ev, &amp;hpw);
+    portYIELD_FROM_ISR(hpw);
+}
+
+/* ------------------------------------------------------------
+ * 解析任务：它仍然是一个状态机，只是"喂字节"变成了阻塞等队列
+ * ------------------------------------------------------------ */
+static void rx_task(void *arg)
+{
+    proto_rx_t    p;
+    proto_frame_t f;
+    uint8_t       b;
+
+    (void)arg;
+
+    proto_rx_init(&amp;p, 0);
+
+    for (;;) {
+        /* 阻塞等一个字节。没有字节就睡，不消耗 CPU。 */
+        if (xQueueReceive(g_byte_q, &amp;b, portMAX_DELAY) == pdTRUE) {
+            if (proto_rx_feed(&amp;p, b, tick_ms(), &amp;f)) {
+                /* 解析出来的一帧，转给应用任务处理 */
+                xQueueSend(g_frame_q, &amp;f, 0);
+            }
+        }
+    }
+    /* ★ 注意：因为收字节不再需要"帧内超时"来兜底（队列不会永久阻塞），
+     *   但如果对端发了一半就停了，上面这个循环还是会一直等 ——
+     *   所以 proto_rx_tick() 的超时判断依然要保留，
+     *   只是改成用 xQueueReceive 带超时参数的版本：
+     *       xQueueReceive(g_byte_q, &amp;b, pdMS_TO_TICKS(PRX_TIMEOUT_MS))
+     *   超时返回 pdFALSE 时调用 proto_rx_tick() 即可。 */
+}
+
+/* ============================================================
+ * 【用不用 RTOS 的判据】
+ *
+ *   用裸机主循环 + 时间片调度，如果：
+ *     · 任务数 ≤ 8 个
+ *     · 所有任务都能写成"立刻返回"的状态机
+ *     · 实时性靠"足够快的轮询"就能满足（比如 1ms 一次）
+ *     · RAM 紧张
+ *
+ *   该上 RTOS 了，如果：
+ *     · 任务数 &gt; 10 个，或者任务之间的依赖关系开始变复杂
+ *     · 需要【抢占】：某个事件必须在 X µs 内响应，而别的任务
+ *       可能正在跑一个长任务（比如擦写 Flash 要几十毫秒）
+ *     · 需要阻塞式 API（信号量、队列、事件组）来简化任务间通信
+ *     · 需要优先级（高优先级任务可以打断低优先级任务）
+ *
+ * 【资源开销的实测量级（FreeRTOS on Cortex-M3）】
+ *    最小内核（不要软件定时器、不要堆）  约 6 ~ 10 KB Flash
+ *    每个任务的栈                        最小 128 字 = 512 字节
+ *                                        实际常用 256 ~ 512 字
+ *    每个任务控制块（TCB）               约 90 ~ 100 字节
+ *    8 个任务的系统                      约 16 ~ 32 KB Flash
+ *                                        + 4 ~ 8 KB RAM
+ *
+ *   对照：STM32F103C8T6 只有 64KB Flash / 20KB RAM。
+ *   上 RTOS 意味着至少交出 1/4 的 Flash 和 1/3 的 RAM。
+ *   值不值，要看你换到了什么 —— 如果换到的只是"把 delay
+ *   改写成了 vTaskDelay"，那就不值。
+ * ============================================================ */</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">再强调一次这个「正交」关系，因为它决定你怎么分工：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>问题</th><th>谁来回答</th><th>典型手段</th></tr></thead>
+              <tbody>
+                <tr><td>同一时刻有哪几件事在推进？</td><td><b>任务组织形式</b>（裸机调度器 / RTOS）</td><td>主循环时间片、任务 + 优先级、队列</td></tr>
+                <tr><td>其中一件事下一步要做什么？</td><td><b>状态机</b></td><td>状态图、状态表、<code class="icode">switch</code></td></tr>
+                <tr><td>两件事之间怎么传递信息？</td><td>任务组织形式</td><td>全局变量 + 标志、队列、信号量、事件组</td></tr>
+                <tr><td>一件事收到信息之后怎么反应？</td><td><b>状态机</b></td><td>状态转移 + 输出动作</td></tr>
+                <tr><td>一件事内部要不要加锁？</td><td>任务组织形式</td><td>协作式调度：不用；抢占式 RTOS：必须用</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">现实中最常见的错误分工是：<b class="font-semibold text-ink">把「一件事内部的顺序」交给 RTOS 去管</b>——开一个任务专门做「先延时 100ms，再发指令，再等 1 秒」，于是任务里全是 <code class="icode">vTaskDelay</code>。这等于用几十 KB 的调度器换来了「更贵的 <code class="icode">delay</code>」。正确做法是反过来：<b>任务内部用状态机做到「不阻塞」，任务之间才交给 RTOS 去调度优先级和消息。</b></p>
+
+          <h3 id="mcu-test" class="mt-7 text-base font-semibold">状态机的可测试性：为什么它比一大坨 <code class="icode">if/else</code> 嵌套好用</h3>
+
+          <p class="mt-3">前面几段代码里其实已经埋了一个设计原则，这里把它挑明：<b class="font-semibold text-ink">让状态机成为一个「不碰硬件」的纯函数。</b></p>
+
+          <p class="mt-3">回头看 <code class="icode">key_fsm_tick()</code> 的签名：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="为什么这个签名值得反复看">
+            <pre><code>key_event_t key_fsm_tick(key_fsm_t *k, bool raw_level, uint32_t now);
+
+             ▲            ▲          ▲              ▲
+             │            │          │              │
+             │            │          │              └── 时间从外面传进来，
+             │            │          │                  函数【不】自己调用 millis()
+             │            │          └───────────────── 输入从外面传进来，
+             │            │                            函数【不】自己读 GPIO
+             │            └──────────────────────────── 状态从外面传进来，
+             │                                         函数没有 static 隐藏状态
+             └───────────────────────────────────────── 结果从返回值出去，
+                                                       函数【不】自己点亮 LED
+
+  ★ 这四个"从外面进来 / 从外面出去"，把状态机变成了一台
+    【纯计算机器】：给它状态 + 输入 + 时间，它给你新状态 + 事件。
+    · 没有硬件依赖  → 可以在 PC 上编译运行
+    · 没有隐藏状态  → 同样的输入必然得到同样的输出，可复现
+    · 没有副作用    → 想测哪条边就测哪条边，不用管别的
+
+  ★ 与之对比，一个"标准"的裸机按键处理函数通常长这样：
+        void key_scan(void)
+        {
+            static uint32_t last = 0;        // ← 隐藏状态！
+            static uint8_t  cnt  = 0;        // ← 隐藏状态！
+            if (HAL_GPIO_ReadPin(KEY_PORT, KEY_PIN) == GPIO_PIN_RESET) {
+                if (HAL_GetTick() - last &gt; 20) { … }
+            }
+            …
+        }
+    它有三个致命问题：
+      · static 变量 = 隐藏状态，你没法在测试里把它重置到已知初值
+      · 直接读 GPIO = 你没法在 PC 上喂一个"抖动波形"进去
+      · 直接点灯/改全局 = 副作用混在逻辑里，测试断言不知道看哪里
+    ⇒ 结果是：这段代码永远只能"上板试"，而"上板试"永远试不全。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">可测试性带来的具体好处，一条一条数：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>维度</th><th>状态机</th><th>一大坨 <code class="icode">if/else</code> 嵌套</th></tr></thead>
+              <tbody>
+                <tr><td>测试用例能不能列全</td><td><b>能</b>：状态数 × 输入数 = 有限的格子。8 个状态 × 3 种输入 = 24 条转移，24 条用例就能做到 100% 转移覆盖</td><td>不能：判断路径随嵌套层数组合爆炸，20 个 <code class="icode">if</code> 就是 2<sup>20</sup> ≈ 100 万条量级</td></tr>
+                <tr><td>能不能在 PC 上跑</td><td><b>能</b>：只要有 <code class="icode">stdint.h</code> 和 <code class="icode">stdbool.h</code> 就能编译</td><td>不能：直接调用 HAL/寄存器，只能在板子上跑</td></tr>
+                <tr><td>同样的输入能否复现</td><td><b>能</b>：状态全在参数里，初值可控</td><td>不能：<code class="icode">static</code> 变量和硬件寄存器都是隐藏状态</td></tr>
+                <tr><td>改代码后能否回归测试</td><td><b>能</b>：跑一遍用例表，看一眼退出码</td><td>只能重新上板手点，而且点不全</td></tr>
+                <tr><td>覆盖度能否量化</td><td><b>能</b>：状态覆盖率、转移覆盖率都能算出来</td><td>没有对应指标，只能靠感觉</td></tr>
+                <tr><td>现场出问题怎么定位</td><td><b>能</b>：把状态变量 print 出来，立刻知道卡在哪一步</td><td>只能看 PC 值和一堆变量猜</td></tr>
+                <tr><td>能不能做故障注入</td><td><b>能</b>：喂一个「校验错的帧」「超长的 LEN」，看它是否正确拒绝</td><td>很难：你得在真实链路上制造这种错误</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">把这段代码拿去做一个 30 秒的实验</div>
+            <p>新建一个目录，把本节的 <code class="icode">key_fsm.h</code>、<code class="icode">key_fsm.c</code>、<code class="icode">key_fsm_test.c</code> 三个文件放进去，然后在电脑上执行：</p>
+            <p class="mt-2"><code class="icode">gcc -std=c99 -Wall -Wextra -o key_fsm_test key_fsm.c key_fsm_test.c</code></p>
+            <p class="mt-2"><code class="icode">./key_fsm_test</code>（Windows 上是 <code class="icode">key_fsm_test.exe</code>）</p>
+            <p class="mt-2">屏幕上会打出四个用例的通过情况。<b>这就是「嵌入式代码可以在 PC 上测」的样子</b>——没有一个字节和单片机有关。然后你可以试着把 <code class="icode">KEY_LONG_MS</code> 从 800 改成 500，看哪个用例红了；再试着把 <code class="icode">is_second</code> 那一段删掉，看双击用例是不是立刻报出一个多余的 SHORT。<b>这种"改一行、跑一次、立刻知道错在哪"的循环，就是状态机给你的最大回报。</b></p>
+          </div>
+        </section>
+
+<!-- ---------------------------- 5. 常见坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="mt-14 text-xl font-semibold">常见坑与易错点</h2>
+
+          <p class="mt-4">下面 10 条，每一条都是「错误认知 → 为什么错 → 正确做法」。<b class="font-semibold text-ink">它们中的绝大多数不会让程序编译报错，也不会让程序立刻崩</b>——它们只是在某个特定的时刻、特定的温度、特定的按键力度下让设备表现怪异。这才是嵌入式 bug 最难查的那一类。</p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">坑 1：「状态机不就是 if/else 吗？我不用状态机也照样写。」</div>
+            <p><b>为什么错：</b>能写出来 ≠ 能验证。「照样写」出来的通常是一堆靠 <code class="icode">static</code> 变量和嵌套判断堆起来的分支，它<b>没有明确的状态集合</b>，所以你既画不出图，也列不全用例，更说不出「它现在在哪一步」。等到出问题时，你手上唯一的工具是往里面加 <code class="icode">printf</code>。</p>
+            <p class="mt-2"><b>正确做法：</b>把「行为」这件事显式化——<code class="icode">enum</code> 列出状态、<code class="icode">switch</code> 写转移、每个状态都有名字。这不是形式主义：<b>状态名本身就是最好的文档和日志</b>。当你收到一份现场日志写着「卡在 <code class="icode">ST_WAIT_ACK</code>」时，你不需要读代码就知道问题在等应答那一步。</p>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">坑 2：「Mealy 比 Moore 快一个时钟，所以都用 Mealy。」</div>
+            <p><b>为什么错：</b>那一个时钟是用三样东西换来的——<b>输出脉宽不确定、输入毛刺会穿透到输出、跨时钟域时可能被采到一串乱跳的值</b>。在 FPGA 里这直接表现为「仿真全对、上板偶尔抽风」，是最难定位的一类问题。</p>
+            <p class="mt-2"><b>正确做法：</b>默认用 Moore；<b>或者用 Mealy 但把输出寄存一拍</b>（三段式的第 3 段加一级触发器，等价于把 Mealy 变成 Moore 的时序特性，只是多等一拍）。只有在「输出只给同一时钟域的同步电路采样」并且「状态数确实紧张」时才裸用 Mealy。</p>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">坑 3：「状态机跑飞了也没事，我有看门狗。」</div>
+            <p><b>为什么错：</b>看门狗复位的是<b>整个系统</b>——正在传的数据丢了、外设要重新初始化、继电器会「啪」一下全断、用户会看到设备重启。而<b>安全编码（默认次态指向复位态）只需要一个时钟周期就能自愈，用户完全察觉不到</b>。两者代价差了几万倍。</p>
+            <p class="mt-2">更糟的是，很多人的喂狗代码写在定时器中断里无脑喂：<b>于是状态机卡死了、中断照跑、狗照喂，看门狗彻底失效</b>——你以为有保护，其实什么都没有。</p>
+            <p class="mt-2"><b>正确做法：</b>① 次态逻辑里显式写 <code class="icode">default</code>（HDL）或 <code class="icode">default:</code>（C），把非法状态送回初始态；② 喂狗动作必须放在「所有任务都正常跑过一圈」之后，用一个「每个任务提交一次才放行喂狗」的标记；③ 在 <code class="icode">default</code> 分支里加诊断计数，让跑飞变成可观测的事件。</p>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">坑 4：「按键消抖？<code class="icode">delay(20)</code> 一下就行了。」</div>
+            <p><b>为什么错：</b>① 这 20ms 里 CPU 什么都不干，115200 波特率下会来 230 个字节，硬件 FIFO 直接溢出丢数据；② 它只能告诉你「按下了」，做不出长按和双击（因为时间信息被扔掉了）；③ 松手时还要再抖一次，于是变成两处延时；④ 按键越多越糟。</p>
+            <p class="mt-2"><b>正确做法：</b>把抖动变成一个<b>看得见的状态</b>（<code class="icode">KS_DEBOUNCE</code>），用 8ms 的时间戳判断电平是否稳定。<b>整个过程中 CPU 一秒都没被阻塞</b>，而且顺手就有了长按需要的「按了多久」这个信息。</p>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">坑 5：「串口数据？等一整包收完再处理就行。」</div>
+            <p><b>为什么错：</b>这是本节最贵的一个坑，因为它同时踩了三颗雷：<b>①丢数据</b>（阻塞期间字节被硬件丢掉，而且失败分支里已经消费掉的字节可能正是下一帧的帧头）；<b>②没有超时 → 永久卡死</b>（对方发一半断电，<code class="icode">while</code> 永不返回）；<b>③长度不校验 → 缓冲区溢出</b>（<code class="icode">len</code> 是从线上来的一个字节，最大 255，直接 <code class="icode">buf[i] = b</code> 就把栈写穿了）。</p>
+            <p class="mt-2"><b>正确做法：</b>中断/DMA 只负责把字节搬进环形缓冲，主循环逐字节喂给解析状态机；<b>每个状态都检查边界</b>（<code class="icode">LEN == 0 || LEN &gt; MAX</code>）；<b>加帧内超时</b>把半帧踢掉。这三件事缺一件，远期的现场故障都跑不掉。</p>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">坑 6：「状态越多越精确，一个节拍一个状态。」</div>
+            <p><b>为什么错：</b>状态是<b>「离散的行为阶段」</b>，不是定时器。用 58 个状态表示交通灯的 58 秒，会让编码位宽从 3 位涨到 6 位、状态表从 6 行涨到 58 行、卡诺图从 4 变量涨到 7 变量，而且「把绿灯从 30 秒改成 25 秒」这种需求要重画整张图。</p>
+            <p class="mt-2"><b>正确做法：一句话——「状态表示我在做什么，变量表示我做了多久、做了几次」。</b>状态机管阶段，计时/计数交给变量或硬件定时器。这条原则在 C 代码里的样子就是：<code class="icode">case ST_EW_GREEN: if (--tick_left == 0) { … }</code>。</p>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">坑 7：「上了 RTOS 就不用状态机了，一个任务一件事。」</div>
+            <p><b>为什么错：</b>两者是正交的（详见第 4 节）。RTOS 解决的是「多件事之间怎么排优先级、怎么传消息」，它<b>不解决</b>「一件事内部按顺序分几步做」。用 <code class="icode">vTaskDelay</code> 在一个任务里写顺序流程，等于花了几十 KB Flash 买了一个更贵的 <code class="icode">delay</code>——而且这个任务在 <code class="icode">vTaskDelay</code> 期间虽然让出了 CPU，却依然<b>无法响应任何新输入</b>（它只是睡着了，醒来还是原计划）。</p>
+            <p class="mt-2"><b>正确做法：</b>任务内部用状态机做到不阻塞，任务之间用队列/信号量传递事件。这样每个任务都是「事件驱动 + 可画图 + 可测试」的，RTOS 的调度开销才真的换来了东西。</p>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">坑 8：「状态化简总是好的，能合并就合并。」</div>
+            <p><b>为什么错：</b>三件事被忽略了：<b>①只有跨过 2 的幂才省触发器</b>（6 个状态化简到 5 个，还是 3 位，一个触发器都不省，只是逻辑简单一点）；<b>②合并会丢掉可观测性</b>（原来能区分「走的哪条路」，合并后在运行时看不见了）；<b>③化简的前提是「输入序列不受限」</b>，而真实系统里很多输入序列物理上不可能出现——保守化简反而会多留状态。</p>
+            <p class="mt-2"><b>正确做法：</b>化简前先算一笔账（跨没跨 2 的幂、省不省非法状态），再决定值不值。工程上「保留冗余状态用于诊断」是一个完全正当的理由——<b>能化简不等于必须化简</b>。</p>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">坑 9：「异步信号直接读进来就行，我读的是电平，跟时序没关系。」</div>
+            <p><b>为什么错：</b>触发器有建立/保持窗口。异步信号在窗口内跳变会让触发器进入<b>亚稳态</b>——输出停在中间电平，然后随机倒向某一侧。后果是「同一个输入被不同的后级解读成不同的值」「状态机多走一步或少走一步」，而且<b>偶发、不可复现、和温度电压有关</b>。</p>
+            <p class="mt-2">还有一个更隐蔽的版本：<b>多位总线打两拍是不够的</b>。16 位的计数器值跨时钟域时，各位可能在不同时钟沿被采到，你会得到一个「高 8 位是新值、低 8 位是旧值」的混合值。</p>
+            <p class="mt-2"><b>正确做法：</b>单比特异步信号 → <b>打两拍</b>（两级串联 D 触发器）再进状态机；多位信号 → <b>格雷码</b>（每次只变一位）、<b>握手</b>（请求/应答）或<b>异步 FIFO</b> 三选一。在 MCU 软件里的等价物是：<b>中断里只置标志，主循环读标志再改状态</b>，不要从多个上下文同时改状态变量。</p>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">坑 10：「超时判断写 <code class="icode">now &gt;= t0 + TIMEOUT</code> 和写 <code class="icode">(now - t0) &gt;= TIMEOUT</code> 不是一样吗？」</div>
+            <p><b>为什么错：</b>不一样。如果 <code class="icode">now</code> 是无符号 32 位毫秒计数（<code class="icode">HAL_GetTick()</code> / Arduino 的 <code class="icode">millis()</code> 都是），它会在 <b>2<sup>32</sup> ms = 4294967296 ms ≈ 49.71 天</b>之后回绕到 0。写 <code class="icode">t0 + TIMEOUT</code> 有两种翻车方式：<code class="icode">t0 + TIMEOUT</code> 自己先溢出回绕（如果 <code class="icode">t0</code> 靠近上限），或者 <code class="icode">now</code> 回绕之后永远小于 <code class="icode">t0 + TIMEOUT</code>——结果是<b>超时永远不触发，状态机永远停在等待状态</b>。</p>
+            <p class="mt-2"><b>为什么无符号减法免疫：</b>无符号减法的结果天然是模 2<sup>32</sup> 的「真实时间差」。<code class="icode">now</code> 刚回绕到 5 而 <code class="icode">t0</code> 是 4294967290 时，<code class="icode">(uint32_t)(now - t0)</code> 算出来正好是 11，完全正确。<b>只要两次采样的间隔小于 49.71 天，这个写法就永远对。</b></p>
+            <p class="mt-2"><b>正确做法：</b>统一写 <code class="icode">(uint32_t)(now - t0) &gt;= TIMEOUT</code>。本节所有代码都遵循这一条（<code class="icode">elapsed()</code> 函数就是它的封装）。调度器里判「到点了吗」用有符号版本 <code class="icode">(int32_t)(now - t_next) &gt;= 0</code>，原理一样。</p>
+          </div>
+        </section>
+
+<!-- ---------------------------- 6. 小结与自测 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="mt-14 text-xl font-semibold">小结与自测</h2>
+
+          <p class="mt-4">如果把这一页压成一段话：<b class="font-semibold text-ink">状态机是「有记忆的顺序行为」的通用语言</b>——它用有限的几个状态、一张转移表、两个方程（次态与输出），把「随时记住自己在哪里、根据事件决定下一步」这件事变成可以画出来、可以算出来、可以测出来的东西。落到硬件上是触发器加组合逻辑，落到单片机上是 <code class="icode">enum</code> 加 <code class="icode">switch</code> 加时间戳，两边的思维方式一模一样。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">要点清单（可以对着检查自己有没有漏）</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>三要素 + 两个函数：</b>状态集合 S、输入集合 I、输出集合 O，次态函数 <code class="icode">Q* = δ(Q, X)</code>，输出函数 <code class="icode">Z = λ(Q, X)</code> 或 <code class="icode">λ(Q)</code>。</li>
+              <li><b>四种描述方式可以机械互转：</b>状态图 ⇄ 状态表 ⇄ 状态转移方程 + 输出方程。<b>状态表是不漏边的唯一保证</b>。</li>
+              <li><b>Moore 与 Mealy 的差别只有一句：输出是否直接依赖输入。</b>Moore 慢一拍但干净、脉宽精确；Mealy 快但脉宽不定、毛刺会穿透。<b>输出要出门、要触发边沿敏感器件、要闭环、要安全 → 选 Moore 或把输出寄存。</b></li>
+              <li><b>状态编码三选一：</b>二进制（触发器最少，ASIC/CPLD 首选）、格雷（只翻一位，适合顺序循环与跨时钟域）、独热（触发器最多但译码几乎为零，FPGA 首选）。<b>状态数超过 16~32 就别用独热了。</b></li>
+              <li><b>状态化简 = 合并等价状态：</b>判据是「输出一致」+「次态等价」，两者互相依赖所以要用隐含表迭代。<b>真正的红利常常是非法状态被清零</b>（5 状态 3 位有 3 个非法，化简到 4 状态 2 位就一个不剩）。</li>
+              <li><b>D 触发器的核心优势：D = Q*。</b>用 JK/T/SR 要多一层「次态 → 激励」的翻译逻辑，用 D 则直接画卡诺图。<b>六步流程：状态图 → 化简 → 编码 → 状态转移表（含非法码）→ 激励方程 → 输出方程 + 电路。</b></li>
+              <li><b>两条时序约束：</b><code class="icode">T_clk ≥ t_cq + t_logic(max) + t_setup + t_skew</code> 决定最高频率；<code class="icode">t_cq(min) + t_logic(min) ≥ t_hold + t_skew</code> 决定「逻辑不能太短」，<b>与频率无关</b>。</li>
+              <li><b>非法状态必须显式处理：</b>默认次态指向复位态（安全编码）+ 诊断计数 + 看门狗兜底（喂狗要放在所有任务都跑过的路径上）。</li>
+              <li><b>亚稳态只能降低概率，不能消除：</b>单比特打两拍，多比特要格雷码 / 握手 / 异步 FIFO。</li>
+              <li><b>HDL 三段式 = 状态寄存器 / 次态组合逻辑 / 输出逻辑分开写。</b>在 C 语言里同样成立：<code class="icode">next_state()</code> 是纯函数、<code class="icode">output()</code> 集中动作、<code class="icode">state</code> 只在一处被赋值。</li>
+              <li><b>裸机程序的终局是状态机：</b><code class="icode">delay</code> 把「等」变成指令，状态机把「等」变成判断——这是「阻塞」与「非阻塞」的全部分界。</li>
+              <li><b>状态机与 RTOS 正交：</b>状态机管任务内部，RTOS 管任务之间，可以叠加，不能互相替代。</li>
+              <li><b>可测试性是状态机被低估的最大优点：</b>把状态、输入、时间都做成参数，就能在 PC 上跑用例表，做到 100% 转移覆盖。</li>
+            </ul>
+          </div>
+
+          <h3 id="quiz" class="mt-7 text-base font-semibold">自测题（先自己答，再看下面的答案）</h3>
+
+          <ol class="mt-3 list-decimal space-y-5 pl-5">
+            <li>
+              <p>Moore 型和 Mealy 型的<b>严格</b>区别是什么？各用一句话写出它们的输出方程。</p>
+              <p class="mt-1 text-[13px] text-muted"><b>答：</b>区别只有一处——<b>输出是否直接依赖当前输入</b>。Moore：<code class="icode">Z = λ(Q)</code>，只由现态决定；Mealy：<code class="icode">Z = λ(Q, X)</code>，由现态和输入共同决定。由此派生出的所有差别（状态数、响应速度、脉宽、毛刺）都是这一句话的推论。</p>
+            </li>
+            <li>
+              <p>一台状态机有 5 个状态，用二进制编码需要几个触发器？有几个非法状态？如果化简到 4 个状态呢？</p>
+              <p class="mt-1 text-[13px] text-muted"><b>答：</b>5 个状态需要 ⌈log<sub>2</sub>5⌉ = 3 位 = <b>3 个触发器</b>，2<sup>3</sup> − 5 = <b>3 个非法状态</b>（101、110、111）。化简到 4 个状态只需 ⌈log<sub>2</sub>4⌉ = <b>2 个触发器</b>，2<sup>2</sup> − 4 = <b>0 个非法状态</b>。这就是「跨过 2 的幂」才省触发器的典型例子。</p>
+            </li>
+            <li>
+              <p>为什么说 D 触发器最适合实现状态机？用 JK 触发器会多出什么工作？</p>
+              <p class="mt-1 text-[13px] text-muted"><b>答：</b>因为 <b>D = Q*</b>，激励方程就是次态方程本身，画完卡诺图直接得到 D 端表达式。用 JK 触发器则要先根据「现态 → 次态」查激励表，再为 J、K 分别画卡诺图——多出「把次态翻译成激励」这一整套逻辑，门数更多、更容易出错。同理，T 触发器要算 <code class="icode">T = Q ⊕ Q*</code>，SR 触发器还要处理不允许的输入组合。</p>
+            </li>
+            <li>
+              <p>在 <code class="icode">T_clk ≥ t_cq + t_logic(max) + t_setup + t_skew</code> 里，哪一项是你可以通过改写逻辑来优化的？怎么优化？</p>
+              <p class="mt-1 text-[13px] text-muted"><b>答：</b>只有 <b><code class="icode">t_logic(max)</code></b> 是设计者能动的——它是从触发器 Q 端到你方程里那些门的【最长路径】延迟。<code class="icode">t_cq</code>、<code class="icode">t_setup</code> 是器件参数，<code class="icode">t_skew</code> 由布线决定。优化手段：<b>①用卡诺图把方程化到最简（减轻门数和级数）；②提取公共项、共享子表达式；③改变状态编码（独热码的次态逻辑通常只有一级门）；④必要时插入流水线寄存器（但这会改变状态机的语义）。</b></p>
+            </li>
+            <li>
+              <p>一个异步按键信号直接接进状态机会出什么问题？怎么解决？如果是一个 16 位的数据总线呢？</p>
+              <p class="mt-1 text-[13px] text-muted"><b>答：</b>异步信号在时钟沿附近跳变会让触发器进入<b>亚稳态</b>——输出停在中间电平，被不同的后级解读成不同的值，导致状态机多走一步或少走一步，且故障偶发、不可复现。解决办法是<b>先打两拍</b>（两级串联 D 触发器），把「进入亚稳态后没能及时恢复」的概率降到可以忽略。<b>但对 16 位总线打两拍是不够的</b>：各位可能在不同时钟沿被采到，会得到一个半新半旧的混合值。多位跨时钟域要用<b>格雷码</b>（每次只变一位）、<b>握手</b>或<b>异步 FIFO</b>。</p>
+            </li>
+            <li>
+              <p>为什么不能用 <code class="icode">delay(20)</code> 消抖？至少说出三条理由。</p>
+              <p class="mt-1 text-[13px] text-muted"><b>答：</b>① <b>这 20ms 里 CPU 完全阻塞</b>，串口数据会丢（115200 波特率下 20ms 会来 230 个字节，硬件 FIFO 只有 8~16 字节深）；② 它<b>扔掉了时间信息</b>，只能判断「按下了」，做不出长按、连发、双击；③ 松手时还会抖一次，需要第二处延时；④ <b>不可扩展</b>，n 个按键就是 n×20ms；⑤ 它把「抖动」这个物理事实藏起来了，你没法观察、统计、按按键单独调参。正确做法是把消抖做成一个<b>状态</b>（<code class="icode">KS_DEBOUNCE</code>）+ 8ms 的时间戳判断。</p>
+            </li>
+            <li>
+              <p>HDL 的「三段式」把状态机分成了哪三段？为什么工程上推荐它而不是一段式？C 语言里怎么体现？</p>
+              <p class="mt-1 text-[13px] text-muted"><b>答：</b>三段是<b>①状态寄存器（时序块，只做 <code class="icode">state &lt;= state_next</code>）②次态组合逻辑（只算下一拍去哪）③输出逻辑（可以再寄存一拍）</b>。推荐它的根本原因：<b>把「什么时候变」和「变成什么」物理上分开</b>，于是不会推出意外锁存器、输出无毛刺、时序好约束、<code class="icode">default</code> 只写一处、职责单一好排查。C 语言里完全对应：<code class="icode">next_state()</code> 是纯函数（可单独测试）、<code class="icode">output()</code> 集中所有动作、<code class="icode">state</code> 只在 <code class="icode">fsm_tick()</code> 里被赋值一次。</p>
+            </li>
+            <li>
+              <p>状态机跑飞进了一个非法状态，有哪几层手段可以救它？为什么看门狗是最不划算的那一层？</p>
+              <p class="mt-1 text-[13px] text-muted"><b>答：</b>四层：<b>①编码上留余地（减少非法状态数量）②安全编码（默认次态指向复位态，一个时钟自恢复）③监视自愈逻辑（独热码的零检测/多热检测 + 诊断计数）④看门狗兜底</b>。看门狗最不划算是因为它<b>复位整个系统</b>：正在传的数据丢了、外设要重新初始化、执行器会突然断电、用户看到设备重启。而安全编码只需要一个时钟周期，用户毫无察觉。此外还要注意：<b>喂狗动作必须放在「所有任务都正常跑过」的路径上</b>，否则状态机卡死了中断还在喂狗，看门狗形同虚设。</p>
+            </li>
+          </ol>
+
+          <h3 id="exercise" class="mt-7 text-base font-semibold">练习</h3>
+
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li><b>自动售货机（完整设计）。</b>饮料 1.5 元，只接受 0.5 元和 1 元两种硬币，投入超过 1.5 元要找零。<b>要求：</b>画出状态图（提示：用状态表示「已投入多少钱」，恰好是 0 元 / 0.5 元 / 1.0 元 / 1.5 元四档，投币和退币是输出）；列出状态表；用 2 位二进制编码；写出两个 D 触发器的激励方程和「出货」「找零」两个输出方程；检查有没有非法状态，如果有，给出安全编码方案。<b>加分：</b>如果改成「接受任意金额并可退币」，状态数会变成多少？为什么这时应该换一种设计思路（提示：状态表示「金额档位」会爆炸，改成「状态表示流程阶段 + 一个金额变量」）？</li>
+            <li><b>串口命令行解析器（写代码）。</b>用状态机实现一个以换行符 <code class="icode">\n</code> 结尾的命令行解析器，支持 <code class="icode">LED ON</code>、<code class="icode">LED OFF</code>、<code class="icode">GET TEMP</code> 三条命令。<b>要求：</b>① 用 <code class="icode">enum</code> 定义状态（至少要有「等命令字符」「等参数」「完成」）；② 行缓冲必须有<b>溢出保护</b>（缓冲区满了不能写穿，要丢弃并回复错误）；③ 必须有<b>行超时</b>（收到半行之后再没有字节，要能自动丢弃）；④ 非法命令要回复 <code class="icode">ERROR</code> 而不是静默；⑤ 把它写成不碰硬件的纯函数，然后在 PC 上写至少 6 条用例（正常三条、超长一行、半行超时、非法命令）并全部跑通。</li>
+            <li><b>改造你自己的项目（最推荐做这个）。</b>在你的板子上找一个<b>用 <code class="icode">delay</code> 写成的顺序流程</b>——比如「初始化传感器 → 等 100ms → 读 ID → 失败重试 3 次 → 上报结果」。把它改写成状态机。<b>步骤：</b>①先画出状态图（你会惊讶地发现有 5~8 个状态）；②把每个 <code class="icode">delay</code> 换成一个时间戳 + 一个判断；③把重试次数做成一个变量而不是嵌套的 <code class="icode">for</code>；④加一个总超时，避免永远重试；⑤加一个诊断计数，统计每一类失败发生了多少次。<b>改完之后你会得到一个额外的收获：原来「卡在哪一步」是未知的，现在串口一打印就知道。</b></li>
+            <li><b>按键手感实验（需要逻辑分析仪或示波器）。</b>把按键接上示波器，实测你自己板子上按键的抖动时间（看一眼从第一个边沿到电平稳定花了多少毫秒）。把实测值填进 <code class="icode">KEY_DEBOUNCE_MS</code>，然后用第 4 节的测试代码跑用例。<b>进阶：</b>把消抖窗口改成 2ms（故意偏小）和 50ms（故意偏大），分别在真板上按 50 次，记录误触发次数和「按了没反应」次数，体会一下这个参数的真实影响。</li>
+          </ol>
+
+          <h3 id="further" class="mt-7 text-base font-semibold">继续往下读</h3>
+
+          <p class="mt-3">状态机是数字电子的「组织手段」，它建立在前面几篇讲过的器件和工具之上。如果你觉得哪一块还不牢，建议倒回去补：</p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><a class="text-brand-600 dark:text-brand-300" href="ee-sequential.html">时序逻辑与触发器</a>——状态机里的「状态寄存器」就是它们；建立/保持时间、亚稳态的物理来源都在那一篇。</li>
+            <li><a class="text-brand-600 dark:text-brand-300" href="ee-logic-algebra.html">逻辑代数与卡诺图</a>——第 3 节例一「圈出 D1 = Q0·X' + Q1·Q0'·X」用的全是这一篇的工具，圈得好不好直接决定门数和最高频率。</li>
+            <li><a class="text-brand-600 dark:text-brand-300" href="ee-combinational.html">组合逻辑电路</a>——状态机的次态逻辑和输出逻辑都是组合电路，竞争冒险与毛刺的分析方法在那一篇。</li>
+            <li><a class="text-brand-600 dark:text-brand-300" href="ee-pulse.html">脉冲波形的产生与整形</a>——下一篇。按键消抖、单稳态触发、多谐振荡器，和第 4 节的按键状态机是同一件事的两种实现（硬件版和软件版）。</li>
+            <li><a class="text-brand-600 dark:text-brand-300" href="stm32-exti.html">STM32 外部中断与按键</a>——如果把按键交给中断处理，这一篇讲了中断里该做什么、不该做什么。</li>
+            <li><a class="text-brand-600 dark:text-brand-300" href="stm32-usart.html">STM32 串口通信</a>——第 4 节的协议解析状态机配上这一篇的环形缓冲和 DMA，就是一套可以上生产的串口框架。</li>
+          </ul>
+        </section>
+
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="ee-sequential.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">时序逻辑电路：锁存器、触发器与寄存器</p>
+          </a>
+          <a href="ee-pulse.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：进入脉冲电路 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">脉冲波形的产生与整形</p>
+          </a>
+        </nav>
+      </article>
+    </div>
+
+  </main>
+
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <a href="../index.html" class="flex items-center gap-2">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-2xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+          </a>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

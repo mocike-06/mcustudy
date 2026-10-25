@@ -1,0 +1,2526 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数制与位运算：从十进制到二进制 - McuStudy</title>
+  <meta name="description" content="零基础数制入门：为什么计算机只用 0 和 1、二进制位权表 128~1、十六进制 0~F 对照表、二↔十、二↔十六、十↔十六的手算方法各配四道逐步演算例题，讲清补码为什么 0xFF 在 unsigned char 里是 255、在 signed char 里是 -1，并逐个演示 &amp; | ^ ~ &lt;&lt; &gt;&gt; 六种位运算与置位/清零/翻转/判断四个标准动作，附完整可编译的 C 程序。">
+  <meta name="keywords" content="二进制十进制十六进制转换,位运算,&amp;与|,异或,位移运算,补码,unsigned char,signed char,0xFF,置位清零,位运算符优先级,51单片机">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="mcu51" class="min-h-screen">
+
+﻿  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../mcu51.html" class="hover:text-brand-600 dark:hover:text-brand-300">51单片机</a>
+          <span>/</span>
+          <span class="text-muted">数制与位运算：从十进制到二进制</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          数制与位运算：从十进制到二进制
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          为什么程序里到处都是 <code class="icode">0xFE</code>、<code class="icode">0xFF</code>、<code class="icode">P1 &amp;= ~0x08</code>？
+          这一篇把二进制、十六进制、补码、六种位运算符、掩码思想一次讲透。
+          每种进制转换都配四道逐步演算的例题，每个位运算都配真值表和一位一位的演算过程，
+          最后给出三段完整可编译的 C 程序。
+          读完你就能自己看懂、也能自己写出任意一个位操作。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">前置：<b>无</b></span>
+          <span class="stat-pill">工具：<b>Keil C51</b></span>
+          <span class="stat-pill">阅读约 <b>22</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-why-binary">为什么计算机用二进制</a>
+          <a class="toc-link is-sub" href="#sub-binary">二进制、位权与字节</a>
+          <a class="toc-link is-sub" href="#sub-hex">十六进制：为什么嵌入式偏爱它</a>
+          <a class="toc-link is-sub" href="#sub-convert">互转手算方法（12 道例题）</a>
+          <a class="toc-link is-sub" href="#sub-signed">无符号与有符号：补码</a>
+          <a class="toc-link is-sub" href="#sub-operators">六种位运算符逐个讲</a>
+          <a class="toc-link is-sub" href="#sub-mask">掩码与四个标准动作</a>
+          <a class="toc-link is-sub" href="#sub-priority">运算符优先级陷阱</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明：8 位对应 8 个引脚</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-why-binary">为什么计算机用二进制</a>
+            <a class="toc-link is-sub" href="#sub-binary">二进制、位权与字节</a>
+            <a class="toc-link is-sub" href="#sub-hex">十六进制：为什么嵌入式偏爱它</a>
+            <a class="toc-link is-sub" href="#sub-convert">互转手算方法（12 道例题）</a>
+            <a class="toc-link is-sub" href="#sub-signed">无符号与有符号：补码</a>
+            <a class="toc-link is-sub" href="#sub-operators">六种位运算符逐个讲</a>
+            <a class="toc-link is-sub" href="#sub-mask">掩码与四个标准动作</a>
+            <a class="toc-link is-sub" href="#sub-priority">运算符优先级陷阱</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明：8 位对应 8 个引脚</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            你打开任何一个 51 程序，都会看到这样的行：
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="典型 51 程序里的几行，全都是位运算">
+            <pre><code>P1 = 0xFE;              /* 为什么是 FE？ */
+TMOD &amp;= 0xF0;           /* 为什么要 &amp;= ？ */
+P1 |= (1 &lt;&lt; 3);         /* 这一行到底动了 P1 的哪一位？ */
+if (P1 &amp; 0x08) { }      /* 判断的条件是什么？ */
+led = (led &lt;&lt; 1) | (led &gt;&gt; 7);   /* 循环移位是怎么实现的？ */</code></pre>
+          </div>
+
+          <p class="mt-4">
+            这五行里出现了 <code class="icode">0xFE</code>、<code class="icode">&amp;=</code>、
+            <code class="icode">0xF0</code>、<code class="icode">|=</code>、<code class="icode">&lt;&lt;</code>、
+            <code class="icode">&amp;</code>、<code class="icode">|</code>、<code class="icode">&gt;&gt;</code>
+            —— 八个知识点。教材通常直接假设你都会，但这篇不假设。
+            我们会从「为什么计算机只认识 0 和 1」开始，一步一步走到能自己写出上面每一行。
+          </p>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">这篇为什么放在硬件之后</div>
+            <p>
+              因为「二进制」这个概念要和硬件对上才有意义。
+              上一篇你知道了「51 的引脚输出低电平可以吸电流点亮 LED」，
+              这一篇要告诉你：<b>程序里的一个字节，就是 8 个引脚的电平状态</b>。
+              <code class="icode">0xFE</code> 不是一串神秘的字符，
+              它就是对 8 个引脚说「第 0 个低、其余 7 个高」。
+              理解了这个对应关系，位运算就不再是抽象的数学，而是「对引脚的操作」。
+            </p>
+          </div>
+
+          <h3 id="sub-why-binary" class="mt-7 text-base font-semibold">为什么计算机用二进制</h3>
+
+          <p class="mt-3">
+            先从一个人人都有的经验说起：<b class="font-semibold text-ink">开关</b>。
+            你家里的灯开关只有两个状态——开和关，没有「半开」。
+            要表示「半开」需要调光器，那就复杂多了、也贵多了、还容易坏。
+          </p>
+          <p class="mt-3">
+            计算机内部用的是晶体管做的电子开关（在单片机里是几百万个 MOS 管）。
+            这些开关最可靠、最便宜、最抗干扰的工作方式，就是<b class="font-semibold text-ink">彻底导通</b>
+            或<b class="font-semibold text-ink">彻底断开</b>两个状态。
+            如果要在中间分出 10 个等级（对应十进制的 0~9），
+            那么任何一点电压波动、温度变化、电源纹波都会让判断出错。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="为什么不用十进制：可靠性对比">
+            <pre><code>【十进制方案】一个「开关」要表示 0~9 共 10 个状态
+   电压轴：  0V   0.5V  1.0V  1.5V  2.0V  2.5V  3.0V  3.5V  4.0V  4.5V
+   表示：     0     1     2     3     4     5     6     7     8     9
+              ↑     ↑     ↑     ↑     ↑     ↑     ↑     ↑     ↑     ↑
+            每档之间只隔 0.5V。电源波动 0.3V，就会把「3」读成「4」。
+
+【二进制方案】同样 0~5V 的范围，只分成两个状态
+   电压轴：  0V ──────────────────────────── 2.5V ──────────── 5V
+   表示：             0                                  1
+                      ←──── 这是一大片安全区 ────→
+             只要电压低于 2.5V 就是 0，高于 2.5V 就是 1。
+             即使电源在 4.5V ~ 5.5V 之间晃、导线上有 1V 的压降，
+             判断结果也完全不会错。
+
+【结论】二进制不是「计算机的怪癖」，而是工程上的必然选择：
+        用两个状态换取极高的抗干扰能力和极低的成本。
+        一个开关叫 1 位（1 bit），能表示 0 或 1；
+        8 个开关排在一起叫 1 字节（1 byte），能表示 256 种组合。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            用水来类比：二进制就像一个<b class="font-semibold text-ink">只有全开和全关两个位置的阀门</b>。
+            它不会因为水压的小波动就改变状态，也不会因为用了几年而「关不严」。
+            要表达更多的数，靠的不是把一个阀门开得更大，
+            而是<b class="font-semibold text-ink">多装几个阀门</b>——这就是「位数」的概念。
+          </p>
+
+          <h3 id="sub-binary" class="mt-7 text-base font-semibold">二进制、位权与字节</h3>
+
+          <p class="mt-3">
+            你在小学就学过十进制的「位权」：数字 <code class="icode">253</code> 的意思是
+          </p>
+          <p class="mt-3 font-mono text-sm">
+            2 × 100 + 5 × 10 + 3 × 1 = 2 × 10<sup>2</sup> + 5 × 10<sup>1</sup> + 3 × 10<sup>0</sup>
+          </p>
+          <p class="mt-3">
+            每一位的权重是 10 的幂。二进制完全一样，只是把 10 换成 2：
+            每一位的权重是 <b class="font-semibold text-ink">2 的幂</b>，而且每一位只能是 0 或 1。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>位序（从右往左）</th>
+                  <th>bit7</th>
+                  <th>bit6</th>
+                  <th>bit5</th>
+                  <th>bit4</th>
+                  <th>bit3</th>
+                  <th>bit2</th>
+                  <th>bit1</th>
+                  <th>bit0</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>位权</b></td>
+                  <td class="font-mono text-xs">128</td>
+                  <td class="font-mono text-xs">64</td>
+                  <td class="font-mono text-xs">32</td>
+                  <td class="font-mono text-xs">16</td>
+                  <td class="font-mono text-xs">8</td>
+                  <td class="font-mono text-xs">4</td>
+                  <td class="font-mono text-xs">2</td>
+                  <td class="font-mono text-xs">1</td>
+                </tr>
+                <tr>
+                  <td>2 的幂</td>
+                  <td class="font-mono text-xs">2<sup>7</sup></td>
+                  <td class="font-mono text-xs">2<sup>6</sup></td>
+                  <td class="font-mono text-xs">2<sup>5</sup></td>
+                  <td class="font-mono text-xs">2<sup>4</sup></td>
+                  <td class="font-mono text-xs">2<sup>3</sup></td>
+                  <td class="font-mono text-xs">2<sup>2</sup></td>
+                  <td class="font-mono text-xs">2<sup>1</sup></td>
+                  <td class="font-mono text-xs">2<sup>0</sup></td>
+                </tr>
+                <tr>
+                  <td>别称</td>
+                  <td colspan="4">高 4 位（high nibble）</td>
+                  <td colspan="4">低 4 位（low nibble）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这张表必须背下来（这是全篇的地基）</div>
+            <p class="font-mono text-sm">
+              128 &nbsp; 64 &nbsp; 32 &nbsp; 16 &nbsp; 8 &nbsp; 4 &nbsp; 2 &nbsp; 1
+            </p>
+            <p class="mt-2">
+              背法：从 1 开始每次翻倍——1、2、4、8、16、32、64、128。
+              这是你以后看任何二进制、十六进制、位掩码时的唯一工具。
+              看到一个 <code class="icode">0x08</code>，你要能立刻反应出「那是 bit3，也就是 8」；
+              看到一个 <code class="icode">0x80</code>，要立刻反应出「那是 bit7，也就是最高位」。
+            </p>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">字节与位：为什么是 8 个一组</h4>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">位（bit）</b>是一个二进制数字，只能是 0 或 1。
+            <b class="font-semibold text-ink">字节（byte）</b>是 8 个位捆成一组。
+            为什么是 8 而不是 7 或 9？主要是历史原因：早期计算机尝试过 6 位、7 位、9 位、
+            12 位等各种组合，最终 8 位因为几个实际优势胜出：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>8 位正好能表示 256 种状态，够用来编码所有英文字母、数字、标点（ASCII 码就是 7 位，留 1 位做校验）。</li>
+            <li>8 能被 2 整除三次，高低各 4 位正好可以用一位十六进制表示——这让十六进制非常自然。</li>
+            <li>8 位对应的十进制最大值 255 足够表达常见的物理量范围。</li>
+          </ul>
+
+          <div class="code-block mt-4" data-lang="text" data-title="一个字节能表达多少：0x00 ~ 0xFF">
+            <pre><code>  1 位（bit）   → 2 种组合      ：0, 1
+  2 位          → 4 种组合      ：00, 01, 10, 11
+  4 位（nibble）→ 16 种组合     ：0 ~ 15（正好对应 1 位十六进制 0~F）
+  8 位（byte）  → 256 种组合    ：0 ~ 255
+
+  ------------------------------------------------------------
+  8 位全 0  =  0000 0000  =  0x00  =  十进制 0
+  8 位全 1  =  1111 1111  =  0xFF  =  十进制 255
+  ------------------------------------------------------------
+
+  【0xFF 是 255 是怎么来的？】
+     把 8 个位权加起来：
+        128 + 64 + 32 + 16 + 8 + 4 + 2 + 1 = 255
+     也可以这样算：2 的 8 次方 = 256，所以 8 位能表示 256 个值，
+     从 0 开始数到 255 正好 256 个 → 最大就是 255。
+
+  【常考的推论】
+     · 16 位（unsigned int，51 的 int）能表示 0 ~ 65535
+       （2 的 16 次方 = 65536，所以最大是 65535）
+     · 32 位（unsigned long）能表示 0 ~ 4294967295
+     · 一句话规律：n 位无符号数能表示 0 ~ (2ⁿ − 1)
+
+  【为什么 51 单片机特别在意这件事】
+     STC89C52RC 的 P1、P0、P2、P3 都是 8 位寄存器，
+     一个字节正好对应 8 个引脚。这就是「P1 = 0xFE」能同时控制
+     8 个引脚的物理原因——8 位 VS 8 脚，一一对应，不多不少。</code></pre>
+          </div>
+
+          <h3 id="sub-hex" class="mt-7 text-base font-semibold">十六进制：为什么嵌入式偏爱它</h3>
+
+          <p class="mt-3">
+            如果只用二进制写程序，你会疯掉：<code class="icode">P1 = 11111110;</code>
+            这句话在 C 语言里其实是<b class="font-semibold text-ink">十进制的一亿一千一百多万</b>，
+            而不是你想要的 0xFE。而且一长串 0 和 1 数起来极易出错，
+            少写一个 0 就全错了。所以实际工程里，我们用<b class="font-semibold text-ink">十六进制</b>作为二进制的「简写」。
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">十六进制唯一的优势，也是最关键的优势</div>
+            <p>
+              <b>1 位十六进制 = 恰好 4 位二进制</b>，不多不少，完美对齐。
+            </p>
+            <p class="mt-2">
+              因为 2<sup>4</sup> = 16。这意味着：
+            </p>
+            <ul class="list-disc space-y-1.5 pl-5 mt-2">
+              <li>1 个字节 = 2 位十六进制（高 4 位一位、低 4 位一位），永远如此。</li>
+              <li>从十六进制转二进制，只要把每一位「翻译」成 4 位，直接拼接，不用做任何算术。</li>
+              <li>反过来，二进制转十六进制，只要从右往左每 4 位切一刀，各自翻译。</li>
+            </ul>
+            <p class="mt-2">
+              对比一下八进制：1 位八进制 = 3 位二进制，和字节的 8 位对不齐，
+              所以嵌入式里几乎不用八进制。这就是「十六进制胜出」的全部原因。
+            </p>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>十六进制</th>
+                  <th>二进制（4 位）</th>
+                  <th>十进制</th>
+                  <th>十六进制</th>
+                  <th>二进制（4 位）</th>
+                  <th>十进制</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs"><b>0</b></td><td class="font-mono text-xs">0000</td><td class="font-mono text-xs">0</td><td class="font-mono text-xs"><b>8</b></td><td class="font-mono text-xs">1000</td><td class="font-mono text-xs">8</td></tr>
+                <tr><td class="font-mono text-xs"><b>1</b></td><td class="font-mono text-xs">0001</td><td class="font-mono text-xs">1</td><td class="font-mono text-xs"><b>9</b></td><td class="font-mono text-xs">1001</td><td class="font-mono text-xs">9</td></tr>
+                <tr><td class="font-mono text-xs"><b>2</b></td><td class="font-mono text-xs">0010</td><td class="font-mono text-xs">2</td><td class="font-mono text-xs"><b>A</b></td><td class="font-mono text-xs">1010</td><td class="font-mono text-xs">10</td></tr>
+                <tr><td class="font-mono text-xs"><b>3</b></td><td class="font-mono text-xs">0011</td><td class="font-mono text-xs">3</td><td class="font-mono text-xs"><b>B</b></td><td class="font-mono text-xs">1011</td><td class="font-mono text-xs">11</td></tr>
+                <tr><td class="font-mono text-xs"><b>4</b></td><td class="font-mono text-xs">0100</td><td class="font-mono text-xs">4</td><td class="font-mono text-xs"><b>C</b></td><td class="font-mono text-xs">1100</td><td class="font-mono text-xs">12</td></tr>
+                <tr><td class="font-mono text-xs"><b>5</b></td><td class="font-mono text-xs">0101</td><td class="font-mono text-xs">5</td><td class="font-mono text-xs"><b>D</b></td><td class="font-mono text-xs">1101</td><td class="font-mono text-xs">13</td></tr>
+                <tr><td class="font-mono text-xs"><b>6</b></td><td class="font-mono text-xs">0110</td><td class="font-mono text-xs">6</td><td class="font-mono text-xs"><b>E</b></td><td class="font-mono text-xs">1110</td><td class="font-mono text-xs">14</td></tr>
+                <tr><td class="font-mono text-xs"><b>7</b></td><td class="font-mono text-xs">0111</td><td class="font-mono text-xs">7</td><td class="font-mono text-xs"><b>F</b></td><td class="font-mono text-xs">1111</td><td class="font-mono text-xs">15</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">C 语言里的三种进制写法</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><code class="icode">0x</code> 开头 = 十六进制，例如 <code class="icode">0xFE</code>、<code class="icode">0x3C</code>。注意 <code class="icode">x</code> 是小写，F 大小写都可以。</li>
+              <li><code class="icode">0</code> 开头（后面跟数字）= 八进制，例如 <code class="icode">077</code> = 十进制 63。嵌入式里极少用，而且 <code class="icode">010</code> 这种写法非常容易和十进制混淆，<b>建议永远不要用八进制</b>。</li>
+              <li>不带前缀 = 十进制，例如 <code class="icode">255</code>。</li>
+              <li><code class="icode">0b</code> 开头 = 二进制，这是 C99 之后部分编译器支持的新特性。<b>Keil C51 默认不支持</b>，所以不要在 51 程序里写 <code class="icode">0b11111110</code>。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-convert" class="mt-7 text-base font-semibold">互转手算方法（12 道例题）</h3>
+
+          <p class="mt-3">
+            进制转换看起来有三种组合，其实只要掌握两条核心方法：
+            <b class="font-semibold text-ink">按位权展开</b>（任何进制 → 十进制）
+            和<b class="font-semibold text-ink">除基取余</b>（十进制 → 任何进制）。
+            至于二进制和十六进制之间，只需要「4 位一组直接翻译」，不用算。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">类型一：二进制 → 十进制（按位权展开）</h4>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 1-1 ~ 1-4：二进制转十进制">
+            <pre><code>============================================================
+方法：把每一位是 1 的位置对应的位权加起来。
+      （是 0 的位置不加 —— 0 乘任何数都是 0）
+============================================================
+
+【例 1-1】1011 0110 → ?
+
+     位：  1    0    1    1    0    1    1    0
+     权： 128   64   32   16    8    4    2    1
+           ↓         ↓    ↓         ↓    ↓
+         128   +    32 + 16    +    4  + 2     =  182
+
+     答案：1011 0110 = 182
+     验算：0xB6 = 11 × 16 + 6 = 176 + 6 = 182  ✔ 一致
+
+【例 1-2】0000 1111 → ?
+
+     位：  0    0    0    0    1    1    1    1
+     权： 128   64   32   16    8    4    2    1
+                                  ↓    ↓    ↓    ↓
+                                  8  + 4  + 2  + 1  =  15
+
+     答案：0000 1111 = 15   （也就是 0x0F）
+
+【例 1-3】1000 0000 → ?
+
+     只有最高位是 1，其余全 0：
+         128
+     答案：1000 0000 = 128  （也就是 0x80）
+
+【例 1-4】1111 1111 → ?
+
+     全部加起来：128+64+32+16+8+4+2+1 = 255
+     答案：1111 1111 = 255  （也就是 0xFF）
+
+【技巧：不用每次都加】
+     · 如果只有一个 1，答案就是那一位的位权（例 1-3）
+     · 如果是「前面全是 1、后面全 0」，可以用 2 的幂减：
+       1111 0000 = 256 − 16 = 240
+       （因为 1111 1111 = 255，低 4 位是 0 表示少了 15，
+         所以 255 − 15 = 240，也可以这么算）</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">类型二：十进制 → 二进制（除 2 取余，倒着读）</h4>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2-1 ~ 2-4：十进制转二进制">
+            <pre><code>============================================================
+方法：不停地「除以 2、记下余数」，直到商为 0，
+      然后把余数【从下往上】读出来。
+============================================================
+
+【例 2-1】182 → ?
+
+     182 ÷ 2 = 91  余 0   ↑
+      91 ÷ 2 = 45  余 1   │
+      45 ÷ 2 = 22  余 1   │
+      22 ÷ 2 = 11  余 0   │ 从下往上读
+      11 ÷ 2 =  5  余 1   │
+       5 ÷ 2 =  2  余 1   │
+       2 ÷ 2 =  1  余 0   │
+       1 ÷ 2 =  0  余 1   │
+
+     答案：1011 0110
+     验算：128+32+16+4+2 = 182  ✔
+
+【例 2-2】200 → ?
+
+     200 ÷ 2 = 100  余 0
+     100 ÷ 2 =  50  余 0
+      50 ÷ 2 =  25  余 0
+      25 ÷ 2 =  12  余 1
+      12 ÷ 2 =   6  余 0
+       6 ÷ 2 =   3  余 0
+       3 ÷ 2 =   1  余 1
+       1 ÷ 2 =   0  余 1
+
+     答案：1100 1000  （= 0xC8）
+     验算：128 + 64 + 8 = 200  ✔
+
+【例 2-3】10 → ?
+
+     10 ÷ 2 = 5  余 0
+      5 ÷ 2 = 2  余 1
+      2 ÷ 2 = 1  余 0
+      1 ÷ 2 = 0  余 1
+
+     答案：1010  （= 0x0A）
+     注意：写成 8 位时要补前导零 → 0000 1010
+
+【例 2-4】255 → ?
+
+     255 ÷ 2 = 127  余 1
+     127 ÷ 2 =  63  余 1
+      63 ÷ 2 =  31  余 1
+      31 ÷ 2 =  15  余 1
+      15 ÷ 2 =   7  余 1
+       7 ÷ 2 =   3  余 1
+       3 ÷ 2 =   1  余 1
+       1 ÷ 2 =   0  余 1
+
+     答案：1111 1111  （= 0xFF）
+     规律：全 1 的数除以 2 余数全是 1，很好认。
+
+【更快的方法：凑位权（熟练后用这个）】
+     要转 200：
+       200 ≥ 128 → 取 128，剩 72
+        72 ≥  64 → 取  64，剩  8   （32、16 都取不了，因为 72 &lt; 32？不对，
+                                     是 72 ≥ 32，所以还能取 32 —— 这里要仔细）
+       正确的凑法：
+       200 = 128 + 64 + 8
+           = 128 + 64 + 0 + 0 + 8 + 0 + 0 + 0
+       对应位： 1    1   0   0   1   0   0   0  = 1100 1000  ✔
+     凑位权的口诀：从最大的位权开始试，能减就写 1、减掉，不能减就写 0。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">类型三：二进制 ↔ 十六进制（4 位一组，直接翻译）</h4>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 3-1 ~ 3-4：二进制与十六进制互转">
+            <pre><code>============================================================
+方法：从右往左每 4 位切一刀，每一刀独立翻译成 1 位十六进制。
+      不足 4 位的在【左边补 0】。
+      【完全不需要做任何算术】
+============================================================
+
+【例 3-1】1011 0110 → ?
+
+     从右往左切 4 位：
+        1011 | 0110
+         ↓      ↓
+         B      6
+     答案：0xB6
+
+【例 3-2】1100 1000 → ?
+
+        1100 | 1000
+         ↓      ↓
+         C      8
+     答案：0xC8
+
+【例 3-3】1111 1110 1010 0011 → ?
+
+        1111 | 1110 | 1010 | 0011
+         ↓      ↓      ↓      ↓
+         F      E      A      3
+     答案：0xFEA3
+
+【例 3-4（反向）】0x3C → ?
+
+     把每一位展开成 4 位：
+        3 → 0011
+        C → 1100
+     答案：0011 1100
+
+     这个例子很重要：0x3C 就是后面会反复用到的
+     「高 4 位是 3、低 4 位是 C」，即 0011 1100。
+
+【反过来也一样快】0xA5 → ?
+
+        A → 1010
+        5 → 0101
+     答案：1010 0101
+
+【为什么要【从右往左】切？】
+     因为位权的低位在右边。从左往右切会让「高低位」颠倒，
+     例如 101101 → 如果从左切：1011 | 01 → 补零成 0010 1 →
+     结果就完全错了。
+     记住：切分组永远从右边开始，左边不足 4 位就补 0。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">类型四：十进制 ↔ 十六进制</h4>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 4-1 ~ 4-4：十进制与十六进制互转">
+            <pre><code>============================================================
+方法 A（十进制 → 十六进制）：除 16 取余，从下往上读。
+      余数 10~15 要写成 A~F。
+方法 B（十六进制 → 十进制）：按位权展开，位权是 16 的幂。
+      实用技巧：先转成二进制，再按位权加（因为 8 位以内很好算）。
+============================================================
+
+【例 4-1】182 → 十六进制
+
+     182 ÷ 16 = 11  余 6
+      11 ÷ 16 =  0  余 11 → 写作 B
+
+     从下往上读：B、6
+     答案：0xB6
+     验算：B×16 + 6 = 11×16 + 6 = 176 + 6 = 182  ✔
+
+【例 4-2】200 → 十六进制
+
+     200 ÷ 16 = 12  余 8
+      12 ÷ 16 =  0  余 12 → 写作 C
+
+     答案：0xC8
+     验算：12×16 + 8 = 192 + 8 = 200  ✔
+
+【例 4-3】0x7F → 十进制
+
+     方法 B-1（按 16 的位权）：7×16 + 15 = 112 + 15 = 127
+     方法 B-2（先转二进制）  ：0x7F = 0111 1111
+                               = 64+32+16+8+4+2+1 = 127  ✔
+
+     答案：127
+
+【例 4-4】0x90 → 十进制
+
+     方法 B-1：9×16 + 0 = 144
+     方法 B-2：0x90 = 1001 0000 = 128 + 16 = 144  ✔
+
+     答案：144
+     （记住这个数：51 的 P1 口字节地址就是 0x90 = 144）
+
+【实用记忆：几个必须条件反射的十六进制值】
+     0x0F = 15      低 4 位全 1（常用于「取低 4 位」的掩码）
+     0x10 = 16      第 4 位为 1
+     0x20 = 32      第 5 位为 1（空格字符的 ASCII 码）
+     0x7F = 127     最高位为 0、其余全 1
+     0x80 = 128     只有最高位为 1
+     0xF0 = 240     高 4 位全 1（常用于「取高 4 位」的掩码）
+     0xFE = 254     只有最低位是 0（灌电流接法下的「只亮第一颗灯」）
+     0xFF = 255     全 1（灌电流接法下的「全灭」）</code></pre>
+          </div>
+
+          <h3 id="sub-signed" class="mt-7 text-base font-semibold">无符号与有符号：补码</h3>
+
+          <p class="mt-3">
+            到这里你可能有个疑问：8 位能表示 0~255，那负数怎么办？
+            答案是：<b class="font-semibold text-ink">用最高位当符号位</b>，同时配合一套叫
+            <b class="font-semibold text-ink">补码</b>的编码方式。
+            但这也是最容易出错的地方——同一个字节 <code class="icode">0xFF</code>，
+            在不同的类型下读出来的数值完全不同。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">三种编码方式：原码、反码、补码</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="原码、反码、补码的演进（以 8 位、数值 -5 为例）">
+            <pre><code>============================================================
+【原码】最高位当符号位：0 表示正、1 表示负，其余位是绝对值。
+============================================================
+     +5 = 0000 0101
+     −5 = 1000 0101      （最高位改成 1）
+
+     【致命问题】有两个零：
+        +0 = 0000 0000
+        −0 = 1000 0000
+     而且用原码做减法非常麻烦：CPU 必须判断符号、比较大小、
+     决定谁减谁、结果取什么符号 —— 电路会复杂好几倍。
+
+============================================================
+【反码】正数不变；负数是「原码除符号位外全部取反」。
+============================================================
+     +5 = 0000 0101
+     −5 = 1111 1010
+
+     【问题】仍然有两个零，而且加减法还是会出错。
+
+============================================================
+【补码】正数不变；负数是「反码 + 1」。
+============================================================
+     +5 = 0000 0101
+     −5 = 1111 1011      （1111 1010 + 1）
+
+     【巨大优势】减法可以直接用加法电路实现：
+       5 + (−5) = ?
+          0000 0101
+        + 1111 1011
+        ─────────────
+        1 0000 0000        ← 第 9 位溢出了，被丢弃（8 位装不下）
+          0000 0000  = 0   ✔ 结果正确！
+
+     也就是说：【减法器可以完全不要，用加法器就能算减法】。
+     这就是所有现代 CPU 都用补码的原因。
+
+============================================================
+【补码的快速计算法：取反加一】
+============================================================
+     求 −5 的补码：
+        ① 写出 +5：      0000 0101
+        ② 全部取反：     1111 1010
+        ③ 加 1：         1111 1011
+        结果：0xFB
+
+     求 −1 的补码：
+        ① +1：           0000 0001
+        ② 取反：         1111 1110
+        ③ 加 1：         1111 1111
+        结果：0xFF       ← 记住：8 位补码里，全 1 就是 −1</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">signed char vs unsigned char：同一个字节的两种读法</h4>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>字节的 8 位</th>
+                  <th>十六进制</th>
+                  <th>按 unsigned char 读</th>
+                  <th>按 signed char 读</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">0000 0000</td><td class="font-mono text-xs">0x00</td><td class="font-mono text-xs">0</td><td class="font-mono text-xs">0</td><td>两种读法一致</td></tr>
+                <tr><td class="font-mono text-xs">0000 0001</td><td class="font-mono text-xs">0x01</td><td class="font-mono text-xs">1</td><td class="font-mono text-xs">1</td><td>正数区间完全一致</td></tr>
+                <tr><td class="font-mono text-xs">0111 1111</td><td class="font-mono text-xs">0x7F</td><td class="font-mono text-xs">127</td><td class="font-mono text-xs">127</td><td><b>有符号能表示的最大正数</b></td></tr>
+                <tr><td class="font-mono text-xs">1000 0000</td><td class="font-mono text-xs">0x80</td><td class="font-mono text-xs">128</td><td class="font-mono text-xs"><b>−128</b></td><td><b>分界点！</b>最高位变 1 之后，两种读法彻底分道扬镳</td></tr>
+                <tr><td class="font-mono text-xs">1000 0001</td><td class="font-mono text-xs">0x81</td><td class="font-mono text-xs">129</td><td class="font-mono text-xs">−127</td><td></td></tr>
+                <tr><td class="font-mono text-xs">1111 1110</td><td class="font-mono text-xs">0xFE</td><td class="font-mono text-xs">254</td><td class="font-mono text-xs">−2</td><td></td></tr>
+                <tr><td class="font-mono text-xs">1111 1111</td><td class="font-mono text-xs">0xFF</td><td class="font-mono text-xs"><b>255</b></td><td class="font-mono text-xs"><b>−1</b></td><td><b>最经典的例子</b>：同一个字节，两种答案</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">换算公式（想快速验证时用）</div>
+            <p>
+              当一个字节的最高位是 1，而你又按有符号读它时：
+            </p>
+            <p class="mt-2 font-mono text-sm">
+              有符号值 = 无符号值 − 256
+            </p>
+            <p class="mt-2">
+              验证：0xFF 无符号是 255，255 − 256 = <b>−1</b> ✔<br>
+              0xFE 无符号是 254，254 − 256 = <b>−2</b> ✔<br>
+              0x80 无符号是 128，128 − 256 = <b>−128</b> ✔
+            </p>
+            <p class="mt-2">
+              反过来，已知有符号的负数求无符号值，就加 256。
+            </p>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">为什么单片机编程几乎只用无符号</h4>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <b class="font-semibold text-ink">单片机的数据天然是无符号的。</b>
+              引脚电平 0 或 1、ADC 采样值 0~1023、定时器计数值 0~65535、
+              传感器原始数据 —— 它们都不是「负数」这个概念能描述的。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">有符号数的比较容易出意外。</b>
+              <code class="icode">signed char</code> 的 0x80 是 −128，
+              如果你写 <code class="icode">if (x &gt; 0)</code>，它会失败——
+              但你的本意可能是「最高位是不是 1」。用无符号就不会有这种歧义。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">移位运算在有符号数上是实现相关的。</b>
+              对负数右移时，有的编译器补 0（逻辑右移），
+              有的补 1（算术右移）。这种行为不确定的代码不该出现在嵌入式里。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">keil C51 里 char 默认是无符号的</b>，
+              但这只是 Keil 的选择，换到 GCC（比如 STM32、ESP32）上
+              <code class="icode">char</code> 默认是<b>有符号</b>的。
+              靠默认值写代码，换平台就会出 bug。
+            </li>
+          </ul>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">工程上的三条硬规则</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>处理字节数据时，<b>永远显式写 <code class="icode">unsigned char</code></b>，不要图省事写 <code class="icode">char</code>。</li>
+              <li>需要负数时（比如温度可能是 −10℃），用 <code class="icode">signed int</code> 或 <code class="icode">int</code>，不要用 <code class="icode">signed char</code>（8 位只到 ±127，很容易溢出）。</li>
+              <li>做位运算（<code class="icode">&amp;</code> <code class="icode">|</code> <code class="icode">^</code> <code class="icode">~</code> <code class="icode">&lt;&lt;</code> <code class="icode">&gt;&gt;</code>）时，操作数必须是<b>无符号</b>的，否则结果可能不符合预期。</li>
+            </ol>
+          </div>
+
+          <h3 id="sub-operators" class="mt-7 text-base font-semibold">六种位运算符逐个讲</h3>
+
+          <p class="mt-3">
+            位运算的特点是：<b class="font-semibold text-ink">它不看整个数的值，只看每一位</b>。
+            两个数做位运算时，是「对应位置对位置」逐位计算的，
+            第 0 位和第 0 位算、第 1 位和第 1 位算，互不干扰。
+            六种运算符分成三组：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>分组</th>
+                  <th>运算符</th>
+                  <th>名称</th>
+                  <th>怎么记</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td rowspan="4">二元（两个操作数）</td><td class="font-mono text-xs"><b>&amp;</b></td><td>按位与</td><td>两个都是 1 才是 1（乘法）</td></tr>
+                <tr><td class="font-mono text-xs"><b>|</b></td><td>按位或</td><td>有一个是 1 就是 1（加法，但不进位）</td></tr>
+                <tr><td class="font-mono text-xs"><b>^</b></td><td>按位异或</td><td>两个不一样才是 1（找不同）</td></tr>
+                <tr><td class="font-mono text-xs"><b>&lt;&lt;</b> / <b>&gt;&gt;</b></td><td>左移 / 右移</td><td>整体往左或往右挪几位</td></tr>
+                <tr><td>一元（一个操作数）</td><td class="font-mono text-xs"><b>~</b></td><td>按位取反</td><td>0 变 1、1 变 0</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">按位与 &amp;（AND）</h4>
+
+          <div class="code-block mt-3" data-lang="text" data-title="按位与 &amp; 的真值表与逐位演算">
+            <pre><code>【真值表】只有两个都是 1，结果才是 1
+        0 &amp; 0 = 0
+        0 &amp; 1 = 0
+        1 &amp; 0 = 0
+        1 &amp; 1 = 1
+
+【记忆】像乘法：0 乘任何数都是 0，1 乘任何数都是原数。
+       所以：x &amp; 1 = x，x &amp; 0 = 0
+
+【逐位演算】0x3C &amp; 0x0F = ?
+
+     0x3C = 0011 1100
+     0x0F = 0000 1111
+     ────────────────────  逐位与
+            0011 1100
+          &amp; 0000 1111
+     ────────────────────
+            0000 1100
+
+     结果 = 0x0C = 12
+
+【为什么这个结果？看每一位】
+     位7: 0 &amp; 0 = 0
+     位6: 0 &amp; 0 = 0
+     位5: 1 &amp; 0 = 0     ← 被 0x0F 的 0 抹掉了
+     位4: 1 &amp; 0 = 0     ← 被 0x0F 的 0 抹掉了
+     位3: 1 &amp; 1 = 1
+     位2: 1 &amp; 1 = 1
+     位1: 0 &amp; 1 = 0
+     位0: 0 &amp; 1 = 0
+
+     观察：与 1 相与的位保持原样，与 0 相与的位变成 0。
+     【结论】x &amp; 0x0F 的作用是「保留低 4 位、清掉高 4 位」——
+             这就是「掩码（mask）」的最基本用法。
+
+【实际用途】
+     ① 取一个字节的低 4 位：  low = x &amp; 0x0F;
+     ② 取一个字节的高 4 位：  high = (x &gt;&gt; 4) &amp; 0x0F;
+     ③ 判断某一位是不是 1：   if (P1 &amp; 0x08)  →  判断 bit3
+     ④ 判断奇偶：             if (x &amp; 0x01)  →  最低位是 1 就是奇数
+     ⑤ 保留需要的位、屏蔽其他：value = adc &amp; 0x03FF;  （取低 10 位）</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">按位或 |（OR）</h4>
+
+          <div class="code-block mt-3" data-lang="text" data-title="按位或 | 的真值表与逐位演算">
+            <pre><code>【真值表】只要有一个是 1，结果就是 1
+        0 | 0 = 0
+        0 | 1 = 1
+        1 | 0 = 1
+        1 | 1 = 1
+
+【记忆】像加法（但不进位）：有 1 就出 1。
+       所以：x | 1 = 全 1（那一位一定变 1），x | 0 = x（保持不变）
+
+【逐位演算】0x3C | 0x0F = ?
+
+            0011 1100
+          | 0000 1111
+     ────────────────────
+            0011 1111
+
+     结果 = 0x3F = 63
+
+【逐位看】
+     位7: 0 | 0 = 0
+     位6: 0 | 0 = 0
+     位5: 1 | 0 = 1     ← 保持
+     位4: 1 | 0 = 1     ← 保持
+     位3: 1 | 1 = 1
+     位2: 1 | 1 = 1
+     位1: 0 | 1 = 1     ← 被 0x0F 的 1 拉高了
+     位0: 0 | 1 = 1     ← 被 0x0F 的 1 拉高了
+
+     【结论】x | 0x0F 的作用是「把低 4 位全部置 1，高 4 位不动」。
+
+【实际用途】
+     ① 把某一位置 1：   P1 |= (1 &lt;&lt; 3);      把 bit3 拉高，其他位不动
+     ② 合并两个字节：    word = (high &lt;&lt; 8) | low;
+        例如 DHT11 传感器返回 40 位数据，就是把 5 个字节拼起来
+     ③ 设置多个位：      P1 |= 0x0F;          低 4 位全部拉高
+
+【一个特别重要的区别】
+     =  是【赋值】，会覆盖整个变量
+     |= 是【按位或赋值】，只改变指定的位，其他位保持原样
+
+     看这两行的区别：
+        P1 = (1 &lt;&lt; 3);        /* P1 变成 0x08，其他位全被清成 0！ */
+        P1 |= (1 &lt;&lt; 3);       /* P1 的 bit3 变 1，其他位不变 ✔ */
+
+     前者是新手最常见的错误之一：本来只想拉高一个引脚，
+     结果把其他 7 个引脚的状态全冲掉了。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">按位异或 ^（XOR）</h4>
+
+          <div class="code-block mt-3" data-lang="text" data-title="按位异或 ^ 的真值表与逐位演算">
+            <pre><code>【真值表】两个不一样才是 1，一样就是 0
+        0 ^ 0 = 0
+        0 ^ 1 = 1
+        1 ^ 0 = 1
+        1 ^ 1 = 0
+
+【记忆】「找不同」。也可以记成「不进位的加法」：
+       1 + 1 = 0（进位丢掉），其余和加法一样。
+
+【逐位演算】0x3C ^ 0x0F = ?
+
+            0011 1100
+          ^ 0000 1111
+     ────────────────────
+            0011 0011
+     逐位：
+     位7: 0^0=0    位6: 0^0=0
+     位5: 1^0=1    位4: 1^0=1
+     位3: 1^1=0    位2: 1^1=0     ← 相同，结果 0
+     位1: 0^1=1    位0: 0^1=1     ← 不同，结果 1
+
+     结果 = 0x33 = 51
+
+【三个非常有用的性质】
+     ① x ^ 0 = x        （任何位与 0 异或保持不变）
+     ② x ^ 1 = ~x       （这一位翻转）
+     ③ x ^ x = 0        （自己和自己异或得 0）
+     ④ (x ^ y) ^ y = x  （异或两次还原 —— 这就是「翻转」的本质）
+
+【实际用途】
+     ① 翻转某一位：   P1 ^= (1 &lt;&lt; 3);      bit3 由 1 变 0、由 0 变 1
+     ② 不占内存的交换两个变量：
+            a ^= b;
+            b ^= a;
+            a ^= b;
+        （现在很少这么写，因为可读性差、编译器也不一定更快，
+          但面试常考）
+     ③ 校验和（checksum）：
+            串口通信里常用「把所有字节异或起来」当校验值，
+            接收方算一遍，对不上就说明数据传输出错了
+     ④ 翻转引脚做方波（无源蜂鸣器就是这么响的）：
+            while (1) { P3_4 ^= 1; Delay_us(250); }
+
+【一个容易搞混的点】
+     异或不是「或」！ 1 | 1 = 1，而 1 ^ 1 = 0。
+     需要「至少一个为 1」用 |，需要「恰好一个为 1」用 ^。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">按位取反 ~（NOT）</h4>
+
+          <div class="code-block mt-3" data-lang="text" data-title="按位取反 ~ 与「清零某一位」的经典写法">
+            <pre><code>【规则】0 变 1，1 变 0。只有一个操作数。
+
+【真值表】
+        ~0 = 1
+        ~1 = 0
+
+【逐位演算】~0x0F = ?
+
+     0x0F = 0000 1111
+            ↓ 逐位取反
+            1111 0000  =  0xF0
+
+     再看一个：~0x08 = ?
+     0x08 = 0000 1000
+            ↓
+            1111 0111  =  0xF7
+
+【⚠️ 最容易踩的坑：整数提升】
+     在 C 语言里，~0x0F 的结果【不是】0xF0，而是 0xFFFFFFF0（32 位）！
+
+     为什么？因为 C 的整型提升规则：位运算的操作数会先被提升成 int。
+     0x0F 提升成 32 位的 0x0000000F，取反后就是 0xFFFFFFF0。
+
+     如果你写：
+         unsigned char x = 0x3C;
+         x = x &amp; ~0x0F;      /* 结果是多少？ */
+
+     展开看：
+         x       = 0000 0000 0000 0000 0000 0000 0011 1100
+         ~0x0F   = 1111 1111 1111 1111 1111 1111 1111 0000
+         相与    = 0000 0000 0000 0000 0000 0000 0011 0000
+         赋给 x（截断成 8 位）= 0011 0000 = 0x30
+
+     ✔ 结果其实是对的！因为高位那一片 1 与 0 相与仍然是 0，
+       截断之后完全没有影响。
+
+     【但这个坑在别的地方会咬人】：
+         if (~0x0F == 0xF0) { ... }    /* 这个判断【永远不成立】！ */
+     因为左边是 0xFFFFFFF0，右边提升成 0x000000F0，不相等。
+
+【~ 最经典的用途：清零某一位】
+     想要把 P1 的 bit3 清 0，其他位不动：
+         P1 &amp;= ~(1 &lt;&lt; 3);
+     拆开看：
+         1 &lt;&lt; 3        = 0000 1000
+         ~(1 &lt;&lt; 3)     = 1111 0111   ← 只有 bit3 是 0，其余全 1
+         P1 &amp;= 它      → P1 的 bit3 被清 0，其他位因为「与 1」保持不变 ✔
+
+     【必须加括号】~ 的优先级比 &lt;&lt; 高！
+         写成 P1 &amp;= ~1 &lt;&lt; 3 会被理解成 ((~1) &lt;&lt; 3) = (0xFFFFFFFE) &lt;&lt; 3
+         = 0xFFFFFFF0，那就完全错了。永远写 ~(1 &lt;&lt; n)。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">左移 &lt;&lt; 与右移 &gt;&gt;</h4>
+
+          <div class="code-block mt-3" data-lang="text" data-title="移位运算的逐位演算与三个必须注意的点">
+            <pre><code>【规则】
+     左移 x &lt;&lt; n ：所有位往左挪 n 位，右边【补 0】，左边超出的位丢弃
+     右移 x &gt;&gt; n ：所有位往右挪 n 位，左边【补 0】（无符号数），右边超出的位丢弃
+
+【逐位演算 1】0x3C &lt;&lt; 1 = ?
+
+     0x3C = 0011 1100
+            往左挪 1 位，右边补 0
+            0111 1000  =  0x78   （= 120）
+     观察：0x3C = 60，0x78 = 120 —— 左移 1 位相当于【乘 2】
+
+【逐位演算 2】0x3C &gt;&gt; 1 = ?
+
+     0x3C = 0011 1100
+            往右挪 1 位，左边补 0
+            0001 1110  =  0x1E   （= 30）
+     观察：60 ÷ 2 = 30 —— 右移 1 位相当于【除以 2】（丢弃小数）
+
+【逐位演算 3】0x3C &lt;&lt; 2 = ?
+
+            0011 1100  →  1111 0000  =  0xF0 = 240
+     60 × 4 = 240  ✔
+
+【逐位演算 4】0x80 &lt;&lt; 1 = ?
+
+     0x80 = 1000 0000
+            往左挪 1 位 → 1 0000 0000
+     左边那一位超出的 1 被【丢弃】（在 8 位变量里）
+     结果 = 0x00（8 位变量） 或 0x100（16 位变量）
+
+【逐位演算 5】0x01 &lt;&lt; 7 = ?
+
+     0x01 = 0000 0001
+            往左挪 7 位 → 1000 0000  =  0x80
+     这就是「生成只有 bit7 为 1 的掩码」的标准写法。
+
+============================================================
+【三个必须注意的点】
+============================================================
+
+① 移位【不是】循环移位！
+     左移会把最高位挤掉，丢掉的那一位不会自动补到最低位。
+     这就是为什么流水灯必须写 (led &lt;&lt; 1) | (led &gt;&gt; 7)，
+     而不是简单的 led &lt;&lt; 1。
+
+② 移位数不要超过或等于位宽
+     unsigned char 只有 8 位，x &lt;&lt; 8、x &lt;&lt; 9 的行为在 C 标准里是
+     【未定义】的（undefined behavior）——不同编译器结果不同，
+     可能得 0，可能得原值，也可能被优化掉一整个语句。
+     × 错误：unsigned char a = 1 &lt;&lt; 8;     /* 想要 256，结果未定义 */
+     ✔ 正确：unsigned int b = 1 &lt;&lt; 8;      /* 用 16 位类型，结果是 256 */
+
+③ 移位的类型提升
+     unsigned char x = 0x80;
+     x = x &lt;&lt; 1;      /* 结果是多少？ */
+     拆开看：x 被提升成 int（32 位或 16 位，取决于编译器）：
+         0x00000080 &lt;&lt; 1 = 0x00000100 = 256
+     赋回 unsigned char 时截断成 8 位 → 0x00
+     ✔ 所以结果是 0x00，最高位那个 1 确实丢了。
+
+     但流水灯里 (led &lt;&lt; 1) | (led &gt;&gt; 7) 正是利用了这一点：
+     左移产生的高位 1 被截断丢掉，而右移 7 位补上了最低位，
+     两者一「或」，就实现了循环。</code></pre>
+          </div>
+
+          <h3 id="sub-mask" class="mt-7 text-base font-semibold">掩码与四个标准动作</h3>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">掩码（mask）</b>是一个专门用来「筛选位」的数。
+            它的每一位都是有意设计的：想要保留的位写 1，想要忽略或清除的位写 0。
+            就像用一张挖了洞的纸板盖在数字上，只有洞的位置透出来。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="掩码思想：怎么只取某几位、怎么只改某几位">
+            <pre><code>============================================================
+【掩码 1】只取低 4 位（高 4 位清 0）
+============================================================
+      mask = 0x0F = 0000 1111
+
+     x      = 1011 0110 = 0xB6
+     mask   = 0000 1111 = 0x0F
+     ────────────────────────── 与
+     x &amp; mask = 0000 0110 = 0x06
+
+     → 高 4 位被 mask 的 0 「抹掉」，低 4 位原样保留。
+
+============================================================
+【掩码 2】只取高 4 位（搬到低 4 位上）
+============================================================
+     先右移 4 位，再与 0x0F：
+
+     x            = 1011 0110 = 0xB6
+     x &gt;&gt; 4       = 0000 1011 = 0x0B
+     (x&gt;&gt;4) &amp; 0x0F = 0000 1011 = 0x0B
+
+     → 为什么要再 &amp; 0x0F？因为如果 x 是 16 位或 32 位类型，
+       右移后高位可能还有残留，与 0x0F 可以保证结果一定在 0~15 内。
+
+============================================================
+【掩码 3】只改某几位，其他位完全不动
+============================================================
+     目标：把 x 的低 4 位改成 0xA，高 4 位保持不变。
+
+     步骤①：先把低 4 位清零（用「与上掩码的反」）
+         x        = 1011 0110
+         ~0x0F    = 1111 0000  （在 8 位视角下）
+         x &amp; ~0x0F= 1011 0000   ← 低 4 位清 0，高 4 位保留
+
+     步骤②：再把新值放进去（用「或」）
+         1011 0000
+       | 0000 1010
+       ──────────────
+         1011 1010  =  0xBA   ✔
+
+     合并成一行代码：
+         x = (x &amp; ~0x0F) | 0x0A;
+
+     【这是嵌入式里最常用的一个模式：先清、再置】。
+      你要写任何「修改一部分位」的代码，都用这个套路。
+
+============================================================
+【掩码 4】把一个值放到指定的位上（移位 + 或）
+============================================================
+     目标：把数值 5（只有 3 位）放到 x 的 bit3~bit5 位置上。
+         （这种操作叫「位域」，常用于配置寄存器）
+
+     步骤①：把 5 左移到 bit3 的位置
+         5      = 0000 0101
+         5 &lt;&lt; 3 = 0010 1000   ← 现在它在 bit3~bit5 上了
+
+     步骤②：清掉 x 的 bit3~bit5
+         掩码  = 0000 0111 &lt;&lt; 3 = 0011 1000
+         清位  = x &amp;= ~(0x07 &lt;&lt; 3);
+
+     步骤③：放进去
+         x |= (5 &lt;&lt; 3);
+
+     一行写法：
+         x = (x &amp; ~(0x07 &lt;&lt; 3)) | (5 &lt;&lt; 3);</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">四个标准动作（必须背到条件反射）</h4>
+
+          <p class="mt-3">
+            所有的位操作，99% 都落在下面这四个动作里。
+            把它们背熟，你以后看任何寄存器配置代码都不会卡住。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>动作</th>
+                  <th>写法</th>
+                  <th>效果</th>
+                  <th>为什么这么写</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>置位</b>（set）</td>
+                  <td class="font-mono text-xs">x |= (1 &lt;&lt; n);</td>
+                  <td>把第 n 位变成 1，其他位不变</td>
+                  <td>与 1 相或不改变原来的 1；与 0 相或，只有掩码里是 1 的那位被拉高</td>
+                </tr>
+                <tr>
+                  <td><b>清零</b>（clear）</td>
+                  <td class="font-mono text-xs">x &amp;= ~(1 &lt;&lt; n);</td>
+                  <td>把第 n 位变成 0，其他位不变</td>
+                  <td>掩码取反后第 n 位是 0、其余是 1；与 1 相与保持原样</td>
+                </tr>
+                <tr>
+                  <td><b>翻转</b>（toggle）</td>
+                  <td class="font-mono text-xs">x ^= (1 &lt;&lt; n);</td>
+                  <td>第 n 位 0 变 1、1 变 0</td>
+                  <td>与 0 异或不变；与 1 异或取反</td>
+                </tr>
+                <tr>
+                  <td><b>判断</b>（test）</td>
+                  <td class="font-mono text-xs">if (x &amp; (1 &lt;&lt; n))</td>
+                  <td>检查第 n 位是不是 1</td>
+                  <td>结果为「第 n 位原值」，其他位被掩码的 0 清掉——非 0 即为真</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-4" data-lang="text" data-title="四个标准动作的逐位验算（全部用 bit3 举例）">
+            <pre><code>初始值：x = 0xB4 = 1011 0100
+        （bit3 当前是 0，bit2 是 1，bit4 是 1）
+
+掩码：(1 &lt;&lt; 3) = 0x08 = 0000 1000
+
+============================================================
+【置位】x |= (1 &lt;&lt; 3)
+============================================================
+        1011 0100     （x）
+      | 0000 1000     （掩码）
+      ─────────────
+        1011 1100  = 0xBC
+
+     观察：bit3 由 0 变成 1；bit2、bit4 等其他位完全没变 ✔
+
+============================================================
+【清零】x &amp;= ~(1 &lt;&lt; 3)
+============================================================
+     先算 ~(1 &lt;&lt; 3)：在 8 位视角下是 1111 0111（即 0xF7）
+
+        1011 0100     （x）
+      &amp; 1111 0111     （掩码取反）
+      ─────────────
+        1011 0100  = 0xB4
+
+     咦？结果没变。因为 bit3 本来就是 0，清 0 当然还是 0。
+     换一个 bit3 是 1 的例子：x = 0xBC = 1011 1100
+
+        1011 1100     （x）
+      &amp; 1111 0111     （掩码取反）
+      ─────────────
+        1011 0100  = 0xB4   ✔ bit3 被清 0，其他位不变
+
+============================================================
+【翻转】x ^= (1 &lt;&lt; 3)
+============================================================
+     x = 0xB4 = 1011 0100（bit3 = 0）
+        1011 0100
+      ^ 0000 1000
+      ─────────────
+        1011 1100  = 0xBC   （bit3 变成 1）
+
+     再做一次：
+        1011 1100
+      ^ 0000 1000
+      ─────────────
+        1011 0100  = 0xB4   （bit3 变回 0）
+     ✔ 连做两次回到原值 —— 这就是「翻转」。
+
+============================================================
+【判断】if (x &amp; (1 &lt;&lt; 3))
+============================================================
+     x = 0xBC = 1011 1100
+        1011 1100
+      &amp; 0000 1000
+      ─────────────
+        0000 1000  = 0x08  ≠ 0  → 条件为真（bit3 是 1）
+
+     x = 0xB4 = 1011 0100
+        1011 0100
+      &amp; 0000 1000
+      ─────────────
+        0000 0000  = 0x00  = 0  → 条件为假（bit3 是 0）
+
+【⚠️ 常见错误写法】
+     ✗ if (x &amp; (1 &lt;&lt; 3) == 1)      /* 优先级错！见下一节 */
+     ✗ if (x &amp; (1 &lt;&lt; 3) == 0x08)   /* 同样错 */
+     ✔ if (x &amp; (1 &lt;&lt; 3))           /* 直接判断非零，最简洁正确 */
+     ✔ if ((x &amp; (1 &lt;&lt; 3)) != 0)     /* 显式写出来也可以，更清楚 */
+
+============================================================
+【四个动作的实际用途】
+============================================================
+  · 置位：拉高一个引脚          P1 |= (1 &lt;&lt; 3);
+  · 清零：拉低一个引脚          P1 &amp;= ~(1 &lt;&lt; 3);
+  · 翻转：让 LED 闪烁           P1 ^= (1 &lt;&lt; 0); Delay_ms(500);
+  · 判断：读按键状态            if ((P3 &amp; (1 &lt;&lt; 2)) == 0) { 按键按下 }
+  · 判断：读某位标志            if (flag &amp; 0x80) { 最高位是 1 }</code></pre>
+          </div>
+
+          <h3 id="sub-priority" class="mt-7 text-base font-semibold">运算符优先级陷阱</h3>
+
+          <p class="mt-3">
+            这是本篇最容易造成「代码看起来对、结果就是不对」的一个知识点，
+            而且它的错误方式非常隐蔽——编译能过，不报警告，运行结果却是错的。
+          </p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">必须记住的一条：&amp; 和 | 的优先级比 == 低</div>
+            <p>
+              在 C 语言里，比较运算符 <code class="icode">==</code> 的优先级
+              <b>高于</b>位运算符 <code class="icode">&amp;</code> 和 <code class="icode">|</code>。
+              这和很多人的直觉相反（大家会以为位运算更「底层」所以更优先）。
+            </p>
+          </div>
+
+          <div class="code-block mt-4" data-lang="text" data-title="优先级陷阱的完整演算">
+            <pre><code>============================================================
+【错误代码】
+============================================================
+     x = 0x08;
+     if (x &amp; 0x08 == 0x08) {  /* 想判断 bit3 是不是 1 */ }
+
+============================================================
+【编译器实际怎么理解】
+============================================================
+     因为 == 的优先级高于 &amp;，所以表达式被解析成：
+
+         x &amp; (0x08 == 0x08)
+
+     而不是你以为的：
+
+         (x &amp; 0x08) == 0x08
+
+------------------------------------------------------------
+第 1 步：先算括号里的比较
+         0x08 == 0x08  →  真  →  在 C 里「真」的值是 1
+------------------------------------------------------------
+第 2 步：再算按位与
+         x &amp; 1  =  0x08 &amp; 0x01
+                 =  0000 1000
+                 &amp; 0000 0001
+                 ─────────────
+                    0000 0000  =  0
+------------------------------------------------------------
+第 3 步：if (0) → 条件为假
+------------------------------------------------------------
+
+【结果】无论 x 的 bit3 是 0 还是 1，这个判断永远为假！
+        你的「读按键状态」永远读不到按下。
+
+============================================================
+【正确写法】
+============================================================
+     ✔ if ((x &amp; 0x08) == 0x08) { ... }      /* 加括号 */
+     ✔ if (x &amp; 0x08) { ... }                /* 更简洁，推荐 */
+     ✔ if ((x &amp; 0x08) != 0) { ... }         /* 最明确 */
+
+============================================================
+【优先级速查（从高到低，只列常用的）】
+============================================================
+     高  ┌────────────────────────────────────┐
+         │ ()  []  -&gt;  .         括号、成员     │
+         │ !  ~  ++  --  (类型)   一元运算      │  ← ~ 和 ! 很高
+         │ *  /  %               乘除取余      │
+         │ +  -                  加减          │
+         │ &lt;&lt;  &gt;&gt;                移位          │  ← 移位在这里
+         │ &lt;  &lt;=  &gt;  &gt;=          关系比较      │
+         │ ==  !=                相等比较      │  ← 比 &amp; 高！
+         │ &amp;                     按位与        │  ← 陷阱在这里
+         │ ^                     按位异或      │
+         │ |                     按位或        │
+         │ &amp;&amp;                    逻辑与        │
+         │ ||                    逻辑或        │
+     低  │ ?:  =  +=  -=  ...    三目、赋值    │
+         └────────────────────────────────────┘
+
+============================================================
+【三条保命规则】
+============================================================
+     ① 只要一行里同时出现 &amp; 或 | 和比较运算，【全部加括号】。
+        你多打两个括号花 1 秒，少调半小时 bug。
+
+     ② 记住移位 &lt;&lt; 比 &amp; 高：所以 x &amp; 1 &lt;&lt; 3 是 x &amp; (1 &lt;&lt; 3)，
+        这一条【恰好】符合你的意图，所以不容易出错。
+        但 ~ 比 &lt;&lt; 还高：所以 ~1 &lt;&lt; 3 是 (~1) &lt;&lt; 3，是错的，
+        必须写 ~(1 &lt;&lt; 3)。
+
+     ③ 有不放心的地方，就在 Keil 里单步调试，把变量值看一眼。
+        比在心里推断优先级快得多，也可靠得多。
+
+============================================================
+【另一个常见陷阱：= 和 == 写错】
+============================================================
+     ✗ if (x = 0x08)    /* 这是【赋值】：把 0x08 赋给 x，
+                           然后判断 0x08 非零 → 条件【永远为真】 */
+     ✔ if (x == 0x08)   /* 这才是比较 */
+
+     防错技巧：把常量写在左边（叫「尤达写法」）：
+         if (0x08 == x)
+     这样万一漏写一个 =，变成 if (0x08 = x)，
+     编译器会直接报错「不能给常量赋值」，错误当场暴露。
+     但这不符合中文阅读习惯，用不用看团队约定。
+
+============================================================
+【陷阱三：逻辑运算与位运算混用】
+============================================================
+     ✗ if (a &amp;&amp; b)      /* 逻辑与：判断 a 和 b 是否【都非零】 */
+     ✔ if (a &amp; b)       /* 按位与：把两个数的每一位相与 */
+
+     例：a = 0x01，b = 0x02
+         a &amp;&amp; b  →  1（两者都非零，逻辑真）
+         a &amp;  b  →  0x00（0000 0001 &amp; 0000 0010 = 0）
+
+     这两个结果完全不同！判断「某一位是否为 1」要用 &amp;，
+     判断「两个条件是否同时成立」要用 &amp;&amp;。</code></pre>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明：8 位对应 8 个引脚</h2>
+
+          <p class="mt-4">
+            这一节没有新的接线，而是要把<b class="font-semibold text-ink">「程序里的一个字节」</b>和
+            <b class="font-semibold text-ink">「芯片上的 8 个引脚」</b>这两件事在脑子里焊在一起。
+            这是理解 51 单片机 IO 操作的唯一门槛，跨过去之后一切都很自然。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">一个字节 ↔ 8 个引脚</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="P1 寄存器与 P1.0 ~ P1.7 引脚的对应关系">
+            <pre><code>  程序里写：  P1 = 0xFE;
+
+  ┌─────────────────────────────────────────────────────────┐
+  │  这个字节的 8 个位，一位对一位地送到 8 个引脚上            │
+  └─────────────────────────────────────────────────────────┘
+
+     位序：   bit7   bit6   bit5   bit4   bit3   bit2   bit1   bit0
+     位权：    128    64     32     16      8      4      2      1
+     二进制：   1      1      1      1      1      1      1      0
+     十六进制：  F      F      F      F      F      F      F      E
+               └─────────────────────────────────┘
+     0xFE = 1111 1110
+      ↓       ↓      ↓      ↓      ↓      ↓      ↓      ↓      ↓
+   引脚：   P1.7   P1.6   P1.5   P1.4   P1.3   P1.2   P1.1   P1.0
+   电平：   高     高     高     高     高     高     高     低
+            (1)    (1)    (1)    (1)    (1)    (1)    (1)    (0)
+      ↓
+   LED：   灭     灭     灭     灭     灭     灭     灭     亮
+                                              （灌电流接法，低电平点亮）
+
+  【核心结论】
+   · 一个字节的 bit n ↔ 引脚 P1.n，n 从 0 到 7
+   · bit n 的位权是 2 的 n 次方（bit0 是 1，bit7 是 128）
+   · 写 P1 = 0xFE 这一个动作，8 个引脚【同时】更新，
+     这就是「8 位并行输出」的含义
+   · 想让第 n 个引脚输出低电平 → 把第 n 位写 0
+     想让第 n 个引脚输出高电平 → 把第 n 位写 1</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">想控制单个引脚？先造出「只有那一位是 1」的数</h3>
+
+          <p class="mt-3">
+            实际写程序时，你很少整体赋值，更多是「只动某一位」。这时候
+            <code class="icode">1 &lt;&lt; n</code> 就是你的核心工具：它生成一个「只有第 n 位是 1、其余全是 0」的数。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>表达式</th>
+                  <th>二进制</th>
+                  <th>十六进制</th>
+                  <th>十进制</th>
+                  <th>对应引脚</th>
+                  <th>含义</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">1 &lt;&lt; 0</td><td class="font-mono text-xs">0000 0001</td><td class="font-mono text-xs">0x01</td><td class="font-mono text-xs">1</td><td class="font-mono text-xs">P1.0</td><td>只操作最低位那个引脚</td></tr>
+                <tr><td class="font-mono text-xs">1 &lt;&lt; 1</td><td class="font-mono text-xs">0000 0010</td><td class="font-mono text-xs">0x02</td><td class="font-mono text-xs">2</td><td class="font-mono text-xs">P1.1</td><td></td></tr>
+                <tr><td class="font-mono text-xs">1 &lt;&lt; 2</td><td class="font-mono text-xs">0000 0100</td><td class="font-mono text-xs">0x04</td><td class="font-mono text-xs">4</td><td class="font-mono text-xs">P1.2</td><td></td></tr>
+                <tr><td class="font-mono text-xs">1 &lt;&lt; 3</td><td class="font-mono text-xs">0000 1000</td><td class="font-mono text-xs">0x08</td><td class="font-mono text-xs">8</td><td class="font-mono text-xs">P1.3</td><td>最常用的一位（很多板子上接蜂鸣器）</td></tr>
+                <tr><td class="font-mono text-xs">1 &lt;&lt; 4</td><td class="font-mono text-xs">0001 0000</td><td class="font-mono text-xs">0x10</td><td class="font-mono text-xs">16</td><td class="font-mono text-xs">P1.4</td><td></td></tr>
+                <tr><td class="font-mono text-xs">1 &lt;&lt; 5</td><td class="font-mono text-xs">0010 0000</td><td class="font-mono text-xs">0x20</td><td class="font-mono text-xs">32</td><td class="font-mono text-xs">P1.5</td><td></td></tr>
+                <tr><td class="font-mono text-xs">1 &lt;&lt; 6</td><td class="font-mono text-xs">0100 0000</td><td class="font-mono text-xs">0x40</td><td class="font-mono text-xs">64</td><td class="font-mono text-xs">P1.6</td><td></td></tr>
+                <tr><td class="font-mono text-xs">1 &lt;&lt; 7</td><td class="font-mono text-xs">1000 0000</td><td class="font-mono text-xs">0x80</td><td class="font-mono text-xs">128</td><td class="font-mono text-xs">P1.7</td><td>最高位</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-4" data-lang="text" data-title="同一个「点亮 P1.3」的需求，三种写法对比">
+            <pre><code>============================================================
+【写法 A】整体赋值（危险：会覆盖其他 7 个引脚）
+============================================================
+     P1 = 0x08;                  /* 0000 1000 */
+
+     结果：P1.3 变成高电平，但 P1.0~P1.2、P1.4~P1.7
+           全部被强制写成 0！
+     如果你的流水灯正在跑，这一行会把其他 7 颗灯全部点亮。
+
+============================================================
+【写法 B】用 |= 只置位（安全：其他引脚不动）
+============================================================
+     P1 |= (1 &lt;&lt; 3);             /* 只把 bit3 拉高 */
+
+     演算（假设 P1 当前是 0xB4 = 1011 0100）：
+         1011 0100
+       | 0000 1000
+       ─────────────
+         1011 1100   ← 只有 bit3 变了，其他位原样保留 ✔
+
+============================================================
+【写法 C】用 &amp;= ~ 清零（安全：其他引脚不动）
+============================================================
+     P1 &amp;= ~(1 &lt;&lt; 3);            /* 只把 bit3 拉低 */
+
+     演算（假设 P1 当前是 0xBC = 1011 1100）：
+         1011 1100
+       &amp; 1111 0111     （~(1&lt;&lt;3) = 0xF7）
+       ─────────────
+         1011 0100   ← 只有 bit3 变了 ✔
+
+============================================================
+【一个真实场景】
+============================================================
+  假设 P1.0~P1.7 接了 8 颗 LED，同时 P1.3 还接了蜂鸣器。
+  如果蜂鸣器那行写成：
+        P1 = 0x08;              /* ✗ 错误 */
+  那么每次蜂鸣器响的时候，8 颗 LED 都会跟着全亮（因为其他位被写成 0）。
+  现象是「蜂鸣器一响，灯全亮了」——很难第一眼想到是这个原因。
+
+  正确写法：
+        P1 |= (1 &lt;&lt; 3);          /* ✔ 只动蜂鸣器那一位 */
+
+  这就是【为什么要用位运算而不是直接赋值】的实战理由。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">sbit：给单个引脚起个名字</h3>
+
+          <p class="mt-3">
+            Keil C51 提供了另一种操作单个引脚的方式：用 <code class="icode">sbit</code> 关键字
+            把某一「位」定义成一个名字，之后就可以像用普通变量一样用 0 和 1 给它赋值。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="sbit 的用法与等价写法">
+            <pre><code>#include &lt;reg52.h&gt;
+
+/* ------------------------------------------------------------
+ * sbit = single bit，把一个可位寻址的位定义成一个名字
+ * 语法：sbit 名字 = 寄存器的位地址;
+ * 注意：这里的 = 不是赋值，是「定义」，必须写在函数外面
+ * ------------------------------------------------------------ */
+sbit BEEP = P1 ^ 3;      /* P1 口的第 3 位，起名叫 BEEP */
+sbit LED0 = P1 ^ 0;      /* P1 口的第 0 位，起名叫 LED0 */
+sbit KEY  = P3 ^ 2;      /* P3 口的第 2 位，起名叫 KEY  */
+
+void main(void)
+{
+    BEEP = 1;            /* 等价于 P1 |= (1 &lt;&lt; 3);   拉高 P1.3 */
+    LED0 = 0;            /* 等价于 P1 &amp;= ~(1 &lt;&lt; 0);  拉低 P1.0 */
+    KEY  = 1;            /* 51 的准双向口要先写 1 才能当输入读 */
+
+    while (1)
+    {
+        if (KEY == 0)    /* 读 P3.2 的电平：等价于 if ((P3 &amp; 0x04) == 0) */
+        {
+            BEEP = 0;    /* 按下时蜂鸣器不响（假设是低电平触发的模块） */
+        }
+        else
+        {
+            BEEP = 1;
+        }
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">sbit 与位运算：该用哪个？</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><b>sbit 更直观</b>：写 <code class="icode">BEEP = 1;</code> 比 <code class="icode">P1 |= (1 &lt;&lt; 3);</code> 好读。</li>
+              <li><b>sbit 只能用于「可位寻址」的地址</b>，并且必须是编译期已知的常量。
+                你不能写 <code class="icode">sbit X = P1 ^ i;</code>（i 是变量）——
+                这一点限制了它在循环里的使用。</li>
+              <li><b>位运算更通用</b>：可以在循环里用变量当下标
+                （<code class="icode">P1 |= (1 &lt;&lt; i);</code>），也不依赖编译器扩展，
+                换到 STM32/ESP32 上照样能用（那边叫「位带」或直接操作寄存器）。</li>
+              <li><b>建议</b>：固定的单引脚操作（按键、蜂鸣器、单个 LED）用 sbit；
+                循环里的多位操作（流水灯、数码管扫描）用位运算。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            下面三段代码都可以直接复制进 Keil 编译下载。
+            第一段把六种位运算的结果依次送到 P1 口显示出来，用来「看见」位运算；
+            第二段是完整的循环移位函数库（比流水灯那一篇更详尽，包含左移、右移、任意位移动）；
+            第三段是四个标准动作的实战演示。
+          </p>
+
+          <h3 id="sub-code-bitops" class="mt-7 text-base font-semibold">程序一：把位运算的结果显示在 LED 上</h3>
+
+          <div class="code-block mt-4" data-lang="c" data-title="bitops.c —— 六种位运算的可视化演示">
+            <pre><code>#include &lt;reg52.h&gt;
+
+/* ------------------------------------------------------------------
+ * 软件延时（约毫秒）
+ * 12MHz 晶振下内层循环约 1ms，11.0592MHz 时约 1.09ms
+ * ------------------------------------------------------------------ */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;
+    for (i = ms; i &gt; 0; i--)
+        for (j = 110; j &gt; 0; j--);
+}
+
+/* ------------------------------------------------------------------
+ * 把 8 个结果依次输出到 P1 口
+ * 灌电流接法：哪一位是 0，对应的 LED 就亮
+ * 所以 P1 = 0xFF 表示全灭
+ * ------------------------------------------------------------------ */
+void main(void)
+{
+    /* 两个演示用的字节，注释里写出了它们的二进制形态 */
+    unsigned char a = 0x3C;         /* 0011 1100 */
+    unsigned char b = 0x0F;         /* 0000 1111 */
+    unsigned char r;                /* 存放运算结果 */
+
+    P1 = 0xFF;                      /* 上电先全灭 */
+    Delay_ms(1000);                 /* 停 1 秒，给你时间准备看 */
+
+    /* ---- 1. 按位与 &amp; ：保留低 4 位 ---- */
+    r = a &amp; b;                      /* 0011 1100 &amp; 0000 1111 = 0000 1100 */
+    P1 = ~r;                        /* 取反后再送 P1，这样「结果为 1 的位」点亮，
+                                       便于人眼直接读出结果的二进制形态 */
+    Delay_ms(1500);
+
+    /* ---- 2. 按位或 | ：低 4 位全部置 1 ---- */
+    r = a | b;                      /* 0011 1100 | 0000 1111 = 0011 1111 */
+    P1 = ~r;
+    Delay_ms(1500);
+
+    /* ---- 3. 按位异或 ^ ：找出不同的位 ---- */
+    r = a ^ b;                      /* 0011 1100 ^ 0000 1111 = 0011 0011 */
+    P1 = ~r;
+    Delay_ms(1500);
+
+    /* ---- 4. 按位取反 ~ ：全部翻转 ---- */
+    r = ~a;                         /* ~0011 1100 = 1100 0011 (截断成 8 位) */
+    P1 = ~r;
+    Delay_ms(1500);
+
+    /* ---- 5. 左移 &lt;&lt; ：相当于乘 2 ---- */
+    r = a &lt;&lt; 1;                     /* 0011 1100 左移 1 位 = 0111 1000 */
+    P1 = ~r;
+    Delay_ms(1500);
+
+    /* ---- 6. 右移 &gt;&gt; ：相当于除以 2 ---- */
+    r = a &gt;&gt; 2;                     /* 0011 1100 右移 2 位 = 0000 1111 */
+    P1 = ~r;
+    Delay_ms(1500);
+
+    /* ---- 7. 循环移位：把移出去的高位补到最低位 ---- */
+    r = (a &lt;&lt; 1) | (a &gt;&gt; 7);         /* 0111 1000 | 0000 0000 = 0111 1000 */
+    P1 = ~r;
+    Delay_ms(1500);
+
+    P1 = 0xFF;                      /* 全灭，演示结束 */
+
+    while (1)                       /* 单片机程序不能退出主循环 */
+    {
+        /* 停在这里，保持全灭 */
+    }
+}</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">关键代码解析</h4>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">P1 = ~r;</code>——为什么要取反？
+              因为灌电流接法是<b>低电平点亮</b>。如果直接把 <code class="icode">r</code> 送出去，
+              结果是 1 的位反而灯灭，看起来是「反过来的」。
+              取反之后，「结果是 1 的位」对应灯亮，人眼一看就知道结果长什么样。
+              你也可以把 LED 换成正接（拉电流接法），但那样灯会暗很多。
+            </li>
+            <li>
+              <code class="icode">r = ~a;</code>——注意 <code class="icode">a</code> 是
+              <code class="icode">unsigned char</code>，但 <code class="icode">~a</code>
+              的运算结果在 C 语言里是 <code class="icode">int</code>（32 位或 16 位）。
+              赋给 <code class="icode">unsigned char</code> 的 <code class="icode">r</code> 时，
+              编译器会截断成 8 位，所以 <code class="icode">r</code> 得到的是正确的 0xC3。
+              这个「截断」是安全的，但要理解它为什么会发生。
+            </li>
+            <li>
+              <code class="icode">r = (a &lt;&lt; 1) | (a &gt;&gt; 7);</code>——
+              循环移位的核心。左移把最高位挤出去（暂时保留在 int 的高位），
+              右移 7 位把最低位搬到最高位的位置，
+              两者一「或」，再靠赋值截断成 8 位，就完成了循环。
+            </li>
+            <li>
+              <code class="icode">while (1) { }</code>——主循环必须在最后。
+              单片机不像电脑程序那样「执行完就退出」，
+              如果 <code class="icode">main</code> 返回了，CPU 会跑进一片未使用的 Flash
+              （内容通常是 0xFF），行为完全不可预测。
+              空循环里什么都不做也可以，这就是最常见的「程序结束」写法。
+            </li>
+          </ul>
+
+          <h3 id="sub-code-rol" class="mt-7 text-base font-semibold">程序二：完整的循环移位函数库</h3>
+
+          <div class="code-block mt-4" data-lang="c" data-title="rotate.c —— 循环左移、循环右移、任意位移位">
+            <pre><code>#include &lt;reg52.h&gt;
+
+/* ==================================================================
+ * 循环移位函数库
+ * 说明：普通移位会把移出去的位丢掉，「循环移位」则把它补到另一端。
+ *       实现方法统一是：(x &lt;&lt; n) | (x &gt;&gt; (8-n))
+ * ================================================================== */
+
+/* ------------------------------------------------------------------
+ * 循环左移 n 位
+ * 例：rol8(0xFE, 1)  = 0xFD
+ *     rol8(0x80, 1)  = 0x01   （最高位绕回到最低位）
+ * ------------------------------------------------------------------ */
+unsigned char rol8(unsigned char x, unsigned char n)
+{
+    n &amp;= 0x07;                          /* 只取低 3 位，把 n 限制在 0~7。
+                                           因为循环移位 8 位等于没移 */
+    if (n == 0) return x;               /* 移 0 位直接返回，还能避免下面的 (x &gt;&gt; 8) */
+
+    return (unsigned char)((x &lt;&lt; n) | (x &gt;&gt; (8 - n)));
+    /*  拆开看 n=1 时：
+     *     x &lt;&lt; 1      ：整体左移，最高位被挤出 8 位之外
+     *     x &gt;&gt; (8-1)  ：即 x &gt;&gt; 7，把最低位挪到最高位的位置
+     *     两者按位或  ：拼成循环移位的结果
+     *     最后强制转换回 unsigned char，高 8 位被截断
+     */
+}
+
+/* ------------------------------------------------------------------
+ * 循环右移 n 位
+ * 例：ror8(0xFE, 1)  = 0x7F
+ *     ror8(0x01, 1)  = 0x80   （最低位绕回到最高位）
+ * ------------------------------------------------------------------ */
+unsigned char ror8(unsigned char x, unsigned char n)
+{
+    n &amp;= 0x07;
+    if (n == 0) return x;
+
+    return (unsigned char)((x &gt;&gt; n) | (x &lt;&lt; (8 - n)));
+}
+
+/* ------------------------------------------------------------------
+ * 只保留低 4 位 / 取高 4 位（演示掩码）
+ * ------------------------------------------------------------------ */
+unsigned char low_nibble(unsigned char x)
+{
+    return x &amp; 0x0F;                    /* 0000 1111 掩码，抹掉高 4 位 */
+}
+
+unsigned char high_nibble(unsigned char x)
+{
+    return (x &gt;&gt; 4) &amp; 0x0F;             /* 先搬到低 4 位，再用掩码保证范围 */
+}
+
+/* ------------------------------------------------------------------
+ * 软件延时
+ * ------------------------------------------------------------------ */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;
+    for (i = ms; i &gt; 0; i--)
+        for (j = 110; j &gt; 0; j--);
+}
+
+/* ------------------------------------------------------------------
+ * 主程序：用循环左移跑流水灯，中途插入掩码演示
+ * ------------------------------------------------------------------ */
+void main(void)
+{
+    unsigned char led = 0xFE;           /* 1111 1110：只有 P1.0 那颗亮 */
+    unsigned char n;
+
+    P1 = 0xFF;
+
+    /* ---- 第一轮：正常的 8 步循环左移 ---- */
+    for (n = 0; n &lt; 8; n++)
+    {
+        P1 = led;
+        Delay_ms(250);
+        led = rol8(led, 1);             /* 每次循环左移 1 位 */
+    }
+
+    /* ---- 第二轮：循环右移回到起点 ---- */
+    for (n = 0; n &lt; 8; n++)
+    {
+        P1 = led;
+        Delay_ms(250);
+        led = ror8(led, 1);
+    }
+
+    /* ---- 第三轮：验证 rol8 的 n 参数 ---- */
+    P1 = 0xFF;
+    Delay_ms(500);
+    P1 = rol8(0x80, 1);                 /* 0x80 循环左移 1 位 → 0x01 */
+    Delay_ms(1500);                     /* 应该看到 P1.0 那颗灯亮 */
+
+    P1 = ror8(0x01, 1);                 /* 0x01 循环右移 1 位 → 0x80 */
+    Delay_ms(1500);                     /* 应该看到 P1.7 那颗灯亮 */
+
+    /* ---- 掩码演示 ---- */
+    P1 = ~low_nibble(0xB6);             /* 0xB6 &amp; 0x0F = 0x06 → 亮 P1.1、P1.2 */
+    Delay_ms(1500);
+
+    P1 = ~(high_nibble(0xB6) &lt;&lt; 4);     /* 高 4 位 0x0B 搬回高位 → 亮 P1.3、P1.5 */
+    Delay_ms(1500);
+
+    P1 = 0xFF;
+
+    while (1);
+}</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么 (x &lt;&lt; n) | (x &gt;&gt; (8-n)) 能实现循环移位</div>
+            <p>
+              以 8 位数据 <code class="icode">x = 0x80 = 1000 0000</code>、<code class="icode">n = 1</code> 为例：
+            </p>
+            <ul class="list-disc space-y-1.5 pl-5 mt-2">
+              <li><code class="icode">x &lt;&lt; 1</code>：整体左移，最高位的 1 被挤出 8 位之外，
+                在 int 里看起来是 <code class="icode">0x100</code>（低 8 位全是 0）。</li>
+              <li><code class="icode">x &gt;&gt; 7</code>：<code class="icode">0x80 &gt;&gt; 7 = 0x01</code>，
+                正好把最高位那个 1 搬到了最低位的位置。</li>
+              <li>两者相或：<code class="icode">0x100 | 0x01 = 0x101</code>。</li>
+              <li>赋给 <code class="icode">unsigned char</code> 时截断成 8 位 → <code class="icode">0x01</code>。
+                最高位那个被挤出去的 1，就这样绕回到了最低位。</li>
+            </ul>
+            <p class="mt-2">
+              这个技巧对任何 <code class="icode">n</code> 都成立，只要保证
+              <code class="icode">0 &lt; n &lt; 8</code>。所以函数里第一句就写了
+              <code class="icode">n &amp;= 0x07;</code> 把 n 限制在 0~7，
+              并且单独处理 n 等于 0 的情况（否则会去算 <code class="icode">x &gt;&gt; 8</code>，
+              那是未定义行为）。
+            </p>
+          </div>
+
+          <h3 id="sub-code-standard" class="mt-7 text-base font-semibold">程序三：四个标准动作的实战演示</h3>
+
+          <div class="code-block mt-4" data-lang="c" data-title="standard.c —— 置位、清零、翻转、判断">
+            <pre><code>#include &lt;reg52.h&gt;
+
+sbit LED   = P1 ^ 0;        /* 状态指示灯 */
+sbit RELAY = P1 ^ 5;        /* 假装这里接了一个继电器 */
+sbit KEY   = P3 ^ 2;        /* 按键输入 */
+
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;
+    for (i = ms; i &gt; 0; i--)
+        for (j = 110; j &gt; 0; j--);
+}
+
+/* ------------------------------------------------------------------
+ * 动作 1：置位（把某一位置 1）
+ * ------------------------------------------------------------------ */
+void SetBit(unsigned char *reg, unsigned char n)
+{
+    *reg |= (1 &lt;&lt; n);           /* 只有第 n 位被拉高，其他位不变 */
+}
+
+/* ------------------------------------------------------------------
+ * 动作 2：清零（把某一位清 0）
+ * 注意：~ 的优先级比 &lt;&lt; 高，所以必须写 ~(1 &lt;&lt; n)，括号不能省
+ * ------------------------------------------------------------------ */
+void ClearBit(unsigned char *reg, unsigned char n)
+{
+    *reg &amp;= ~(1 &lt;&lt; n);
+}
+
+/* ------------------------------------------------------------------
+ * 动作 3：翻转（0 变 1、1 变 0）
+ * ------------------------------------------------------------------ */
+void ToggleBit(unsigned char *reg, unsigned char n)
+{
+    *reg ^= (1 &lt;&lt; n);
+}
+
+/* ------------------------------------------------------------------
+ * 动作 4：判断（检查第 n 位是不是 1）
+ * 返回值：1 表示该位是 1，0 表示该位是 0
+ * 注意：&amp; 的优先级比 == 低，所以这里必须加括号
+ * ------------------------------------------------------------------ */
+unsigned char TestBit(unsigned char reg, unsigned char n)
+{
+    if ((reg &amp; (1 &lt;&lt; n)) != 0)     /* 括号不能省！ */
+        return 1;
+    else
+        return 0;
+}
+
+void main(void)
+{
+    unsigned char i;
+
+    P1 = 0xFF;                      /* 全部拉高（LED 全灭） */
+
+    /* ---- 演示 1：用指针操作，把 P1.1、P1.2、P1.3 依次点亮 ---- */
+    for (i = 1; i &lt;= 3; i++)
+    {
+        SetBit(&amp;P1, i);             /* P1 |= (1 &lt;&lt; i)，只动那一位 */
+        Delay_ms(400);
+    }
+
+    /* ---- 演示 2：判断 P1 的 bit3 现在是不是 1 ---- */
+    if (TestBit(P1, 3) == 1)
+    {
+        LED = 0;                    /* 是 1 的话点亮 LED 提示 */
+    }
+    Delay_ms(800);
+    LED = 1;
+
+    /* ---- 演示 3：把刚才点亮的 3 位依次清 0 ---- */
+    for (i = 1; i &lt;= 3; i++)
+    {
+        ClearBit(&amp;P1, i);
+        Delay_ms(400);
+    }
+
+    /* ---- 演示 4：让继电器每隔 500ms 翻转一次 ---- */
+    while (1)
+    {
+        ToggleBit(&amp;P1, 5);          /* RELAY 状态取反 */
+        Delay_ms(500);
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">关于传指针这件事</div>
+            <p>
+              上面的 <code class="icode">SetBit(&amp;P1, i)</code> 传的是
+              <code class="icode">P1</code> 的<b>地址</b>（<code class="icode">&amp;</code> 在变量前面表示「取地址」，
+              和按位与的 <code class="icode">&amp;</code> 是两个完全不同的意思，只是符号一样）。
+              这样函数才能修改调用者的寄存器。
+            </p>
+            <p class="mt-2">
+              初学阶段不建议一上来就这么写——直接在 <code class="icode">main</code> 里写
+              <code class="icode">P1 |= (1 &lt;&lt; i);</code> 更简单、更不容易错。
+              这里给出来是为了让你看到「四个动作可以封装成函数」，
+              等你写大程序（比如数码管扫描、多路继电器控制）时，
+              封装的价值就会体现出来。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            这一节给两张表。第一张是<b class="font-semibold text-ink">进制对照大表</b>，
+            建议打印出来贴在桌上，前两周看代码时会经常查；
+            第二张是<b class="font-semibold text-ink">流水灯 8 个状态的完整演算</b>，
+            把「一个字节怎么一步步移位、每一刻 8 个引脚分别是什么电平」全部写出来。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">对照大表：十六进制 → 二进制 → 十进制</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>十六进制</th>
+                  <th>二进制</th>
+                  <th>十进制</th>
+                  <th>十六进制</th>
+                  <th>二进制</th>
+                  <th>十进制</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">0x00</td><td class="font-mono text-xs">0000 0000</td><td class="font-mono text-xs">0</td><td class="font-mono text-xs">0x80</td><td class="font-mono text-xs">1000 0000</td><td class="font-mono text-xs">128</td></tr>
+                <tr><td class="font-mono text-xs">0x01</td><td class="font-mono text-xs">0000 0001</td><td class="font-mono text-xs">1</td><td class="font-mono text-xs">0x81</td><td class="font-mono text-xs">1000 0001</td><td class="font-mono text-xs">129</td></tr>
+                <tr><td class="font-mono text-xs">0x02</td><td class="font-mono text-xs">0000 0010</td><td class="font-mono text-xs">2</td><td class="font-mono text-xs">0x82</td><td class="font-mono text-xs">1000 0010</td><td class="font-mono text-xs">130</td></tr>
+                <tr><td class="font-mono text-xs">0x03</td><td class="font-mono text-xs">0000 0011</td><td class="font-mono text-xs">3</td><td class="font-mono text-xs">0x83</td><td class="font-mono text-xs">1000 0011</td><td class="font-mono text-xs">131</td></tr>
+                <tr><td class="font-mono text-xs">0x04</td><td class="font-mono text-xs">0000 0100</td><td class="font-mono text-xs">4</td><td class="font-mono text-xs">0x84</td><td class="font-mono text-xs">1000 0100</td><td class="font-mono text-xs">132</td></tr>
+                <tr><td class="font-mono text-xs">0x05</td><td class="font-mono text-xs">0000 0101</td><td class="font-mono text-xs">5</td><td class="font-mono text-xs">0x85</td><td class="font-mono text-xs">1000 0101</td><td class="font-mono text-xs">133</td></tr>
+                <tr><td class="font-mono text-xs">0x06</td><td class="font-mono text-xs">0000 0110</td><td class="font-mono text-xs">6</td><td class="font-mono text-xs">0x86</td><td class="font-mono text-xs">1000 0110</td><td class="font-mono text-xs">134</td></tr>
+                <tr><td class="font-mono text-xs">0x07</td><td class="font-mono text-xs">0000 0111</td><td class="font-mono text-xs">7</td><td class="font-mono text-xs">0x87</td><td class="font-mono text-xs">1000 0111</td><td class="font-mono text-xs">135</td></tr>
+                <tr><td class="font-mono text-xs">0x08</td><td class="font-mono text-xs">0000 1000</td><td class="font-mono text-xs">8</td><td class="font-mono text-xs">0x88</td><td class="font-mono text-xs">1000 1000</td><td class="font-mono text-xs">136</td></tr>
+                <tr><td class="font-mono text-xs">0x09</td><td class="font-mono text-xs">0000 1001</td><td class="font-mono text-xs">9</td><td class="font-mono text-xs">0x89</td><td class="font-mono text-xs">1000 1001</td><td class="font-mono text-xs">137</td></tr>
+                <tr><td class="font-mono text-xs">0x0A</td><td class="font-mono text-xs">0000 1010</td><td class="font-mono text-xs">10</td><td class="font-mono text-xs">0x90</td><td class="font-mono text-xs">1001 0000</td><td class="font-mono text-xs">144</td></tr>
+                <tr><td class="font-mono text-xs">0x0B</td><td class="font-mono text-xs">0000 1011</td><td class="font-mono text-xs">11</td><td class="font-mono text-xs">0xA0</td><td class="font-mono text-xs">1010 0000</td><td class="font-mono text-xs">160</td></tr>
+                <tr><td class="font-mono text-xs">0x0C</td><td class="font-mono text-xs">0000 1100</td><td class="font-mono text-xs">12</td><td class="font-mono text-xs">0xB0</td><td class="font-mono text-xs">1011 0000</td><td class="font-mono text-xs">176</td></tr>
+                <tr><td class="font-mono text-xs">0x0D</td><td class="font-mono text-xs">0000 1101</td><td class="font-mono text-xs">13</td><td class="font-mono text-xs">0xB6</td><td class="font-mono text-xs">1011 0110</td><td class="font-mono text-xs">182</td></tr>
+                <tr><td class="font-mono text-xs">0x0E</td><td class="font-mono text-xs">0000 1110</td><td class="font-mono text-xs">14</td><td class="font-mono text-xs">0xC0</td><td class="font-mono text-xs">1100 0000</td><td class="font-mono text-xs">192</td></tr>
+                <tr><td class="font-mono text-xs">0x0F</td><td class="font-mono text-xs">0000 1111</td><td class="font-mono text-xs">15</td><td class="font-mono text-xs">0xC8</td><td class="font-mono text-xs">1100 1000</td><td class="font-mono text-xs">200</td></tr>
+                <tr><td class="font-mono text-xs">0x10</td><td class="font-mono text-xs">0001 0000</td><td class="font-mono text-xs">16</td><td class="font-mono text-xs">0xF0</td><td class="font-mono text-xs">1111 0000</td><td class="font-mono text-xs">240</td></tr>
+                <tr><td class="font-mono text-xs">0x20</td><td class="font-mono text-xs">0010 0000</td><td class="font-mono text-xs">32</td><td class="font-mono text-xs">0xF7</td><td class="font-mono text-xs">1111 0111</td><td class="font-mono text-xs">247</td></tr>
+                <tr><td class="font-mono text-xs">0x3C</td><td class="font-mono text-xs">0011 1100</td><td class="font-mono text-xs">60</td><td class="font-mono text-xs">0xFB</td><td class="font-mono text-xs">1111 1011</td><td class="font-mono text-xs">251</td></tr>
+                <tr><td class="font-mono text-xs">0x40</td><td class="font-mono text-xs">0100 0000</td><td class="font-mono text-xs">64</td><td class="font-mono text-xs">0xFD</td><td class="font-mono text-xs">1111 1101</td><td class="font-mono text-xs">253</td></tr>
+                <tr><td class="font-mono text-xs">0x7F</td><td class="font-mono text-xs">0111 1111</td><td class="font-mono text-xs">127</td><td class="font-mono text-xs">0xFE</td><td class="font-mono text-xs">1111 1110</td><td class="font-mono text-xs">254</td></tr>
+                <tr><td class="font-mono text-xs">0x80</td><td class="font-mono text-xs">1000 0000</td><td class="font-mono text-xs">128</td><td class="font-mono text-xs">0xFF</td><td class="font-mono text-xs">1111 1111</td><td class="font-mono text-xs">255</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">流水灯 8 个状态的完整演算</h3>
+
+          <p class="mt-3">
+            下面把 <code class="icode">led = (led &lt;&lt; 1) | (led &gt;&gt; 7);</code>
+            这句话执行 8 次的全过程写出来，包括每一步的中间结果。
+            看懂这张表，你就彻底理解了位运算。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="循环左移 8 次的逐步演算（含中间结果）">
+            <pre><code>初始：led = 0xFE = 1111 1110
+
+────────────────────────────────────────────────────────────
+第 1 次循环：led = (led &lt;&lt; 1) | (led &gt;&gt; 7)
+────────────────────────────────────────────────────────────
+  ① led &lt;&lt; 1
+        1111 1110  →  1 1111 1100     （按 int 算，共 9 位）
+  ② led &gt;&gt; 7
+        1111 1110  →  0000 0001
+  ③ 相或
+        1 1111 1100
+      | 0 0000 0001
+      ─────────────
+        1 1111 1101
+  ④ 赋回 unsigned char，截断成 8 位
+        1111 1101  =  0xFD
+
+  P1 = 0xFD → P1.1 是 0 → 第 2 颗灯亮 ✔
+
+────────────────────────────────────────────────────────────
+第 2 次循环：led 从 0xFD 开始
+────────────────────────────────────────────────────────────
+  ① 1111 1101 &lt;&lt; 1  = 1 1111 1010
+  ② 1111 1101 &gt;&gt; 7  = 0000 0001
+  ③ 或              = 1 1111 1011
+  ④ 截断            = 1111 1011 = 0xFB
+
+  P1 = 0xFB → P1.2 是 0 → 第 3 颗灯亮 ✔
+
+────────────────────────────────────────────────────────────
+第 3 ~ 7 次：规律相同，结果依次是
+────────────────────────────────────────────────────────────
+  第 3 次：0xF7 = 1111 0111   → P1.3 亮
+  第 4 次：0xEF = 1110 1111   → P1.4 亮
+  第 5 次：0xDF = 1101 1111   → P1.5 亮
+  第 6 次：0xBF = 1011 1111   → P1.6 亮
+  第 7 次：0x7F = 0111 1111   → P1.7 亮
+
+────────────────────────────────────────────────────────────
+第 8 次循环：关键的一次，最高位要「绕回来」
+────────────────────────────────────────────────────────────
+  当前 led = 0x7F = 0111 1111
+
+  ① led &lt;&lt; 1
+        0111 1111  →  1111 1110
+        （这次最高位是 0，移出去的是 0，没有丢失信息）
+  ② led &gt;&gt; 7
+        0111 1111  →  0000 0000
+        （最高位是 0，所以右移 7 位得到 0）
+  ③ 或
+        1111 1110
+      | 0000 0000
+      ─────────────
+        1111 1110  =  0xFE
+
+  ④ 回到 0xFE，与初始值完全相同 → 循环闭合 ✔
+
+────────────────────────────────────────────────────────────
+【对比：如果只写 led = led &lt;&lt; 1; 会发生什么】
+────────────────────────────────────────────────────────────
+  初始 0xFE
+    0xFE &lt;&lt; 1 = 0xFC （截断后）
+    0xFC &lt;&lt; 1 = 0xF8
+    0xF8 &lt;&lt; 1 = 0xF0
+    0xF0 &lt;&lt; 1 = 0xE0
+    0xE0 &lt;&lt; 1 = 0xC0
+    0xC0 &lt;&lt; 1 = 0x80
+    0x80 &lt;&lt; 1 = 0x00
+    0x00 &lt;&lt; 1 = 0x00   ← 卡住了！8 颗灯全亮，再也不动
+
+  为什么？因为左移时移出去的位【被丢掉了】，不会补回来。
+  这就是必须写 (led &lt;&lt; 1) | (led &gt;&gt; 7) 的原因。
+
+────────────────────────────────────────────────────────────
+【更一般化：用 rol8 处理任意初始值】
+────────────────────────────────────────────────────────────
+  设初始 led = 0xFC = 1111 1100（两颗灯一起流动）
+
+    0xFC → 0xF9 → 0xF3 → 0xE7 → 0xCF → 0x9F → 0x3F → 0x7E → 0xFC
+
+  逐一看：
+    0xFC = 1111 1100
+    0xF9 = 1111 1001   （左移得 1111 1000，右移 7 位得 0000 0001，相或）
+    0xF3 = 1111 0011
+    0xE7 = 1110 0111
+    0xCF = 1100 1111
+    0x9F = 1001 1111
+    0x3F = 0011 1111
+    0x7E = 0111 1110   （左移得 0111 1110，右移 7 位得 0，相或还是它）
+    0xFC = 1111 1100   （左移得 1111 1100，右移 7 位得 0 ——
+                        等等，这里怎么回到 0xFC 的？
+                        用公式算：0x7E &lt;&lt; 1 = 0xFC；
+                                  0x7E &gt;&gt; 7 = 0x00；
+                                  相或 = 0xFC ✔ 正好绕回来了）
+
+  【关键观察】无论初始值是什么，只要用循环移位，
+  8 次之后一定回到初始值 —— 这就是「循环」的含义。
+  而用普通左移，最多 8 次就变成 0x00 并卡死。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手验证：不接硬件也能看结果</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                在 Keil 里新建一个工程，把程序一复制进去编译。
+              </li>
+              <li>
+                点「Debug → Start/Stop Debug Session」进入软件仿真（不需要接开发板）。
+              </li>
+              <li>
+                在 <code class="icode">P1 = ~r;</code> 那一行按 F9 下一个断点，
+                按 F5 运行到断点处停下。
+              </li>
+              <li>
+                在下面的「Watch」窗口里输入 <code class="icode">r</code> 和 <code class="icode">a</code>，
+                就能看到每个运算结果的实际数值（十六进制），
+                和本文表格里算出来的对照。这是验证位运算最快的方法。
+              </li>
+              <li>
+                在菜单「Peripherals → I/O Ports → Port 1」里还能看到 P1 口
+                8 个引脚的电平状态实时变化，直观得像接了硬件一样。
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            位运算的错误有个共同特点：<b class="font-semibold text-ink">编译器不会报错</b>。
+            代码能编译、能下载、能运行，就是结果不对。
+            所以下面这八条都是「现象 → 原因 → 解决」的形式，没有一条是编译错误。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">现象：0xFF 明明应该是 255，但判断却按 -1 走</div>
+            <p><b class="font-semibold">原因：</b>
+              变量类型是 <code class="icode">char</code> 或 <code class="icode">signed char</code>，
+              而不是 <code class="icode">unsigned char</code>。
+              8 位补码里 0xFF 的最高位是 1，按有符号读就是 −1。
+              于是 <code class="icode">if (x &gt; 0)</code> 会失败，
+              <code class="icode">if (x == 255)</code> 也会失败。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              处理字节数据时显式写成 <code class="icode">unsigned char</code>；
+              处理引脚电平、寄存器值、ADC 采样值时更是必须无符号。
+              如果确实需要负数（温度、差值），用 <code class="icode">int</code> 或
+              <code class="icode">signed int</code>（16 位），不要用 8 位有符号。
+              验证方法：把变量加到 Watch 窗口里，看它显示的值是 255 还是 −1。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：移位的结果莫名其妙，或者整段代码像被跳过了一样</div>
+            <p><b class="font-semibold">原因：</b>
+              移位数大于或等于操作数的位宽。
+              例如 <code class="icode">unsigned char a = 1 &lt;&lt; 8;</code>
+              —— 8 位变量移 8 位，在 C 标准里是<b>未定义行为</b>。
+              编译器可能给出 0、可能给出原值，
+              也可能在优化时把整条语句删掉。
+              另一种情况是对 <code class="icode">unsigned char</code> 写
+              <code class="icode">x &lt;&lt; 9</code>，同样未定义。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              要移出 8 位范围，就先把变量提升成更宽的类型：
+              <code class="icode">unsigned int b = 1; b = b &lt;&lt; 8;</code>
+              得到 256。
+              在写循环移位函数时，一定要先判断 <code class="icode">n</code> 的范围
+              （这就是程序二里 <code class="icode">n &amp;= 0x07;</code> 和
+              <code class="icode">if (n == 0) return x;</code> 存在的理由）。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：if (P1 &amp; 0x08 == 0x08) 这个判断永远为假</div>
+            <p><b class="font-semibold">原因：</b>
+              运算符优先级。<code class="icode">==</code> 的优先级高于
+              <code class="icode">&amp;</code>，所以编译器把它理解成
+              <code class="icode">P1 &amp; (0x08 == 0x08)</code>，
+              也就是 <code class="icode">P1 &amp; 1</code>（因为比较结果为真就是 1）。
+              你判断的实际是 bit0，而不是 bit3。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              加括号：<code class="icode">if ((P1 &amp; 0x08) == 0x08)</code>。
+              更好的写法是直接判断非零：<code class="icode">if (P1 &amp; 0x08)</code>。
+              养成习惯：<b>只要一行里同时有 &amp; / | 和 == / !=，全部加括号</b>。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：写了一个十六进制数，结果完全不对</div>
+            <p><b class="font-semibold">原因：</b>
+              十六进制少写了一位，或者多写了一位。常见的有三种：
+              ① 把 <code class="icode">0x0F</code> 写成 <code class="icode">0xF</code>——
+              值其实一样（都是 15），但看代码时容易看错位数；
+              ② 把 <code class="icode">0xF0</code> 写成 <code class="icode">0xF</code>——
+              这就差得远了（240 变成了 15）；
+              ③ 漏写 <code class="icode">0x</code> 前缀，写成
+              <code class="icode">P1 = FE;</code>——
+              编译器会报错「undefined identifier FE」，这是好事；
+              但如果写成了 <code class="icode">P1 = 10;</code>，
+              编译器不报错，而它其实是十进制的 10（0x0A），不是你想要的 0x10。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              <b>所有十六进制常量统一写成两位</b>（8 位数据）：
+              <code class="icode">0x0F</code> 而不是 <code class="icode">0xF</code>，
+              <code class="icode">0x01</code> 而不是 <code class="icode">0x1</code>。
+              这样一眼就能看出「这是一个字节」，位数不会看错。
+              写的时候顺便在心里默念二进制形态（0x0F = 0000 1111），
+              错误率会大幅下降。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：只想控制一个引脚，结果其他引脚全被影响了</div>
+            <p><b class="font-semibold">原因：</b>
+              用了整体赋值 <code class="icode">P1 = (1 &lt;&lt; 3);</code>
+              而不是置位运算 <code class="icode">P1 |= (1 &lt;&lt; 3);</code>。
+              前者会把 P1 的其他 7 位全部写成 0，
+              也就是把其他 7 个引脚全部拉低。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              只要不是刻意要整体覆盖，就永远用
+              <code class="icode">|=</code>（置位）、
+              <code class="icode">&amp;= ~</code>（清零）、
+              <code class="icode">^=</code>（翻转）。
+              这三个运算符的共同点是「只动指定的位，其他位保持」。
+              排查方法：在 Watch 窗口里监视 P1 的值，
+              看看每执行一行之后是不是只有目标位变了。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：~0x0F 不等于 0xF0，判断条件下不成立</div>
+            <p><b class="font-semibold">原因：</b>
+              整数提升。<code class="icode">~0x0F</code> 在 C 语言里的结果是
+              <code class="icode">0xFFFFFFF0</code>（32 位），而不是
+              <code class="icode">0xF0</code>。因为位运算前操作数被提升成了 int。
+              所以 <code class="icode">if (~0x0F == 0xF0)</code> 永远为假。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              在「与」运算里这个差异是无害的（高位全 1 与 0 相与仍是 0），
+              所以 <code class="icode">x &amp;= ~0x0F;</code> 结果正确。
+              但如果要拿取反的结果去做比较或赋值，就必须显式截断：
+              <code class="icode">unsigned char mask = (unsigned char)(~0x0F);</code>。
+              更稳妥的写法是直接用「想要保留的位」来构造掩码，
+              而不是靠取反去推。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：误写 if (x = 0x08)，条件永远成立</div>
+            <p><b class="font-semibold">原因：</b>
+              少写了一个等号。<code class="icode">=</code> 是赋值，
+              它把 0x08 赋给 x，然后判断「0x08 是不是非零」——
+              当然非零，所以条件永远为真。
+              同时 x 的值被这一行改掉了，后面所有用到 x 的逻辑全部出错。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              改成 <code class="icode">if (x == 0x08)</code>。
+              防错技巧是把常量写左边：<code class="icode">if (0x08 == x)</code>，
+              这样漏写等号时编译器会直接报「不能给常量赋值」，当场发现。
+              另外，Keil 对 <code class="icode">if (x = 0x08)</code> 通常会给出
+              warning C411「assignment in condition」，
+              <b>不要忽略任何警告</b>——这是最容易被忽视的一道防线。
+            </p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">现象：同一段代码在 Keil 上正常，换到 STM32 就不对了</div>
+            <p>
+              这是<b>类型默认值</b>造成的。Keil C51 里
+              <code class="icode">char</code> 默认是<b>无符号</b>的，
+              而 GCC（STM32、ESP32 用的编译器）里
+              <code class="icode">char</code> 默认是<b>有符号</b>的。
+              同一段 <code class="icode">char x = 0xFF;</code> 之后
+              <code class="icode">if (x &gt; 0)</code>，
+              在 Keil 上是真、在 GCC 上是假。
+            </p>
+            <p class="mt-2">
+              解决办法只有一条：<b>永远不用裸的 <code class="icode">char</code></b>，
+              要字节就写 <code class="icode">unsigned char</code>（或
+              <code class="icode">uint8_t</code>），要字符才用 <code class="icode">char</code>。
+              这条习惯能让你以后换平台时少掉至少一半的移植 bug。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇从「为什么是二进制」一直走到「四个标准动作」。要带走的是五句话：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">位权表 128 64 32 16 8 4 2 1 是唯一需要背的东西。</b>
+              所有进制转换都是它的应用。</li>
+            <li><b class="font-semibold text-ink">1 位十六进制 = 4 位二进制。</b>
+              所以一个字节永远是 2 位十六进制，转换不用算，直接翻译。</li>
+            <li><b class="font-semibold text-ink">0xFF 是 255 还是 −1，取决于类型。</b>
+              处理字节数据永远写 <code class="icode">unsigned char</code>。</li>
+            <li><b class="font-semibold text-ink">四个标准动作：</b>
+              置位 <code class="icode">|= (1 &lt;&lt; n)</code>、
+              清零 <code class="icode">&amp;= ~(1 &lt;&lt; n)</code>、
+              翻转 <code class="icode">^= (1 &lt;&lt; n)</code>、
+              判断 <code class="icode">&amp; (1 &lt;&lt; n)</code>。</li>
+            <li><b class="font-semibold text-ink">&amp; 和 | 的优先级比 == 低</b>，
+              混用必须加括号。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">自检题（先自己做，再看答案）</div>
+            <ol class="list-decimal space-y-3 pl-5">
+              <li>
+                <b>题 1：</b>把 <code class="icode">0xA7</code> 转成二进制，再算它的十进制值。
+                <p class="mt-2 text-muted">
+                  <b>答案：</b>A = 1010，7 = 0111，所以
+                  <code class="icode">0xA7 = 1010 0111</code>。
+                  十进制 = 128 + 32 + 4 + 2 + 1 = <b>167</b>。
+                  （也可以用 10 × 16 + 7 = 167 快速验证。）
+                </p>
+              </li>
+              <li>
+                <b>题 2：</b>已知 <code class="icode">unsigned char x = 0x5A;</code>，
+                求 <code class="icode">x &amp; 0x0F</code>、
+                <code class="icode">x | 0x0F</code>、
+                <code class="icode">x ^ 0x0F</code>、
+                <code class="icode">~x</code> 四个结果。
+                <p class="mt-2 text-muted">
+                  <b>答案：</b><code class="icode">0x5A = 0101 1010</code>，
+                  <code class="icode">0x0F = 0000 1111</code>。<br>
+                  <code class="icode">x &amp; 0x0F = 0000 1010 = 0x0A</code>（保留低 4 位）<br>
+                  <code class="icode">x | 0x0F = 0101 1111 = 0x5F</code>（低 4 位全置 1）<br>
+                  <code class="icode">x ^ 0x0F = 0101 0101 = 0x55</code>（低 4 位取反）<br>
+                  <code class="icode">~x = 1010 0101 = 0xA5</code>（截断成 8 位后）
+                </p>
+              </li>
+              <li>
+                <b>题 3：</b>写出「把 P1 的第 5 位拉低、其他位不动」的代码，
+                并说明为什么不能用 <code class="icode">P1 = 0;</code>。
+                <p class="mt-2 text-muted">
+                  <b>答案：</b><code class="icode">P1 &amp;= ~(1 &lt;&lt; 5);</code><br>
+                  演算：<code class="icode">1 &lt;&lt; 5 = 0x20 = 0010 0000</code>，
+                  <code class="icode">~0x20 = 1101 1111 = 0xDF</code>，
+                  与 P1 相与后只有 bit5 变成 0，其他位保持原值。<br>
+                  不能写 <code class="icode">P1 = 0;</code>，因为那会把 8 位全部清 0，
+                  也就是把 P1.0~P1.7 全部拉低——如果其他引脚上接着 LED，
+                  它们会全部点亮。
+                </p>
+              </li>
+              <li>
+                <b>题 4：</b>下面这行代码有什么问题？请指出并改正。
+                <code class="icode">if (P3 &amp; 0x04 == 0x04) { KEY_PRESSED = 1; }</code>
+                <p class="mt-2 text-muted">
+                  <b>答案：</b>优先级错误。<code class="icode">==</code> 比
+                  <code class="icode">&amp;</code> 高，所以实际被解析成
+                  <code class="icode">P3 &amp; (0x04 == 0x04)</code> =
+                  <code class="icode">P3 &amp; 1</code>，
+                  判断的是 bit0 而不是 bit2（0x04），条件几乎永远不成立。<br>
+                  改正：<code class="icode">if ((P3 &amp; 0x04) == 0x04)</code>，
+                  或更简洁地写 <code class="icode">if (P3 &amp; 0x04)</code>。
+                </p>
+              </li>
+              <li>
+                <b>题 5：</b>为什么流水灯必须写
+                <code class="icode">led = (led &lt;&lt; 1) | (led &gt;&gt; 7);</code>，
+                而不能只写 <code class="icode">led = led &lt;&lt; 1;</code>？
+                请用具体的字节值说明。
+                <p class="mt-2 text-muted">
+                  <b>答案：</b>左移会把最高位丢掉，而且不会补回来。
+                  以 0xFC 为例，只左移的话：
+                  0xFC → 0xF8 → 0xF0 → 0xE0 → 0xC0 → 0x80 → 0x00 → 0x00，
+                  走到 0x00 之后 8 位全 0，再左移还是 0x00，程序卡死（8 颗灯全亮）。<br>
+                  <code class="icode">| (led &gt;&gt; 7)</code> 的作用是把最低位搬到最高位的位置，
+                  和左移的结果拼起来。以 0x80 为例：
+                  <code class="icode">0x80 &lt;&lt; 1 = 0x100</code>（截断后低 8 位是 0x00），
+                  <code class="icode">0x80 &gt;&gt; 7 = 0x01</code>，
+                  相或得 0x101，截断成 8 位就是 <code class="icode">0x01</code>——
+                  最高位那个 1 绕回到了最低位。
+                </p>
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一步看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-digital.html">数字电路基础：高低电平与逻辑门</a>——为什么引脚读到的 0 和 1 不是一个固定电压，以及逻辑门与位运算的对应关系。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-led.html">IO 口输出：LED 流水灯</a>——把这一篇的循环移位真正跑到硬件上。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="../mcu51.html">51 单片机全部教程</a>——后续所有教程里的寄存器配置都建立在这一篇的位运算之上。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="mcu51-basic-components.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">常用元件：电阻、电容、LED 与三极管</p>
+          </a>
+          <a href="mcu51-basic-digital.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">数字电路基础：高低电平与逻辑门</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+﻿  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+
+</body>
+</html>

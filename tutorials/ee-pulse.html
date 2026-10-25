@@ -1,0 +1,2467 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>脉冲波形的产生与整形 - McuStudy</title>
+  <meta name="description" content="知识体系第 19 篇（阎石《数字电子技术基础》第 6 版 第 7 章）：脉冲波形的六个参数怎么测、超了会怎样；施密特触发器为什么是 Z 形传输特性、回差电压怎么算、为什么能抗干扰又为什么不能太大；单稳态触发器的 T_w ≈ RC·ln3 ≈ 1.1RC 怎么推出来、74LS121 与 74LS123 的可重复触发之别；多谐振荡器与石英晶体为什么准到 ppm；555 定时器的内部结构、三种接法与占空比永远大于 50% 的原因，并逐条落到按键消抖、外部中断误触发、晶振电路与负载电容、HSI 与 HSE 的精度差距、看门狗时钟源和复位引脚的施密特输入。">
+  <meta name="keywords" content="脉冲波形,幅度,周期,频率,脉宽,占空比,上升时间,下降时间,占空比失真,施密特触发器,滞回,回差电压,传输特性,Z形,正反馈,74HC14,单稳态,暂稳态,74LS121,74LS123,可重复触发,多谐振荡器,环形振荡器,RC振荡器,石英晶体,压电谐振,Q值,皮尔斯振荡器,负载电容,555定时器,NE555,无稳态,单稳态接法,f=1.44/((R1+2R2)C),脉冲整形,噪声容限,按键消抖,外部中断,晶振不起振,HSI,HSE,波特率误差,看门狗,LSI,NRST">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">脉冲波形的产生与整形</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          脉冲波形的产生与整形
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          前面几篇讲的一直是「给一个数字信号，电路怎么处理它」。这一篇要回答一个更靠前的问题：<b class="font-semibold text-ink">这个数字信号本身是从哪来的，它凭什么这么干净？</b>现实世界送过来的信号一点都不干净——按键的触点在 10 毫秒里弹跳几十次、传感器输出在门限附近慢慢爬、复位引脚的电压是缓慢上升的 RC 曲线、晶振还没起振时引脚上是乱跳的噪声。把它们直接接进数字芯片，你看到的就是「按一下键进了三十次中断」「烧录好好的板子偶尔重启」「串口偶尔收错一个字节」这类查不出来的毛病。<b class="font-semibold text-ink">这一篇讲三件事：怎么把脏信号整成干净脉冲（施密特触发器）、怎么造出一个定长的脉冲（单稳态触发器）、怎么造出源源不断的脉冲（多谐振荡器与 555）</b>，最后全部落到你板子上真实的按键、晶振、复位和看门狗上。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="badge-brand">学科基础</span>
+          <span class="stat-pill">第 1 层 · 数字电子技术</span>
+          <span class="stat-pill">第 <b>19</b> 篇</span>
+          <span class="stat-pill">教材：<b>阎石 第 7 章</b></span>
+          <span class="stat-pill">平台：<b>51 / STM32 通用</b></span>
+          <span class="stat-pill">阅读约 <b>46</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-param">脉冲波形的六个参数</a>
+          <a class="toc-link is-sub" href="#sub-schmitt">施密特触发器：滞回与「Z」字形特性</a>
+          <a class="toc-link is-sub" href="#sub-schmitt-real">两种施密特做法与回差计算</a>
+          <a class="toc-link is-sub" href="#sub-hyst">回差、噪声容限与脉冲整形</a>
+          <a class="toc-link is-sub" href="#sub-mono">单稳态触发器：一段定长的脉宽</a>
+          <a class="toc-link is-sub" href="#sub-osc">多谐振荡器：没有稳态的电路</a>
+          <a class="toc-link is-sub" href="#sub-crystal">石英晶体为什么能准到 ppm</a>
+          <a class="toc-link is-sub" href="#sub-555">555 定时器：三个阈值打天下</a>
+          
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link is-sub" href="#calc-schmitt">例一：算一组施密特阈值与回差</a>
+          <a class="toc-link is-sub" href="#calc-hyst">例二：回差多大才够抗干扰</a>
+          <a class="toc-link is-sub" href="#calc-mono">例三：由脉宽反算单稳态的 RC</a>
+          <a class="toc-link is-sub" href="#calc-astable">例四：555 无稳态的频率与占空比</a>
+          <a class="toc-link is-sub" href="#calc-555-mono">例五：555 单稳态的 RC 与误差</a>
+          <a class="toc-link is-sub" href="#calc-clk">例六：时钟精度预算与波特率误差</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#mcu-key">按键消抖：硬件整形 vs 软件消抖</a>
+          <a class="toc-link is-sub" href="#mcu-exti">外部中断为什么必须先整形</a>
+          <a class="toc-link is-sub" href="#mcu-pwm-cmp">555 做 PWM vs 定时器做 PWM</a>
+          <a class="toc-link is-sub" href="#mcu-pwm-code">用定时器产生精确 PWM</a>
+          <a class="toc-link is-sub" href="#mcu-crystal">晶振电路与负载电容</a>
+          <a class="toc-link is-sub" href="#mcu-hsi">HSI 与 HSE 的精度差距</a>
+          <a class="toc-link is-sub" href="#mcu-wdt">看门狗为什么用独立时钟</a>
+          <a class="toc-link is-sub" href="#mcu-nrst">复位引脚为什么是施密特输入</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-param">脉冲波形的六个参数</a>
+            <a class="toc-link is-sub" href="#sub-schmitt">施密特触发器：滞回与「Z」字形特性</a>
+            <a class="toc-link is-sub" href="#sub-schmitt-real">两种施密特做法与回差计算</a>
+            <a class="toc-link is-sub" href="#sub-hyst">回差、噪声容限与脉冲整形</a>
+            <a class="toc-link is-sub" href="#sub-mono">单稳态触发器：一段定长的脉宽</a>
+            <a class="toc-link is-sub" href="#sub-osc">多谐振荡器：没有稳态的电路</a>
+            <a class="toc-link is-sub" href="#sub-crystal">石英晶体为什么能准到 ppm</a>
+            <a class="toc-link is-sub" href="#sub-555">555 定时器：三个阈值打天下</a>
+            
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link is-sub" href="#calc-schmitt">例一：算一组施密特阈值与回差</a>
+            <a class="toc-link is-sub" href="#calc-hyst">例二：回差多大才够抗干扰</a>
+            <a class="toc-link is-sub" href="#calc-mono">例三：由脉宽反算单稳态的 RC</a>
+            <a class="toc-link is-sub" href="#calc-astable">例四：555 无稳态的频率与占空比</a>
+            <a class="toc-link is-sub" href="#calc-555-mono">例五：555 单稳态的 RC 与误差</a>
+            <a class="toc-link is-sub" href="#calc-clk">例六：时钟精度预算与波特率误差</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#mcu-key">按键消抖：硬件整形 vs 软件消抖</a>
+            <a class="toc-link is-sub" href="#mcu-exti">外部中断为什么必须先整形</a>
+            <a class="toc-link is-sub" href="#mcu-pwm-cmp">555 做 PWM vs 定时器做 PWM</a>
+            <a class="toc-link is-sub" href="#mcu-pwm-code">用定时器产生精确 PWM</a>
+            <a class="toc-link is-sub" href="#mcu-crystal">晶振电路与负载电容</a>
+            <a class="toc-link is-sub" href="#mcu-hsi">HSI 与 HSE 的精度差距</a>
+            <a class="toc-link is-sub" href="#mcu-wdt">看门狗为什么用独立时钟</a>
+            <a class="toc-link is-sub" href="#mcu-nrst">复位引脚为什么是施密特输入</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先给你四个真实的故障现场。它们的代码、接线、芯片都不一样，但根子是同一件事。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场一：按一下键，进了三十多次中断。</b>你把按键接到 PA0，配成外部中断、下降沿触发，中断服务函数里让计数器加一。上电一按——计数器一次跳了 37。你在中断里加了「等按键松开」的循环，结果更糟：松手的时候又进去一串。你怀疑是中断配置错了，翻了三遍寄存器和 CubeMX 的截图。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场二：复位引脚上加了 RC，板子偶尔反复重启。</b>你按照网上的图，在 NRST 上接了 10kΩ 上拉 + 100nF 到地，想做一个上电复位延时。大部分时候正常，但电机一转，板子就开始一连串地重启，像打嗝一样。你把电源换了、电容加大了，都没根治。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场三：晶振不起振，或者串口偶尔错一个字节。</b>8MHz 晶振焊上、两个 22pF 电容焊上，STM32 就是跑不到 72MHz。有时候把烙铁在旁边碰一碰它又好了——这种「碰一下就好」的现象最让人抓狂。另一种版本是：能跑，但串口每隔几分钟收错一个字节。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场四：用 555 做 PWM 调 LED 亮度，最暗也暗不下去。</b>你按网上的公式接了一个 555 无稳态电路，想用「调电位器」的方式调亮度，结果发现占空比怎么调都在 50% 以上——LED 最暗的时候也比预想的亮。你不明白为什么公式里明明有 R1 和 R2，却调不出 10% 的占空比。</p>
+
+          <p class="mt-3">这四个现场的答案都在这一篇里，而且它们是<b class="font-semibold text-ink">同一个原理的四个侧面</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>现场</th><th>表面现象</th><th>真正的原因（本篇哪一节讲）</th></tr></thead>
+              <tbody>
+                <tr><td>按键进多次中断</td><td>一次按下触发几十次边沿</td><td>机械触点在 5~20ms 内弹跳几十次，每一次弹跳都是一个「真实的」下降沿。<b>边沿触发的中断只认边沿，不认你想按几次</b>——必须先整形或用软件消抖（第 4 节）</td></tr>
+                <tr><td>RC 复位偶尔反复重启</td><td>缓慢的模拟曲线 + 噪声</td><td>RC 上升的曲线在门限附近停留很久，噪声一叠就来回穿越门限，产生一串复位脉冲。<b>解决办法是施密特输入</b>（第 2 节原理 + 第 4 节实例）</td></tr>
+                <tr><td>晶振不起振 / 串口错字</td><td>时钟不够稳或压根没跑起来</td><td>振荡电路的<b>起振余量</b>和负载电容没配对；而时钟精度直接决定波特率误差（第 2 节晶体部分 + 第 4 节计算）</td></tr>
+                <tr><td>555 占空比调不下去</td><td>最暗也亮</td><td>555 标准无稳态接法的占空比公式是 (R1+R2)/(R1+2R2)，<b>它的数学下界就是 50%</b>，结构决定了它不可能更小（第 2 节 555 部分）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">换句话说，前面那些篇章教你的是「数字电路怎么处理 0 和 1」。但<b class="font-semibold text-ink">数字电路对输入是有要求的：它假定你送进来的电压要么是干净的低，要么是干净的高，而且不能来回跳</b>。真实世界从来不这样守规矩。这一篇就是补上「模拟世界到数字世界的那道门」：</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="这一篇在整条知识链上的位置">
+            <pre><code>  真实世界的信号                     本篇负责的这段                    数字电路
+  ────────────────────  ────────────────────────────────────  ────────────────
+   缓慢上升的 RC 曲线                                                  组合逻辑
+   带噪声的传感器输出  ──►  【整形】施密特触发器 ──► 干净电平 ──►    时序逻辑
+   弹跳的按键触点              （滞回、两个阈值）                     计数器
+   边沿不干净的方波                                                    单片机引脚
+
+   没有脉冲怎么办？      ──►  【产生】单稳态 / 多谐振荡器 / 555 ──► 时钟、定时
+                               （造一个脉冲 / 造一串脉冲）            触发信号
+
+  两个方向缺一不可：
+     · 整形：把「像数字信号但其实不干净」的东西变成真正能用的数字信号；
+     · 产生：在没有信号的地方造出一个脉冲，或者造出一串节拍。
+    单片机内部所有的时钟、复位、看门狗、消抖，用的都是这两类电路。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么学单片机的人也得学这个</div>
+            <p>因为<b>这些电路并没有消失，它们全都住进了单片机内部</b>。你配的每一个外部中断输入，背后都有一级施密特整形；你的 NRST 复位引脚内部就是一个施密特触发器加滤波；你的看门狗用的独立 RC 振荡器就是多谐振荡器；你设的「上电复位延时」本质上就是单稳态。更实际的一点是：<b>当你需要在单片机外面解决问题时，最省钱的办法往往还是这几个器件</b>——一个 74HC14（六路施密特反相器，几毛钱）能解决一堆「中断乱触发」的问题，比你在软件里写三层状态机靠谱得多。</p>
+            <p class="mt-2">所以这一篇有两个读法：想搞懂原理的，重点看第 2 节的三个公式和 Z 形曲线；想直接解决手头问题的，可以跳到第 4 节，那里每一条都是「你板子上正在发生的事」。</p>
+          </div>
+
+          <h3 id="why-family" class="mt-7 text-base font-semibold">先分清三类电路：有没有稳态</h3>
+          <p class="mt-3">这一篇要讲的电路（施密特、单稳态、多谐振荡器、555）看起来五花八门，其实可以按「<b class="font-semibold text-ink">它有几个稳定状态、能待多久</b>」分成三类。先把这张框架记住，后面每一个电路你都能立刻对号入座：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>类别</th><th>有几个稳态</th><th>行为</th><th>典型器件</th><th>单片机里的对应物</th></tr></thead>
+              <tbody>
+                <tr><td><b>双稳态</b></td><td>2 个</td><td>通电后停在某一侧不再动，靠外部信号才能翻过去；<b>输出只有「跳变」，没有中间过程</b></td><td>RS 锁存器、施密特触发器、D 触发器</td><td>GPIO 输入缓冲、中断边沿检测、NRST 输入</td></tr>
+                <tr><td><b>单稳态</b></td><td>1 个（另有一个「暂稳态」）</td><td>平时待在那唯一的稳态；来一个触发脉冲就跳到暂稳态，<b>待一段由 RC 决定的时间后自动弹回来</b></td><td>74LS121、74LS123、555 的单稳态接法</td><td>上电复位延时、看门狗溢出周期、按键长按计时</td></tr>
+                <tr><td><b>无稳态</b>（多谐振荡器）</td><td>0 个</td><td>没有稳态，两个暂稳态之间自己来回跳，<b>不需要外部触发就在输出方波</b></td><td>环形振荡器、RC 振荡器、石英晶体振荡器、555 的无稳态接法</td><td>HSI / LSI 内部 RC 振荡器、系统主时钟</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张表里最反直觉的是最后一行：<b class="font-semibold text-ink">「无稳态」不是缺点，恰恰是时钟的来源</b>。一个需要外部信号才能动的电路没法当时钟——时钟的定义就是「没人管它，它自己也一直在跳」。而第一行「双稳态」是整形的基础：它只允许输出在两个干净的电平之间跳，中间那段模糊的区域被它「藏」起来了。</p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节从「怎么描述一个脉冲」开始，再依次讲三类电路。每一段都有一张 ASCII 图或电路图，公式都会逐项拆开解释——包括那个最常被当成「魔法常数」的 1.1RC 到底是怎么来的。</p>
+
+          <h3 id="sub-param" class="mt-7 text-base font-semibold">脉冲波形的六个参数：工程上怎么测、超了会怎样</h3>
+
+          <p class="mt-3">「脉冲波形」在课本上画得很漂亮：直上直下的方波，高就是高、低就是低。但真实电路里出来的波形是<b class="font-semibold text-ink">有斜边的梯形</b>——上升要时间、下降要时间，甚至顶上是圆的。所以描述一个脉冲不能用「高/低」两个字，要用六个参数。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="脉冲波形的参数定义（上升沿、下降沿、脉宽、周期）">
+            <pre><code>   电压
+    ↑
+ V_m ┤              ┌─────────────────────┐                 ┌──────────────
+     │             ╱                       ╲               ╱
+ 90% ┤           ╱                           ╲            ╱     ← 90% 幅度点
+     │          ╱                             ╲          ╱
+ 50% ┤         ╱                               ╲        ╱       ← 50% 幅度点
+     │        ╱                                 ╲      ╱            （量脉宽用这条线）
+ 10% ┤      ╱                                     ╲   ╱         ← 10% 幅度点
+     │     ╱                                       ╲ ╱
+   0 ┼────┴─────────────────────────────────────────╲─────────────────► 时间
+          │←t_r→│            │←──── t_w ────→│       │←t_f→│
+          │←─────────────────── T ──────────────────────→│
+
+  【六个参数一句话解释】
+    幅度 V_m    ：高电平平台与低电平平台之差（也叫逻辑摆幅），单位 V
+    周期 T      ：两个相邻同向边沿（比如两个上升沿）之间的时间，单位 s
+    频率 f      ：f = 1 / T，单位 Hz。「1kHz = 每 1ms 一个周期」
+    脉宽 t_w    ：一个脉冲从升到 50% 到降到 50% 之间的时间，单位 s
+    占空比 q    ：q = t_w / T × 100%，描述「高电平占了整个周期的百分之几」
+    上升时间 t_r：从 10% 幅度升到 90% 幅度所需的时间（下降时间 t_f 定义相反）
+
+  ⚠ 三个容易记错的地方：
+    ① t_r 和 t_f 用的是【10% 和 90%】，不是 0% 和 100%。
+       因为波形在两端是渐近的，永远到不了、也离不开，只能用中间这段来定义。
+    ② 脉宽用【50% 点】定义，不是用「开始上升的那一瞬」。
+       50% 点是波形斜率最大、位置最确定的地方，不同人量出来的结果最一致。
+    ③ 幅度是「平台之差」，不是「峰值减零」。
+       如果低电平本身不是 0V（比如 0.4V），V_m = 高电平 − 低电平。</code></pre>
+          </div>
+
+          <p class="mt-3">下面这张表是这一小节的正文：<b class="font-semibold text-ink">每个参数怎么测、超了会怎样</b>。这两列才是工程上有用的部分，因为「定义」你随时能查，而「超了会怎样」是花钱买的教训。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>参数</th><th>典型值 / 数量级</th><th>工程上怎么测</th><th>超了会怎样</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>幅度 V<sub>m</sub></b></td>
+                  <td>3.3V 系统 3.3V；5V 系统 5V；串口 ±3~±15V</td>
+                  <td>示波器用「高电平」和「低电平」两个自动测量相减，或者用 Vpp 读（Vpp 只在低电平为 0 时才等于幅度）</td>
+                  <td><b>太高</b>：超过接收端绝对最大额定值就烧（3.3V 器件大约 3.6V 以上，见《3.3V 电平与硬件安全》那一条线的知识）；<b>太低</b>：低于对方的 V<sub>IH</sub> 就认不出高电平。注意高电平带载后会掉：STM32 输出 8mA 时高电平只有约 2.9V</td>
+                </tr>
+                <tr>
+                  <td><b>周期 T / 频率 f</b></td>
+                  <td>时钟 8MHz~72MHz；PWM 1kHz~20kHz；闪烁 1~10Hz</td>
+                  <td>示波器「周期」自动测量（默认按 50% 点算），或用频率计。测高频时要注意探头带宽</td>
+                  <td>周期是整个系统的节拍：<b>周期错了，所有基于时间的量都跟着错</b>——波特率、定时器时长、采样率、PWM 频率。串口收发双方周期差 3% 以上就可能错字节</td>
+                </tr>
+                <tr>
+                  <td><b>脉宽 t<sub>w</sub></b></td>
+                  <td>按键中断 10~100µs；超声波回波 100µs~30ms；红外遥控 0.56~1.69ms</td>
+                  <td>示波器「正脉宽」自动测量。窄脉冲（宽度和 t_r 一个量级时）不能用 50% 点量，要用 V<sub>IH</sub>/V<sub>IL</sub> 之间的时间量</td>
+                  <td><b>太窄</b>：接收端来不及反应。器件手册里有「最小脉宽」要求，比如 STM32 的定时器输入捕获要求脉宽大于一个采样时钟周期，红外接收头要求脉宽大于 500µs；<b>太宽</b>：如果是通信协议就有帧错误，如果是驱动就有占空比错误</td>
+                </tr>
+                <tr>
+                  <td><b>占空比 q</b></td>
+                  <td>时钟 50%；PWM 调光 1%~100%；舵机 5%（20ms 周期、1~2ms 脉宽）</td>
+                  <td>示波器「占空比」自动测量；或者用定时器输入捕获同时测高电平时间和周期，相除得到（第 4 节有代码）</td>
+                  <td><b>占空比不是「差不多就行」的参数</b>：舵机靠 5%±2.5% 的角度定位，偏差 1% 就是几度的角度误差；LED 调光和电机调速直接和它成正比；时钟的占空比甚至会影响内部 PLL 的稳定性</td>
+                </tr>
+                <tr>
+                  <td><b>上升时间 t<sub>r</sub></b></td>
+                  <td>STM32 高速模式约几 ns；开漏 + 4.7kΩ 上拉约 100~300ns；RC 整形电路可以到毫秒级</td>
+                  <td>示波器「上升时间」自动测量，但<b>必须先确认示波器和探头的带宽够</b>：经验关系是 BW ≈ 0.35 / t<sub>r</sub>。要测 10ns 的边沿，至少需要 35MHz 带宽；用 20MHz 的老示波器测出来的「10ns」其实是示波器自己的极限</td>
+                  <td><b>太慢</b>的危害比大多数人想的大：边沿经过「不确定区」的时间越长，噪声叠上去就越容易产生多次穿越，接收端就可能看到多个边沿（这正是本篇要解决的核心问题）；同时慢边沿意味着更长的电流交叠时间，功耗和发热都会增加；<b>太快</b>则带来串扰和 EMI（这一条在 EMC 那一篇展开）</td>
+                </tr>
+                <tr>
+                  <td><b>下降时间 t<sub>f</sub></b></td>
+                  <td>通常和 t<sub>r</sub> 同量级，但不一定相等</td>
+                  <td>示波器「下降时间」自动测量</td>
+                  <td>和 t<sub>r</sub> 同理。特别提醒：<b>开漏输出的上升沿和下降沿天生不对称</b>——拉低靠 MOS 管（几 ns），拉高靠上拉电阻给线电容充电（几百 ns），这会让 I2C 的波形看起来「下降很陡、上升很缓」，是正常现象</td>
+                </tr>
+                <tr>
+                  <td><b>占空比失真 Δq</b></td>
+                  <td>时钟要求通常在 ±2%~±5% 以内（按具体器件手册）</td>
+                  <td>分别量「正脉宽」和「负脉宽」，两者之差的一半就是失真量。也可以用示波器的占空比测量减 50%</td>
+                  <td>时钟的高电平时间和低电平时间不相等，会直接吃掉时序余量：对上升沿触发和下降沿触发的器件，它们的可用时间不一样长。<b>差分时钟、需要 50% 占空比的 PLL 输入、以及 DDR 类接口对这个参数都很敏感</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">量波形之前，先做这三件事</div>
+            <p><b>① 探头打到 ×10 档。</b>×1 档的探头输入电容有 100pF 以上，接上去就把被测电路的边沿压慢了——你量到的 t<sub>r</sub> 里有一大半是探头造成的。×10 档的输入电容只有 10~15pF，影响小得多。</p>
+            <p class="mt-2"><b>② 地线夹要短。</b>探头那根 15cm 的地线夹本身就是一根天线，被测波形上的「振铃」有很大一部分是它引入的。看到边沿上有十几 MHz 的振荡，先用短地弹簧再量一次，别急着改电路。</p>
+            <p class="mt-2"><b>③ 触发方式选「边沿触发」，触发电平设在幅度的 50%。</b>示波器的自动测量（周期、脉宽、上升时间）全部依赖触发点的稳定性；触发电平设得不好，屏幕上波形会左右晃，量出来的数字也跟着跳。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么这一篇要花这么多篇幅讲「怎么测」？</b>因为这一篇后面所有的电路——施密特、单稳态、振荡器——它们好不好的判据全在这六个参数上。你不能只在草稿纸上算出一个频率就说电路没问题：<b class="font-semibold text-ink">必须拿示波器看这四个数：幅度够不够、周期对不对、脉宽是不是你要的、上升沿陡不陡</b>。算得再准，边沿是糊的，接收端照样认不出来。</p>
+        <h3 id="sub-schmitt" class="mt-7 text-base font-semibold">施密特触发器：滞回与为什么传输特性是「Z」字形</h3>
+
+          <p class="mt-3">先从最要命的问题说起：<b class="font-semibold text-ink">为什么一个缓慢变化的、带一点噪声的信号，接进普通门电路会变成一堆边沿？</b></p>
+
+          <p class="mt-3">普通反相器（或任何数字输入）的传输特性只有<b class="font-semibold text-ink">一个</b>转折点：输入电压低于门限 V<sub>th</sub> 时输出高，高于 V<sub>th</sub> 时输出低。这个特性画出来是一条陡峭的下降曲线，上下各一段平台。它在「理想方波输入」下工作得很好——输入从 0 冲到 3.3V 只用几个纳秒，中间那段模糊区域一闪而过，输出干净利落地翻一次。</p>
+
+          <p class="mt-3">但如果你送的信号不是这样呢？比如按键触点、RC 充电曲线、传感器输出——它们经过门限的时间可能是毫秒级。在这段时间里，输入电压就在门限附近<b class="font-semibold text-ink">徘徊</b>，任何一点噪声（电源纹波、旁边走线的串扰、触点的接触噪声）都能把它推过门限再推回来。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="单阈值 vs 双阈值：同一段输入，两种输出">
+            <pre><code>【输入】一段缓慢上升、带 100mV 噪声的信号（每格代表一段电压/时间）
+   电压
+    ↑
+    │                                  ╱╲      ╱╲
+    │                              ╱╲╱  ╲  ╱╲╱  ╲
+V_th┤─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─╱─ ─ ─╲╱─ ─ ─ ─ ─╲─ ─ ─ ─ ─ ─ ─  ← 普通电路唯一
+    │                        ╱╲╱                       ╲            的门限
+    │                    ╱╲╱
+    │              ╱╲  ╱
+    │         ╱╲ ╱  ╲╱
+    │      ╱╲╱  ╲╱
+    │   ╱╲╱
+    └───────────────────────────────────────────────────────► 时间
+       └──────────── 输入在门限附近停留了 1ms ────────────┘
+
+【普通单阈值电路的输出】输入每穿越门限一次，输出就翻一次 —— 灾难
+   电压
+    ↑
+ VDD┤  ┌┐ ┌┐  ┌─┐  ┌┐┌──┐  ┌┐   ┌──────┐┌─────┐
+    │  ││ ││  │ │  │││  │  ││   │      ││     │
+   0┴──┘└─┘└──┘ └──┘└┘  └──┘└───┘      └┘     └───────────
+        ↑↑↑↑↑↑↑↑↑↑↑↑  一共产生了十几个边沿
+        你只想按一次键，中断却进了十几次
+
+【施密特触发器的输出】因为门限会「跳」，只在一个门限处翻一次
+   电压
+    ↑
+ VDD┤                                        ┌──────────────
+    │                                       │
+   0┴───────────────────────────────────────┘
+                                            ↑
+                                    全程只有这一个边沿
+
+  差别在哪？两种电路的输入是同一段信号，输出却完全不同。
+  施密特触发器多了一个 V_T− 门限：当输入升过 V_T+ 把输出拉低之后，
+  「下次要注意的门限」立刻变成了更低的 V_T−。
+  噪声必须大过 V_T+ 与 V_T− 之间的整个距离，才能把输出推回去。</code></pre>
+          </div>
+
+          <p class="mt-3">这个「两个门限、方向不同」的性质就叫<b class="font-semibold text-ink">滞回</b>（hysteresis，也叫滞后），两个门限之差叫<b class="font-semibold text-ink">回差电压</b>。它的正式定义是：</p>
+
+          <div class="callout callout-info mt-3">
+            <div class="callout-title">两个门限与回差电压</div>
+            <p><b>正向阈值电压 V<sub>T+</sub></b>（又叫上门限）：输入<b>从低往高</b>升，升到 V<sub>T+</sub> 时输出翻转。</p>
+            <p class="mt-2"><b>负向阈值电压 V<sub>T−</sub></b>（又叫下门限）：输入<b>从高往低</b>降，降到 V<sub>T−</sub> 时输出翻转回去。</p>
+            <p class="mt-2"><b>回差电压（滞回电压）ΔV<sub>T</sub> = V<sub>T+</sub> − V<sub>T−</sub></b>。注意是减法：V<sub>T+</sub> 一定大于 V<sub>T−</sub>，所以 ΔV<sub>T</sub> 恒为正。</p>
+            <p class="mt-2">顺便记住 <b>(V<sub>T+</sub> + V<sub>T−</sub>) / 2</b> 这个量，它是电路的<b>中心阈值</b>（课堂上也叫 V<sub>th</sub> 或偏移电压）。<b>回差决定抗干扰能力，中心阈值决定占空比</b>——这两个性质后面反复用到，现在就先分开记住。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么传输特性曲线画出来是一个「Z」字？</b>因为这条曲线的横轴是输入、纵轴是输出，而「输出翻不翻」同时取决于输入<b>现在是多少</b>和输入<b>正在往哪边走</b>。同一个输入电压，在上升途中和在下降途中，输出可能完全不一样——这就没法用一条单值的曲线表示了，必须画出「走哪条路」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="施密特触发器的传输特性（电压传输特性）：Z 字形怎么来的">
+            <pre><code>   v_O（输出）
+    ↑
+V_OH┤         ┌───────────────────────────  ← 输出高电平平台
+    │         │
+    │         │  (A) 上升段：v_I 从低升上来，
+    │         │      输出一直维持 V_OH；
+    │         │      到 v_I = V_T+ 时【垂直向下跳】
+V_OL┤─────────┘   ╱
+    │            ╱   ← 两条竖直的跳变线
+    │           ╱
+    │          ╱   (B) 下降段：v_I 从高降回来，
+    │         ╱        输出一直维持 V_OL；
+    │        ╱         要降到更低的 V_T− 才【垂直向上跳】回 V_OH
+    │       ▼
+    └───────┬─────────────┬──────────────────► v_I（输入）
+          V_T−          V_T+
+            └─── ΔV_T ───┘
+
+  按方向读这条曲线，就是一台「状态机」：
+    · 输出当前是高：只关心 V_T+ 这一条竖线（往下降的那条看不见）
+    · 输出当前是低：只关心 V_T− 这一条竖线
+  所以【输入同一个电压值，输出可能是高也可能是低】，取决于它从哪边来。
+
+  两个竖直跳变线在横轴上的距离 = 回差电压 ΔV_T
+    ΔV_T 越大 → Z 字越「胖」 → 抗干扰越强，但越不灵敏
+    ΔV_T = 0  → Z 字退化成一条竖线，就是普通门电路（同一个门限来回翻）
+
+  ⚠ 常见画错：Z 字的方向。CMOS 同相施密特是「输入高→输出高」，
+     所以曲线是【左下→右上】；反相施密特（如 74HC14）是「输入高→输出低」，
+     曲线是【左上→右下】（像字母 Z 本身）。看手册时先确认极性，
+     别背图形，背【两个门限 + 输出跟着谁走】。</code></pre>
+          </div>
+
+          <p class="mt-3">课本上把施密特触发器的用途归成三条，这一篇的重点是第三条，但前两条你也该知道，因为它们经常在单片机项目里冒出来：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>用途</th><th>做什么</th><th>单片机项目里的真实例子</th></tr></thead>
+              <tbody>
+                <tr><td><b>波形变换</b></td><td>把正弦波、三角波、任意缓慢变化的波形整成矩形脉冲，边沿由电路决定，不再依赖输入斜率</td><td>把霍尔传感器输出的近似正弦（齿轮转过时的磁场变化）变成干净的转速脉冲，送给外部计数引脚。没有施密特，低速转动时会数出一堆假脉冲</td></tr>
+                <tr><td><b>脉冲鉴幅</b></td><td>只让幅度超过 V<sub>T+</sub> 的脉冲通过，幅度小的丢弃；回差还能防止顶部带噪声的脉冲被重复计数</td><td>把红外接收头、光电对管的输出和一个参考电平比较，只有「真的挡住了」才算一次计数，避免环境光造成的小幅度波动被当成事件</td></tr>
+                <tr><td><b>脉冲整形</b>（本篇主题）</td><td>把「像数字信号但不干净」的信号变成真正能用的数字信号：边沿干净、只翻一次</td><td>按键输入、外部中断输入、复位引脚、编码器 A/B 相输入、长线缆传来的信号</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-schmitt-real" class="mt-7 text-base font-semibold">两种施密特做法与回差电压计算</h3>
+
+          <p class="mt-3">滞回这个性质不会凭空出现，它必须由<b class="font-semibold text-ink">正反馈</b>造出来。这一小节给你两条工程上真会用的路：用运放搭（阈值精密、可调），用门电路搭（便宜、快）。两条路的公式都要自己推一遍——因为课本上那一串「V<sub>T+</sub> = 某某·R1/(R1+R2) + 某某·R1/(R1+R2)」如果只背结论，换个电路图立刻就废了。</p>
+
+          <p class="mt-3">在推导之前，先记住一个能省掉一半记忆量的<b class="font-semibold text-ink">通用结构</b>：</p>
+
+          <div class="callout callout-info mt-3">
+            <div class="callout-title">所有施密特阈值公式的共同结构</div>
+            <p><b>比较端（运放的同相端、或者门电路的输入节点）的电位，永远是「几个电压源按电阻加权平均」；阈值就是让这个加权平均等于翻转门限的那个输入值。</b></p>
+            <p class="mt-2">权重的规律是<b>「看对侧」</b>：想求某个源对节点电位的贡献，分子上写的是<b>另一个</b>电阻。两个源 V<sub>a</sub>（经 R<sub>a</sub>）、V<sub>b</sub>（经 R<sub>b</sub>）在节点上分压：</p>
+            <p class="mt-2 text-center font-mono text-sm">V<sub>节点</sub> = ( V<sub>a</sub>·R<sub>b</sub> + V<sub>b</sub>·R<sub>a</sub> ) / ( R<sub>a</sub> + R<sub>b</sub> )</p>
+            <p class="mt-2">把「输出 v<sub>O</sub>」当成其中一个源代进去，就得到两个阈值（因为 v<sub>O</sub> 有两种取值）；两个阈值相减，参考电压那一项互相抵消，<b>剩下的就是回差</b>——这就是为什么回差公式里通常看不到 V<sub>ref</sub>。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">做法一：用运算放大器 + 正反馈。</b>关键细节只有一句话：<b>反馈电阻必须接回同相端（+），不能接反相端</b>。接回反相端是负反馈，电路会老老实实做线性放大，你怎么调都不会有回差。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="运放构成的施密特触发器（反相输入型）">
+            <pre><code>                 R1（正反馈电阻，从输出接回同相端）
+          ┌───────────/\/\/───────────┐
+          │                            │
+          │        ┌─────────┐         │
+   v_I ───┴────────┤−        │         │
+                   │  运放   ├─────────┴──────► v_O
+        V_R ──R2───┤+        │
+                   └─────────┘
+
+  【节点方程】只看同相端那个节点：有两个源经两个电阻接到它
+        · 输出 v_O 经 R1 接过来
+        · 参考电压 V_R 经 R2 接过来
+    所以同相端电位（直接套上面的通用结构）：
+        V(+) = ( V_R·R1 + v_O·R2 ) / ( R1 + R2 )
+
+  【什么时候翻转】反相输入端就是 v_I 本身，运放在 v_I = V(+) 时翻转：
+        v_I = V(+) = ( V_R·R1 + v_O·R2 ) / ( R1 + R2 )
+    把 v_O 的两种取值代进去，就得到两个阈值：
+        输出为高（v_O = +V_sat，输入正在往上升）：
+             V_T+ = ( V_R·R1 + V_sat·R2 ) / ( R1 + R2 )
+        输出为低（v_O = −V_sat，输入正在往下降）：
+             V_T− = ( V_R·R1 − V_sat·R2 ) / ( R1 + R2 )
+    两式相减，V_R 项抵消：
+             ΔV_T = 2 · V_sat · R2 / ( R1 + R2 )
+
+  【单电源时更常用的版本】如果 V_R 直接接地（V_R = 0），公式塌成一行：
+             V_T+ ≈ V_sat · R2 / ( R1 + R2 )      V_T− ≈ 0
+             ΔV_T ≈ V_sat · R2 / ( R1 + R2 )
+    这一版最好记：【回差 = 输出摆幅被两个电阻分压后的那一份】。
+    V_sat 是运放输出能到达的最高电压（不是电源电压！）：
+        · 普通运放（LM358、LM324、741）：V_sat ≈ V_CC − 1 ~ 1.5V
+        · 轨到轨运放（MCP6001、TLV9001、LMV358）：V_sat ≈ V_CC − 0.1V
+
+  【两个极限检查，用来验算你有没有推反】
+    · R2 特别大（R2 远大于 R1）：V(+) 几乎等于 v_O → 阈值接近 ±V_sat
+      → 回差极大。物理上对：参考电压几乎「拉不住」这个节点了。
+    · R2 特别小（R2 远小于 R1）：V(+) 几乎等于 V_R → 两个阈值都贴近 V_R
+      → 回差趋近 0。物理上对：节点被参考电压死死钉住。
+    任何一次推导完，都拿这两个极限代一下，比反复检查符号靠谱。</code></pre>
+          </div>
+
+          <p class="mt-3">用运放做施密特的好处是<b class="font-semibold text-ink">阈值精密且可以随便定</b>：你能用电阻分压造出任意 V<sub>ref</sub>，也能用 R1/R2 精确设定回差，还能用高精度电阻把阈值做到 1% 以内。代价是速度——运放的压摆率（slew rate）决定了输出边沿，一般也就几 V/µs，比门电路的 ns 级慢好几个数量级。所以：<b>要精密阈值用运放，要快边沿用门电路</b>。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">做法二：用门电路构成施密特。</b>这条路又分两种，实际项目里 99% 用第一种：</p>
+
+          <p class="mt-3"><b>（2a）直接用现成的施密特门芯片</b>——这是最省事的办法，回差由芯片内部电路保证，你不用算也不用调。常用的几款：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>型号</th><th>功能</th><th>供电范围</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td><b>74HC14</b></td><td>六路施密特反相器（输入带滞回，输出反相）</td><td>2~6V</td><td>最常用的一款。3.3V 和 5V 系统都能用；六个门可以同时干六件事（整形按键、整形编码器 A/B 相、给两个信号做缓冲……）</td></tr>
+                <tr><td><b>74HCT14</b></td><td>同上，TTL 电平输入</td><td>4.5~5.5V</td><td>输入门限按 TTL 设计（V<sub>IH</sub> ≈ 2V），所以 3.3V 器件的输出能可靠驱动它——做 3.3V 到 5V 的电平转换时很有用</td></tr>
+                <tr><td><b>74HC132</b></td><td>四路施密特与非门</td><td>2~6V</td><td>需要「带整形的逻辑门」时用它，比如把它接成 RS 锁存器，按键信号进来就已经是干净的了</td></tr>
+                <tr><td><b>CD40106</b></td><td>六路施密特反相器</td><td>3~15V</td><td>宽压版本，适合 12V 等非标准电源的系统；速度慢（µs 级），但便宜、皮实</td></tr>
+                <tr><td><b>74LS14</b></td><td>六路施密特反相器（TTL 双极型）</td><td>5V</td><td>老器件，输入电流大（需要灌电流），功耗高；新设计不要再用，但老图纸上很多</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">用 74HC14 这类芯片必须知道的两件事</div>
+            <p><b>① 回差不是固定值，它随电源电压变。</b>手册会分档给出 V<sub>T+</sub> 和 V<sub>T−</sub> 的最小/典型/最大值，并且分别在 2V、4.5V、6V 三档供电下给数据。量级参考（<b>按典型值估算，实际以你手上那颗芯片的手册分档为准</b>）：5V 供电时 V<sub>T+</sub> 大约 2.5V、V<sub>T−</sub> 大约 1.6V，回差 0.7~1V 左右；3.3V 供电时两个门限按比例下降，回差也缩到 0.5~0.7V 左右。<b>所以「噪声 1V、我就用 74HC14」这种拍脑袋的选型是不成立的</b>——必须去查手册在你实际 V<sub>CC</sub> 下的分档数据，还要按最小值而不是典型值来算余量。</p>
+            <p class="mt-2"><b>② 不用的输入不能悬空。</b>CMOS 输入阻抗极高，悬空的输入会被漏电流慢慢充到门限附近，然后被噪声推来推去——结果不是「不用就不耗电」，而是<b>内部推挽输出级一直处于半导通状态，静态电流从几十 nA 涨到几 mA，芯片发热，还可能自激振荡</b>。正确做法：不用的输入直接接 GND 或 V<sub>CC</sub>。这一条对所有的 CMOS 门都成立，但对施密特输入尤其危险，因为悬空时它自己就有能力在门限附近来回翻。</p>
+          </div>
+
+          <p class="mt-3"><b>（2b）用两个普通反相器 + 两个电阻自己搭</b>——当手头只有普通门（比如 74HC04）又需要一点回差时用。这里把推导完整走一遍，因为它的结果出奇地简单好记。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两个反相器 + 电阻正反馈构成的施密特（回差 ΔV_T ≈ V_DD·R1/R2）">
+            <pre><code>                        ┌───────────┐      ┌───────────┐
+   v_I ──R1──┬─────────►│ 反相器 1  ├─────►│ 反相器 2  ├──┬────► v_O
+             │          └───────────┘      └───────────┘  │
+             │                                            │
+             └──────────────────R2─────────────────────────┘
+                        （反馈电阻，从输出接回节点 A）
+   节点 A 上有两个源：v_I 经 R1 进来，v_O 经 R2 进来。于是：
+        V_A = ( v_I·R2 + v_O·R1 ) / ( R1 + R2 )
+
+   反相器 1 的翻转门限记为 V_th（CMOS 大致是 V_DD/2，实际有分散）；
+   两个反相器串联 ⇒ 输出 v_O 与 V_A 【同相】：
+        V_A 高 → v_O = V_DD      V_A 低 → v_O = 0
+
+   【求 V_T+】v_O 目前是低（0），输入往上走，要让 V_A 升到 V_th：
+        ( v_I·R2 ) / ( R1 + R2 ) = V_th
+        ⇒ V_T+ = V_th · ( R1 + R2 ) / R2 = V_th · ( 1 + R1/R2 )
+   【求 V_T−】v_O 目前是高（V_DD），输入往下降，要让 V_A 掉到 V_th：
+        ( v_I·R2 + V_DD·R1 ) / ( R1 + R2 ) = V_th
+        ⇒ V_T− = V_th · ( 1 + R1/R2 ) − V_DD · R1/R2
+   取 V_th = V_DD / 2 代入，两式立刻变干净：
+        V_T+ = ( V_DD/2 ) · ( 1 + R1/R2 )
+        V_T− = ( V_DD/2 ) · ( 1 − R1/R2 )
+        ΔV_T = V_T+ − V_T− = V_DD · R1 / R2      ← 记住这一行就够了
+
+   【数值验证】V_DD = 5V，R1 = 10kΩ，R2 = 100kΩ：
+        ΔV_T = 5 × 10k/100k = 0.5V
+        V_T+ = 2.5 × (1 + 0.1) = 2.75V
+        V_T− = 2.5 × (1 − 0.1) = 2.25V
+        中心阈值 (V_T+ + V_T−)/2 = 2.5V = V_DD/2  （对称，占空比不会偏）
+
+   【成立条件】必须 R1 小于 R2（反馈电阻比输入电阻大）。
+        若 R1 = R2，则 V_T− = 0、V_T+ = V_DD，回差拉满；
+        若 R1 大于 R2，V_T− 会算出负值 —— 说明电路压根翻不回来，失效。
+
+   【这个土办法的三个代价】
+        ① 反相器真实的 V_th 不等于 V_DD/2（分散可达 ±15%，还随温度漂），
+           所以两个阈值都不精确，中心也会偏离 V_DD/2 → 占空比会偏；
+        ② R1 与反相器输入电容（几 pF）形成延迟，边沿会变慢；
+        ③ V_th 随电源电压变，整个回差跟着 V_DD 走，电源不稳时回差也不稳。
+        要精密阈值还是回到做法一（运放），要省事就买 74HC14。</code></pre>
+          </div>
+
+          <p class="mt-3">三种做法放在一起对比，选型的依据其实很清楚：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>做法</th><th>回差能不能自己定</th><th>阈值精度</th><th>边沿速度</th><th>成本与器件数</th><th>什么场合用它</th></tr></thead>
+              <tbody>
+                <tr><td><b>专用施密特门</b><br>74HC14 / 74HC132 / CD40106</td><td>不能，由芯片决定（只能靠换型号/换 V<sub>CC</sub> 微调）</td><td>中等：手册给分档，典型值够用，最坏情况要留余量</td><td>快，ns 级传播延迟</td><td>一个芯片几毛钱，一个门管一路信号</td><td><b>首选</b>。按键、编码器、复位、长线输入，绝大多数整形场合</td></tr>
+                <tr><td><b>普通门 + 电阻反馈</b><br>74HC04 + 两个电阻</td><td>能，ΔV<sub>T</sub> ≈ V<sub>DD</sub>·R1/R2，改电阻就能调</td><td>差：依赖门电路自己的 V<sub>th</sub>，分散大</td><td>略慢（R1 与输入电容形成延迟）</td><td>最便宜，但要多占两个门和两个电阻</td><td>手头只有普通门、又只需要「有一点回差」时；或者教学实验</td></tr>
+                <tr><td><b>运放 + 正反馈</b><br>LM358 / MCP6001</td><td>能，两个电阻分别定中心阈值和回差</td><td>好：用 1% 电阻可以做到 1% 以内，还能加参考电压做精密比较</td><td>慢：受运放压摆率限制，µs 级</td><td>较贵：一个运放 + 3 个电阻（双电源还要负电源）</td><td>需要精密阈值、需要自定义中心电压、信号本身很慢（温度、传感器、电池电压检测）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">推导这一节公式的最快路径</div>
+            <p>不要背公式，背这三步：<b>① 找出「比较端」那个节点（运放的同相端 / 门的输入节点）；② 写出它的加权平均表达式，把输出 v<sub>O</sub> 当成一个源；③ 令它等于翻转门限（运放是 v<sub>I</sub>、门是 V<sub>th</sub>），把 v<sub>O</sub> = 高 和 v<sub>O</sub> = 低 代两次，两个阈值就出来了。</b>回差永远是这两个值相减。</p>
+          </div>
+
+          <h3 id="sub-hyst" class="mt-7 text-base font-semibold">回差、噪声容限与脉冲整形</h3>
+
+          <p class="mt-3">「噪声小于回差就不会误翻转」这句话你大概听过，但工程上一旦要<b class="font-semibold text-ink">选一个具体的回差</b>，就必须把它变成一个可以算的不等式。这里给你一个能直接用的判据。</p>
+
+          <p class="mt-3">设输入信号上叠加的噪声峰峰值为 V<sub>n</sub>（用示波器量：看波形上的毛刺高度，取最大值）。输入从低往高缓慢上升，在某个时刻穿过 V<sub>T+</sub>，输出翻转为低，门限随即变成 V<sub>T−</sub>。此时输入上的噪声会让输入电压在「当时的真实值 ±V<sub>n</sub>/2」范围内抖动。只要：</p>
+
+          <div class="callout callout-warn mt-3">
+            <div class="callout-title">抗干扰判据（要背下来的那个不等式）</div>
+            <p class="text-center"><b>ΔV<sub>T</sub> 大于 V<sub>n</sub>（噪声峰峰值），并且留 2~3 倍余量</b></p>
+            <p class="mt-2">含义：输入已经越过 V<sub>T+</sub> 之后，就算噪声往反方向摆动整整一个峰峰值，也够不到 V<sub>T−</sub>，输出不可能被推回去。<b>留 2~3 倍余量</b>是因为噪声峰峰值会随温度、负载、线缆长度变化，而且 V<sub>T+</sub>、V<sub>T−</sub> 自己也有温漂和批次分散。</p>
+            <p class="mt-2">反面同样成立：<b>ΔV<sub>T</sub> = 0 的普通门电路，任何幅度的噪声都能造成误翻转</b>——这就是为什么「断掉施密特的回差」等于把抗干扰能力归零。</p>
+          </div>
+
+          <p class="mt-3">还有一个更实用的<b class="font-semibold text-ink">「门限滞留时间」估算法</b>，它能回答「一次按键到底会触发几次中断」这类问题。设输入电压在门限附近的上升斜率是 k（单位 V/s），噪声峰峰值 V<sub>n</sub>，那么输入停留在「门限 ±V<sub>n</sub>/2」这条带子里的时间是：</p>
+
+          <p class="mt-3 text-center font-mono text-sm">t<sub>滞留</sub> ≈ V<sub>n</sub> / k</p>
+
+          <p class="mt-3">在这段时间里，<b class="font-semibold text-ink">输出的每一次抖动都是一个真实的边沿</b>。举个数：按键触点的抖动信号斜率约 0.1V/ms，叠加的接触噪声峰峰值 100mV，则 t<sub>滞留</sub> ≈ 100mV / (0.1V/ms) = 1ms。如果这 1ms 里有几十次抖动，下游的边沿触发中断就会进几十次——这和第 4 节要讲的实测现象完全对得上。</p>
+
+          <p class="mt-3">反过来，这也就是为什么<b class="font-semibold text-ink">硬件消抖和软件消抖做的其实是同一件事</b>：硬件用 RC 把斜率 k 压小、再用施密特的 ΔV<sub>T</sub> 把「滞留带」的宽度吃掉；软件则是干脆在这段时间里不看输入，等它稳定了再读。两条路的代价不同（第 4 节有完整对比）。</p>
+
+          <p class="mt-3">现在讲另一面。<b class="font-semibold text-ink">回差不是越大越好</b>，它的代价有三个，每一个都很实在：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>回差太大带来的代价</th><th>后果</th><th>什么时候会真的踩到</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>① 灵敏度下降</b><br>（最小可辨信号变大）</td>
+                  <td>能被电路识别的最小信号幅度，至少得大于 ΔV<sub>T</sub>。ΔV<sub>T</sub> = 2V 的电路，面对 1V 幅度的输入根本翻不动——输出一直停在原地</td>
+                  <td>做小信号检测时最容易踩：光电二极管、热电偶、麦克风前置放大后的信号幅度可能只有几十到几百 mV。这时候用回差 2V 的施密特门去接，等于什么都收不到</td>
+                </tr>
+                <tr>
+                  <td><b>② 翻转点偏离，造成失真与延迟</b></td>
+                  <td>V<sub>T+</sub> 比理想中心高、V<sub>T−</sub> 比中心低，意味着「上升沿被推迟、下降沿被提前」，输出脉冲会变窄；输入边沿越缓，这个推迟越明显</td>
+                  <td>用施密特整形成时钟或测周长的信号时：整出来的占空比不是 50%，周期测量会带上一个和输入斜率相关的系统误差。做转速测量时这个误差会随转速变化，非常难补偿</td>
+                </tr>
+                <tr>
+                  <td><b>③ 温度漂移被放大</b></td>
+                  <td>回差本身由电路参数决定，会随温度变；回差大的电路，其两个门限的绝对漂移也更大</td>
+                  <td>户外设备、车里、工业现场（−40~85℃）。此时「按常温算好的回差」低温下可能缩水一半，抗干扰余量悄悄没了</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">所以工程上的选择不是「回差越大越好」，而是：<b class="font-semibold text-ink">先量出输入信号的噪声峰峰值 V<sub>n</sub> 和有效幅度 V<sub>signal</sub>，然后取一个同时满足两条约束的 ΔV<sub>T</sub></b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="回差取值的两条约束（一个都不能破）">
+            <pre><code>  约束一（抗干扰，下限）：ΔV_T  ≥  2 ~ 3 × V_n
+        V_n = 输入端实测的噪声峰峰值（示波器上毛刺的最高点到最低点）
+
+  约束二（灵敏度，上限）：ΔV_T  ≤  V_signal / 2
+        V_signal = 有用信号自身的幅度（峰峰值）
+        取 1/2 是经验值：给信号本身的形状变化留一半余量。
+
+  满足两条约束的区间就是可用回差范围：
+        2V_n  ≤  ΔV_T  ≤  V_signal / 2
+
+  举例：某传感器输出幅度 2V，叠加噪声 80mV
+        下限 = 2 × 80mV = 160mV      上限 = 2V / 2 = 1V
+        ⇒ 选 300mV ~ 500mV 的回差最稳妥（下限的 2~3 倍，又远低于上限）
+        ⇒ 现成的 74HC14 在 5V 下的回差就在这个量级，直接用它就行
+        ⇒ 如果实测噪声是 600mV，那么 2V_n = 1.2V 已超过上限 1V
+           说明【信号本身就不可靠】，再怎么加施密特也救不了 ——
+           正确做法是先做屏蔽、加滤波、改走线，把噪声压下去
+
+  ⚠ 最后一条经验：如果算出来的两条约束【冲突】（下限大于上限），
+     那问题不在施密特，而在信号链的前面。施密特只是整形，不是降噪。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一句话记住这一节</div>
+            <p><b>施密特触发器不是「滤波器」，它不减小噪声，只是让电路对噪声「视而不见」</b>。噪声还在那里，只是因为你把两个门限分开了，它必须大到能跨过整个 ΔV<sub>T</sub> 才能骗过电路。<b>回差是拿灵敏度换抗干扰</b>——这句话在这一篇后面每一个电路里都会再出现一次（555 的比较器、MCU 的输入缓冲、看门狗的复位门限，全是同一个交换）。</p>
+          </div>
+        <p class="mt-3">回到本篇的主题上。<b class="font-semibold text-ink">「脉冲整形」这个词到底指什么？</b>它不是「把信号变好看」，而是有明确定义的三件事，缺一件下游就还会出问题：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="脉冲整形的三个要求（三条都做到，信号才算能用）">
+            <pre><code>  ① 电平标准化 —— 输出的高低电平等于电源轨，与输入幅度无关
+       输入端可能是 1.2V 的毛刺、3V 的缓慢曲线、带 5V 尖峰的信号，
+       整形之后统统变成 0V / 3.3V 两档标准电平，下游电路不用担心幅度。
+       ⇒ 靠的是【增益足够大的比较/门电路】那一级
+       ⇒ 顺带解决了电平不匹配：3.3V 系统收 5V 信号，串个电阻 +
+         施密特门（或 74HCT14）就能得到 3.3V 的干净逻辑电平
+
+  ② 边沿标准化 —— 边沿的时间由电路决定，不再由输入斜率决定
+       输入可能用 10ms 才爬过门限，输出只用 5ns 就翻完。
+       ⇒ 边沿快，意味着「不确定区」的时间从 10ms 缩到 5ns，
+         后面所有电路的时序才有可预测性
+       ⇒ 靠的是【输出级的驱动能力】（门电路几 mA~几十 mA）
+
+  ③ 事件唯一化 —— 一次真实的输入事件，只产生一个边沿 ★本篇重点
+       这是施密特的专利。前两条用普通门也能做，第三条不行：
+       普通门在缓慢边沿上会输出一串边沿，把「一次事件」变成「很多次事件」。
+       ⇒ 靠的是【回差 ΔV_T】
+
+  ⚠ 三条里最容易漏的是第三条，因为它不会在你的代码里报错，
+     只会在计数、中断、状态机里表现为「莫名其妙多出来的几次」。</code></pre>
+          </div>
+
+          <p class="mt-3">这里必须把一个特别容易混的概念分开：<b class="font-semibold text-ink">「静态噪声容限」和「回差」是两回事，它们回答的是两个不同的问题</b>。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>参数</th><th>它回答什么问题</th><th>怎么算</th><th>典型值（按手册典型参数估算）</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>静态噪声容限</b><br>V<sub>NH</sub> / V<sub>NL</sub></td>
+                  <td>「一个<b>已经确定</b>的高电平或低电平，被噪声推多远会被读错？」<br>—— 关心的是<b>稳态</b>的抗扰度</td>
+                  <td>V<sub>NH</sub> = V<sub>OH(min)</sub> − V<sub>IH(min)</sub><br>V<sub>NL</sub> = V<sub>IL(max)</sub> − V<sub>OL(max)</sub><br>两者取小的那个作为系统噪声容限</td>
+                  <td>5V TTL（74LS 系列）：<b>0.4V</b>（教科书上的经典数字）<br>5V CMOS（74HC）：约 <b>1.2V</b><br>3.3V CMOS（STM32）：约 <b>0.6V</b>（V<sub>IH</sub> = 0.7·V<sub>DD</sub>、V<sub>IL</sub> = 0.3·V<sub>DD</sub>、输出带载后会掉一点电压）</td>
+                </tr>
+                <tr>
+                  <td><b>回差电压</b><br>ΔV<sub>T</sub></td>
+                  <td>「一个<b>正在缓慢穿越门限</b>的输入，会不会产生多个边沿？」<br>—— 关心的是<b>边沿过程</b>的抗扰度</td>
+                  <td>ΔV<sub>T</sub> = V<sub>T+</sub> − V<sub>T−</sub><br>判据：ΔV<sub>T</sub> 大于 2~3 倍噪声峰峰值</td>
+                  <td>74HC14 在 5V 下约 <b>0.7~1V</b><br>STM32 的 GPIO 输入也有迟滞，手册 I/O 特性表里有一项 V<sub>hys</sub>，典型值在几百 mV 以内<br>（以上均为量级参考，<b>具体数值必须查你型号手册的分档</b>）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">为什么要分清？因为<b class="font-semibold text-ink">它们的补救手段完全不同</b>：静态噪声容限不够（比如 3.3V 系统只有 0.6V，而线上有 1V 的干扰），加施密特是没用的——信号的高电平本身就被噪声推到了不确定区，你需要的是减小噪声（屏蔽、缩短走线、加滤波、降速）或者换更高的电源电压。而回差不够（慢边沿产生多边沿），加施密特正是对症的药。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">把三个「阈值距离」摆在一起，误触发的条件就一目了然</div>
+            <p>误翻转发生的条件永远是同一个：<b>噪声幅度 大于 当时的「阈值距离」</b>。区别只在「当时的阈值距离」是多少：</p>
+            <p class="mt-2 font-mono text-sm">· 输入正在缓慢穿越门限（普通门）：阈值距离 = <b>0</b> → 任何噪声都产生一个边沿 → 一次事件变成几十个边沿</p>
+            <p class="mt-2 font-mono text-sm">· 输入正在缓慢穿越门限（施密特）：阈值距离 = <b>ΔV<sub>T</sub></b> → 噪声必须大过整个回差</p>
+            <p class="mt-2 font-mono text-sm">· 输入已经稳定在高/低电平：阈值距离 = <b>V<sub>NH</sub> 或 V<sub>NL</sub></b> → 这就是静态噪声容限</p>
+            <p class="mt-2">所以完整的抗扰设计是这样的：<b>先用静态噪声容限保证「稳定电平不会被读错」，再用回差保证「过门限的过程只翻一次」</b>。两者是串起来的两道防线，缺一道，另一道都会漏。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">最后说一件让人安心的事：施密特输入在数字芯片里到处都是，你其实一直在用它。</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>芯片里的位置</th><th>施密特在这里干什么</th><th>你要注意什么</th></tr></thead>
+              <tbody>
+                <tr><td><b>STM32 的 GPIO 输入</b></td><td>数据手册的 I/O 特性里明确写了输入带施密特触发器（并有迟滞电压 V<sub>hys</sub> 这一项），所以普通引脚本身就有一定抗扰能力</td><td>量级只有几百 mV <b>以内</b>，比 74HC14 小得多——它够用来对付干净数字信号上叠加的小噪声，<b>不足以对付机械按键的弹跳和长线缆上的干扰</b>。这就是为什么外面还要加一级 74HC14</td></tr>
+                <tr><td><b>复位引脚 NRST</b></td><td>内部是施密特输入 + 滤波器（脉宽太短的毛刺直接被滤掉，根本不进内部复位逻辑）</td><td>所以你外部的 RC 上电曲线可以很慢，只要不慢到超出规格。第 4 节专门讲这个</td></tr>
+                <tr><td><b>定时器外部输入 / 外部中断</b></td><td>边沿检测电路前面就是输入缓冲，边沿检测器只认「电平发生过跳变」</td><td><b>它不负责去抖</b>：弹跳的每一次跳变在它眼里都是合法的边沿。这是第 4 节要重点讲的那个坑</td></tr>
+                <tr><td><b>I2C 引脚</b></td><td>规范要求 SDA/SCL 输入带施密特或尖峰抑制；STM32 的 I2C 还额外提供可配的数字噪声滤波器（I2C 的 FLTR 位）</td><td>I2C 是开漏 + 上拉，上升沿天生很缓（几百 ns 到 µs），没有施密特早就在缓边沿上乱翻了</td></tr>
+                <tr><td><b>模拟功能引脚（ADC 输入）</b></td><td><b>没有施密特</b>——因为施密特的非线性传输特性会毁掉模拟信号的线性度</td><td>⚠ <b>不要把配成 ADC 输入的引脚再当数字输入用</b>去读按键：它没有施密特，也没有数字输入缓冲的完整特性。要用就换一个纯数字引脚</td></tr>
+                <tr><td><b>低功耗模式下的输入缓冲</b></td><td>为了省电，某些低功耗模式下输入缓冲会被削弱或关断</td><td>如果你的产品要在 STOP 模式下靠引脚电平唤醒，去查手册确认该模式下的输入特性，别拿运行模式的参数直接套</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这一节关于施密特的部分到这里就完了。总结成一句可操作的话：<b class="font-semibold text-ink">凡是「信号来自机械触点、长线缆、缓慢变化的模拟量、或者你打算用边沿触发去数它」的地方，都要问自己一句：这里有没有回差？回差够不够？</b>——如果答案是不确定，加一个 74HC14 是最便宜的保险。</p>
+
+          <h3 id="sub-mono" class="mt-7 text-base font-semibold">单稳态触发器：一段定长的脉宽是怎么来的</h3>
+
+          <p class="mt-3">施密特解决的是「输入不干净」，但它不解决另一个常见需求：<b class="font-semibold text-ink">我想要一个长度确定、和输入宽窄无关的脉冲</b>。这个需求在单片机里天天出现——上电复位要保持 100ms 低电平、蜂鸣器按一下要响 200ms、超声波模块收到回波要给一个定长的捕获窗口、看门狗要每隔固定时间检查一次。做这件事的电路就是单稳态触发器。</p>
+
+          <p class="mt-3">它的名字来自它的状态数：<b class="font-semibold text-ink">一个稳态 + 一个暂稳态</b>。</p>
+
+          <div class="callout callout-info mt-3">
+            <div class="callout-title">稳态与暂稳态</div>
+            <p><b>稳态</b>：没有触发信号时，电路长期停留的那个状态。它是「稳」的——你不管它，它就一直待在那儿，电源不消失它就不动。</p>
+            <p class="mt-2"><b>暂稳态</b>：被触发后跳过去的那个状态。它<b>不能自己维持</b>——因为电路里有一个 RC 定时元件，跳到暂稳态的同时电容开始充电（或放电），等电容电压到达某个阈值，电路就被「踢」回稳态。这个「踢」是自动发生的，不需要外部信号。</p>
+            <p class="mt-2"><b>关键结论：暂稳态停留的时间由 RC 决定，与触发脉冲的宽度无关</b>（只要触发脉冲足够窄，能在电容充满之前结束）。这就是「脉冲展宽」和「定时」功能的来源。</p>
+            <p class="mt-2">还有一条同样重要的：<b>暂稳态期间电路是「忙」的</b>。这时候再来触发信号，电路是忽略它、还是重新计时，决定了单稳态分两种——不可重复触发与可重复触发，本节最后专门讲。</p>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="单稳态触发器的输入输出关系（三个性质一眼看出来）">
+            <pre><code>  v_I 触发输入（故意画成一窄、一中、一宽的三个脉冲）
+    ↑
+   ┌┐   ┌───┐          ┌──────────────┐
+  ─┘└───┘   └──────────┘              └───────────────► t
+
+  v_O 输出
+    ↑
+   ┌────────┐    ┌────────┐      ┌────────┐
+  ─┘        └────┘        └──────┘        └───────────► t
+   │← T_w →│    │← T_w →│      │← T_w →│
+
+  ① 三次输出的脉宽 T_w 【完全一样】—— 与触发脉冲的宽窄毫无关系
+  ② 触发脉冲可以非常窄（一个毛刺就够了），输出照样是完整的 T_w
+     ⇒ 所以单稳态也是【脉冲展宽】电路，还能顺手把毛刺整成定长脉冲
+  ③ 没有触发时，输出就一直停在稳态不动（图中最左和最右的平线）
+
+  ⚠ 两个实际限制，做电路时一定会碰到：
+     · 触发脉冲【太窄】也不行：手册给出最小触发脉宽（几十 ns 量级），
+       比这个还窄的毛刺电路识别不了 —— 这反而成了一种天然的滤波；
+     · 触发脉冲【太宽】：如果它长过 T_w，有些电路会在暂稳态结束后
+       被同一个宽脉冲再次触发（表现为输出被拉长或出现第二个脉冲）。
+       要求「一次触发一个脉冲」时，必须在触发输入端先做边沿提取
+       （RC 微分 + 门电路），把宽脉冲变成窄脉冲再送进去。</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">T<sub>w</sub> ≈ 1.1RC 是怎么来的：把 ln3 推一遍</p>
+
+          <p class="mt-3">课本上到处出现两个数：<b class="font-semibold text-ink">T<sub>w</sub> ≈ 1.1RC</b> 和 <b class="font-semibold text-ink">T<sub>w</sub> ≈ 0.7RC</b>。很多人把它们当成两个「器件常数」背下来，其实它们只是两个对数：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="1.1RC 与 0.7RC 的来历：阈值的分压比决定了对数里的数字">
+            <pre><code>【共同前提】单稳态的定时过程，就是电容在充电，充到某个阈值就结束。
+   电容从 0 开始充电、目标电压是 V_CC，充电公式（一阶 RC 电路的通解）：
+        v_C(t) = V_CC · ( 1 − e^(−t / RC) )
+
+【情况一】阈值定在 2/3 V_CC（555 的内部比较器就是这样定的，后面会讲为什么）
+   令 v_C(T_w) = (2/3)·V_CC：
+        V_CC · ( 1 − e^(−T_w/RC) ) = (2/3) · V_CC
+        1 − e^(−T_w/RC) = 2/3
+        e^(−T_w/RC) = 1/3                ← 剩下的「没充到的部分」
+        −T_w / RC = ln(1/3) = −ln3
+        T_w = RC · ln3
+   而 ln3 = 1.0986…  ≈ 1.1
+        ⇒ T_w ≈ 1.1 RC   ← 这就是那个 1.1 的全部来历
+
+【情况二】阈值定在 1/2 V_CC（很多 TTL 单稳态、以及 74LS121 属于这一类）
+        e^(−T_w/RC) = 1/2
+        T_w = RC · ln2
+   而 ln2 = 0.693…  ≈ 0.7
+        ⇒ T_w ≈ 0.7 RC   ← 这是 0.7 的来历
+
+【所以那个「系数」根本不是常数，它只取决于一件事】
+        系数 = −ln( 1 − 阈值/V_CC ) = ln( V_CC / (V_CC − 阈值) )
+    阈值越高，需要充的时间越长，系数越大：
+        阈值 0.5·V_CC → ln2  ≈ 0.69
+        阈值 0.632·V_CC → 1.00    （正好一个时间常数 τ = RC）
+        阈值 0.667·V_CC → ln3  ≈ 1.10
+        阈值 0.865·V_CC → ln2(2) ≈ 2.00
+    ⚠ 记住这一条，比记住 1.1 有用得多：以后看到任何单稳态的 T_w 公式，
+      先问「它的阈值定在电源的几分之几」，你就能自己把系数推出来、
+      也能判断一个抄来的公式是不是抄错了。</code></pre>
+          </div>
+
+          <p class="mt-3">推导里有一个容易忽略的前提，必须补一句：<b class="font-semibold text-ink">上面的公式都假定电容是从 0V 开始充的</b>。如果电路在触发前把电容预充到了某个非零电压（有些电路为了缩短恢复时间会这么做），实际脉宽会比 RC·ln3 短。反过来，如果电容两端本来就有残压没放干净（比如上一次暂稳态结束后恢复时间不够），脉宽就会偏。这两种偏差在快速连续触发时特别明显——表现出来就是「触发得越快，输出脉冲越短」。</p>
+
+          <p class="mt-6 font-semibold text-ink">74LS121 与 74LS123：不可重复触发 vs 可重复触发</p>
+
+          <p class="mt-3">集成单稳态触发器把上面那一整套（触发边沿提取、比较、反馈、输出驱动）做进一颗芯片，你只需要外接一个电阻和一个电容。工程上最常见的是这两款：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>74LS121（单路）</th><th>74LS123（双路）</th></tr></thead>
+              <tbody>
+                <tr><td>触发方式</td><td>不可重复触发（non-retriggerable）</td><td>可重复触发（retriggerable）</td></tr>
+                <tr><td>路数</td><td>1 路（14 脚封装）</td><td>2 路独立（每路各自的 R、C、触发、输出）</td></tr>
+                <tr><td>脉宽公式</td><td>T<sub>w</sub> ≈ 0.7 · R<sub>ext</sub> · C<sub>ext</sub>（对应 ln2，阈值在 1/2 V<sub>CC</sub>）</td><td>系数与 121 不同，且 LS 版与 HC 版、不同厂家都不一样，常见量级在 0.28~0.45 之间</td></tr>
+                <tr><td>公式怎么用</td><td colspan="2"><b>⚠ 不要背系数。</b>这类芯片的 T<sub>w</sub> 公式里通常还带一个和 R<sub>ext</sub> 有关的修正项（R<sub>ext</sub> 越小修正越明显），而且 C<sub>ext</sub> 小于 1000pF 时引脚杂散电容会明显加长时间。<b>正确做法：翻你手上那颗芯片的数据手册，找到 T<sub>w</sub> 那一节和它的曲线图，按图取值。</b>口诀只能用来做数量级估算。</td></tr>
+                <tr><td>定时元件范围</td><td colspan="2">R<sub>ext</sub> 有最小值和最大值限制（典型量级 1.4k~40kΩ 起，具体查手册）：<b>太小</b>会超出内部电路的工作范围甚至损坏，<b>太大</b>则漏电流的影响变得不可忽略，脉宽会比算出来的长很多。C<sub>ext</sub> 一般从几十 pF 到几十 µF，用大容量电解电容时要注意<b>漏电流和极性</b>（漏电流会让定时提前结束或造成重复触发）</td></tr>
+                <tr><td>输入类型</td><td colspan="2">都有两类触发输入：<b>负触发输入</b>（A 类，下降沿有效，<b>内部带施密特</b>，所以可以直接接缓慢的 RC 信号）和<b>正触发输入</b>（B 类，上升沿有效）。两条规则必须记住：<b>① 不用的输入不能悬空</b>，要接到确定电平；<b>② 同一路只用一种触发方式</b>，另一类输入必须接死</td></tr>
+                <tr><td>输出</td><td colspan="2">互补输出 Q 与 Q̄，可以直接驱动 LED，也可以拿反相的那一路去触发下一级</td></tr>
+                <tr><td>典型用途</td><td>固定脉宽发生器：给外设一个定长的启动脉冲、按键单击产生定长提示音、把毛刺整成一个标准脉冲</td><td>「再触发延长」：脉冲消失检测（看门狗）、长按期间保持有效、多路各自独立的延时</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">不可重复触发和可重复触发的区别，用一张图就能讲清。</b>下面这两条时间轴用的是同一个触发序列（第一个脉冲之后 0.5 个 T<sub>w</sub> 又来了一个脉冲，最后在 3T<sub>w</sub> 处再来一个）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="不可重复触发 vs 可重复触发：同一个触发序列，两种输出">
+            <pre><code> 触发输入 v_I（三个脉冲：t=0、t=0.5T_w、t=3T_w）
+ ┌┐   ┌┐                       ┌┐
+ └┘───└┘───────────────────────└┘
+ 0    5                       30                    （横轴每格 = 0.1 T_w）
+
+ 不可重复触发（74LS121）：输出宽度【恒定】，暂稳态期间的触发被丢掉
+ ┌─────────┐                   ┌─────────┐
+ └         ┘───────────────────└         ┘
+ 0         10                  30        40
+            ↑                               ↑
+      第一个 T_w 结束               第三个触发才产生新脉冲
+      （t=5 处的那个触发落在暂稳态里，无效）
+
+ 可重复触发（74LS123）：每次触发都把定时【清零重来】，输出被延长
+ ┌──────────────┐              ┌─────────┐
+ └              ┘──────────────└         ┘
+ 0              15             30        40
+                 ↑
+      结束时间 = 最后一次触发的时刻 + T_w
+      （t=5 的触发把终点从 10 推到了 15）
+
+【一句话区分】
+   不可重复：T_w 从【第一次触发】算出，之后来的触发一律不理
+             ⇒ 输出脉宽恒定，适合「做一个固定宽度的脉冲」
+   可重复　：T_w 从【最后一次触发】算出
+             ⇒ 触发越密，输出越长（甚至一直是暂稳态）；触发一停，
+               再过 T_w 就结束 ⇒ 适合「监视一串脉冲还在不在」</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">可重复触发最经典的应用：脉冲消失检测（missing pulse detector）</div>
+            <p>把一路周期性脉冲（比如另一个 MCU 每秒发一次的「我还活着」信号，或者编码器输出的脉冲）接到一个<b>可重复触发</b>单稳态的输入端，输出接报警。工作过程：<b>脉冲按时到来时，每次都在 T<sub>w</sub> 结束前把定时清零，输出一直保持在暂稳态（不报警）；一旦脉冲停止，最后一个脉冲过后再过 T<sub>w</sub>，输出自动回到稳态，报警触发。</b></p>
+            <p class="mt-2">把 T<sub>w</sub> 设成脉冲周期的 2~3 倍，这个电路就变成了一个纯硬件看门狗——<b>而且它完全不依赖被监视的那个系统的软件还活着</b>。这正是第 4 节要讲的单片机内部看门狗在做的事，只不过内部的看门狗用的是一个计数器 + 独立的 RC 时钟，原理和这里一模一样。</p>
+            <p class="mt-2">反过来，如果你用 <b>74LS121（不可重复）</b>去做这件事，电路会彻底失效：脉冲密集到来时它每个周期都输出一个完整脉冲，你根本分不清「脉冲还在」和「脉冲没了」——<b>选错触发类型，电路逻辑就整个反了</b>。这也是这一小节最想让你记住的一句：先想清楚你要的是「固定脉宽」还是「再触发延长」，再选芯片。</p>
+          </div>
+
+          <p class="mt-3">还有一件在单片机项目里很实用、但课本上不怎么强调的事：<b class="font-semibold text-ink">单稳态本身就是一个很好的消抖电路</b>。按键接在一个不可重复单稳态的负触发输入上，一次按下（哪怕它在 10ms 里弹跳了几十次）只会输出<b>一个</b>干净的定长脉冲——因为第一次弹跳触发进入暂稳态后，后面所有的弹跳都落在暂稳态里被丢掉了。这比在软件里写状态机更省事，代价是多一颗芯片和一个 RC。第 4 节会把这条路线和软件消抖放在一起做定量对比。</p>
+        <h3 id="sub-osc" class="mt-7 text-base font-semibold">多谐振荡器：一个没有稳态的电路</h3>
+
+          <p class="mt-3">前面两类电路都有「平时待着不动」的状态，多谐振荡器没有：<b class="font-semibold text-ink">它一个稳态都没有，上电之后就在两个暂稳态之间自己来回跳，永远不停</b>。名字里的「多谐」是指它的输出是方波——方波在频域上含有丰富的谐波分量。</p>
+
+          <p class="mt-3">为什么它不需要触发也能一直跳？答案在<b class="font-semibold text-ink">电容</b>身上。电路的耦合和定时全靠电容的充放电，而电容的电压是一个不能突变的连续量。把一个电容接进有放大能力的回路，再让「电容电压到某个阈值就翻转输出」这条规则成立，电路就必然进入一个死循环：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="无稳态电路为什么必然一直振荡">
+            <pre><code>  第 1 步：上电瞬间，电路停在某个状态（比如输出高），电容开始充电
+  第 2 步：电容电压按 RC 时间常数上升，这是一个【自动进行】的过程，
+          没有任何外部信号参与
+  第 3 步：电容电压撞到阈值 → 输出翻转 → 电容的充电方向跟着反过来
+  第 4 步：电容往反方向充电，撞到另一个阈值 → 输出又翻回去
+  → 回到第 1 步。整个循环里【没有任何一步需要外部触发】，
+    所以它会一直振荡下去，直到断电。
+
+  【振荡必须同时满足的三个条件】（三个缺一个就不振）
+    ① 有增益：环路里必须有放大环节（反相器、比较器、晶体管），
+       而且环路增益必须大于 1 —— 增益不够，振荡会衰减掉
+    ② 有相位条件：环路总相移在某个频率上等于 360°（等价于正反馈）
+       反相器贡献 180°，再加上 RC 或延迟贡献剩下的相移
+    ③ 有延时与限幅：RC（或门的传播延迟）决定了"多久翻一次"，
+       也就是频率；限幅则决定了幅度 —— 输出最终被电源轨夹住，
+       所以振荡器输出天生就是方波（这也是它不需要额外整形的原因）
+
+  ⚠ ③ 里的"限幅"是很多人忽略的一环：如果没有限幅，振荡幅度会一直
+     往上涨（线性系统）或者一直衰减（增益不足）。数字门电路天然带
+     限幅（输出最多到电源轨），所以用门电路做振荡器特别省事。</code></pre>
+          </div>
+
+          <p class="mt-3">工程上有三种做法，从「最省元件但最不准」到「最准但最贵」，分别是环形振荡器、RC 振荡器和石英晶体振荡器。这三种的顺序，其实也就是频率精度的顺序。</p>
+
+          <p class="mt-6 font-semibold text-ink">做法一：环形振荡器（不需要任何外部元件）</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="环形振荡器：奇数个反相器首尾相连">
+            <pre><code>               ┌────────────────────────────────────────┐
+               │                                        │
+               ▼                                        │
+        ┌─────────────┐   ┌─────────────┐   ┌───────────┴─┐
+        │  反相器 1   │──►│  反相器 2   │──►│  反相器 3   │
+        └─────────────┘   └─────────────┘   └─────────────┘
+              （三级串联，最后一级的输出接回第一级的输入）
+
+  【为什么必须是奇数级？】
+    · 每一级反相器在直流上贡献 180° 相移
+    · 3 级 = 540°，对 360° 取模剩下 180°；再加上传播延迟本身在
+      某个频率上补齐的相移，环路总相移恰好 360° → 满足振荡条件
+    · 换成【偶数】级（比如 2 级、4 级）：直流相移是 0°，
+      环路变成一个【正反馈锁存器】—— 上电后随机停在高或低，
+      然后【再也不动】。示波器上就是一条平线。
+    ★ 这是数字电路实验里最经典的低级错误：接了"振荡器"却一条直线。
+
+  【频率怎么估】（只看数量级，不要当精确值）
+        T ≈ 2 · n · t_pd          f ≈ 1 / ( 2 · n · t_pd )
+          n    = 反相器级数（奇数）
+          t_pd = 单级传播延迟（74HC04 在 5V 下典型值约 10ns 量级）
+    例：n = 3、t_pd = 10ns  →  T ≈ 60ns  →  f ≈ 16.7MHz
+    "2" 的来历：环路每转一圈只完成【半个周期】（信号翻一次），
+    要转两圈才凑齐一个完整的上升沿 + 下降沿。
+
+  【它的致命缺点】频率完全由器件的传播延迟决定，而 t_pd 随温度、
+    电源电压、批次变化剧烈（几十个百分点）。所以你【不能】用它做
+    需要精度的时钟。优点同样鲜明：零外部元件、百分百起振、
+    能直接集成进芯片里 —— 所以 MCU 内部的 HSI / LSI 就是这一类
+    （芯片厂再加一个出厂校准值和温度补偿，把它从"完全不能用"
+    改善到"能跑，但不能通信用"）。</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">做法二：RC 振荡器（一个门 + 一个电阻 + 一个电容）</p>
+
+          <p class="mt-3">这是实际项目里最常用、也最好算的一种。电路简单到只有三个元件，而它的工作过程正好把前面两节的知识（门限、回差、RC 充放电）全用上了：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="用施密特反相器 + RC 构成的振荡器（一个门、一个 R、一个 C）">
+            <pre><code>                        R（反馈电阻）
+        ┌───────────────/\/\/──────────────┐
+        │                                  │
+        │        ┌──────────────┐          │
+        ├───────►│   施密特      │          │
+        │        │   反相器      ├──────────┴──────► v_O（方波）
+       === C     └──────────────┘
+        │
+       ─┴─ GND
+
+  节点 A 上挂着三样东西：电容 C（到地）、门的输入、电阻 R（到输出）。
+
+  【工作过程 —— 每一句话都对应前面的知识】
+    ① 假设当前 v_O = 高。R 把节点 A 往高电平拉，电容 C 通过 R 充电，
+       v_A 按指数曲线上升（时间常数 τ = RC）。
+    ② v_A 升到施密特的 V_T+ 时（这里用的是第 2 节的滞回！），
+       输出【翻转】为低。
+    ③ 现在 R 的另一端变成低电平，电容开始通过 R 放电，v_A 下降。
+    ④ v_A 降到 V_T− 时，输出又翻回高。回到第 ① 步。
+    ⇒ 电容电压被永远关在 V_T− 与 V_T+ 之间，输出的每一次翻转
+      都精确发生在 v_A 撞到门限的那一瞬间。周期由 RC 和两个门限共同决定。
+
+  【波形】v_O 是方波，v_A 是"充不满也放不空"的指数三角波：
+    v_A
+    V_OH ┤ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  ← v_A 想充到的高电平
+    V_T+ ┤      ╱╲          ╱╲          ╱╲
+         │     ╱  ╲        ╱  ╲        ╱  ╲
+    V_T− ┤    ╱    ╲      ╱    ╲      ╱    ╲
+    V_OL ┤ ─ ─ ─ ─╲╱─ ─ ─ ─ ─╲╱─ ─ ─ ─ ─╲╱─ ─ ─ ─ ─ ─  ← v_A 想放到低电平
+         └───────────────────────────────────────────► t
+    v_O  ┌────────┐        ┌────────┐        ┌────────┐
+        ─┘        └────────┘        └────────┘        └──
+
+  【周期公式（自己推得出来）】
+    充电段：从 V_T− 向 V_OH 充，充到 V_T+ 就结束
+        t_充 = RC · ln [ (V_OH − V_T−) / (V_OH − V_T+) ]
+    放电段：从 V_T+ 向 V_OL 放，放到 V_T− 就结束
+        t_放 = RC · ln [ (V_T+ − V_OL) / (V_T− − V_OL) ]
+        T = t_充 + t_放
+
+  【数值算一遍】用 5V 供电的 74HC14（按典型值估算：V_T+ ≈ 2.75V、
+    V_T− ≈ 2.25V，即回差 0.5V、中心 2.5V），R = 10kΩ、C = 10nF：
+        τ = RC = 100µs
+        t_充 = 100µs × ln[ (5 − 2.25) / (5 − 2.75) ] = 100µs × ln(1.2222)
+             = 100µs × 0.2007 = 20.1µs
+        t_放 = 100µs × ln[ (2.75 − 0) / (2.25 − 0) ] = 同一算式 = 20.1µs
+        T = 40.2µs   →   f ≈ 24.9kHz
+        占空比 = t_充 / T = 50%（因为两个门限对称、输出摆幅对称）
+
+  【两个能自己验算的性质，别死记公式】
+    · 回差越小 → 两个门限越近 → v_A 在小范围内摆动 → 充放都快
+      → 频率越高。把 ΔV_T 缩到 0，频率会飙到器件的极限。
+    · RC 越大 → 充放电越慢 → 频率越低（严格成反比：R 或 C 加倍，
+      周期也加倍）。所以调频率首选调 R 或 C，很线性、很好预测。
+
+  【它到底有多准？】频率取决于 R、C 和门的两个阈值，三样都随温度变：
+    · 金属膜电阻：约 50~100ppm/℃
+    · 瓷片电容：C0G/NP0 约 ±30ppm/℃，但 X7R 是全温 ±15%，
+      Y5V 更是 +22%/−82% —— 用错电容，频率能差一倍
+    · 门的阈值：随温度和电源电压漂，贡献几百 ppm 到百分之几
+    ⇒ 合起来：未校准的 RC 振荡器，全温范围内频率漂移 5%~10% 是常态
+      （按典型器件估算）。做 LED 闪烁、蜂鸣器音调、随便一个节拍够用；
+    做串口波特率、USB、RTC 就不够 —— 差多少，第 3 节有定量计算。</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">三种振荡器的频率精度差多少</p>
+
+          <p class="mt-3">这张表是这一节最有实用价值的东西。<b class="font-semibold text-ink">ppm 是「百万分之一」</b>：1% = 10000ppm，20ppm ≈ 0.002%。选时钟源的时候，先想清楚你的应用需要哪一档：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>振荡器类型</th><th>频率由什么决定</th><th>初始精度</th><th>全温漂移</th><th>起振速度</th><th>成本 / 元件数</th></tr></thead>
+              <tbody>
+                <tr><td><b>环形振荡器</b><br>（MCU 内部 HSI/LSI 属于这一类）</td><td>门电路的传播延迟 t<sub>pd</sub></td><td>差，可能需要出厂校准；未校准可差 ±30% 以上</td><td>大（几十个百分点量级）</td><td>极快，ns~µs 级，一定能起振</td><td>零外部元件（已集成在芯片里）</td></tr>
+                <tr><td><b>RC 振荡器</b></td><td>RC 时间常数 + 门的两个阈值</td><td>±5%~±20%（未校准，取决于 R、C 的容差）</td><td><b>5%~10%</b>（按典型器件估算）</td><td>快，µs 级</td><td>一个门 + 一个 R + 一个 C，几毛钱</td></tr>
+                <tr><td><b>陶瓷谐振器</b></td><td>陶瓷体的机械谐振（和晶体同原理，但 Q 值低得多）</td><td>±0.3%~±0.5%（3000~5000ppm）</td><td>±0.3%~±0.5%</td><td>快，µs 级</td><td>比晶振便宜，两个负载电容可省</td></tr>
+                <tr><td><b>石英晶体振荡器</b>（本篇重点）</td><td>石英晶片的机械谐振频率（由切割尺寸决定）</td><td>±10~±30ppm（出厂已调到这个水平）</td><td>±10~±50ppm（AT 切割，全温，按手册）</td><td><b>慢</b>：ms 级；32.768kHz 音叉晶体可能到几百 ms~秒级</td><td>一个晶体 + 两个负载电容，一两块钱</td></tr>
+                <tr><td><b>TCXO</b>（温补晶振）</td><td>晶体 + 温度补偿网络</td><td>±0.5~±2ppm</td><td>±0.5~±2.5ppm</td><td>慢</td><td>十几块到几十块，用于 GPS、基站</td></tr>
+                <tr><td><b>OCXO</b>（恒温晶振）</td><td>晶体放在恒温槽里</td><td>±0.001~±0.05ppm</td><td>±0.001~±0.05ppm</td><td>最慢（要等恒温，几十秒）</td><td>很贵，用于频率基准、仪器</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">把第二行和第四行比一下：<b class="font-semibold text-ink">RC 振荡器漂 5%（= 50000ppm），石英晶体漂 20ppm，差 2500 倍</b>。这个差距不是靠「电路设计得好一点」能弥补的，它是原理层面的差距——下一小节就把这个原理讲透。</p>
+
+          <h3 id="sub-crystal" class="mt-7 text-base font-semibold">石英晶体振荡器：为什么它能准到 ppm</h3>
+
+          <p class="mt-3">这一小节要回答一个很多人从来没想过的问题：<b class="font-semibold text-ink">一块两毛钱的石英晶体，凭什么比精心设计的 RC 振荡器准几千倍？</b>答案不在电路里，在石英这种材料的物理性质里。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第一步：压电效应。</b>石英（二氧化硅单晶）是压电材料——在它两端加电场，它会机械变形；反过来，让它机械变形，它两端会产生电荷。这意味着<b class="font-semibold text-ink">石英片在电气上表现得像一个 LC 谐振回路</b>：电能可以转成机械振动的能量存起来，再转回电能。晶振符号里画的那两块平行板和中间的方框，就是「电极 + 石英片」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="石英晶体的等效电路：一个 Q 值极高的 LC 回路">
+            <pre><code>   真实的晶体（电气等效）                  它等价于
+        ┌────┤├────┐
+        │           │                   ┌─────────────────┐
+        │  C0（静态电容）                 │ 一个【串联】RLC  │
+        │           │                   │ 再并联一个电容   │
+        └─[R1]─(L1)─┤├─┘                 └─────────────────┘
+            动态臂：C1
+        R1 = 等效串联电阻（ESR，几十欧 ~ 几百欧，32.768kHz 音叉
+             晶体可以到几十 kΩ）
+        L1 = 动态电感（毫亨到上百亨！这是机械振动的等效质量效应，
+             数值大得离谱，但它是真的）
+        C1 = 动态电容（fF 量级，10⁻¹⁵F！）
+        C0 = 静态电容（电极与支架的电容，几 pF）
+
+  【Q 值 = 1/R1 · √(L1/C1)】
+        典型石英晶体：Q ≈ 20000 ~ 200000（甚至更高）
+        对比：普通 LC 振荡回路 Q ≈ 100 ~ 300
+              RC 振荡器等效 Q 小于 10
+    Q 值高得离谱的原因：
+        · 石英的内摩擦损耗极低（机械振动的能量几乎不损耗）
+        · 晶体封装在真空或惰性气体里，没有空气阻尼
+        · 电极做得很薄，附加损耗小
+
+  【Q 值高 = 频率准，这一步是理解晶振的关键】
+    高 Q 意味着这个回路的【频率选择性极其尖锐】：
+        · 只有在谐振频率附近极窄的一段频率上，回路才呈现合适的阻抗
+        · 稍微偏离一点，阻抗就剧烈变化，环路增益立刻掉到 1 以下
+        · 于是振荡只能在那个极窄的频率上维持下去
+    ⇒ 振荡频率被"钉"在了晶体的机械谐振频率上，
+      和电路里的电阻、电容、晶体管参数【几乎无关】。
+      这就是晶振准的根本原因 —— 不是电路做得好，是物理常数说了算。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第二步：谐振频率由什么决定。</b>串联谐振频率是 f<sub>s</sub> = 1 / (2π·√(L<sub>1</sub>·C<sub>1</sub>))，而 L<sub>1</sub>、C<sub>1</sub> 这些等效参数由<b class="font-semibold text-ink">石英片的切割方式和几何尺寸</b>决定——对最常用的 AT 切割（厚度切变振动）来说，基频主要由<b>晶片的厚度</b>决定：晶片磨得越薄，频率越高。按 AT 切割的厚度常数约 1.6 MHz·mm 估算：<b>8MHz 的晶片厚度大约只有 0.2mm</b>（比一张纸厚一点），32.768kHz 的音叉型晶体则是一根细小的音叉形状，靠弯曲振动工作。</p>
+
+          <p class="mt-3">这件事带来三个非常重要的工程结论：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>结论</th><th>为什么</th><th>对你的项目意味着什么</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>① 频率在工厂里就定好了，非常精确</b></td>
+                  <td>出厂时用精密设备测量并微调（修磨电极厚度、离子刻蚀），把频率调到标称值的几十 ppm 以内</td>
+                  <td>你买的 8MHz 晶体，拿回来就是 8MHz ± 20ppm，不需要你调。而 RC 振荡器的频率要靠你算电阻电容，容差还叠加</td>
+                </tr>
+                <tr>
+                  <td><b>② 频率几乎不受电路参数影响</b></td>
+                  <td>Q 值极高，振荡频率被机械谐振"钉死"；你的电阻、电源电压、负载变化只能把它"拉"动几十到几百 ppm</td>
+                  <td>同一颗晶体换到不同板子上、换不同的 MCU，频率基本一致。<b>这对批量生产极其重要</b>——RC 振荡器每块板子的频率都不一样，晶振不用标定</td>
+                </tr>
+                <tr>
+                  <td><b>③ 温度仍然是主要误差来源，但小得多</b></td>
+                  <td>石英的弹性系数随温度变，AT 切割的频率—温度曲线是三次曲线，常温附近有一个拐点，所以 −20~+70℃ 全温内大约变化 ±10~50ppm（<b>按手册，不同切割角度不一样</b>）</td>
+                  <td>这就是为什么"再准也要看温漂"：单片机的 RTC 用 32.768kHz 晶体，日误差就来自这个温漂——常温下调准了，冬天和夏天各差一点，一个月累计几十秒是正常的。<b>要更准就上 TCXO，不能靠软件补</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第三步：两个谐振点，以及负载电容的作用。</b>晶体有两个谐振频率：<b>串联谐振 f<sub>s</sub></b>（此时等效阻抗最小）和<b>并联谐振 f<sub>a</sub></b>（阻抗最大，比 f<sub>s</sub> 高约 0.1%~0.3%）。两个频率之间是晶体的<b>感性区</b>——实际电路（包括单片机内部的皮尔斯振荡器）都让晶体工作在这一小段感性区里。</p>
+
+          <p class="mt-3">感性区工作带来一个关键结论：<b class="font-semibold text-ink">外部的负载电容会「拉」动频率</b>。近似关系是：</p>
+
+          <div class="callout callout-info mt-3">
+            <div class="callout-title">负载电容与频率偏移（近似）</div>
+            <p class="text-center font-mono text-sm">f ≈ f<sub>s</sub> · ( 1 + C<sub>1</sub> / ( 2·(C<sub>0</sub> + C<sub>L</sub>) ) )</p>
+            <p class="mt-2">其中 C<sub>L</sub> 是晶体两端看到的<b>总负载电容</b>。因为 C<sub>1</sub> 是 fF 量级、C<sub>0</sub>+C<sub>L</sub> 是 pF 量级，这个偏移量只有几百 ppm——<b>但它已经比晶振本身 20ppm 的精度大一个数量级</b>。所以：</p>
+            <p class="mt-2"><b>晶体手册上标的频率，是在指定负载电容下测的</b>（常见的标称 C<sub>L</sub> 是 12.5pF、16pF、20pF 等）。你实际电路的负载电容必须和它匹配，否则频率会偏。用 20pF 标称的晶体配一个只有 10pF 负载的电路，频率会偏高几十 ppm——<b>这是晶振电路里最常见、也最容易忽略的一个错误</b>。</p>
+          </div>
+
+          <p class="mt-3">负载电容怎么算？这要用到第 4 节的电路：皮尔斯振荡器在晶体两端各挂一个电容 C1、C2 到地，从晶体两端看过去，两个电容是<b>串联</b>关系，所以：</p>
+
+          <p class="mt-3 text-center font-mono text-sm">C<sub>L</sub> = C<sub>1</sub>·C<sub>2</sub> / (C<sub>1</sub> + C<sub>2</sub>) + C<sub>stray</sub></p>
+
+          <p class="mt-3">其中 C<sub>stray</sub> 是引脚电容、走线电容、MCU 内部振荡器输入电容的总和，经验值取 <b>3~5pF</b>。这条公式必须是「反着用」的：<b>先看晶体要求的 C<sub>L</sub>，再倒算两个电容该取多大</b>。如果 C<sub>L</sub> = 12pF、C<sub>stray</sub> 取 4pF，那么两个电容各取 C，要求 C/2 = 8pF，即 C<sub>1</sub> = C<sub>2</sub> = 16pF（标准值）。第 3 节会把这个计算完整走一遍，第 4 节讲电路中还有哪些会让晶振不起振的原因。</p>
+
+          <p class="mt-3">最后补一个「为什么不能省掉负载电容」的直觉：负载电容不是一个可有可无的装饰，它是振荡回路的一部分——<b>它和晶体的 C<sub>0</sub> 一起，决定了电路工作在感性区的哪个位置，从而决定了实际振荡频率</b>。省掉它或者用错值，要么频率偏，要么根本不起振。</p>
+        <h3 id="sub-555" class="mt-7 text-base font-semibold">555 定时器：把前面所有知识装进一块八脚芯片</h3>
+
+          <p class="mt-3">如果你只记一块芯片，就记 555。它不是"一个振荡器"，而是<b class="font-semibold text-ink">一块把比较器、锁存器、放电管、分压网络全部集成进去的通用定时芯片</b>——只要在外面接几个电阻电容，靠不同的接法就能变出单稳态、无稳态、施密特三种电路。前面讲过的每一块知识（阈值、滞回、RC 充放电、锁存），在 555 内部都能找到对应的硬件。</p>
+
+          <p class="mt-3">名字的来历很有工程师味道：1972 年 Signetics 的 Hans Camenzind 设计了它，内部那条决定阈值的分压网络用了<b class="font-semibold text-ink">三个 5kΩ 电阻</b>，所以叫「五五五」。这块芯片卖了几十年、产量以百亿计，是模拟电路史上最成功的芯片之一，也是你最容易在货架上买到、最容易上手的一颗。</p>
+
+          <p class="mt-6 font-semibold text-ink">内部结构：五块东西，全在图里</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="555 内部结构（八脚封装，双极型 NE555）">
+            <pre><code>                       VCC (pin 8)
+                        │
+              ┌─────────┼─────────┐
+              │         │         │
+            [ 5k ]      │         │   ← 三个 5kΩ 电阻串联分压
+              │         │         │      （"555" 这个名字的由来）
+              ├─────────┘         │
+              │  = 2/3 VCC        │
+              │                   │
+            [ 5k ]                │
+              │                   │
+              ├───────────────────┘
+              │  = 1/3 VCC
+              │
+            [ 5k ]
+              │
+             GND (pin 1)
+
+   两个比较器（比较器的两个输入端一正一负，输出只有高/低两种）
+   ┌──────────────────────────────────────────────────────────┐
+   │  比较器 A1（阈值比较器）                                   │
+   │     "+" 端 ← pin 6 THRESH（外接电容电压）                  │
+   │     "−" 端 ← 2/3 VCC（分压网络给的上阈值）                 │
+   │     规则：THRESH 电压【高于】2/3 VCC → A1 输出高 → 复位     │
+   │                                                          │
+   │  比较器 A2（触发比较器）                                   │
+   │     "+" 端 ← 1/3 VCC（分压网络给的下阈值）                 │
+   │     "−" 端 ← pin 2 TRIG（外部触发信号）                    │
+   │     规则：TRIG 电压【低于】1/3 VCC → A2 输出高 → 置位       │
+   └──────────────────────────────────────────────────────────┘
+
+   RS 锁存器 + 输出 + 放电管
+        A1 ──► R 端 ──┐
+        A2 ──► S 端 ──┤   ┌────────────┐        ┌──────────┐
+   pin4 ──► 复位 ─────┼──►│  RS 锁存器  │───────►│ 输出级    │──► pin 3 OUT
+   （pin4 低电平优先，  └──►│ （R 优先）  │   │    └──────────┘
+     直接强制输出低）        └────────────┘   │
+                                             │    ┌──────────────┐
+                                             └───►│ 放电三极管 Q1 │──► pin 7 DISCH
+                                                  │ （基极受锁存器 │     │
+                                                  │   输出控制）   │   外接定时电容
+                                                  └──────────────┘
+
+  另外两个引脚（很多人从来不接，但接错了会出怪问题）
+   · pin 5 CV（控制电压）：直接连在 2/3 VCC 那个节点上。
+       不接时它自己就是 2/3 VCC；接一个 0.01µF 电容到地可以滤掉
+       电源噪声（推荐，尤其是电机/继电器附近）；
+       从外部给它加电压，就能【改变两个阈值】—— 这是 555 变成
+       PWM 调制器 / VCO（压控振荡器）的入口。
+   · pin 4 RESET（低电平复位）：不用时必须接 VCC！
+       悬空会被噪声误触发，输出莫名其妙一直在低电平 ——
+       这是 555 电路最常见的"莫名不工作"原因之一。</code></pre>
+          </div>
+
+          <p class="mt-3">把内部结构看懂之后，555 的三种用法其实只是「<b class="font-semibold text-ink">把哪几个引脚接在一起</b>」的区别。下面三种接法逐一过一遍，每一张图你都可以直接照着连线。</p>
+
+          <p class="mt-6 font-semibold text-ink">接法一：单稳态（做一次固定宽度的脉冲）</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="555 单稳态接法（一次触发，输出一个宽度固定的正脉冲）">
+            <pre><code>        VCC ────┬──────────────┬─────────┬─────────┬────
+                │              │         │         │
+              [ R ]            │       pin4      pin8
+                │              │      (RESET)    (VCC)
+                ├──────────────┤         │         │
+                │            pin6    接 VCC     ┌──┴──┐
+                │           (THRESH)            │     │
+              pin7             │               │ 555 │
+             (DISCH)           │               │     │
+                │              │     pin3 ◄────┤     │
+               === C           │     (OUT)     │     │
+                │              │       │       └──┬──┘
+               GND             │       ▼          │
+                               │    输出脉冲    pin2 (TRIG)
+                               └──────────────◄──┘
+                                   触发输入
+                          （平时为高，来一个【下降沿】就触发）
+                （pin5 到地接 0.01µF，图上省略）
+
+  【怎么工作】
+    ① 稳态：输出低，pin7 内部的放电三极管导通，把电容 C 的电量放光
+       （C 上电压 ≈ 0V）—— 这就是它"稳定"的状态，可以停一辈子。
+    ② 触发：pin2 收到一个低于 1/3 VCC 的电平 → 锁存器置位 →
+       输出变高、放电管截止 → C 开始通过 R 从 VCC 充电。
+    ③ 计时：C 上的电压按 τ = RC 上升，同时 pin6 一直盯着它。
+    ④ 结束：C 电压到 2/3 VCC 时，A1 翻转 → 锁存器复位 → 输出回低、
+       放电管重新导通 → C 迅速放电回 0V，电路回到稳态，等待下一次触发。
+
+  【脉宽公式】就是前面那套 ln3 的推导，只是这次终点是 2/3 VCC：
+        电容充电：v_C(t) = VCC · ( 1 − e^(−t/RC) )
+        到达 2/3 VCC 时： 1 − e^(−t/RC) = 2/3
+                        → e^(−t/RC) = 1/3
+                        → t = RC · ln3 = 1.0986 · RC ≈ 1.1RC
+
+        T_w ≈ 1.1 · R · C
+        例：R = 100kΩ、C = 10µF → T_w ≈ 1.1 × 1.0s = 1.1s（1100ms）
+
+  【触发信号的两个硬要求】（做不到就会输出怪东西）
+    · 触发脉冲必须【比 T_w 窄】。触发太宽，输出还没结束又开始新的一轮，
+      波形就乱了。常用做法：触发信号先过一个 RC 微分电路，把它变成
+      一个尖锐的窄脉冲。
+    · 触发沿必须【干净】。pin2 内部是个比较器，边沿上带噪声就会
+      反复跨越 1/3 VCC 阈值 —— 又是施密特触发器的用武之地：
+      按键、长线、光耦过来的信号，先整形再送进 pin2。
+
+  【555 单稳态是不可重复触发的】在输出为高、C 正在充电的这段时间里，
+    再来一个触发脉冲【没有用】—— 锁存器已经处于置位状态，定时不会
+    重新开始。想让它"再触发就延长"，得用 74LS123 这类可重复触发的
+    芯片，或者用两个 555 搭电路（见前面单稳态那一小节的对比）。</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">接法二：无稳态（做方波，也就是最常说的"555 振荡器"）</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="555 无稳态接法（不需要触发，自己一直振）">
+            <pre><code>        VCC ────┬──────────────┬─────────┬─────────┬────
+                │              │         │         │
+              [ R1 ]           │       pin4      pin8
+                │              │      (RESET)    (VCC)
+              pin7             │         │         │
+             (DISCH)           │      接 VCC     ┌──┴──┐
+                │              │                  │     │
+              [ R2 ]           │                  │ 555 │
+                │              │        pin3 ◄────┤     │
+                ├──────────────┤        (OUT)     │     │
+                │            pin6                └──┬──┘
+                │           (THRESH)                │
+               === C           │                  pin2
+                │              └──── 与 pin6 短接 ──┘
+               GND                   (TRIG)
+                （pin5 到地接 0.01µF，图上省略）
+
+  【怎么工作】关键看【充电和放电走的是不同的路】：
+    · 充电：输出高时放电管截止，C 从 VCC 经 【R1 + R2】 充电，
+            从 1/3 VCC 充到 2/3 VCC 需要
+                t_高 = (R1 + R2)·C·ln2 ≈ 0.693·(R1 + R2)·C
+    · 放电：输出低时放电管导通，C 经 【只有 R2】 放电到 pin7，
+            从 2/3 VCC 放到 1/3 VCC 需要
+                t_低 = R2·C·ln2 ≈ 0.693·R2·C
+    · ln2 ≈ 0.693 的来历：充放电的目标跨度正好是"从 1/3 到 2/3"，
+      算出来是 ln2，和单稳态的 ln3 是同一套算法的不同参数。
+
+  【频率公式】T = t_高 + t_低 = 0.693·(R1 + 2·R2)·C
+                f = 1 / T ≈ 1.44 / [ (R1 + 2·R2) · C ]
+        （1/0.693 = 1.4427，所以分子是 1.44）
+
+  【占空比公式】
+        D = t_高 / T = (R1 + R2) / (R1 + 2·R2)
+    ★ 为什么它【永远大于 50%】？看分母：R1 出现一次，R2 出现两次。
+      充电走 R1+R2，放电只走 R2 —— 放电的路比充电的路【少了一个 R1】，
+      所以放电总是更快，输出高电平的时间总是更长。
+      只有当 R1 远小于 R2 时（比如 R1 = 1k、R2 = 1M），
+      分母 ≈ R1 + 2R2 ≈ 2R2、分子 ≈ R2，占空比才逼近 50%，
+      但永远差那么一点点。这是 555 无稳态的【原理性限制】，
+      不是选值技巧能绕过去的。
+
+  【数值算一遍】R1 = 1kΩ、R2 = 10kΩ、C = 0.1µF：
+        t_高 = 0.693 × 11kΩ × 0.1µF = 762µs
+        t_低 = 0.693 × 10kΩ × 0.1µF = 693µs
+        T = 1.455ms   →   f ≈ 687Hz
+        D = 762/1455 = 52.4%（用公式验算：11/21 = 52.38% ✓）
+
+  【想要占空比小于 50% 怎么办】在 R2 上并联一个二极管，让充电电流
+    绕开 R2（二极管方向取"充电时导通"）：
+        充电只走 R1 → t_高 = 0.693·R1·C
+        放电只走 R2 → t_低 = 0.693·R2·C
+        D = R1 / (R1 + R2)   ← 现在小于 50% 是可能的了
+        f ≈ 1.44 / [ (R1 + R2)·C ]
+    ⚠ 代价：二极管有正向压降，而且这个压降随温度变（约 −2mV/℃），
+      所以频率和占空比的温漂会比基本接法更大，精度别指望太高。
+    ⚠ 另一种调法：从 pin5 加电压，能同时移动两个阈值，可以做
+      压控振荡器（VCO）或脉宽调制 —— 但阈值一旦被外部电压决定，
+      频率就跟着那个电压漂了。</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">接法三：施密特（把 555 当回差比较器用）</p>
+
+          <p class="mt-3">这个接法简单到只有一句话：<b class="font-semibold text-ink">把 pin2 和 pin6 短接在一起当输入，pin7 悬空不用</b>。内部的 1/3 VCC 和 2/3 VCC 两个阈值自动变成回差：</p>
+
+          <div class="callout callout-tip mt-3">
+            <div class="callout-title">555 施密特接法的回差</div>
+            <p class="mt-2"><span class="font-mono">V<sub>T+</sub> = 2/3 · VCC&nbsp;&nbsp;&nbsp;&nbsp;V<sub>T−</sub> = 1/3 · VCC&nbsp;&nbsp;&nbsp;&nbsp;ΔV<sub>T</sub> = 1/3 · VCC</span></p>
+            <p class="mt-2">5V 供电时回差高达 <b>1.67V</b>——比 74HC14 的 0.5V 大得多，抗干扰极强（输入上叠 1.6V 的噪声都不会误翻转），但代价是<b>灵敏度很差</b>：输入信号必须真正摆过 1.67V 才能翻转，做小信号过零检测、音频整形就不合适了。</p>
+            <p class="mt-2">这也再次说明第 2 节那条结论：<b>回差是一笔交易，不是越大越好</b>。555 的施密特接法适合"环境恶劣、信号很大"的场合（比如长线过来的工业开关量），不适合"信号很小、需要灵敏"的场合。</p>
+          </div>
+
+          <p class="mt-3">如果觉得 1.67V 的回差太大，可以从 pin5 注入一个电压 V<sub>CV</sub> 来移动阈值：此时上阈值变成 V<sub>CV</sub>、下阈值变成 V<sub>CV</sub>/2，回差变成 V<sub>CV</sub>/2。把 V<sub>CV</sub> 调到 1V，回差就只有 0.5V 了——<b>这是 555 可调回差的入口</b>，也是它比固定阈值芯片灵活的地方。</p>
+
+          <p class="mt-6 font-semibold text-ink">555 三种接法对比</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>单稳态（One-shot）</th><th>无稳态（Astable）</th><th>施密特（回差比较器）</th></tr></thead>
+              <tbody>
+                <tr><td><b>接法特征</b></td><td>定时 RC 接在 pin7↔pin6，触发进 pin2，R 接 VCC</td><td>R1 接 VCC↔pin7、R2 接 pin7↔(pin6+pin2)，C 从 pin6 到地</td><td>pin2 与 pin6 短接当输入，pin7 空着</td></tr>
+                <tr><td><b>pin7 的作用</b></td><td>定时电容的放电通路（每次结束自动放电）</td><td>充电/放电的"岔路口"，R1 只参与充电不参与放电</td><td>不用（悬空）</td></tr>
+                <tr><td><b>输出形态</b></td><td>平时低电平，触发后输出一个宽度 T<sub>w</sub> ≈ 1.1RC 的正脉冲</td><td>连续方波，f ≈ 1.44/[(R1+2R2)C]，占空比 &gt; 50%</td><td>随输入电平翻转的方波（输入缓变时输出边沿陡峭）</td></tr>
+                <tr><td><b>触发需求</b></td><td>需要外部触发（下降沿，宽度要窄于 T<sub>w</sub>）</td><td>不需要触发，上电即振</td><td>不需要触发，但要输入信号</td></tr>
+                <tr><td><b>阈值 / 回差</b></td><td>阈值 2/3 VCC（定时结束点）</td><td>两个阈值 1/3、2/3 VCC</td><td>V<sub>T+</sub> = 2/3 VCC、V<sub>T−</sub> = 1/3 VCC，ΔV<sub>T</sub> = 1/3 VCC（可用 pin5 改）</td></tr>
+                <tr><td><b>能否重复触发</b></td><td>不可重复触发（定时中再触发无效）</td><td>—（本身就是自激）</td><td>—</td></tr>
+                <tr><td><b>典型用途</b></td><td>按键单次脉冲、定时器、红外发射的载波包络、看门狗喂狗信号展宽</td><td>LED 闪烁、蜂鸣器音调、电荷泵/升压的开关信号、简单 PWM</td><td>把缓慢或带噪声的信号整形成干净方波；可调回差的比较器</td></tr>
+                <tr><td><b>主要缺点</b></td><td>脉宽精度只有 RC 级（±5%~10%）；窄脉冲下限受限（双极型约 10µs 量级，按手册）</td><td>占空比天生 &gt; 50%；频率精度同样是 RC 级</td><td>回差 1.67V（5V 时）太大，小信号不适用</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">最后必须说清一件事，它直接决定你在项目里要不要用 555：<b class="font-semibold text-ink">555 的定时精度 == RC 振荡器的精度，也就是 ±5%~10% 这个量级（按典型器件估算）</b>。555 内部那三个 5kΩ 电阻的比值出厂就调得很准（所以阈值 1/3、2/3 是可靠的），真正漂的是你外接的 R 和 C，以及比较器的失调与延迟。所以：</p>
+
+          <p class="mt-3">做 LED 闪烁、蜂鸣器、简单 PWM、上电延时——555 又便宜又省事，非常合适。做串口波特率、精确定时、需要长时间累计准确的场合——555 不够，得上晶体振荡器或者单片机的定时器。这正是下一篇要接着讲的事：<b class="font-semibold text-ink">什么时候该用模拟电路产生脉冲，什么时候该交给单片机</b>。</p>
+
+          <p class="mt-3">顺带记住两个 555 的"脾气"：<b>双极型 555 的静态电流有好几 mA</b>（按手册，NE555 典型 3~10mA，输出翻转时还会有很大的交越电流尖峰），所以 VCC 脚旁边必须放 0.1µF 去耦电容、pin5 放 0.01µF，否则它会在电源上制造一串噪声去干扰你板上的其它电路；<b>驱动能力强是它的优点</b>（双极型 555 输出可以拉到 200mA 量级，直接点 LED、驱动小继电器都行），而 CMOS 版（7555、TLC555）静态电流只有几十~几百 µA、可以配很大的定时电阻，但驱动能力弱得多。选型号的时候，先想清楚你要的是"省电"还是"力气"。</p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <section>
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-3">前面五节讲的全是"道理"，但真正上了板子，你面对的永远是具体数字：电阻取多少、回差够不够、定时准不准。这一节的六道题都是工程上会真实遇到的算法，每道都按「读题 → 列公式 → 代数字 → 验算 → 工程结论」走完。<b class="font-semibold text-ink">建议你拿张纸跟着算一遍</b>——能自己算出数来，这一篇才算真的学会了。</p>
+
+          <h3 id="calc-schmitt" class="mt-7 text-base font-semibold">例一：算一组施密特阈值与回差（运放版 + 门电路版）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>用运放搭一个施密特比较器，去整形一个 0~5V 的缓慢信号，要求回差至少 1.5V。运放用 ±12V 双电源，输出饱和电压 V<sub>sat</sub> = ±10.5V（按 LM358 在 ±12V 供电下输出摆幅比电源轨小 1.5V 左右估算）。接法：同相端经 R2 = 10kΩ 接参考电压 V<sub>R</sub>，再经 R<sub>F</sub> 接输出；反相端接输入信号 V<sub>I</sub>。（1）取 V<sub>R</sub> = 0、R<sub>F</sub> = 100kΩ，求两个阈值与回差。（2）若要求回差 3V，R<sub>F</sub> 该取多少？（3）把 V<sub>R</sub> 改成 2V，阈值怎么变？回差变不变？（4）同样的电阻比例换成 CMOS 门电路做，回差为什么小得多？</p>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">1</span>
+            <div>
+              <p class="text-sm font-semibold">列公式：切换发生在 V<sub>I</sub> = V<sub>+</sub> 的那一瞬间</p>
+              <p class="mt-1 text-[13px] text-muted">运放的开环增益极大，只要 V<sub>+</sub> 和 V<sub>−</sub> 有微小差别，输出就撞到电源轨。所以翻转条件是 V<sub>I</sub> = V<sub>+</sub>，而 V<sub>+</sub> 是 V<sub>R</sub> 与 V<sub>O</sub> 在同相端的加权平均：<span class="font-mono">V<sub>+</sub> = ( V<sub>R</sub>·R<sub>F</sub> + V<sub>O</sub>·R2 ) / ( R2 + R<sub>F</sub> )</span>。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">2</span>
+            <div>
+              <p class="text-sm font-semibold">代入 V<sub>O</sub> = +V<sub>sat</sub>，得到上阈值</p>
+              <p class="mt-1 text-[13px] text-muted">输出为高时，输入必须升到 V<sub>T+</sub> 才会翻转：V<sub>T+</sub> = (0 + 10.5V × 10kΩ) / 110kΩ = <b>0.955V</b>。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">3</span>
+            <div>
+              <p class="text-sm font-semibold">代入 V<sub>O</sub> = −V<sub>sat</sub>，得到下阈值</p>
+              <p class="mt-1 text-[13px] text-muted">输出为低时，输入必须降到 V<sub>T−</sub>：V<sub>T−</sub> = (0 − 10.5V × 10kΩ) / 110kΩ = <b>−0.955V</b>。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">4</span>
+            <div>
+              <p class="text-sm font-semibold">回差与（2）（3）的结果</p>
+              <p class="mt-1 text-[13px] text-muted">ΔV<sub>T</sub> = 0.955 − (−0.955) = <b>1.91V</b>，比要求的 1.5V 大，够用（余量 1.27 倍）。要求 3V 时：2×10.5×10/(10+R<sub>F</sub>) = 3（单位 V、kΩ），解得 R<sub>F</sub> = 60kΩ，取标准值 62kΩ → ΔV<sub>T</sub> = 210/72 = <b>2.92V</b>。把 V<sub>R</sub> 改成 2V（R<sub>F</sub> 仍为 100kΩ）：V<sub>T+</sub> = (2×100 + 105)/110 = <b>2.77V</b>、V<sub>T−</sub> = (200 − 105)/110 = <b>0.86V</b>，中心移到 1.82V，而 <b>回差仍然是 1.91V，一点都不变</b>。</p>
+            </div>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例一的计算与验算">
+            <pre><code>【(1) V_R = 0、R2 = 10kΩ、R_F = 100kΩ】
+    V_T+ = ( V_R·R_F + V_sat·R2 ) / ( R2 + R_F )
+         = ( 0 + 10.5V × 10kΩ ) / 110kΩ = 0.9545V
+    V_T− = ( V_R·R_F − V_sat·R2 ) / ( R2 + R_F )
+         = ( 0 − 105 V·kΩ ) / 110kΩ = −0.9545V
+    ΔV_T = 2 · V_sat · R2 / ( R2 + R_F ) = 210 / 110 = 1.909V  ✓ 大于 1.5V
+
+【(2) 要求 ΔV_T = 3V】
+    210 / ( 10 + R_F ) = 3        （R_F 以 kΩ 计）
+    210 = 30 + 3·R_F   →   R_F = 60kΩ   →   取标准值 62kΩ
+    验算：ΔV_T = 210 / 72 = 2.917V（比目标小 2.8%，可接受）
+          V_T+ = 10.5 × 10 / 72 = 1.458V
+
+【(3) V_R = 2V，回差不变】
+    V_T+ = ( 2V × 100kΩ + 10.5V × 10kΩ ) / 110kΩ = 305/110 = 2.773V
+    V_T− = ( 2V × 100kΩ − 10.5V × 10kΩ ) / 110kΩ =  95/110 = 0.864V
+    中心 = ( 2.773 + 0.864 ) / 2 = 1.818V
+    验算中心：V_R · R_F / ( R2 + R_F ) = 2 × 100/110 = 1.818V  ✓
+    ΔV_T = 2.773 − 0.864 = 1.909V  ← 和 V_R = 0 时一模一样
+
+    ★ 结论：参考电压只平移中心，回差完全不看 V_R。
+      回差 = 2·V_sat·R2/(R2+R_F)，只由【输出摆幅】和【分压比】决定。
+      要让阈值以某个电压为中心，就调 V_R；
+      要让抗干扰变强，只能改分压比或者换输出摆幅更大的器件。
+      这两件事互相独立，别混在一起调。
+
+【(4) 换成 CMOS 门电路版：V_DD = 5V、R1 = 10kΩ、R2 = 100kΩ】
+    ΔV_T = V_DD · R1 / R2 = 5V × 0.1 = 0.5V
+    只有运放版的 1/3.8。原因不是"门电路差"，而是【输出摆幅】：
+      运放版：摆幅 21V（±10.5V），分压比 0.0909
+      门电路版：摆幅 5V（0~5V），分压比 0.1
+      回差 ≈ 摆幅 × 分压比（两者的分压比接近，差别全在摆幅上）
+    ⇒ 想要大回差又想用门电路，就得把 R1/R2 的比例做大
+      （比如 R1 = 47kΩ、R2 = 100kΩ → ΔV_T = 2.35V），
+      代价是最小可辨信号也跟着涨到 2.35V。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-3">
+            <div class="callout-title">这道题要带走的三句话</div>
+            <p class="mt-2">① 回差 = 输出摆幅 × 分压比，和前级的增益、参考电压都无关。</p>
+            <p class="mt-1">② 参考电压只决定"中心在哪"，回差决定"抗多大的噪声"，两者分开调。</p>
+            <p class="mt-1">③ 回差就是最小可辨信号：本例 1.91V，意味着输入在 1.82V ± 0.95V 之间怎么动，输出都不理你。这是抗干扰的代价，不是缺陷。</p>
+          </div>
+
+          <h3 id="calc-hyst" class="mt-7 text-base font-semibold">例二：回差多大才够抗干扰</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>3.3V 的单片机系统，一根 2 米长的信号线从机械开关过来，示波器实测线上噪声峰峰值 0.4V，信号是 0~3.3V 的开关量。（1）回差至少要多大？（2）用 3.3V 供电的 74HC14（按典型值估算 V<sub>T+</sub> ≈ 1.8V、V<sub>T−</sub> ≈ 1.5V，回差约 0.3V）够不够？（3）不够的话，用两级 CMOS 反相器 + 输入串 R1、输出反馈 R2 把回差做到 0.8V，求 R1/R2 与具体阻值（设门的翻转阈值 V<sub>th</sub> = V<sub>DD</sub>/2 = 1.65V）。（4）如果噪声变成 1.5V（旁边有电机），加大回差还管用吗？</p>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">1</span>
+            <div>
+              <p class="text-sm font-semibold">定判据：噪声峰峰值必须小于回差，再留一倍余量</p>
+              <p class="mt-1 text-[13px] text-muted">回差是"输出已经翻了之后，要翻回来必须再走多远"。只要噪声峰峰值小于回差，输入在阈值附近抖动也不会让输出来回翻。工程上按 2 倍余量取（经验值，留出器件离散和温度漂移的额度）：ΔV<sub>T</sub> ≥ 2 × 0.4V = <b>0.8V</b>。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">2</span>
+            <div>
+              <p class="text-sm font-semibold">判断 74HC14 够不够：不够</p>
+              <p class="mt-1 text-[13px] text-muted">它的回差只有 0.3V 量级，<b>比噪声峰峰值 0.4V 还小</b>——这意味着噪声自己就能把输入从一个阈值推到另一个阈值。表现就是：明明只按了一次开关，中断却进了好几次。这就是第 1 节里"信号边沿不干净"的真实后果。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">3</span>
+            <div>
+              <p class="text-sm font-semibold">反算分压比与阻值</p>
+              <p class="mt-1 text-[13px] text-muted">ΔV<sub>T</sub> = V<sub>DD</sub>·R1/R2 = 3.3 × R1/R2 = 0.8 → R1/R2 = 0.2424。取 R1 = 10kΩ → R2 = 41.2kΩ → 取标准值 <b>43kΩ</b> → 实际 ΔV<sub>T</sub> = 3.3 × 10/43 = <b>0.767V</b>（余量 1.92 倍，够）。阈值：V<sub>T+</sub> = 1.65 × (1 + 10/43) = 2.03V、V<sub>T−</sub> = 1.65 × (1 − 10/43) = 1.27V，中心正好在 1.65V。</p>
+            </div>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例二的验算与（4）的结论">
+            <pre><code>【(3) 验算】
+    ΔV_T = V_DD · R1 / R2 = 3.3V × 10kΩ / 43kΩ = 0.7674V
+    V_T+ = 1.65V × ( 1 + 10/43 ) = 1.65 × 1.2326 = 2.034V
+    V_T− = 1.65V × ( 1 − 10/43 ) = 1.65 × 0.7674 = 1.266V
+    回差 = 2.034 − 1.266 = 0.768V  ✓ 与公式一致
+
+    抗干扰核算：噪声峰峰值 0.4V 小于回差 0.767V，
+      信号一次穿越阈值时，噪声最多把输入推 0.4V ——
+      离"翻回来"还差 0.367V，输出不会来回抖。✓
+
+    代价核算：最小可辨信号 = 0.767V，
+      信号摆幅 3.3V 的 23% —— 对一个开关量完全没问题；
+      但如果这是个模拟小信号（比如 50mV 的传感器输出），
+      0.767V 的回差会把所有信息吞掉，绝对不能用这个方案。
+
+【(4) 噪声 1.5V 时，加大回差不管用】
+    需要的回差 ≥ 2 × 1.5V = 3V，
+    而 3.3V 电源下阈值最多只能在 0~3.3V 之间划，
+    回差的物理上限就是 V_DD（实际还达不到，门电路本身要留裕量）。
+    ⇒ 想靠"把回差调到 3V"解决 1.5V 的噪声，这条路是死的。
+
+    正确的做法是【分级处理】，回到第 1 节那张噪声容限的表：
+      ① 先把噪声压下去（物理层）：双绞线 + 屏蔽、远离电机线束、
+         信号线串 100Ω 并并 100nF 到地（RC 低通，τ 要大于噪声周期）
+      ② 再加施密特整形（本节的回差）
+      ③ 软件上还要加"连续 N 次采样一致才认账"的确认逻辑
+    ★ 记住这个层次：回差是第一道防线，它只能对付
+      "幅度小于回差"的噪声；大幅度、长时间持续的干扰，
+      必须在它到达芯片之前就处理掉。</code></pre>
+          </div>
+
+          <h3 id="calc-mono" class="mt-7 text-base font-semibold">例三：由脉宽反算单稳态的 RC（以及"不可重复触发"的后果）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>人体红外传感器的输出是 1ms 的窄脉冲，你要把它展宽成 200ms 的单脉冲——既让 LED 亮得看得见，也避免人走过时被反复触发。（1）用 74LS121（教材给出的脉宽公式 T<sub>w</sub> ≈ 0.7RC）反算 RC，C 取 1µF 薄膜电容，求 R 的标准值。（2）算实际脉宽。（3）如果改用 555 单稳态（T<sub>w</sub> ≈ 1.1RC），同样 C = 1µF，R 要多大？（4）如果人在 200ms 内又触发了一次，两种芯片分别会怎样？</p>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">1</span>
+            <div>
+              <p class="text-sm font-semibold">74LS121：0.7RC = 200ms → RC = 285.7ms</p>
+              <p class="mt-1 text-[13px] text-muted">C = 1µF → R = 285.7kΩ → 取 E24 标准值 <b>300kΩ</b>。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">2</span>
+            <div>
+              <p class="text-sm font-semibold">实际脉宽与误差</p>
+              <p class="mt-1 text-[13px] text-muted">T<sub>w</sub> = 0.7 × 300kΩ × 1µF = <b>210ms</b>，比目标大 5%（如果 R 用 1% 金属膜，这 5% 几乎全部来自"取标准值"这一步，而不是器件误差）。想更准就用 270kΩ + 15kΩ 串联凑 285kΩ。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">3</span>
+            <div>
+              <p class="text-sm font-semibold">555 单稳态：1.1RC = 200ms → RC = 181.8ms</p>
+              <p class="mt-1 text-[13px] text-muted">C = 1µF → R = 181.8kΩ → 取标准值 <b>180kΩ</b> → T<sub>w</sub> = 1.1 × 180kΩ × 1µF = <b>198ms</b>（−1%，反而更接近目标）。</p>
+            </div>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例三：两种单稳态芯片的对比与不可重复触发的后果">
+            <pre><code>【同样的 200ms 脉宽，两条路线】
+    74LS121:  T_w ≈ 0.7·R·C   →  R·C = 285.7ms  →  R = 300kΩ (C = 1µF)
+    555    :  T_w ≈ 1.1·R·C   →  R·C = 181.8ms  →  R = 180kΩ (C = 1µF)
+
+    两者的比例 = 181.8 / 285.7 = 0.636 ≈ ln2 / ln3 = 0.693/1.099 = 0.631
+    （因为 74LS121 内部充到约 1.4V 就翻转，等效 ln2；555 要充到 2/3 VCC，等效 ln3）
+
+    ★ 隐性优势：555 的定时电阻小得多（180kΩ 对 300kΩ），
+      而定时电阻越大，漏电流带来的误差越大（见例五）。
+      这一点在教材里通常不会提，但在实际选型时很值钱。
+
+【(4) 不可重复触发 vs 可重复触发 —— 用数字说清后果】
+    人走过传感器时，传感器可能在 200ms 内输出 3 个脉冲：
+       脉冲 1（t=0）、脉冲 2（t=80ms）、脉冲 3（t=160ms）
+
+    74LS121（不可重复触发，555 单稳态也是这一类）：
+       t=0    触发 → 输出高，开始 210ms 定时
+       t=80ms 再触发 → 【被忽略】，定时不重来，也不延长
+       t=160ms 再触发 → 【被忽略】
+       t=210ms 定时到 → 输出回低
+       结果：输出一个干净的 210ms 脉冲  ✓ 符合"只亮一次"的需求
+
+    74LS123（可重复触发）：
+       t=0    触发 → 输出高，开始 210ms 定时
+       t=80ms 再触发 → 【重新计时】，输出继续保持高
+       t=160ms 再触发 → 再次重新计时
+       t=370ms 最后一个脉冲之后 210ms → 输出才回低
+       结果：输出被"续"成 370ms，人走过去期间 LED 一直亮
+       ✓ 符合"有信号就一直保持"的需求
+
+    ★ 选型口诀：
+      「一次触发 = 固定一段」→ 不可重复触发（74LS121、555 单稳态）
+      「有信号就一直保持」  → 可重复触发（74LS123）
+      选错了不会烧板子，但行为会完全不是你想要的，
+      而且这种"时序语义"的错误在调试时最难发现。
+
+【补充：74LS121 用起来要注意的两件事】
+    · 它有两个下降沿触发端（A1、A2）和一个上升沿触发端（B）。
+      用哪个取决于你的信号极性，接错就是"死活不触发"。
+    · 它内部有一个 2kΩ 的定时电阻可选（把 R_int 接到 VCC），
+      但那样脉宽是固定的（约 1.4ms 量级）；要自己的脉宽就接外部 R、C。</code></pre>
+          </div>
+
+          <h3 id="calc-astable" class="mt-7 text-base font-semibold">例四：555 无稳态的频率与占空比</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>（1）给定 R1 = 4.7kΩ、R2 = 47kΩ、C = 1µF，求振荡频率、占空比、高电平时间与低电平时间。（2）设计一个 f ≈ 1kHz、占空比尽量接近 50% 的方波发生器：C 取 100nF，先按基本接法算一组值，再用"二极管旁路 R2"的方法算一组值，比较两者的结果。</p>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">1</span>
+            <div>
+              <p class="text-sm font-semibold">（1）先算分母 R1 + 2R2</p>
+              <p class="mt-1 text-[13px] text-muted">R1 + 2R2 = 4.7kΩ + 94kΩ = 98.7kΩ。f = 1.44 / [ (R1+2R2)·C ] = 1.44 / (98.7kΩ × 1µF) = 1.44 / 0.0987s = <b>14.6Hz</b>，周期 T = 68.5ms。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">2</span>
+            <div>
+              <p class="text-sm font-semibold">（1）分开算高、低电平时间，顺便验算</p>
+              <p class="mt-1 text-[13px] text-muted">t<sub>高</sub> = 0.693 × (R1+R2) × C = 0.693 × 51.7kΩ × 1µF = <b>35.8ms</b>；t<sub>低</sub> = 0.693 × R2 × C = 0.693 × 47kΩ × 1µF = <b>32.6ms</b>。加起来 68.4ms，和第 1 步的 68.5ms 一致 ✓。占空比 D = 35.8/68.5 = <b>52.3%</b>，用公式验算 (4.7+47)/98.7 = 52.4% ✓。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">3</span>
+            <div>
+              <p class="text-sm font-semibold">（2）基本接法：先算总电阻，再分配</p>
+              <p class="mt-1 text-[13px] text-muted">要求 f = 1kHz、C = 100nF → R1 + 2R2 = 1.44/(f·C) = 1.44/(1000 × 100nF) = <b>14.4kΩ</b>。为了占空比尽量接近 50%，让 R1 尽量小：取 R1 = 1kΩ → R2 = (14.4 − 1)/2 = 6.7kΩ → 取标准值 6.8kΩ → 验算 f = 1.44/(14.6kΩ × 100nF) = 986Hz（−1.4%）、D = (1+6.8)/14.6 = <b>53.4%</b>。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">4</span>
+            <div>
+              <p class="text-sm font-semibold">（2）二极管旁路法：能做到真正的 50%</p>
+              <p class="mt-1 text-[13px] text-muted">在 R2 上并联一个二极管（方向取"充电时导通"，让充电电流绕开 R2）。此时 t<sub>高</sub> = 0.693·R1·C、t<sub>低</sub> = 0.693·R2·C，所以 <b>D = R1/(R1+R2)</b>。取 R1 = R2 = 7.5kΩ（E24 标准值）→ D = <b>50%</b>，f = 1.44/[(7.5+7.5)kΩ × 100nF] = <b>960Hz</b>（−4%）。要更准可以选 E96 的 7.15kΩ×2 = 14.3kΩ → f = 1007Hz（+0.7%）。</p>
+            </div>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例四的完整算式与结论">
+            <pre><code>【(1) R1 = 4.7kΩ、R2 = 47kΩ、C = 1µF】
+    R1 + 2·R2 = 4.7 + 2×47 = 98.7kΩ
+    f = 1.44 / ( 98.7kΩ × 1µF ) = 1.44 / 98.7ms = 14.59Hz
+    T = 1/f = 68.5ms
+    t_高 = 0.693 × ( 4.7 + 47 )kΩ × 1µF = 0.693 × 51.7ms = 35.83ms
+    t_低 = 0.693 × 47kΩ × 1µF        = 0.693 × 47ms   = 32.57ms
+    验算 T = 35.83 + 32.57 = 68.40ms  ✓（与 68.5ms 的差异来自 1.44 是四舍五入值）
+    D = 35.83 / 68.40 = 52.4%   ✓ 与 (R1+R2)/(R1+2R2) = 51.7/98.7 一致
+    ★ 注意分子里那 1.44 是 1/0.693 = 1.4427 的近似，
+      所以两种算法会有 0.1% 量级的小差异 —— 别以为是算错了。
+
+【(2) 设计 1kHz、尽量 50%，C = 100nF】
+    基本接法：
+      R1 + 2·R2 = 1.44 / ( 1000Hz × 100nF ) = 14.4kΩ
+      取 R1 = 1kΩ（尽量小） → R2 = ( 14.4 − 1 ) / 2 = 6.7kΩ → 取 6.8kΩ
+      验算：R1 + 2R2 = 1 + 13.6 = 14.6kΩ
+            f = 1.44 / ( 14.6kΩ × 100nF ) = 1.44 / 1.46ms = 986Hz  (−1.4%)
+            D = ( 1 + 6.8 ) / 14.6 = 53.4%   ← 还是超了 3.4 个百分点
+      想再逼近：把 R1 降到 470Ω → R1+2R2 = 14.07kΩ
+            f = 1023Hz (+2.3%)、D = (0.47+6.8)/14.07 = 51.7%
+      ⇒ R1 减半，占空比只从 53.4% 改善到 51.7%，频率却漂了 3.7%。
+        结论：基本接法【永远做不到 50%】，而且越逼近频率越跑。
+
+    二极管旁路法：
+      D = R1 / ( R1 + R2 ) = 50%  →  R1 = R2
+      f = 1.44 / [ ( R1 + R2 ) · C ] = 1.44 / ( 2·R1·C ) = 1kHz
+      →  2·R1·C = 1.44ms  →  R1 = 1.44ms / (2 × 100nF) = 7.2kΩ
+      取 E24 的 7.5kΩ：f = 1.44/(15kΩ × 100nF) = 960Hz (−4%)，D = 50% ✓
+      取 E96 的 7.15kΩ：f = 1.44/(14.3kΩ × 100nF) = 1007Hz (+0.7%)，D = 50% ✓
+      ⇒ 想同时拿住频率和占空比，就要去 E96 里挑电阻（或串并联凑），
+        这就是"算出来 → 选标准值 → 验算 → 再微调"的真实流程。
+
+    ⚠ 二极管法的代价：二极管正向压降随温度变（约 −2mV/℃），
+      会让高、低电平时间不完全对称，频率和占空比的温漂比基本接法更大。
+      要既准又稳，答案不在 555 上 —— 在第 4 节的 MCU 定时器上。
+
+【两条选值红线（按手册，别踩）】
+    · R1 + R2 不能太小（kΩ 量级起步）：双极型 555 的放电管有电流上限，
+      太小会烧放电管或让定时不准。
+    · 定时电阻不能太大（双极型 555 大约 1MΩ 量级往上就要小心）：
+      漏电流和比较器输入电流开始和充电电流可比，定时会变长、甚至不翻转。</code></pre>
+          </div>
+
+          <h3 id="calc-555-mono" class="mt-7 text-base font-semibold">例五：555 单稳态做上电延时——误差预算</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>用 555 单稳态做"上电后延时 1 秒再让后级工作"的复位延时，要求 T<sub>w</sub> ≈ 1.0s。（1）反算 RC（C 取 1µF）。（2）把误差逐项列出来，算最坏情况下的脉宽范围。（3）如果要求延时误差在 ±5% 以内，有什么办法？</p>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">1</span>
+            <div>
+              <p class="text-sm font-semibold">反算 RC：1.1RC = 1.0s → RC = 909ms</p>
+              <p class="mt-1 text-[13px] text-muted">C = 1µF → R = 909kΩ → 取 E24 标准值 <b>910kΩ</b> → T<sub>w</sub> = 1.1 × 910kΩ × 1µF = <b>1.001s</b>（只偏 0.1%，这一步运气很好）。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">2</span>
+            <div>
+              <p class="text-sm font-semibold">把误差一项一项列出来（这一步才是这道题的重点）</p>
+              <p class="mt-1 text-[13px] text-muted">① R 容差：金属膜 1% → ±1%。② C 容差：薄膜电容 ±5%；如果手贱用了铝电解，容差常见 ±20%。③ 555 内部阈值电压误差与比较器失调：按手册 ±1%~±2%（比较器延迟只有几百 ns，对 1s 完全可忽略）。④ <b>漏电流</b>：充电电流只有 5V/910kΩ ≈ 5.5µA 量级，电容漏电加 pin6 输入电流若有 0.1µA，就贡献约 1.8% 的相对误差，而且会让电容"充不到"2/3 VCC，时间变长甚至不翻转。⑤ 温度：R、C、阈值的温漂全温叠加，再算 ±2%~±5%（按典型器件估算）。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">3</span>
+            <div>
+              <p class="text-sm font-semibold">最坏情况合成</p>
+              <p class="mt-1 text-[13px] text-muted">算术相加（保守）：用薄膜电容 ±(1+5+2+1.8+5)% ≈ <b>±15%</b> → 脉宽 <b>0.85~1.15s</b>；用铝电解 ±(1+20+2+1.8+5)% ≈ <b>±30%</b> → <b>0.7~1.3s</b>。注意：这是"最坏情况直接相加"的保守算法，实际统计分布会好一些，但<b>工程上必须按最坏情况设计</b>，因为你要保证每一块板子都合格。</p>
+            </div>
+          </div>
+
+          <div class="callout callout-warn mt-3">
+            <div class="callout-title">要 ±5% 以内的延时，只有三条路</div>
+            <p class="mt-2">① <b>逐板校准</b>：把 R 换成多圈可调电阻，生产时对着示波器调。单板可以，批量费工时，而且温漂还在（温度一变又偏）。</p>
+            <p class="mt-1">② <b>换时钟源</b>：32.768kHz 晶振 + CD4060 这类二进制计数器分频。误差由晶振决定，±20ppm 量级，一次设计好全批一致，不用校准。这是"用数字电路换精度"的经典做法。</p>
+            <p class="mt-1">③ <b>交给单片机定时器</b>（下一篇的主角）：8MHz 晶振下定时 1s，误差就是晶振的几十 ppm 加上几十 µs 的中断延迟。</p>
+            <p class="mt-2"><b>关键结论：RC 定时的电路，别指望 5% 以内的精度。要精度就得换时钟源——这不是电路调优问题，是原理问题。</b>这一条直接决定了第 4 节那个对比：为什么精确 PWM 应该交给 MCU 定时器，而不是 555。</p>
+          </div>
+
+          <h3 id="calc-clk" class="mt-7 text-base font-semibold">例六：时钟精度预算与波特率误差</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>（1）算 20ppm 的晶振做 RTC 时一天差多少秒；再算用内部 RC（±1%）做 RTC 一天差多少。（2）115200 波特率、每帧 10 位的异步串口，收发两端的时钟偏差各为 ε，推一下 ε 的允许上限；再用内部 RC（出厂校准 ±1%、全温几个百分点）和外部晶振（±20ppm）判断能不能用。（3）8MHz 晶振的 STM32，USART 挂在 72MHz 的 APB2 上，求 115200 对应的 BRR 分频值，并说明"改 BRR 能不能救 HSI"。</p>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">1</span>
+            <div>
+              <p class="text-sm font-semibold">一天有多少秒：86400s。ppm 换算：1% = 10000ppm</p>
+              <p class="mt-1 text-[13px] text-muted">20ppm 的晶振：86400 × 20×10<sup>−6</sup> = <b>1.73s/天</b>。内部 RC ±1%：86400 × 0.01 = <b>864s/天 = 14.4 分钟/天</b>；如果全温漂到 3%，就是 <b>2592s/天 = 43 分钟/天</b>。<b>结论：RTC 必须用 32.768kHz 晶振；用内部 RC 做 RTC，只能"看个大概"。</b></p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">2</span>
+            <div>
+              <p class="text-sm font-semibold">顺带记住：为什么 RTC 晶振是 32.768kHz</p>
+              <p class="mt-1 text-[13px] text-muted">32.768kHz = 2<sup>15</sup>。用 15 级二进制分频器一路除以 2，正好得到 1Hz 的秒信号——不需要任何"除以 32768"的复杂分频器，一级一级触发器串起来就行。这是"选一个能被 2 整除到 1 的频率"的经典工程选择，顺便也解释了为什么它比 8MHz 便宜：频率低、功耗小、电路简单。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">3</span>
+            <div>
+              <p class="text-sm font-semibold">UART 的误差预算：采样点会"漂"到第 9.5 位</p>
+              <p class="mt-1 text-[13px] text-muted">异步串口没有时钟线，接收端靠在<b>起始位的下降沿</b>重新同步，之后就在第 k 位的中间采样（第 k + 0.5 位处）。一帧 10 位，到停止位时采样点已经在第 <b>9.5 位</b>。如果时钟偏差 ε，累计漂移就是 9.5ε 个位宽；只要这个漂移不超过半个位宽（0.5），采样就还在这一位里：<b>9.5ε ≤ 0.5 → ε ≤ 5.3%</b>。这是理论极限；工程上按 <b>±2% 作为收发两端的总预算（每端 ±1%）</b>，因为还要扣掉起始沿检测误差、噪声、中断抖动，而且对方的时钟也不准（<b>±2% 是经验值，不是理论值</b>，但足够指导选型）。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">4</span>
+            <div>
+              <p class="text-sm font-semibold">用这条预算去卡两个时钟源</p>
+              <p class="mt-1 text-[13px] text-muted">内部 RC（HSI）：出厂校准 ±1%（25℃）恰好卡在每端 ±1% 的预算上——常温短线"能通"，但一上温度（±3%）就超了，症状是<b>大部分数据能通、偶尔丢字节或校验错</b>，这种偶发问题最难查。外部晶振（HSE）：20ppm = 0.002%，比预算小 <b>500 倍</b>，完全不是误差来源。<b>所以串口、USB、RTC 这类"时间敏感"的外设，规格书上写的就是"必须用外部晶振"。</b></p>
+            </div>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例六：BRR 分频值与「改 BRR 能不能救 HSI」">
+            <pre><code>【(3) 求 115200 的 BRR 分频值】
+    STM32 的 USART_BRR 是一个 16 位定点数：
+        高 12 位 = 分频值的整数部分
+        低  4 位 = 分频值的小数部分（分辨率 1/16）
+
+    分频值 = f_PCLK / ( 16 × 波特率 ) = 72MHz / ( 16 × 115200 )
+           = 72 000 000 / 1 843 200 = 39.0625
+    整数部分 = 39
+    小数部分 = 0.0625 × 16 = 1
+    →  BRR = (39 左移 4 位) 或上 1 = 0x271
+    实际波特率 = 72MHz / ( 16 × 39.0625 ) = 115200  ← 精确，0 误差  ✓
+
+【再算一个不能整除的例子：921600】
+    分频值 = 72 000 000 / ( 16 × 921600 ) = 4.8828
+    整数 4、小数 0.8828 × 16 = 14.12 → 取 14 → 4 + 14/16 = 4.875
+    实际波特率 = 72MHz / ( 16 × 4.875 ) = 923077
+    误差 = ( 923077 − 921600 ) / 921600 = +0.16%
+    ⇒ 分频器带来的误差是 0.1% 量级，可以接受。
+
+【★ 关键结论：BRR 修不了 HSI】
+    总误差 = 时钟源误差 + BRR 取整误差
+        用 HSE： 0.002% + 0.16% = 0.162%   ✓ 远远小于 2% 预算
+        用 HSI： 1%     + 0.16% = 1.16%    ✗ 已经超了每端 1% 的预算
+                3%（全温）+ 0.16% = 3.16% ✗ 彻底超了
+    ⇒ 分频器能修的只有"分频误差"（0.1% 量级），
+      它【修不了时钟源本身的偏差】（1%~3%）。
+      所以"用 HSI 通不了串口，就去把 BRR 调一调"这个思路是错的 ——
+      要改的是时钟源，不是分频比。
+
+【精度换算备忘（以后选型会一直用）】
+    1%      = 10000ppm
+    0.1%    = 1000ppm
+    0.01%   = 100ppm
+    0.002%  = 20ppm      ← 普通晶振
+    0.0002% = 2ppm       ← TCXO
+    ★ 记住这个数量级的阶梯：
+      RC 振荡器/555：5%~10%      （5 万~10 万 ppm）
+      陶瓷谐振器：    0.3%~0.5%  （3 千~5 千 ppm）
+      普通石英晶振：  10~50ppm
+      TCXO：          0.5~2ppm</code></pre>
+          </div>
+
+          <p class="mt-3">六道题算完，你会发现它们其实都在回答同一个问题：<b class="font-semibold text-ink">这块电路的误差从哪来、有多大、接受不接受。</b>第 2、3 节给你公式，这一节把公式变成数字，而下一节要把这些数字放到真正的单片机系统里去——那里有按键、中断、PWM、晶振、看门狗和复位引脚，每一项都能和前面学过的脉冲知识对上号。</p>
+        </section>
+<hr class="hr-soft my-10">
+
+        <section>
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-3">前面五节都是"电路原理"，这一节换个视角：<b class="font-semibold text-ink">同样的知识，到了单片机系统里分别长什么样、出现在哪个环节、踩错会有什么症状。</b>你会发现脉冲的产生与整形几乎渗透到 MCU 的每一个对外接口上——按键、中断、PWM、晶振、看门狗、复位引脚，一个都跑不掉。这一节全是真实场景，遇到代码可以直接拿去改。</p>
+
+          <h3 id="mcu-key" class="mt-7 text-base font-semibold">按键消抖：硬件整形 vs 软件消抖</h3>
+
+          <p class="mt-3">机械按键是"最便宜、也最脏"的输入器件。它的触点在你按下和松开的瞬间会<b class="font-semibold text-ink">弹跳</b>：触点不是一次就稳定接触，而是在 <b>5~20ms</b> 内反复通断（教科书常说 5~10ms，但实测和老化按键到 20ms 很常见）。这段时间里，引脚上的电平是一串密集的毛刺——<b>每一个毛刺都是一个物理上真实存在的电平跳变</b>，跟"按了几次"无关，只跟"触点弹了几下"有关。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="按键的硬件消抖：一个 R + 一个 C + 施密特输入">
+            <pre><code>   硬件消抖：一个电阻 + 一个电容 + 施密特输入
+
+              VCC (3.3V)
+                │
+              [ R ] 10kΩ 上拉
+                │
+                ├──────────────────► 到 MCU 的 GPIO（输入）
+                │
+               === C  1µF
+                │
+               ─┴─ GND
+                │
+              [ 按键 ]   （另一端接地：按下时把整个节点拉到 0V）
+                │
+               GND
+
+  【按键触点等效于一个"会弹跳的开关"】
+    理想波形：   ────────┐            ┌────────
+                         └────────────┘
+    真实波形：   ────┐┌┐┌─┐┌┐┌───┐┌┐┌──────────
+                     └┘└┘ └┘└┘   └┘└┘
+                     │← 5~20ms 的弹跳 →│
+
+  【RC 做了什么】
+    · 按下时：触点直接接地，电容通过触点的低阻放电，
+       放电时间常数只有"触点电阻 × C"（µs 量级），
+       所以下降沿依然陡峭、干净 —— 这是好事。
+    · 松开时：触点断开，VCC 只能通过 10kΩ 给 1µF 充电，
+       充电时间常数 τ = RC = 10kΩ × 1µF = 10ms。
+       节点电压缓慢爬升，抖动期间那些几十 µs 的毛刺
+       根本没有时间让电容电压变化多少。
+    · 爬升过程要花多久才被认账？从 0V 充到施密特的上阈值
+       （假设 V_T+ ≈ 1.8V，3.3V 供电）：
+         t = R·C·ln[ VCC / ( VCC − V_T+ ) ]
+           = 10ms × ln( 3.3 / 1.5 )
+           = 10ms × 0.788 = 7.9ms
+       ⇒ 松开后约 8ms 才被 MCU 认作"高电平"，
+         这段时间正好把大部分弹跳盖住。
+
+  【施密特在这里的角色】RC 把抖动"糊"成一条缓慢的斜坡，
+    而缓慢的斜坡+任何残留噪声又会在阈值附近来回穿越。
+    所以后面必须跟一个施密特输入，把它整成一次干净的跳变。
+    ★ 好消息：绝大多数 MCU 的 GPIO 输入路径本身【就是施密特
+      触发器输入】（去翻你型号手册的 I/O 结构图，输入那条线上
+      画着一个带滞回符号的三角形），所以这个 RC 直接接到 GPIO
+      上就完成了整形，不需要外挂 74HC14。
+
+  【τ 取多大的经验线】
+    · τ 用户是感觉不到的：20ms 以内都不会觉得"按键迟钝"，
+      超过 50ms 就会明显觉得"要按久一点才有反应"。
+    · 10ms（10kΩ + 1µF）能覆盖绝大多数按键；
+      按键老化严重或有干扰时，把 C 加到 2.2µF（τ = 22ms）更稳。
+    · 按键按下期间 R 上有 3.3V/10kΩ = 0.33mA 电流，松开时为 0，
+      对电池设备的平均功耗影响可以忽略。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">那软件消抖呢？</b>思路完全不同：不动硬件，用"隔一段时间再看一眼"的方式确认电平。最常见的实现是定时器每 5ms 采一次样，连续 3 次读到相同的电平才认账——这意味着一次真实变化要 10~15ms 才被确认，刚好落在按键抖动的量级上。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="软件消抖：定时器 5ms 采样 + 连续 3 次一致（可直接用）">
+            <pre><code>/* 软件消抖：定时器每 5ms 采样一次，连续 3 次一致才认账
+   去抖时间 = 2 ~ 3 个采样周期 = 10 ~ 15ms    */
+
+#define KEY_SAMPLES  3u          /* 连续几次一致算数 */
+
+typedef struct {
+    unsigned char raw_last;      /* 上一次采样到的原始电平 */
+    unsigned char stable;        /* 已经确认的稳定电平     */
+    unsigned char count;         /* 连续一致的次数         */
+} key_t;
+
+static key_t g_key = { 1u, 1u, 0u };   /* 上电时按键未按下 = 高电平 */
+
+/* 每 5ms 调用一次（放定时器中断里，或者主循环里定时轮询） */
+unsigned char key_poll(unsigned char raw)
+{
+    if (raw != g_key.raw_last) {         /* 电平变了：重新计数 */
+        g_key.raw_last = raw;
+        g_key.count    = 1u;
+    } else if (g_key.count &lt; KEY_SAMPLES) {
+        g_key.count++;                   /* 电平没变：累计 */
+    }
+
+    if (g_key.count &gt;= KEY_SAMPLES &amp;&amp; g_key.stable != raw) {
+        g_key.stable = raw;              /* 连续 3 次一致：认可这次变化 */
+        return 1u;                       /* 返回“发生了一次有效跳变” */
+    }
+    return 0u;
+}
+
+/* ★ 想同时支持单击、长按、双击，就别在这里判业务：
+     这个函数只负责“电平稳定了”这件事，
+     把 stable 和“已经稳定的 5ms tick 数”交给上层状态机。
+     5ms 一个 tick，长按 1s = 200 个 tick，很好算。 */</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">两条路的取舍：用表格对一遍</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>硬件：RC + 施密特输入</th><th>软件：定时采样 + 连续确认</th></tr></thead>
+              <tbody>
+                <tr><td><b>额外元件</b></td><td>一个电阻 + 一个电容（10kΩ + 1µF），每个按键一套</td><td><b>零元件</b>，只占代码和一点点 RAM</td></tr>
+                <tr><td><b>去抖时间怎么定</b></td><td>由 τ = RC 决定，要改就得换元件</td><td>改一个常量（采样周期 × 次数），随时可调</td></tr>
+                <tr><td><b>响应延迟</b></td><td>约 8ms（充电到 V<sub>T+</sub> 的时间），固定</td><td>10~15ms，可调；想让按键更"跟手"就缩短</td></tr>
+                <tr><td><b>对中断的影响</b></td><td><b>抖动在硬件层就没了</b>，一次按下只产生一个边沿 → 中断只进一次</td><td>轮询方式根本不进中断；如果配中断用，必须在 ISR 里额外处理（见下一小节）</td></tr>
+                <tr><td><b>CPU 与功耗</b></td><td>CPU 零开销，<b>MCU 可以一直睡到按键把它唤醒</b>——这是它最大的优势</td><td>必须有定时器在跑；低功耗设计里"定时醒来采样"本身就是一笔功耗</td></tr>
+                <tr><td><b>抗干扰 / ESD</b></td><td>RC 顺带把线上的快速毛刺、ESD 尖峰滤掉一部分，是物理层的缓冲</td><td>毛刺照样进入采样序列，只能靠算法兜；ESD 打在引脚上直接进芯片</td></tr>
+                <tr><td><b>能不能做长按 / 双击</b></td><td>硬件只负责"电平干净"，长按双击还得靠软件，所以要两套都写</td><td>天生适合：tick 计数就是时间戳，状态机随便写</td></tr>
+                <tr><td><b>适合什么场合</b></td><td>电池设备、低功耗待机唤醒、电磁环境差、按键少而固定的产品</td><td>按键多、交互复杂（长按/双击/组合键）、板子空间和成本紧张的产品</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">实际产品里最常见的是"两条都用"</b>：硬件 RC 负责把脏东西挡在芯片外面（保证中断安全和低功耗），软件再确认一次（保证长按/双击这些交互逻辑好写）。多花两个元件，换来的是"这个产品不会因为一个按键的毛刺而莫名其妙地死机"。</p>
+
+          <h3 id="mcu-exti" class="mt-7 text-base font-semibold">外部中断为什么必须先整形</h3>
+
+          <p class="mt-3">这是新手最容易踩、而且<b class="font-semibold text-ink">后果最离谱</b>的一个坑：把按键或传感器直接接到外部中断（EXTI）的下降沿触发输入上。</p>
+
+          <p class="mt-3">问题出在前面说过的那句话上——<b class="font-semibold text-ink">每个抖动毛刺都是一个物理上真实的电平跳变</b>。中断控制器的边沿检测电路不管你是"用户按了一次"还是"触点弹了三十下"，它只认电平跳变：只要引脚上出现一次满足条件的变化，中断标志就置一次，CPU 就进一次中断服务函数。</p>
+
+          <div class="callout callout-warn mt-3">
+            <div class="callout-title">实测说明：一次按下到底进多少次中断？</div>
+            <p class="mt-2">在你自己的板子上验证一下，五分钟就能看到真相：</p>
+            <p class="mt-2">① 在中断服务函数里<b>只做一件事</b>——把一个全局计数器加一（不要在里面做任何业务、不要延时）；<br>② 主循环里每 500ms 通过串口把计数器打印出来；<br>③ 按一次按键，看计数器涨了多少。</p>
+            <p class="mt-2">结果通常是<b>几十次</b>：抖动持续 5~20ms，而触点每次弹跳的间隔只有几百 µs 量级，这段时间里的每一个"接通"都是一个陡峭的下降沿，全都满足触发条件。你会看到计数器从 0 直接跳到 30、50、80……而你的手指只按了一下。</p>
+            <p class="mt-2">如果换成没有 RC、只有长线或缓慢边沿的信号（光耦输出、RC 上电曲线），症状是另一种：信号在阈值附近缓慢爬行，叠加的噪声让它反复穿越阈值，同样是几十次中断——<b>这次连机械抖动都没有，纯粹是"边沿不干净"</b>。</p>
+          </div>
+
+          <p class="mt-3">后果分三层，一层比一层严重：</p>
+
+          <p class="mt-3">① <b class="font-semibold text-ink">CPU 白跑</b>。每次中断都要保存现场、执行、返回，几十次中断意味着几十倍的无效开销。如果这个按键按得频繁，CPU 有相当一部分时间在空转。</p>
+
+          <p class="mt-3">② <b class="font-semibold text-ink">业务被重复执行几十次</b>。你的业务逻辑如果是"计数加一"、"菜单跳一项"、"发一个上报包"，那用户按一次就被执行几十次——计数错乱、菜单乱跳、通信流量莫名其妙翻几十倍。这类 bug 在开发阶段最难定位，因为示波器上看波形"没什么问题"，逻辑分析仪上中断却是密密一片。</p>
+
+          <p class="mt-3">③ <b class="font-semibold text-ink">低功耗设计直接失效</b>。电池设备靠"按键中断唤醒 MCU"来省电，本来应该"按下→醒一次→处理完继续睡"。现在一次按下唤醒几十次，每次唤醒都要跑完整的时钟稳定、外设初始化、任务处理流程，平均功耗可能翻几倍——本来能跑一年的电池，几个月就没电了。而且这种问题在实验室桌面测试时常常看不出来（因为不是每次都抖那么多）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">处理办法按代价从低到高排序：</b></p>
+
+          <p class="mt-3">① <b>硬件整形（最推荐）</b>：按上一小节的 RC + 施密特接法，一个 10kΩ 加一个 1µF，让引脚上只出现<b>一个</b>干净的边沿。中断只进一次，业务逻辑照常写，MCU 该睡就睡。这是"从源头解决问题"。</p>
+
+          <p class="mt-3">② <b>中断里只置标志 + 关闭自己的中断通道，用定时器延时确认</b>：中断服务函数里置一个"按键可能按下"的标志，然后<b>禁用这个 EXTI 通道</b>（把中断屏蔽位清掉），同时启动一个 20ms 的单次定时器；定时器超时后再去读一次电平，确认了才执行业务，最后重新使能 EXTI。这一招的本质是——<b>用软件实现了一个"不可重复触发的单稳态"</b>（第 2 节 74LS121 那个概念），在"定时期间"屏蔽新的触发。注意：<b>千万不要在中断服务函数里写延时循环</b>，那是在浪费 CPU 并且阻塞其它中断，是比抖动更糟的写法。</p>
+
+          <p class="mt-3">③ <b>干脆不用边沿中断</b>：用定时器每 5ms 轮询 + 状态机（就是上一小节的软件消抖）。多按键、要长按/双击、要按键组合的产品几乎都走这条路，因为状态机比中断更好写、更好调、更好维护。</p>
+
+          <p class="mt-3">这一小节要记住的一句话：<b class="font-semibold text-ink">"边沿触发"这个动作有一个隐含前提——边沿真的只有一个。</b>只要信号来自机械触点、长线、光耦、缓慢的 RC 曲线，这个前提就不成立，整形不是"可选的优化"，而是使用边沿触发的前置条件。</p>
+
+          <h3 id="mcu-pwm-cmp" class="mt-7 text-base font-semibold">555 做 PWM vs 定时器做 PWM</h3>
+
+          <p class="mt-3">"用 555 产生 PWM"是很多人学会的第一个模拟电路技巧，但在有单片机的板子上，它几乎总是错误的选择。下面用四个维度（精度、温漂、可调性、成本）把两条路摆在一起比，<b class="font-semibold text-ink">数字全部来自前面算过的结果</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>维度</th><th>555 无稳态（基本接法）</th><th>555 + 二极管调占空比</th><th>MCU 定时器 PWM</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>频率精度</b></td>
+                  <td>由 RC 决定，±5%~±10%（未校准，按典型器件估算）</td>
+                  <td>同样是 RC 级，还要加上二极管压降带来的不对称</td>
+                  <td><b>由晶振决定：20~50ppm</b>（比例六算过，比 RC 小 2500 倍），外加分频器 0.1% 量级的取整误差</td>
+                </tr>
+                <tr>
+                  <td><b>温漂</b></td>
+                  <td>全温 5%~10%（R、C、门限都在漂）</td>
+                  <td>更大：二极管正向压降约 −2mV/℃</td>
+                  <td>20~50ppm 量级（晶振的温漂就是全部）</td>
+                </tr>
+                <tr>
+                  <td><b>可调性</b></td>
+                  <td>换电阻或上电位器，机械式调节；改一次要动硬件</td>
+                  <td>同上，且改占空比会连带影响频率</td>
+                  <td><b>改写一个寄存器就实时生效</b>：可以由 ADC 采样做闭环、可以扫描、可以做软启动、可以在运行中随时变</td>
+                </tr>
+                <tr>
+                  <td><b>成本</b></td>
+                  <td>555 一颗 + 2 个电阻 + 1~2 个电容，几毛钱，外加板面面积和焊接工时</td>
+                  <td>再多一个二极管</td>
+                  <td><b>增量成本≈0</b>：PWM 是定时器的附属功能，你本来就要用 MCU，只是占掉一个定时器通道和一个引脚</td>
+                </tr>
+                <tr>
+                  <td><b>占空比范围</b></td>
+                  <td>永远 &gt; 50%（原理性限制）</td>
+                  <td>可以 &lt; 50%（D = R1/(R1+R2)）</td>
+                  <td>0~100% 可编程，想要多少写多少</td>
+                </tr>
+                <tr>
+                  <td><b>分辨率</b></td>
+                  <td>连续可调（调电位器），没有量化概念</td>
+                  <td>同左</td>
+                  <td>1/(ARR+1)：20kHz 时约 2%，1kHz 时可以做到 0.1%（下面有算式）</td>
+                </tr>
+                <tr>
+                  <td><b>CPU 占用</b></td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0（硬件定时器自动翻转引脚，只有改参数时才动 CPU）</td>
+                </tr>
+                <tr>
+                  <td><b>典型场合</b></td>
+                  <td>板上没有 MCU；或 MCU 需要长时间深睡却仍要持续输出（比如独立于程序的蜂鸣器提示）</td>
+                  <td>需要 &lt; 50% 占空比又不想用 MCU 的场合</td>
+                  <td>LED 调光、电机调速、舵机、开关电源、需要闭环控制的一切场合</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">结论很干脆：只要板上已经有 MCU、而且不需要它长时间睡觉，PWM 就交给定时器。</b>555 的位置只剩下两种：板子上根本没有 MCU（纯模拟产品），或者 MCU 必须长时间深睡、却仍要持续输出一个波形（这时用 555 让 MCU 安心睡觉，反而比让定时器跑着更省电）。除此之外，"用 555 做 PWM"基本都是给自己找麻烦——它的精度、温漂、可调性三个维度全面落后，而成本上你并没有省下任何东西。</p>
+
+          <h3 id="mcu-pwm-code" class="mt-7 text-base font-semibold">用定时器产生精确 PWM</h3>
+
+          <p class="mt-3">PWM 的三件事——<b class="font-semibold text-ink">频率、占空比、分辨率</b>——全都由三个寄存器算出来，理解了这个算式，任何 MCU 的定时器你都能上手（STM32、AVR、ESP32 的定时器名字不同，数学完全一样）：</p>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">1</span>
+            <div>
+              <p class="text-sm font-semibold">预分频 PSC：把定时器时钟降到好算的数</p>
+              <p class="mt-1 text-[13px] text-muted">计数器时钟 = 定时器输入时钟 / (PSC + 1)。取 PSC = 71，72MHz 就变成 1MHz，即 <b>1 个数 = 1µs</b>，后面算周期和脉宽都是心算。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">2</span>
+            <div>
+              <p class="text-sm font-semibold">自动重载 ARR：决定周期（也就是频率）</p>
+              <p class="mt-1 text-[13px] text-muted">计数器从 0 数到 ARR 就归零重来，所以一个周期有 (ARR + 1) 个数。ARR + 1 = 计数器时钟 / PWM 频率。要 20kHz：ARR + 1 = 1MHz / 20kHz = 50 → <b>ARR = 49</b>。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">3</span>
+            <div>
+              <p class="text-sm font-semibold">比较值 CCR：决定占空比（注意是 ARR + 1，不是 ARR）</p>
+              <p class="mt-1 text-[13px] text-muted">计数器小于 CCR 时输出高（PWM 模式 1），所以占空比 = CCR / (ARR + 1)。要 30%：CCR = 50 × 0.3 = <b>15</b>。这个 +1 是最容易写错的地方，差一个数在低频时看不出来，在高频时就是几个百分点的误差。</p>
+            </div>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="STM32F103 + TIM3_CH1：20kHz、30% 占空比的 PWM（含舵机例子）">
+            <pre><code>/* ============================================================
+   STM32F103：TIM3_CH1 从 PA6 输出 20kHz、30% 占空比的 PWM
+   系统时钟 72MHz；TIM3 挂在 APB1 上，但 STM32F1 的规则是
+   “APB1 预分频不为 1 时，定时器时钟 = PCLK1 × 2”，
+   所以这里 TIM3 的输入时钟仍然是 72MHz。
+   ============================================================ */
+
+#define TIMER_CLK_HZ    72000000u   /* 定时器输入时钟 72MHz      */
+#define COUNTER_CLK_HZ  1000000u    /* 目标计数器时钟 1MHz（1µs）*/
+#define PWM_FREQ_HZ     20000u      /* 想要 20kHz                */
+#define DUTY_PERCENT    30u         /* 想要 30% 占空比           */
+
+/* 第一步：预分频。PSC = 72MHz / 1MHz − 1 = 71 */
+#define PSC_VALUE   ( TIMER_CLK_HZ / COUNTER_CLK_HZ - 1u )        /* 71 */
+
+/* 第二步：自动重载。ARR = 1MHz / 20kHz − 1 = 49 */
+#define ARR_VALUE   ( COUNTER_CLK_HZ / PWM_FREQ_HZ - 1u )         /* 49 */
+
+/* 第三步：比较值。CCR = (ARR+1) × 占空比 = 50 × 30% = 15 */
+#define CCR_VALUE   ( ( ARR_VALUE + 1u ) * DUTY_PERCENT / 100u )  /* 15 */
+
+void pwm_init(void)
+{
+    RCC-&gt;APB1ENR |= RCC_APB1ENR_TIM3EN;      /* 开 TIM3 时钟     */
+    RCC-&gt;APB2ENR |= RCC_APB2ENR_IOPAEN;      /* 开 GPIOA 时钟    */
+
+    /* PA6 配成复用推挽输出（50MHz），交给 TIM3_CH1 控制 */
+    GPIOA-&gt;CRL &amp;= ~( 0xFu &lt;&lt; 24 );
+    GPIOA-&gt;CRL |=  ( 0xBu &lt;&lt; 24 );          /* 1011 = 复用推挽  */
+
+    TIM3-&gt;PSC  = PSC_VALUE;                  /* 预分频           */
+    TIM3-&gt;ARR  = ARR_VALUE;                  /* 周期             */
+    TIM3-&gt;CCR1 = CCR_VALUE;                  /* 高电平时间       */
+    TIM3-&gt;CCMR1 |= ( 6u &lt;&lt; 4 );            /* PWM 模式 1       */
+    TIM3-&gt;CCMR1 |= ( 1u &lt;&lt; 3 );            /* OC1PE 预装载使能 */
+    TIM3-&gt;CCER  |= ( 1u &lt;&lt; 0 );            /* CC1E 打开输出    */
+    TIM3-&gt;CR1   |= ( 1u &lt;&lt; 7 );            /* ARPE ARR 预装载  */
+    TIM3-&gt;EGR   |= ( 1u &lt;&lt; 0 );            /* UG 立即更新影子  */
+    TIM3-&gt;CR1   |= ( 1u &lt;&lt; 0 );            /* CEN 开始计数     */
+
+    /* 结果核算：
+       频率 = 72MHz / ( (71+1) × (49+1) ) = 72e6 / 3600 = 20.000kHz
+       占空比 = 15 / 50 = 30.0%
+       分辨率 = 1 / 50 = 2%（一个 CCR 数就是 2 个百分点）      */
+}
+
+/* 运行中改占空比：一行就够，实时生效，不用重启定时器 */
+void pwm_set_duty(unsigned int percent)
+{
+    if (percent &gt; 100u) percent = 100u;
+    TIM3-&gt;CCR1 = ( ARR_VALUE + 1u ) * percent / 100u;
+}
+
+/* ------------------------------------------------------------
+   同一个定时器，换成舵机信号（50Hz、脉宽 0.5~2.5ms，中位 1.5ms）
+   保持计数器 1MHz（1 个数 = 1µs），算式完全一样：
+       周期 20ms → ARR + 1 = 1MHz / 50Hz = 20000 → ARR = 19999
+       1.5ms 中位 → CCR = 1500 个数 = 1500µs
+       0.5ms 一端 → CCR = 500  ；2.5ms 另一端 → CCR = 2500
+   ★ 这就是为什么舵机能用一行 CCR 精确控制角度：
+     1µs 的分辨率对应约 0.1° 的角度分辨率（按常见舵机估算）。
+   ------------------------------------------------------------ */
+
+/* ★★ 频率与分辨率是互相制约的，这是定时器 PWM 最重要的一条
+   定量关系（把 ARR+1 消掉就得到）：
+         PWM 频率 × (ARR + 1) = 计数器时钟
+   → 想要频率高，能用的计数值就少，分辨率和占空比调节的
+     精细程度都会变差：
+       20kHz @ 1MHz 计数 → 只有 50 级 → 分辨率 2%
+        1kHz @ 1MHz 计数 → 1000 级   → 分辨率 0.1%
+   想两个都要，只能提高计数器时钟（把 PSC 设成 0，
+   让计数器直接跑 72MHz → 20kHz 时就有 3600 级，分辨率 0.028%）。
+   典型的取舍：LED 调光要 1kHz 以上（避免肉眼看到闪烁）
+   且分辨率越高越好；电机驱动要 10~20kHz（避开人耳听得到的
+   啸叫），分辨率 1% 量级足够；舵机固定 50Hz，要的是脉宽精度。 */</code></pre>
+          </div>
+
+          <p class="mt-3">顺带提一句：上面那段 C 代码里的左移运算符，在本页的源码里是转义写法（<code class="icode">&amp;lt;&amp;lt;</code>），浏览器会把它还原成正常的 <code class="icode">&lt;&lt;</code> 显示出来——<b class="font-semibold text-ink">HTML 里小于号不能裸着出现</b>，这是本页自检清单里专门查的一条，也是技术博客最常见的翻车点之一。你从页面上复制代码拿到的内容是正确可编译的。</p>
+        <h3 id="mcu-crystal" class="mt-7 text-base font-semibold">晶振电路：皮尔斯振荡器与"为什么我的晶振不起振"</h3>
+
+          <p class="mt-3">MCU 外部晶振用的几乎都是同一种电路——<b class="font-semibold text-ink">皮尔斯振荡器（Pierce）</b>。它的构成就四样东西：<b>一个反相器</b>（在 MCU 内部）、<b>一个晶体</b>、<b>两个负载电容</b>、<b>一个反馈电阻</b>。看懂这张图，你以后照着手册接线就不会错：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="皮尔斯振荡器：MCU 外部晶振的标准接法">
+            <pre><code>   皮尔斯振荡器（Pierce）：MCU 上最常见的晶振接法
+
+        ┌────────────► 晶振 8MHz ◄────────────┐
+        │   （石英谐振器：等效于一个 Q 值极高   │
+        │     的电感电容串联谐振回路）          │
+        │                                      │
+     OSC_IN                                OSC_OUT
+        │                                      │
+   ┌────┴──────┐                          ┌────┴──────┐
+   │ MCU 内部   │                          │ MCU 内部   │
+   │ 反相器     │◄───── 反馈电阻 R_f ──────►│ 输出驱动   │
+   │（OSC_IN 是 │      1MΩ 量级，把反相器    │            │
+   │  它的输入）│      偏置在线性区；很多    │            │
+   │            │      型号已集成在片内）    │            │
+   └────────────┘                          └────────────┘
+        │                                      │
+       === C1  (16pF)                        === C2  (16pF)
+        │                                      │
+       GND                                    GND
+
+   读图要点：
+     · 晶体、C1、C2 三者构成一个“π 形”网络，晶体是谐振元件，
+       C1 / C2 是它的【负载】，不是随便加的滤波电容 ——
+       它们直接决定晶振实际工作在什么频率上。
+     · R_f 提供直流偏置，让反相器停在线性放大区。少了它，
+       反相器要么输出一直高、要么一直低，根本振不起来。
+     · 相位条件：反相器贡献 180°，晶体 + C1 + C2 网络再贡献
+       剩下的 180°，环路总相移 360°；环路增益大于 1 → 起振。
+       和前面“多谐振荡器”那三个条件一字不差。
+     · 起振是“从噪声里长出来”的：上电瞬间的热噪声、
+       电源纹波里含有丰富的频率成分，晶振把其中接近它谐振
+       频率的那一点点放大、限幅，最后稳定在谐振频率上。
+       所以起振需要时间（典型几百 µs 到几 ms），也需要
+       环路增益足够大 —— 这就是“起振余量”的来历。</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">负载电容怎么选：一个必须先算后选的公式</p>
+
+          <p class="mt-3">晶振手册里给的参数是 <b class="font-semibold text-ink">C_L（负载电容）</b>，常见值是 12pF 或 20pF（以具体型号手册为准）。你要根据它反算出 C1、C2 该焊多大：</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">C_L = C1·C2 / (C1 + C2) + C_stray</b></p>
+
+          <p class="mt-3">这里 <b>C_stray</b> 是引脚、焊盘、走线的寄生电容，按经验取 <b>3~5pF</b>（板子走线长就取大一点）。当 C1 = C2 时，公式变成 C_L = C1/2 + C_stray，于是：</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">C1 = C2 = 2 × (C_L − C_stray)</b></p>
+
+          <p class="mt-3">代进典型值：手册要求 C_L = 12pF、C_stray 取 4pF ⇒ C1 = C2 = 2 × (12 − 4) = <b>16pF</b>，取标准值 15pF 或 18pF 都可以。<b class="font-semibold text-ink">这个"减去寄生电容"的动作很关键</b>：很多人直接把手册的 C_L 当 C1、C2 焊上去（12pF 就是 12pF），结果实际负载电容变成 6 + 4 = 10pF，偏小 2pF——频率会偏正几十 ppm，起振也变得勉强。反过来，C1、C2 取太大（比如随手用 22pF 或 30pF）会让晶振"被拖住"：频率偏负，而且驱动能力不够的芯片会起振困难甚至在低温下不起振。</p>
+
+          <p class="mt-3">电容材质也有讲究：<b class="font-semibold text-ink">必须用 NPO / C0G</b>（温度系数接近 0、精度 ±5%），不要用 X7R / Y5V。后者容量随温度和直流偏压变化能到 ±20% 以上——负载电容跟着漂，频率跟着漂，那你用晶振的精度优势就白费了。</p>
+
+          <p class="mt-6 font-semibold text-ink">起振余量：为什么"能起振"和"可靠起振"是两回事</p>
+
+          <p class="mt-3">起振的判据是"环路增益大于 1"，但真实设计里必须留很大的余量——因为晶振的等效串联电阻 <b>ESR</b> 会随温度变化、芯片的驱动能力会随电压和工艺分散、寄生电容也会变。工程上常用的两个判据（都属于经验规则，具体以你型号手册为准）：</p>
+
+          <p class="mt-3">① <b class="font-semibold text-ink">驱动能力对 ESR 的余量</b>：MCU 手册会给出"最大允许 ESR"或跨导临界值 gm_crit，设计时要让实际晶振的 ESR 明显小于它（经验上留 3~5 倍余量）。小尺寸贴片晶振（比如 3225 封装）的 ESR 能到 60~100Ω，而老式 HC-49 常常只有 30~50Ω——<b>换封装就等于换了一个更"难驱动"的器件</b>，这是很多人换料后突然不起振的原因。</p>
+
+          <p class="mt-3">② <b class="font-semibold text-ink">负阻法实测</b>：在晶振支路里串一个可变电阻，慢慢加大直到停振，记下这个临界值 R_crit。要求 R_crit ≥ 5 × ESR（经验值）。这是产线上验证起振余量最直接的办法，一块板子加一个电位器就能做。STM32 这类 MCU 的 HSE 通常还提供几档驱动能力（内部可配），余量不够时先把驱动档位调高。</p>
+
+          <p class="mt-6 font-semibold text-ink">"晶振不起振"的排查清单</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>原因</th><th>典型症状</th><th>怎么查 / 怎么改</th></tr></thead>
+              <tbody>
+                <tr><td><b>ESR 太大</b>（小封装、劣质晶振）</td><td>常温能起振，低温或换一批料就不起；同一块板有的板子好有的不好</td><td>查手册"最大允许 ESR"，换低 ESR 型号；把 MCU 的 HSE 驱动能力调到最高档</td></tr>
+                <tr><td><b>负载电容错 / 漏焊</b></td><td>频率偏差大（几十到几百 ppm）；起振慢、振幅小、时振时停</td><td>按 C_L = C1·C2/(C1+C2) + C_stray 重算；用 NPO/C0G、精度 ±5%；确认 C_stray 取的是 3~5pF 而不是 0</td></tr>
+                <tr><td><b>走线太长 / 没包地</b></td><td>时好时坏；手一碰板子就停振；旁边有信号跳变就停</td><td>晶振紧贴芯片、走线尽量短（经验上控制在 10mm 以内）；晶振下方不走任何信号线、不挖地；四周包地并多打过孔</td></tr>
+                <tr><td><b>拿探头直接测 OSC 引脚</b></td><td>一测就不振，或者频率一测就偏</td><td>示波器探头有 10pF 量级的输入电容，跟负载电容是同一量级，等于给晶振加了个负载。别直接搭晶振脚——把 MCO 引脚配成输出 HSE，去量 MCO</td></tr>
+                <tr><td><b>助焊剂残留 / 板面漏电</b></td><td>干燥时正常，潮湿天气或梅雨季不起振</td><td>清洗板面、涂三防漆；晶振周围不要留裸露的过孔和测试点</td></tr>
+                <tr><td><b>起振时间没等够</b></td><td>上电后立刻去读时钟就绪标志，读不到就报错</td><td>起振要几百 µs 到几 ms。用 HSI 先跑起来，再切 HSE 并等 HSERDY 标志或超时重试（这也是标准做法）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-3">
+            <div class="callout-title">怀疑晶振没起振？用 MCO 引脚，别用探头去搭</div>
+            <p class="mt-2">把 MCU 的 <b>MCO</b>（时钟输出）引脚配成输出 HSE（或 SYSCLK 分频），然后用示波器或频率计去量 MCO 引脚。量到频率说明晶振活着、时钟树也切过去了；量不到就是没起振或者没切过去。这一招既不用碰晶振引脚（避免探头把电路测停），又能顺便验证时钟树配置对不对，比反复改电容快得多。</p>
+          </div>
+
+          <h3 id="mcu-hsi" class="mt-7 text-base font-semibold">内部 RC（HSI）与外部晶振（HSE）：为什么串口必须用晶振</h3>
+
+          <p class="mt-3">几乎每颗 MCU 内部都自带一个 RC 振荡器（STM32 里叫 <b>HSI</b>，8MHz 量级），上电复位后的默认时钟就是它。它的好处很实在：<b>不用外部元件、几微秒就稳定、不占引脚</b>。但它的精度和晶振完全不是一个量级：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>指标</th><th>内部 RC（HSI）</th><th>外部晶振（HSE）</th></tr></thead>
+              <tbody>
+                <tr><td><b>出厂精度（25℃）</b></td><td>±1% 量级（按典型值估算，靠出厂校准）</td><td>±20~50ppm（即 ±0.002%~0.005%）</td></tr>
+                <tr><td><b>全温区精度</b></td><td>扩大到百分之几（−40~85℃ 范围内 2%~3% 量级，按典型值估算）</td><td>主要由晶体温漂决定，±30~50ppm 量级</td></tr>
+                <tr><td><b>起振/稳定时间</b></td><td>几 µs（这是它最大的优势）</td><td>几百 µs ~ 几 ms</td></tr>
+                <tr><td><b>外部元件与引脚</b></td><td>零，不占引脚</td><td>晶振 + 2 个 NPO 电容，占 2 个引脚</td></tr>
+                <tr><td><b>成本</b></td><td>0</td><td>几毛钱 + 板面面积 + 焊接工时</td></tr>
+                <tr><td><b>能不能做串口</b></td><td>常温实验室"能用"，全温区不可靠</td><td>可靠，是产品设计的标准选择</td></tr>
+                <tr><td><b>能不能做 USB / RTC</b></td><td>不行（USB 全速要求 ±0.25% 量级，RTC 要按天算误差）</td><td>USB 用 HSE 倍频到 48MHz；RTC 用 32.768kHz 晶振</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">把"精度差距"翻译成你能感受到的后果（数字来自例六）：<b class="font-semibold text-ink">±1% 的时钟误差，一天就偏 864 秒（14.4 分钟）；20ppm 的晶振，一天偏 1.73 秒</b>，两者差了 500 倍。</p>
+
+          <p class="mt-3">串口通信是对时钟误差最敏感的常见外设，原因在采样机制：UART 一帧 10 位（1 个起始位 + 8 个数据位 + 1 个停止位），接收方靠起始位的下降沿对齐时钟，然后在每一位的中间采样；如果双方的时钟频率有偏差，采样点会随着帧的推进越来越偏，<b>到第 9、10 位就可能采到位的边沿上</b>。理论极限是 9.5ε ≤ 0.5 ⇒ ε ≤ 5.3%，但那是"每次都在理想位置采样"的数学极限；工程上按<b>两端总共 ±2%（每端各 ±1%，经验预算）</b>设计，再给中断响应、线缆、干扰留余量。</p>
+
+          <p class="mt-3">于是你就看到了那个经典现象：<b class="font-semibold text-ink">用 HSI 的板子，在实验室（25℃）串口好得很，装到现场（−20℃ 或 70℃）就开始丢包、乱码、偶尔通信中断。</b>不是代码的问题，是时钟漂出去了。更细的账在例六里算过：<b>总误差 = 时钟源误差 + 分频取整误差</b>，HSI 那 1% 摆在那里，靠调 BRR 的取整误差是救不回来的（HSE 的 0.002% + 0.16% 取整 = 0.162%，合格；HSI 的 1% + 0.16% = 1.16%，超预算）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">所以内部 RC 的正确定位是"启动跳板"</b>：上电后先用 HSI 跑起来（几 µs 就能干活，可以先点灯、先初始化），然后配置 HSE、等它稳定，再把系统时钟切到 HSE（或 HSE 倍频的 PLL）上，最后按需关掉 HSI 省电。需要精确定时的外设（UART、USB、CAN、定时器 PWM、RTC）都必须跑在晶振时钟上。这一套"先 HSI、后 HSE"的流程是 STM32 的 <code class="icode">SystemInit()</code> / 时钟树配置里的标准动作，也是理解时钟树的最好入口。</p>
+
+          <h3 id="mcu-wdt" class="mt-7 text-base font-semibold">看门狗的时钟为什么必须"独立"</h3>
+
+          <p class="mt-3">看门狗定时器（Watchdog）的作用是：你的程序跑飞了、死循环了、卡在某处不动了，它负责把 MCU 复位。但这里有一个必须先回答的问题——<b class="font-semibold text-ink">看门狗自己靠什么时钟活着？</b></p>
+
+          <p class="mt-3">如果看门狗用主时钟（HSE 或者 HSE 倍频出来的 PLL），那就出问题了：<b>主时钟停掉的时候，看门狗也跟着停了</b>——晶振摔裂了、晶振不起振、PLL 失锁、时钟配置写错了，这些故障恰恰是"最需要看门狗出手"的时刻，而它偏偏和主时钟一起死了。所以独立看门狗（STM32 里叫 <b>IWDG</b>）用的是一个<b>完全独立</b>的时钟源：内部的低速 RC 振荡器 <b>LSI</b>（典型 40kHz 量级，手册给的整个范围可能从 30kHz 到 60kHz，按典型值估算，以具体型号手册为准）。</p>
+
+          <p class="mt-3">代价是 LSI 的精度很差（±50% 甚至更宽），但这笔交易明显划算：<b class="font-semibold text-ink">看门狗只关心"你有没有在规定时间窗内来喂我"，超时时间差 ±50% 无伤大雅——你把喂狗周期留出 2~3 倍余量就安全了。而"时钟独立"是它的立身之本，差一点都不行。</b>这是嵌入式设计里"用精度换独立性"的典型一例，也是你以后遇到类似取舍时可以援引的判断依据。</p>
+
+          <p class="mt-3">独立看门狗的超时时间由三个参数决定，算一遍你就明白它和 LSI 精度的关系（以 STM32 的 IWDG 为例，公式与寄存器名以手册为准）：</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">T = (4 × 2<sup>prer</sup>) × (RLR + 1) / f_LSI</b></p>
+
+          <p class="mt-3">取 f_LSI ≈ 40kHz、预分频 64（prer = 3）、重装载值 RLR = 155：T = (4 × 64) × 156 / 40000 = 39936 / 40000 ≈ <b>0.998s</b>，也就是"1 秒没喂狗就复位"。因为 LSI 实际可能在 30~60kHz 之间，真实超时落在 0.67~1.33s 之间——所以你的喂狗周期应该按 <b>200~300ms</b> 来设计（留足余量），而不是贴着 1s 去喂。</p>
+
+          <p class="mt-3">另外两个必须记住的工程细节：</p>
+
+          <p class="mt-3">① <b class="font-semibold text-ink">永远在主循环里喂狗，不要在定时器中断里喂。</b>如果你的喂狗动作放在中断里，那么主循环卡死的时候中断还在照常跑、照常喂狗——看门狗被"喂饱"了，永远不会复位。<b>看门狗要监控的是主循环的活性，喂狗动作就必须挂在主循环上。</b>这是看门狗失效最常见的原因，比时钟源配错还常见。</p>
+
+          <p class="mt-3">② <b class="font-semibold text-ink">还有一种"窗口看门狗"（WWDG）</b>，它用 PCLK1（也就是主时钟分频来的），强制你在一个时间窗内喂狗——喂太早（程序跑太快、跑飞后乱喂）也会复位，专门用来监控那些"时钟还在但程序逻辑乱了"的情况。它和独立看门狗是互补关系：IWDG 管"时钟/系统级故障"，WWDG 管"程序逻辑故障"，安全性要求高的产品会把两个都打开（一个都不能喂，两个都复位）。</p>
+
+          <h3 id="mcu-nrst" class="mt-7 text-base font-semibold">复位引脚为什么必须是施密特输入</h3>
+
+          <p class="mt-3">最后一站回到本篇的主题上：<b class="font-semibold text-ink">MCU 的复位引脚（NRST）内部就是施密特触发器输入</b>。这不是设计师随手加的，而是被外部复位电路"逼"出来的。</p>
+
+          <p class="mt-3">最经典的复位电路是一个 10kΩ 上拉 + 一个 100nF 到地（有些还并联一个手动复位按键）。上电瞬间电容电压为 0，NRST 被拉低（MCU 保持复位）；随着 VCC 通过 10kΩ 给 100nF 充电，NRST 电压缓慢上升，时间常数 <b>τ = 10kΩ × 100nF = 1ms</b>，大约 2~3ms 后才越过复位释放阈值，MCU 开始运行。这个"缓慢上升的斜坡"就是问题所在：</p>
+
+          <p class="mt-3">① 如果复位引脚是<b>普通</b>输入（只有一个阈值），那么在这条几毫秒长的斜坡上，任何一点电源纹波、按下的按键抖动、旁边走线耦合过来的毛刺，都能让引脚电压在阈值附近反复穿越——<b>每一次穿越都是一次复位</b>。现象就是"上电时偶尔不启动"、"一按复位键 MCU 连着重启好几次"、"手碰一下板子就复位"。</p>
+
+          <p class="mt-3">② 有了<b>施密特</b>输入，上升时必须越过较高的 V_T+ 才算"释放复位"，下降时必须低于较低的 V_T− 才算"进入复位"，中间那几百毫伏的滞回带把噪声全都挡在门外——<b>一次上电、一次复位</b>，干净利落。这和第 2 节讲的"回差抗干扰"是同一个道理，只不过这里的信号不是方波，而是一条缓慢的 RC 充电曲线。</p>
+
+          <p class="mt-3">③ 顺带一提：复位按键本身也是机械触点，同样有 5~20ms 的抖动。复位引脚是施密特输入，所以这些抖动不会变成"连按好几次复位"——<b>你能安心地用最便宜的一个按键加一个电容做复位电路，靠的就是这一个滞回特性。</b></p>
+
+          <div class="callout callout-warn mt-3">
+            <div class="callout-title">一个容易被忽略的坑：复位电容别乱加大</div>
+            <p class="mt-2">有人为了让复位"更可靠"，把 NRST 上的电容从 100nF 加到 1µF。结果是调试器连不上了——<b>SWD / JTAG 调试器是通过拉低 NRST 来复位芯片的</b>，电容太大时，调试器驱动这条线要花更长的时间才能拉到低电平，边沿被拖慢，复位时序对不上，就会出现"下载失败 / 连接目标失败 / 芯片找不到"。典型值 100nF 是有道理的（滤波够用、边沿够快），别随手改大。</p>
+            <p class="mt-2">另外注意：现在很多 MCU 内部都集成了上电复位（POR/PDR）和掉电复位电路，靠它就能保证一个基本干净的上电复位。外部这颗 RC + 按键更多是为了"手动复位"和"调试"，所以它的取值要以手册里的最小复位脉宽要求为准（手册会给一个 µs 量级的最小低电平时间，满足即可），不需要一味求大。</p>
+          </div>
+        </section>
+<hr class="hr-soft my-10">
+
+        <section>
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误解与坑</h2>
+
+          <p class="mt-3">下面十条，每一条都是我在实验室、论坛和别人的板子上真实见过的问题。看的时候别只记结论，重点是"为什么错"——理解了机理，换一个电路你也能自己判断。</p>
+
+          <h3 id="pit-1" class="mt-7 text-base font-semibold">坑一：探头一搭上去波形就变了，"能看见波形就行"</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>示波器是"看"的仪器，搭上去不影响电路，测到什么样就是什么样。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>探头本身就是一个负载。常见的 10:1 无源探头有 <b>1MΩ 输入电阻</b>和 <b>10pF 量级输入电容</b>——这个电容和晶振的负载电容（十几 pF）是同一个量级，你把探头搭在晶振引脚上，等于凭空给它加了个负载，频率被拉偏、严重的直接停振。测高阻节点（比如 555 的 RC 充电节点）同样会改变时间常数。另外探头带宽不足会把上升时间"测大"：示波器带宽与上升时间的关系是 <b>BW ≈ 0.35 / t_r</b>，要测 10ns 的边沿至少需要 35MHz 带宽，用 20MHz 的探头去测，你看到的是探头自己的响应，不是电路的真实边沿。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>① 测晶振不要碰晶振脚，改测 MCO 输出；② 测快速边沿前先确认带宽够（BW ≥ 0.35 / t_r）；③ 测高阻节点时意识到探头的负载效应，必要时用有源探头或加一级缓冲；④ 探头的接地线尽量短（长地线引入的电感会让高速波形上出现虚假的振铃，这个"振铃"很多时候是你自己测出来的）。</p>
+
+          <h3 id="pit-2" class="mt-7 text-base font-semibold">坑二：以为施密特触发器的作用是"把波形变方"</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>信号不方，过一遍施密特就方了。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>施密特触发器是个<b>带滞回的判决器</b>，不是波形发生器。它只能决定"输出是高还是低"，输出的边沿质量由它的输出级驱动能力决定；输入信号幅度不够（越不过 V_T+ 或 V_T−）它根本不翻转；输入边沿太慢时，它虽然能输出干净的边沿，但翻转时刻会被噪声和阈值分散推迟得不确定（时间抖动变大）。它真正无可替代的本事是：<b>在噪声环境下，一个输入跳变只产生一个输出跳变。</b></p>
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>把施密特放在"判决"的位置，前面该滤波就滤波（RC 低通），该放大就放大，保证送到施密特输入端的信号幅度足够越过两个阈值；不要指望它去解决"信号幅度不够"或"边沿太慢到无法判决"的问题。</p>
+
+          <h3 id="pit-3" class="mt-7 text-base font-semibold">坑三：认为回差越大越抗干扰，越大越好</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>回差是抗干扰用的，那把它做到最大最安全。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>回差变大，意味着<b>能分辨的最小信号幅度变大</b>：信号峰峰值必须超过 ΔV_T 才能完成一次"低→高→低"的完整判决，幅度在这个范围内的信号会被直接忽略（灵敏度下降）。同时，回差把两个阈值推得离中心越远，缓慢边沿上的"判决时刻"越依赖噪声，时间抖动反而变大。最后，回差不可能超过电源轨——噪声比 V_DD 还大时，任何回差都救不了。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>按噪声峰峰值的 2 倍作为下限（例二算过：0.4V 噪声 → ΔV_T ≥ 0.8V，留一倍余量给器件分散和噪声峰值波动），在这个基础上取尽量小的值以保住灵敏度；噪声大到超过可用回差时，回到物理层解决（屏蔽、双绞、降低源阻抗、RC 低通、软件连续确认）。</p>
+
+          <h3 id="pit-4" class="mt-7 text-base font-semibold">坑四：以为 555 单稳态的脉宽"很准"，拿它当计时器</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>脉宽只由 RC 决定，公式算出来多少就是多少。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>公式只描述理想情况。真实误差来自五处：R 的容差、C 的容差和温度系数、555 内部阈值（2/3 VCC 只是设计中心值）与比较器失调、充放电漏电流、电源电压影响。例五算过一笔账：C = 1µF、R = 910kΩ 做 1 秒延时，用薄膜电容最坏 ±15%（0.85~1.15s），用铝电解能到 ±30%（0.7~1.3s）。尤其要注意<b>大电阻</b>：R 到 910kΩ 时充电电流只有 5.5µA 量级，任何 µA 级的漏电流（电容漏电、板面漏电、555 输入电流）都会造成几个百分点的误差。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>555 用在"够用就行"的场合（延时开关、蜂鸣器定时、去抖）；要准就三条路：逐板校准、晶振加分频器（CD4060 一类）、直接用 MCU 定时器配晶振。用 555 时尽量选薄膜电容、避免 R 大于 1MΩ、pin5 加小电容、电源加去耦。</p>
+
+          <h3 id="pit-5" class="mt-7 text-base font-semibold">坑五：把 74LS121 和 74LS123 当成可以互换的型号</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>都是单稳态触发器，引脚差不多，随便哪个都行。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>两者的关键区别是<b>能不能被重复触发</b>。74LS121 不可重复触发：输出脉宽一旦开始，期间来的新触发脉冲全部被忽略；74LS123 可重复触发：触发期间来的新脉冲会把输出脉宽"续上"。例三算过：200ms 内连发 3 个触发脉冲，不可重复触发只输出一次 210ms，可重复触发会延长到约 370ms。选错了，行为完全是两个电路。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>要"每次触发都给一个固定长度的脉冲"（固定脉宽、去抖、定时）用不可重复触发；要"只要还在触发就一直保持输出"（长按延时、丢脉冲检测、看门狗式监控）用可重复触发。算脉宽时看手册给的系数（74LS121 是 T_w ≈ 0.7RC，74LS123 用 K 值，按型号手册为准），别把两个公式混用。</p>
+
+          <h3 id="pit-6" class="mt-7 text-base font-semibold">坑六：以为 555 无稳态"调 R、C 就能得到任意频率和占空比"</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>频率和占空比是两个独立的旋钮，随便调。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>基本接法里，<b>充电走 R1 + R2、放电只走 R2</b>，两个电阻同时出现在频率公式里，占空比也被同一个比值锁死：D = (R1+R2)/(R1+2R2) 永远大于 50%。你想把占空比调到 30%，改 R1 会把频率一起改掉（例四：把 R1 从 1kΩ 降到 470Ω，占空比只从 53.4% 变到 51.7%，频率却从 986Hz 漂到 1023Hz）。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>要 &lt; 50% 的占空比，用二极管把充放电路径分开（D = R1/(R1+R2)），或者干脆用 MCU 定时器（占空比和频率是两个独立寄存器，互不影响）。做设计时先定频率再定占空比，别指望两个电阻同时满足两个约束——先算一遍就知道有没有解。</p>
+
+          <h3 id="pit-7" class="mt-7 text-base font-semibold">坑七：中断里延时 20ms 消抖，或者干脆不管抖动</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>在中断服务函数里等 20ms 再读一次电平就等于消抖了；或者"抖就抖吧，多进几次中断没关系"。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>① <b>在中断里延时是在浪费 CPU 并阻塞其它中断</b>，如果你的系统里有电机控制、通信接收这类实时任务，它们会被这 20ms 硬生生拖住；② 延时期间新的抖动边沿<b>照样会把中断标志置起来</b>，退出延时后标志还在，中断又会立刻再进一次，等于没消抖；③ 不管抖动，一次按下就进几十次中断，业务重复执行、低功耗唤醒设计全部失效（这一条在"在单片机上的样子"里已经展开）。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>三条路选一条：① 硬件 RC + 施密特输入（从源头整形，中断只进一次，最推荐）；② 中断里只置标志 + <b>禁用该 EXTI 通道</b> + 启动 20ms 单次定时器，超时后再确认电平并重新使能（软件版"不可重复触发单稳态"）；③ 定时器 5ms 轮询 + 状态机（多按键、要长按/双击时最好用）。<b>坚决不要在 ISR 里写延时循环。</b></p>
+
+          <h3 id="pit-8" class="mt-7 text-base font-semibold">坑八：为了省两个元件，量产也用内部 RC（HSI）</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>HSI 出厂校准过、实验室串口收发正常，那就省掉晶振和两个电容。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>实验室是 25℃ 的"理想环境"。HSI 出厂校准的 ±1% 只在常温成立，全温区漂到 2%~3% 量级（按典型值估算）；串口的采样误差会随一帧 10 位累计，工程预算只有两端共 ±2%（每端 ±1%）；HSI 那 1% 加上分频取整误差 0.16% 已经到 1.16%，接近预算上限，温度再漂就丢包。换算成时间更直观：1% 误差一天偏 864 秒（14.4 分钟），20ppm 晶振一天偏 1.73 秒。USB 更是直接不能用。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>量产产品凡是有 UART / USB / CAN / 精确定时 / RTC 需求，一律用 HSE（外部晶振）；HSI 只承担"上电后先把系统跑起来"的启动跳板角色，初始化完立即切到 HSE。手册里还要留意 USB 这类外设对时钟精度的硬性要求（全速 USB 是 ±0.25% 量级），"HSI 能不能凑合"这种问题不用试，看数值就知道答案。</p>
+
+          <h3 id="pit-9" class="mt-7 text-base font-semibold">坑九：晶振不起振，第一反应是"把负载电容加大"</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>不起振说明电容不够，加大 C1、C2 就能起来。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>加大负载电容是<b>反方向</b>的操作：它让晶振更难被驱动（等效串联负载更重）、实际频率更偏负，驱动能力本来就不够的芯片只会更起不来。晶振不起振的常见原因按出现频率排：ESR 太大（小封装晶振、劣质料）、负载电容算错或用错材质（X7R/Y5V 随温度漂 ±20%）、走线过长/没包地/跨过信号线、MCU 的 HSE 驱动档位配得太低、起振时间没等够就去读就绪标志。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>先按 C_L = C1·C2/(C1+C2) + C_stray 把电容<b>算准</b>（C_stray 取 3~5pF，别忽略），用 NPO/C0G ±5%；再对照手册检查晶振的 ESR 是否在允许范围内、把驱动档位调高；布线上紧贴芯片、走线短、下方不走线、包地打孔；最后用负阻法（串可变电阻测 R_crit ≥ 5×ESR，经验值）验证余量。别把"加电容"当万能药。</p>
+
+          <h3 id="pit-10" class="mt-7 text-base font-semibold">坑十：看门狗开了就安全了，喂狗放中断里最省事</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>只要使能了看门狗，程序跑飞就一定会被复位；喂狗动作放在哪个上下文都一样。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>① 如果喂狗放在定时器中断里，那么<b>主循环卡死的时候中断还在跑、还在喂狗</b>——看门狗被喂饱，永远不会复位。这是看门狗失效最典型的模式，等于白开。② 如果看门狗的时钟源是主时钟（HSE / PLL），那么晶振故障、PLL 失锁这类"最需要复位"的故障会让看门狗一起停摆。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>独立看门狗用<b>独立时钟源 LSI</b>（主时钟停了它还活着，代价是精度差，靠 2~3 倍喂狗余量兜住）；<b>喂狗动作放在主循环里</b>，让它真正代表"主循环活着"；超时时间留足余量（比如 LSI 40kHz、预分频 64、RLR=155 得到约 1s，那喂狗周期按 200~300ms 设计）；安全要求高的产品把独立看门狗 IWDG 和窗口看门狗 WWDG 都打开，一个管系统级故障、一个管程序逻辑故障。</p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自检</h2>
+
+          <h3 id="sum-key" class="mt-6 text-base font-semibold">这一篇你必须带走的九句话</h3>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">脉冲的六个参数</b>（幅度、周期/频率、脉宽、占空比、t_r、t_f）都要"可测"，占空比失真和边沿变慢是数字电路里最常见的两种"信号退化"，测量前先确认探头带宽满足 BW ≥ 0.35 / t_r。</li>
+            <li><b class="font-semibold text-ink">施密特触发器的本质是滞回</b>：两个阈值 ΔV_T = V_T+ − V_T−，"Z"字形特性来自输出电平通过反馈电阻参与了阈值的决定；回差抗干扰的定量判据是 ΔV_T ≥ 2 × 噪声峰峰值（经验余量），代价是最小可辨信号变大。</li>
+            <li><b class="font-semibold text-ink">回差的算式</b>：运放正反馈 ΔV_T = 2·V_sat·R2/(R1+R2)（单电源时约为 V_sat·R2/(R1+R2)）；两级反相器加正反馈 ΔV_T = V_DD·R1/R2；<b>参考电压只平移两个阈值的中心，不改变回差。</b></li>
+            <li><b class="font-semibold text-ink">单稳态的脉宽由 RC 决定</b>：T_w = RC·ln3 ≈ 1.1RC，ln3 来自"电容从 0 充到 2/3 VCC"；74LS121 是<b>不可重复触发</b>（固定脉宽），74LS123 是<b>可重复触发</b>（再触发延长）。</li>
+            <li><b class="font-semibold text-ink">多谐振荡器没有稳态</b>：RC 在两个阈值之间充放电来回翻转；环形振荡器必须奇数级、T ≈ 2·n·t_pd；RC 振荡器的频率精度就是 RC 的精度（±5%~10%）。</li>
+            <li><b class="font-semibold text-ink">晶振准在 Q 值</b>：石英的机械谐振 Q 值 2 万~20 万（LC 回路 100~300、RC 小于 10），频率由晶片切割尺寸决定，几乎不受电路参数和温度影响（温度仍是主要误差，±10~50ppm）；负载电容按 C_L = C1·C2/(C1+C2) + C_stray 算，用 NPO/C0G。</li>
+            <li><b class="font-semibold text-ink">555 的三个阈值来自三个 5kΩ 分压</b>（2/3、1/3 VCC）：单稳态 T_w = 1.1RC，无稳态 f ≈ 1.44/[(R1+2R2)C]、占空比 D = (R1+R2)/(R1+2R2) <b>永远大于 50%</b>（因为充电走 R1+R2、放电只走 R2），施密特接法回差就是 1/3 VCC。</li>
+            <li><b class="font-semibold text-ink">整形的意义是"让判决只发生一次"</b>：机械抖动（5~20ms）、缓慢边沿、长线噪声都会让阈值附近的信号反复穿越，边沿触发中断因此一次按下进几十次；解决办法是硬件 RC + 施密特（首选）或软件"不可重复触发单稳态"。</li>
+            <li><b class="font-semibold text-ink">MCU 上处处是脉冲知识</b>：GPIO 输入自带施密特、复位引脚必须是施密特输入、时钟源要用晶振（HSI 只当启动跳板）、看门狗必须用独立时钟 LSI 且在主循环里喂狗、PWM 交给定时器（频率 × (ARR+1) = 计数器时钟，频率和分辨率互相制约）。</li>
+          </ul>
+
+          <h3 id="sum-quiz" class="mt-7 text-base font-semibold">自测题（先自己答，再看答案）</h3>
+
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>
+              <p class="font-semibold text-ink">为什么施密特触发器的电压传输特性是"Z"字形？回差 ΔV_T 由什么决定、又不被什么影响？</p>
+              <p class="mt-2 text-muted">答：因为输出电平通过反馈电阻参与决定输入阈值——输出为低时阈值是 V_T+，输出为高时阈值是 V_T−，两个阈值不同，画出来就是带滞回的"Z"字。ΔV_T 由<b>输出摆幅和反馈分压比</b>决定（运放版 ΔV_T = 2·V_sat·R2/(R1+R2)，门电路版 ΔV_T = V_DD·R1/R2）；<b>参考电压不改变 ΔV_T，只平移两个阈值的中心</b>（例一里 V_R 从 0 变到 2V，两个阈值整体上移，回差仍是 1.909V）。</p>
+            </li>
+            <li>
+              <p class="font-semibold text-ink">3.3V 系统里，输入信号叠加了 0.4V 峰峰值的噪声，施密特的回差至少取多少？为什么？</p>
+              <p class="mt-2 text-muted">答：至少 <b>0.8V</b>（噪声峰峰值的 2 倍）。一倍用来盖住噪声本身，另一倍是留给器件分散、噪声峰值波动和温度漂移的余量（经验规则）。3.3V 的 74HC14 典型回差只有 0.3V 量级，不够；可以用两级反相器加正反馈自己定做（例二：R1 = 10kΩ、R2 = 43kΩ → ΔV_T = 3.3 × 10/43 = 0.767V）。噪声大到需要 3V 回差时（例二里 1.5V 噪声的情形），已经超过 V_DD 的物理上限，只能从物理层解决。</p>
+            </li>
+            <li>
+              <p class="font-semibold text-ink">555 单稳态的 T_w ≈ 1.1RC 是怎么来的？把 ln3 的来历说清楚。</p>
+              <p class="mt-2 text-muted">答：单稳态被触发后，放电三极管截止，电容经 R 从 0V 开始充电，充电目标是 VCC：v_C(t) = VCC·(1 − e<sup>−t/RC</sup>)。当电压升到阈值比较器的门限 <b>(2/3)VCC</b> 时，比较器翻转、输出回到稳态。代入：VCC(1 − e<sup>−t/RC</sup>) = (2/3)VCC ⇒ e<sup>−t/RC</sup> = 1/3 ⇒ t = RC·ln3 = 1.0986RC ≈ 1.1RC。<b>ln3 就是"从 0 充到 2/3"这个动作的数学印记</b>——如果阈值是别的比例，系数就变（74LS121 常见的 0.7 对应的是另一套内部阈值）。</p>
+            </li>
+            <li>
+              <p class="font-semibold text-ink">555 无稳态的占空比为什么永远大于 50%？想要小于 50% 怎么办？</p>
+              <p class="mt-2 text-muted">答：因为充电电流走 R1 + R2（时间常数 (R1+R2)C），放电只走 R2（时间常数 R2·C），充电时间必然比放电时间长，所以高电平时间占比 D = (R1+R2)/(R1+2R2) 永远大于 1/2。想小于 50%：用二极管（或二极管 + 小电阻）给 R2 并联一条只走充电电流的旁路，让充放电路径分开，此时 D = R1/(R1+R2)、f ≈ 1.44/[(R1+R2)C]；最干脆的办法是用 MCU 定时器，占空比和频率是两个互不影响的寄存器（PWM 模式里 CCR 和 ARR 各管一个）。</p>
+            </li>
+            <li>
+              <p class="font-semibold text-ink">用门电路搭环形振荡器，为什么级数必须是奇数？</p>
+              <p class="mt-2 text-muted">答：振荡的相位条件是环路总相移 360°。奇数级反相器给出 180°，剩下的 180° 由各级传输延时在振荡频率上补足，于是电路在 f ≈ 1/(2·n·t_pd) 处满足条件而起振。偶数级反相器的总相移是 0°（或 360° 的整数倍），环路变成正反馈锁存结构，会稳定停在某个电平上——<b>它变成了一个双稳态锁存器，不再振荡</b>。这也是"环形振荡器的频率由门的传输延时决定"这一结论的由来：工艺、温度、电压一变，t_pd 就变，频率跟着漂，所以它只能当"粗时钟"。</p>
+            </li>
+            <li>
+              <p class="font-semibold text-ink">石英晶体振荡器为什么能比 RC 振荡器准好几个数量级？</p>
+              <p class="mt-2 text-muted">答：因为石英晶体是一个 <b>Q 值极高的机械谐振器</b>（Q = 2 万~20 万，而 LC 回路只有 100~300、RC 振荡器小于 10）。Q 值高意味着谐振频率被机械尺寸"钉得极死"：频率主要由晶片的切割方式和厚度决定（AT 切割约 1.6 MHz·mm，8MHz 对应约 0.2mm 厚），外部的电阻、电容、电源电压、有源器件的参数漂移几乎影响不到它。电路里的 C1、C2 只把工作点微调在 f_s 与 f_a 之间的感性区（f ≈ f_s·(1 + C1/(2(C0+C_L)))），所以它们影响的是 ppm 级的小量，而不是频率本身。剩下的主要误差来源是温度（±10~50ppm，按晶振规格）。</p>
+            </li>
+            <li>
+              <p class="font-semibold text-ink">为什么量产产品宁肯多焊一个晶振和两个电容，也不用 MCU 自带的 HSI？请给一个定量理由。</p>
+              <p class="mt-2 text-muted">答：因为 HSI 的误差会直接吃掉通信预算。HSI 常温 ±1%、全温区 2%~3%（按典型值估算），而 UART 一帧 10 位靠起始位重新对齐、误差随位序累计，工程上只给两端共 ±2% 的预算（每端 ±1%）；HSI 的 1% 加上分频器取整误差 0.16% 已经是 1.16%，就贴着上限了，温度再漂就丢包。换 HSE：20~50ppm（0.002%~0.005%）加 0.16% 取整误差约 0.162%，余量充足。换算成时间更直观：1% 误差一天偏 864 秒，20ppm 一天偏 1.73 秒。此外 USB、RTC、CAN 对时钟的要求（±0.25% 量级 / 按天计误差）HSI 根本达不到。</p>
+            </li>
+            <li>
+              <p class="font-semibold text-ink">看门狗为什么必须用独立时钟源？喂狗动作应该写在哪里？</p>
+              <p class="mt-2 text-muted">答：看门狗要监控的故障里就包括"主时钟失效"（晶振摔裂、不起振、PLL 失锁、时钟配置写错）。如果它和主时钟共用时钟源，那么最需要它出手的时刻它自己也停了——所以独立看门狗用内部独立 RC（LSI，典型 40kHz 量级、手册范围可能 30~60kHz）。代价是精度差，超时时间会差几十个百分点，把喂狗周期按超时时间的 1/3~1/2 设计（留 2~3 倍余量）就完全安全。喂狗必须放在<b>主循环</b>里：放在定时器中断里，主循环卡死时中断仍在喂狗，看门狗就永远不复位——这是看门狗失效最典型的模式。</p>
+            </li>
+          </ol>
+
+          <h3 id="sum-practice" class="mt-7 text-base font-semibold">动手练习</h3>
+
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li><b class="font-semibold text-ink">测一次真实的 PWM。</b>在你手上的开发板上输出一路 PWM（频率、占空比自己定），用示波器测出频率、占空比、上升时间、下降时间，然后和代码里的 PSC / ARR / CCR 算出来的值对一遍。再想清楚：测量值和计算值的偏差里，哪些来自探头负载、哪些来自探头带宽、哪些来自定时器时钟本身？</li>
+            <li><b class="font-semibold text-ink">搭一个施密特整形电路并实测回差。</b>用 74HC14（或两级反相器加正反馈自搭）做整形，输入接函数发生器产生的缓慢三角波（频率 100Hz 量级、峰峰值覆盖电源轨），叠加一点噪声，然后测出 V_T+、V_T− 和 ΔV_T，和你的计算值对比，误差超过 10% 就去查原因。</li>
+            <li><b class="font-semibold text-ink">用 555 做一次"按键延时"。</b>搭一个单稳态电路，按一下按键输出约 1 秒的高电平（用 1.1RC 反算 R、C 并取标准值），实测脉宽。有条件的话换三种电容（薄膜、钽、铝电解）各测一遍，再用手心捂热或吹风机加热一下，记录脉宽变化——你会对"555 的精度"有一次终身难忘的体感。</li>
+            <li><b class="font-semibold text-ink">对比"不整形"和"整形"的中断次数。</b>在 MCU 上把按键直接接到 EXTI 下降沿，中断里只给计数器加一，主循环每 500ms 打印一次，按一下记下中断次数；然后加一个 10kΩ + 1µF 的 RC（利用 GPIO 自带的施密特输入），再按一下，记下次数。两个数字写进实验报告，这一条比读十篇文章都管用。</li>
+            <li><b class="font-semibold text-ink">做一个"旋钮调光"的小作品。</b>用定时器产生 20kHz 的 PWM 驱动一个 LED，用 ADC 读电位器实时修改 CCR；再把频率改成 1kHz 对比变化。最后用一句话总结你观察到的"PWM 频率、分辨率、调节手感"三者的关系，并说明为什么舵机必须用 50Hz 而不是 20kHz。</li>
+          </ol>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="ee-fsm.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">有限状态机：从状态图到单片机程序</p>
+          </a>
+          <a href="ee-adc-dac.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：ADC 与 DAC 原理 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">数据转换：ADC 与 DAC 原理</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

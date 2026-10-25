@@ -1,0 +1,2339 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>反馈与稳定性入门 - McuStudy</title>
+  <meta name="description" content="知识体系第 12 篇：反馈的定义、开环增益 A 与反馈系数 F、闭环增益 Af = A/(1+AF)、反馈深度 1+AF 的物理含义、瞬时极性法判别正负反馈、四种反馈组态与输入输出阻抗、负反馈的四项改善、深度负反馈与虚短虚断的由来、为什么会自激、巴克豪森条件、环路增益与相位裕度/增益裕度、频率补偿与密勒补偿、单位增益稳定、容性负载振荡与隔离电阻、正反馈的有意使用，含五道数值例题与波特图读图法。">
+  <meta name="keywords" content="反馈,负反馈,正反馈,开环增益,反馈系数,闭环增益,反馈深度,1+AF,瞬时极性法,电压串联,电压并联,电流串联,电流并联,输入电阻,输出电阻,增益稳定性,增益带宽积,GBW,非线性失真,深度负反馈,虚短,虚断,自激振荡,巴克豪森条件,环路增益,相位裕度,增益裕度,频率补偿,主极点补偿,密勒补偿,单位增益稳定,容性负载,隔离电阻,滞回比较器,DC-DC环路,啸叫,去耦电容,运放做比较器">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">反馈与稳定性入门</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          反馈与稳定性入门
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你搭了一个运放电路，万用表量出来的直流电压分毫不差，可一接上示波器就看见输出电压上挂着一串几百毫伏的高频正弦；你用运放加 MOS 管做了一个 200mA 的恒流源驱动 LED，刚上电稳稳的，灯一热电流就自己往上爬，最后把灯管烧了；你的 DC-DC 模块带上功放，一放低音就听见「吱吱」的啸叫。这三件事看上去毫无关系，实际上是同一个词在作怪——<b class="font-semibold text-ink">反馈</b>。<b class="font-semibold text-ink">反馈是模拟电路的「控制论」</b>：闭环增益、输入输出阻抗、失真、带宽、稳定性，全部由它决定。这一篇把童诗白《模拟电子技术基础》第 5 章那套公式，翻译成你焊板子时会真正用到的判断方法：怎么一眼看出正反馈还是负反馈、什么样的电路会自激、相位裕度是什么、以及为什么在运放输出端并一个 100nF 会让它振起来。看完它，你看到振荡时的第一反应就不再是「换个电容试试」。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="badge-brand">学科基础</span>
+          <span class="stat-pill">第 1 层 · 模拟电子技术</span>
+          <span class="stat-pill">第 <b>12</b> 篇</span>
+          <span class="stat-pill">教材：<b>童诗白 第 5 章</b></span>
+          <span class="stat-pill">平台：<b>51 / STM32 通用</b></span>
+          <span class="stat-pill">阅读约 <b>38</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-feedback-def">反馈是什么</a>
+          <a class="toc-link is-sub" href="#sub-af-formula">A、F 与闭环增益</a>
+          <a class="toc-link is-sub" href="#sub-polarity">瞬时极性法</a>
+          <a class="toc-link is-sub" href="#sub-topology">四种反馈组态</a>
+          <a class="toc-link is-sub" href="#sub-benefit">负反馈的四项改善</a>
+          <a class="toc-link is-sub" href="#sub-oscillation">为什么会自激</a>
+          <a class="toc-link is-sub" href="#sub-compensation">频率补偿与单位增益稳定</a>
+          <a class="toc-link is-sub" href="#sub-positive-use">正反馈的有意使用</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-adc-buffer">运放缓冲驱动 ADC 与长电缆</a>
+          <a class="toc-link is-sub" href="#sub-current-sense">恒流驱动 LED：采样电阻放哪里</a>
+          <a class="toc-link is-sub" href="#sub-opto-mos">光耦与 MOS 管进环路</a>
+          <a class="toc-link is-sub" href="#sub-dcdc-loop">DC-DC 的环路、纹波与啸叫</a>
+          <a class="toc-link is-sub" href="#sub-decoupling-route">100nF 为什么必须紧贴引脚</a>
+          <a class="toc-link is-sub" href="#sub-opamp-comparator">运放做比较器为什么危险</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-feedback-def">反馈是什么</a>
+            <a class="toc-link is-sub" href="#sub-af-formula">A、F 与闭环增益</a>
+            <a class="toc-link is-sub" href="#sub-polarity">瞬时极性法</a>
+            <a class="toc-link is-sub" href="#sub-topology">四种反馈组态</a>
+            <a class="toc-link is-sub" href="#sub-benefit">负反馈的四项改善</a>
+            <a class="toc-link is-sub" href="#sub-oscillation">为什么会自激</a>
+            <a class="toc-link is-sub" href="#sub-compensation">频率补偿与单位增益稳定</a>
+            <a class="toc-link is-sub" href="#sub-positive-use">正反馈的有意使用</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-adc-buffer">运放缓冲驱动 ADC 与长电缆</a>
+            <a class="toc-link is-sub" href="#sub-current-sense">恒流驱动 LED：采样电阻放哪里</a>
+            <a class="toc-link is-sub" href="#sub-opto-mos">光耦与 MOS 管进环路</a>
+            <a class="toc-link is-sub" href="#sub-dcdc-loop">DC-DC 的环路、纹波与啸叫</a>
+            <a class="toc-link is-sub" href="#sub-decoupling-route">100nF 为什么必须紧贴引脚</a>
+            <a class="toc-link is-sub" href="#sub-opamp-comparator">运放做比较器为什么危险</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先说三个我亲手遇到过的现场。它们的共同点是：<b class="font-semibold text-ink">直流工作点全部正确，万用表量不出任何毛病，但电路就是不「干净」。</b>而这三个现场的根因，是同一章书里的同一个概念。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="三个「万用表看不出问题」的现场">
+            <pre><code>【现场一】运放缓冲送 ADC，读数一直在跳
+
+   电路：传感器 ──► 运放跟随器 ──► 1.5 米屏蔽线 ──► STM32 的 ADC 引脚
+   现象：万用表量运放输出，1.650V，稳得像钉子。
+         但 ADC 读数在 2020 ~ 2080 之间来回跳（约 4 个 LSB 的抖动
+         被放大成了 60 个码）。
+   示波器一接：运放输出的直流是 1.65V，上面叠着一串
+         约 5MHz、峰峰值 300mV 的正弦 —— 这就是【振铃/振荡】。
+   真实原因：1.5 米屏蔽线的分布电容约 150pF，加上运放自己的输出电阻，
+         在反馈环路里多加了一个极点，把相位裕度吃掉了。
+
+【现场二】运放恒流源驱动 LED，灯越热电流越大，最后烧灯
+
+   现象：设定 200mA，冷态下实测 200mA（很准！）。
+         点亮 30 秒后升到 230mA，两分钟后 280mA，然后 LED 报废。
+   已知：LED 的正向压降 Vf 有【负温度系数】，约 −2mV/°C。
+   真实原因：反馈电压取自【LED 两端】而不是【采样电阻两端】——
+         这个环稳定的是「电压」，不是「电流」。
+         温度升高 → Vf 下降 → 恒压之下电流指数上升 → 更热 → 热失控。
+
+【现场三】DC-DC 带功放，一放低音就啸叫
+
+   现象：空载时输出 12.00V，纹波 20mV（很好）。
+         接上功放、音量开大，输出纹波变成 200mV，
+         电感发出「吱吱」的可听噪声，频率约 4kHz。
+   真实原因：负载跳变把环路激励起来了，而环路的相位裕度不足，
+         输出在设定值附近来回「荡」——所谓的「啸叫」，
+         就是环路在音频频率上振荡，电感磁芯在机械振动。</code></pre>
+          </div>
+
+          <p class="mt-3">这三个现场有一个共同的解题钥匙：<b class="font-semibold text-ink">把电路画成「前向通路 + 反馈通路」的方框图，算出环路增益，看它在高频还剩多少相位裕度。</b>这件事在教材里是第 5 章「放大电路中的反馈」，公式只有几个，但它是所有闭环系统的通用语言。</p>
+
+          <p class="mt-3">为什么这门课对单片机方向的人特别重要？因为你每天用的东西，本质全是闭环：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">运放的一切应用都是反馈。</b>跟随器、同相放大、反相放大、差分、跨阻放大（I/V 转换）、恒流源、有源滤波——电路图不同，但都在做同一件事：把输出的一部分送回去和输入比较。你在《集成运放与信号调理》那一篇里学的「虚短虚断」，其实是深度负反馈的推论，不是运放自己的性质。</li>
+            <li><b class="font-semibold text-ink">稳压器、DC-DC、电池充电器都是反馈系统。</b>它们的输出精度、负载调整率、瞬态响应、甚至会不会啸叫，全由环路补偿决定。</li>
+            <li><b class="font-semibold text-ink">你写的控制代码也是反馈。</b>PID 里的「测量值 − 设定值」就是反馈量的比较；PWM 调温、恒流转矩控制，都在复现同一个数学结构。理解了模拟反馈，PID 的参数整定对你来说就是「相位裕度」的另一套说法。</li>
+            <li><b class="font-semibold text-ink">振荡不是「元件坏了」。</b>这是新手最大的认知误区。振荡是设计问题，是环路相位裕度不足的必然结果；换一个「更好的」电容有时能压住它，有时反而更糟——因为你不知道自己在修什么。</li>
+          </ul>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一篇需要的前置知识（都是本系列已经讲过的）</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>运放的虚短虚断、同相/反相/差分/跟随器</b>——本篇会告诉你这两条规则的来历，以及它们在什么条件下不成立。见 <a class="text-brand-600 dark:text-brand-300" href="ee-opamp.html">集成运放与信号调理</a>。</li>
+              <li><b>比较器为什么要加正反馈做滞回</b>——滞回就是「有意使用正反馈」的标准案例，见 <a class="text-brand-600 dark:text-brand-300" href="ee-filter-comparator.html">有源滤波与电压比较器</a>。</li>
+              <li><b>RC 电路的频率响应与相移</b>——极点、−20dB/dec、−45°/−90° 这些词会贯穿全篇，见 <a class="text-brand-600 dark:text-brand-300" href="ee-circuit-dynamic.html">动态电路与 RC 网络</a>、<a class="text-brand-600 dark:text-brand-300" href="ee-circuit-ac.html">正弦稳态与相量法</a>。</li>
+              <li><b>DC-DC 的拓扑与电感电容</b>——第 4 节会算它的环路，见 <a class="text-brand-600 dark:text-brand-300" href="ee-power-supply.html">电源与功率</a>。</li>
+              <li><b>去耦与布局为什么影响稳定性</b>——见 <a class="text-brand-600 dark:text-brand-300" href="ee-emc.html">电磁兼容与抗干扰基础</a>，本篇会从「反馈路径」这个角度重新讲一遍。</li>
+            </ul>
+          </div>
+
+          <p class="mt-3">下面这一节是全篇的骨架。你不需要背公式，但必须能<b class="font-semibold text-ink">看懂方框图、说清 1+AF 是什么、并且能在自己的电路上指出反馈是从哪一点取样、又加到了哪一点</b>。这三件事会了，后面全是推论。</p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <h3 id="sub-feedback-def" class="mt-7 text-base font-semibold">反馈是什么：把输出量的一部分反送回输入端参与控制</h3>
+
+          <p class="mt-3">教材上的定义是：<b class="font-semibold text-ink">把放大电路输出量（输出电压或输出电流）的一部分或全部，通过反馈网络送回到输入端，与输入量进行比较（相减或相加），用得到的净输入量去控制输出。</b>有反馈的放大电路叫「闭环」，没有反馈的叫「开环」。</p>
+
+          <p class="mt-3">这句话里有三个必须抓住的关键词：<b class="font-semibold text-ink">取样、反送、比较</b>。它们分别对应方框图里的三个部件。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="反馈放大电路的方框图（全篇的骨架）">
+            <pre><code>                    ┌───────────────────────────┐
+                    │       基本放大电路          │
+   Xi ──►（＋）──┬──►│   开环增益 A = Xo / Xid    │──┬──► Xo
+   输入量        │   └───────────────────────────┘  │   输出量
+                 ▲                                  │
+                 │                                  │  ← ① 取样：
+                 │                                  │     从输出端取一部分
+                 │   ┌───────────────────────────┐  │
+                 └───│        反馈网络            │◄─┘
+                     │   反馈系数 F = Xf / Xo     │
+                     └───────────────────────────┘
+                                  │
+                                  ▼
+                                  ② 反送：送回输入端
+
+   ③ 比较：Xi 与 Xf 相减，得到净输入量 Xid = Xi − Xf
+
+   三个量纲必须一致：
+      · 若 X 是电压（都按电压取样、按电压比较）→ 电压反馈，F 无量纲
+      · 若 X 是电流（按电流取样、按电流比较）→ 电流反馈，F 无量纲
+      · 混合组态下 A 与 F 的量纲会变成 Ω 或 S，但乘积 AF 永远无量纲
+
+   【记住这一条】AF 是一个「绕一圈回来」的总增益，叫环路增益，
+   它的量纲永远是 1（倍数）。后面所有的稳定性判断，
+   都是在对这个「绕一圈的增益」做文章。</code></pre>
+          </div>
+
+          <p class="mt-3">注意方框图上那个 <b class="font-semibold text-ink">（＋）</b>和 <b class="font-semibold text-ink">Xid = Xi − Xf</b>：这是「负反馈」的连接方式。如果比较环节变成相加（Xid = Xi + Xf），那就是正反馈，增益会变大、电路会变得不稳定。这两种情况我们后面都会遇到。</p>
+
+          <p class="mt-3">还有一件事入门时必须说清楚：<b class="font-semibold text-ink">反馈网络在真实电路里不是「单向」的。</b>它一边从输出端取信号，一边又挂在输入端上，所以它同时对输出端有负载效应、对输入端也有负载效应（教材里叫「反馈网络的负载效应」）。严格的算法是先把反馈网络等效成输入侧和输出侧两个阻抗并入基本放大器，再套方框图公式。入门阶段先按理想方框图算，误差一般在百分之几，够用了；等你做精密恒流源、高阻传感器放大时再回来抠这一步。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>你熟悉的电路</th><th>「基本放大电路」是谁</th><th>「反馈网络」是谁</th><th>反馈取的是</th></tr></thead>
+              <tbody>
+                <tr><td>运放跟随器</td><td>运放本身（开环增益 A ≈ 10<sup>5</sup>~10<sup>7</sup>）</td><td>一根导线（F = 1，把输出全部送回反相端）</td><td>输出电压的全部</td></tr>
+                <tr><td>运放同相放大器</td><td>运放本身</td><td>R<sub>f</sub> 与 R<sub>1</sub> 组成的分压网络</td><td>输出电压的一部分（分压比）</td></tr>
+                <tr><td>运放 + MOS 恒流源</td><td>运放 + MOS 管（跨导级）</td><td>源极的采样电阻 R<sub>sense</sub></td><td>输出电流（R<sub>sense</sub> 上的电压）</td></tr>
+                <tr><td>DC-DC 降压模块</td><td>误差放大器 + PWM 比较器 + 功率级 + LC 滤波</td><td>输出端的两个分压电阻</td><td>输出电压</td></tr>
+                <tr><td>三极管共射放大带 R<sub>e</sub></td><td>三极管本身</td><td>发射极电阻 R<sub>e</sub>（无旁路电容时）</td><td>输出电流（发射极电流）</td></tr>
+                <tr><td>文氏桥振荡器</td><td>同相放大器</td><td>RC 串并联选频网络（正反馈）+ 稳幅支路（负反馈）</td><td>输出电压（两个环，一正一负）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-af-formula" class="mt-7 text-base font-semibold">开环增益 A、反馈系数 F 与闭环增益 Af = A/(1+AF)</h3>
+
+          <p class="mt-3">三个定义，逐项说清物理意义和单位：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">开环增益 A = X<sub>o</sub> / X<sub>id</sub></b>——「没有反馈时，净输入能放大多少倍」。电压放大时 A 无量纲（比如 10<sup>5</sup>，也就是 100dB）。注意它是个<b>会漂</b>的数：同一型号运放，不同批次的 A 可能差一倍，温度从 25°C 到 85°C 再掉 20%，这是后面所有讨论的起点。</li>
+            <li><b class="font-semibold text-ink">反馈系数 F = X<sub>f</sub> / X<sub>o</sub></b>——「输出量有多大比例被送回输入端」。电压串联、电压并联组态下 F 就是两个电阻的分压比，无量纲；电流串联组态下 F 是「输出电流转成反馈电压」的比例，单位是 Ω（V/A），叫互阻；电流并联组态下 F 的单位是 S（A/V），叫互导。<b>但无论哪种组态，AF 乘积永远无量纲</b>——因为它是「绕一圈回来的增益」。</li>
+            <li><b class="font-semibold text-ink">闭环增益 A<sub>f</sub> = X<sub>o</sub> / X<sub>i</sub></b>——「接上反馈之后，整个电路从输入到输出的增益」。</li>
+          </ul>
+
+          <p class="mt-3">推导只有两行：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="闭环增益公式的推导（两行，但每一步都要看懂）">
+            <pre><code>已知：  Xo  = A · Xid          （前向通路）
+        Xf  = F · Xo           （反馈通路）
+        Xid = Xi − Xf          （相减，负反馈）
+
+代入：  Xid = Xi − F · A · Xid
+        Xid (1 + AF) = Xi
+        Xid = Xi / (1 + AF)     ★ 净输入被压小了 (1+AF) 倍
+
+于是：  Xo  = A · Xid = A · Xi / (1 + AF)
+
+最终：        Xo        A
+        Af = ──── = ──────────          ← 闭环增益公式
+              Xi      1 + AF
+
+【三个立即可用的推论】
+
+  ① 分母 1 + AF 叫【反馈深度】。
+       |1 + AF| 大于 1  → 净输入被压小 → 负反馈
+       |1 + AF| 小于 1  → 净输入被放大 → 正反馈
+       1 + AF = 0       → Xi 为零也能有 Xo → 自激振荡
+
+  ② 1 + AF 越大，闭环增益越接近 1/F：
+       Af = A/(1+AF) ≈ A/(AF) = 1/F （当 AF ≫ 1）
+
+  ③ 净输入 Xid = Xi/(1+AF)，这就是运放【虚短】的出处：
+       当 A 极大时，Xid 被压到接近于零，
+       两个输入端之间的电压差 ≈ 0，但并没有真的短路。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">反馈深度 1+AF 的物理含义，是这一篇最重要的一个数。</b>它不是「反馈有多强」这种模糊说法，它同时是四件事的倍数：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>1+AF 是……的倍数</th><th>公式</th><th>物理含义</th></tr></thead>
+              <tbody>
+                <tr><td><b>净输入被压小的倍数</b></td><td class="font-mono text-xs">Xid = Xi / (1+AF)</td><td>反馈电压几乎抵消了全部输入，「虚短」的来源</td></tr>
+                <tr><td><b>增益稳定性改善的倍数</b></td><td class="font-mono text-xs">dAf/Af = (dA/A) / (1+AF)</td><td>开环增益漂 20%，闭环只漂 20%/(1+AF)</td></tr>
+                <tr><td><b>带宽展宽的倍数</b></td><td class="font-mono text-xs">fHf = fH · (1+AF)</td><td>闭环增益降多少倍，带宽就展宽多少倍</td></tr>
+                <tr><td><b>环内非线性失真减小的倍数</b></td><td class="font-mono text-xs">失真 ≈ 失真<sub>开环</sub> / (1+AF)</td><td>把弯曲的传输特性「拉直」</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">把「深度负反馈的近似」单独强调一次，因为它是你以后设计电路时用得最多的一句话：</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">深度负反馈：Af ≈ 1/F，闭环增益只由反馈网络决定</div>
+            <p>当 1+AF ≫ 1（工程上取 1+AF ≥ 100 就够）时，<code class="icode">Af ≈ 1/F</code>。此时晶体管的 β、运放的开环增益、温度、批次——全都不再进入公式，闭环增益只取决于反馈网络里那两个电阻的比值。这就是「用有源器件的富余增益，换一个稳定准确的结果」。</p>
+            <p class="mt-2"><b>近似带来的误差是 1/(1+AF)。</b>取 A = 10<sup>5</sup>、F = 0.01 时，1+AF = 1001，近似误差约 0.1%——比大多数电阻的精度（1%）还好。反过来说：<b>如果你要的精度高于 1/(1+AF)，那反馈就救不了你，得去挑好电阻。</b></p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">虚短与虚断，到底是怎么来的</div>
+            <p><b>虚短</b>：由 X<sub>id</sub> = X<sub>i</sub>/(1+AF) 而来。运放的 A 是 10<sup>5</sup> 量级，只要闭环还工作在线性区，两个输入端之间的电压差就被压到近似为零。<b>注意是「近似」</b>：A = 10<sup>5</sup>、输出 1V 时，输入差模电压其实是 1V/10<sup>5</sup> = 10µV——不是零，只是小到可以忽略。这也解释了为什么运放的失调电压（典型几 mV，比 10µV 大三个数量级）会成为直流精度的头号杀手。</p>
+            <p class="mt-2"><b>虚断</b>：来自运放本身的输入电阻。双极型输入级的运放输入电阻约 10<sup>6</sup>~10<sup>7</sup>Ω，MOS/JFET 输入级可以到 10<sup>12</sup>Ω；再叠加负反馈把净输入电压压到 µV 级，输入电流自然小到可以忽略（典型 nA~pA 级）。</p>
+            <p class="mt-2"><b>什么时候两条都不成立？</b>① 输出进入饱和（比如比较器状态、或输出被限幅）——此时环路已经断了，A 不再是线性增益；② 频率高到开环增益掉得只剩几倍——此时 1+AF 太小，虚短失效，运放的高频误差就是这么来的；③ 正反馈接法——净输入被放大而不是压小，虚短的推导前提反了。这三点在后面讲振荡和比较器时都会再出现。</p>
+          </div>
+
+          <h3 id="sub-polarity" class="mt-7 text-base font-semibold">正反馈还是负反馈：瞬时极性法一步一步演示</h3>
+
+          <p class="mt-3">判别正负反馈只看一件事：<b class="font-semibold text-ink">反馈量是削弱了净输入，还是增强了净输入。</b>削弱的是负反馈，增强的是正反馈。问题在于「削弱还是增强」不能靠猜，得有个系统的方法——这就是瞬时极性法。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="瞬时极性法：四步走">
+            <pre><code>【第 1 步】假设输入信号在某一瞬间对地为正，在输入端标一个「＋」。
+
+【第 2 步】沿着信号传输路径，逐级推出各点的瞬时极性，
+          一路推到输出端。极性翻转的规则只有几条：
+
+     · 运放的【同相输入端】→ 输出同相（＋ → ＋）
+     · 运放的【反相输入端】→ 输出反相（＋ → −）
+     · 三极管共射极：基极与【集电极】反相，基极与【发射极】同相
+     · 三极管共集电极（射随器）：基极与发射极同相
+     · MOS 管共源极：栅极与【漏极】反相，栅极与【源极】同相
+     · 电阻分压、纯电阻网络：不改变极性
+
+【第 3 步】把反馈回来的那个信号的极性，标在它作用的输入端上。
+
+【第 4 步】比较：反馈信号与原来的输入信号
+     · 作用【相反】→ 净输入减小 → 负反馈
+     · 作用【相同】→ 净输入增大 → 正反馈
+
+【两个必须记住的前提】
+    ① 在【中频段、线性工作区】判断。高频段的附加相移、
+       或者输出已经饱和，都会让「极性」这个概念失效。
+    ② 判的是【瞬时极性关系】，不是「反馈量的大小」。
+       反馈量再小，只要方向是削弱的，它就是负反馈。</code></pre>
+          </div>
+
+          <p class="mt-3">下面三个例子，从易到难，第三个是最容易判错的。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">例一：运放同相放大器（负反馈）。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例一：同相放大器 —— 一步一步标极性">
+            <pre><code>电路：  Vi ──► 运放同相端（＋）
+               输出 ── Rf ──┬── 运放反相端（−）
+                            │
+                            R1
+                            │
+                           GND
+
+【第 1 步】设 Vi 瞬时为正（＋），加在同相端。
+
+【第 2 步】同相端为正 → 输出为正（＋）。
+          分压点（Rf 与 R1 之间）= 输出 × R1/(R1+Rf)，也是正的（＋）。
+
+【第 3 步】这个正电压被送回【反相端】，所以反相端瞬时为（＋）。
+
+【第 4 步】净输入 = V(同相端) − V(反相端)
+                 =（＋）−（＋）→ 被【抵消了一部分】→ 减小
+
+结论：负反馈。闭环增益 Af = 1 + Rf/R1。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">例二：把反馈电阻从反相端挪到同相端——同一块板子，一根线之差，立刻变成正反馈。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例二：反馈接到同相端 —— 正反馈，电路变成滞回比较器">
+            <pre><code>电路：  Vi ──► 运放反相端（−）  ← 注意输入换到了反相端
+               输出 ── R2 ──┬── 运放同相端（＋）  ← 反馈也接在同相端
+                            │
+                            R1 ──► Vref
+                            │
+                          （分压到地或参考电压）
+
+【第 1 步】设 Vi 瞬时为正（＋），加在反相端。
+
+【第 2 步】反相端为正 → 输出为【负】（−），向负饱和轨跑。
+
+【第 3 步】输出为负 → 通过 R2 把同相端也拉低（−）。
+
+【第 4 步】净输入 = V(同相端) − V(反相端)
+                 =（−）−（＋）→ 差值【变得更负】→ 净输入被放大
+
+结论：正反馈。输出会「刷」地一下跑到负饱和轨，然后一直待在那里，
+      直到输入电压反向越过另一个门限 —— 这就是施密特触发器。
+
+【这个例子的意义】
+  正反馈与负反馈的分界，常常只是「一根线接在哪个脚」。
+  你在面包板上挪一根线，电路的性质就完全变了 ——
+  所以接线前先花 30 秒做一遍极性法，比事后查半天划算得多。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">例三：三极管共射放大电路带发射极电阻 R<sub>e</sub>（电流串联负反馈）——最容易被漏判的一类。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例三：带发射极电阻的共射电路 —— 反馈藏在「输出回路」里">
+            <pre><code>电路：  Vi ──► 基极（b）
+              集电极（c）── Rc ── Vcc        ← 输出在这里
+              发射极（e）── Re ── GND        ← 注意这一颗电阻
+
+【第 1 步】设基极瞬时为正（＋）。
+
+【第 2 步】共射极的关系：基极为正 → 集电极电流 Ic 增大 →
+          发射极电流 Ie 也增大 → Re 上的电压 Ve = Ie × Re 升高。
+          注意：发射极与基极【同相】，所以 Ve 也是（＋）。
+
+【第 3 步】净输入是 Vbe = Vb − Ve。
+          基极被抬高的同时，发射极也跟着被抬高 ——
+          真正推动三极管的那个电压 Vbe 反而变小了。
+
+【第 4 步】净输入减小 → 负反馈。
+
+结论：这是【电流串联负反馈】。它稳定的是 Ie（也就是 Ic），
+      所以 Re 越大，这一级的恒流特性越好、失真越小，
+      但增益会下降（交流上也一样，除非在 Re 上并一颗旁路电容）。
+
+【一个关键的坑】
+  如果给 Re 并上一颗大电容（旁路电容），交流上 Ve 就被「钉」住了，
+  交流反馈消失 —— 直流负反馈还在（稳定工作点），
+  交流反馈没了（增益回来的同时失真也回来了）。
+  所以「Re 上要不要并电容」这件事，本质是「要不要这个交流反馈」。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">极性法的三个常见翻车点</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>「接在反相端就是负反馈」——不一定。</b>如果输入信号也在反相端（并联反馈），那么判据要按电流来：反馈电流是从反相端<b>流走</b>还是<b>流入</b>？流走等于从输入节点偷走电流、削弱净输入，是负反馈；流入则是正反馈。</li>
+              <li><b>多级放大器的极性会来回翻。</b>一级共射反相一次，两级就翻回来。三级共射 + 直接从第三级集电极反馈到第一级基极 = 极性又回到了「同相」→ 正反馈。这就是三点式 LC 振荡器的接法。</li>
+              <li><b>一个电路里可以有多个反馈环。</b>运放内部自带的补偿、外部的反馈电阻、电源上的去耦——很多个环同时在起作用。判正负只看<b>你要分析的那一个环</b>，别把别的环的极性混进来。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-topology" class="mt-7 text-base font-semibold">四种反馈组态：各自稳定的是电压还是电流</h3>
+
+          <p class="mt-3">反馈按两个维度分类，交叉起来就是四种组态。这两个维度是：<b class="font-semibold text-ink">在输出端怎么取样</b>、<b class="font-semibold text-ink">在输入端怎么比较</b>。</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">输出端（取样方式）</b>：反馈网络如果<b>并联在输出端</b>（取输出电压）→ <b>电压反馈</b>；如果<b>串联在负载回路里</b>（取输出电流）→ <b>电流反馈</b>。</li>
+            <li><b class="font-semibold text-ink">输入端（比较方式）</b>：输入信号与反馈信号加在放大器<b>同一个输入端</b>（对运放就是同一个脚，以电流形式在节点上相加）→ <b>并联反馈</b>；加在<b>不同的输入端</b>（一个同相一个反相，以电压形式在输入回路里相减）→ <b>串联反馈</b>。</li>
+          </ul>
+
+          <div class="code-block mt-3" data-lang="text" data-title="四种组态的输出端与输入端画法">
+            <pre><code>【输出端：怎么取样？】
+
+  电压反馈（并联在输出端）           电流反馈（串联在负载回路里）
+                                    
+        ┌── 运放输出 ──┬──► 负载      ┌── 运放输出 ──► 负载 ──┬──►
+        │              │              │                      │
+        └── Rf ──┐     └──► 反馈点     └── Rf ──┐            R_sense
+                 │                             │               │
+               （回到输入端）                （回到输入端）     GND
+                                    
+   反馈电压 ∝ 输出电压 Vout          反馈电压 ∝ 输出电流 Iout × R_sense
+   ★ 把负载短路，反馈量消失          ★ 把负载短路，反馈量依然存在
+
+【输入端：怎么比较？（对运放来说看接在哪个脚）】
+
+   串联反馈：输入接一个脚，反馈接另一个脚      并联反馈：输入和反馈接同一个脚
+   
+        Vi ──►（＋）                               Vi ── R1 ──┬──►（−）
+              运放                                  Rf ──────┘
+        Vf ──►（−）  ← 两个不同的节点                  同相端接地
+                                                    ← 同一个节点（虚地）
+
+   净输入 = V(+) − V(−)（电压相减）            净输入电流 = Ii − If（电流相减）
+   ★ 输入电阻增大 (1+AF) 倍                    ★ 输入电阻减小到 1/(1+AF)</code></pre>
+          </div>
+
+          <p class="mt-3">判别口诀只有两句，工程上非常好用：</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">两步判别法（比你背四种电路快得多）</div>
+            <p><b>第一步，判输出端。</b>想象把负载短接成一根导线（输出电压被强迫为零）。如果反馈信号随之消失 → <b>电压反馈</b>；如果反馈信号依然存在 → <b>电流反馈</b>。</p>
+            <p class="mt-2"><b>第二步，判输入端。</b>反馈信号和输入信号是不是加在放大器的同一个输入端上？是 → <b>并联反馈</b>；不是（一个同相、一个反相）→ <b>串联反馈</b>。</p>
+            <p class="mt-2">对运放电路还有一个更快的记法：<b>反馈电阻接回反相端、输入进同相端 → 串联；输入也经电阻进反相端、反馈也回反相端 → 并联。</b>而「反馈取自输出端还是取自串联在负载里的电阻」决定电压/电流。</p>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>组态</th><th>稳定的是</th><th>输入电阻</th><th>输出电阻</th><th>典型电路</th><th>什么时候用</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>电压串联</b></td>
+                  <td><b>输出电压</b></td>
+                  <td>增大到 R<sub>i</sub>(1+AF)</td>
+                  <td>减小到 R<sub>o</sub>/(1+AF)</td>
+                  <td>同相比例放大器、跟随器</td>
+                  <td>ADC 前端缓冲：要高输入阻抗 + 低输出阻抗</td>
+                </tr>
+                <tr>
+                  <td><b>电压并联</b></td>
+                  <td><b>输出电压</b></td>
+                  <td>减小到 R<sub>i</sub>/(1+AF)（虚地）</td>
+                  <td>减小到 R<sub>o</sub>/(1+AF)</td>
+                  <td>反相比例放大器、跨阻放大器（I/V 转换）</td>
+                  <td>光敏二极管、电流输出型传感器：要「吃电流」</td>
+                </tr>
+                <tr>
+                  <td><b>电流串联</b></td>
+                  <td><b>输出电流</b></td>
+                  <td>增大到 R<sub>i</sub>(1+AF)</td>
+                  <td>增大到 R<sub>o</sub>(1+AF)</td>
+                  <td>运放 + MOS 恒流源、带 R<sub>e</sub> 的共射电路</td>
+                  <td>驱动 LED、激光管、电桥激励：要恒流</td>
+                </tr>
+                <tr>
+                  <td><b>电流并联</b></td>
+                  <td><b>输出电流</b></td>
+                  <td>减小到 R<sub>i</sub>/(1+AF)</td>
+                  <td>增大到 R<sub>o</sub>(1+AF)</td>
+                  <td>两级放大 + 从后级电流取样反馈到前级输入节点</td>
+                  <td>电流放大器、比例电流源；比前三种少见</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么组态会影响阻抗？</b>不要背，想两句话就通了：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>串联反馈把输入电阻抬高。</b>反馈电压在输入回路里「顶」着输入电压，同样大的输入电压下，流进放大器的电流变小了——从输入端看进去，就等效成电阻变大了（R<sub>if</sub> = R<sub>i</sub>(1+AF)）。</li>
+            <li><b>并联反馈把输入电阻压低。</b>反馈电流从输入节点被「抽走」，节点电压几乎不动（虚地），从输入端看进去就是一个小电阻（R<sub>if</sub> = R<sub>i</sub>/(1+AF)）。</li>
+            <li><b>电压反馈把输出电阻压低。</b>因为环路拼命维持输出电压不变——负载电流变了，输出电压也不动，这正是「理想电压源」的定义。</li>
+            <li><b>电流反馈把输出电阻抬高。</b>环路拼命维持输出电流不变——负载电阻变了，电流也不动，这正是「理想电流源」的定义。</li>
+          </ul>
+
+          <p class="mt-3">一句话总结：<b class="font-semibold text-ink">电压负反馈造出电压源，电流负反馈造出电流源；串联负反馈抬高输入电阻，并联负反馈压低输入电阻。</b>而且一个环只能稳定一个量——你不能既让它稳定电压又稳定电流，那是自相矛盾的。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">电流反馈的一个「接线麻烦」，实际工程里必须知道</div>
+            <p>电流反馈要把采样电阻串进负载回路，这就带来一个现实问题：<b>负载往往需要一端接地。</b>如果你把 R<sub>sense</sub> 串在负载和地之间（低端采样），负载就不能直接接地了——这在驱动 LED 之类的场合通常没问题，但在「负载外壳接地」的场合就行不通。</p>
+            <p class="mt-2">工程上的三种绕法：① <b>低端采样</b>（R<sub>sense</sub> 接在负载与地之间，最常用，运放是「高端驱动」）；② <b>高端采样</b>（R<sub>sense</sub> 接在电源与负载之间，需要能处理高共模电压的电流检测放大器，比如 INA219 这类器件）；③ <b>用霍尔电流传感器</b>（完全电气隔离，代价是带宽和精度）。选哪一种，取决于「负载能不能浮地」和「共模电压有多高」。</p>
+          </div>
+
+          <h3 id="sub-benefit" class="mt-7 text-base font-semibold">负反馈换来的四项改善（以及它换不来的东西）</h3>
+
+          <p class="mt-3">负反馈不是「免费的午餐」：它把增益降了 (1+AF) 倍，换来四样东西。这四样都必须能背出公式、说清前提。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">改善一：增益稳定性。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="改善一：增益稳定性 —— 公式怎么来的">
+            <pre><code>Af = A / (1 + AF)         对 A 求导：
+
+   dAf      1                dAf    1      dA
+   ─── = ─────────  →   ──── = ───── · ────
+    dA   (1+AF)²          Af    1+AF     A
+
+整理得：    dAf      1       dA
+          ───── = ───── · ─────         ← 这就是课本上的那条公式
+            Af    1+AF      A
+
+【读法】开环增益的相对变化 dA/A，被缩小了 (1+AF) 倍之后才体现到闭环增益上。
+
+【物理意义】晶体管的 β、gm、r_be、运放的开环增益都与温度、
+          批次、供电电压有关，漂 20%~50% 很常见。
+          但反馈网络里只有电阻 —— 而电阻的比值可以做到 1% 甚至 0.1%。
+          深度负反馈把「有源器件的脾气」换成了「电阻比的稳定」。
+
+【前提】F 必须稳定（由无源电阻决定），否则这个好处不成立。
+       所以精密电路里千万不要用「会变的器件」去做反馈网络
+       （比如用热敏电阻、用二极管、用晶体管做 F）。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">改善二：展宽带宽（而增益带宽积守恒）。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="改善二：带宽 —— 一个单极点放大器的例子">
+            <pre><code>设基本放大器是单极点系统：
+
+                  A0
+   A(f) = ─────────────────          A0：低频（直流）增益
+           1 + j (f / fH)            fH：上限频率（−3dB 点）
+
+闭环之后（推导略，结论与开环同形）：
+
+                  A0/(1+AF)
+   Af(f) = ─────────────────────────
+            1 + j [ f / (fH(1+AF)) ]
+
+   低频增益： Af0 = A0 / (1+AF)        ← 降了 (1+AF) 倍
+   上限频率： fHf = fH × (1+AF)         ← 涨了 (1+AF) 倍
+   乘积：     Af0 × fHf = A0 × fH = GBW  ← 【不变】，这就是增益带宽积
+
+【图形记忆】
+   增益(对数)
+      │╲                    ← 开环曲线：低频高、高频陡降
+      │ ╲
+      │  ╲________________  ← 闭环曲线：低频被压低，但一直平到更高的频率
+      └────────────────────► f（对数）
+         fH      fHf
+   两条曲线与同一根 −20dB/dec 的斜线相切 —— 增益和带宽在「抢」同一个面积。
+
+【工程用法】
+   运放手册上的 GBW（比如 1MHz）就是【单位增益带宽】。
+   你要做闭环增益 100 → 实际可用带宽 = 1MHz / 100 = 10kHz。
+   要放大 50kHz 的信号？那就只能用增益 20（1MHz/20 = 50kHz），
+   或者换一颗 GBW 5MHz 以上的运放。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">为什么说负反馈也能「做窄」带宽</div>
+            <p>上面那条「展宽 (1+AF) 倍」的前提是<b>反馈网络 F 与频率无关</b>（纯电阻）。如果反馈网络本身带选频特性——比如用 RC 网络做 F——那么闭环特性由 A<sub>f</sub> ≈ 1/F 决定，你可以做出低通、高通、带通。<b>有源滤波器就是「把反馈网络做成频率的函数」</b>，这就是下一层楼的内容，见 <a class="text-brand-600 dark:text-brand-300" href="ee-filter-comparator.html">有源滤波与电压比较器</a>。</p>
+            <p class="mt-2">反过来说：<b>如果你在反馈网络里不小心引入了频率相关的元件</b>（比如反馈电阻上并了一个电容、或者反馈走线太长带上了分布电容），你的放大器就会「莫名其妙」地在某个频段上增益异常、或者相位裕度被吃掉。这是后面第 4 节要重点讲的容性负载问题的另一种形式。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">改善三：减小非线性失真。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="改善三：非线性失真 —— 为什么能被「拉直」">
+            <pre><code>【失真的来源】放大器的传输特性不是一条直线，而是微微弯曲：
+   输入正弦波 → 输出不是完美的正弦（有二次、三次谐波）。
+
+【负反馈怎么修它】
+   设基本放大器在输出端产生的失真量为 D（等效成一个加在输出端的误差源）。
+   这个误差经过反馈网络回到输入端为 F·D，被前向通路再放大 −A·F·D
+   （负号来自相减），与原来的失真【相互抵消】。
+
+   净结果：  D' = D / (1 + AF)
+
+【图形理解】
+   Vo │            ╱                Vo │            ╱
+      │          ╱   ← 开环（弯曲）    │          ╱   ← 闭环（被拉直）
+      │        ╱                      │        ╱
+      │      ╱                        │      ╱
+      └────────────► Vi               └────────────► Vi
+   弯曲被「压平」了 (1+AF) 倍，代价是同样输入下输出小了很多。
+
+【三条必须知道的边界】
+   ① 前提是放大器仍工作在线性区。输出一旦接近饱和，
+      环路增益急剧下降，(1+AF) 这个倍数就保不住了 ——
+      这就是「运放输出限幅时失真突然变大」的原因。
+   ② 只能抑制【环内】产生的失真。反馈网络自己引入的失真
+      （比如反馈电阻用了非线性的元件）不会被抑制。
+   ③ 对【混在输入信号里的干扰和噪声无效】。因为环路分不清
+      「这是信号还是干扰」，两者会被一起放大 —— 甚至更糟，
+      因为闭环增益降低了，而输入端的干扰被原样放大到输出，
+      信噪比反而变差。这是新手最容易误解的一点。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">改善四：改变输入、输出电阻。</b>四条公式 + 一个数值印象（取 R<sub>i</sub> = 10kΩ、R<sub>o</sub> = 100Ω、1+AF = 101）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>组态</th><th>输入电阻</th><th>数值（1+AF = 101）</th><th>输出电阻</th><th>数值</th></tr></thead>
+              <tbody>
+                <tr><td>电压串联</td><td class="font-mono text-xs">Rif = Ri(1+AF)</td><td><b>10kΩ → 1.01MΩ</b></td><td class="font-mono text-xs">Rof = Ro/(1+AF)</td><td><b>100Ω → 1Ω</b></td></tr>
+                <tr><td>电压并联</td><td class="font-mono text-xs">Rif = Ri/(1+AF)</td><td><b>10kΩ → 99Ω</b></td><td class="font-mono text-xs">Rof = Ro/(1+AF)</td><td><b>100Ω → 1Ω</b></td></tr>
+                <tr><td>电流串联</td><td class="font-mono text-xs">Rif = Ri(1+AF)</td><td><b>10kΩ → 1.01MΩ</b></td><td class="font-mono text-xs">Rof = Ro(1+AF)</td><td><b>100Ω → 10.1kΩ</b></td></tr>
+                <tr><td>电流并联</td><td class="font-mono text-xs">Rif = Ri/(1+AF)</td><td><b>10kΩ → 99Ω</b></td><td class="font-mono text-xs">Rof = Ro(1+AF)</td><td><b>100Ω → 10.1kΩ</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这四条公式直接决定了你的电路该用哪种组态。举三个单片机项目里的实例：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>给 ADC 做前端缓冲</b>：传感器输出阻抗高、ADC 需要低阻抗源 → 要「高输入电阻 + 低输出电阻」→ <b>电压串联负反馈</b>（同相放大器/跟随器）。这也解释了为什么 ST 的应用笔记都建议「高阻信号源经运放跟随器再进 ADC」。</li>
+            <li><b>光敏二极管 / 电流输出型传感器</b>：信号本身就是电流，要把它「吸」进来转成电压 → 要「低输入电阻（虚地）」→ <b>电压并联负反馈</b>（跨阻放大器）。如果错用同相放大器，输入端的电压摆幅会让光敏二极管的结电容充放电，速度慢得没法看。</li>
+            <li><b>驱动 LED / 激光管 / 电桥</b>：要电流不随温度和负载变 → 要「高输出电阻（恒流特性）」→ <b>电流负反馈</b>。用电压负反馈去驱动 LED，就是本文开头「现场二」的热失控。</li>
+          </ul>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">负反馈换不来的四样东西（很多教材不提，但现场会咬人）</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>换不来「环外」的噪声性能。</b>输入端的干扰、传感器本身的噪声，都会被当成信号一起放大。闭环增益降低之后，这些噪声在输出里的相对比重反而变大。</li>
+              <li><b>换不来输出摆幅。</b>环路只能让输出「尽量对准」目标，不能超过供电轨。输出一旦被限幅，环路就断了，1+AF 那套公式全部失效。</li>
+              <li><b>换不来带宽的「净增加」。</b>增益带宽积守恒：带宽涨多少，低频增益就降多少。天下没有免费的带宽。</li>
+              <li><b>换不来直流精度。</b>直流精度取决于失调电压、偏置电流和电阻精度，不取决于环路增益（环路增益只把失调「压」进公式里，失调本身来自器件）。这就是为什么精密电路要挑低失调运放，而不是单纯加深反馈。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-oscillation" class="mt-7 text-base font-semibold">负反馈为什么会自激：附加相移、巴克豪森条件与相位裕度</h3>
+
+          <p class="mt-3">现在进入本篇最核心的一节。<b class="font-semibold text-ink">负反馈在低频是对的，在高频可能变成正反馈</b>——原因是放大器的增益在高频会「一边下降一边滞后」，当滞后积累到 180° 时，本来「相减」的反馈就变成了「相加」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="附加相移是怎么把负反馈变成正反馈的">
+            <pre><code>【中频时（比如 1kHz）】
+   A 的相移 ≈ 0°，F 是纯电阻（相移 0°）
+   → 环路增益 AF 的相移 = 0°（附加相移为 0）
+   → 反馈量与原输入「反相」，比较时相减 → 【负反馈】 ✔
+
+【高频时（比如 2MHz）】
+   每经过一个极点，相移滞后 90°：
+      一个极点 → −90°
+      两个极点 → −180°      ← 临界点！
+      三个极点 → −270°（已经翻过去一次了）
+
+   当 A 的附加相移达到 −180° 时，AF 的信号方向整个翻了过来：
+   → 原来的「相减」变成了「相加」→ 【正反馈】
+   → 只要此时 |AF| ≥ 1（0dB），哪怕输入是零，
+      输出也能靠自己的反馈维持下去 → 【自激振荡】
+
+【用公式看更直白】
+   闭环增益   Af = A / (1 + AF)
+   令分母为零： 1 + AF = 0  →  AF = −1
+   也就是 AF 的模为 1，相角为 180°（附加相移 180°）。
+   分母为零意味着「输入为零、输出不为零」—— 这就是振荡。</code></pre>
+          </div>
+
+          <p class="mt-3">把上面两条写成正式的条件，就是<b class="font-semibold text-ink">巴克豪森振荡条件</b>：</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">巴克豪森条件：两个条件必须【同时】满足才会振荡</div>
+            <p><b>幅度条件：</b>|AF| = 1（环路增益为 0dB）。环路转一圈回来，信号大小刚好不减——这是维持振荡的能量条件。|AF| 小于 1 时振荡会衰减掉；大于 1 时振荡会越振越大，直到被供电轨限幅。</p>
+            <p class="mt-2"><b>相位条件：</b>环路增益的附加相移达到 ±180°。转一圈回来，信号「变成同相」——这是维持振荡的位置条件。</p>
+            <p class="mt-2">负反馈放大器要稳定，就必须在<b>所有频率上都不能同时满足这两条</b>。工程上的做法不是「绝对避免」，而是留够余量——这就引出了相位裕度和增益裕度。</p>
+          </div>
+
+          <p class="mt-3">下面这张图是整篇最值得抄进笔记本的一张。<b class="font-semibold text-ink">上面是环路增益的幅频特性，下面是相频特性，横轴都是对数频率。</b>所有闭环系统的稳定性判断，都在读这张图。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="波特图读图法：0dB 交越频率与相位裕度">
+            <pre><code> 环路增益 |AF| (dB)
+  60 ┤●
+     │ ╲
+  40 ┤  ╲
+     │   ╲                        ← 主极点之后：−20dB/dec
+  20 ┤    ╲
+     │     ╲
+   0 ┤─ ─ ─ ╲─ ─ ─ ─ ─ ─ ─ ─●─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+     │       ╲              ↑
+ -20 ┤        ╲        【0dB 交越频率 fc】
+     │         ╲        在这条线上 |AF| = 1
+ -40 ┤          ╲
+     └──┬────┬───┬────┬────┬────┬────┬────┬────► f（对数刻度）
+       100Hz 1k  10k  fc   100k 1M  f180
+
+ 附加相移 φ (°)
+   0 ┤●
+     │ ╲
+ -45 ┤  ●                    ← 第一个极点处：−45°
+     │   ╲
+ -90 ┤    ●━━━━━━━━━━━━━━━━━  ← 主极点贡献的渐近相移：−90°
+     │            ╲
+-135 ┤             ●         ← φ(fc) = −135°
+     │              ╲
+-180 ┤─ ─ ─ ─ ─ ─ ─ ─●─ ─ ─ ─  ← 【−180° 线】越过它就变正反馈
+     │                ↑
+     └────────────────┴──────────────────────────► f
+                      f180
+              【附加相移达到 −180° 的频率 f180】
+
+ ─────────────────────────────────────────────────────────────
+ 【相位裕度 PM】= 180° − |φ(fc)|                = 180° − 135° = 45°
+     读法：在 |AF| = 0dB 的那根竖线上，看相频曲线离 −180° 还差多少。
+
+ 【增益裕度 GM】= 0dB − |AF(f180)|（取正值，单位 dB）
+     读法：在相移 = −180° 的那根竖线上，看幅频曲线比 0dB 低多少。
+     上图里 f180 处 |AF| ≈ −12dB → GM = 12dB。
+
+ 【经验判据】PM ≥ 45°，GM ≥ 10dB → 稳定，但会有可察觉的过冲。
+            真正舒服的设计取 PM = 60°~70°、GM ≥ 15dB。
+            负反馈放大器【必须】留裕度，因为 A 会随温度、
+            批次、负载变化，实测 45° 的板子换一批管子可能就振了。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">另一个更好用的读图法：把 1/F 画到开环曲线上去</div>
+            <p>对电压串联负反馈，反馈系数 F 由两个电阻决定，<b>与频率无关</b>，所以 1/F 是一条<b>水平线</b>（比如闭环增益 10 倍，1/F 就是 20dB 那根水平线）。把这条线画到运放的开环幅频曲线 A(f) 上：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>交点就是闭环的 −3dB 带宽点。</b>低频段闭环增益贴着 1/F 这条水平线（因为 A<sub>f</sub> ≈ 1/F），到交点之后沿着开环曲线的斜率下降。</li>
+              <li><b>交点的「闭合速度」决定稳定性</b>（Bode 判据的实用版，也叫闭合速率判据）：两条曲线在交点处相差 <b>−20dB/dec</b> → 相位裕度约 90°，很稳；相差 <b>−40dB/dec</b> → 相位裕度 0°~45°，临界、会振铃；相差 <b>−60dB/dec</b> → 相位裕度负，必然振荡。</li>
+              <li><b>立刻能得出一个反直觉的结论：把闭环增益调低，反而更容易振。</b>因为 1/F 的水平线会往上移，交点会移到开环曲线更高的频率上——而那里可能有第二个、第三个极点，相位裕度更小。这就是「运放在低增益下不稳定」的图形解释。</li>
+            </ul>
+          </div>
+
+          <p class="mt-3">相位裕度不是抽象指标，它<b class="font-semibold text-ink">就是你示波器上看到的过冲和振铃</b>。二阶系统的近似关系是 ζ ≈ PM/100（PM 用度数），过冲量 OS = exp(−πζ/√(1−ζ²))：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>相位裕度 PM</th><th>等效阻尼比 ζ（粗略）</th><th>阶跃响应过冲（计算值）</th><th>你会在示波器上看到</th></tr></thead>
+              <tbody>
+                <tr><td><b>90°</b></td><td>0.9</td><td>约 0.2%</td><td>几乎看不到过冲，一条干净的上升沿</td></tr>
+                <tr><td><b>70°</b></td><td>0.7</td><td>约 4.6%</td><td>一个小尖角，然后立刻稳住（教科书推荐的甜点）</td></tr>
+                <tr><td><b>60°</b></td><td>0.6</td><td>约 9.5%</td><td>一次明显的过冲，之后基本没有二次振荡</td></tr>
+                <tr><td><b>45°</b></td><td>0.45</td><td>约 20%</td><td>过冲明显，后面还要荡 2~3 下才停（工程下限）</td></tr>
+                <tr><td><b>30°</b></td><td>0.3</td><td>约 37%</td><td>过冲很大，振铃 5 次以上，接近不可用</td></tr>
+                <tr><td><b>20°</b></td><td>0.2</td><td>约 52%</td><td>输出几乎在两根轨之间来回撞，已经是振荡了</td></tr>
+                <tr><td><b>0° 及以下</b></td><td>—</td><td>—</td><td>持续振荡，与输入无关，幅度由供电轨限制</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张表怎么用？<b class="font-semibold text-ink">你没有环路分析仪，但你有示波器和一颗 MOS 管。</b>给系统加一个小的阶跃扰动（比如用 MOS 管瞬间并上一个假负载、或者把设定电压跳一格），看输出的过冲：过冲 5% 左右说明裕度在 70° 上下，过冲 20% 说明只剩 45°，一直在荡就是已经自激了。<b>这是业余条件下最实用、最便宜的稳定性测量方法。</b></p>
+
+          <h3 id="sub-compensation" class="mt-7 text-base font-semibold">频率补偿、单位增益稳定与容性负载</h3>
+
+          <p class="mt-3">如果相位裕度不够，唯一的出路是<b class="font-semibold text-ink">频率补偿</b>：人为改造 A(f) 的极点分布，让增益在相移达到 −180° 之前就先掉到 0dB 以下。教材上讲了两种思路，理解它们的代价比记住电路更重要。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">思路一：主极点补偿（滞后补偿）。</b>在环路里人为制造一个很低频的主极点，让增益从很低的频率就开始以 −20dB/dec 下降，一路降到 0dB——这样 0dB 交越点就落在第二个极点之前，相位裕度自然够了。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="主极点补偿：一个三极点放大器的救活过程">
+            <pre><code>【原始放大器】A0 = 100dB = 10^5，三个极点分别在 10kHz、1MHz、10MHz
+
+   频率      增益             相移
+   10kHz     100dB             −45°
+   1MHz      100−40 = 60dB     −135°（两个极点）
+   10MHz     60−40 = 20dB      −225°（三个极点）
+   → 0dB 交越点大约在 10MHz 之后，而那里相移已经超过 −180°
+   → 【必然振荡】，没法用。
+
+【加主极点补偿】用一个电容把第一个极点从 10kHz 压到约 5Hz
+
+   新的 0dB 交越频率 = A0 × f_p1' = 10^5 × 5Hz = 500kHz
+   在 500kHz 处，第二个极点（1MHz）贡献的相移 ≈ −27°
+       PM ≈ 90° − 27° ≈ 63°   ✔ 稳了
+
+【代价，三条都要记住】
+   ① 带宽：单位增益带宽从「GHz 级」掉到 500kHz 量级
+   ② 压摆率 SR：SR ≈ I1/Cc（第一级偏置电流 / 补偿电容）。
+      比如 I1 = 15µA、Cc = 30pF → SR = 15µA/30pF = 0.5V/µs。
+      这就是 741 的 0.5V/µs 的来源。
+   ③ 建立时间变长：带宽窄了，任何瞬态都要慢慢爬。
+
+   ★ 一句话：频率补偿永远是「用速度换稳定」。
+     没有补偿能同时让你又快又稳，只能选一个折中点。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">思路二：密勒补偿。</b>这是集成运放里最常用的做法，也是你拆开 741 会看到的那颗 30pF 电容的来历。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="密勒补偿：用一个小电容做出一个很低的主极点">
+            <pre><code>【接法】在第二级的输入端与输出端之间跨接一个小电容 Cc（比如 30pF）。
+
+      第一级输出 ──┬──►│ 第二级 │──┬──► 输出
+                   │   │ A2  │   │
+                   └──── Cc ─────┘   ← 跨在第二级的输入与输出之间
+
+【密勒效应】这个电容从第一级输出端看进去，等效电容被放大了 (1 + A2) 倍：
+
+      C_eq = Cc × (1 + A2)
+
+   例：Cc = 30pF，第二级增益 A2 = 1000
+       → C_eq = 30pF × 1001 ≈ 30nF
+
+   再与第一级的输出电阻 R1 = 1MΩ 形成主极点：
+       f_p1 = 1 / (2π × R1 × C_eq)
+            = 1 / (2π × 1MΩ × 30nF)
+            = 1 / (0.1885) ≈ 5.3Hz    ← 一个 30pF 的小电容做出了 5Hz 的主极点！
+
+【同时发生的另一件事：极点分裂】
+   密勒补偿把第二级的输出极点【推向更高的频率】
+   （推到远在交越频率之外），所以总的效果是：
+       一个极点变得极低 + 另一个极点变得极高 → 中间只剩 −20dB/dec
+
+【代价】主极点极低 → 带宽窄；SR ≈ I1/Cc → 压摆率被限制在 0.5V/µs 量级。
+      这就是为什么「通用运放都很慢」——它们为了稳定，牺牲掉了速度。</code></pre>
+          </div>
+
+          <p class="mt-3">正因为补偿是「用速度换稳定」，那些追求速度的运放（高速运放、视频运放）会<b class="font-semibold text-ink">故意补偿得不够</b>，把稳定性的一部分责任交给你——前提是你必须按它的要求使用。这就引出了「单位增益稳定」这个参数。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">单位增益稳定（unity-gain stable）：什么时候必须看这个参数</div>
+            <p><b>含义：</b>厂家的内部补偿保证了在最苛刻的条件下——<b>噪声增益 = 1</b>（也就是跟随器/缓冲器，反馈系数 F = 1）——环路仍然有足够的相位裕度。</p>
+            <p class="mt-2"><b>为什么单位增益最苛刻？</b>因为 F = 1 时环路增益最大、0dB 交越频率最高，而交越频率越高，第二个极点带来的相位滞后就越多，相位裕度越小。<b>闭环增益越高 → 噪声增益越大 → F 越小 → 交越频率越低 → 越稳定。</b>这是「运放在低增益下不稳定」的完整解释。</p>
+            <p class="mt-2"><b>什么时候必须查这个参数：</b></p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li>用<b>跟随器 / 缓冲器</b>（信号增益 +1，噪声增益 1）——最常见、也最容易踩坑的用法。</li>
+              <li>用<b>低增益放大</b>：同相 ×2 时噪声增益是 2；反相 ×(−1) 时信号增益是 −1，但<b>噪声增益仍然是 2</b>（噪声增益 = 1 + Rf/R1，看的是反馈系数，不是信号增益）。很多同学以为「反相放大增益是 1，所以没问题」，结果振了。</li>
+              <li>带<b>大容性负载</b>（下面马上讲）。</li>
+              <li>用<b>非完全补偿运放</b>：比如 NE5534 内部只补偿到噪声增益 ≥ 3，单位增益使用时要外接 22pF 补偿电容；OP37 要求噪声增益 ≥ 5；LM301A、LM318 这类老器件需要用户自己接补偿电容。这类运放的转换速率很高（NE5534 是 13V/µs），代价就是不能随便用。</li>
+            </ul>
+            <p class="mt-2"><b>反过来的一句话同样重要：</b>「单位增益稳定」<b>不等于</b>「任何情况下都稳定」。容性负载、布局、电源、反馈走线都会破坏它。它只是「厂家替你解决掉了最麻烦的那一半问题」。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">容性负载：实际电路里最常见的振荡源。</b>它的机理值得完整地走一遍，因为第 4 节的所有现场都和它有关。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="容性负载为什么会破坏相位裕度（极点—零点对的分析）">
+            <pre><code>【问题的起点】任何运放的输出端都不是理想电压源，它有一个开环输出电阻 Ro。
+   通用双极型运放的 Ro 典型值在 20Ω ~ 100Ω 之间（按典型值估，实际随型号和频率变）。
+
+【不加隔离电阻时】负载是纯电容 CL：输出节点上多了一个极点
+
+   f_p = 1 / (2π · Ro · CL)
+
+   例：Ro = 50Ω、CL = 1nF（1.5 米屏蔽线的分布电容约 150pF，
+       长电缆按 100pF/m 估算，10 米就是 1nF）
+       → f_p = 1 / (2π × 50 × 1nF) = 1 / (3.14e-7) ≈ 3.18MHz
+
+   这个极点带来的 −90° 相移会一直挂在那里，把相位裕度吃掉 90°。
+   如果原本 0dB 交越频率在 1MHz 以上，那这个电路就危险了。
+
+【加隔离电阻 R_iso 之后】把电容与输出之间串一个电阻
+
+        运放输出 ──┬── R_iso ──┬──► 容性负载 CL
+                   │           │
+                 （反馈从这里取）  GND
+
+   从运放输出端看进去，负载不再是纯电容，而是 R_iso 串 CL：
+
+         Z_L = R_iso + 1/(sCL)
+
+   代入 A·Z_L/(Z_L + Ro) 展开：
+
+         A_v(s) = A(s) × (1 + s·R_iso·CL) / (1 + s·(Ro+R_iso)·CL)
+                          ↑ 零点                    ↑ 极点
+
+   极点 f_p' = 1 / (2π(Ro+R_iso)CL) = 1/(2π × 100 × 1nF) ≈ 1.59MHz
+   零点 f_z  = 1 / (2π·R_iso·CL)    = 1/(2π × 50  × 1nF) ≈ 3.18MHz
+
+   ★ 关键就在这个【零点】：它在 3.18MHz 处提供 +90° 的相位超前，
+     刚好把极点造成的滞后拉回来。超过零点之后，
+     环路看到的负载是「电阻性」的，附加相移回到接近 0°。
+     → 相位裕度被救回来了。
+
+【隔离电阻的取值与代价】
+   · 取值：22Ω ~ 100Ω（最常见 33Ω / 50Ω / 100Ω）。
+     太小救不回来，太大则代价明显。
+   · 代价一：负载电流在 R_iso 上的压降。
+       10mA × 50Ω = 0.5V 的输出摆幅损失与负载调整率误差。
+       1mA × 50Ω = 50mV —— 高阻小信号场合可以忽略，
+       大电流场合（比如驱动 50Ω 负载）就完全不能接受。
+   · 代价二：负载端的信号被 R_iso 与 CL 低通了一次
+       （3.18MHz，比大多数信号带宽高得多，通常不用担心）。
+   · 代价三（最容易忽略的）：反馈从哪里取？
+       从【运放输出端】取 → 上面这套分析成立，负载端电压随
+           负载电流浮动（误差 = I_L × R_iso）。
+       从【负载端】取 → 直流精度最好，但反馈系数里多了一个极点，
+           反而更容易振；这时要在反馈电阻上并一个小电容
+           （10~100pF）做相位超前补偿才行。</code></pre>
+          </div>
+
+          <p class="mt-3">容性负载的解法不止隔离电阻一种，列在一起方便你按场合挑：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>解法</th><th>怎么做</th><th>优点</th><th>代价</th></tr></thead>
+              <tbody>
+                <tr><td><b>串隔离电阻</b></td><td>输出与负载之间串 22~100Ω，反馈从运放输出端取</td><td>成本一颗电阻，立刻见效</td><td>负载端有 I×R 压降；重载场合不能用</td></tr>
+                <tr><td><b>反馈环内超前补偿</b></td><td>在反馈电阻 R<sub>f</sub> 上并 10~100pF 小电容</td><td>不损失直流精度，反而提升高频响应</td><td>需要实验调电容值；对噪声敏感</td></tr>
+                <tr><td><b>加缓冲级</b></td><td>用专用的容性负载驱动器（如 BUF634）或射极跟随器隔离</td><td>驱动能力强，裕度好</td><td>多一颗器件、多一级失调</td></tr>
+                <tr><td><b>换运放</b></td><td>选标明「容性负载驱动能力强」的型号（如 LM8261、部分 CMOS 型）</td><td>最省事</td><td>成本、供货、封装都受限制</td></tr>
+                <tr><td><b>加大 R_iso 并接受误差</b></td><td>对直流精度要求不高的场合（比如驱动长电缆做数字量传输）</td><td>简单粗暴</td><td>负载调整率差，不能用在高精度测量</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-positive-use" class="mt-7 text-base font-semibold">正反馈的有意使用：滞回比较器与振荡器</h3>
+
+          <p class="mt-3">前面讲了一路「正反馈是坏事」，但正反馈本身只是个工具。工程上有两大类电路<b class="font-semibold text-ink">故意</b>使用正反馈：<b>需要双稳态的</b>（滞回比较器、锁存、自保持回路）和<b>需要振荡的</b>（各种振荡器、开关电源的启动电路）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">用法一：滞回比较器（施密特触发器）——用正反馈制造两个门限。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="滞回比较器：把「一个门限」变成「两个门限」">
+            <pre><code>【电路】输入接反相端，正反馈网络接同相端
+
+                    R1 = 10kΩ
+        Vref ────────[████]────┬──────► 运放同相端（＋）
+                              │
+                    R2 = 100kΩ│
+                              │
+        运放输出 ─────────────┴────── 反馈回同相端（正反馈！）
+
+        Vi ──────────────────────────► 运放反相端（−）
+
+【两个门限怎么来的】
+   同相端的电压由 Vref 和输出 Vo 两个源共同决定（叠加原理）：
+
+        V(+) = (Vref · R2 + Vo · R1) / (R1 + R2)
+
+   输出只有两种状态：Vo = V_OH（高，比如 3.3V）或 Vo = V_OL（低，≈ 0V）
+
+   于是门限有两个：
+        上门限 V_T+ = (Vref·R2 + V_OH·R1) / (R1+R2)
+        下门限 V_T− = (Vref·R2 + V_OL·R1) / (R1+R2)
+        回差   ΔV   = (V_OH − V_OL) · R1 / (R1+R2)
+
+【代入数字】Vref = 1.65V、V_OH = 3.3V、V_OL = 0V、R1 = 10kΩ、R2 = 100kΩ
+
+    V_T+ = (1.65 × 100 + 3.3 × 10) / 110 = (165 + 33) / 110 = 1.80V
+    V_T− = (1.65 × 100 + 0   × 10) / 110 = 165 / 110        = 1.50V
+    ΔV   = 3.3 × 10 / 110 = 0.30V
+
+    → 输入升到 1.80V 才翻高，掉到 1.50V 才翻低。
+      中间 0.30V 的死区里，输出保持原状态 —— 这就是抗噪声能力。
+      阈值附近那点几十毫伏的噪声，根本没机会让它来回翻。
+
+【正反馈在这里的作用】
+   ① 加速翻转：一旦越过门限，正反馈把同相端「推」得更远，
+      输出像开关一样「刷」地跳过去，边沿干净。
+   ② 制造回差：两个门限是正反馈的直接结果（负反馈做不出回差）。
+
+【设计要点】
+   · 回差要大于你预期的噪声峰峰值（比如 50mV 噪声 → 回差取 200mV 以上）
+   · 回差太大也不行：会带来「测量死区」，测小信号时误差明显
+   · 滞回比较器的门限受输出饱和电压影响，要求精度时用专用比较器
+     （LM393 这类，输出电平稳定、翻转速度快）</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">用法二：振荡器——把巴克豪森条件当成设计目标。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="文氏桥振荡器：正反馈建立振荡，负反馈稳定幅度">
+            <pre><code>【结构】一个放大器 + 两个反馈支路
+
+    正反馈支路：RC 串并联选频网络（F = 1/3，只在 f0 处相移为 0°）
+    负反馈支路：稳幅支路（热敏电阻 / 灯泡 / 二极管），把增益稳到略大于 3
+
+【起振条件】
+   选频网络的传输系数在中心频率处为 F = 1/3，相移 0°
+   → 相位条件：环路总相移 = 0°（放大器同相 + 网络 0°）✔
+   → 幅度条件：A × (1/3) ≥ 1，也就是放大器增益 A ≥ 3
+
+   起振时让 A 略大于 3（比如 3.05），振荡幅度指数增长；
+   幅度大了以后稳幅支路把 A 压回 3，幅度就稳住了。
+
+【振荡频率】
+   f0 = 1 / (2π R C)
+
+   例：R = 10kΩ、C = 1nF
+       f0 = 1 / (2π × 10kΩ × 1nF) = 1 / (6.283e-5) ≈ 15.9kHz
+
+【和「自激振荡」的关系】
+   自激振荡是「不想要的振荡」：靠相位裕度不足意外满足条件。
+   振荡器是「想要的振荡」：靠精心设计恰好满足条件。
+   数学条件完全相同（巴克豪森），区别只在你想不想要它。
+
+【单片机里的振荡器也是正反馈】
+   STM32 的外部晶振：一个高 Q 值的石英谐振器 + 内部反相放大器，
+   靠环路增益大于 1 起振，靠晶体的高 Q 值把频率锁死。
+   负载电容不匹配（比如 8pF 的晶体配了 22pF 的电容）、
+   或者串联电阻过大，都会导致「不起振」或「起振很慢」——
+   这就是「时钟系统」那一篇里反复强调负载电容的原因。</code></pre>
+          </div>
+
+          <p class="mt-3">把这一节压缩成一句话：<b class="font-semibold text-ink">负反馈换来稳定与线性，正反馈换来跳变与振荡。</b>同一个运放电路里，反馈接在反相端还是同相端，决定了它是「放大器」还是「开关」；而接在反相端的负反馈，在高频还可能自己变成正反馈——这就是这一篇要教你的全部张力。</p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">这一节的五道题，覆盖了「反馈」这一章所有会用到的计算。全部用真实数值，把每一步都写出来。<b class="font-semibold text-ink">建议你拿纸跟着算一遍</b>——这五个数的量级，会变成你以后判断电路「正常不正常」的直觉。</p>
+
+          <h3 class="mt-7 text-base font-semibold">例 1：A = 10<sup>5</sup>、F = 0.01，算闭环增益与反馈深度</h3>
+
+          <p class="mt-3">这是最基础的一道。<b>已知：</b>某运放的开环增益 A = 10<sup>5</sup>（也就是 100dB），接成电压串联负反馈，反馈网络的分压比 F = 0.01（1%）。<b>求：</b>反馈深度、闭环增益、深度负反馈近似的误差、以及净输入被压小到什么程度。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 1：一步一步算">
+            <pre><code>【第 1 步】算环路增益 AF 与反馈深度 1+AF
+
+    AF  = 10^5 × 0.01 = 1000（这就是「绕一圈回来的增益」，无量纲）
+    1+AF = 1 + 1000 = 1001
+
+    ★ 反馈深度 1001，意思是：
+      · 净输入被压小到 1/1001
+      · 开环增益的漂移被缩小 1001 倍
+      · 带宽展宽 1001 倍
+
+【第 2 步】闭环增益
+
+    Af = A / (1+AF) = 100000 / 1001 = 99.90
+
+    注意这个数非常接近 100 —— 而 100 正好是 1/F = 1/0.01。
+
+【第 3 步】深度负反馈近似的误差
+
+    近似值：Af ≈ 1/F = 100
+    精确值：Af = 99.90
+    相对误差：(100 − 99.90) / 100 = 0.0010 = 0.10%
+
+    这个 0.10% 正好等于 1/(1+AF) = 1/1001 = 0.0999% ≈ 0.1%
+    ★ 所以「近似误差 = 1/(1+AF)」这句话，是可以直接拿来估的。
+
+    ⚠ 顺便得到一个重要结论：0.1% 的近似误差比 1% 精度的电阻还小，
+      所以在深度负反馈电路里，闭环增益的精度【由电阻决定】，
+      而不是由运放决定。你要 0.1% 的增益精度，就得用 0.1% 的电阻。
+
+【第 4 步】净输入到底有多小
+
+    若要求输出 Xo = 2V：
+        净输入  Xid = Xo / A = 2V / 10^5 = 20µV
+        反馈量  Xf  = F · Xo = 0.01 × 2V = 20mV
+        输入量  Xi  = Xid + Xf = 20mV + 20µV ≈ 20.02mV
+
+    ★ 20µV 对 20mV —— 两个输入端之间的电压差只有反馈电压的千分之一。
+      这就是「虚短」：不是真的短路，是被反馈压到了 µV 级。
+      同时也解释了为什么运放几 mV 的【失调电压】会成为直流精度的
+      头号杀手：它比 20µV 大了三个数量级，直接压过了虚短的精度。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例 2：增益稳定性 —— 开环漂 20%，闭环漂多少</h3>
+
+          <p class="mt-3">沿用例 1 的电路（A = 10<sup>5</sup>、F = 0.01、1+AF = 1001）。<b>已知：</b>温度从 25°C 升到 85°C，运放的开环增益从 10<sup>5</sup> 掉到 8×10<sup>4</sup>（下降了 20%）。<b>求：</b>闭环增益变化了多少？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 2：用微分公式估一次，再用精确值验一次">
+            <pre><code>【方法一：用公式估（微分近似）】
+
+    dA/A = (8×10^4 − 10×10^4) / 10×10^4 = −0.2 = −20%
+
+    dAf/Af = (dA/A) / (1+AF) = −0.20 / 1001 = −0.0001998 ≈ −0.020%
+
+    ★ 开环漂 20%，闭环只漂 0.02% —— 改善了 1001 倍，
+      正好等于反馈深度 1+AF。
+
+【方法二：直接代公式算（精确值）】
+
+    25°C 时：Af = 100000 / (1 + 100000×0.01) = 100000/1001 = 99.900
+    85°C 时：Af =  80000 / (1 +  80000×0.01) =  80000/801  = 99.875
+
+    相对变化 = (99.875 − 99.900) / 99.900 = −0.00025 = −0.025%
+
+【两个结果对不上，怎么办？】
+
+    微分公式给 −0.020%，精确计算给 −0.025%，差 0.005 个百分点。
+    原因：dAf/Af = (dA/A)/(1+AF) 是【小信号（线性化）】的结果，
+    而这里 dA/A 高达 20%，属于大变化，线性化本身有误差。
+
+    工程结论：dA/A 在 10% 以内时，微分公式非常好用；
+    变化很大时（比如器件从室温到 −40°C 的极端漂移），
+    直接代公式算精确值更靠谱。但两者的【量级】完全一致 ——
+    记住「闭环漂移 ≈ 开环漂移 / (1+AF)」这个量级就够了。
+
+【反过来用这个公式做设计】
+    要求：闭环增益在 −40°C ~ +85°C 之间的漂移不超过 0.1%
+    已知：这颗运放的开环增益在该温区内会漂 30%
+    求：需要多大的反馈深度？
+
+        1+AF ≥ 30% / 0.1% = 300
+
+    也就是环路增益 AF ≥ 299，约 50dB。这个数直接告诉你
+    「这一级的环路增益至少要留 50dB」——
+    这就是环路增益预算的做法。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例 3：带宽 —— 从 10Hz 展宽到哪里，以及 ADC 前端怎么选运放</h3>
+
+          <p class="mt-3"><b>已知：</b>同一颗运放，开环低频增益 A<sub>0</sub> = 10<sup>5</sup>，开环上限频率（−3dB 点）f<sub>H</sub> = 10Hz。<b>求：</b>单位增益带宽是多少？接成闭环增益 100 之后带宽是多少？接成跟随器呢？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 3：增益带宽积守恒怎么用">
+            <pre><code>【第 1 步】算出增益带宽积 GBW
+
+    GBW = A0 × fH = 10^5 × 10Hz = 10^6 Hz = 1MHz
+
+    ★ 1MHz 就是这颗运放的【单位增益带宽】，
+      也是手册上第一眼要看的那个参数（GBW 或 GBW = 1MHz）。
+
+【第 2 步】闭环增益 100 时的带宽
+
+    方法一（用反馈深度）：fHf = fH × (1+AF)
+        1+AF = 1 + 10^5 × 0.01 = 1001
+        fHf = 10Hz × 1001 ≈ 10kHz   ← 展宽了 1001 倍
+
+    方法二（用 GBW 守恒）：fHf = GBW / Af
+        fHf = 1MHz / 100 = 10kHz    ← 同一个答案
+
+    ★ 两种算法结果一致，说明「增益带宽积守恒」和
+      「带宽展宽 (1+AF) 倍」是同一件事的两种说法。
+
+【第 3 步】几种闭环增益下的带宽对照
+
+    闭环增益     带宽                典型用途
+    ────────── ────────────────── ─────────────────────────
+    1（跟随器）  1MHz                ADC 前端缓冲、阻抗变换
+    10           100kHz              传感器信号放大
+    100          10kHz               微弱直流信号放大（热电偶）
+    1000         1kHz                高增益直流放大（应变片）
+
+    ★ 注意最后一行：闭环增益 1000 时带宽只剩 1kHz。
+      如果你想放大一个 5kHz 的应变片动态信号，这颗运放就不够用，
+      必须换 GBW ≥ 5MHz 的型号，或者用两级放大分摊增益。
+
+【第 4 步】ADC 前端的实际选择（这才是单片机项目里会用到的）
+
+    需求：信号最高频率 10kHz，用跟随器送进 STM32 的 ADC。
+
+    ✔ 用 GBW = 1MHz 的运放做跟随器：
+        闭环带宽 = 1MHz
+        在 10kHz 处的增益误差 ≈ f / fc = 10k / 1M = 1%
+        折合 dB：20·lg(0.99) ≈ −0.087dB，很小
+        相移 ≈ arctan(0.01) ≈ 0.57°，可以忽略
+      → 结论：够用，10kHz 处的幅度误差 1%，对 12 位 ADC（约 0.024%
+        的分辨率）来说，这个误差来源排在失调和噪声之后，可以接受。
+
+    ✘ 用 GBW = 100kHz 的老运放（比如某些通用低功耗型号）：
+        在 10kHz 处的增益误差 ≈ 10k / 100k = 10%
+        相移 ≈ arctan(0.1) ≈ 5.7°
+      → 结论：输出幅度系统性地偏小 10%，ADC 读数整体偏低，
+        而且这个误差还随信号频率变化 —— 表现为「测出来的波形
+        幅度不对，但直流点是准的」。这类故障很难查，
+        因为万用表量直流时完全看不出问题。
+
+    ★ 经验法则：运放的 GBW 至少取「信号最高频率 × 闭环增益 × 10」。
+      要放大 10kHz 信号、闭环增益 100 → GBW ≥ 10k × 100 × 10 = 10MHz。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例 4：非线性失真从 5% 降到多少</h3>
+
+          <p class="mt-3"><b>已知：</b>某放大器开环工作时，输出满摆幅下的非线性失真为 5%（用失真仪测的总谐波失真 THD）。<b>求：</b>接入负反馈后失真降到多少？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 4：失真被压小的倍数">
+            <pre><code>【题设一】沿用前面的参数：A = 10^5、F = 0.01 → 1+AF = 1001
+
+    闭环失真 ≈ 开环失真 / (1+AF) = 5% / 1001 = 0.005%
+
+    换算成 dB：20·lg(1001) ≈ 60dB
+    ★ 也就是说，失真被压低了 60dB。
+
+【题设二：一个更贴近实际的组合】
+    把增益降得更多一点：A = 10^4、F = 0.1
+
+        1+AF = 1 + 10^4 × 0.1 = 1001（反馈深度一样是 1001）
+        Af ≈ 1/F = 10（闭环增益只有 10 倍）
+        失真 = 5% / 1001 ≈ 0.005%
+
+    ★ 对比一下就明白了：
+      · 想要闭环增益 10 倍，可以用「A = 10^4、F = 0.1」
+      · 想要闭环增益 100 倍，可以用「A = 10^5、F = 0.01」
+      两者反馈深度都是 1001，所以稳定性、失真、带宽改善完全相同，
+      区别只在闭环增益和所需的开环增益。
+
+    ★ 换句话说说这道题的意义：
+      「把增益从 10^4 降到 10」这件事，换来的是 60dB 的线性度改善。
+      这就是为什么高保真功放、精密仪表放大器的每一级增益都很低 ——
+      它们把有源器件的富余增益全花在「买线性度」上了。
+
+【三条必须同时记住的边界】
+
+    ① 前提是仍在【线性区】。如果输出已经接近饱和，
+       环路增益会急剧下降，上面这个 1001 倍就不成立了 ——
+       表现为「小信号时很干净，一大音量就破音」。
+    ② 只抑制【环内】产生的失真。
+       反馈网络本身如果引入失真（比如用了非线性元件做 F），
+       那部分失真不会被抑制，反而会 1:1 出现在输出上。
+    ③ 对【输入信号里带的失真】无效。
+       信号源本身送来的谐波，会被当成信号一起放大，
+       反馈环路完全没有能力区分它们。
+
+【用 STM32 验一次（练习思路）】
+    用 PWM + RC 产生一个 1kHz 正弦（THD 大约 0.5%~2%），
+    一路直接进 ADC，一路经运放（闭环增益 1，用跟随器）进另一个 ADC 通道，
+    在软件里做 1024 点 FFT，比较两路的谐波分量。
+    你会看到经过运放那一组的谐波反而【变差】——
+    因为这里运放没有带来失真改善（增益只有 1），
+    却贡献了自己的噪声和失调。这个实验能让你亲手体会到
+    「负反馈改善失真」的前提是「增益换来的」。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例 5：给一组环路增益数据，判断会不会振荡</h3>
+
+          <p class="mt-3">这是本篇最实用的一道。<b>已知：</b>用频响分析仪（或者环路注入法）测出某闭环系统的环路增益数据如下表。<b>求：</b>相位裕度、增益裕度，并判断这个系统能不能用。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>频率 f</th><th>环路增益 |AF|</th><th>附加相移 φ</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>1kHz</td><td>40dB</td><td>−15°</td><td>环路增益很大，对扰动抑制强</td></tr>
+                <tr><td>10kHz</td><td>20dB</td><td>−60°</td><td>主极点已经起作用</td></tr>
+                <tr><td>50kHz</td><td>8dB</td><td>−100°</td><td>第二极点开始贡献相移</td></tr>
+                <tr><td><b>150kHz</b></td><td><b>0dB</b></td><td><b>−135°</b></td><td><b>0dB 交越频率 fc</b></td></tr>
+                <tr><td><b>400kHz</b></td><td><b>−12dB</b></td><td><b>−180°</b></td><td><b>相移达到 −180° 的频率 f180</b></td></tr>
+                <tr><td>1MHz</td><td>−30dB</td><td>−240°</td><td>已经越过 −180°，但增益很低</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 5：读表算裕度，并估一下过冲">
+            <pre><code>【第 1 步】找 0dB 交越频率 fc
+
+    表中 |AF| = 0dB 出现在 150kHz 处 → fc = 150kHz
+    该频率上的附加相移 φ(fc) = −135°
+
+【第 2 步】算相位裕度
+
+    PM = 180° − |φ(fc)| = 180° − 135° = 45°
+
+【第 3 步】找相移 −180° 的频率 f180，算增益裕度
+
+    f180 = 400kHz，该处 |AF| = −12dB
+    GM = 0dB − (−12dB) = 12dB
+
+【第 4 步】判定
+
+    PM = 45°  ≥ 45°  ✔ 刚好达标（工程下限）
+    GM = 12dB ≥ 10dB ✔ 达标
+
+    → 结论：这个系统【能稳定工作】，但处于「合格线」上。
+      任何一点变化（温度、器件批次、负载）都可能让它掉到线下。
+
+【第 5 步】估一下阶跃响应会有多难看
+
+    用 ζ ≈ PM/100 ≈ 0.45
+
+    过冲 OS = exp(−πζ / √(1−ζ²))
+            = exp(−π×0.45 / √(1−0.45²))
+            = exp(−1.4137 / 0.8930)
+            = exp(−1.583)
+            = 0.205 → 约 20%
+
+    → 给这个系统加一个阶跃指令，输出会冲过头 20%，
+      然后来回荡 2~3 次才稳定下来。
+      示波器上就是典型的「过冲 + 振铃」。
+
+【第 6 步】如果我把环路增益整体提高 12dB 会怎样？（一个很有教育意义的推演）
+
+    环路增益提高 12dB，意味着整条幅频曲线向上平移 12dB：
+    · 原来 −12dB 的 400kHz 处，现在变成 0dB → 新的 fc = 400kHz
+    · 而 400kHz 处的相移正好是 −180°
+    · → PM = 180° − 180° = 0° → 【临界振荡】
+
+    ★ 这就是一条极重要的工程直觉：
+      【把环路增益做大，会让交越频率往高处跑，而高处的相位更差 ——
+        所以「环路增益越大越稳定」是错的，恰恰相反。】
+      这和「反馈深度越大，增益稳定性越好」并不矛盾：
+        前者说的是【低频】的精度，后者说的是【高频】的稳定性。
+        两个要求是相互拉扯的，设计就是在中间找平衡点。
+
+【第 7 步】反过来，如果我把 fc 压到 50kHz 呢？
+
+    φ(50kHz) = −100° → PM = 80° → 过冲几乎为零（ζ ≈ 0.8）
+
+    但代价：
+    · 低频环路增益降低了（对负载扰动、对器件漂移的抑制变弱）
+    · 响应变慢（建立时间变长）
+    ★ 「稳定」和「快」永远是同一枚硬币的两面。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">没有环路分析仪怎么办：用阶跃响应反推裕度</div>
+            <p>上面那张表需要专业仪器才能测出来，但你可以用<b>便宜的替代办法</b>反推：给系统一个小的阶跃扰动，看输出的过冲量，再对照第 2 节那张表反查相位裕度。</p>
+            <p class="mt-2">具体做法：① 恒流源：把设定电压用 MOS 管瞬间跳一格（比如从 0.5V 跳到 0.6V）；② DC-DC：用一颗 MOS 管串电阻做假负载，GPIO 控制导通，让负载电流瞬间从 10% 跳到 50%（跳变要快，MOS 管开关时间 ns 级就够）；③ 恒压源/运放电路：在反馈节点注入一个小的方波（通过一个 1kΩ 电阻注入到反相端）。用示波器 AC 耦合看输出的包络，读第一个过冲峰的幅度。</p>
+            <p class="mt-2">过冲 5%~10% → 裕度大约 60°~70°，健康；过冲 20% 以上 → 裕度不到 45°，要改；看不到衰减、一直荡 → 已经自激了。这个方法不能替代定量测量，但足以判断「这一版能不能用、往哪个方向调」。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4">这一节把上面的公式落回到六个你一定会遇到的场景。<b class="font-semibold text-ink">每一个场景都给出「电路长什么样」「为什么会出问题」「怎么改」三件事</b>，其中大部分只需要换一颗电阻的位置，但你必须知道为什么要换。</p>
+
+          <h3 id="sub-adc-buffer" class="mt-7 text-base font-semibold">场景一：运放缓冲驱动 ADC 与长电缆 —— 振铃、隔离电阻与它的代价</h3>
+
+          <p class="mt-3">这是最典型的现场。传感器信号经过运放跟随器，用一根一米多的屏蔽线接到 STM32 的 ADC 引脚上——线缆的分布电容（按 100pF/m 估算，1.5 米约 150pF，10 米约 1nF）就成了运放的容性负载。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="长电缆 + 容性负载：从电路到波形">
+            <pre><code>【问题电路】反馈从运放输出端取，负载是电缆电容
+
+    传感器 ──►│ 跟随器 │──┬───────────────► 1.5m 屏蔽线 ──► ADC 引脚
+              └────────┘  │                                （C ≈ 150pF）
+                          │
+                    （反馈线从这里取）
+                          
+    运放输出电阻 Ro ≈ 50Ω（按通用双极运放的典型值估）
+    负载电容     CL ≈ 150pF
+
+        f_p = 1/(2π × 50Ω × 150pF) = 1/(4.71e-8) ≈ 3.4MHz
+        → 在环路里多加一个极点，相位裕度被吃掉最多 90°
+
+【示波器上看到的样子】
+
+    输出
+    2.0V ┤        ╱╲   ╱╲╱╲
+         │       ╱  ╲ ╱     ╲___________
+    1.65V┤──────╱    V              ← 直流值是对的（1.65V）
+         │     ╱     ↑
+    1.3V ┤    ╱   过冲 + 5MHz 振铃（峰峰值可达几百 mV）
+         └────────────────────────────► t
+              信号跳变
+
+    ★ 万用表量到的就是这个 1.65V，所以「直流没问题」；
+      ADC 每个采样点落在振铃的不同相位上，所以读数乱跳。
+
+【改法一：串隔离电阻（最常用，一颗电阻解决）】
+
+    传感器 ──►│ 跟随器 │──┬── R_iso ──┬──► 电缆 ──► ADC
+              └────────┘  │   33Ω    │
+                          │           │
+                    （反馈仍然从这里取，    C ≈ 150pF
+                      隔离电阻在环路之外）
+
+    取 R_iso = 33Ω：
+        极点 f_p' = 1/(2π × (50+33) × 150pF) ≈ 12.8MHz
+        零点 f_z  = 1/(2π × 33 × 150pF)      ≈ 32.1MHz
+    → 高频时负载呈电阻性，附加相移回落到接近 0°，裕度恢复。
+
+    取 R_iso = 100Ω 也是常见做法，隔离效果更强。
+
+【改法一的代价，三条都要算清楚】
+
+    ① 负载端的电压误差 = 负载电流 × R_iso
+       如果 ADC 输入电阻很高（STM32 的 ADC 输入是 CMOS 栅极，
+       漏电流只有 µA 级），那么稳态电流几乎为零，
+       压降 ≈ 0 —— 这就是为什么 ADC 前端可以放心串隔离电阻。
+       ★ 但如果负载是 50Ω 的传输线终端、或者一个需要电流的负载，
+         10mA × 50Ω = 0.5V 的误差就完全不能接受了。
+
+    ② 负载端的信号被 R_iso 与 CL 低通了一次
+       f = 1/(2π × 33Ω × 150pF) ≈ 32MHz，远高于你的信号带宽，不用担心。
+
+    ③ ADC 采样时的建立时间
+       隔离电阻成了 ADC 看到的源阻抗（电缆电容帮了大忙，它就是个
+       就近的电荷仓库）。按 STM32F103 数据手册给出的采样开关电阻
+       R_ADC ≈ 1kΩ、内部采样电容 C_ADC ≈ 8pF 估算：
+           τ = (R_iso + R_ADC) × C_ADC = (33 + 1000) × 8pF ≈ 8.3ns
+       建立到 12 位精度（约 0.024%）需要约 8.3τ ≈ 69ns；
+       STM32F103 在 14MHz ADC 时钟下最长的采样时间是 239.5 周期
+       ≈ 17µs，最短 1.5 周期 ≈ 107ns —— 都够。
+       ★ 但如果 R_iso 取到 1kΩ 以上（有人为了「滤波」串 10kΩ），
+         τ 变成 88ns，最短采样时间就不够了，读数会系统性偏低。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">一个几乎必然踩的坑：直接在运放输出端并 100nF</div>
+            <p>「ADC 前面要加个电容滤波」这句话本身没错，但<b>加在哪里</b>决定生死。如果你把 100nF 直接并在运放输出端（也就是反馈取样点上）：</p>
+            <p class="mt-2"><code class="icode">f_p = 1/(2π × 50Ω × 100nF) = 1/(3.14e-5) ≈ 31.8kHz</code></p>
+            <p class="mt-2">环路里多了一个 <b>32kHz</b> 的极点——这个频率远低于任何运放的 0dB 交越频率，相位裕度被吃光，<b>电路几乎必然振荡</b>。很多同学描述成「加了滤波电容之后输出变成 5MHz 的正弦」，就是这个原因。</p>
+            <p class="mt-2"><b>正确做法：把电容放在隔离电阻之后。</b><code class="icode">运放输出 → R_iso（33~100Ω）→ 节点 → C（100nF 或 10nF）→ GND → ADC</code>。这样电容被 R_iso 隔离在环路之外，既起到了滤波和「电荷仓库」的作用，又不会破坏相位裕度。ST 的应用笔记 AN2834《How to get the best ADC accuracy in STM32》里推荐的正是这种「串电阻 + 并电容」的 RC 网络。</p>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="adc_filter.c：丢弃首次采样 + 多次平均">
+            <pre><code>/* ADC 前端的软件配合：
+ *  1) 丢弃第一次采样 —— 让内部的采样保持电容先充上电，
+ *     避开通道切换后的建立过程；
+ *  2) 多次平均 —— 把残余的随机噪声压下去。
+ * 注意：软件滤波只能处理【随机噪声】，处理不了持续的振铃/振荡。
+ *       如果你发现平均值本身在缓慢漂移，那是硬件环路的问题，
+ *       要去改 R_iso，而不是加大平均次数。
+ */
+
+#define ADC_AVG_TIMES   8u      /* 8 次平均：随机噪声压到 1/sqrt(8) ≈ 35% */
+
+static uint16_t adc_read_once(void)
+{
+    HAL_ADC_Start(&amp;hadc1);
+    HAL_ADC_PollForConversion(&amp;hadc1, 10u);
+    return (uint16_t)HAL_ADC_GetValue(&amp;hadc1);
+}
+
+/* 返回 0 ~ 4095 的平均值；先丢掉一次，避免前一通道的残留电荷 */
+uint16_t adc_read_averaged(void)
+{
+    uint32_t sum = 0u;
+    uint8_t  i;
+
+    (void)adc_read_once();              /* 丢弃：建立过程 */
+    for (i = 0u; i &lt; ADC_AVG_TIMES; i++) {
+        sum += adc_read_once();
+    }
+    HAL_ADC_Stop(&amp;hadc1);
+
+    /* 注意先加后除，且用 32 位累加，避免 16 位溢出 */
+    return (uint16_t)(sum / ADC_AVG_TIMES);
+}</code></pre>
+          </div>
+
+          <h3 id="sub-current-sense" class="mt-7 text-base font-semibold">场景二：恒流驱动 LED —— 采样电阻放哪里，决定它是电压反馈还是电流反馈</h3>
+
+          <p class="mt-3">这是本篇开头「现场二」的完整解法。同样一颗运放、同一颗 MOS 管、同一个采样电阻，<b class="font-semibold text-ink">仅仅因为采样电阻的位置不同，一个电路是恒流源，另一个是「热失控发生器」</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两种接法对比：采样电阻在回流路径里 vs 在输出电压上">
+            <pre><code>【正确接法】R_sense 串在负载的回流路径里（低端采样）→ 电流反馈
+
+                    V+ (比如 12V)
+                     │
+                     ▼
+                   ┌─────┐
+                   │ LED │          ← 负载
+                   └─────┘
+                     │
+                     ▼
+        VREF ──►（＋）┌──────┐  漏极
+                    │ 运放 │──────►│ NMOS
+        ┌──────►（−）└──────┘       │ 源极
+        │                            │
+        │                          ┌─┴─┐
+        └──────────────────────────┤Rs │  R_sense = 6.25Ω
+                                   └─┬─┘
+                                     │
+                                    GND
+
+    · 反馈电压 V_f = I_LED × R_sense，正比于【输出电流】
+    · 环路调节 V_f = VREF → I_LED = VREF / R_sense
+    · LED 的 Vf 怎么随温度变，都不影响电流 ✔
+    · 组态：电流串联负反馈（反馈取自输出电流，加在与输入不同的脚上）
+    · 输出电阻被抬高 (1+AF) 倍 → 恒流特性好 ✔
+
+【错误接法】反馈取自 LED 两端 → 电压反馈，环稳定的是「电压」
+
+                    V+ (12V)
+                     │
+                     ▼
+                   ┌─────┐
+              ┌────│ LED │
+              │    └─────┘
+              │      │
+              │      ▼
+              │    ┌──────┐  漏极
+              │    │ 运放 │──────►│ NMOS
+        VREF ─┼─►（＋）└──────┘   │
+              │        （−）◄─────┘ 源极
+              │                     │
+              └── 反馈取自 LED 两端  │
+                                    └── GND
+
+    · 反馈电压正比于【LED 两端的电压】，不是电流
+    · 环路把 LED 电压稳在 VREF 上 —— 恒压驱动！
+    · 恒压驱动 LED 会发生什么？见下面的推算。
+    · 组态：电压串联负反馈（反馈取自输出电压，加在不同脚上）
+
+【恒压驱动 LED 为什么会热失控 —— 定量算一遍】
+
+    已知：某 1W 白光 LED，正常工作时 Vf ≈ 3.2V、I = 200mA，
+          动态电阻 r_d ≈ 2Ω（大功率 LED 的典型值 1~5Ω 之间）
+          Vf 的温度系数约 −2mV/°C（数据手册典型值）
+
+    假设环路把 LED 电压稳在 3.20V：
+        温度升高 30°C → Vf 下降 30 × 2mV = 60mV
+        环路的反应：把电压【拉回 3.20V】——也就是把电流加大
+        电流增量 ΔI ≈ ΔVf / r_d = 60mV / 2Ω = 30mA
+
+        电流从 200mA 涨到 230mA（+15%）
+        → 功耗从 0.64W 涨到约 0.74W（+15%）
+        → 更热 → Vf 更低 → 电流更大 …… 这就是热失控
+
+    ★ 注意：这是【热学上的正反馈】，不是电路上的正反馈，
+      但它和电路正反馈的危害一模一样 —— 而且 LED 的
+      封装热阻越大（散热越差），这个环越容易失控。
+      「用恒压源点大功率 LED 会烧灯」是行业里的常识，
+      原因就在这 2mV/°C 和一个 2Ω 的动态电阻上。</code></pre>
+          </div>
+
+          <h3 id="sub-current-sense-2" class="mt-7 text-base font-semibold">恒流源的三个工程细节：参数、开尔文接法、以及运放的失调</h3>
+
+          <p class="mt-3">把恒流源做出来只是第一步，做得准是第二步。三个必须算清楚的细节：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="恒流源的参数选择与误差预算">
+            <pre><code>【细节一】VREF 与 R_sense 的取值，直接影响误差预算
+
+    目标电流 I = 200mA。两种取法：
+
+    方案 A：VREF = 1.25V → R_sense = 1.25V / 0.2A = 6.25Ω
+            取标准值 6.2Ω → I = 1.25/6.2 = 201.6mA
+            R_sense 上的功耗 = I²R = 0.2² × 6.25 = 0.25W
+            → 必须用 0.5W 或 1W 的电阻（不能只按 0.25W 选）
+
+    方案 B：VREF = 0.2V → R_sense = 0.2/0.2 = 1Ω
+            功耗 = 0.04W（一颗 0805 就够，很省）
+            但误差大：运放的失调电压 Vos 直接加在 VREF 上，
+            若 Vos = 5mV（通用运放 LM358 的典型值），
+                相对误差 = 5mV / 200mV = 2.5% ✘ 太大
+            方案 A 的误差：5mV / 1250mV = 0.4% ✔ 可接受
+
+    ★ 结论：VREF 不要取得太小（经验值 ≥ 0.5V），
+      否则运放的失调会被放大成很大的电流误差。
+      要降功耗，就换更大的 R_sense + 更低的供电，
+      而不是无脑压低 VREF。
+
+    完整误差预算（方案 A）：
+        电阻精度 1%             → 1.0%
+        运放失调 5mV/1.25V      → 0.4%
+        采样电阻的温漂           → 按 50ppm/°C 估，
+                                   温升 40°C 时 0.2%
+        ────────────────────────────────────
+        合计（方和根）≈ 1.1%
+    ★ 所以「1% 精度的恒流源」是这套方案的合理预期；
+      要更准就得用 0.1% 电阻 + 低失调运放（如 OPA333，Vos 10µV）。
+
+【细节二】采样电阻必须用【开尔文接法】（四线取样）
+
+    ✘ 错误：反馈从 R_sense 的【焊盘外边】取
+
+        NMOS 源极 ──┬── 焊点 ──┤ R_sense ├── 焊点 ──┬── GND
+                    │                                │
+                    └────── 反馈从这里取 ────────────┘
+                            ↑ 把走线电阻和焊点电阻也串进了反馈
+
+        R_sense = 1Ω，走线 + 焊点合计 20mΩ
+        → 反馈电压里多了 I × 20mΩ = 200mA × 0.02Ω = 4mV
+        → 电流误差 4mV / 1.25V = 0.32%（白丢的精度）
+
+    ✔ 正确：从电阻【本体两端】取反馈（开尔文/四线接法）
+
+        NMOS 源极 ──┬──┤ R_sense ├──┬── GND
+                    │   ↑      ↑   │
+                    │   └──┬───┘   │
+                    └──────┼────────┘
+                           └──► 反馈从这里取（只在电阻本体上取压降）
+
+    ★ 采样电阻越小，这个细节越重要。1Ω 的采样电阻配 20mΩ 的走线，
+      就是 2% 的误差来源 —— 比电阻本身的 1% 精度还大。
+
+【细节三】环路里还有什么在影响电流？
+
+    · NMOS 必须工作在【饱和区】（恒流区），不能进线性区：
+      漏源电压 Vds 至少要留 0.5~1V 的余量，
+      否则环路增益急剧下降，恒流特性变差。
+      供电 12V、LED 压降 3.2V、R_sense 上 1.25V
+      → Vds = 12 − 3.2 − 1.25 = 7.55V ✔ 余量很足，
+      但功耗 = 200mA × 7.55V = 1.5W → 【MOS 需要散热片】！
+      （这是效率最低、也最容易被忽略的一处发热）
+
+    · 栅极串一颗 100Ω 左右的电阻：
+      它和 MOS 的输入电容形成极点（见下一个场景），
+      会限制环路的带宽。想快就别串太大，想稳就别太小。</code></pre>
+          </div>
+
+          <h3 id="sub-opto-mos" class="mt-7 text-base font-semibold">场景三：把光耦 or MOS 管放进反馈环路 —— 延迟就是相位滞后</h3>
+
+          <p class="mt-3">隔离是工业现场的常规要求，但<b class="font-semibold text-ink">只要你把「慢」的器件放进反馈环里，环路的带宽就必然被压到很低</b>——这不是电路设计水平问题，是物理限制。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="光耦与 MOS 在环路里各加了什么">
+            <pre><code>【光耦：环路里塞进一个「纯延迟」】
+
+    PC817 的关键参数（数据手册典型值，测试条件 Vce = 10V、
+    Ic = 2mA、RL = 100Ω）：
+        上升时间 tr ≈ 4µs     下降时间 tf ≈ 3µs
+        CTR（电流传输比）分档：50% ~ 600%（A/B/C/D 四档）
+        CTR 温度系数：约 −0.5%/°C（随温度上升而下降）
+
+    把 4µs 的延迟折算成一个等效极点：
+        f ≈ 1/(2π × 4µs) = 1/(2.51e-5) ≈ 39.8kHz
+
+    ★ 经验做法：环路的 0dB 交越频率要压在它的 1/5 以下，
+      也就是 fc ≤ 39.8k/5 ≈ 8kHz。
+      → 用光耦做线性反馈的电源，环路带宽只能做到 5~10kHz。
+        这就是「光耦隔离的电源响应总是很慢」的根本原因，
+        与你的补偿网络多优秀无关。
+
+【光耦更麻烦的地方：CTR 的离散性】
+
+    环路增益里含有 CTR 这一项，而 CTR 在 50%~600% 之间飘。
+    · 按 CTR 最小（50%）设计精度 → 环路增益偏低 → 精度差、响应慢
+    · 按 CTR 最大（600%）设计稳定性 → 交越频率升高 12 倍
+      （20·lg6 ≈ 15.6dB）→ 相位裕度被吃掉一大截 → 可能振
+
+    ★ 正确的做法是【双向校验】：
+      用 CTR 的最大值校验稳定性（保证不振荡），
+      用 CTR 的最小值校验精度和动态性能（保证够用）。
+      两者不能在同一个设计里都取最优，必须折中。
+
+【MOS 管的栅极极点】
+
+    栅极串 Rg，与 MOS 的输入电容 Ciss 形成极点：
+        f_g = 1/(2π × Rg × Ciss)
+
+    例：Rg = 100Ω、Ciss = 1.9nF（IRF540 数据手册典型值）
+        f_g = 1/(2π × 100 × 1.9e-9) = 1/(1.19e-6) ≈ 838kHz
+
+    看起来还行，但真正的麻烦是【密勒电容 C_rss 会随 Vds 剧烈变化】
+    （从几 pF 到几百 pF），导致这个极点的位置随工作点漂移 ——
+    仿真时选的参数看不到问题，实测换一个负载就振了。
+    ★ 对策：把 MOS 当【开关】用（只在截止/饱和之间切换），
+      不要让它工作在放大区做线性调节；
+      如果必须线性工作，就把 fc 压到 f_g 的 1/5 以下
+      （Rg = 100Ω 时 fc ≤ 838k/5 ≈ 170kHz）。
+
+【结论：需要隔离又需要带宽时，别用光耦做线性反馈】
+
+    · 数字量的反馈（比如「过流了没有」）→ 用数字隔离器，
+      如 Si86xx 系列，传播延迟 10ns 量级，比光耦快 1000 倍；
+    · 模拟量的反馈 → 用隔离放大器，如 AMC1200，带宽 100kHz 量级；
+    · 万不得已用光耦 → 把环路带宽压到 1~5kHz，
+      并在反馈电阻上并 10~100pF 的小电容做相位超前补偿，
+      用相位余量换回一点响应速度。</code></pre>
+          </div>
+
+          <h3 id="sub-dcdc-loop" class="mt-7 text-base font-semibold">场景四：DC-DC 的反馈环路 —— 纹波、啸叫与「换个电容就振了」</h3>
+
+          <p class="mt-3">开关电源的反馈环路是所有闭环系统里最复杂的：它同时有 LC 双极点、ESR 零点、开关频率的采样效应、以及右半平面零点。入门阶段抓住三件事就够了：<b>LC 双极点在哪、ESR 零点在哪、交越频率取多高</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="降压 DC-DC 的环路：两个极点、一个零点">
+            <pre><code>【环路组成】
+
+   Vout ──► 分压电阻 ──► 误差放大器 ──► 补偿网络 ──► PWM 比较器
+     ▲                                                    │
+     │                                                    ▼
+     └────────── LC 滤波 ◄──────── 功率开关（MOS + 电感）◄┘
+
+【功率级的两个极点：LC 滤波器】
+
+     f_LC = 1 / (2π √(L · Cout))
+
+     例：L = 10µH、Cout = 100µF
+         √(10µH × 100µF) = √(1e-9) = 3.162e-5
+         f_LC = 1 / (2π × 3.162e-5) = 1/(1.987e-4) ≈ 5.03kHz
+
+     ★ LC 是【双极点】：在 f_LC 之后增益斜率变成 −40dB/dec，
+       相移快速向 −180° 逼近。如果不管它，环路必然不稳定。
+
+【输出电容的 ESR 零点：救星】
+
+     f_esr = 1 / (2π · ESR · Cout)
+
+     · 电解电容 / 钽电容：ESR = 50mΩ
+       f_esr = 1/(2π × 0.05 × 100µF) = 1/(3.14e-5) ≈ 31.8kHz
+       → 在 5kHz 之后提供 +90° 的相位超前，把相位裕度救回来 ✔
+
+     · 换成陶瓷电容：ESR = 5mΩ
+       f_esr = 1/(2π × 0.005 × 100µF) = 1/(3.14e-6) ≈ 318kHz
+       → 零点跑到 318kHz，远在交越频率之外，完全帮不上忙 ✘
+
+     ★ 这就是「把输出电解电容换成低 ESR 的陶瓷电容，
+       结果电源反而振了」这个经典事故的全部原因。
+       很多人以为「ESR 越小越好」，在开关电源的环路里恰恰相反 ——
+       ESR 零点是一个免费的相位补偿。
+
+【交越频率取多高】
+
+     工程经验：fc ≈ f_sw / 10（保守）到 f_sw / 5（激进）
+     例：f_sw = 500kHz → fc 取 50kHz 左右
+
+     交越频率越高 → 瞬态响应越快 → 但相位裕度越难做。
+     这就是「电源响应快」和「电源稳定」之间的取舍。
+
+【纹波大 vs 环路不稳：怎么区分】
+
+     现象                     真实原因                怎么确认
+     ──────────────────────── ─────────────────────── ────────────────────
+     纹波频率 = 开关频率        开关纹波，正常          示波器看 SW 节点
+     （500kHz）                由 L、C、ESR 决定       波形，一一对应
+     纹波是低频包络             环路不稳 / 次谐波振荡    电流探头看电感电流
+     （几 kHz ~ 几十 kHz）                             在低频上下摆动
+     轻载时出现音频啸叫         进入 PFM/burst 模式      加一点负载就消失
+                                或环路低频振荡            → 就是 burst
+     负载一跳就振铃            相位裕度不足             做负载阶跃，看振铃
+     （过冲 + 多次振荡）                                次数
+
+     ★ 肩题里那个「4kHz 吱吱声」属于第三类：
+       轻载时 DC-DC 进入跳周期（burst）模式，
+       开关动作变成一阵一阵的，频率落到音频范围，
+       电感和陶瓷电容被机械振动带动发声（陶瓷电容有压电效应）。
+       加一个假负载（比如 1kΩ）、或者换支持强制 PWM 模式的芯片，
+       啸叫就消失了。
+
+【改输出电压时的一个陷阱】
+
+     把 5V 输出改成 12V：只需改分压电阻的比值。
+     但分压比改变的同时，反馈系数 F = R_下/(R_上+R_下) 也变了：
+        5V 输出时 F ≈ 0.2（分压到 1V 给 FB）
+        12V 输出时 F ≈ 0.083（同样分压到 1V）
+     F 变小 → 1+AF 变小 → 交越频率降低 → 相位裕度反而变好了，
+     但低频环路增益也降低了 → 负载调整率变差、响应变慢。
+     ★ 所以「改一个电阻就改输出电压」在精度要求高的场合是不够的，
+       要么重新设计补偿网络，要么选支持外部补偿的芯片自己算一遍。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">入门级环路调试三招（不需要频响分析仪）</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>看 SW 节点的波形。</b>正常的开关波形是干净的方波；如果出现「一阵一阵」（burst）、或者每两个周期就变一次宽度（次谐波振荡），那就是环路/斜率补偿的问题，不是电容的问题。</li>
+              <li><b>做负载阶跃，看振铃次数。</b>过冲之后如果 1~2 次就稳住 → 裕度够；荡 4 次以上 → 裕度不足。加大输出电容、或在反馈上电阻上并 10~100pF 前馈电容，看振铃是否减少——减少了说明你补的正是相位裕度。</li>
+              <li><b>用「手指测试」找出敏感点。</b>（<b>注意安全，只碰低压侧的地和电阻，不要碰 SW 节点</b>）用一根手指靠近（不要接触）反馈电阻和补偿网络，如果啸叫或纹波明显变化，说明那个节点的噪声耦合很关键 → 走线要缩短、远离电感。</li>
+            </ol>
+          </div>
+
+          <h3 id="sub-decoupling-route" class="mt-7 text-base font-semibold">场景五：100nF 为什么必须紧贴引脚 —— 去耦与布局也是稳定性问题</h3>
+
+          <p class="mt-3">EMC 那一篇讲过去耦电容的「电荷仓库」作用。这里从<b class="font-semibold text-ink">反馈与稳定性</b>的角度再讲一遍，你会看到一个更本质的原因：<b>电源引脚到输出之间的通路，本身就在反馈环路里。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="走线电感和电容的自谐振：放远了就「不管用」">
+            <pre><code>【为什么电源噪声会跑到输出上】
+
+    ① 运放/DC-DC 的 PSRR（电源抑制比）随频率下降：
+         1kHz 时 80~100dB，100kHz 时约 60dB，
+         1MHz 时只剩 30~40dB（通用运放数据手册典型曲线的量级）
+       → 高频电源噪声几乎【原样】出现在输出上。
+
+    ② 负反馈本来能抑制电源噪声 —— 因为「电源 → 输出」这条路径
+       也在环路之内，会被 (1+AF) 抑制。
+       但环路增益只在其带宽内有效；出了带宽，
+       抑制能力就掉到 1（0dB），电源噪声长驱直入。
+
+    ③ 100nF 的作用：在环路带宽之外，把电源引脚【就地短路到地】，
+       让高频噪声在进入放大器之前就被旁路掉。
+
+    ④ 于是它的有效性完全取决于【路径有多短】。
+
+【量化：走线电感把电容的有效频率上限拉低】
+
+    走线电感的经验值：约 1nH/mm（取决于线宽和回路面积）
+
+    电容与走线电感构成串联谐振：
+        f_self = 1 / (2π √(L · C))
+
+    · 电容放在 2mm 内：L ≈ 2nH
+        f_self = 1/(2π √(2nH × 100nF)) = 1/(2π × 1.414e-8)
+               = 1/(8.886e-8) ≈ 11.2MHz
+    · 电容放在 10mm 外：L ≈ 10nH
+        f_self = 1/(2π √(10nH × 100nF)) = 1/(2π × 3.162e-8)
+               = 1/(1.987e-7) ≈ 5.0MHz
+
+    ★ 超过自谐振频率之后，电容呈现【感性】，阻抗随频率上升 ——
+      也就是说，电容放得越远，它「管用」的频率上限就越低。
+      10mm 的差距，把有效频率上限从 11.2MHz 拉到了 5.0MHz。
+
+    ★ 而且这还没算【回路面积】：电容的地要就近回到芯片的 GND，
+      如果地线绕了一大圈，回路电感比 1nH/mm 的估算值大得多。
+
+【布局上的五条硬规矩（都和反馈有关）】
+
+    ① 每个电源引脚旁边一颗 100nF，距离 ≤ 5mm，
+       地线就近打过孔/接地点，不要共用一段细地线。
+
+    ② 反馈分压网络的取样点要【直接在输出端子的焊盘上】取
+       （开尔文取样），不要从大电流路径中间抽头。
+       大电流在走线电阻上的压降会成为「虚假的反馈电压」。
+
+    ③ 反馈走线尽可能短、远离 SW 节点、电感和时钟线。
+       反馈节点是高阻抗节点，最容易拾取噪声 ——
+       拾到的噪声会被当成「输出已经变了」，
+       环路会做出错误的调节动作。
+
+    ④ 大电流回路的面积要小。回路面积既决定辐射，
+       也决定寄生电感 —— 而寄生电感上的 di/dt 就是噪声源。
+
+    ⑤ DC-DC 的输入电容要和芯片的 VIN/GND 引脚形成最小回路。
+       这是开关电源布局里最关键的一个电容，
+       它的回路面积直接决定了 SW 节点振铃的幅度。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="正确与错误的取样点画法">
+            <pre><code>【错误的取样点】反馈从大电流路径中间抽头
+
+    DC-DC 输出 ──┬──[走线 20mΩ]──┬──[走线 20mΩ]──┬──► 输出端子
+                 │               │               │
+                 │          反馈从这里取 ✘       │
+                 │                               ▼
+                 │                          负载（2A）
+                 └── Cout ── GND ────────────────┘
+                     ▲
+                负载电流也流过这段地线！
+
+    负载 2A 时：
+        输出走线上的压降 = 2A × 20mΩ = 40mV
+        地线上的压降     = 2A × 20mΩ = 40mV
+        → 反馈点认为「输出已经掉了 80mV」，于是把输出抬高 80mV
+        → 输出端子上的电压比设定值高 80mV（0.7% 的误差）
+        → 而且这个误差【随负载变化】= 负载调整率变差
+
+【正确的取样点】开尔文取样：直接从输出端子的焊盘取
+
+    DC-DC 输出 ──┬──[走线]──────┬──► 输出端子 ──► 负载
+                 │              │      ▲
+                 │        反馈从这里取 ✔│
+                 │                     │
+                 └── Cout ── GND ──────┘
+                     ▲
+                地线的取样也直接回到 Cout 的 GND 端，
+                不要取在负载电流流过的地线上。
+
+    ★ 一句话原则：反馈线要「单独走一根线，直接连到你想控制的那两点上」，
+      让它上面几乎没有电流流过。</code></pre>
+          </div>
+
+          <h3 id="sub-opamp-comparator" class="mt-7 text-base font-semibold">场景六：运放做比较器为什么危险，以及软件里的施密特触发器</h3>
+
+          <p class="mt-3">「我手头只有 LM358，能不能当比较器用？」——能，但你要知道你在赌什么。三个原因，每一个都会让你在示波器前发懵。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="运放做比较器的三个坑">
+            <pre><code>【坑一：速度慢得离谱】
+
+    通用运放为了「闭环稳定」做了内部补偿（主极点 / 密勒补偿），
+    代价就是压摆率 SR 被压得很低：
+        LM741    SR ≈ 0.5V/µs（数据手册典型值）
+        LM358    SR ≈ 0.3V/µs（数据手册典型值）
+
+    比较器要在两根轨之间翻转，摆幅 10V（±5V 供电）：
+        t ≈ 10V / 0.5V/µs = 20µs（741）
+        t ≈ 10V / 0.3V/µs = 33µs（358）
+
+    这还没完 —— 从【深度饱和】退出来还需要额外的「饱和恢复时间」
+    （datasheet 里叫 overdrive recovery time），
+    在输入过驱动很小时可以达到几十微秒。
+
+    ★ 合计下来，LM358 做比较器的响应时间在 30~50µs 量级，
+      而专用的 LM393 比较器是 1.3µs（数据手册典型值）——
+      差了 30 倍。你做红外对管计数、做旋转编码器，
+      这个差别就是「能用」和「完全不能用」的分界。
+
+【坑二：阈值附近它会「抖」】
+
+    运放开环增益 10^5（100dB）。这意味着：
+        输入差模电压只要超过 ±几十 µV，输出就会翻到饱和轨。
+
+    而运放自己的输入噪声就有 10~20nV/√Hz 的量级（比如 1MHz
+    噪声带宽下，等效输入噪声约 10~20µV），再加上电源纹波、
+    地线噪声、空间耦合 —— 阈值附近的输入信号上叠着
+    远超几十 µV 的噪声。
+
+    结果：输入缓慢经过阈值时，输出不是「一次干净的翻转」，
+    而是【在两个饱和轨之间来回跳的一串毛刺】。
+    示波器上看就是阈值附近的一团「雾」。
+
+    ★ 这不是运放坏了，这是【没有滞回】的必然结果。
+      专用比较器也一样会抖，所以比较器电路【必须】加正反馈做回差。
+
+【坑三：输出电平不友好】
+
+    · 运放的输出是推挽的，饱和时输出接近供电轨，
+      但饱和压降随负载变化，不能直接当逻辑电平用；
+    · LM393 这类比较器是【集电极开路】输出，可以直接上拉到
+      3.3V，正好和 STM32 的电平匹配，而且能线与。
+    · 运放做比较器时，输出摆到负轨（单电源时就是 0V）附近，
+      有些型号在接近 0V 时会有交叉失真、或者根本到不了 0V
+      （比如 LM358 的输出下限约 5~20mV，具体看负载）。
+      如果后面接的是 STM32 的输入，20mV 也够被认成低电平 ✔，
+      但如果你要驱动一个 MOS 管，就可能关不严。
+
+【正确做法】
+
+    ① 用专用比较器：LM393 / LM339（开集输出，1.3µs）、
+       LM311（带选通）、TLV3501（4.5ns，高速场合）。
+    ② 一定加正反馈做滞回（就是第 2 节讲的施密特触发器）：
+       回差按 ΔV = (V_OH − V_OL) × R1/(R1+R2) 算，一般取 20~200mV，
+       必须大于你预期噪声峰峰值的 2~3 倍。
+    ③ 如果只有运放可用：加滞回、加大过驱动量
+       （把阈值设在离信号远一点的地方，别让它慢悠悠地蹭过阈值）、
+       并且在软件里再做一次滞回。
+    ④ 如果信号已经进了 ADC，最好的做法是【根本不用硬件比较器】——
+       直接在软件里做施密特，见下面的代码。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="schmitt.c：在软件里实现施密特触发器">
+            <pre><code>/* ============================================================
+ * 软件施密特触发器：把「正反馈」搬到代码里
+ *
+ * 硬件上用正反馈做出两个门限；软件里用「滞后判断」做出同样的效果。
+ * 滞回窗口必须【大于噪声峰峰值】，否则会来回抖。
+ *
+ * 举例：ADC 读数在阈值附近抖动 ±8 个码 → 滞回窗口至少要 32 个码。
+ *       200 个码 × (3.3V / 4095) ≈ 0.16V 的回差，
+ *       对 3.3V 系统来说是一个比较舒服的值。
+ * ============================================================ */
+
+#include &lt;stdint.h&gt;
+
+#define SCHMITT_LO   1900u   /* 下门限：低于它才翻到 0 */
+#define SCHMITT_HI   2100u   /* 上门限：高于它才翻到 1 */
+                             /* 中间 200 个码 ≈ 0.16V 是死区 */
+
+static uint8_t s_schmitt_state = 0u;   /* 记住上一次的状态 = 记忆效应 */
+
+/* 返回 0 或 1；输入是 12 位 ADC 的原始码值 0~4095 */
+uint8_t schmitt_update(uint16_t adc_code)
+{
+    if (s_schmitt_state == 0u) {
+        if (adc_code &gt; SCHMITT_HI) {       /* 只有超过上门限才翻上去 */
+            s_schmitt_state = 1u;
+        }
+    } else {
+        if (adc_code &lt; SCHMITT_LO) {       /* 只有低于下门限才翻下来 */
+            s_schmitt_state = 0u;
+        }
+    }
+    return s_schmitt_state;                /* 死区内保持原状态 */
+}
+
+/* ------------------------------------------------------------
+ * 和硬件滞回的三点对应关系：
+ *
+ * 1) 硬件的上门限/下门限 ←→ 这里的 SCHMITT_HI / SCHMITT_LO
+ * 2) 硬件的正反馈路径   ←→ 这里的 static 变量（记忆上一次输出）
+ *    ★ 没有这个「记忆」，函数就退化成普通的单阈值比较，照样抖。
+ * 3) 硬件的翻转加速     ←→ 代码里是瞬间完成，没有速度问题
+ *
+ * ⚠ 别忘了软件方案也有代价：
+ *    ADC 采样 + 滤波 + 判断需要时间，响应延迟 = 采样周期 × 平均次数。
+ *    做 8 次平均、每 1ms 采一次 → 延迟 8ms。
+ *    要更快就只能减平均次数（噪声变大）或换硬件比较器。
+ * ------------------------------------------------------------ */</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">把六个场景串起来看：它们其实是同一件事</div>
+            <p>回头看这六个场景，你会发现它们都落在同一个框架上：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>场景一（长电缆）</b>：容性负载在环路里加了极点 → 相位裕度不足 → 用隔离电阻制造零点补偿。</li>
+              <li><b>场景二（恒流源）</b>：反馈取样点决定了「稳定的是电压还是电流」→ 组态选错 → 热失控。</li>
+              <li><b>场景三（光耦/MOS）</b>：延迟和寄生电容在环路里加了极点 → 只能降低带宽来保裕度。</li>
+              <li><b>场景四（DC-DC）</b>：LC 双极点 vs ESR 零点 → 补偿网络决定纹波与啸叫。</li>
+              <li><b>场景五（去耦与布局）</b>：电源和地也是反馈路径的一部分 → 布局决定高频环路是否干净。</li>
+              <li><b>场景六（运放做比较器）</b>：没有负反馈的时候，增益太高反而成了缺点 → 用正反馈制造回差。</li>
+            </ul>
+            <p class="mt-2"><b>一句话：先问「反馈从哪里取、加到哪里」，再问「环路在高频还剩多少相位裕度」。</b>这两个问题能解决你在模拟电路里遇到的九成「玄学」故障。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见误解与坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误解与坑</h2>
+
+          <p class="mt-4">下面这十条，是我在答疑里被问得最多、也是新手最容易做错的。每一条都按「<b class="font-semibold text-ink">错误认知 → 为什么错 → 正确做法</b>」写清楚。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 1：「反馈越深越好，1+AF 越大电路越稳」</h3>
+
+          <div class="callout callout-danger mt-3">
+            <div class="callout-title">错误认知</div>
+            <p>「负反馈能改善增益稳定性、减小失真、展宽带宽，那我把反馈加深一点，1+AF 做到一万，电路不就完美了？」</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>「稳」有两个完全不同的意思，被这句话混成了一个。<b>低频的「稳」</b>指的是增益精度和抗漂移能力，确实随 1+AF 单调变好；<b>高频的「稳」</b>指的是不振荡，它取决于 0dB 交越频率处的相位裕度。而加深反馈（加大 F）会把整个环路增益抬高，让 0dB 交越频率往高处跑——那里的相位更差，相位裕度更小。第 3 节例 5 的第 6 步算过：环路增益抬高 12dB，交越频率从 150kHz 移到 400kHz，相位裕度从 45° 掉到 0°，<b>直接从「合格」变成「振荡」</b>。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>把两件事分开管。① 低频环路增益按「精度需求」定：需要 0.1% 的精度就留 60dB 余量（第 3 节例 2 的算法）。② 高频相位裕度按「稳定性需求」定：交越频率处的 PM 至少 45°，舒服的设计取 60°~70°。③ 如果两者冲突（想要更高的低频增益，但交越频率已经到顶了），出路不是加大 F，而是<b>做频率补偿</b>——用超前补偿把某个极点的相移抵掉，或者换一颗 GBW 更高的运放。加大 F 治不了稳定性，只会让它恶化。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 2：「负反馈能消除输入端的干扰和噪声」</h3>
+
+          <div class="callout callout-danger mt-3">
+            <div class="callout-title">错误认知</div>
+            <p>「我的传感器信号上叠了 50Hz 工频干扰，加一级负反馈放大器是不是就干净了？」</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>反馈环分不清「这是信号还是干扰」——它只看「输出对不对」。混在输入端的干扰会被当成信号的一部分，<b>一起被放大到输出</b>。更糟的是：因为闭环增益降低了，而输入干扰的绝对幅度不变，所以干扰在输出中的<b>相对比重反而变大</b>，信噪比变差。负反馈能抑制的只是<b>环内产生的</b>失真与噪声（比如放大器自己非线性带来的谐波、电源纹波通过 PSRR 耦合过来的噪声，这类在环路内的误差源）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>对付输入端的干扰要用「环路之外」的手段。① <b>差分输入 + 屏蔽双绞线</b>：让干扰变成共模信号，被共模抑制比（CMRR）挡掉。② <b>仪表放大器</b>（如 AD620/INA128）或专用的差分 ADC 前端。③ <b>滤波</b>：在信号进入放大器之前先做 RC 低通（截止频率按信号带宽取），把干扰挡在环外。④ <b>切断干扰源</b>：改善布线、远离电机与继电器、传感器用屏蔽电缆且屏蔽层单端接地。⑤ 如果干扰频率与信号频带重叠、无法滤除，那唯一的出路是<b>调制解调</b>（把信号搬到没有干扰的频段放大，再搬回来）——这就是锁相放大器/斩波稳零放大器的思路。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 3：「我把反馈接在反相端了，所以肯定是负反馈」</h3>
+
+          <div class="callout callout-danger mt-3">
+            <div class="callout-title">错误认知</div>
+            <p>「反馈线接到反相端（−），这不就是负反馈吗？教科书上都是这么画的。」</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>接在哪个脚只是<b>形式</b>，正负反馈取决于<b>净输入是被削弱还是被增强</b>。这里有两个反例。① <b>并联反馈</b>（输入与反馈都加在反相端，比如反相放大器）：这时反馈量与输入量是在同一个节点上以<b>电流</b>形式相加的，判据变成「反馈电流是从反相端流走还是流入」——流走等于从输入节点偷走电流、削弱净输入，才是负反馈。② 更极端的例子：把输入接到反相端、反馈也接到反相端，但中间串了一级反相器，极性就翻回来了，<b>净输入被增强 → 正反馈</b>。用第 2 节的瞬时极性法走一遍，30 秒就能确认。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>永远用瞬时极性法老老实实走四步，不要靠「接在哪个脚」下结论。串一个 100Ω 电阻在反馈路径里、用示波器看这个电阻两端的波形，也能立刻知道反馈是加深还是削弱——<b>反馈信号与输入信号同相就是正反馈</b>。多级放大器尤其要小心：一级共射反相一次，两级翻回来，三级又反相——同一种接法在不同级数下结论完全相反（这就是三点式 LC 振荡器能用三级共射做的原因）。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 4：「虚短就是两个输入端电压真的相等，可以当导线用」</h3>
+
+          <div class="callout callout-danger mt-3">
+            <div class="callout-title">错误认知</div>
+            <p>「运放两个输入端虚短，电压相等，所以我直接把两个脚用一根线短接起来，电路会更稳。」</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>虚短是<b>深度负反馈的推论</b>，是「被反馈压到接近零」的结果，电压差约等于 10µV 这个量级——很小，但不是零。真实的电流要从这两个脚流动（虽然只有 nA 级）。一旦你用导线把它们短接，反馈环路就被破坏了：输出和输入之间再没有误差可以检测，运放会失去调节能力，输出直接撞到某一根供电轨上（具体撞哪根取决于失调电压的随机方向）。这实际上是把运放变成了一个「随机方向的比较器」。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>把虚短当<b>计算工具</b>用（在纸上推导时假设 V<sub>+</sub> = V<sub>−</sub>，得到的结果误差在 1/(1+AF) 以内），但绝不能当<b>电路连接</b>用。还要记住虚短失效的三种情形：<b>① 输出饱和</b>（接成比较器、或信号过大被限幅时，环路断开，虚短不成立）；<b>② 频率太高</b>（开环增益掉到只剩几倍，1+AF 太小，虚短精度急剧变差——这就是运放高频误差的来源）；<b>③ 正反馈接法</b>（净输入被放大而不是压小，推导前提反了）。另外，<b>虚短管不住直流精度</b>：失调电压几 mV，比虚短的 10µV 大三个数量级，精密电路要靠低失调运放 + 调零，不是靠「更虚的短」。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 5：「电路振荡了，换个更大的滤波电容就能压住」</h3>
+
+          <div class="callout callout-danger mt-3">
+            <div class="callout-title">错误认知</div>
+            <p>「输出上有高频振荡？在输出端并一个 100µF 电解，或者干脆并 100nF，把高频滤掉就好了。」</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>运放输出端的电容不是「滤波器」，它是<b>环路里的一颗元件</b>。你在输出端并 100nF（第 4 节场景一算过：<code class="icode">f_p = 1/(2π × 50Ω × 100nF) ≈ 31.8kHz</code>），就是在环路里插了一个 32kHz 的极点——这个极点把相位裕度吃掉最多 90°，<b>本来小振的电路会被你改成持续振荡</b>。它「有时看起来有效」是因为：换的电容恰好改变了极点位置，让某个频率的振荡移出了你的观察带宽，或者负载电流让运放退出了线性区——问题还在，只是换了副面孔。这就是为什么很多人抱怨「同一个电路，昨天换个电容好了，今天换个电容又坏了」——没有理论指导的试错，本质上是在掷骰子。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>先<b>判断振荡的性质</b>，再动手。① 断开输入信号，看振荡还在不在——还在，说明是环路自激（不是信号引起的），要动相位裕度。② 用示波器看频率：典型的自激频率在运放的 0dB 交越频率附近（比如 1MHz 的运放，自激常在几百 kHz 到几 MHz）。③ 按第 4 节场景一的办法，串一颗 33~100Ω 隔离电阻（反馈从运放输出端取），看振荡是否消失——消失说明就是容性负载问题。④ 在反馈电阻上并 10~100pF 做超前补偿，看是否改善。<b>每一步都要有明确的假设和验证方法</b>，而不是「换一个试试」。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 6：「运放和比较器差不多，手头有什么就用什么」</h3>
+
+          <div class="callout callout-danger mt-3">
+            <div class="callout-title">错误认知</div>
+            <p>「LM358 和 LM393 引脚一样、封装一样，都是双运放/双比较器，随便换着用没问题。」</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>两者是<b>为相反的设计目标</b>优化的。运放追求「闭环稳定」，内部做了重补偿，压摆率被压得很低（LM358 约 0.3V/µs）；比较器追求「翻得快」，内部<b>不做补偿</b>，输出级通常是集电极开路。用运放做比较器，你会得到 30~50µs 的响应（第 4 节场景六算过）；用比较器做放大器，你会得到一个振荡器——因为它没有内部补偿，闭环工作时相位裕度普遍不足，而且开集输出根本没有能力驱动反馈网络。此外还有个隐蔽的坑：比较器的输入级为高速翻转设计，失调电压和偏置电流都比精密运放差得多（LM393 的失调电压典型值约 2mV，且随温度漂移）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>该用比较器的地方用比较器（LM393/LM339/TLV3501，并且<b>必须加正反馈做滞回</b>）；该用运放的地方用运放。如果手头只有运放非要做比较器，三条底线：① 加正反馈做回差，回差大于噪声峰峰值的 2~3 倍；② 给足过驱动量，别让它慢悠悠地蹭过阈值；③ 接受它的慢（算清楚 30~50µs 会不会影响你的系统时序）。反过来，如果信号已经进 ADC 了，最好的做法是根本不用硬件比较器——直接在软件里做施密特（第 4 节的 <code class="icode">schmitt.c</code>）。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 7：「闭环增益算出来 100，实测 99.9，说明电阻精度不够」</h3>
+
+          <div class="callout callout-danger mt-3">
+            <div class="callout-title">错误认知</div>
+            <p>「我用两个 1% 电阻搭了个 100 倍的放大器，实测 99.9 倍，是不是要去买 0.1% 的电阻？」</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>99.9 与 100 的差（0.1%）正好等于 1/(1+AF)——这是<b>深度负反馈近似的固有误差</b>，不是电阻的问题（第 3 节例 1 第 3 步算过）。它来自「Af ≈ 1/F 只是个近似」这个事实。你去买 0.1% 的电阻，实测还是 99.9，因为误差来源根本没变。反过来说，<b>真正需要关心的是另一个问题</b>：这个 99.9 稳不稳定？拿热风枪吹一下、把供电从 ±5V 改到 ±12V，看它变不变。如果稳定在 99.9 不动，那这就是一个非常好的放大器（绝对误差 0.1%，但一致性和重复性满分）；如果一吹就飘到 95，那才是真的有问题。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>把「绝对精度」和「稳定性」分开看。① 要绝对精度达到 0.1% 以内 → 用<b>更高开环增益的运放</b>（把 1+AF 提上去），或者接受这个误差并在软件里做<b>校准</b>（这才是工程上最常用的办法：用高精度万用表测出实际增益，写进代码当系数）。② 要温度稳定性 → 用<b>低温漂的电阻</b>（金属膜 25~50ppm/°C，而不是碳膜的 200~500ppm/°C），并且让两个电阻贴在一起（同温度、同漂移方向，比值更稳）。③ 要长期稳定性 → 注意电阻的负载效应和焊接应力。对绝大多数单片机项目来说，「软件校准 + 1% 金属膜电阻」的性价比远高于「0.1% 电阻 + 不做校准」。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 8：「负反馈能展宽 (1+AF) 倍带宽，所以反馈能凭空造出带宽」</h3>
+
+          <div class="callout callout-danger mt-3">
+            <div class="callout-title">错误认知</div>
+            <p>「这颗运放只有 1MHz 的 GBW，我用负反馈把带宽展宽 1000 倍，不就变成 1GHz 了吗？」</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>「展宽 (1+AF) 倍」和「闭环增益降低 (1+AF) 倍」是<b>同一件事的两种说法</b>，增益带宽积守恒（第 3 节例 3 用两种算法验证过，都得 10kHz）。带宽涨多少，低频增益就降多少，乘积不变。想「凭空造带宽」，只有三条路：<b>换一颗 GBW 更高的运放</b>（用钱换）、<b>用多级放大分摊增益</b>（每级增益低、带宽高，总带宽比单级高增益宽——但要小心多级级联后的稳定性）、<b>用电流反馈型运放</b>（CFB，它的带宽不随增益线性下降，而是由反馈电阻决定，适合高增益宽带场合，代价是不能用在需要纯容性反馈的场合）。顺便说一句，第 2 节那个「带宽展宽」公式还有前提：<b>反馈网络 F 必须与频率无关</b>（纯电阻）。如果反馈网络本身带选频特性（有源滤波器就是这么做的），闭环特性由 1/F 决定，你可以做出低通、高通、带通——这时带宽是「设计出来的」，不是「换来的」。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>做选型时先把 GBW 预算算清楚：<code class="icode">所需 GBW ≥ 信号最高频率 × 闭环增益 × 10</code>（第 3 节例 3 的经验法则）。要放大 10kHz 信号、增益 100 → 需要 GBW ≥ 10MHz，而不是 1MHz。另外别忘了<b>压摆率 SR</b> 这个独立指标：一颗 GBW 很高但 SR 很低的运放（有些低功耗型号就是这样），处理大幅度方波时会因为 SR 不够而变成三角波——<b>GBW 决定小信号带宽，SR 决定大信号带宽，两者要分别校核</b>。校核公式：<code class="icode">所需 SR ≥ 2π × f × V_pk</code>，输出 3V 峰值的 10kHz 正弦需要 SR ≥ 2π×10k×3 ≈ 0.19V/µs。</p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 9：「电源去耦只是抗干扰的事，和稳定性没关系」</h3>
+
+          <div class="callout callout-danger mt-3">
+            <div class="callout-title">错误认知</div>
+            <p>「去耦电容是 EMC 那一篇的内容，我先把电路调稳了再去考虑布局。」</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>电源引脚到输出之间的通路<b>本身就在反馈环路里</b>。① 运放的 PSRR 随频率下降（1kHz 时 80~100dB，1MHz 时只剩 30~40dB）——高频电源噪声几乎原样出现在输出上。② 负反馈本来能抑制它（因为这条路径在环内，会被 1+AF 抑制），<b>但环路增益只在其带宽内有效</b>；出了带宽，抑制能力掉到 0dB，电源噪声长驱直入。③ 100nF 的作用就是在环路带宽之外把电源引脚就地短路到地，而它的有效性完全取决于路径长度：<b>走线电感约 1nH/mm，电容放 2mm 内自谐振频率约 11.2MHz，放 10mm 外就掉到约 5.0MHz</b>（第 4 节场景五算过）。超过自谐振频率之后电容呈感性，阻抗随频率上升——也就是说，<b>电容放得越远，它「管用」的频率上限就越低</b>。④ 布局还通过另一条路影响稳定性：反馈走线拾取的噪声会被当成「输出已经变了」，让环路做出错误的调节；大电流路径上的走线电阻会成为「虚假的反馈电压」（第 4 节场景五的 80mV 误差就是这么来的）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>把布局当成电路设计的一部分，在画板子时就定下来。① 每个电源引脚旁一颗 100nF，距离 ≤ 5mm，地就近接。② 反馈取样点直接取在被控对象的两端（开尔文取样），单独走一根几乎没有电流的线。③ 反馈走线尽可能短、远离 SW 节点/电感/时钟线。④ 大电流回路面积最小化。⑤ DC-DC 的输入电容与 VIN/GND 引脚构成最小回路。<b>记住一句话：你在原理图上画的「一根线」，在板子上是电感 + 电阻 + 天线。</b></p>
+
+          <h3 class="mt-7 text-base font-semibold">坑 10：「正反馈是坏的，我的电路里绝对不能有正反馈」</h3>
+
+          <div class="callout callout-danger mt-3">
+            <div class="callout-title">错误认知</div>
+            <p>「正反馈不就是会振荡吗？那我设计时把正反馈彻底避开就行了。」</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>正反馈只是一种工具，好坏取决于你想不想要振荡。工程上有两大类电路<b>故意</b>使用正反馈，而且没有正反馈就做不出来：<b>① 需要双稳态和跳变的</b>——滞回比较器（施密特触发器）、锁存器、自保持回路、按键消抖电路、以及所有数字逻辑门内部的再生结构（CMOS 反相器的传输特性之所以那么陡，就是因为内部的正反馈把增益做得极高）；<b>② 需要振荡的</b>——文氏桥、LC 振荡器、晶振电路、开关电源的启动电路、以及你 STM32 板上那颗晶振（它靠环路增益 > 1 起振，靠晶体的高 Q 值锁频）。甚至可以说：<b>没有正反馈，就没有数字电路</b>——所有触发器、锁存器、SRAM 存储单元都是靠正反馈把状态「记住」的。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>把「正反馈」当成一个设计选项，而不是禁忌。判据只有一条：<b>你想要双稳态/振荡，还是想要线性放大？</b>要线性放大 → 用负反馈，并留够相位裕度，确保高频时不会「偷偷变成」正反馈。要双稳态/振荡 → 用正反馈，并且<b>定量设计</b>：滞回比较器的回差 ΔV = (V<sub>OH</sub> − V<sub>OL</sub>) × R1/(R1+R2) 要大于噪声峰峰值的 2~3 倍（第 2 节算过的 V<sub>T+</sub> = 1.80V、V<sub>T−</sub> = 1.50V、ΔV = 0.30V 就是一组可用值）；振荡器的环路增益要略大于 1（起振），然后靠稳幅支路压回 1（稳幅）。<b>区别只在于「你想不想要它」，数学条件是同一个（巴克豪森）。</b></p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与自检 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自检</h2>
+
+          <h3 class="mt-6 text-base font-semibold">要点清单</h3>
+
+          <p class="mt-3">如果这一篇你只记住十件事，记住这些：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>反馈的三要素：取样、反送、比较。</b>看任何电路，先问「反馈从哪里取、加到哪里」，这两个点定了，一切都能推下去。</li>
+            <li><b>闭环增益 A<sub>f</sub> = A/(1+AF)。</b>分母 1+AF 叫反馈深度，它同时是四条改善的倍数：净输入压小、增益稳定性、带宽展宽、失真减小。</li>
+            <li><b>深度负反馈时 A<sub>f</sub> ≈ 1/F。</b>闭环增益只由反馈网络的电阻比决定，与运放的 A 无关。近似误差 = 1/(1+AF)。</li>
+            <li><b>虚短虚断是深度负反馈的推论</b>，不是运放自己的性质。A = 10<sup>5</sup>、输出 2V 时，输入端差值其实有 20µV——小，但不是零。</li>
+            <li><b>正负反馈用瞬时极性法判，四步走。</b>判的是「净输入被削弱还是增强」，不是「接在哪个脚」。多级放大器的极性会来回翻。</li>
+            <li><b>四种组态 = 输出端两种取样 × 输入端两种比较。</b>电压负反馈造电压源，电流负反馈造电流源；串联抬高输入电阻，并联压低输入电阻。</li>
+            <li><b>负反馈换来的四项改善都有代价</b>：增益降 (1+AF) 倍、GBW 守恒、对环外噪声无效、对直流精度无补。</li>
+            <li><b>自激的机理是附加相移。</b>当环路的附加相移达到 −180° 且 |AF| ≥ 1（巴克豪森条件），负反馈就变成了正反馈。</li>
+            <li><b>相位裕度 PM = 180° − |φ(fc)|，增益裕度 GM = 0dB − |AF(f180)|。</b>工程判据 PM ≥ 45°、GM ≥ 10dB；舒服的设计取 PM = 60°~70°。PM 与阶跃过冲一一对应（PM 45° ≈ 过冲 20%，PM 70° ≈ 过冲 5%）。</li>
+            <li><b>容性负载是最常见的振荡源。</b>解法是串 22~100Ω 隔离电阻（代价是负载端的 I×R 压降），或者在反馈电阻上并 10~100pF 做超前补偿。</li>
+            <li><b>频率补偿永远是「用速度换稳定」。</b>主极点补偿 / 密勒补偿把主极点压低来保证稳定，代价是带宽和压摆率（SR ≈ I<sub>1</sub>/C<sub>c</sub>）。</li>
+            <li><b>「单位增益稳定」要在用跟随器和低噪声增益时必查。</b>NE5534 要求噪声增益 ≥ 3，OP37 要求 ≥ 5；注意反相放大 ×(−1) 的噪声增益仍然是 2，不是 1。</li>
+            <li><b>正反馈是有意使用的工具：</b>滞回比较器（造回差）、振荡器（造振荡）、晶振、以及所有数字触发器的存储单元。</li>
+            <li><b>电源去耦和布局也是稳定性问题。</b>走线电感约 1nH/mm，把 100nF 从 2mm 挪到 10mm，自谐振频率就从约 11.2MHz 掉到约 5.0MHz。</li>
+            <li><b>把你做的每一件事都落到「环路里」去想：</b>输出端的电容、反馈路径上的延迟、电源引脚到输出的通路、走线电阻上的压降——它们全都在环路里，都会影响相位裕度。</li>
+          </ul>
+
+          <h3 class="mt-8 text-base font-semibold">自测题（8 道，先自己想，再看答案）</h3>
+
+          <ol class="mt-3 list-decimal space-y-4 pl-5">
+            <li>
+              <b>某运放开环增益 A = 2×10<sup>5</sup>，接成电压串联负反馈，反馈系数 F = 0.02。求闭环增益、反馈深度，以及深度负反馈近似的相对误差。</b>
+              <p class="mt-2 text-muted"><b>答案：</b>AF = 2×10<sup>5</sup> × 0.02 = 4000，1+AF = 4001。A<sub>f</sub> = 2×10<sup>5</sup>/4001 = <b>49.99</b>。近似值 1/F = 50，相对误差 = 1/(1+AF) = 1/4001 ≈ <b>0.025%</b>。注意闭环增益 49.99 与 1/F = 50 只差 0.025%——比 1% 精度的电阻还好，所以增益精度由电阻决定，不是由运放决定。</p>
+            </li>
+            <li>
+              <b>承上题：如果温度变化让 A 掉到 1.6×10<sup>5</sup>（下降 20%），闭环增益变化多少？如果要求闭环增益变化不超过 0.05%，最小的反馈深度是多少？</b>
+              <p class="mt-2 text-muted"><b>答案：</b>dA<sub>f</sub>/A<sub>f</sub> = (dA/A)/(1+AF) = −20%/4001 ≈ <b>−0.005%</b>。要保证变化 ≤ 0.05%，需要 1+AF ≥ 20%/0.05% = <b>400</b>（也就是环路增益 AF ≥ 399，约 52dB）。这个「按精度需求反推环路增益」的算法，是设计任何闭环系统时的第一步。</p>
+            </li>
+            <li>
+              <b>画出（或用文字描述）一个「输入接反相端、反馈电阻也接反相端、同相端接地」的运放电路，用瞬时极性法判断反馈性质，并说明它的输入电阻和输出电阻怎么变。</b>
+              <p class="mt-2 text-muted"><b>答案：</b>这是反相放大器，<b>电压并联负反馈</b>。设输入瞬时为正 → 反相端电位略升 → 输出为负 → 反馈电流从反相端<b>流走</b>（流向输出端）→ 从输入节点偷走了电流，削弱净输入 → <b>负反馈</b>。并联反馈把输入电阻<b>减小</b>到 R<sub>i</sub>/(1+AF)（虚地，反相端电位几乎不动）；电压反馈把输出电阻<b>减小</b>到 R<sub>o</sub>/(1+AF)。这就是跨阻放大器（I/V 转换）为什么用反相组态——它需要「吃电流」的低输入阻抗。</p>
+            </li>
+            <li>
+              <b>某闭环系统测得：0dB 交越频率处附加相移为 −120°；相移达到 −180° 的频率处环路增益为 −8dB。判断这个系统能否稳定工作，并估算它的阶跃响应过冲。</b>
+              <p class="mt-2 text-muted"><b>答案：</b>PM = 180° − 120° = <b>60°</b> ✔（≥ 45°）；GM = 0 − (−8) = <b>8dB</b> ✘（低于 10dB 的判据）。PM 达标、GM 略欠——这是一个「相位裕度还行、但增益裕度不够」的系统，说明在相移越过 −180° 之后增益衰减得不够快（斜率太缓，可能是三阶以上系统）。它会稳定工作，但对器件参数变化更敏感。过冲估算：ζ ≈ 60/100 = 0.6，OS = exp(−π×0.6/√(1−0.36)) = exp(−1.885/0.8) = exp(−2.356) ≈ <b>9.5%</b>。改进方向：把交越频率压低一点（减小环路带宽），或加一个超前补偿零点。</p>
+            </li>
+            <li>
+              <b>你要用运放做一个 100mA 的恒流源驱动红外 LED，供电 5V，LED 的 V<sub>f</sub> ≈ 1.5V。请设计采样电阻的位置和阻值，并说明为什么不能用另一种接法。</b>
+              <p class="mt-2 text-muted"><b>答案：</b>采样电阻必须<b>串在 LED 的回流路径里</b>（低端采样，NMOS 的源极到地之间），反馈取自采样电阻两端，构成<b>电流串联负反馈</b>。取 V<sub>REF</sub> = 1.0V → R<sub>sense</sub> = 1.0V/0.1A = <b>10Ω</b>（功耗 I²R = 0.1W，用 0.25W 电阻）。V<sub>REF</sub> 不要取太小（比如 0.1V → R = 1Ω），否则运放几 mV 的失调会变成百分之几的电流误差。如果用另一种接法（反馈取自 LED 两端 = 电压反馈），环路稳定的是 LED 的<b>电压</b>：LED 的 V<sub>f</sub> 有 −2mV/°C 的负温度系数，温度升高时环路会把电流加大以维持电压，而 LED 动态电阻只有几欧姆 → 电流明显上升 → 更热 → 热失控烧灯。另外要注意 MOS 管的耗散：(5 − 1.5 − 1.0) × 0.1A = 0.25W，需要留意散热；采样电阻要用开尔文接法从本体两端取反馈。</p>
+            </li>
+            <li>
+              <b>为什么在运放输出端并一颗 100nF 电容会让电路振荡？应该怎么接才对？</b>
+              <p class="mt-2 text-muted"><b>答案：</b>因为输出端就是<b>反馈取样点</b>，这颗电容在环路里制造了一个极点：按 R<sub>o</sub> ≈ 50Ω 估算，f<sub>p</sub> = 1/(2π × 50Ω × 100nF) ≈ <b>31.8kHz</b>。这个频率远低于运放的 0dB 交越频率，最多吃掉 90° 的相位裕度，电路几乎必然振荡。正确接法是把电容放到<b>隔离电阻之后</b>：<code class="icode">运放输出 → R_iso（33~100Ω）→ 节点 → C（10~100nF）→ GND → ADC</code>。这样电容被 R_iso 隔离在环路之外，既做了滤波和「电荷仓库」，又不破坏相位裕度（ST 的 AN2834 推荐的正是这种 RC 网络）。反馈线要从 R_iso <b>之前</b>的运放输出端取，这样 R_iso 上的压降不在环路里——代价是负载端电压会随负载电流浮动 I×R<sub>iso</sub>，对高阻的 ADC 输入来说可以忽略。</p>
+            </li>
+            <li>
+              <b>「把 DC-DC 输出端的电解电容换成低 ESR 的陶瓷电容，纹波会更好」——这句话哪里有问题？</b>
+              <p class="mt-2 text-muted"><b>答案：</b>陶瓷电容确实能降低输出纹波（ESR 上的纹波电流压降变小了），但它<b>同时拿掉了一个免费的相位补偿零点</b>：电解电容 ESR = 50mΩ、C<sub>out</sub> = 100µF 时，ESR 零点在 f<sub>esr</sub> = 1/(2π×0.05×100µF) ≈ 31.8kHz，正好在 LC 双极点（约 5.03kHz）之后提供 +90° 的相位超前，把相位裕度救回来；换成 ESR = 5mΩ 的陶瓷电容，零点跑到约 318kHz，远在交越频率之外，完全帮不上忙 → <b>环路可能因此振荡</b>。正确做法：如果要换低 ESR 电容，必须同时重新设计补偿网络（在误差放大器上补一个零点），或者保留一部分电解电容（把 ESR 零点留在交越频率附近），或者在反馈电阻上并前馈电容制造零点。</p>
+            </li>
+            <li>
+              <b>你用 LM358（GBW ≈ 1.1MHz、SR ≈ 0.3V/µs）搭了一个跟随器，输入是 100kHz、3V 峰值的正弦波，输出幅度只有 2.6V 左右，而且波形看起来有点三角。请诊断原因。</b>
+              <p class="mt-2 text-muted"><b>答案：</b>两个独立的问题同时存在。<b>① 小信号带宽不够：</b>跟随器的噪声增益是 1，理论上闭环带宽 ≈ GBW = 1.1MHz，100kHz 处增益误差 ≈ 100k/1.1M ≈ 9%，对应 20·lg(0.91) ≈ −0.8dB，输出约 2.75V——只能解释一小部分损失。<b>② 压摆率不够（这才是主因）：</b>所需 SR = 2π × f × V<sub>pk</sub> = 2π × 100k × 3V ≈ <b>1.88V/µs</b>，而 LM358 的 SR 只有 0.3V/µs，差了 6 倍。SR 不足时输出跟不上正弦的斜率，波形被「削」成三角波，幅度也随之下降（因为三角波的基波幅度比同峰值正弦小）。<b>结论：</b>GBW 决定小信号带宽，SR 决定大信号带宽，两个指标必须分别校核。这个电路要换 SR ≥ 2V/µs 且 GBW ≥ 5MHz 的运放（比如 TL072 的 SR 是 13V/µs，或者更好的选择）。</p>
+            </li>
+          </ol>
+
+          <h3 class="mt-8 text-base font-semibold">练习（5 项，都在面包板或仿真上能做）</h3>
+
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>
+              <b>用瞬时极性法把本系列里的三个电路判一遍。</b>找 <a class="text-brand-600 dark:text-brand-300" href="ee-opamp.html">集成运放与信号调理</a> 和 <a class="text-brand-600 dark:text-brand-300" href="ee-filter-comparator.html">有源滤波与电压比较器</a> 里的任意三个电路图，逐个写出：反馈从哪里取样（输出端还是电流采样电阻）、加到哪里（同相端还是反相端）、组态是什么、稳定的是电压还是电流。<b>目标：不用翻书，30 秒判一个。</b>
+            </li>
+            <li>
+              <b>亲手做一次振荡实验，并且验证隔离电阻的作用。</b>用一颗通用运放接成跟随器，输入 1kHz 方波（或者干脆接地），输出接一段长导线或者直接并一颗 100nF。用示波器观察输出——记录振荡频率和峰峰值。然后在输出与负载之间串一颗 33Ω、再换成 100Ω，记录每一次的变化。<b>目标：亲眼看到「相位裕度」这个抽象概念如何变成一个具体的波形，并学会用示波器区分「自激」和「信号引起的振铃」（断开输入信号，看振荡是否还在）。</b>
+            </li>
+            <li>
+              <b>给一个恒流源做误差预算，预测它准不准。</b>用运放 + NMOS + 10Ω 采样电阻做 100mA 恒流源（第 5 题的设计）。列出所有误差源（采样电阻精度、采样电阻温漂、运放失调电压、V<sub>REF</sub> 的精度、走线电阻），每一项估算一个百分比，用方和根合起来，得到一个预期总误差。然后用万用表实测实际电流，看实测值和你的预测差多少。<b>目标：学会做误差预算——这是把「模拟电路」从「玄学」变成「工程」的关键一步。</b>
+            </li>
+            <li>
+              <b>测一次环路稳定性的「穷人版」。</b>给你手上任意一个闭环系统（恒流源、运放放大器、或者一个带反馈的 DC-DC 模块）加一个阶跃扰动：恒流源可以瞬间切换设定电压，DC-DC 可以用 MOS 管投切一个假负载。用示波器 AC 耦合看输出的第一个过冲峰。对照第 2 节那张表反查相位裕度，然后做一次改动（比如把输出电容加倍、或者在反馈电阻上并 22pF），看振铃次数怎么变。<b>目标：建立「过冲 ↔ 相位裕度」的直觉，学会在没有环路分析仪的条件下判断稳定性。</b>
+            </li>
+            <li>
+              <b>在 STM32 上实现并验证软件施密特触发器。</b>用 ADC 采集一个缓慢变化的信号（电位器 + 一点噪声，或者用 PWM 加 RC 产生三角波），分别在软件里实现「单阈值比较」和「双阈值施密特」（参考第 4 节的 <code class="icode">schmitt.c</code>），把两种情况的输出接到两个 LED 或者用串口打印波形对比。<b>目标：亲手看到「记忆效应」（滞回）如何消除阈值附近的抖动，并理解硬件里那颗正反馈电阻在做的事和你的 static 变量是同一件事。</b>然后想一想：软件方案比硬件多付出了什么代价？（提示：采样周期 × 平均次数的响应延迟。）
+            </li>
+          </ol>
+
+          <div class="callout callout-tip mt-8">
+            <div class="callout-title">下一步学什么</div>
+            <p>这一篇解决的是「反馈系统为什么会稳定、为什么会振荡」。往下走有两条路：<b>① 往深了走</b>——如果要把环路设计做成可计算、可预测的工程流程，下一步是 <a class="text-brand-600 dark:text-brand-300" href="ee-filter-comparator.html">有源滤波与电压比较器</a>（把反馈网络换成 RC 网络，闭环特性就由 1/F 决定）和运放选型（GBW、SR、噪声、失调的综合权衡）；<b>② 往电源方向走</b>——开关电源的环路补偿是这一套理论最集中的战场，见 <a class="text-brand-600 dark:text-brand-300" href="ee-power-supply.html">电源与功率</a>。而在动手层面，这一篇的结论最终都要落到板子上，所以建议配合 <a class="text-brand-600 dark:text-brand-300" href="ee-emc.html">电磁兼容与抗干扰基础</a> 一起看——那里讲的去耦、接地、走线，从稳定性的角度看全都是反馈路径的问题。</p>
+            <p class="mt-2">最后回到最开始那三个现场。它们的解法分别是：<b>现场一</b>——在运放输出与电缆之间串 33Ω 隔离电阻，电容放在电阻之后；<b>现场二</b>——把反馈从 LED 两端改到采样电阻两端，环路改成电流负反馈；<b>现场三</b>——做一次负载阶跃，读振铃次数，确认是相位裕度不足而不是电容不够大。三个现场，一条主线：<b>先画方框图，再问相位裕度。</b></p>
+          </div>
+
+          <!-- ============================== 上一篇 / 下一篇 ============================== -->
+          <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+            <a href="ee-filter-comparator.html" class="card card-pad card-hover group sm:max-w-[48%]">
+              <span class="text-2xs text-faint">← 上一篇</span>
+              <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">有源滤波与电压比较器</p>
+              <p class="mt-1 text-[12.5px] text-muted">把 RC 网络放进反馈支路：低通、高通、带通怎么算，比较器为什么要加滞回。</p>
+            </a>
+            <a href="ee-number-code.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+              <span class="text-2xs text-faint">下一篇 →</span>
+              <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">数制、编码与补码</p>
+              <p class="mt-1 text-[12.5px] text-muted">二进制、十六进制、BCD 与补码：单片机里所有数据表示的共同基础。</p>
+            </a>
+          </nav>
+        </section>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

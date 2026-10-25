@@ -1,0 +1,2032 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 低功耗与电源管理 - McuStudy</title>
+  <meta name="description" content="知识体系第 43 篇：ESP32 的省电不是「关掉某个外设」，而是在响应速度、联网能力、内存保持这三件事之间做选择——每种休眠模式砍掉的东西不一样。五种电源模式对照大表（Active / Modem-sleep / Light-sleep / Deep-sleep / Hibernation）逐列对比：CPU 停不停、WiFi 断不断、RTC 内存保不保、唤醒源有哪些、唤醒后从哪里继续、典型电流量级、唤醒时间，并说清为什么网上的数字各不相同（芯片型号 ESP32/S3/C3 差异、板上的 LDO 与 USB 串口芯片、外接电路）。深度睡眠为什么等价于软复位（醒来从 app_main 重跑）、esp_sleep_enable_timer_wakeup 与 esp_sleep_get_wakeup_cause 的四种返回值与分支写法、RTC_DATA_ATTR / RTC_NOINIT_ATTR / RTC_SLOW_MEM 三种 RTC 内存的区别、以及「变量凭什么活过 deep sleep」。GPIO 与外部唤醒：ext0 单引脚与 ext1 多引脚掩码、只有 RTC IO 能唤醒（ESP32 的 0/2/4/12~15/25~27/32~39）、必须用 rtc_gpio_pullup_en 这类 RTC 版 API、唤醒后引脚配置会丢。Light-sleep 从原地继续执行、esp_sleep_enable_wifi_wakeup 能挂着 WiFi 睡、自动 light sleep 与 CONFIG_FREERTOS_USE_TICKLESS_IDLE、进睡眠前必须排空串口 FIFO。动态调频 DFS：esp_pm_config_t 三个字段、CONFIG_PM_ENABLE、降频会让「用 CPU 周期当时间」的代码全部失准、用 esp_pm_lock 的三种类型保护不可降频的区段。WiFi 省电模式 WIFI_PS_MIN_MODEM / MAX_MODEM / NONE 与它的延迟代价、MQTT 长连接该怎么选。电池寿命计算：平均电流按时长加权、LDO 效率与电池容量折扣、「平均电流 20µA 实测 5mA」的三大元凶。含 4 个可直接编译的完整程序（定时唤醒最小骨架、ext0 按键唤醒、DFS + 自动 light sleep + 锁、每 10 分钟一轮的完整低功耗节点）与 5 道数值例题。">
+  <meta name="keywords" content="ESP32低功耗,电源管理,deep sleep,light sleep,modem sleep,hibernation,休眠模式,esp_deep_sleep_start,esp_light_sleep_start,esp_sleep_enable_timer_wakeup,esp_sleep_get_wakeup_cause,唤醒原因,RTC_DATA_ATTR,RTC_NOINIT_ATTR,RTC_SLOW_MEM,RTC内存,RTC慢速内存,ext0,ext1,esp_sleep_enable_ext0_wakeup,ESP_EXT1_WAKEUP_ANY_HIGH,ESP_EXT1_WAKEUP_ALL_LOW,RTC IO,rtc_gpio_pullup_en,rtc_gpio_deinit,触摸唤醒,ULP唤醒,esp_sleep_enable_wifi_wakeup,自动light sleep,Tickless idle,CONFIG_FREERTOS_USE_TICKLESS_IDLE,CONFIG_PM_ENABLE,DFS,动态调频,esp_pm_configure,esp_pm_config_t,esp_pm_lock,ESP_PM_CPU_FREQ_MAX,ESP_PM_APB_FREQ_MAX,ESP_PM_NO_LIGHT_SLEEP,esp_wifi_set_ps,WIFI_PS_MIN_MODEM,WIFI_PS_MAX_MODEM,WIFI_PS_NONE,DTIM,beacon,listen_interval,MQTT长连接,电池寿命,平均电流,加权,mAh,锂电,LDO静态电流,AMS1117,dropout,容量折扣,自放电,温度折扣,USB串口芯片,CP2102,CH340,电源指示LED,续航估算">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">ESP32 低功耗与电源管理</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          ESP32 低功耗与电源管理
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你已经在 ESP32 上跑通了 WiFi、跑通了 MQTT，现在要把这块板子用电池挂到墙上。你本能地去翻「怎么关掉不用的外设」——因为 STM32 那套省电思路就是关外设、降主频、进 STOP。<b class="font-semibold text-ink">但 ESP32 的省电是另一回事：它不是「关掉某个外设」，而是在三件事之间做选择——响应速度、联网能力、内存保持</b>。你选了 Deep-sleep，就同时选了「醒来等于重启」「WiFi 断开」「只保住 RTC 域里那点内存」；你选了 Light-sleep，就换来了「从原地继续执行」和「还能挂着 WiFi」，代价是电流高两个数量级。<b class="font-semibold text-ink">每种休眠模式砍掉的东西不一样，所以选模式本质上是在选「你能放弃什么」。</b>这一篇把五种模式摆在一张表上逐列对比，把 <code class="icode">esp_deep_sleep_start()</code> 为什么等于软复位、<code class="icode">RTC_DATA_ATTR</code> 凭什么让变量活下来、为什么只有 RTC IO 能把芯片叫醒、DFS 降频之后哪些代码会「悄悄失准」这几件事讲透，最后用一个「每 10 分钟醒一次、连 WiFi、上报、断开、再睡」的完整节点，把「联网一次到底要花多少电」的账算给你看。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="badge-brand">电源管理实操</span>
+          <span class="stat-pill">第 3 层 · ESP32 与工程实践</span>
+          <span class="stat-pill">第 <b>43</b> 篇</span>
+          <span class="stat-pill">教材：康玮剑 第 3 章</span>
+          <span class="stat-pill">平台：<b>ESP32-WROOM-32</b>（ESP-IDF）</span>
+          <span class="stat-pill">阅读约 <b>78</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-modes">五种电源模式：一张表看清「砍掉了什么」</a>
+          <a class="toc-link is-sub" href="#sub-deepsleep">深度睡眠：醒来等于软复位</a>
+          <a class="toc-link is-sub" href="#sub-rtcmem">三种 RTC 内存：数据凭什么活下来</a>
+          <a class="toc-link is-sub" href="#sub-ext0">GPIO 唤醒：ext0、ext1 与「只有 RTC IO 能叫醒你」</a>
+          <a class="toc-link is-sub" href="#sub-light">Light-sleep：从原地继续，还能挂着 WiFi</a>
+          <a class="toc-link is-sub" href="#sub-dfs">DFS：esp_pm_configure 与 esp_pm_lock</a>
+          <a class="toc-link is-sub" href="#sub-wifips">WiFi 省电模式：省下来的电，用延迟换</a>
+          <a class="toc-link is-sub" href="#sub-budget">电池寿命账：把「醒一次」折成平均电流</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link is-sub" href="#calc-1">例题 1：醒一次成本固定，10 分钟 vs 1 分钟</a>
+          <a class="toc-link is-sub" href="#calc-2">例题 2：联网一次的账，以及要不要挂长连接</a>
+          <a class="toc-link is-sub" href="#calc-3">例题 3：3.7V 锂电 + LDO，一百 mAh 里能用多少</a>
+          <a class="toc-link is-sub" href="#calc-4">例题 4：纸面 52 天、实测 15 天，差的在哪</a>
+          <a class="toc-link is-sub" href="#calc-5">例题 5：唤醒电路自己的漏电</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-mcu-timer">配方一：定时唤醒的最小骨架</a>
+          <a class="toc-link is-sub" href="#sub-mcu-ext0">配方二：ext0 按键唤醒完整实现</a>
+          <a class="toc-link is-sub" href="#sub-mcu-pm">配方三：DFS + 自动 light sleep + 锁</a>
+          <a class="toc-link is-sub" href="#sub-mcu-node">配方四：每 10 分钟一轮的完整节点</a>
+          <a class="toc-link is-sub" href="#sub-mcu-check">配方五：上电前的省电检查表</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-modes">五种电源模式：一张表看清「砍掉了什么」</a>
+            <a class="toc-link is-sub" href="#sub-deepsleep">深度睡眠：醒来等于软复位</a>
+            <a class="toc-link is-sub" href="#sub-rtcmem">三种 RTC 内存：数据凭什么活下来</a>
+            <a class="toc-link is-sub" href="#sub-ext0">GPIO 唤醒：ext0、ext1 与「只有 RTC IO 能叫醒你」</a>
+            <a class="toc-link is-sub" href="#sub-light">Light-sleep：从原地继续，还能挂着 WiFi</a>
+            <a class="toc-link is-sub" href="#sub-dfs">DFS：esp_pm_configure 与 esp_pm_lock</a>
+            <a class="toc-link is-sub" href="#sub-wifips">WiFi 省电模式：省下来的电，用延迟换</a>
+            <a class="toc-link is-sub" href="#sub-budget">电池寿命账：把「醒一次」折成平均电流</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link is-sub" href="#calc-1">例题 1：醒一次成本固定，10 分钟 vs 1 分钟</a>
+            <a class="toc-link is-sub" href="#calc-2">例题 2：联网一次的账，以及要不要挂长连接</a>
+            <a class="toc-link is-sub" href="#calc-3">例题 3：3.7V 锂电 + LDO，一百 mAh 里能用多少</a>
+            <a class="toc-link is-sub" href="#calc-4">例题 4：纸面 52 天、实测 15 天，差的在哪</a>
+            <a class="toc-link is-sub" href="#calc-5">例题 5：唤醒电路自己的漏电</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-mcu-timer">配方一：定时唤醒的最小骨架</a>
+            <a class="toc-link is-sub" href="#sub-mcu-ext0">配方二：ext0 按键唤醒完整实现</a>
+            <a class="toc-link is-sub" href="#sub-mcu-pm">配方三：DFS + 自动 light sleep + 锁</a>
+            <a class="toc-link is-sub" href="#sub-mcu-node">配方四：每 10 分钟一轮的完整节点</a>
+            <a class="toc-link is-sub" href="#sub-mcu-check">配方五：上电前的省电检查表</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">前面你已经学过 ESP32 怎么跑 FreeRTOS 任务（<a class="text-brand-600 dark:text-brand-300" href="adv-esp32-freertos.html">ESP32 与 FreeRTOS：任务与调度</a>）、怎么用 Socket 和 HTTP 把数据发出去（<a class="text-brand-600 dark:text-brand-300" href="adv-esp32-network.html">ESP32 网络编程：Socket 与 HTTP</a>）、也学过它的供电底线——3.3V、峰值电流能到 500 mA（<a class="text-brand-600 dark:text-brand-300" href="esp32-basic-level.html">3.3V 供电与 GPIO 安全</a>）。插着 USB 的时候，上面这些知识够用了。<b class="font-semibold text-ink">一旦换成电池，整件事就变了：你的程序从「能跑就行」变成「每一毫安时都要交代清楚」。</b></p>
+
+          <p class="mt-3">而 ESP32 恰好是一颗「又强又费电」的芯片：它带着一个双核 240 MHz 的 CPU、一个 WiFi/BT 射频子系统、一堆外设，还有一小块<b class="font-semibold text-ink">睡着也不断电的 RTC 内存</b>。它给你的省电手段不是「把某个外设关掉」，而是一组<b class="font-semibold text-ink">休眠模式</b>——你挑一个，它就按约定砍掉一部分能力。所以这一篇的真正主线只有一句话：<b class="font-semibold text-ink">在响应速度、联网能力、内存保持这三件事之间做选择，每种模式砍掉的东西不一样。</b></p>
+
+          <p class="mt-3">下面四个场景，是这块知识没打通时最典型的四种翻车方式。它们分别对应「不知道该放弃什么」「以为醒来会接着跑」「唤醒源选错了」「降频之后时序悄悄失准」。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景一：找不到那个「关外设」的开关，而且网上的数字全不一样</h3>
+          <p class="mt-3">你在 STM32 上做过电池节点，套路很清楚：关掉不用的外设时钟、把 GPIO 配成模拟输入、进 STOP、靠 RTC 闹钟醒。于是你在 ESP32 上找对应的寄存器——找到的却是 <code class="icode">esp_deep_sleep_start()</code>、<code class="icode">esp_light_sleep_start()</code>、<code class="icode">esp_pm_configure()</code> 这几组 API，一个都不像「关外设」。<b class="font-semibold text-ink">因为 ESP32 的省电是「选模式」，不是「关外设」</b>：射频、数字域、CPU、RTC 域被封装成几个电源域，你只能用模式去整体地动它们。</p>
+          <p class="mt-3">第二个打击是查资料：同一颗 ESP32，有人说深睡 10 µA，有人说 450 µA，还有人说自己实测 5 mA。三个数字差了 500 倍，你完全不知道该信谁。<b class="font-semibold text-ink">这三个数其实可以同时为真</b>——10 µA 是「芯片在理想条件下、只留 RTC 定时器和 RTC 内存」的手册值；450 µA 是同一个人把电源指示 LED 和 USB 串口芯片算进去之后的结果；5 mA 则是他那块开发板上那颗 AMS1117 的静态电流在说话。第 2 节第一小节会把这张「为什么数字各不相同」的清单逐条列出来，并在表的每一列都标上<b class="font-semibold text-ink">数量级</b>三个字。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景二：以为醒来会接着睡的地方往下跑</h3>
+          <p class="mt-3">你写下这样的程序：初始化 → 读传感器 → <code class="icode">esp_deep_sleep_start()</code>，心里想的是「醒了以后它会从这一行下面继续，我只要在读传感器前面加一句判断就行了」。烧进去，串口打印一切正常。十分钟后它醒了，却<b class="font-semibold text-ink">把整个初始化流程从头跑了一遍</b>：屏幕又闪一次、日志又多一整段、你在 <code class="icode">app_main</code> 里写的「上电时校准一次」也跟着校准了一次。更糟的是那个计数器——你明明写了 <code class="icode">int boot_count = 0;</code> 然后在末尾 <code class="icode">boot_count++</code>，可每次醒来串口打印的都是 1。</p>
+          <p class="mt-3">两件事同时发生，说明你没搞清 deep sleep 的本质：<b class="font-semibold text-ink">它等价于一次软复位，醒来是从复位向量重新开始的，不是从你睡下的那一行继续的</b>。所以 ① 所有普通全局变量、静态变量、堆、栈、外设配置<b>全部重来</b>；② 只有放在 RTC 域里的变量能活下来，而 <code class="icode">RTC_DATA_ATTR</code> 的初值<b>只在真正的上电复位时</b>才被写进去——深睡唤醒不写，于是计数器看起来永远是 1（其实是 0→1 每次都在重演）。这一篇第 2.2、2.3 节专门讲这件事，第 5 节还会告诉你一个更隐蔽的版本：<b class="font-semibold text-ink">首次上电（<code class="icode">ESP_SLEEP_WAKEUP_UNDEFINED</code>）和每一轮深睡唤醒走的代码路径其实不一样</b>，不处理它会出现「刚烧录进去时很聪明，跑一阵就变傻」。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景三：按了按键，它却再也没醒过来</h3>
+          <p class="mt-3">做一个「按键唤醒、起来发一包数据」的节点，你选了顺手的一个引脚：<code class="icode">GPIO_NUM_5</code>。程序烧好，串口里一切正常，然后它按计划睡下去了——<b class="font-semibold text-ink">你再按多少次按键都没反应，最后只能拔电池重新上电。</b>这不是程序写错，而是一条硬性限制：<b class="font-semibold text-ink">深睡期间芯片只剩 RTC 域有电，只有属于 RTC 域的那十几个引脚（RTC IO）有能力把它叫醒</b>，普通 GPIO 的数字输入电路整个断电了。ESP32 的 RTC IO 是 0、2、4、12~15、25~27、32~39 这几个编号（不同型号差别很大，S3 / C3 要单独查手册），而 GPIO5 不在里面。</p>
+          <p class="mt-3">这里还有两个配套的坑：① 深睡里<b>数字域的上下拉没有电</b>，你要用 <code class="icode">rtc_gpio_pullup_en()</code> 这类 RTC 版 API，写 <code class="icode">gpio_pullup_en()</code> 是白写；② 醒来之后<b>这个引脚的配置会丢</b>（它睡的时候被 RTC IO 复用接管过），你必须先 <code class="icode">rtc_gpio_deinit()</code> 再 <code class="icode">gpio_config()</code>，否则读到的电平永远是 0。第 2.4 节讲透，第 4 节配方二是完整实现。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景四：开了 DFS，手写的延时短了一半</h3>
+          <p class="mt-3">你看文档开了动态调频（DFS）：空闲时把主频从 240 MHz 降到 40 MHz，忙的时候再拉回去，听起来是白捡的省电。加上之后一切正常，直到你发现那个「读传感器前先空转等一会儿让电源稳定」的循环<b class="font-semibold text-ink">实际的等待时长跟你当初标定的完全不是一回事（周期数没变，一个周期占多少时间变了，可能长好几倍也可能短一大截）</b>，于是传感器偶尔读出全 0；另一个把 CPU 周期数除以 240 换算成微秒的时间戳也整体缩了水。原因是同一个：<b class="font-semibold text-ink">DFS 改变的是「一个 CPU 周期等于多少纳秒」</b>，凡是拿「周期数」当「时间」用的代码，降频之后全部失准。</p>
+          <p class="mt-3">更隐蔽的版本是自动 light sleep：你按文档配好了 <code class="icode">esp_pm_configure()</code>，却发现电流一点没降。因为自动 light sleep 的前提是「所有任务都阻塞、系统空闲」——你只要有一个任务在 <code class="icode">while (1)</code> 里空转（哪怕它什么也不干），FreeRTOS 就永远找不到那个空隙，一次 light sleep 都不会发生。这两件事合起来是第 2.5、2.6 节的内容，配方三会给出完整写法和一个「不能被降频的区段」的保护例子。</p>
+
+          <div class="callout callout-info mt-6">
+            <div class="callout-title">这一篇和相邻几篇的分工</div>
+            <p>
+              <b>测量方法与通用套路不在这里重讲。</b>「怎么把 µA 量出来」（万用表 burden voltage 的坑、采样电阻 + 示波器看瞬态、平均电流的加权算法）已经在
+              <a class="text-brand-600 dark:text-brand-300" href="adv-stm32-lowpower.html">STM32 低功耗与看门狗</a> 里讲过一遍，本篇只在需要时链接过去，正文只讲 <b>ESP32 特有</b>的东西。
+              供电与引脚安全（3.3V 从哪来、峰值电流、内部上下拉）在 <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-level.html">3.3V 供电与 GPIO 安全</a> 里；
+              LDO 与 DC-DC 的原理和发热账在 <a class="text-brand-600 dark:text-brand-300" href="ee-power-supply.html">电源与功率：整流滤波、LDO 与 DC-DC</a> 里。
+              本篇要接上的是另一条线：<b>这颗芯片自己怎么睡、怎么醒、醒着的时候怎么少喝一口电</b>；到了下一篇 <a class="text-brand-600 dark:text-brand-300" href="adv-esp32-ota.html">云平台接入与 OTA 远程升级</a>，你会发现「联网一次要花多少电」这笔账，直接决定了你的 OTA 升级该多久检查一次。
+            </p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">先记住这张「取舍表」的骨架</div>
+            <p>
+              后面所有内容都挂在三根柱子上：<br>
+              <b>① 响应速度</b>——从事件发生到芯片开始执行代码，要等多久？（light sleep 是毫秒级，deep sleep 是「一次重启」）<br>
+              <b>② 联网能力</b>——睡着的时候 WiFi 连接还在不在？（只有 modem-sleep 与 light sleep 能保住）<br>
+              <b>③ 内存保持</b>——睡着之前算出来的东西，醒来还在不在？（只有 RTC 域里的那点内存能保住）<br>
+              你在这三根柱子上各让一步，就换回一个数量级的电流。不存在「全都保住还特别省电」的选项——如果有，那就是数据手册在跟你开玩笑。
+            </p>
+          </div>
+
+</section>
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="mt-14 text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">ESP32 的省电手段可以分成三层，它们互相独立、可以叠加，这一点和 STM32 很不一样：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>层次</th><th>管什么</th><th>怎么用</th><th>省的哪一份电流</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>睡眠模式</b></td>
+                  <td>整颗芯片「断电到哪一层」</td>
+                  <td><code class="icode">esp_deep_sleep_start()</code> / <code class="icode">esp_light_sleep_start()</code> / 默认的 modem-sleep</td>
+                  <td>数字域、射频域、CPU 的大头</td>
+                </tr>
+                <tr>
+                  <td><b>动态调频 DFS</b></td>
+                  <td>醒着的时候 CPU 跑多快</td>
+                  <td><code class="icode">esp_pm_configure()</code> + <code class="icode">esp_pm_lock</code></td>
+                  <td>Active 状态下的动态功耗（和频率近似成正比）</td>
+                </tr>
+                <tr>
+                  <td><b>WiFi 省电</b></td>
+                  <td>射频什么时候醒着听 beacon</td>
+                  <td><code class="icode">esp_wifi_set_ps()</code></td>
+                  <td>射频在「连着但没数据」时的那 90~100 mA</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这三层里，只有第一层会改变程序的执行模型（醒来会不会接着跑），另外两层都是「悄悄地少喝一口电」。所以下面先花最大篇幅讲睡眠模式，再讲 DFS 和 WiFi 省电这两个「不改变执行模型、但有隐形副作用」的家伙。</p>
+
+          <h3 id="sub-modes" class="mt-7 text-base font-semibold">五种电源模式：一张表看清「砍掉了什么」</h3>
+
+          <p class="mt-3">要理解这些模式，先得知道芯片内部大致被切成三个供电区域：</p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><b class="font-semibold text-ink">数字域</b>：CPU、内部 SRAM、大多数外设（SPI / I2C / UART / ADC 的数字部分）、普通 GPIO 的输入输出电路。这是耗电大头，也是可以「整个切掉」的部分。</li>
+            <li><b class="font-semibold text-ink">射频域</b>：WiFi / 蓝牙的模拟前端和基带。开关它决定「网还连着没有」。它能单独关，这就是 modem-sleep。</li>
+            <li><b class="font-semibold text-ink">RTC 域</b>：RTC 控制器（唤醒逻辑）、RTC 内存、RTC 慢速时钟、以及少数几个 RTC IO。它<b>几乎从不彻底断电</b>——这正是它既能记住东西、又总在耗那几 µA 的原因。Hibernation 就是「连它一起关」的玩法。</li>
+          </ul>
+
+          <p class="mt-3">你说的「进某个模式」，本质就是告诉电源管理单元：哪些域断、哪些域留。所以每种模式能保住什么、丢掉什么，现在就一目了然了。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>模式</th>
+                  <th>CPU 停不停</th>
+                  <th>WiFi 断不断</th>
+                  <th>RTC 内存保不保</th>
+                  <th>唤醒源</th>
+                  <th>唤醒后从哪继续</th>
+                  <th>典型电流量级</th>
+                  <th>唤醒时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>Active</b><br><span class="text-faint">正常工作</span></td>
+                  <td>全速运行</td>
+                  <td>连接保持，射频按需工作</td>
+                  <td>保持（本来就没断电）</td>
+                  <td>—（不需要唤醒）</td>
+                  <td>—</td>
+                  <td>空闲 20~40 mA<br>WiFi 收 90~100 mA<br>发射峰值 240 mA 量级</td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td><b>Modem-sleep</b><br><span class="text-faint">调制的「猫」睡了</span></td>
+                  <td>仍在运行（这里是关键）</td>
+                  <td><b>保持</b>，只在 beacon 间隙关射频</td>
+                  <td>保持</td>
+                  <td>不需要：自动进出，无感</td>
+                  <td>原处继续</td>
+                  <td>20~30 mA 量级（手册按 240 / 160 / 80 MHz 分别给值，主频越低越省）</td>
+                  <td>微秒~毫秒级（自动来回）</td>
+                </tr>
+                <tr>
+                  <td><b>Light-sleep</b><br><span class="text-faint">CPU 打盹</span></td>
+                  <td>暂停（时钟门控，寄存器和 SRAM 都还在）</td>
+                  <td>可选择<b>保持</b>（<code class="icode">esp_sleep_enable_wifi_wakeup</code>）</td>
+                  <td>保持（连普通 SRAM 都还在）</td>
+                  <td>任意 GPIO、UART、WiFi 收包、触摸、RTC 定时器</td>
+                  <td><b>原处继续</b>（函数会返回）</td>
+                  <td>0.8~2 mA 量级（手册 Typ 0.8 mA）</td>
+                  <td>1 ms 上下（手册给的量级）</td>
+                </tr>
+                <tr>
+                  <td><b>Deep-sleep</b><br><span class="text-faint">除了 RTC 域全断</span></td>
+                  <td>断电</td>
+                  <td><b>断开</b>（射频域整个断电）</td>
+                  <td><b>保持</b>（RTC 域继续供电，这就是 <code class="icode">RTC_DATA_ATTR</code> 的地盘）</td>
+                  <td>ext0、ext1、触摸、ULP、RTC 定时器</td>
+                  <td><b>从复位向量重跑</b>（等价软复位，回到 <code class="icode">app_main</code> 第一行）</td>
+                  <td>10 µA ~ 1 mA（芯片手册 Typ 10 µA；开发板电池端实测常见 100 µA~1 mA）</td>
+                  <td>几十~几百 ms（含 IDF 启动、Flash 读取）</td>
+                </tr>
+                <tr>
+                  <td><b>Hibernation</b><br><span class="text-faint">连 RTC 域也关</span></td>
+                  <td>断电</td>
+                  <td>断开</td>
+                  <td><b>不保持</b>（要手动把 RTC 内存的电源域关掉）</td>
+                  <td>只剩 RTC 定时器（RTC 外设域关了，RTC IO 唤不醒）</td>
+                  <td>从复位向量重跑</td>
+                  <td>2.5 µA 量级</td>
+                  <td>几十~几百 ms</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">表里那一列「典型电流量级」，请当成量级读，不要当数值背</div>
+            <p>
+              这一列写的都是 <b>数量级</b>，不是精确值，差个两三倍完全正常。你在网上看到同一个模式有十个不同数字，绝大多数不是谁抄错了，而是下面三件事不一样：<br>
+              <b>① 芯片型号</b>：ESP32、ESP32-S3、ESP32-C3 的电流差得很远（新制程的数字更低，深睡可以低到个位数 µA 量级），同一代的不同 revision 也不是一个数。以你手上那颗型号的《数据手册》Power Consumption 表为准。<br>
+              <b>② 开发板上的东西</b>：板载 LDO 的静态电流可以从几 µA 到几 mA（三端稳压 AMS1117 是毫安级，低静态的 HT7333 / SPX3819 是几十 µA 级）；USB 串口芯片（CP2102 / CH340）自己就要几百 µA，有些板子还会把它的 TX 反灌进 ESP32 的 RX；电源指示 LED 一颗就是 1~10 mA；再加上 Flash 的待机电流。<br>
+              <b>③ 外接电路</b>：传感器自己的休眠电流、电池分压检测用的那两个电阻、上拉电阻上流的电，都会原封不动地加进你测到的数。
+            </p>
+          </div>
+
+          <p class="mt-4">所以看到任何一个低功耗数字，先问三个问题再决定信不信：<b class="font-semibold text-ink">哪颗芯片？哪块板子？表笔接在哪儿？</b>手册上的 10 µA，测的是「芯片 VDD 引脚处、只开启 RTC 定时器和 RTC 内存、其他全关」；你手里的 450 µA，测的是「电池端、开发板上一切都在」。两个数都没错，它们量的根本不是同一件事。第 3 节例题 4 会把这笔差额一笔一笔算出来。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">ESP-IDF 的默认行为：你已经省了一份，只是不知道</div>
+            <p>
+              新建工程什么都不配，<code class="icode">esp_wifi_init()</code> 之后 WiFi 默认就是 <code class="icode">WIFI_PS_MIN_MODEM</code>——也就是说 <b>Modem-sleep 默认开着</b>，射频在没数据时会自己打盹，所以「连着 WiFi 空转」大概是 20~30 mA 而不是 100 mA。相对的，<b>light sleep 默认是关的</b>（要先开 <code class="icode">CONFIG_PM_ENABLE</code>），<b>deep sleep 更是只有你显式调用才会进</b>。这就解释了很多人的困惑：「我什么都没动，怎么还是几十毫安？」——因为默认只帮你省了射频那一份，CPU 那份一分没省。
+            </p>
+          </div>
+
+          <p class="mt-4">选模式时可以有这样一句口诀：<b class="font-semibold text-ink">要「毫秒级响应 + 网络不断」选 light sleep；要「µA 级 + 可以接受重启」选 deep sleep；要「极致省电、连时间都无所谓」选 hibernation；要「一直在算但想少喝电」就在 modem-sleep 上再叠 DFS。</b>下面逐个展开，先讲最常用的 deep sleep。</p>
+
+          <h3 id="sub-deepsleep" class="mt-7 text-base font-semibold">深度睡眠：醒来等于软复位</h3>
+
+          <p class="mt-3">这一节只有一个核心事实，但它决定了你整个程序的写法：<b class="font-semibold text-ink"><code class="icode">esp_deep_sleep_start()</code> 之后代码不会继续往下执行，唤醒等价于一次软复位——程序从 <code class="icode">app_main()</code> 的第一行重新开始跑。</b></p>
+
+          <p class="mt-3">它的内部动作可以这样理解：函数先把「我要靠什么醒」（定时器时间、允许哪个 RTC IO、触摸阈值……）写进 RTC 控制器里的几个寄存器，这些寄存器在 RTC 域里、断电也不丢；然后切断数字域、射频域的电源，CPU 随之停摆。等 RTC 控制器检测到唤醒条件，它把电源拉起来，芯片走一遍完整的复位流程——和你在开发板上按一下 EN 键、或者在 <code class="icode">app_main</code> 里调用 <code class="icode">esp_restart()</code>，在「程序从哪开始」这件事上是同一回事。一个很好用的交叉验证：醒来后打印 <code class="icode">esp_reset_reason()</code>，深睡唤醒会得到 <code class="icode">ESP_RST_DEEPSLEEP</code>。</p>
+
+          <p class="mt-3">顺着这个事实往下推，几件容易踩的事就顺理成章了：</p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li>普通全局变量、<code class="icode">static</code> 变量、堆、栈、外设配置、看门狗设置——<b>全部重新来过</b>。你之前 <code class="icode">malloc</code> 的东西不会「泄漏」，因为整片内存都被复位重建了；反过来说，你之前存进去的东西也全没了。</li>
+            <li>不要在 <code class="icode">app_main</code> 里写「上电只需要做一次」的事情（比如校准传感器、清一次日志、初始化某个外设时钟），除非你用唤醒原因把它区分开——因为它每一轮都被当成上电。</li>
+            <li>反过来，深睡比「热重启」还干净：数字域寄存器都回到复位默认值，不存在「上次没清干净的状态」。这也是它比 light sleep 省电得多的根本原因——那份状态是拿电换来的。</li>
+            <li>深睡期间<b>串口会断</b>，连着电脑也没用；你在深睡前最后一句 <code class="icode">printf</code> 有可能因为 FIFO 没排空而永远打不出来（第 2.5 节讲怎么处理）。</li>
+          </ul>
+
+          <p class="mt-4">最短的深睡三件套就三行代码，这里先给骨架，完整可编译版本在第 4 节配方一：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="深睡三件套：设定时器 → 进入深睡">
+<pre><code>/* 1. 先声明「靠什么醒」：这里用 RTC 定时器，单位是微秒 */
+esp_sleep_enable_timer_wakeup(10ULL * 1000 * 1000);   /* 10 秒 */
+
+/* 2. 需要的话把状态写进 RTC 内存（普通变量在深睡后都会丢） */
+
+/* 3. 进入深睡：这一行之后的代码永远不会执行 */
+esp_deep_sleep_start();</code></pre>
+          </div>
+
+          <p class="mt-3">注意 <code class="icode">esp_sleep_enable_timer_wakeup()</code> 的参数是 <code class="icode">uint64_t</code>，单位<b>微秒</b>。写 <code class="icode">3600 * 1000 * 1000</code>（想要一小时）在 32 位 <code class="icode">int</code> 上会先溢出成负数再被转成 <code class="icode">uint64_t</code>，结果是一个莫名其妙的短睡眠——这类 bug 表现是「偶尔提前醒」，很难查。养成习惯：<b>第一个数字后面跟 <code class="icode">ULL</code></b>。ESP-IDF 还提供了一个便捷封装 <code class="icode">esp_deep_sleep(us)</code>，它把「设定时器 + 进深睡」合成一步，适合只想定时醒的场景。</p>
+
+          <p class="mt-4">醒来之后第一件事，是搞清楚「我为什么醒的」。这就是 <code class="icode">esp_sleep_get_wakeup_cause()</code>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>返回值</th><th>含义</th><th>怎么处理</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">ESP_SLEEP_WAKEUP_UNDEFINED</code></td><td>不是被唤醒的：上电、按了 EN 键、看门狗复位、<code class="icode">esp_restart()</code>，也包括刚烧录完的第一次运行</td><td><b>必须单独分支</b>：只有这里才做「整个系统第一次启动」的初始化，也是 RTC 变量拿到初值的那一次</td></tr>
+                <tr><td><code class="icode">ESP_SLEEP_WAKEUP_TIMER</code></td><td>RTC 定时器到点了</td><td>最常见的一支：读传感器、上报、再睡</td></tr>
+                <tr><td><code class="icode">ESP_SLEEP_WAKEUP_EXT0</code></td><td>ext0 指定的那一个 RTC IO 电平变化了</td><td>按键、干簧管、传感器中断脚</td></tr>
+                <tr><td><code class="icode">ESP_SLEEP_WAKEUP_EXT1</code></td><td>ext1 掩码里的引脚满足条件了，用 <code class="icode">esp_sleep_get_ext1_wakeup_status()</code> 查是哪一根</td><td>多按键、多路报警输入</td></tr>
+                <tr><td><code class="icode">ESP_SLEEP_WAKEUP_TOUCHPAD</code></td><td>触摸引脚超阈值</td><td>触摸唤醒（本篇一句话带过）</td></tr>
+                <tr><td><code class="icode">ESP_SLEEP_WAKEUP_ULP</code></td><td>ULP 协处理器主动把主 CPU 叫醒</td><td>ULP 写完数据后通知主核（一句话带过）</td></tr>
+                <tr><td><code class="icode">ESP_SLEEP_WAKEUP_GPIO</code> / <code class="icode">UART</code> / <code class="icode">WIFI</code> / <code class="icode">BT</code></td><td>较新芯片 / 较新 IDF 才有的唤醒源（普通 GPIO 唤醒、串口唤醒、WiFi 唤醒、蓝牙唤醒）</td><td>不是你当前芯片的唤醒源时，就永远收不到这个返回值</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">分支写法建议用 <code class="icode">switch</code>，并且<b>把 <code class="icode">UNDEFINED</code> 放在第一个 <code class="icode">case</code></b>——它是「首次运行」，和你前面几次唤醒走的路径完全不同。这一支写成什么样，直接决定了你的节点会不会出现「刚烧录时正常、跑一阵就不正常」的怪现象（原因下面马上讲）。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">唤醒时间准不准，取决于 RTC 慢速时钟从哪来</div>
+            <p>
+              深睡时数字域停了，能计时的只有 RTC 慢速时钟。它的来源在菜单里选：<b>Component config → ESP32-specific → RTC clock source</b>，可选内部 150 kHz RC（默认，省事省钱）、外部 32.768 kHz 晶振、外部 32 kHz 振荡器、内部 8 MHz 分频几种。默认那个内部 RC 的精度只有百分之几，而且随温度漂。拿 ±5% 算：你要睡 <b>10 分钟</b>，实际可能差 <b>±30 秒</b>；换算成一天，累计能差出<b>一个多小时</b>。如果节点只是「定时上报」，误差几分钟无所谓；如果你的数据要打时间戳、要和别的设备对时，就必须换成 32.768 kHz 晶振（代价是占两个引脚、有起振时间，而且要注意晶振负载电容匹配）。这条是 ESP32 特有的坑：STM32 那边你选个 LSE 就完事了，这边默认值是个「不太准的 RC」。
+            </p>
+          </div>
+
+          <h3 id="sub-rtcmem" class="mt-7 text-base font-semibold">三种 RTC 内存：数据凭什么活下来</h3>
+
+          <p class="mt-3">深睡切掉了数字域，可 RTC 域一直有电。所以「记住状态」的正确方式不是写 Flash（费电、还伤寿命），而是<b>把变量放进 RTC 域的内存里</b>。ESP-IDF 给了三种写法，它们的差别不只是「保不保存」，还有「要不要初始化」和「住在慢速内存还是快速内存」。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>写法</th><th>放在哪</th><th>深睡/软复位后</th><th>上电后</th><th>典型用途</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">RTC_DATA_ATTR int x;</code></td>
+                  <td>RTC 慢速内存（<code class="icode">.rtc.data</code> 段），除非开了「RTC 数据放快速内存」的配置项</td>
+                  <td><b>保留</b>，内容原封不动</td>
+                  <td>由启动代码写入你写的初值（<code class="icode">= 0</code> 就是 0）</td>
+                  <td>计数器、累计值、配置、上次上报结果——绝大多数场景用这个</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">RTC_NOINIT_ATTR int x;</code></td>
+                  <td>RTC 慢速内存的 <code class="icode">.rtc.noinit</code> 段</td>
+                  <td><b>保留</b></td>
+                  <td><b>不初始化</b>：内容是不确定的随机值，除非你能确定是「热启动」</td>
+                  <td>保存「上次崩溃时的现场」「日志缓冲区」等，前提是你自己用一个魔数（magic）判断内容有没有意义</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">RTC_SLOW_MEM</code> 修饰的数组/结构体<br><span class="text-faint">（还有 <code class="icode">RTC_FAST_MEM</code>）</span></td>
+                  <td>强制放进 RTC 慢速内存（<code class="icode">.rtc.force_slow</code>）／快速内存（<code class="icode">.rtc.force_fast</code>）</td>
+                  <td>保留</td>
+                  <td>按 C 语言规则初始化（本质上和 <code class="icode">RTC_DATA_ATTR</code> 同一类，只是显式指定速度）</td>
+                  <td>要给 ULP 协处理器共享的大块数据、或者对访问速度有要求的 RTC 数据</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">三者的关系可以用一句话记住：<b class="font-semibold text-ink"><code class="icode">RTC_DATA_ATTR</code> 是「有初值的 RTC 变量」，<code class="icode">RTC_NOINIT_ATTR</code> 是「没初值的 RTC 变量」，<code class="icode">RTC_SLOW_MEM</code> / <code class="icode">RTC_FAST_MEM</code> 是「我来指定速度」。</b>它们都在同一块不断电的内存里，所以都能活过深睡。</p>
+
+          <p class="mt-4">那「变量为什么还在」？答案朴素得有点反直觉：<b class="font-semibold text-ink">它不是被「恢复」的，而是压根没被断电。</b>深睡切掉的是数字域——CPU、SRAM、大多数外设；RTC 域（RTC 控制器 + RTC 内存 + RTC 慢速时钟 + 少数 RTC IO）从头到尾由 VDD3P3_RTC 供电，只是电流被压到 µA 级。RTC 内存就住在那个域里，所以它的内容不需要任何「保存/加载」的动作，睡过去是什么样，醒来还是什么样。你为此付出的代价，就是手册里那 10 µA（量级）——那不是白来的。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">关于 <code class="icode">RTC_DATA_ATTR</code> 的初值，最容易搞错的一点</div>
+            <p>
+              初值只在<b>真正的上电复位</b>时写入（对应 <code class="icode">ESP_SLEEP_WAKEUP_UNDEFINED</code> 那一支）。深睡唤醒走的是软复位路径，启动代码<b>不会</b>再执行一次初始化——这正是我们想要的效果。但反过来说：<b>软复位（<code class="icode">esp_restart()</code>、看门狗复位、深睡唤醒）也一律不会重置 RTC 变量</b>，RTC 域不在软复位范围内。所以「变量还在」并不等于「刚睡过一觉」——想知道这次是睡醒的还是别的原因醒的，永远去看 <code class="icode">esp_sleep_get_wakeup_cause()</code>，别用变量值去猜。<br>
+              还有一个容量提醒：RTC 慢速内存总共只有几 KB（ESP32 是 8 KB 量级），<code class="icode">.rtc.data</code>、<code class="icode">.rtc.noinit</code>、<code class="icode">.rtc.force_slow</code> 都从这里面切，ULP 的程序和数据也住在里面。别往 <code class="icode">RTC_DATA_ATTR</code> 上挂一个几 KB 的日志缓冲区——链接阶段会直接告诉你放不下。
+            </p>
+          </div>
+
+<h3 id="sub-ext0" class="mt-7 text-base font-semibold">GPIO 唤醒：ext0、ext1 与「只有 RTC IO 能叫醒你」</h3>
+
+          <p class="mt-3">场景三里那个「按了没反应」的坑，根子在一条硬性限制上：<b class="font-semibold text-ink">深睡期间数字域断电，普通 GPIO 的输入电路跟着断电，只有属于 RTC 域的引脚（RTC IO）还有电、能检测电平变化。</b>所以深睡的 GPIO 唤醒不是「你随便挑一个脚」，而是「从 RTC IO 里挑」。</p>
+
+          <p class="mt-3">ESP32（经典款）的 RTC IO 编号是：<b class="font-semibold text-ink">0、2、4、12、13、14、15、25、26、27、32、33、34、35、36、37、38、39</b>。注意这份名单<b>只对 ESP32 有效</b>：ESP32-S3、ESP32-C3、ESP32-C6 的 RTC IO 集合完全不同（有的型号少得多，有的型号还用「普通 GPIO 也能唤醒」的新机制）。所以写代码前一定去翻你手上那颗型号的《技术参考手册》里 RTC IO / RTC MUX 那一章，或者直接查 <code class="icode">driver/rtc_io.h</code> 里 <code class="icode">rtc_gpio_is_valid_gpio()</code> 相关的头注释。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>唤醒方式</th><th>API</th><th>能管几个引脚</th><th>触发条件</th><th>适合什么</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>ext0</b></td>
+                  <td><code class="icode">esp_sleep_enable_ext0_wakeup(gpio_num, level)</code></td>
+                  <td>1 个 RTC IO</td>
+                  <td><code class="icode">level = 1</code> 高电平唤醒；<code class="icode">level = 0</code> 低电平唤醒</td>
+                  <td>单个按键、干簧管、一个传感器中断脚——最常用</td>
+                </tr>
+                <tr>
+                  <td><b>ext1</b></td>
+                  <td><code class="icode">esp_sleep_enable_ext1_wakeup(mask, mode)</code></td>
+                  <td>多个 RTC IO（位掩码，第 N 位对应 GPIO N）</td>
+                  <td><code class="icode">ESP_EXT1_WAKEUP_ANY_HIGH</code>：掩码里<b>任一</b>引脚为高就醒；<code class="icode">ESP_EXT1_WAKEUP_ALL_LOW</code>：掩码里<b>所有</b>引脚都为低才醒</td>
+                  <td>多个按键、多路报警输入</td>
+                </tr>
+                <tr>
+                  <td><b>触摸</b></td>
+                  <td><code class="icode">esp_sleep_enable_touchpad_wakeup()</code></td>
+                  <td>若干触摸通道</td>
+                  <td>电容变化超过阈值</td>
+                  <td>无需机械按键的唤醒（结合触摸驱动使用，本篇不展开）</td>
+                </tr>
+                <tr>
+                  <td><b>ULP</b></td>
+                  <td><code class="icode">esp_sleep_enable_ulp_wakeup()</code></td>
+                  <td>—</td>
+                  <td>ULP 协处理器跑完一段程序后主动叫醒主 CPU</td>
+                  <td>「睡着也要采样/比较阈值」的场景（本篇不展开）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">三个必踩的坑，一次说完</div>
+            <p>
+              <b>① 上下拉必须用 RTC 版 API。</b>深睡时数字域的上下拉没有电，<code class="icode">gpio_pullup_en()</code> 配出来的东西在深睡里等于不存在。要用 <code class="icode">rtc_gpio_pullup_en()</code> / <code class="icode">rtc_gpio_pulldown_en()</code>（同一个 <code class="icode">driver/rtc_io.h</code> 家族里的还有 <code class="icode">rtc_gpio_init()</code>、<code class="icode">rtc_gpio_deinit()</code>、<code class="icode">rtc_gpio_hold_en()</code>）。这一族 API 的名字就叫 <code class="icode">rtc_gpio_*</code>，看到「rtc」两个字才说明它管的是不断电的那份电路。<br>
+              <b>② <code class="icode">ALL_LOW</code> 是「全都低」不是「有一个低」。</b>你要是把三根引脚都写进掩码，只接了一个按键，另外两根必须一直处在低电平（记得配下拉），否则条件永远不满足，按键按到天荒地老也不醒。多按键场景更常用 <code class="icode">ANY_HIGH</code>（按键另一端接 3.3V）或干脆用 <code class="icode">ext0</code>。<br>
+              <b>③ 唤醒后引脚配置会丢。</b>睡之前这个脚被 RTC IO 复用接管过，醒来时它还在 RTC 模式里，你按普通 GPIO 去读电平会一直读到 0（或读到错误电平）。正确顺序是：先 <code class="icode">rtc_gpio_deinit(gpio)</code> 把引脚还给数字域，再 <code class="icode">gpio_config()</code> 正常配置一遍；如果睡前对它用过 <code class="icode">rtc_gpio_hold_en()</code>，还要先 <code class="icode">rtc_gpio_hold_dis()</code> 才能改它的输出。
+            </p>
+          </div>
+
+          <p class="mt-4">还有一个「为了省电反而费电」的设计细节：外部上拉电阻。你用一个 10 kΩ 电阻从按键引脚拉到 3.3V，按键按下时这根电阻上就流过 <b>330 µA</b>；如果按键被长时间按住，这 330 µA 会一直挂在你精心抠出来的 10 µA 旁边。换成 RTC IO 的内部上拉（几十 kΩ 量级），按下期间大概流过 <b>70 µA</b> 量级，不按时几乎不耗——这就是内部上下拉存在的意义。真正讲究的做法是把按键接成「按下接地 + 内部上拉 + 只在唤醒后短暂读取」，并且在软件里对长按做「读完立刻回去睡」。第 3 节例题 5 会把这类「唤醒电路自己的漏电」算成一笔账。</p>
+
+          <p class="mt-4">再来一个同样重要的补充：<b class="font-semibold text-ink">睡前驱动中的引脚会被保持在你离开时的电平</b>，它不会自动变成高阻。如果你用一个 GPIO 直接驱动 LED 并点亮它，然后进深睡，那颗 LED 会继续亮着——它会轻松吃掉 5~10 mA，把你所有的省电工作一次性抹掉。这类引脚要么睡前拉灭，要么用 <code class="icode">rtc_gpio_hold_en()</code> 明确指定深睡期间要保持的电平（醒来记得 <code class="icode">rtc_gpio_hold_dis()</code>），要么干脆让它 <code class="icode">rtc_gpio_isolate()</code>（隔离，等于切断）。<b>「睡前扫一眼所有输出引脚」是低功耗节点必做的动作</b>，配方五给了一张检查表。</p>
+
+          <h3 id="sub-light" class="mt-7 text-base font-semibold">Light-sleep：从原地继续，还能挂着 WiFi</h3>
+
+          <p class="mt-3">如果说 deep sleep 是「关机重启」，light sleep 就是「打个盹」：数字域只是被<b>时钟门控</b>（时钟停了、电还在），SRAM 内容、CPU 寄存器、外设配置、FreeRTOS 的任务状态全部原样保留。<code class="icode">esp_light_sleep_start()</code> 是<b>会返回的</b>——它返回的那一刻，程序就在调用它的下一行继续跑，这是它和 deep sleep 最本质的区别。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="light sleep 的执行模型：函数会返回，代码从下一行继续">
+<pre><code>printf("准备打盹\n");
+fflush(stdout);
+
+esp_sleep_enable_timer_wakeup(500ULL * 1000);   /* 睡 500 毫秒 */
+
+esp_err_t err = esp_light_sleep_start();       /* 这一行会「卡住」500 ms，然后返回 */
+if (err != ESP_OK) {
+    printf("没睡成：%s\n", esp_err_to_name(err));   /* 例如被 PM lock 挡住 */
+}
+
+/* ↓↓↓ 醒来之后，从这里继续：变量、任务、外设配置都还在 */
+printf("醒来，原因=%d，计数还在=%d\n",
+       (int)esp_sleep_get_wakeup_cause(), my_state.counter);</code></pre>
+          </div>
+
+          <p class="mt-3">正因为「状态都还在」，light sleep 能做到 deep sleep 做不到的两件事：<b>① 毫秒级响应</b>（唤醒时间 1 ms 量级，而 deep sleep 要几十到几百毫秒，还不算你重新连 WiFi 的时间）；<b>② 挂着 WiFi 睡</b>。后者由 <code class="icode">esp_sleep_enable_wifi_wakeup()</code> 负责：它让 WiFi 驱动在进 light sleep 时保持与 AP 的关联，芯片会在 beacon 时刻醒一下听有没有给自己的包，有数据就唤醒 CPU。前提是工程里开了电源管理（<code class="icode">CONFIG_PM_ENABLE</code>）且 WiFi 已经在正常工作状态——这条 API 本质上是向电源管理框架登记一个唤醒源，具体前置条件在《Wi-Fi 驱动 · 省电模式》一节列得很清楚。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th></th><th>Deep-sleep</th><th>Light-sleep</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>醒来从哪继续</td><td>复位向量，重跑 <code class="icode">app_main</code></td><td><b>调用点的下一行</b></td></tr>
+                <tr><td>普通内存（SRAM / 全局变量 / 堆）</td><td>全部丢失</td><td>全部保留</td></tr>
+                <tr><td>外设配置（UART / SPI / I2C / GPIO 复用）</td><td>要重新初始化</td><td>保留，但是「睡着时外设也停了」，醒来通常要确认一下状态</td></tr>
+                <tr><td>WiFi 连接</td><td>断开，醒来要重连（扫描 + 认证 + DHCP + 可能的 TLS 握手）</td><td><b>可以保持</b>（<code class="icode">esp_sleep_enable_wifi_wakeup()</code>）</td></tr>
+                <tr><td>电流量级</td><td>10 µA ~ 1 mA</td><td>0.8 ~ 2 mA</td></tr>
+                <tr><td>唤醒时间</td><td>几十~几百 ms（含启动）</td><td>1 ms 量级</td></tr>
+                <tr><td>典型用法</td><td>几分钟到几小时醒一次，采完就走</td><td>「要一直在线、但又想省电」的常连设备</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">进 light sleep 前必须做的三件事，不做就丢数据</div>
+            <p>
+              <b>① 排空串口发送 FIFO。</b>Light sleep 一进去，UART 时钟就停了。你以为已经发出去的日志其实还堵在 FIFO 里，醒来发现「日志缺了最后半行」「乱码」，甚至把后面几条数据一起带乱。做法：睡前调一次 <code class="icode">uart_wait_tx_done(port, timeout)</code>，或者至少 <code class="icode">fflush(stdout)</code> 并给它一点时间。醒来后如果发现 RX 有异常，先把 FIFO 读干净再重新开始解析。<br>
+              <b>② 别在传输中途睡。</b>正在跑的 SPI / I2C 传输要么等它结束，要么显式中止；DMA 传输更不能跨越 sleep（APB 时钟停了，DMA 停住不动，醒来可能拿到半包数据）。ADC 正在采样时进睡，结果不可信，常规做法是醒来丢弃第一次采样。<br>
+              <b>③ 想清楚醒来后哪些外设需要重新武装。</b>PWM（LEDC）停了、定时器停了、看门狗要重新喂，这些都要在醒来后的第一段代码里处理。开发阶段最稳的调试手段是：睡前打印「即将睡眠」，醒来立刻打印唤醒原因，中间发生了什么一眼就能看出来。
+            </p>
+          </div>
+
+          <p class="mt-4">手工调用 <code class="icode">esp_light_sleep_start()</code> 适合「我明确知道现在没事干，可以睡一会儿」的场景。更省心的方式是<b>自动 light sleep</b>：让 FreeRTOS 在空闲时自己睡。它的开关不是一句代码，而是三个配置凑齐——</p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><code class="icode">CONFIG_PM_ENABLE</code>（menuconfig → Component config → Power Management）：打开电源管理框架，一切的前提。</li>
+            <li><code class="icode">CONFIG_FREERTOS_USE_TICKLESS_IDLE</code>（Component config → FreeRTOS → 使用 tickless idle）：允许系统在空闲时跳过若干个 tick，这是「自动睡」的机制。</li>
+            <li><code class="icode">esp_pm_configure()</code> 里把 <code class="icode">light_sleep_enable</code> 设成 <code class="icode">true</code>（就是下面 DFS 那一节配的东西）。</li>
+          </ul>
+
+          <p class="mt-3">这三个都到位之后，系统会在「所有任务都阻塞」时自动进 light sleep，在下一个定时器到期或中断到来时醒。<b class="font-semibold text-ink">它的敌人是「忙等」</b>：任何一个任务在 <code class="icode">while (1)</code> 里空转（哪怕是 <code class="icode">while(1) { ; }</code> 这种什么都不做的循环），FreeRTOS 就永远等不到「大家都睡了」这个时刻，一次自动 light sleep 都不会发生。所以打开自动 light sleep 之前，先把自己的任务改成「用 <code class="icode">vTaskDelay()</code> / 事件 / 信号量阻塞」的写法——这也是为什么它和 FreeRTOS 的用法绑在一起（回顾 <a class="text-brand-600 dark:text-brand-300" href="adv-esp32-freertos.html">ESP32 与 FreeRTOS：任务与调度</a> 里的阻塞语义）。</p>
+
+<h3 id="sub-dfs" class="mt-7 text-base font-semibold">DFS：<code class="icode">esp_pm_configure</code> 与 <code class="icode">esp_pm_lock</code></h3>
+
+          <p class="mt-3">前两种模式解决的是「没事干的时候」。但一个连着 WiFi 的节点总有「有事干但活儿不多」的时候——比如等一个响应、等一个定时器。这时候 CPU 满速 240 MHz 空转就是浪费：芯片的动态功耗大致和频率成正比，把频率降到 40 MHz，这一段的电流也大致降下来。<b class="font-semibold text-ink">动态调频（DFS，Dynamic Frequency Scaling）就是干这个的</b>，它管的是「醒着的时候跑多快」，和睡不睡是两件事。</p>
+
+          <p class="mt-3">开 DFS 的入口只有一个函数：<code class="icode">esp_pm_configure()</code>，参数是 <code class="icode">esp_pm_config_t</code> 结构体，只有三个字段：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>字段</th><th>含义</th><th>怎么填</th><th>填错的后果</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">max_freq_mhz</code></td>
+                  <td>允许的最高 CPU 频率</td>
+                  <td>要性能就填芯片上限（ESP32 是 240）</td>
+                  <td>填太小，WiFi 吞吐和计算能力一起掉</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">min_freq_mhz</code></td>
+                  <td>空闲时降到的频率下限</td>
+                  <td>省电就填低（ESP32 可以到 40，低于 80 时 APB 会跟着降）</td>
+                  <td>和 <code class="icode">max_freq_mhz</code> 填成一样，DFS 就等于没开（但 light sleep 仍然有效）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">light_sleep_enable</code></td>
+                  <td>空闲时要不要自动进 light sleep</td>
+                  <td>开了 <code class="icode">CONFIG_FREERTOS_USE_TICKLESS_IDLE</code> 就填 <code class="icode">true</code></td>
+                  <td>填 <code class="icode">true</code> 但没开 tickless idle，编译或运行时会报错提示配置不全</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="电源管理的最小配置：DFS + 自动 light sleep">
+<pre><code>#include "esp_pm.h"
+
+/* 只在开了 CONFIG_PM_ENABLE 的工程里编译这段 */
+void app_pm_init(void)
+{
+    esp_pm_config_t pm_config = {
+        .max_freq_mhz = 240,        /* 忙的时候满速跑 */
+        .min_freq_mhz = 40,         /* 闲的时候降到 40 MHz */
+        .light_sleep_enable = true, /* 全系统空闲时自动进 light sleep */
+    };
+    ESP_ERROR_CHECK(esp_pm_configure(&amp;pm_config));
+    printf("电源管理已开启：%d~%d MHz，自动 light sleep=%d\n",
+           pm_config.min_freq_mhz, pm_config.max_freq_mhz,
+           (int)pm_config.light_sleep_enable);
+}</code></pre>
+          </div>
+
+          <p class="mt-3">两个使用前提，少一个都不生效：</p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><b class="font-semibold text-ink">menuconfig 里要开 <code class="icode">CONFIG_PM_ENABLE</code></b>（Component config → Power Management → Support for power management）。没开的话这个结构体和 API 可能压根不参与编译。</li>
+            <li><b class="font-semibold text-ink">用 WiFi / 蓝牙时，<code class="icode">esp_pm_configure()</code> 必须在 <code class="icode">esp_wifi_init()</code> 之前调用。</b>这是官方文档写死的要求：WiFi 驱动初始化时就要知道频率会被动态调整，它才能正确登记自己的约束。顺序反了不一定当场报错，但你已经踩在文档红线上了。</li>
+            <li>老例程里可能看到 <code class="icode">esp_pm_config_esp32_t</code>（S2/S3 各有一份带型号后缀的版本），那是早期 IDF 的写法，字段完全一样；新版本统一成了 <code class="icode">esp_pm_config_t</code>，照上面写就行。</li>
+          </ul>
+
+          <p class="mt-4">现在讲最容易踩的那个坑：<b class="font-semibold text-ink">DFS 会让所有「用 CPU 周期当时间」的代码失效。</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>你写的代码</th><th>DFS 开了之后会怎样</th><th>正确做法</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>空转延时：<code class="icode">for (volatile int i = 0; i &lt; 10000; i++) {}</code></td>
+                  <td>周期数固定、单周期时长变了 → 实等时间随频率漂，可能长好几倍</td>
+                  <td>用 <code class="icode">vTaskDelay()</code> / <code class="icode">esp_rom_delay_us()</code> 这类带时间基准的延时；硬要求就用 PM lock 锁住频率</td>
+                </tr>
+                <tr>
+                  <td>用周期计数器换算时间：<code class="icode">cycles / 240</code></td>
+                  <td>降频后同样的墙钟时间只走了更少的周期 → 换算出的时间<b>缩水</b></td>
+                  <td>用 <code class="icode">esp_timer_get_time()</code>（微秒级的真实时间基准，不受 CPU 频率影响）</td>
+                </tr>
+                <tr>
+                  <td>依赖 APB 时钟的外设时序</td>
+                  <td>低于 80 MHz 时 APB 跟着降，波特率、SPI 时钟、I2S 位时钟都可能偏</td>
+                  <td>需要时用 <code class="icode">ESP_PM_APB_FREQ_MAX</code> 锁；或把 <code class="icode">min_freq_mhz</code> 保持在 APB 不降的档位</td>
+                </tr>
+                <tr>
+                  <td>跨睡眠的时间测量</td>
+                  <td>light sleep 期间 CPU 停走，周期数不再增长，自动 light sleep 下尤其明显</td>
+                  <td>同样用 <code class="icode">esp_timer_get_time()</code> 或 RTC 时间</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">注意第一行和第二行是<b>相反方向</b>的错：空转延时会被拉长，周期换算出的时间会缩短。这说明「周期」和「时间」之间的关系被 DFS 动过了，任何依赖这层关系的代码都不可信——包括那些「顺手写一下」的校准常数。</p>
+
+          <p class="mt-4">那如果某段代码就是不能降频怎么办？（比如高速 SPI 读 Flash、I2S 音频流、需要精确空转的时序）答案不是「关掉 DFS」，而是<b>用 PM lock 把这一个区段保护起来</b>：拿锁 → 干活 → 放锁。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>锁类型</th><th>它保证什么</th><th>典型使用场景</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">ESP_PM_CPU_FREQ_MAX</code></td>
+                  <td>持有期间 CPU 频率保持在 <code class="icode">max_freq_mhz</code>，不被降频</td>
+                  <td>计算密集区、依赖 CPU 速度的软件时序</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ESP_PM_APB_FREQ_MAX</code></td>
+                  <td>持有期间 APB 频率保持最高档</td>
+                  <td>高速 SPI / I2S / ADC 等对总线时钟敏感的外设。注意 APB 时钟由 CPU 时钟分频而来，所以拿了这个锁通常意味着 CPU 也不能降</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ESP_PM_NO_LIGHT_SLEEP</code></td>
+                  <td>持有期间禁止自动进 light sleep（频率该降还降）</td>
+                  <td>正在进行不能被打断的短操作：DMA 传输、一次完整的传感器读取</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="PM lock 的标准用法：把「不能被降频」的区段围起来">
+<pre><code>#include "esp_pm.h"
+
+static esp_pm_lock_handle_t s_spi_lock = NULL;
+
+void app_pm_lock_init(void)
+{
+    /* 创建一个「不许降频」的锁，类型 + 参数 + 名字，名字只用于调试 */
+    ESP_ERROR_CHECK(esp_pm_lock_create(ESP_PM_CPU_FREQ_MAX, 0,
+                                       "spi_fast", &amp;s_spi_lock));
+}
+
+void spi_fast_burst(void)
+{
+    esp_pm_lock_acquire(s_spi_lock);    /* 拿锁：从这一刻起 CPU 满速 */
+    do_the_speed_critical_transfer();   /* 这段代码在 240 MHz 下跑，时序可信 */
+    esp_pm_lock_release(s_spi_lock);    /* 放锁：DFS 又能继续降频了 */
+}
+
+/* 反例：创建之后一直 acquire 不 release —— 等于把 DFS 关了，
+   你还会以为是 esp_pm_configure() 没生效。 */</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">给第一次玩 PM 的人一个保守起点</div>
+            <p>
+              先把 <code class="icode">max_freq_mhz</code> 和 <code class="icode">min_freq_mhz</code> 填成<b>相同的值</b>（比如都 80），只打开 <code class="icode">light_sleep_enable</code>。这样你得到的是「频率恒定、空闲自动睡」——省电的大头（空闲时的 20~30 mA 掉到 1 mA 量级）拿到了，而「时序被频率改变」这一类玄学问题一个都不会出现。等这条路径稳定了，再把 <code class="icode">min_freq_mhz</code> 往下调，一次调一档，每次都用示波器/日志确认你的关键时序没被破坏。
+            </p>
+          </div>
+
+          <h3 id="sub-wifips" class="mt-7 text-base font-semibold">WiFi 省电模式：省下来的电，用延迟换</h3>
+
+          <p class="mt-3">WiFi 是这台设备上最费电的单一部分：连着但不传数据时，射频如果一直开着监听，电流在 <b>90~100 mA</b> 量级。而 WiFi 协议本身给了省电的空间——AP（路由器）会给休眠中的客户端缓存下行包，让客户端周期性醒来取。<code class="icode">esp_wifi_set_ps()</code> 就是让你选「多久醒一次」。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>模式</th><th>射频什么时候醒</th><th>典型电流量级</th><th>下行延迟</th><th>适合</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">WIFI_PS_MIN_MODEM</code><br><span class="text-faint">IDF 默认值</span></td>
+                  <td>每个 DTIM beacon 醒一次收缓存包，其余时间关射频</td>
+                  <td>20~30 mA 量级（连着空转）</td>
+                  <td>一个 beacon 间隔量级（典型 100 ms，DTIM=3 时最多等 300 ms）</td>
+                  <td>默认就选它：上报为主、能接受几百毫秒的下行延迟</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">WIFI_PS_MAX_MODEM</code></td>
+                  <td>按 <code class="icode">listen_interval</code> 拉长间隔（单位是 AP 的 beacon 个数），醒得更少</td>
+                  <td>比 MIN_MODEM 更低（省的是射频醒来的次数）</td>
+                  <td>明显变大：几倍于 MIN_MODEM，取决于 listen_interval</td>
+                  <td>纯上报、几乎不收下行命令、对延迟不敏感</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">WIFI_PS_NONE</code></td>
+                  <td>射频常开，随时收</td>
+                  <td>90~100 mA 量级（收）</td>
+                  <td>最小</td>
+                  <td>要低延迟交互（App 点一下灯就得亮），或者调试时怀疑省电模式干扰了通信</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">理解这张表的关键是分清方向：<b class="font-semibold text-ink">上行（设备发出去）几乎不受省电模式影响</b>——你要发包，射频本来就得醒；<b class="font-semibold text-ink">受影响的是下行（服务器发给你）</b>，因为包先缓存在 AP 里，等你在 beacon/DTIM 时刻醒来取。所以「MQTT 长连接下怎么选」这个问题，真正的问法是：<b>你能接受服务器下发的命令延迟多久才被收到？</b></p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><b>只上报、偶尔下发、延迟几百毫秒无所谓</b> → 保持默认的 <code class="icode">WIFI_PS_MIN_MODEM</code>，什么都别改。把 MQTT 的 keepalive 设大一点（60~120 秒量级），心跳本身也会按这个节奏走上行，不影响省电。</li>
+            <li><b>几乎不收下行、延迟几十秒也行</b> → <code class="icode">WIFI_PS_MAX_MODEM</code>，同时把 sta 配置里的 <code class="icode">listen_interval</code> 设大（它决定你隔几个 beacon 醒一次），然后<b>务必实测下行延迟</b>，别只看电流漂亮。</li>
+            <li><b>要实时响应</b> → <code class="icode">WIFI_PS_NONE</code>，同时接受电流回到 90~100 mA 量级；或者换成「平时 deep sleep 省电、需要时用 ext0 唤醒 + 快速连接」的架构，别指望在常连状态里既要又要。</li>
+          </ul>
+
+          <p class="mt-3">两个调用细节：<code class="icode">esp_wifi_set_ps()</code> 必须在 WiFi 驱动初始化<b>之后</b>调用（驱动还没起来时会返回 <code class="icode">ESP_ERR_WIFI_NOT_INIT</code>），放在 <code class="icode">esp_wifi_init()</code> 之后、<code class="icode">esp_wifi_connect()</code> 之前最直观；并且它只在 station 模式、已连接的状态下才有意义，AP 模式用不上。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">WiFi 省电和 CPU 省电是两件事，别混着算</div>
+            <p>
+              <code class="icode">esp_wifi_set_ps()</code> 只管射频什么时候醒，<b>CPU 该跑还是全速跑</b>。所以「连着 WiFi 空转」那 20~30 mA 里，射频那份是被 PS 省掉的，CPU 那份要靠 DFS 和自动 light sleep 才省得掉。两者叠加时还有一层配合：WiFi 驱动需要在 beacon 时刻及时处理，它会向电源管理框架登记自己的约束（这也是常连 + 自动 light sleep 必须开 <code class="icode">CONFIG_PM_ENABLE</code> 的原因）。真正的常连低功耗设备，是「<code class="icode">WIFI_PS_MIN_MODEM</code> + 自动 light sleep」一起用的结果，少一个都只能省一半。
+            </p>
+          </div>
+
+          <h3 id="sub-budget" class="mt-7 text-base font-semibold">电池寿命账：把「醒一次」折成平均电流</h3>
+
+          <p class="mt-3">低功耗设计的核心不是「把某一项压到最低」，而是<b>算清楚每个阶段花了多少电荷，然后看谁是大头</b>。方法很朴素：把一次工作周期切成若干阶段，每段用「电流 × 时长」算电荷，加起来除以周期总时长，就是平均电流。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">两个公式，记住就够用</div>
+            <p>
+              <b>① 每轮消耗的电荷</b>：<code class="icode">Q = Σ (I_i × t_i)</code>，单位取 mA·s（毫安秒）或 mAh 都行，别混着用。<br>
+              <b>② 平均电流</b>：<code class="icode">I_avg = Q / T + I_sleep</code>，其中 <code class="icode">T</code> 是这一轮的总时长（含睡眠），<code class="icode">I_sleep</code> 是深睡时的电流（记得把它单独加上，因为它在"每轮的 Q"里没被算进去）。<br>
+              然后 <code class="icode">续航 = C_可用 / I_avg</code>。
+            </p>
+          </div>
+
+          <p class="mt-3">用「每 10 分钟醒一次」的节点先做个粗算（详细算式见第 3 节例题 1）：醒来启动 + 读传感器 + 连 WiFi 上报 + 收尾，合计约 <b>0.084 mAh</b>；深睡电流按 <b>10 µA</b> 算。于是：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>项目</th><th>算式</th><th>结果</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>一轮消耗的电荷</td><td>0.084 mAh</td><td>0.084 mAh</td></tr>
+                <tr><td>折成平均电流</td><td>0.084 mAh ÷ (10 min ÷ 60) h</td><td>≈ 0.50 mA</td></tr>
+                <tr><td>加上深睡电流</td><td>0.50 mA + 0.01 mA</td><td>≈ 0.51 mA</td></tr>
+                <tr><td>深睡一天用掉多少</td><td>0.01 mA × 24 h</td><td>0.24 mAh</td></tr>
+                <tr><td><b>一次联网相当于睡了多久</b></td><td>0.084 mAh ÷ 0.01 mA</td><td><b>8.4 小时</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">最后一行就是这张表存在的意义：<b class="font-semibold text-ink">一次 3 秒的联网，消耗的电荷等于深睡 8.4 小时</b>。所以你在这个项目里该抠的不是「深睡电流从 10 µA 降到 8 µA」（那是 20% 的睡眠部分，占总账 2%），而是<b>「能不能少醒一次」「能不能把连接时间从 3 秒压到 1 秒」「能不能干脆不断开而用长连接」</b>。第 3 节例题 2 会把这个问题算到底。</p>
+
+          <p class="mt-4">最后，为什么「算出来 20 µA，实测却是 5 mA」？按可能性从大到小排，通常是这三个元凶：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>元凶</th><th>量级</th><th>怎么确认 / 怎么解决</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>① 板载 LDO 的静态电流</b></td>
+                  <td>AMS1117 这类三端稳压是<b>毫安级</b>（典型 5 mA 量级）；低静态的 HT7333 / SPX3819 是几十 µA 级</td>
+                  <td>量 LDO 输入脚和输出脚的电流差；或者直接把这颗 LDO 换成低静态型号 / 换成 DC-DC</td>
+                </tr>
+                <tr>
+                  <td><b>② USB 串口芯片</b></td>
+                  <td>CP2102 / CH340 是几百 µA 到 1 mA 量级，且它连着 USB 时会一直工作</td>
+                  <td>拔掉 USB 线再测；量产板直接不放 USB 芯片，或者用跳线/三极管把它的供电断开</td>
+                </tr>
+                <tr>
+                  <td><b>③ 外接的 LED 与传感器</b></td>
+                  <td>一颗电源指示 LED 就是 1~10 mA；一个没进休眠的传感器可能几百 µA 到几 mA</td>
+                  <td>睡前拉灭 LED、给传感器发休眠命令；量一下「不接传感器时」的整机电流做对比</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这三条加起来就能解释 5 mA 量级：一颗 AMS1117 的 5 mA 静态电流单独就够了。<b class="font-semibold text-ink">先量板子，再量芯片</b>——把电流表接在电池和开发板之间，得到一个数；再把表笔换个接法只量芯片的 VDD 引脚，得到另一个数。两个数的差值，就是你的板子「什么都不干也一直在耗」的部分。这一步做不做，决定了你后面所有的省电努力是在优化真问题还是在自我感动。（测量手法与 burden voltage 的坑见 <a class="text-brand-600 dark:text-brand-300" href="adv-stm32-lowpower.html">STM32 低功耗与看门狗</a>，本篇不重复。）</p>
+
+</section>
+
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="mt-14 text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">下面五道题都按同样的四步走：<b>题目 → 已知（我会把每个电流和时长都摆出来）→ 解（完整算式，不跳步）→ 结论（这个数字该改变你哪个决定）</b>。前面说过电流都是量级，所以答案也是量级——<b class="font-semibold text-ink">重点不是记住 64.6 天，而是学会「谁是大头」这个判断方法</b>。你自己项目里的数字肯定和这里不一样，换进去重算一遍就是了。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">换算关系先摆在这儿，省得来回查</div>
+            <p>
+              <code class="icode">1 mAh = 1 mA × 3600 s = 3600 mA·s</code>；反过来 <code class="icode">1 mA·s = 1/3600 mAh ≈ 0.000278 mAh</code>。<br>
+              能量：<code class="icode">1 mAh</code> 在 3.7 V 下是 <code class="icode">3.7 mWh = 13.32 J</code>（1 mWh = 3.6 J）。<br>
+              平均电流：<code class="icode">I_avg = Q_一轮 / T_一轮 + I_深睡</code>；续航：<code class="icode">t = C_可用 / I_avg</code>。
+            </p>
+          </div>
+
+          <h3 id="calc-1" class="mt-7 text-base font-semibold">例题 1：醒一次成本固定，10 分钟 vs 1 分钟</h3>
+
+          <p class="mt-3"><b>题目：</b>一个电池节点，每次醒来都是同一套流程。方案 A 每 10 分钟醒一次，方案 B 每 1 分钟醒一次。两者平均电流差多少倍？续航差多少？（用 1000 mAh 电池，可用容量按 800 mAh 算。）</p>
+
+          <p class="mt-3"><b>已知（每一轮的构成，全都按量级取值）：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>阶段</th><th>时长 t</th><th>电流 I（量级）</th><th>电荷 I × t</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>深睡唤醒 + 外设初始化</td><td>30 ms = 0.03 s</td><td>40 mA</td><td>1.2 mA·s</td></tr>
+                <tr><td>读传感器（I2C）</td><td>20 ms = 0.02 s</td><td>15 mA</td><td>0.3 mA·s</td></tr>
+                <tr><td>连 WiFi + 上报</td><td>3000 ms = 3 s</td><td>100 mA</td><td>300 mA·s</td></tr>
+                <tr><td>断开 + 收尾 + 进睡</td><td>50 ms = 0.05 s</td><td>40 mA</td><td>2.0 mA·s</td></tr>
+                <tr><td colspan="3"><b>一轮合计 Q</b></td><td><b>303.5 mA·s</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>解：</b>先把每轮的电荷换成 mAh，再除以周期时长。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 1 完整算式">
+<pre><code>第一步：一轮消耗的电荷
+  Q = 40×0.03 + 15×0.02 + 100×3 + 40×0.05
+    = 1.2 + 0.3 + 300 + 2.0
+    = 303.5 mA·s
+    = 303.5 / 3600 = 0.0843 mAh
+
+第二步：折成平均电流（I_sleep 按 10 µA = 0.01 mA 算）
+  方案 A（T = 600 s）：I = 303.5 / 600 + 0.01 = 0.5058 + 0.01 = 0.516 mA
+  方案 B（T = 60 s） ：I = 303.5 / 60  + 0.01 = 5.058  + 0.01 = 5.068 mA
+
+第三步：倍数与续航（800 mAh 可用）
+  倍数 = 5.068 / 0.516 = 9.8 倍          （几乎正好是周期的 10 倍）
+  方案 A：800 / 0.516 = 1550 h = 64.6 天
+  方案 B：800 / 5.068 = 157.9 h = 6.6 天
+
+第四步：如果「采样变密、但联网不变稀」呢？（方案 C）
+  每分钟醒一次读传感器（1.5 mA·s），每 10 分钟才连一次网（300 mA·s）
+  每分钟分摊：1.5 + 300/10 = 1.5 + 30 = 31.5 mA·s  →  31.5/60 = 0.525 mA
+  加上深睡：0.525 + 0.01 = 0.535 mA
+  续航 = 800 / 0.535 = 1495 h = 62.3 天</code></pre>
+          </div>
+
+          <p class="mt-3"><b>结论：</b>三条，一条比一条重要。</p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><b class="font-semibold text-ink">唤醒频率对续航的影响接近线性</b>（10 倍频率 ≈ 1/10 续航），因为睡眠电流小到可以忽略。想让续航翻倍，最直接的办法是「醒得少一半」，而不是抠睡眠电流。</li>
+            <li><b class="font-semibold text-ink">一轮 303.5 mA·s 里有 300 是联网</b>（98.8%），读传感器只占 0.3。所以「把传感器从 20 ms 优化到 10 ms」这件事的收益是 0.1%（约 0.05 mA·s），几乎为零。</li>
+            <li><b class="font-semibold text-ink">方案 C 是最值得学的思路：把「采样频率」和「联网频率」解耦。</b>采样从 10 分钟一次提到 1 分钟一次，续航只从 64.6 天掉到 62.3 天（少 3.6%），却把数据密度提高了 10 倍——本地攒着，联网时一次打包发走。低功耗节点的架构设计，本质上就是在这里做取舍。</li>
+          </ul>
+
+          <h3 id="calc-2" class="mt-7 text-base font-semibold">例题 2：联网一次的账，以及要不要挂长连接</h3>
+
+          <p class="mt-3"><b>题目：</b>把例题 1 里那 3 秒的「连 WiFi + 上报」拆开，各步花多少时间、多少电荷、多少能量？再回答一个架构问题：<b>每 10 分钟上报一次，是「断开重连」划算，还是「保持长连接」划算？</b></p>
+
+          <p class="mt-3"><b>已知（各阶段时长与电流，量级）：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>步骤</th><th>干什么</th><th>耗时</th><th>电流</th><th>电荷</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>① 扫描</td><td><code class="icode">esp_wifi_start()</code> + 扫一遍信道找到 AP</td><td>1.2 s</td><td>110 mA</td><td>132 mA·s</td></tr>
+                <tr><td>② 认证 + 关联</td><td>WPA2 四次握手、加入 BSS</td><td>0.3 s</td><td>100 mA</td><td>30 mA·s</td></tr>
+                <tr><td>③ DHCP</td><td>拿 IP、网关、DNS</td><td>0.4 s</td><td>90 mA</td><td>36 mA·s</td></tr>
+                <tr><td>④ DNS</td><td>把服务器域名解析成 IP</td><td>0.05 s</td><td>95 mA</td><td>4.75 mA·s</td></tr>
+                <tr><td>⑤ TCP 握手</td><td>三次握手建连接</td><td>0.05 s</td><td>95 mA</td><td>4.75 mA·s</td></tr>
+                <tr><td>⑥ TLS 握手</td><td>证书验证 + 密钥协商（算得狠、射频也忙）</td><td>0.9 s</td><td>130 mA</td><td>117 mA·s</td></tr>
+                <tr><td>⑦ MQTT</td><td>CONNECT / PUBLISH / 等 ACK</td><td>0.1 s</td><td>120 mA</td><td>12 mA·s</td></tr>
+                <tr><td colspan="2"><b>合计</b></td><td><b>3.0 s</b></td><td>—</td><td><b>336.5 mA·s</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>解：</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2 完整算式：联网 vs 采集，断开 vs 长连">
+<pre><code>第一步：联网一次的电荷与能量
+  Q_wifi = 110×1.2 + 100×0.3 + 90×0.4 + 95×0.05 + 95×0.05 + 130×0.9 + 120×0.1
+         = 132 + 30 + 36 + 4.75 + 4.75 + 117 + 12
+         = 336.5 mA·s
+         = 0.0935 mAh
+  E      = 0.0935 mAh × 13.32 J/mAh = 1.25 J        （按 3.7 V 电池算）
+
+第二步：和「采集本身」比
+  Q_采集 = 1.2 + 0.3 = 1.5 mA·s = 0.000417 mAh
+  E_采集 = 0.000417 × 13.32 = 0.0056 J = 5.6 mJ
+  比值   = 1.25 / 0.0056 = 224 倍
+
+第三步：TLS 占多少
+  117 / 336.5 = 34.8%（三分之一还多，因为它在做非对称运算）
+
+第四步：架构对比（T = 600 s）
+  方案 A 断开重连：
+    I = 336.5 / 600 = 0.561 mA
+    续航 = 800 / 0.561 = 1426 h = 59.4 天
+  方案 B 保持长连接（WIFI_PS_MIN_MODEM 25 mA 常驻）：
+    每 10 分钟发一包：120×0.1 = 12 mA·s → 12/600 = 0.02 mA
+    I = 25 + 0.02 = 25.02 mA
+    续航 = 800 / 25.02 = 32.0 h = 1.33 天
+  倍率 = 25.02 / 0.561 = 44.6 倍（方案 A 胜）
+
+第五步：那多久上报一次，长连接才回本？
+  令 336.5 / T = 25 mA  →  T = 13.5 s
+  如果因为要低延迟必须用 WIFI_PS_NONE（95 mA 常驻）：
+  336.5 / T = 95 mA     →  T = 3.5 s</code></pre>
+          </div>
+
+          <p class="mt-3"><b>结论：</b></p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><b class="font-semibold text-ink">联网的能量是采集本身的 200 倍量级。</b>1.25 J 对比 5.6 mJ。这就是为什么所有电池节点的设计都是「攒着、一起发」，而不是「采一次发一次」。</li>
+            <li><b class="font-semibold text-ink">TLS 握手独自吃掉三分之一的联网电荷。</b>如果服务器支持 TLS 会话复用（session resumption），或者你把连接保活得久一点以避免频繁重握，能省下的是真金白银。反过来，如果为了「安全」每次都重新握手、每次都用最重的加密套件，你要清楚这三分之一的账是付在哪儿的。</li>
+            <li><b class="font-semibold text-ink">每 10 分钟上报一次的场景，断开重连以 45 倍的优势胜出。</b>常连 25 mA 是「一直付钱」，间歇连接是「用的时候付一次」。只有当上报间隔短到 <b>十几秒量级</b>（甚至要求低延迟、必须 <code class="icode">WIFI_PS_NONE</code> 时短到几秒）时，长连接才开始划算。注意这个临界点是个量级，你的扫描时间、TLS 时间、DTIM 配置都会把它挪动，要用实测值重算。</li>
+            <li><b class="font-semibold text-ink">但长连接并不是「只有电费」这一个变量。</b>它省掉了重连带来的路由器认证开销、IP 变化、云端反复看到「设备上下线」告警这些麻烦；间歇连接则要求云端能接受「设备大部分时间是离线的」（离线消息、设备影子这一类机制）。所以真实的决策是「电量 + 云端协议设计」一起做的，别只盯着电流表。</li>
+          </ul>
+
+<h3 id="calc-3" class="mt-7 text-base font-semibold">例题 3：3.7 V 锂电 + LDO，一百 mAh 里能用多少</h3>
+
+          <p class="mt-3"><b>题目：</b>一块标称 3.7 V / 1000 mAh 的锂电池，经 LDO 降到 3.3 V 给 ESP32 供电。① LDO 的效率是多少，浪费了多少？② 如果随手拿了一颗 AMS1117-3.3 会怎样？③ 把温度、放电截止电压、自放电都算上，1000 mAh 里实际能用多少？④ LDO 自己的静态电流吃掉多少？</p>
+
+          <p class="mt-3"><b>解：</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 3 完整算式：LDO 效率与容量折扣">
+<pre><code>① 线性 LDO 的效率（按电池标称电压 3.7 V 算）
+   能量效率 = Vout / Vin = 3.3 / 3.7 = 0.892 = 89.2%
+   浪费 = 10.8%，全部变成 LDO 上的热
+   （电池从 4.2 V 满充放到 3.0 V，效率是变化的：
+     4.2 V 时 3.3/4.2 = 78.6%，3.5 V 时 3.3/3.5 = 94.3%，平均≈89%）
+
+   ※ 注意别把两件事搞混：
+     电荷（mAh）不会打折 —— 线性稳压器的输入电流 ≈ 输出电流
+     打折的是能量（mWh）：多出来的那部分变成热散掉了
+
+② 选错型号：AMS1117-3.3 的压差（dropout）是 1.1 V 量级
+   要稳定输出 3.3 V，输入至少要 3.3 + 1.1 = 4.4 V
+   电池满充才 4.2 V → 输出只有约 3.1 V（已经偏低）
+   放到 3.7 V      → 输出只剩约 2.6 V → ESP32 直接欠压复位
+   结论：3.7 V 锂电 + AMS1117 是经典错误搭配，必须用低压差型号
+        （dropout 几十到一百多 mV 量级的那种）
+
+③ 可用容量折扣（标称 1000 mAh）
+   放电截止：只放到 3.0 V 截止           × 0.90  = 900 mAh
+   温度：   低温环境容量下降 20% 量级     × 0.80  = 720 mAh
+   自放电： 每月 2%~3% 量级               × 0.97  = 698 mAh
+   → 实际可用 ≈ 700 mAh（标称的 70%）
+
+④ LDO 静态电流（它 7×24 小时都在流）
+   高静态（AMS1117 一类，5 mA 量级）：
+     5 mA × 24 h = 120 mAh/天
+     700 / 120 = 5.8 天  ← 电池全被 LDO 吃掉了，芯片省到 10 µA 也没用
+   低静态（HT7333 / SPX3819 一类，50 µA 量级）：
+     0.05 mA × 24 h = 1.2 mAh/天
+     对比方案 A 的 0.516 mA × 24 h = 12.4 mAh/天 → LDO 占 9.7%</code></pre>
+          </div>
+
+          <p class="mt-3"><b>结论：</b></p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><b class="font-semibold text-ink">压差（dropout）比效率更容易要命。</b>效率差 10% 你只是少用几天；dropout 选错，设备在电池还有一半电的时候就欠压复位了。给锂电供电的 3.3 V 系统，务必选低压差 LDO，或者干脆用降压 DC-DC（原理与散热账见 <a class="text-brand-600 dark:text-brand-300" href="ee-power-supply.html">电源与功率：整流滤波、LDO 与 DC-DC</a>）。</li>
+            <li><b class="font-semibold text-ink">标称 1000 mAh 的电池，能用的只有 700 mAh 量级。</b>所有「按标称容量算出来的续航」都要先乘 0.7 这个系数（户外低温场景乘 0.6），否则你的预期一定会落空。例题 1 里我用了 800 mAh，那是偏乐观的假设，真实值应该在 700 mAh 上下。</li>
+            <li><b class="font-semibold text-ink">LDO 静态电流是第一个要查的参数，不是最后一个。</b>5 mA 还是 50 µA，差别是「电池 6 天没电」和「LDO 只占 10%」。买模块、选芯片之前，先把这一项从手册里翻出来——这也是「平均电流算出来 20 µA 实测 5 mA」的第一元凶。</li>
+          </ul>
+
+          <h3 id="calc-4" class="mt-7 text-base font-semibold">例题 4：纸面 52 天、实测 15 天，差的在哪</h3>
+
+          <p class="mt-3"><b>题目：</b>还是例题 1 的方案 A（每 10 分钟醒一次），这次用例题 3 得到的 700 mAh 可用容量，再算上 LDO 的 50 µA 静态电流。纸面续航是多少？如果实测只有 15 天，多出来的那部分电流该往哪儿找？</p>
+
+          <p class="mt-3"><b>解：</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 4 完整算式：把差额一项项归位">
+<pre><code>第一步：纸面续航
+  I_avg = 0.516 mA（例题 1 方案 A） + 0.05 mA（LDO 静态）
+        = 0.566 mA
+  t = 700 mAh / 0.566 mA = 1237 h = 51.5 天 ≈ 52 天
+
+第二步：实测 15 天，反推真实平均电流
+  I_real = 700 mAh / (15 × 24 h) = 700 / 360 = 1.944 mA
+  差额 = 1.944 - 0.566 = 1.378 mA  ← 这 1.38 mA 必须有人认领
+
+第三步：逐项归位（每一项都能单独测出来）
+  USB 串口芯片 + 电源指示 LED       0.80 mA
+  深睡电流不是 10 µA 而是 0.30 mA   +0.29 mA
+  传感器没有真正休眠                0.20 mA
+  每轮联网实际 5 s（扫描慢/重试）    +0.37 mA
+  ---------------------------------------------
+  合计                              1.66 mA
+  与差额 1.38 mA 同量级 → 没有大块被漏掉</code></pre>
+          </div>
+
+          <p class="mt-3">这个「归位」的过程本身就是诊断方法。每一项的确认手段都在下一列：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>怀疑对象</th><th>量级</th><th>怎么确认</th><th>怎么解决</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>USB 串口芯片 / 电源指示 LED</td>
+                  <td>0.8 mA</td>
+                  <td>拔掉 USB 线测一次、拆掉 LED 测一次，两个差值就是它们</td>
+                  <td>量产板不放 USB 芯片；LED 改由 GPIO 控制，平时关掉</td>
+                </tr>
+                <tr>
+                  <td>深睡电流偏高</td>
+                  <td>0.3 mA（手册 10 µA）</td>
+                  <td>万用表 µA 档串在电池回路里，让它睡满一分钟看读数</td>
+                  <td>换低静态 LDO、确认没有 GPIO 灌电流、量一下 LDO 输入输出差</td>
+                </tr>
+                <tr>
+                  <td>传感器没休眠</td>
+                  <td>0.2 mA</td>
+                  <td>把传感器供电断开再测整机电流，差值就是它</td>
+                  <td>发休眠命令、或用 GPIO 控制它的供电（用 MOS 管开关，别用三极管倒灌）</td>
+                </tr>
+                <tr>
+                  <td>联网时间比预期长</td>
+                  <td>每轮多 2 s ≈ +0.37 mA</td>
+                  <td>在串口打时间戳：从 <code class="icode">esp_wifi_start()</code> 到收到 ACK 各花多久</td>
+                  <td>把 SCAN 换成「记住 BSSID + 信道」的快速连接、静态 IP 跳过 DHCP、缩小 TLS 开销</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>结论：</b></p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><b class="font-semibold text-ink">纸面值与实测差 3 倍是常态，不是异常。</b>差在哪儿是可以一项项量出来的，量不出来才叫玄学。做法固定：<b>先算纸面 → 实测 → 反推真实平均电流 → 逐项关设备对比 → 把差额归位</b>。</li>
+            <li><b class="font-semibold text-ink">如果四项都排除了还差得远，怀疑电芯。</b>标称 1000 mAh 实际 850 mAh（虚标、老化、低温）会让续航直接少 15%~30%，而这在软件里怎么优化都补不回来。</li>
+            <li><b class="font-semibold text-ink">纸面算 52 天、实测 15 天，最先查的永远是「板子上那几颗与低功耗无关的元件」</b>——LDO、USB 芯片、LED。它们在原理图上离 ESP32 很远，在电流表上离你最近。</li>
+          </ul>
+
+          <h3 id="calc-5" class="mt-7 text-base font-semibold">例题 5：唤醒电路自己的漏电</h3>
+
+          <p class="mt-3"><b>题目：</b>一个 ext0 按键唤醒节点，按键一端接 RTC IO 33、另一端接地，用内部上拉。① 按住 10 秒多花多少电荷？② 换成外部 10 kΩ 上拉呢？③ 如果按键被一直按住（比如被货物压住、被外壳卡住），会怎么样？（RTC IO 内部上拉按几十 kΩ 量级，取 45 kΩ。）</p>
+
+          <p class="mt-3"><b>解：</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 5 完整算式：上拉电阻与反复唤醒">
+<pre><code>① 内部上拉 45 kΩ，按下时
+   电流 = 3.3 V / 45 kΩ = 73.3 µA
+   按住 10 s：Q = 73.3 µA × 10 s = 733 µA·s = 0.000204 mAh
+   对比一轮的 303.5 mA·s = 303500 µA·s → 只占 0.24%
+
+② 外部 10 kΩ 上拉到 3.3 V，按下时
+   电流 = 3.3 V / 10 kΩ = 330 µA   （是内部上拉的 4.5 倍）
+   按住 10 s：Q = 3300 µA·s = 0.000917 mAh（依旧远小于一轮联网）
+
+③ 一直按住（按 1 小时算）
+   内部上拉：73.3 µA × 3600 s = 263880 µA·s = 0.0733 mAh
+   对比深睡 10 µA：73.3 µA 是它的 7.3 倍，这一小时的睡眠被「加价」了 7 倍多
+   一天一直按住：73.3 µA × 24 h = 1.76 mAh/天，占 12.4 mAh/天的 14%
+
+   ★ 真正的灾难不在漏电，而在「反复唤醒」：
+     电平型唤醒源只要条件持续成立，就会不停地叫醒芯片 ——
+     醒来 → 跑完整流程 → 又睡 → 条件还成立 → 立刻又醒
+     假设 1 秒被叫醒 2 次，每轮 303.5 mA·s
+     I_avg = 2 × 303.5 mA·s / 1 s = 607 mA
+     续航 = 700 mAh / 607 mA = 1.15 h  ← 一个多小时就没了</code></pre>
+          </div>
+
+          <p class="mt-3"><b>结论：</b></p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><b class="font-semibold text-ink">上拉电阻的漏电是「按下才发生、而且量级不大」，可以接受</b>；用内部上拉比外部 10 kΩ 省 4.5 倍，能省就省，但别为它失眠。真正要警惕的是<b>常驻的分压/上拉</b>（比如电池电压检测的那两个电阻，如果 100 kΩ 分压，3.7 V 下常年流 18.5 µA，接近深睡电流的两倍，这个必须用 MOS 管开关或加大电阻）。</li>
+            <li><b class="font-semibold text-ink">反复唤醒是低功耗节点的头号杀手，比任何静态漏电都严重。</b>电平触发的唤醒源（ext0 / ext1）在条件持续成立时会反复触发，所以按键处理里<b>必须</b>有「等松开」的逻辑，并且给它一个超时（比如 5 秒还没松开就放弃、直接回去睡，但要保证回去睡之后不会再立刻醒）。同样的问题也出现在干簧管、水浸传感器、门磁这类「一直被触发」的输入上。</li>
+            <li><b class="font-semibold text-ink">选触发极性时，尽量让「平时」是触发条件的反面。</b>例如按键平时松开（高电平 / 不满足条件），按下才满足——这样「故障状态」不会变成「持续唤醒状态」。反过来把「松手」设成唤醒条件，一次卡住就能把电池清空。</li>
+          </ul>
+
+</section>
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="mt-14 text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4">下面四个配方都是<b>可以直接编译烧录的完整程序</b>（ESP-IDF 5.x，目标芯片 ESP32；换成 S3 / C3 时把 RTC IO 编号和 <code class="icode">esp_pm_config_t</code> 的字段上限按手册调整即可）。它们依次解决四件事：<b>定时醒来</b>、<b>按键唤醒</b>、<b>醒着的时候也省电</b>、<b>把前三样拼成一个真正能挂上墙的节点</b>。最后给一张上电前的检查表。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">烧录前先确认三件事</div>
+            <p>
+              <b>①</b> 电源管理相关的配方三需要先在 menuconfig 里开 <code class="icode">CONFIG_PM_ENABLE</code>，并且在 <code class="icode">CMakeLists.txt</code> 的 <code class="icode">REQUIRES</code> 或组件依赖里带上 <code class="icode">esp_pm</code>；<br>
+              <b>②</b> 配方里的时间、GPIO 编号都写成常量，方便你改；<br>
+              <b>③</b> 调低功耗时把串口打印当成「测量仪器」用——每一轮都打印唤醒原因和耗时，别靠猜。
+            </p>
+          </div>
+
+          <h3 id="sub-mcu-timer" class="mt-7 text-base font-semibold">配方一：定时唤醒的最小骨架</h3>
+
+          <p class="mt-3">这是最常用的一块模板：<b>每 10 秒醒一次 → 打印唤醒原因和累计计数 → 做真正的活 → 收尾 → 回 deep sleep</b>。它包含了三个必须有的东西：唤醒原因分支、<code class="icode">RTC_DATA_ATTR</code> 计数器、以及睡前的收尾动作。把 <code class="icode">SLEEP_US</code> 改成 600 秒（10 分钟）就变成例题里那个节点。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="配方一：定时唤醒的 deep sleep 最小骨架（完整可编译）">
+<pre><code>/*
+ * 配方一：定时唤醒的 deep sleep 最小骨架
+ * 目标芯片：ESP32（ESP-IDF 5.x），S3 / C3 也能直接编译
+ * 行为：每 10 秒醒一次，打印「第几次醒、为什么醒」，然后回去睡
+ */
+#include &lt;stdio.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_sleep.h"
+#include "esp_system.h"
+#include "esp_timer.h"      /* esp_timer_get_time()：真实时间基准，不受 DFS 影响 */
+
+#define SLEEP_US (10ULL * 1000 * 1000)     /* 10 秒；注意 ULL，别用 int 算乘法 */
+
+/* ↓↓↓ 这三个变量睡过 deep sleep 之后仍然在（住在 RTC 内存里） */
+RTC_DATA_ATTR static uint32_t s_wake_count   = 0;   /* 被唤醒的次数 */
+RTC_DATA_ATTR static uint64_t s_awake_us_sum = 0;   /* 累计醒着的微秒数 */
+RTC_DATA_ATTR static uint8_t  s_last_ok      = 0;   /* 上一轮的结果（示例用） */
+
+static const char *cause_name(esp_sleep_wakeup_cause_t cause)
+{
+    switch (cause) {
+    case ESP_SLEEP_WAKEUP_UNDEFINED: return "上电/复位（不是被唤醒的）";
+    case ESP_SLEEP_WAKEUP_TIMER:     return "RTC 定时器到点";
+    case ESP_SLEEP_WAKEUP_EXT0:      return "ext0 引脚电平变化";
+    case ESP_SLEEP_WAKEUP_EXT1:      return "ext1 引脚组满足条件";
+    case ESP_SLEEP_WAKEUP_TOUCHPAD:  return "触摸引脚";
+    case ESP_SLEEP_WAKEUP_ULP:       return "ULP 协处理器";
+    default:                         return "其他/未知";
+    }
+}
+
+/* 回深睡前的收尾：把该存的存好、该发的发完 */
+static void prepare_for_sleep(void)
+{
+    s_awake_us_sum += (uint64_t)esp_timer_get_time();   /* 记下这一轮醒了多久 */
+    fflush(stdout);                                     /* 把缓冲区推出去 */
+    vTaskDelay(pdMS_TO_TICKS(20));                      /* 给 UART 一点时间发完 */
+}
+
+void app_main(void)
+{
+    const int64_t t_start = esp_timer_get_time();       /* 醒来那一刻的时间戳 */
+    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+
+    if (cause == ESP_SLEEP_WAKEUP_UNDEFINED) {
+        /* 只有这里才是「真正的第一次」：做一辈子只做一次的初始化 */
+        s_wake_count   = 0;
+        s_awake_us_sum = 0;
+        s_last_ok      = 0;
+        printf("=== 首次启动：上电或复位 ===\n");
+    } else {
+        s_wake_count++;
+        printf("=== 第 %lu 次被唤醒 ===\n", (unsigned long)s_wake_count);
+    }
+
+    printf("唤醒原因：%s（枚举值 %d）\n", cause_name(cause), (int)cause);
+    printf("复位原因：%d（%d 就是 ESP_RST_DEEPSLEEP，可用来交叉验证）\n",
+           (int)esp_reset_reason(), (int)ESP_RST_DEEPSLEEP);
+    printf("RTC 内存里记着的累计醒着时长：%llu us\n",
+           (unsigned long long)s_awake_us_sum);
+
+    /* ------- 真正的工作放这里：读传感器、算一算、准备要发的东西 ------- */
+    s_last_ok = 1;      /* 示例：假装一切正常 */
+
+    printf("本轮醒了 %lld ms，准备睡觉\n",
+           (long long)((esp_timer_get_time() - t_start) / 1000));
+
+    prepare_for_sleep();
+
+    /* 设定唤醒源：RTC 定时器（单位微秒），必须在 start 之前调用 */
+    esp_sleep_enable_timer_wakeup(SLEEP_US);
+
+    /* 进入深睡：等价于软复位，醒来从 app_main 第一行重跑 */
+    esp_deep_sleep_start();
+
+    /* 这一行永远不会执行到；写在这里是为了提醒你它不会执行 */
+    printf("如果你看到这一行，说明深睡没有生效\n");
+}</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这个骨架里每一块的存在理由</div>
+            <p>
+              <b><code class="icode">t_start</code> 放在第一行</b>：用来量「这一轮醒了多久」，是后面优化联网时间的基础数据。<br>
+              <b><code class="icode">UNDEFINED</code> 单独分支</b>：不区分它，你的「上电初始化」每轮都会重跑一遍。<br>
+              <b><code class="icode">s_awake_us_sum</code> 用 <code class="icode">uint64_t</code></b>：RTC 内存里也要按类型正确对齐，别用 <code class="icode">int</code> 存微秒（会溢出）。<br>
+              <b><code class="icode">prepare_for_sleep()</code></b>：把「睡前的仪式」集中到一个函数里，将来加传感器休眠、拉灭 LED、保存状态都往这里塞，不会漏。<br>
+              <b><code class="icode">fflush(stdout)</code> + 20 ms 延时</b>：保证最后一行日志真的发出去（<code class="icode">esp_deep_sleep_start()</code> 之后串口立刻断电，缓冲区里的东西就永远看不到了）。
+            </p>
+          </div>
+
+          <h3 id="sub-mcu-ext0" class="mt-7 text-base font-semibold">配方二：ext0 按键唤醒完整实现</h3>
+
+          <p class="mt-3"><b>接线：</b>按键一端接 <code class="icode">GPIO33</code>（属于 RTC IO），另一端接 GND；用 RTC IO 的内部上拉，不需要外部电阻。<b>行为：</b>平时深睡；按下按键醒来，打印一次，<b>等按键松开</b>（最多 5 秒）再回去睡。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="配方二：ext0 按键唤醒（完整可编译，含等松开逻辑）">
+<pre><code>/*
+ * 配方二：ext0 按键唤醒
+ * 接线：按键一端接 GPIO33（RTC IO），另一端接 GND；用内部上拉
+ * 行为：按下 → 醒来 → 打印 → 等松开（超时 5 秒）→ 回深睡
+ */
+#include &lt;stdio.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "driver/rtc_io.h"     /* rtc_gpio_* 家族都在这里 */
+#include "esp_sleep.h"
+#include "esp_timer.h"
+
+/* 必须是 RTC IO！ESP32 的 RTC IO：0/2/4/12~15/25~27/32~39（其他型号要查手册） */
+#define WAKE_GPIO           GPIO_NUM_33
+#define RELEASE_TIMEOUT_MS  5000        /* 等松开的最长时间 */
+
+RTC_DATA_ATTR static uint32_t s_press_count = 0;
+
+/* 醒来之后：把引脚从 RTC IO 手里要回来，按普通 GPIO 配置 */
+static void button_io_after_wakeup(void)
+{
+    rtc_gpio_deinit(WAKE_GPIO);         /* ← 不做这一步，电平会一直读到 0 */
+    rtc_gpio_hold_dis(WAKE_GPIO);       /* 如果睡前一 hold 过，这里要解开 */
+
+    gpio_config_t io = {
+        .pin_bit_mask = 1ULL &lt;&lt; WAKE_GPIO,
+        .mode         = GPIO_MODE_INPUT,
+        .pull_up_en   = GPIO_PULLUP_ENABLE,      /* 唤醒后数字域的上下拉可用 */
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type    = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&amp;io);
+}
+
+/* 睡前：把引脚交给 RTC IO，并用 RTC 版上下拉（数字域的上下拉此时没电） */
+static void button_io_before_sleep(void)
+{
+    rtc_gpio_init(WAKE_GPIO);
+    rtc_gpio_set_direction(WAKE_GPIO, RTC_GPIO_MODE_INPUT_ONLY);
+    rtc_gpio_pullup_en(WAKE_GPIO);      /* ← 关键：rtc_gpio_ 前缀才管深睡 */
+    rtc_gpio_pulldown_dis(WAKE_GPIO);
+}
+
+/* 电平型唤醒源的必备动作：等到按键松开（带超时） */
+static void wait_for_release(void)
+{
+    const int64_t t0 = esp_timer_get_time();
+    while (gpio_get_level(WAKE_GPIO) == 0) {              /* 按下 = 低电平 */
+        if ((esp_timer_get_time() - t0) &gt; (int64_t)RELEASE_TIMEOUT_MS * 1000) {
+            printf("按键 5 秒还没松开，超时放弃\n");
+            break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+void app_main(void)
+{
+    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+
+    if (cause == ESP_SLEEP_WAKEUP_EXT0) {
+        s_press_count++;
+        printf("按键唤醒：第 %lu 次\n", (unsigned long)s_press_count);
+        button_io_after_wakeup();
+        wait_for_release();
+    } else {
+        printf("首次启动（原因 %d），初始化引脚\n", (int)cause);
+        s_press_count = 0;
+        button_io_after_wakeup();
+    }
+
+    /* ------- 醒来要干的事：发一包数据、亮一下灯、驱动一次继电器 ------- */
+
+    printf("干完活了，累计按下 %lu 次，准备睡\n", (unsigned long)s_press_count);
+
+    button_io_before_sleep();           /* 先把引脚交回 RTC IO */
+    fflush(stdout);
+    vTaskDelay(pdMS_TO_TICKS(20));
+
+    /* 0 = 低电平唤醒，1 = 高电平唤醒 */
+    esp_sleep_enable_ext0_wakeup(WAKE_GPIO, 0);
+    printf("深睡中，按下 GPIO%d 唤醒\n", (int)WAKE_GPIO);
+    fflush(stdout);
+
+    esp_deep_sleep_start();
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这段代码还有一个「物理层面」的隐患，必须知道</div>
+            <p>
+              ext0 是<b>电平触发</b>：只要引脚还停在低电平，深睡之后它会被立刻再次唤醒。上面用「等松开 + 5 秒超时」能挡住正常操作，但如果按键被外壳卡住、被货物压住，超时之后还是会进入「醒了就睡、睡了就醒」的循环——每秒醒两次就足以让平均电流飙到几百毫安（见例题 5）。<br>
+              工程上的解法有两条：<b>① 结构上别让按键能长期被压住</b>；<b>② 电路上把「持续低电平」变成「窄脉冲」</b>，比如用一个 RC 微分网络（100 kΩ + 100 nF 量级）或带锁存的中断输出传感器。软件层面能做的只有「等松开」，它挡不住硬件一直按着——这一点必须在设计阶段就想清楚。
+            </p>
+          </div>
+
+          <p class="mt-3"><b>验证方法：</b>烧录后先不接按键，直接 <code class="icode">idf.py monitor</code> 看首次启动正常；然后用手按住按键放掉，确认打印「按键唤醒：第 1 次」；再按住不放 6 秒，确认出现「超时放弃」；最后用万用表 µA 档串在电池上看深睡电流——如果读到几百 µA 而不是几十 µA，先低头看看那颗电源指示灯还在不在亮。</p>
+
+<h3 id="sub-mcu-pm" class="mt-7 text-base font-semibold">配方三：DFS + 自动 light sleep + 锁</h3>
+
+          <p class="mt-3">这个配方解决的是<b>「醒着的时候怎么少喝一口电」</b>：让 CPU 在空闲时自动降到 40 MHz，在所有任务都阻塞时自动进 light sleep；同时用一个 <code class="icode">ESP_PM_CPU_FREQ_MAX</code> 锁，把「必须跑在固定主频下」的区段保护起来。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">前提：两个 menuconfig 开关，缺一个都不生效</div>
+            <p>
+              <b>①</b> <code class="icode">Component config → Power Management → [*] Support for power management</code>（即 <code class="icode">CONFIG_PM_ENABLE=y</code>）——没有它，<code class="icode">esp_pm_configure()</code> 直接返回错误，编译时也找不到 <code class="icode">esp_pm.h</code>。<br>
+              <b>②</b> <code class="icode">Component config → FreeRTOS → [*] Use tickless idle</code>（即 <code class="icode">CONFIG_FREERTOS_USE_TICKLESS_IDLE=y</code>）——没有它，DFS 还能工作，但<b>自动 light sleep 永远不会发生</b>（系统找不到那个「所有任务都睡着」的空隙）。
+            </p>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="配方三：esp_pm_configure + esp_pm_lock（完整可编译）">
+<pre><code>/*
+ * 配方三：动态调频 DFS + 自动 light sleep + 一把保护锁
+ * 前提（menuconfig）：
+ *   CONFIG_PM_ENABLE=y                      （Power Management → Support for power management）
+ *   CONFIG_FREERTOS_USE_TICKLESS_IDLE=y     （FreeRTOS → Use tickless idle）
+ * 行为：空闲时 CPU → 40 MHz；所有任务阻塞时自动进 light sleep；
+ *       read_sensor_strict_timing() 执行期间锁住最高主频，不允许降频
+ */
+#include &lt;stdio.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_pm.h"
+#include "esp_timer.h"
+#include "driver/gpio.h"
+#include "rom/ets_sys.h"    /* ets_delay_us：按 CPU 周期计数，DFS 下实等时间会变 */
+
+#define SENSOR_PIN  GPIO_NUM_4
+
+static esp_pm_lock_handle_t s_freq_lock;   /* 保护「不能被降频」的区段 */
+
+/* 一个「对主频敏感」的区段：时序必须准，不能被降频打乱 */
+static void read_sensor_strict_timing(void)
+{
+    /* 拿锁：这段代码期间 CPU 主频被顶到 max_freq_mhz */
+    ESP_ERROR_CHECK(esp_pm_lock_acquire(s_freq_lock));
+
+    gpio_set_level(SENSOR_PIN, 1);
+    ets_delay_us(500);              /* 若主频被降，这里的实等时间会明显改变 */
+    gpio_set_level(SENSOR_PIN, 0);
+
+    /* 放锁：系统又可以自由降频/进 light sleep 了 */
+    ESP_ERROR_CHECK(esp_pm_lock_release(s_freq_lock));
+}
+
+static void worker_task(void *arg)
+{
+    while (1) {
+        read_sensor_strict_timing();
+        /* 关键：用 vTaskDelay 让任务真的阻塞。
+         * 如果这里写成 while(1){} 空转，自动 light sleep 一次也不会发生。 */
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+}
+
+void app_main(void)
+{
+    /* 1) 电源管理配置：只要用 WiFi/蓝牙，就必须在 esp_wifi_init() 之前调用 */
+    esp_pm_config_t pm_config = {
+        .max_freq_mhz       = 240,      /* 忙的时候给足 */
+        .min_freq_mhz       = 40,       /* 闲的时候降到这里（别低于 XTAL 档） */
+        .light_sleep_enable = true,     /* 允许自动 light sleep */
+    };
+    ESP_ERROR_CHECK(esp_pm_configure(&amp;pm_config));
+
+    /* 2) 创建一把锁：类型 = 「CPU 频率不许低于最高」 */
+    ESP_ERROR_CHECK(esp_pm_lock_create(ESP_PM_CPU_FREQ_MAX, 0, "sensor",
+                                       &amp;s_freq_lock));
+
+    /* 3) 普通外设初始化 */
+    gpio_config_t io = {
+        .pin_bit_mask = 1ULL &lt;&lt; SENSOR_PIN,
+        .mode         = GPIO_MODE_OUTPUT,
+        .pull_up_en   = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type    = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&amp;io);
+
+    /* 4) 起一个干活的低优先级任务 */
+    xTaskCreate(worker_task, "worker", 4096, NULL, 5, NULL);
+
+    /* 5) 主任务什么都不做：阻塞得越彻底，light sleep 的窗口越长 */
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(10000));
+        printf("空闲 10 s（每打印一次都会短暂唤醒系统）\n");
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">三种锁怎么选：一句话判断</div>
+            <p>
+              <b><code class="icode">ESP_PM_CPU_FREQ_MAX</code></b>——「这段时间里 CPU 必须跑在最高主频」。用在软件时序、周期计数、<code class="icode">ets_delay_us</code> 这类与主频挂钩的区段。它是三者里最贵的（CPU 一点也降不下来）。<br>
+              <b><code class="icode">ESP_PM_APB_FREQ_MAX</code></b>——「这段时间里 APB 总线时钟要保持最高」。用在 SPI 主机、SDIO、DAC 之类时钟源自 APB 的外设上。<b>注意它比你想的更贵</b>：APB 时钟是从 CPU 时钟分频来的，把 APB 顶到最高，等于要求 CPU 也不能低于某个频率（document 里写明它会隐含地抬高 CPU 频率下限），所以别拿它当「轻量锁」用。<br>
+              <b><code class="icode">ESP_PM_NO_LIGHT_SLEEP</code></b>——「这段时间里不许进 light sleep」，但允许降频。用在正在收发串口、正在写 Flash、正在等待一个毫秒级事件的区段。
+            </p>
+          </div>
+
+          <p class="mt-3"><b>怎么验证生效了：</b>① 先量一次「不开 PM」的平均电流，再量一次开了 PM 的，差值就是收益；② 用 <code class="icode">esp_pm_dump_locks(stdout)</code>（需要 <code class="icode">CONFIG_PM_LOCK_PROFILING</code>）把当前所有锁和持有者打印出来，排查「谁一直拿着锁不放」；③ 把 <code class="icode">worker_task</code> 里的 2000 ms 改成 10 ms，你会看到平均电流立刻上升一个量级——因为 light sleep 的窗口被切碎了。</p>
+
+          <h3 id="sub-mcu-node" class="mt-7 text-base font-semibold">配方四：每 10 分钟一轮的完整节点</h3>
+
+          <p class="mt-3">现在把前面三样拼起来，做成一个<b>真正能挂上墙的节点</b>：每 10 分钟醒来 → 读传感器 → 连 WiFi → 上报 → 断开 → deep sleep；失败时把下一次的间隔缩短到 1 分钟重试；用一个 RTC 计数器记录连败次数。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">先看这笔账，再读代码</div>
+            <p>
+              一轮里真正「干活」的是读传感器（几十微安，毫秒级），费电的是<b>联网</b>：扫描 + 认证 + DHCP + DNS + TCP + TLS 加起来 3 秒量级、336.5 mA·s ≈ 0.0935 mAh ≈ 1.25 J（例题 2 的完整算式）。<b>它比采集本身贵两个数量级</b>，所以整个程序的骨架都在围绕「怎么把联网这件事做得又快又少」：能记住 BSSID 就不扫描、能用静态 IP 就不等 DHCP、能一次连上就不重连、能上报完立刻断开就不挂着。<b>这就是低功耗节点最重要的设计决策——不是「怎么省掉那 10 µA 的睡眠电流」，而是「怎么少醒一次、少连一次」。</b>
+            </p>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="配方四：10 分钟一轮的低功耗节点（完整可编译，含失败重试）">
+<pre><code>/*
+ * 配方四：每 10 分钟一轮的低功耗节点
+ * 流程：醒来 → 读传感器 → 连 WiFi → 上报 → 断开 → deep sleep
+ *       失败 → 下一轮间隔缩短到 1 分钟重试
+ * 目标芯片：ESP32（ESP-IDF 5.x）
+ */
+#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "esp_system.h"
+#include "esp_sleep.h"
+#include "esp_timer.h"
+#include "esp_wifi.h"
+#include "esp_event.h"
+#include "esp_netif.h"
+#include "nvs_flash.h"
+#include "lwip/sockets.h"
+
+#define WIFI_SSID        "McuStudy-Lab"      /* 换成你自己的 */
+#define WIFI_PASSWORD    "12345678"
+#define SERVER_IP        "192.168.1.100"     /* 换成你的服务器 */
+#define SERVER_PORT      9000
+
+#define PERIOD_NORMAL_S  600                 /* 正常：10 分钟一轮 */
+#define PERIOD_RETRY_S   60                  /* 失败：1 分钟后再试 */
+#define WIFI_TIMEOUT_MS  8000                /* 联网总超时，超了就放弃这一轮 */
+
+/* ↓↓↓ 睡过 deep sleep 还在的变量：计数器 + 上一轮结果 + 连败次数 */
+RTC_DATA_ATTR static uint32_t s_round      = 0;   /* 一共醒过多少轮 */
+RTC_DATA_ATTR static uint32_t s_fail_streak = 0;  /* 连续失败了几轮 */
+RTC_DATA_ATTR static uint8_t  s_last_ok    = 0;
+
+static EventGroupHandle_t s_wifi_eg;
+#define BIT_GOT_IP   BIT0
+#define BIT_FAIL     BIT1
+
+static void net_event_handler(void *arg, esp_event_base_t base,
+                              int32_t id, void *data)
+{
+    if (base == WIFI_EVENT &amp;&amp; id == WIFI_EVENT_STA_START) {
+        esp_wifi_connect();
+    } else if (base == WIFI_EVENT &amp;&amp; id == WIFI_EVENT_STA_DISCONNECTED) {
+        xEventGroupSetBits(s_wifi_eg, BIT_FAIL);
+    } else if (base == IP_EVENT &amp;&amp; id == IP_EVENT_STA_GOT_IP) {
+        xEventGroupSetBits(s_wifi_eg, BIT_GOT_IP);
+    }
+}
+
+/* 读传感器：示例用内部温度以外的假数据；真实项目里加上「给传感器上电」的 GPIO */
+static float sensor_read(void)
+{
+    static const float fake[] = {23.5f, 23.7f, 24.1f, 24.0f, 23.8f};
+    return fake[s_round % 5];
+}
+
+static bool wifi_connect(void)
+{
+    s_wifi_eg = xEventGroupCreate();
+
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_netif_create_default_wifi_sta();
+
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&amp;cfg));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                               &amp;net_event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
+                                               &amp;net_event_handler, NULL));
+
+    /* 只连「记下来的那个 AP」：跳过全信道扫描，能省几百毫秒 */
+    wifi_config_t wc = { 0 };
+    strlcpy((char *)wc.sta.ssid, WIFI_SSID, sizeof(wc.sta.ssid));
+    strlcpy((char *)wc.sta.password, WIFI_PASSWORD, sizeof(wc.sta.password));
+    wc.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    wc.sta.scan_method        = WIFI_FAST_SCAN;
+
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &amp;wc));
+    ESP_ERROR_CHECK(esp_wifi_start());
+
+    EventBits_t bits = xEventGroupWaitBits(s_wifi_eg, BIT_GOT_IP | BIT_FAIL,
+                                           pdFALSE, pdFALSE,
+                                           pdMS_TO_TICKS(WIFI_TIMEOUT_MS));
+    if (bits &amp; BIT_GOT_IP) {
+        printf("联网成功，耗时 %lld ms\n",
+               (long long)(esp_timer_get_time() / 1000));
+        return true;
+    }
+    printf("联网失败（超时或断开）\n");
+    return false;
+}
+
+static void wifi_disconnect_and_stop(void)
+{
+    esp_wifi_disconnect();
+    esp_wifi_stop();          /* 射频彻底关掉，比「保持连接」省得多 */
+    esp_wifi_deinit();
+}
+
+/* 上报：示例用裸 TCP；换 MQTT / HTTPS 只需要替换这个函数 */
+static bool report_once(float value)
+{
+    char payload[96];
+    int len = snprintf(payload, sizeof(payload),
+                       "round=%lu value=%.2f fail=%lu",
+                       (unsigned long)s_round, value,
+                       (unsigned long)s_fail_streak);
+
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock &lt; 0) {
+        return false;
+    }
+
+    struct sockaddr_in dest = { 0 };
+    dest.sin_family      = AF_INET;
+    dest.sin_port        = htons(SERVER_PORT);
+    dest.sin_addr.s_addr = inet_addr(SERVER_IP);
+
+    struct timeval tv = { .tv_sec = 5, .tv_usec = 0 };
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &amp;tv, sizeof(tv));
+    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &amp;tv, sizeof(tv));
+
+    bool ok = false;
+    if (connect(sock, (struct sockaddr *)&amp;dest, sizeof(dest)) == 0) {
+        ok = (send(sock, payload, len, 0) == len);
+    }
+    close(sock);
+
+    printf("上报%s：%s\n", ok ? "成功" : "失败", payload);
+    return ok;
+}
+
+/* 睡前收尾：算下一轮睡多久，然后武装闹钟 */
+static void go_to_sleep(bool this_round_ok)
+{
+    s_last_ok = this_round_ok ? 1 : 0;
+    s_fail_streak = this_round_ok ? 0 : (s_fail_streak + 1);
+
+    uint32_t period_s = PERIOD_NORMAL_S;
+    if (!this_round_ok) {
+        /* 失败时缩短间隔：1 次失败 → 1 分钟；连续失败多了就放宽到 2 分钟，
+         * 避免「一直连不上、一直狂醒」把电池耗光 */
+        period_s = (s_fail_streak &lt;= 5) ? PERIOD_RETRY_S : (PERIOD_RETRY_S * 2);
+    }
+
+    printf("第 %lu 轮结束（%s），连败 %lu 次，%lu 秒后再醒\n",
+           (unsigned long)s_round, this_round_ok ? "成功" : "失败",
+           (unsigned long)s_fail_streak, (unsigned long)period_s);
+    fflush(stdout);
+    vTaskDelay(pdMS_TO_TICKS(20));      /* 给 UART 时间把日志发完 */
+
+    esp_sleep_enable_timer_wakeup((uint64_t)period_s * 1000ULL * 1000ULL);
+    esp_deep_sleep_start();             /* 不返回 */
+}
+
+void app_main(void)
+{
+    const int64_t t_start = esp_timer_get_time();
+    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+
+    if (cause != ESP_SLEEP_WAKEUP_UNDEFINED) {
+        s_round++;                      /* 被唤醒：轮次 +1 */
+    } else {
+        s_round = 0;                    /* 上电/复位：从头开始 */
+        s_fail_streak = 0;
+        s_last_ok = 0;
+    }
+
+    printf("=== 第 %lu 轮开始（唤醒原因 %d，上轮 %s）===\n",
+           (unsigned long)s_round, (int)cause,
+           s_last_ok ? "成功" : "失败/首次");
+
+    /* NVS 是 WiFi 驱动要用的，每次深睡唤醒后都要重新初始化 */
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ESP_ERROR_CHECK(nvs_flash_init());
+    }
+
+    /* 1) 采集：这是最省电的一步（几十微安、毫秒级） */
+    float value = sensor_read();
+    printf("采集到 %.2f，用时 %lld ms\n", value,
+           (long long)((esp_timer_get_time() - t_start) / 1000));
+
+    /* 2) 联网 + 上报：这是最费电的一步（百毫安、秒级） */
+    bool ok = false;
+    if (wifi_connect()) {
+        ok = report_once(value);
+        wifi_disconnect_and_stop();
+    }
+
+    printf("本轮总耗时 %lld ms\n",
+           (long long)((esp_timer_get_time() - t_start) / 1000));
+
+    /* 3) 回深睡（下一轮的间隔在这里决定） */
+    go_to_sleep(ok);
+}</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这四行注释比代码值钱</div>
+            <p>
+              <b>①「失败就缩短到 1 分钟」是双刃剑。</b>它让设备在网络恢复后 1 分钟内就补上数据，但如果路由器坏了，设备会以 1 分钟一次的频率狂醒（每轮 336.5 mA·s 量级）——所以连败 5 次之后要放宽到 2 分钟，再往后可以放到 10 分钟。这类「退避策略」是低功耗产品的必备件。<br>
+              <b>②「上报完就 <code class="icode">esp_wifi_stop()</code>」不是可选项。</b>保持连接的平均电流是 25 mA 量级（例题 2），断开重连折算下来只有 0.561 mA——差 44 倍。<br>
+              <b>③ NVS 每次醒来都要重新初始化</b>，因为深睡等于软复位，NVS 的句柄和缓冲区都没了。忘了它会得到 <code class="icode">ESP_ERR_NVS_NOT_INITIALIZED</code>，然后 WiFi 起不来。<br>
+              <b>④ <code class="icode">scan_method = WIFI_FAST_SCAN</code>（配合记忆的 AP）</b>能省掉几百毫秒的全信道扫描。真正的量产节点还会把上次连上的 BSSID 和信道存进 RTC 内存，下次直接定点连接——这一步通常能再省 300~500 ms，也就是每轮再省 0.01 mAh 量级。
+            </p>
+          </div>
+
+<h3 id="sub-mcu-check" class="mt-7 text-base font-semibold">配方五：上电前的省电检查表</h3>
+
+          <p class="mt-3">程序写完不等于能挂上墙。下面这张表是<b>交付前逐条打勾</b>用的，顺序按「先硬件、后软件、最后测量」，因为绝大多数「实测比纸面差 3 倍」都发生在硬件那一栏。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>#</th><th>检查项</th><th>合格标准</th><th>不合格的后果</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1</td>
+                  <td>供电芯片的静态电流与压差</td>
+                  <td>静态 &lt; 100 µA，dropout 足够低（3.7 V 电池能稳出 3.3 V）</td>
+                  <td>毫安级常驻损耗，电池几天就空（例题 3）</td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td>板上有没有常亮的 LED</td>
+                  <td>没有，或由 GPIO 控制、平时拉灭</td>
+                  <td>一颗 LED 就是 2 mA 量级，把 10 µA 的努力全部抹平</td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td>USB 串口芯片是否常供</td>
+                  <td>量产板去掉；或用带 EN 控制的方案</td>
+                  <td>几百 µA ~ 1 mA 常驻损耗</td>
+                </tr>
+                <tr>
+                  <td>4</td>
+                  <td>所有未使用的 GPIO</td>
+                  <td>不悬空；输入配上下拉、输出别推着 LED / 继电器</td>
+                  <td>悬空输入导致输入级反复翻转，多出几十 µA 到几百 µA</td>
+                </tr>
+                <tr>
+                  <td>5</td>
+                  <td>常驻的分压 / 上拉网络</td>
+                  <td>电池检测之类的分压要有 MOS 开关，或加大电阻（MΩ 级）</td>
+                  <td>100 kΩ 分压常年 18.5 µA，已接近深睡电流的两倍</td>
+                </tr>
+                <tr>
+                  <td>6</td>
+                  <td>传感器的休眠</td>
+                  <td>发过休眠命令，或由 GPIO 断电</td>
+                  <td>0.2 mA ~ 几 mA 常驻损耗</td>
+                </tr>
+                <tr>
+                  <td>7</td>
+                  <td>唤醒源的引脚合法性</td>
+                  <td>ext0 的引脚是 RTC IO，且用 <code class="icode">rtc_gpio_pullup_en</code></td>
+                  <td>按了不醒（场景三）</td>
+                </tr>
+                <tr>
+                  <td>8</td>
+                  <td>电平型唤醒的「松开」逻辑</td>
+                  <td>有等松开 + 超时；结构上不可能长期按住</td>
+                  <td>反复唤醒，平均电流飙到几百 mA（例题 5）</td>
+                </tr>
+                <tr>
+                  <td>9</td>
+                  <td>所有的 <code class="icode">vTaskDelay</code> 而不是空转</td>
+                  <td>搜一遍代码，没有 <code class="icode">while (1) {}</code> 式的忙等</td>
+                  <td>自动 light sleep 一次都不会发生（场景四）</td>
+                </tr>
+                <tr>
+                  <td>10</td>
+                  <td>对主频敏感的区段</td>
+                  <td>该拿 <code class="icode">ESP_PM_CPU_FREQ_MAX</code> 锁的地方都拿了</td>
+                  <td>时序漂移、外设偶发读错（场景四）</td>
+                </tr>
+                <tr>
+                  <td>11</td>
+                  <td>量产固件的日志等级</td>
+                  <td>把日志降到 <code class="icode">ESP_LOG_NONE</code> 或只留错误</td>
+                  <td>每次打印都要唤醒 CPU + UART，睡眠时间被切碎</td>
+                </tr>
+                <tr>
+                  <td>12</td>
+                  <td>实测（不是计算）</td>
+                  <td>电池回路串万用表 µA 档，测深睡一分钟的读数</td>
+                  <td>你永远不知道那 3 倍差距从哪来（例题 4）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </section>
+
+        <!-- ---------------------------- 5. 常见误解与坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="mt-14 text-xl font-semibold">常见误解与坑</h2>
+
+          <p class="mt-4">下面这些误解，前四条几乎每个第一次做 ESP32 低功耗的人都会踩，后几条是「代码明明照抄了文档，电流就是不降」的常见原因。每一条都给「真相」和「怎么验证」。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>误解</th><th>真相</th><th>怎么验证</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>「deep sleep 醒来会从睡着的地方继续」</td>
+                  <td>等价于<b>软复位</b>，从 <code class="icode">app_main</code> 第一行重跑；栈、堆、普通全局变量全部重建</td>
+                  <td>在 <code class="icode">app_main</code> 第一行打印一句话，看每次醒来会不会都出现</td>
+                </tr>
+                <tr>
+                  <td>「<code class="icode">RTC_DATA_ATTR</code> 的初值每次醒来都会重新赋值」</td>
+                  <td>初值只在<b>真正的上电/复位</b>（<code class="icode">ESP_SLEEP_WAKEUP_UNDEFINED</code>）时写入；深睡唤醒沿用旧值</td>
+                  <td>写 <code class="icode">RTC_DATA_ATTR int n = 100;</code>，醒来打印 <code class="icode">n</code>：看到 100 就是被重新初始化了</td>
+                </tr>
+                <tr>
+                  <td>「随便哪个 GPIO 都能唤醒」</td>
+                  <td>只有 <b>RTC IO</b> 能唤醒（ESP32：0/2/4/12~15/25~27/32~39；其他型号要查手册）</td>
+                  <td>把 ext0 换个非 RTC 的引脚，按了不醒就是它</td>
+                </tr>
+                <tr>
+                  <td>「<code class="icode">gpio_pullup_en()</code> 在深睡里也管用」</td>
+                  <td>深睡时数字域断电，必须用 <code class="icode">rtc_gpio_pullup_en()</code> 这类 RTC 版 API</td>
+                  <td>睡前读一次电平是 1、醒来立刻读是 0 → 上拉根本没生效</td>
+                </tr>
+                <tr>
+                  <td>「醒来后引脚还是睡前那个配置」</td>
+                  <td>配置会丢：它睡的时候被 RTC IO 接管过，必须 <code class="icode">rtc_gpio_deinit()</code> 再 <code class="icode">gpio_config()</code></td>
+                  <td>不做这一步，<code class="icode">gpio_get_level()</code> 会一直返回 0</td>
+                </tr>
+                <tr>
+                  <td>「ext0 / ext1 是边沿触发」</td>
+                  <td>是<b>电平触发</b>：条件持续成立就会反复唤醒</td>
+                  <td>按住按键不放，看是不是每秒醒来好几次（例题 5 的 607 mA）</td>
+                </tr>
+                <tr>
+                  <td>「light sleep 就是浅一点的 deep sleep」</td>
+                  <td>两者是<b>本质不同</b>：light sleep 从原地继续执行，deep sleep 从复位向量重来</td>
+                  <td>在 <code class="icode">esp_light_sleep_start()</code> 后面打印一句话，能看到它就说明原地继续了</td>
+                </tr>
+                <tr>
+                  <td>「调用 <code class="icode">esp_pm_configure()</code> 就会自动省电」</td>
+                  <td>还要有 <code class="icode">CONFIG_FREERTOS_USE_TICKLESS_IDLE</code>，而且<b>任务必须真的阻塞</b></td>
+                  <td>电流没变→先搜代码里的忙等循环；再确认 menuconfig 那个勾</td>
+                </tr>
+                <tr>
+                  <td>「降频只影响功耗、不影响功能」</td>
+                  <td>凡是拿「CPU 周期数」当时间的代码（软件延时、周期计时、部分外设时序）都会失准，方向可能是变长也可能是变短</td>
+                  <td>用 <code class="icode">esp_timer_get_time()</code> 量一次实际延时，和注释里写的毫秒数对不上就是它</td>
+                </tr>
+                <tr>
+                  <td>「深睡时还能收到服务器下发的命令」</td>
+                  <td>深睡时射频断电，WiFi 连接一定断。要保持连接只能用 modem-sleep / light sleep；深睡期间想让服务器「叫醒」设备，得靠外部唤醒源（或让设备按周期自己醒来收）</td>
+                  <td>深睡时在服务器端发消息，看设备下轮醒来能不能收到（收不到，因为它根本没在听）</td>
+                </tr>
+                <tr>
+                  <td>「定时唤醒的精度很高」</td>
+                  <td>深睡计时靠 <b>RTC 慢速时钟</b>，默认是内部 150 kHz RC，精度只有百分之几且随温度漂</td>
+                  <td>让它每 600 秒醒一次，连续记 10 次的时间戳，看累计偏差有多大</td>
+                </tr>
+                <tr>
+                  <td>「串口打印不影响功耗测量」</td>
+                  <td>每次打印都要唤醒 CPU 并保持 UART 时钟，还会把你想要的「长时间空闲」切碎</td>
+                  <td>把日志全关再测一次平均电流，差值就是它的代价</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">最容易造成「电池一夜耗尽」的三个组合</div>
+            <p>
+              <b>组合一：电平型唤醒 + 长期被触发。</b>按键被卡住、门磁关着、水浸传感器泡在水里——每秒醒两次就是 600 mA 量级（例题 5）。<b>必检项：结构上能不能被长期按住。</b><br>
+              <b>组合二：忙等循环 + 开启自动 light sleep。</b>你以为省电模式开了，实际上 <code class="icode">taskYIELD()</code> 或空 <code class="icode">while</code> 让系统从来没空闲过，电流稳稳停在几十毫安。<b>必检项：搜一遍 <code class="icode">while (1)</code>。</b><br>
+              <b>组合三：失败重试间隔没做退避。</b>WiFi 连不上时设备每分钟醒一次、每次跑满 8 秒超时——网络坏一整晚，电池就被它自己耗掉一大块。<b>必检项：看连败计数有没有把间隔拉长。</b>
+            </p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">一个反直觉的取舍：深睡不是越深越好</div>
+            <p>
+              如果设备每小时才上报一次，那当然选 deep sleep；但如果它需要<b>随时响应</b>服务器下发的命令（比如智能开关、语音遥控器），deep sleep 的「醒来等于重启 + 必须重连 WiFi」是致命的——最坏情况是「服务器发命令 → 设备下一次醒来才知道」，延迟以分钟计。<br>
+              这类设备的正确做法是 <b>modem-sleep（默认的 <code class="icode">WIFI_PS_MIN_MODEM</code>）+ 自动 light sleep</b>：平均电流能压到毫安到十几毫安量级，换来的是「连接始终在、秒级响应」。<b>用一次深睡省下的电，有时是拿产品的可用性换的</b>——这个决定要在需求阶段做，不是在代码里做。
+            </p>
+          </div>
+
+        </section>
+
+        <!-- ---------------------------- 6. 小结与自检 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="mt-14 text-xl font-semibold">小结与自检</h2>
+
+          <p class="mt-4">回到开头那句话：<b class="font-semibold text-ink">ESP32 的省电不是「关掉某个外设」，而是在响应速度、联网能力、内存保持这三件事之间做选择</b>。现在把这条主线收成一张表——你只要能在两秒内说出「我为什么选这个模式、我放弃了什么」，这一篇就过了。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>你的需求</th><th>该选什么</th><th>你放弃了什么</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>电池供电、几分钟到几小时上报一次、不需要随时被叫到</td>
+                  <td>deep sleep + RTC 定时器 / ext0 / ext1</td>
+                  <td>响应速度（醒来要重启 + 重连）、联网保持、除 RTC 内存外的全部内存</td>
+                </tr>
+                <tr>
+                  <td>需要毫秒级唤醒，可以牺牲一点功耗</td>
+                  <td>light sleep（配 <code class="icode">esp_sleep_enable_wifi_wakeup</code> 可保 WiFi）</td>
+                  <td>电流从 µA 量级升到毫安量级</td>
+                </tr>
+                <tr>
+                  <td>一直在线、要求尽量省电但延迟可放宽</td>
+                  <td><code class="icode">WIFI_PS_MIN_MODEM</code>（+ 自动 light sleep）</td>
+                  <td>下行延迟（按 DTIM 间隔增加）、几十毫安的平均电流</td>
+                </tr>
+                <tr>
+                  <td>一直在线、要求实时响应</td>
+                  <td><code class="icode">WIFI_PS_NONE</code> + DFS</td>
+                  <td>功耗（百毫安量级），基本等于放弃电池供电</td>
+                </tr>
+                <tr>
+                  <td>极端多年续航、允许数据晚很多才上报</td>
+                  <td>Hibernation（RTC 电源域全关 + RTC 定时器）</td>
+                  <td>RTC 内存内容也丢；唤醒源基本只剩定时器</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">自检：能答上来就说明学会了</h3>
+
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li><b>五种模式各自砍掉了什么？</b>提示：按「CPU 停不停 / WiFi 断不断 / RTC 内存保不保」三列回答，并说出一句话结论——<b>不存在全都保住还特别省电的选项</b>。</li>
+            <li><b>为什么深睡醒来后那个计数器会「永远是 1」？</b>提示：软复位 + <code class="icode">RTC_DATA_ATTR</code> 初值只在 <code class="icode">UNDEFINED</code> 时写入。</li>
+            <li><b>三种 RTC 内存分别用在什么场景？</b>提示：<code class="icode">RTC_DATA_ATTR</code>（要初值的普通数据）/ <code class="icode">RTC_NOINIT_ATTR</code>（缓冲区、崩溃残留）/ <code class="icode">RTC_SLOW_MEM</code>（与 ULP 共享的固定地址区）。</li>
+            <li><b>为什么 GPIO5 按了不醒？</b>提示：它不是 RTC IO；再补一句「醒来后引脚配置会丢，要先 <code class="icode">rtc_gpio_deinit()</code>」。</li>
+            <li><b>light sleep 与 deep sleep 最本质的区别是什么？</b>提示：一个从原地继续执行，一个从复位向量重来。再补一句：只有前者能在睡的时候保住 WiFi。</li>
+            <li><b>开了 DFS 之后哪两类代码会出问题？</b>提示：软件延时（忙等）与「周期数换算时间」——而且失准方向可能相反。</li>
+            <li><b>三种 <code class="icode">esp_pm_lock</code> 分别在保护什么？</b>提示：CPU 主频 / APB 总线时钟 / 禁止 light sleep。</li>
+            <li><b>为什么「保持长连接」通常在低功耗场景是错的？</b>提示：算一遍——25 mA 量级 vs 断开重连折算出的 0.5 mA 量级，再对比临界周期（例题 2）。</li>
+            <li><b>平均电流算出来 20 µA，实测 5 mA，先查哪三样？</b>提示：LDO 静态电流、USB 串口芯片、常亮 LED / 没休眠的传感器。</li>
+            <li><b>你的节点一轮要花多少电？</b>提示：写出 <code class="icode">Q = Σ(I×t)</code>，把联网那一步单独列出来——它一定比采集贵两个数量级。</li>
+          </ol>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">下一篇预告</div>
+            <p>
+              你已经会把数据送上服务器了，也知道了「联网一次要花多少电」。接下来绕不开一个现实问题：<b>设备已经装在墙上了，固件有 bug 怎么办？</b>下一篇 <a class="text-brand-600 dark:text-brand-300" href="adv-esp32-ota.html">云平台接入与 OTA 远程升级</a> 会讲怎么通过云平台把新固件推下去——而你会立刻发现，OTA 的每一个设计选择（多久检查一次、要不要双分区、断点续传怎么做）都被这一篇的电流账死死约束着：<b>一次 OTA 下载几百 KB 固件，本身就是这个设备一辈子最费电的几分钟。</b>
+            </p>
+          </div>
+
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+            <a class="card card-pad card-hover group sm:max-w-[48%]" href="adv-esp32-network.html">
+              <p class="text-2xs font-semibold uppercase tracking-wider text-faint">← 上一篇</p>
+              <p class="mt-2 text-[15px] font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">ESP32 网络编程：Socket 与 HTTP</p>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">先把数据发出去，再谈怎么省着发：TCP/UDP、HTTP 客户端与服务器端点的组织方式。</p>
+            </a>
+            <a class="card card-pad card-hover group sm:max-w-[48%] sm:text-right" href="adv-esp32-ota.html">
+              <p class="text-2xs font-semibold uppercase tracking-wider text-faint">下一篇：继续深入 →</p>
+              <p class="mt-2 text-[15px] font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">云平台接入与 OTA 远程升级</p>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">设备挂上墙以后怎么改固件：分区表、OTA 流程与升级失败的自恢复。</p>
+            </a>
+          </nav>
+
+        </section>
+
+      </article>
+    </div>
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

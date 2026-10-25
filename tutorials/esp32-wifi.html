@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WiFi 连接与 STA 模式 - McuStudy</title>
+  <meta name="description" content="ESP32 WiFi 教程：STA 与 AP 模式的区别、WiFi.begin/WiFi.status 状态判断、15 秒超时与非阻塞自动重连、localIP 打印、setSleep 对响应速度的影响、2.4GHz 不支持 5GHz 的坑与 RSSI 信号强度读取。">
+  <meta name="keywords" content="ESP32 WiFi,STA模式,WiFi.begin,WiFi.status,自动重连,2.4GHz,5GHz,RSSI,WiFi.setSleep,secrets.h">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="esp32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../esp32.html" class="hover:text-brand-600 dark:hover:text-brand-300">ESP32</a>
+          <span>/</span>
+          <span class="text-muted">教程正文</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          WiFi 连接与 STA 模式
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          让 ESP32 连上家里的路由器，并在断线时自己重新连回来。
+          讲清楚 STA 和 AP 到底该选哪个、为什么不能死等
+          <code class="icode">WiFi.begin()</code>、为什么连不上 5GHz、
+          <code class="icode">WiFi.status()</code> 那几个数字分别代表什么，
+          最后给一份带 15 秒超时和非阻塞重连状态机的完整代码。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="stat-pill">芯片：<b>ESP32-WROOM-32</b></span>
+          <span class="stat-pill">频段：<b>仅 2.4GHz</b></span>
+          <span class="stat-pill">阅读约 <b>15</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>连 WiFi 的代码只有几行，但「为什么连不上」要靠网络知识来查。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-network.html">网络基础：IP、TCP 与 MQTT</a> —— SSID、IP、网关、DNS 分别在说什么</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-level.html">3.3V 供电与 GPIO 安全</a> —— WiFi 发射瞬间要 500mA，供电不足会不停重启，看起来很像「连不上」</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-compare.html">从 51 / STM32 到 ESP32</a> —— 两个核与后台任务在什么时候参与进来</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-sta-ap">STA 与 AP：两种模式怎么选</a>
+          <a class="toc-link is-sub" href="#sub-status">WiFi.status() 与超时重连</a>
+          <a class="toc-link is-sub" href="#sub-24g">2.4GHz、5GHz 与信号强度</a>
+          <a class="toc-link is-sub" href="#sub-secret">凭据不要硬编码在代码里</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link is-sub" href="#sub-circuit">接线表与网络环境准备</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-sta-ap">STA 与 AP：两种模式怎么选</a>
+            <a class="toc-link is-sub" href="#sub-status">WiFi.status() 与超时重连</a>
+            <a class="toc-link is-sub" href="#sub-24g">2.4GHz、5GHz 与信号强度</a>
+            <a class="toc-link is-sub" href="#sub-secret">凭据不要硬编码在代码里</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link is-sub" href="#sub-circuit">接线表与网络环境准备</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            在 51 和 STM32 上做联网，你得外挂一个 ESP-01 模块，用 AT 指令一板一眼地敲
+            <code class="icode">AT+CWJAP="ssid","pwd"</code>，还要处理模块返回的
+            <code class="icode">WIFI CONNECTED</code> 字符串。
+            ESP32 把 Wi-Fi 射频直接做进了芯片，还提供了一套
+            <b class="font-semibold text-ink">面向对象的 C++ 库</b>，
+            连网这件事被压缩成了两行代码。
+          </p>
+          <p class="mt-3">
+            但简单不等于可以盲写。这套库背后是一个<b class="font-semibold text-ink">异步的状态机</b>：
+            射频芯片自己去做扫描、认证、四次握手、DHCP 申请，
+            你的 CPU 只管时不时问一句「现在到哪一步了」。
+            如果你按顺序思维去写（发命令 → 等结果 → 继续），
+            程序就会卡死；理解了这个异步模型，代码自然就写对了。
+          </p>
+
+          <h3 id="sub-sta-ap" class="mt-7 text-base font-semibold">STA 与 AP：两种模式怎么选</h3>
+          <p class="mt-3">
+            ESP32 的 Wi-Fi 有两种基本工作模式，理解它们的最好比喻是
+            <b class="font-semibold text-ink">手机的 Wi-Fi 和手机的热点</b>：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th>STA 模式（Station，工作站）</th>
+                  <th>AP 模式（Access Point，接入点）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>角色</td>
+                  <td>客户端，去连别人的路由器</td>
+                  <td>热点，等着别人来连自己</td>
+                </tr>
+                <tr>
+                  <td>手机类比</td>
+                  <td>手机连家里的 Wi-Fi</td>
+                  <td>手机开个人热点</td>
+                </tr>
+                <tr>
+                  <td>ESP32 的 IP</td>
+                  <td>由路由器 DHCP 分配，如 <code class="icode">192.168.1.37</code></td>
+                  <td>固定为 <code class="icode">192.168.4.1</code></td>
+                </tr>
+                <tr>
+                  <td>能不能上互联网</td>
+                  <td><b class="font-semibold text-ink">能</b>（路由器通外网就行）</td>
+                  <td>不能，除非同时开 STA 做转发</td>
+                </tr>
+                <tr>
+                  <td>能连几个设备</td>
+                  <td>同时只连一个路由器</td>
+                  <td>最多 4~8 个客户端</td>
+                </tr>
+                <tr>
+                  <td>典型用途</td>
+                  <td>上传传感器数据到服务器、远程控制、MQTT</td>
+                  <td>设备首次配网、无路由器时的直连调试</td>
+                </tr>
+                <tr>
+                  <td>调用方式</td>
+                  <td class="font-mono text-xs">WiFi.mode(WIFI_STA)</td>
+                  <td class="font-mono text-xs">WiFi.softAP("名字", "密码")</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            实际项目里最常用的其实是<b class="font-semibold text-ink">第三种组合</b>：
+            <code class="icode">WIFI_AP_STA</code> 双模同时开。
+            设备第一次上电时自己开热点，你用手机连上去填 Wi-Fi 密码；
+            填完切到 STA 连路由器。这就是小米、涂鸦那些智能插座「配网」的原理。
+            本页先把最基础、也最常用的纯 STA 模式走通，
+            双模配网属于进阶内容，思路是一样的。
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">一句话选型</div>
+            <p>
+              <b class="font-semibold">要联网，就选 STA；要给别人连，才用 AP。</b>
+              课设和毕设里 90% 的场景是 STA。看到网上教程里
+              <code class="icode">WiFi.softAP</code> 就以为是「连 Wi-Fi」，
+              是新手非常常见的一个误解——它恰恰是<b class="font-semibold">自己发</b> Wi-Fi。
+            </p>
+          </div>
+
+          <h3 id="sub-status" class="mt-7 text-base font-semibold">WiFi.status() 与超时重连</h3>
+          <p class="mt-3">
+            <code class="icode">WiFi.begin(ssid, password)</code>
+            这个名字很有误导性：<b class="font-semibold text-ink">它并不「开始连接并等你连上」，
+            而是「把连接请求丢给后台，立刻返回」</b>。
+            真正的连接过程由射频子系统和 Wi-Fi 任务在另一个 CPU 核心上完成，
+            耗时从几百毫秒到十几秒不等（要看信号强度、路由器响应、DHCP 快慢）。
+          </p>
+          <p class="mt-3">
+            所以紧跟在 <code class="icode">begin()</code> 后面写
+            <code class="icode">Serial.println(WiFi.localIP())</code>，
+            打印出来一定是 <code class="icode">0.0.0.0</code>。
+            正确的做法是<b class="font-semibold text-ink">轮询 <code class="icode">WiFi.status()</code></b>，
+            它会返回一个数字告诉你现在处于哪个阶段：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>返回值</th>
+                  <th>枚举名</th>
+                  <th>含义</th>
+                  <th>你该做什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">0</td><td class="font-mono text-xs">WL_IDLE_STATUS</td><td>空闲，还没开始连</td><td>调用 <code class="icode">WiFi.begin()</code></td></tr>
+                <tr><td class="font-mono text-xs">1</td><td class="font-mono text-xs">WL_NO_SSID_AVAIL</td><td>扫不到这个 SSID</td><td>查名字拼写、是否 5GHz、距离是否太远</td></tr>
+                <tr><td class="font-mono text-xs">2</td><td class="font-mono text-xs">WL_SCAN_COMPLETED</td><td>扫描完成（扫描模式下才有）</td><td>不用管</td></tr>
+                <tr><td class="font-mono text-xs">3</td><td class="font-mono text-xs">WL_CONNECTED</td><td><b class="font-semibold text-ink">已连接</b></td><td>可以读 IP、发数据了</td></tr>
+                <tr><td class="font-mono text-xs">4</td><td class="font-mono text-xs">WL_CONNECT_FAILED</td><td>认证失败</td><td>九成是密码错，其次是加密方式不兼容</td></tr>
+                <tr><td class="font-mono text-xs">5</td><td class="font-mono text-xs">WL_CONNECTION_LOST</td><td>连上之后又断了</td><td>会自动重连，也可以自己接管</td></tr>
+                <tr><td class="font-mono text-xs">6</td><td class="font-mono text-xs">WL_DISCONNECTED</td><td>未连接（正在尝试中也是这个）</td><td>耐心等，但要设超时；持续为 6 说明连不上</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            有了状态码，就能理解为什么必须有超时。
+            <b class="font-semibold text-ink">如果 SSID 写错了，芯片会一直重试，状态永远停在 6。</b>
+            如果你的代码写成 <code class="icode">while (WiFi.status() != WL_CONNECTED);</code>，
+            程序就永久卡在那里，按键不响应、传感器不采集、看门狗还可能把你复位掉。
+            网上的「一行代码连 Wi-Fi」教程基本都是这种写法，
+            在实验室跑得通，一到现场就是灾难。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="阻塞式等待 vs 状态机：两种写法的区别">
+            <pre><code>  ✗ 新手写法（会卡死）                ✓ 工程写法（推荐）
+
+  WiFi.begin(ssid, pwd);              WiFi.begin(ssid, pwd);
+  while (WiFi.status()                 记录开始时刻
+         != WL_CONNECTED) {            ...
+    delay(500);              ← 死等   每次 loop 检查一次：
+  }                                     连上了 -> 进入「已连接」状态
+  Serial.println(localIP());            超过 15 秒还没连上
+                                           -> 断开，进入「冷却」状态
+  问题：                                   冷却 5 秒后 -> 重新开始连接
+   · 连不上时永远出不来
+   · 期间按键 / 传感器全部停摆      好处：
+   · 看门狗超时会直接复位芯片         · 主循环一直在跑，其他功能不受影响
+   · 电池设备功耗居高不下             · 失败可恢复，能一直重试下去
+                                      · 能区分「连不上」和「连上又掉线」</code></pre>
+          </div>
+
+          <p class="mt-4">
+            ESP32 的 Arduino 核心自带一个 <code class="icode">WiFi.setAutoReconnect(true)</code>，
+            默认就是开的，掉线后它会自己重连。听起来很省事，但它有两个问题：
+            一是你无法感知它重连的过程，二是重连策略不可控（间隔、次数都是固定的）。
+            本页的例子里我们<b class="font-semibold text-ink">把它关掉，自己写状态机</b>，
+            因为工程上你必须知道设备现在是「在连」「没连上」还是「连上过又掉了」——
+            这三种情况的处理方式完全不同。
+          </p>
+
+          <h3 id="sub-24g" class="mt-7 text-base font-semibold">2.4GHz、5GHz 与信号强度</h3>
+          <p class="mt-3">
+            <b class="font-semibold text-ink">ESP32 的射频只支持 2.4GHz 频段，不支持 5GHz。</b>
+            这不是软件限制，也不是刷固件能解决的——是芯片里的射频前端物理上只覆盖
+            2.412~2.484GHz。这一条本身就值得写在便利贴上，
+            因为「家里 Wi-Fi 明明很好，就是连不上」的最常见原因就是它。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th>2.4GHz</th>
+                  <th>5GHz</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>ESP32 是否支持</td><td><b class="font-semibold text-ink">支持</b></td><td>不支持</td></tr>
+                <tr><td>常用信道</td><td class="font-mono text-xs">1 ~ 13</td><td class="font-mono text-xs">36 ~ 165</td></tr>
+                <tr><td>速度</td><td>较慢（理论 150Mbps 级别）</td><td>快得多</td></tr>
+                <tr><td>穿墙能力</td><td>强，绕射好</td><td>弱，隔一堵墙就明显掉速</td></tr>
+                <tr><td>干扰</td><td>严重（微波炉、蓝牙、邻居 Wi-Fi 都在这）</td><td>相对干净</td></tr>
+                <tr><td>对 ESP32 的意义</td><td>唯一的可用频段，够用（传传感器数据只要几 KB）</td><td>连不上，别再怀疑代码了</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            现在很多路由器默认开启「双频合一 / 智能连接 / Band Steering」，
+            也就是 2.4G 和 5G 用同一个 SSID，由路由器决定把你分到哪一频段。
+            这个功能对手机很友好，对 ESP32 却是灾难：
+            <b class="font-semibold text-ink">路由器可能一直把 ESP32 往 5GHz 上赶，而 ESP32 根本没这个能力。</b>
+            做实验前请进路由器管理页面，把两个频段拆成不同的 SSID
+            （例如 <code class="icode">MyHome</code> 和 <code class="icode">MyHome_5G</code>），
+            让 ESP32 明确去连 2.4G 的那个。这一条操作能解决掉大量「玄学连不上」。
+          </p>
+
+          <p class="mt-3">
+            连上之后还要能判断信号好不好，靠的是 <code class="icode">WiFi.RSSI()</code>，
+            单位是 dBm，是一个<b class="font-semibold text-ink">负数，越接近 0 越好</b>：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>RSSI 范围（dBm）</th>
+                  <th>信号评价</th>
+                  <th>实际表现</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">-30 ~ -50</td><td>极佳</td><td>贴着路由器，几乎不会掉线</td></tr>
+                <tr><td class="font-mono text-xs">-50 ~ -60</td><td>良好</td><td>同一房间，稳定</td></tr>
+                <tr><td class="font-mono text-xs">-60 ~ -70</td><td>一般</td><td>隔一堵墙，能用，偶尔丢包</td></tr>
+                <tr><td class="font-mono text-xs">-70 ~ -80</td><td>较差</td><td>隔两堵墙，容易掉线重连</td></tr>
+                <tr><td class="font-mono text-xs">-80 以下</td><td>极差</td><td>连接不稳定或根本连不上，该换位置了</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-secret" class="mt-7 text-base font-semibold">凭据不要硬编码在代码里</h3>
+          <p class="mt-3">
+            几乎所有教程都写成这样：
+            <code class="icode">WiFi.begin("MyHome", "12345678");</code>
+            在自己电脑上跑没问题，但这个习惯会带来三个真实的麻烦：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>
+              <b class="font-semibold text-ink">泄露。</b>
+              代码一旦发给同学、上传到 GitHub、或者作为课设交了电子版，
+              你家 Wi-Fi 密码就等于公开了。学校实验室的路由器密码泄露，
+              还可能牵出管理责任。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">改一次编译一次。</b>
+              拿到实验室要改成实验室的 Wi-Fi，拿回家要改回自己家的，
+              每次都得重新编译上传，效率极低。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">没法交付。</b>
+              毕设答辩时老师问「这个设备拿到别的实验室能用吗」，
+              如果答案是「得改代码重新烧录」，那这个作品就不算完整。
+            </li>
+          </ul>
+
+          <p class="mt-4">
+            正确的做法分三个层次，按项目规模选：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>方案</th>
+                  <th>做法</th>
+                  <th>适合场景</th>
+                  <th>缺点</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">secrets.h</code></td>
+                  <td>把账号密码放进单独的头文件，主程序 <code class="icode">#include</code> 它，并把该文件加进 <code class="icode">.gitignore</code></td>
+                  <td>个人开发、课设、毕设</td>
+                  <td>换 Wi-Fi 仍要重新编译</td>
+                </tr>
+                <tr>
+                  <td>Preferences（NVS）</td>
+                  <td>用 ESP32 的 <code class="icode">Preferences</code> 库把凭据写进 Flash 的 NVS 分区，运行时读取</td>
+                  <td>需要掉电保存、少量可配置参数</td>
+                  <td>需要自己写一套读写逻辑</td>
+                </tr>
+                <tr>
+                  <td>AP 配网</td>
+                  <td>首次上电开热点，手机连上去在网页里填 Wi-Fi，保存后重启切 STA</td>
+                  <td>要交付给别人的产品</td>
+                  <td>代码量最大，属于进阶内容</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">从第一天就养成 secrets.h 的习惯</div>
+            <p>
+              本页示例用最轻量的 <code class="icode">secrets.h</code> 方案。
+              它不是最先进的技术，但<b class="font-semibold">是性价比最高的一个习惯</b>：
+              只需要多建一个文件，就能彻底避免密码泄露。
+              等你以后用 Git 管理代码时，会庆幸自己从一开始就这么做。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            这一节名副其实地轻松：<b class="font-semibold text-ink">一根外接线都不需要</b>。
+            天线已经集成在模组里（那块金属屏蔽罩下面），
+            你要做的「接线」是把开发板和路由器连到同一个网络世界里。
+            但这里有几条硬件和网络环境上的注意事项，忽略它们同样会连不上。
+          </p>
+
+          <h3 id="sub-circuit" class="mt-7 text-base font-semibold">接线表与网络环境准备</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对象</th>
+                  <th>引脚 / 规格</th>
+                  <th>连接到</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>ESP32 开发板</td>
+                  <td class="font-mono text-xs">USB 母座</td>
+                  <td>电脑 USB 口</td>
+                  <td>主要负责供电和看串口日志，联网本身不依赖电脑</td>
+                </tr>
+                <tr>
+                  <td>板载天线</td>
+                  <td class="font-mono text-xs">模组内的 PCB 天线</td>
+                  <td>—</td>
+                  <td>金属屏蔽罩下方，<b class="font-semibold">不要用手或金属物压住这一侧</b></td>
+                </tr>
+                <tr>
+                  <td>状态指示灯（板载）</td>
+                  <td class="font-mono text-xs">GPIO2</td>
+                  <td>—</td>
+                  <td>用它指示连接状态，不需要接线</td>
+                </tr>
+                <tr>
+                  <td>状态指示灯（可选外接）</td>
+                  <td class="font-mono text-xs">GPIO16</td>
+                  <td>LED 正极；负极经 220Ω 接 GND</td>
+                  <td>板载 LED 看不清时可外接一个，改一行 <code class="icode">PIN_STATUS_LED</code> 即可</td>
+                </tr>
+                <tr>
+                  <td>供电</td>
+                  <td class="font-mono text-xs">5V / 建议 ≥ 500mA</td>
+                  <td>USB 口或 VIN</td>
+                  <td>Wi-Fi 发射瞬间电流会冲到 500mA，供电不足必触发掉电复位</td>
+                </tr>
+                <tr>
+                  <td>路由器（首选）</td>
+                  <td class="font-mono text-xs">2.4GHz，WPA2-PSK</td>
+                  <td>—</td>
+                  <td>把 2.4G 与 5G 拆成不同 SSID，别用「双频合一」</td>
+                </tr>
+                <tr>
+                  <td>手机热点（备选）</td>
+                  <td class="font-mono text-xs">2.4GHz 频段</td>
+                  <td>—</td>
+                  <td>安卓可在热点设置里选「2.4GHz 频段」；iPhone 的「最大兼容性」开关就是切 2.4G</td>
+                </tr>
+                <tr>
+                  <td>SSID 命名</td>
+                  <td class="font-mono text-xs">建议纯英文 + 数字</td>
+                  <td>—</td>
+                  <td>中文 SSID 在部分库版本里会出现编码问题，排查时白白增加变量</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">数据流向示意</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="STA 模式的网络拓扑">
+            <pre><code>                    ┌───────────────────────┐
+                    │      路由器 / 手机热点  │
+                    │   192.168.1.1 (网关)   │
+                    │   2.4GHz 频段          │
+                    └───────┬───────────────┘
+                            │  ① 射频关联 + 认证 + 四次握手
+                            │  ② DHCP 申请 IP 地址
+                            │
+                    ┌───────┴───────────────┐
+                    │   ESP32-WROOM-32      │
+                    │   192.168.1.37 (动态) │
+                    │   MAC 24:6F:28:xx:xx  │
+                    └───────────────────────┘
+                            │
+                            │  ③ 串口打印日志到电脑
+                            │
+                    ┌───────┴───────────────┐
+                    │  电脑（USB 供电 + 看日志）│
+                    └───────────────────────┘
+
+  联网时谁在干活：
+    · Wi-Fi 任务跑在 CPU 的另一个核心上，和你的 loop() 并行
+    · 你的程序只管轮询 WiFi.status()，不参与射频过程
+    · DHCP 拿到 IP 之前，localIP() 会返回 0.0.0.0
+
+  硬件注意：
+    · 模组的天线在金属屏蔽罩那一侧，别用手捏着或压在金属桌面上
+    · Wi-Fi 发射瞬间电流可达 500mA，劣质 USB 线必导致掉电复位
+    · 2.4GHz 很拥挤：微波炉、蓝牙耳机、无线鼠标都在抢这个频段，
+      实验时如果频繁掉线，先把微波炉关掉试试</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">操作顺序建议</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>先进路由器管理页面，把 2.4G 和 5G 的 SSID 分开，记下 2.4G 的名字和密码。</li>
+            <li>用手机连一次这个 2.4G 的 SSID，确认密码是对的、能上网。这一步排除掉一半的问题。</li>
+            <li>在 Arduino IDE 里新建 <code class="icode">secrets.h</code>，把 SSID 和密码填进去。</li>
+            <li>开发板只插 USB，不接任何外设。Wi-Fi 实验期间外设越少，变量越少。</li>
+            <li>上传程序，打开串口监视器（115200），观察状态机的打印。</li>
+            <li>连上之后，把打印出来的 IP 抄下来——后面做网页控制、MQTT 都要用这个地址。</li>
+          </ol>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">上电前必查</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>目标 SSID 是不是 2.4GHz 的。这一条值得单独确认一次，不要凭感觉。</li>
+              <li>路由器有没有开「AP 隔离 / 客户端隔离」。开了的话 ESP32 连得上，但电脑访问不到它。</li>
+              <li>路由器有没有开 MAC 地址过滤。校园网和实验室网络经常有这一层。</li>
+              <li>USB 线是不是能带 500mA 的。Wi-Fi 发射瞬间掉电复位是极常见的现象。</li>
+              <li>手和金属物有没有挡住模组的天线一侧。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            一共两个文件。<code class="icode">secrets.h</code> 存放凭据，
+            <code class="icode">esp32-wifi-sta.ino</code> 是主程序。
+            两个文件要放在<b class="font-semibold text-ink">同一个文件夹里</b>，
+            文件夹名和 <code class="icode">.ino</code> 文件名必须一致，
+            这是 Arduino IDE 的硬性要求。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="secrets.h —— 凭据单独存放，不要提交到 Git">
+            <pre><code>/* =====================================================================
+ *  secrets.h —— Wi-Fi 凭据
+ *
+ *  ⚠ 重要：把这个文件名加进 .gitignore，绝对不要上传到 GitHub。
+ *  ⚠ 交课设 / 毕设电子版时，记得把这里换成占位符再交。
+ *
+ *  为什么用 #ifndef 包一层？防止这个头文件被重复包含时
+ *  造成宏重复定义的编译警告。这是 C 头文件的标准写法。
+ * ===================================================================== */
+#ifndef SECRETS_H
+#define SECRETS_H
+
+/* 这里填 2.4GHz 那个 SSID，不是 5GHz 的 */
+#define WIFI_SSID       "MyHome_2G"
+
+/* 密码区分大小写，注意别把数字 0 和字母 O 看混 */
+#define WIFI_PASSWORD   "your-password-here"
+
+#endif  /* SECRETS_H */</code></pre>
+          </div>
+
+          <div class="code-block mt-4" data-lang="c" data-title="esp32-wifi-sta.ino —— STA 模式 + 15 秒超时 + 非阻塞重连">
+            <pre><code>/* =====================================================================
+ *  esp32-wifi-sta.ino —— ESP32 STA 模式连接路由器
+ *
+ *  特性：
+ *    1. 单次连接超时 15 秒，超时不会死等，会主动断开并进入冷却
+ *    2. 冷却 5 秒后自动重试，无限次重试，全程不阻塞主循环
+ *    3. 连上之后持续监视，掉线自动回到重试流程
+ *    4. 板载 LED 用不同闪烁节奏指示三种状态，不看串口也能判断
+ *    5. 周期性打印 IP / RSSI / 信道 / 网关 / 运行时间
+ *
+ *  目标板：ESP32 Dev Module（ESP32-WROOM-32）
+ *  依赖文件：secrets.h（同目录，存放 SSID 与密码）
+ *  波特率：115200
+ * ===================================================================== */
+
+#include &lt;WiFi.h&gt;        /* ESP32 Arduino 核心自带，不需要在库管理器里安装 */
+#include "secrets.h"     /* 用引号而不是尖括号：表示这是本工程目录下的头文件 */
+
+/* ---------------- 可调参数：想改行为只改这几行 ---------------- */
+#define PIN_STATUS_LED      2            /* 板载 LED；外接 LED 可改成 16 */
+#define WIFI_TIMEOUT_MS     15000UL      /* 单次连接最多等 15 秒 */
+#define RETRY_INTERVAL_MS   5000UL       /* 失败后冷却 5 秒再重试 */
+#define REPORT_INTERVAL_MS  5000UL       /* 连上后每 5 秒报告一次状态 */
+
+/* =====================================================================
+ *  连接状态机
+ *  为什么要有这三个状态，而不是简单地「连上 / 没连上」：
+ *    · CONNECTING   正在尝试，需要计时判断是否超时
+ *    · WAIT_RETRY   已经失败，需要计时决定何时重试
+ *    · CONNECTED    已连上，需要监视是否掉线
+ *  三种状态要干的事完全不同，混在一起写就会变成一团 if-else
+ * ===================================================================== */
+enum WifiState {
+    ST_CONNECTING,      /* 正在连接 */
+    ST_WAIT_RETRY,      /* 连接失败，冷却中 */
+    ST_CONNECTED        /* 已连接 */
+};
+
+WifiState state        = ST_CONNECTING;
+uint32_t  stateEnterMs = 0;      /* 进入当前状态的时刻（毫秒时间戳） */
+uint32_t  lastReportMs = 0;      /* 上一次打印状态报告的时刻 */
+
+/* ---------------------------------------------------------------------
+ * 把 WiFi.status() 的枚举翻译成中文
+ * 排错时这一行日志比什么都值钱：能一眼区分「找不到 SSID」和「密码错」
+ * ------------------------------------------------------------------- */
+const char* statusText(wl_status_t s) {
+    switch (s) {
+        case WL_IDLE_STATUS:     return "0 WL_IDLE_STATUS 空闲，还没开始连";
+        case WL_NO_SSID_AVAIL:   return "1 WL_NO_SSID_AVAIL 找不到这个 SSID（名字错 / 5GHz / 太远）";
+        case WL_SCAN_COMPLETED:  return "2 WL_SCAN_COMPLETED 扫描完成";
+        case WL_CONNECTED:       return "3 WL_CONNECTED 已连接";
+        case WL_CONNECT_FAILED:  return "4 WL_CONNECT_FAILED 认证失败（多半是密码错）";
+        case WL_CONNECTION_LOST: return "5 WL_CONNECTION_LOST 连接丢失";
+        case WL_DISCONNECTED:    return "6 WL_DISCONNECTED 未连接（正在尝试中也是这个）";
+        default:                 return "未知状态码";
+    }
+}
+
+/* ---------------------------------------------------------------------
+ * 把 RSSI 数值翻译成人话
+ * ------------------------------------------------------------------- */
+const char* rssiText(int rssi) {
+    if (rssi &gt;= -50) return "极佳";
+    if (rssi &gt;= -60) return "良好";
+    if (rssi &gt;= -70) return "一般";
+    if (rssi &gt;= -80) return "较差";
+    return "极差，建议换个位置";
+}
+
+/* ---------------------------------------------------------------------
+ * 状态切换的唯一入口
+ * 所有状态变化都必须经过这里，保证 stateEnterMs 一定被更新，
+ * 否则计时判断会算错——这是状态机最容易出的 bug
+ * ------------------------------------------------------------------- */
+void enterState(WifiState s) {
+    state        = s;
+    stateEnterMs = millis();
+}
+
+/* ---------------------------------------------------------------------
+ * 发起一次连接
+ * 注意 WiFi.begin() 是「非阻塞」的：它只把请求丢给后台任务就立刻返回，
+ * 所以后面必须靠轮询 WiFi.status() 才知道连上没有
+ * ------------------------------------------------------------------- */
+void startConnect() {
+    WiFi.mode(WIFI_STA);              /* 只做工作站模式，不做热点，省内存也省电 */
+
+    /* 关闭 Wi-Fi 省电模式：
+     * 默认开启时，射频会在没有数据时打盹，路由器发来的包要等到下一个
+     * 唤醒周期才处理，表现为「响应慢、延迟忽高忽低」。
+     * 代价是平均电流从约 20mA 升到约 100mA。插着 USB 供电时完全值得。 */
+    WiFi.setSleep(false);
+
+    /* 关掉核心自带的自动重连。它虽然是默认开启的，但重连过程不可观测、
+     * 策略不可控，会和我们的状态机互相干扰。重连这件事自己管更清楚。 */
+    WiFi.setAutoReconnect(false);
+
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);   /* 立刻返回，真正的连接在后台进行 */
+
+    Serial.printf("[WiFi] 正在连接 \"%s\" ...\n", WIFI_SSID);
+}
+
+/* ---------------------------------------------------------------------
+ * 打印一次详细的连接报告
+ * ------------------------------------------------------------------- */
+void reportStatus() {
+    int rssi = WiFi.RSSI();           /* 信号强度，单位 dBm，负数，越接近 0 越好 */
+
+    Serial.printf("[状态] IP=%-15s RSSI=%d dBm (%s)\n",
+                  WiFi.localIP().toString().c_str(), rssi, rssiText(rssi));
+    Serial.printf("       网关=%s  子网掩码=%s\n",
+                  WiFi.gatewayIP().toString().c_str(),
+                  WiFi.subnetMask().toString().c_str());
+    Serial.printf("       DNS=%s  信道=%d  主机名=%s\n",
+                  WiFi.dnsIP().toString().c_str(),
+                  WiFi.channel(),
+                  WiFi.getHostname());
+    Serial.printf("       已运行 %lu 秒，空闲堆 %u 字节\n",
+                  millis() / 1000, ESP.getFreeHeap());
+}
+
+void setup() {
+    Serial.begin(115200);
+    delay(800);                        /* 等串口枚举完成，避免开头丢字 */
+
+    pinMode(PIN_STATUS_LED, OUTPUT);
+    digitalWrite(PIN_STATUS_LED, LOW);
+
+    Serial.println();
+    Serial.println("=== ESP32 WiFi STA 模式演示 ===");
+
+    /* 打印 MAC 地址很有用：路由器后台的「已连接设备」列表里靠它认设备，
+     * 做 MAC 绑定、MAC 过滤时也都要用 */
+    Serial.printf("本机 MAC 地址 : %s\n", WiFi.macAddress().c_str());
+    Serial.printf("连接超时      : %lu 秒\n", WIFI_TIMEOUT_MS / 1000);
+    Serial.printf("重试间隔      : %lu 秒\n", RETRY_INTERVAL_MS / 1000);
+    Serial.println("-----------------------------------");
+
+    startConnect();
+    enterState(ST_CONNECTING);
+}
+
+void loop() {
+    /* ================= 状态机主体 =================
+     * 每次 loop 只做「检查一下、必要时切状态」这一点点事，
+     * 绝不在这里 delay 或死等，主循环始终是通畅的 */
+    switch (state) {
+
+        /* ---------- 状态 1：正在连接 ---------- */
+        case ST_CONNECTING:
+            if (WiFi.status() == WL_CONNECTED) {
+                /* 连上了：立刻读一次 IP。注意要在这一步之后才能读，
+                 * 在 begin() 之后马上读一定是 0.0.0.0 */
+                Serial.println("[WiFi] 连接成功！");
+                Serial.printf("       IP 地址 : %s\n", WiFi.localIP().toString().c_str());
+                Serial.printf("       网关    : %s\n", WiFi.gatewayIP().toString().c_str());
+                Serial.printf("       信道    : %d\n", WiFi.channel());
+                Serial.printf("       耗时    : %lu ms\n", millis() - stateEnterMs);
+
+                digitalWrite(PIN_STATUS_LED, HIGH);   /* 常亮表示已连接 */
+                lastReportMs = millis();
+                enterState(ST_CONNECTED);
+
+            } else if (millis() - stateEnterMs &gt;= WIFI_TIMEOUT_MS) {
+                /* 超时：不再干等，主动断开并进入冷却。
+                 * 这就是「为什么一定要设超时」的落地写法 */
+                Serial.printf("[WiFi] 连接超时（已等 %lu 秒）\n", WIFI_TIMEOUT_MS / 1000);
+                Serial.printf("       当前状态码 : %s\n", statusText(WiFi.status()));
+                Serial.println("       进入冷却，稍后自动重试");
+
+                WiFi.disconnect();        /* 不带参数：只断开，不关闭射频 */
+                digitalWrite(PIN_STATUS_LED, LOW);
+                enterState(ST_WAIT_RETRY);
+            }
+            break;
+
+        /* ---------- 状态 2：冷却中，等够间隔再试 ---------- */
+        case ST_WAIT_RETRY:
+            if (millis() - stateEnterMs &gt;= RETRY_INTERVAL_MS) {
+                startConnect();           /* 重新发起连接 */
+                enterState(ST_CONNECTING);
+            }
+            break;
+
+        /* ---------- 状态 3：已连接，监视掉线 ---------- */
+        case ST_CONNECTED:
+            if (WiFi.status() != WL_CONNECTED) {
+                /* 连上之后又断了。常见原因：走远了、路由器重启、
+                 * 同频干扰、或者 AP 把长时间空闲的客户端踢掉 */
+                Serial.printf("[WiFi] 连接丢失！状态码 : %s\n",
+                              statusText(WiFi.status()));
+                digitalWrite(PIN_STATUS_LED, LOW);
+                enterState(ST_WAIT_RETRY);   /* 回到重试流程，不直接重连 */
+                break;                       /* 跳出 switch，避免下面继续用到失效的连接 */
+            }
+
+            /* 还连着：周期性报告一次 */
+            if (millis() - lastReportMs &gt;= REPORT_INTERVAL_MS) {
+                lastReportMs = millis();
+                reportStatus();
+            }
+            break;
+    }
+
+    /* ================= 状态指示灯 =================
+     * 三种状态三种节奏，不用开串口监视器就能看出板子在干什么：
+     *   连接中 -> 200ms 快闪
+     *   冷却中 -> 1000ms 慢闪
+     *   已连接 -> 常亮
+     * 同样是非阻塞写法：靠时间戳翻转，不用 delay */
+    updateStatusLed();
+}
+
+/* ---------------------------------------------------------------------
+ * 状态指示灯：非阻塞闪烁
+ * 注意 digitalWrite 是「立刻返回」的，所以这里不需要任何延时，
+ * 只是每隔一段时间翻转一次电平而已
+ * ------------------------------------------------------------------- */
+void updateStatusLed() {
+    static uint32_t lastToggleMs = 0;
+    static bool     ledOn        = false;
+
+    if (state == ST_CONNECTED) {
+        /* 已连接：直接常亮，不再翻转 */
+        digitalWrite(PIN_STATUS_LED, HIGH);
+        return;
+    }
+
+    /* 连接中用短周期（快闪），冷却中用长周期（慢闪） */
+    uint32_t period = (state == ST_CONNECTING) ? 200UL : 1000UL;
+
+    if (millis() - lastToggleMs &gt;= period) {
+        lastToggleMs = millis();
+        ledOn = !ledOn;
+        digitalWrite(PIN_STATUS_LED, ledOn ? HIGH : LOW);
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">#include "secrets.h"</code> 用的是引号不是尖括号。
+              引号表示「先在本工程目录里找」，尖括号表示「去系统库目录里找」。
+              这是 C 预处理器的规则，不是风格问题——写成尖括号会直接报找不到文件。
+            </li>
+            <li>
+              <code class="icode">WiFi.begin(WIFI_SSID, WIFI_PASSWORD)</code>
+              <b class="font-semibold text-ink">是非阻塞的</b>。
+              它只把 SSID 和密码交给后台的 Wi-Fi 任务就返回了。
+              所以下一行读 <code class="icode">WiFi.localIP()</code> 一定是
+              <code class="icode">0.0.0.0</code>。
+              这一点和 ESP8266 老库的行为不同，很多老教程的写法搬过来会「看起来很怪」。
+            </li>
+            <li>
+              <code class="icode">WiFi.setSleep(false)</code>——
+              关掉省电模式。默认开启时射频会周期性打盹，
+              路由器发来的数据包要等下一个唤醒周期才处理。
+              表现为 TCP 响应延迟从几十毫秒变成几百毫秒、忽快忽慢。
+              做网页控制、MQTT 这类要即时响应的场景，<b class="font-semibold">一定要关掉它</b>。
+              代价是平均电流从 20mA 涨到 100mA 左右，插着 USB 时完全可以接受。
+            </li>
+            <li>
+              <code class="icode">WiFi.setAutoReconnect(false)</code>——
+              把重连的控制权从核心库手里拿过来。
+              核心库的自动重连默认是开的，但它在重连时你完全感知不到，
+              日志里也看不出发生了什么。自己写状态机之后，
+              「在连」「连不上」「连上又掉」三种情况都有明确日志。
+            </li>
+            <li>
+              <code class="icode">enterState()</code> 这个看起来有点多余的函数，
+              实际上是整个状态机不出 bug 的关键。
+              如果散落在各处直接给 <code class="icode">state</code> 赋值，
+              很容易忘记同步更新 <code class="icode">stateEnterMs</code>，
+              于是超时判断会算出一个荒唐的结果（比如负数时长或者立刻超时）。
+              <b class="font-semibold">把「状态」和「状态的进入时刻」绑成一个原子操作</b>，
+              这是写状态机的通用经验。
+            </li>
+            <li>
+              <code class="icode">millis() - stateEnterMs &gt;= WIFI_TIMEOUT_MS</code>——
+              注意是「当前时间减去进入时刻」而不是「当前时间大于某个时刻」。
+              前者天然处理了 <code class="icode">millis()</code> 约 49 天溢出归零的问题，
+              后者会在溢出时出错。<b class="font-semibold">减法比较是无符号时间戳的正确用法</b>，
+              这个习惯在你写长期运行的设备时非常重要。
+            </li>
+            <li>
+              <code class="icode">WIFI_TIMEOUT_MS</code> 后面的
+              <code class="icode">UL</code> 后缀不能省。
+              ESP32 上 <code class="icode">int</code> 是 32 位，
+              <code class="icode">15000</code> 这种常量在小项目里没事，
+              但如果算式里混进了更大的数就可能溢出。
+              养成给时间常量加 <code class="icode">UL</code>（unsigned long）的习惯，
+              能让编译器替你挡住这类问题。
+            </li>
+            <li>
+              <code class="icode">ST_CONNECTED</code> 分支里那个
+              <code class="icode">break;</code> 是刻意写的：
+              掉线之后立刻跳出 <code class="icode">switch</code>，
+              不再执行 <code class="icode">reportStatus()</code>。
+              否则会拿着一个已经失效的连接去读 IP 和 RSSI，打印出误导性的数据。
+              这类「状态刚变化就继续用旧状态」的错误，是并发程序里最隐蔽的一类 bug。
+            </li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">顺手把 secrets.h 挡在 Git 之外</div>
+            <p>
+              如果这个工程用 Git 管理，在工程根目录执行下面这一行，
+              以后 <code class="icode">secrets.h</code> 就不会被提交：
+            </p>
+            <div class="code-block mt-3" data-lang="bash" data-title="把凭据文件排除在版本控制之外">
+              <pre><code># 把 secrets.h 写入忽略规则（>> 是追加，不会覆盖已有内容）
+echo "secrets.h" &gt;&gt; .gitignore
+
+# 建议再建一个模板文件提交上去，让别人知道该填什么
+cp secrets.h secrets.h.example
+# 然后把 example 里的密码换成占位符再提交
+
+# 检查一下：这条命令应该没有任何输出
+git check-ignore -v secrets.h</code></pre>
+            </div>
+            <p class="mt-3">
+              最后那条 <code class="icode">git check-ignore</code> 是自查用的：
+              有输出说明规则生效了，没有输出说明没生效，得回去检查
+              <code class="icode">.gitignore</code> 的路径写得对不对。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            下图是正常情况的完整日志。建议第一次跑的时候，
+            <b class="font-semibold text-ink">故意先把密码写错一次</b>，
+            看看失败路径打印什么——见过失败长什么样，将来才认得出它。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="串口监视器输出（成功路径 + 失败路径对照）">
+            <pre><code>=== ESP32 WiFi STA 模式演示 ===
+本机 MAC 地址 : 24:6F:28:A1:B3:C4
+连接超时      : 15 秒
+重试间隔      : 5 秒
+-----------------------------------
+[WiFi] 正在连接 "MyHome_2G" ...
+[WiFi] 连接成功！
+       IP 地址 : 192.168.1.37
+       网关    : 192.168.1.1
+       信道    : 6
+       耗时    : 2874 ms
+[状态] IP=192.168.1.37    RSSI=-52 dBm (良好)
+       网关=192.168.1.1  子网掩码=255.255.255.0
+       DNS=192.168.1.1  信道=6  主机名=espressif
+       已运行 8 秒，空闲堆 214336 字节
+[状态] IP=192.168.1.37    RSSI=-53 dBm (良好)
+       网关=192.168.1.1  子网掩码=255.255.255.0
+       DNS=192.168.1.1  信道=6  主机名=espressif
+       已运行 13 秒，空闲堆 214336 字节
+
+────────────────── 下面是密码故意写错时的输出 ──────────────────
+
+[WiFi] 正在连接 "MyHome_2G" ...
+[WiFi] 连接超时（已等 15 秒）
+       当前状态码 : 6 WL_DISCONNECTED 未连接（正在尝试中也是这个）
+       进入冷却，稍后自动重试
+[WiFi] 正在连接 "MyHome_2G" ...
+[WiFi] 连接超时（已等 15 秒）
+       当前状态码 : 4 WL_CONNECT_FAILED 认证失败（多半是密码错）
+       进入冷却，稍后自动重试</code></pre>
+          </div>
+
+          <ol class="mt-4 list-decimal space-y-2 pl-5">
+            <li>上传后板载 LED 先以 <b class="font-semibold text-ink">200ms 的快节奏闪烁</b>，表示正在连接。</li>
+            <li>大约 2~5 秒后，串口打印「连接成功」，同时 LED 变成<b class="font-semibold text-ink">常亮</b>。</li>
+            <li>之后每 5 秒出现一条 <code class="icode">[状态]</code> 报告，IP 保持不变，RSSI 在小范围内浮动（±3dBm 都正常）。</li>
+            <li>把开发板拿到远离路由器的地方，RSSI 会下降到 -70 以下，文字评价随之变成「较差」。</li>
+            <li>把路由器断电几秒再恢复，串口会打印「连接丢失」，LED 变慢闪，随后自动重连成功、LED 恢复常亮。</li>
+            <li>整个过程里，<b class="font-semibold text-ink">空闲堆内存的数字基本不变</b>，说明没有内存泄漏。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>一直快闪，从不常亮，日志反复打印「连接超时」</td>
+                  <td>始终连不上，属于持续性失败</td>
+                  <td>看超时前那行状态码：1 = 找不到 SSID，4 = 密码错，6 = 被拒或超时</td>
+                </tr>
+                <tr>
+                  <td>状态码一直是 1（WL_NO_SSID_AVAIL）</td>
+                  <td>射频压根扫不到这个 SSID</td>
+                  <td>SSID 拼写；是不是 5GHz；路由器是否隐藏了 SSID 广播；距离是否太远</td>
+                </tr>
+                <tr>
+                  <td>状态码是 4（WL_CONNECT_FAILED）</td>
+                  <td>找到了网络但认证没通过</td>
+                  <td>密码大小写；路由器加密方式是不是 WPA3；是否开了 MAC 过滤</td>
+                </tr>
+                <tr>
+                  <td>状态码一直是 6，且从来没见过 1 或 4</td>
+                  <td>正在尝试但拿不到结果，通常是双频合一在捣鬼</td>
+                  <td>把 2.4G 和 5G 拆成两个 SSID，明确连 2.4G 那个</td>
+                </tr>
+                <tr>
+                  <td>连上了，但 IP 打印成 <code class="icode">0.0.0.0</code></td>
+                  <td>还没拿到 DHCP 地址就读了</td>
+                  <td>确认是在 <code class="icode">WL_CONNECTED</code> 分支里读的；路由器 DHCP 地址池是否已满</td>
+                </tr>
+                <tr>
+                  <td>连着连着就断，断完又能自己连回来</td>
+                  <td>信号弱或同频干扰，或路由器在踢空闲客户端</td>
+                  <td>看 RSSI；换信道（1 / 6 / 11 三选一）；把开发板挪近一点</td>
+                </tr>
+                <tr>
+                  <td>反复重启，日志里出现 <code class="icode">Brownout</code></td>
+                  <td>Wi-Fi 发射瞬间供电撑不住</td>
+                  <td>换 USB 线、换 USB 口；Cube 供电不足时改用外部 5V/1A</td>
+                </tr>
+                <tr>
+                  <td>电脑 ping 不通 ESP32 的 IP</td>
+                  <td>连上了但局域网里互相看不见</td>
+                  <td>路由器是否开了「AP 隔离 / 客户端隔离」；电脑是否在同一个网段</td>
+                </tr>
+                <tr>
+                  <td>连上后延迟忽高忽低（几十毫秒到几百毫秒）</td>
+                  <td>Wi-Fi 省电模式在工作</td>
+                  <td>确认 <code class="icode">WiFi.setSleep(false)</code> 被调用了</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">把 IP 地址用起来</div>
+            <p>
+              连上之后，在电脑浏览器里直接访问 <code class="icode">http://192.168.1.37</code>
+              （换成你的实际 IP），现在会显示「无法访问」——因为 ESP32 上还没有跑 Web 服务器。
+              但这已经证明了<b class="font-semibold">电脑能通过局域网找到这块板子</b>，
+              这是后面做网页控制、数据上报的前提。
+              建议现在就动手 <code class="icode">ping</code> 一下这个 IP 确认连通性，
+              比等到写了上百行 HTTP 代码之后再回头排查要省事得多。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            连不上的原因很多，但排查顺序是固定的：
+            <b class="font-semibold text-ink">先看状态码，再看频段，最后才怀疑代码</b>。
+            下面五条按这个顺序排列。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">报错原文：状态码一直停在 6 WL_DISCONNECTED，偶尔闪一下 1 WL_NO_SSID_AVAIL</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              ESP32 扫不到或者不愿意加入这个网络。按概率从高到低：
+              <b class="font-semibold">① 目标是 5GHz 频段</b>（这是最大的一条，占一半以上）；
+              ② 路由器开了「双频合一」，把 ESP32 往 5GHz 上赶；
+              ③ SSID 拼写错误，或者大小写不对；
+              ④ 路由器关闭了 SSID 广播（隐藏网络需要额外指定信道和 BSSID）；
+              ⑤ 距离太远，信号弱到扫不到。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              第一步，进路由器管理页面把 2.4G 和 5G 的 SSID 改成两个不同的名字，
+              ESP32 明确去连 2.4G 那个。第二步，用手机连一次这个 2.4G 的 SSID，
+              确认密码和可用性。第三步，如果确实是隐藏网络，
+              把手机放在路由器旁边，用手机看当前连接的信道号，
+              然后调用带信道参数的版本：
+              <code class="icode">WiFi.begin(ssid, password, channel, bssid, true)</code>。
+              第四步，把开发板挪到离路由器三米以内再试一次，
+              排除距离因素后再考虑代码。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：状态码为 4 WL_CONNECT_FAILED（认证失败）</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              网络找到了，握手没通过。三种可能：
+              <b class="font-semibold">① 密码错了</b>（最常见，注意数字 0 和字母 O、数字 1 和字母 l）；
+              ② 路由器用的是 WPA3 或「WPA2/WPA3 混合」模式，
+              老版本 ESP32 核心对 WPA3-SAE 支持不完整；
+              ③ 路由器开了 MAC 地址白名单，ESP32 的 MAC 不在名单里。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              先把密码复制粘贴到记事本里逐字符核对一遍，别靠肉眼。
+              然后进路由器把加密方式临时改成
+              <b class="font-semibold">WPA2-PSK (AES)</b>，
+              安全模式选「WPA2 个人版」，不要选「WPA3 个人版」或「混合」。
+              如果开了 MAC 过滤，把串口打印出来的那个 MAC 地址
+              （形如 <code class="icode">24:6F:28:A1:B3:C4</code>）加到白名单里，
+              或者干脆先关掉过滤做实验。
+              实验室、宿舍的公共网络很多还有一层网页认证（Portal），
+              ESP32 是无法完成这种认证的，只能换成手机热点。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：fatal error: secrets.h: No such file or directory</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              编译器在工程目录里找不到这个头文件。
+              三个可能：文件根本没建；
+              建了但保存成了 <code class="icode">secrets.h.txt</code>（记事本的默认行为）；
+              或者文件建在了别的文件夹里。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              在 Arduino IDE 里点标签栏右侧的「∨」下拉菜单，
+              选「新建标签页」，输入名字 <code class="icode">secrets.h</code>，
+              这样建出来的文件一定在正确位置。
+              如果是在文件管理器里手动建的，先在「查看 → 文件扩展名」里打开扩展名显示，
+              确认文件名真的以 <code class="icode">.h</code> 结尾而不是
+              <code class="icode">.h.txt</code>。
+              最后确认文件夹结构是正确的：
+              <b class="font-semibold">文件夹名和 .ino 文件名相同，三个文件在同一层</b>。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：（没有报错）连上了，但 IP 打印成 0.0.0.0，电脑也 ping 不通</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              分两种情况。
+              如果状态码已经是 3（已连接）却仍然是 <code class="icode">0.0.0.0</code>，
+              说明 TCP/IP 层还没拿到地址——路由器 DHCP 地址池满了，
+              或者路由器响应太慢，而你在 <code class="icode">begin()</code> 之后立刻就读了 IP。
+              如果状态码是 3、IP 也正常，但电脑 ping 不通，
+              那就是路由器的「AP 隔离 / 客户端隔离」在拦截局域网内的互访。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              第一，确认读 IP 的代码写在
+              <code class="icode">WiFi.status() == WL_CONNECTED</code> 的分支里面，
+              而不是 <code class="icode">begin()</code> 的下一行（本页代码已经这么做了）。
+              第二，重启路由器释放 DHCP 租约，或者进管理页面把地址池从
+              <code class="icode">192.168.1.100~192.168.1.199</code> 扩大到
+              <code class="icode">.100~.250</code>。第三，进路由器无线设置里
+              关掉「AP 隔离 / 客户端隔离 / 无线隔离」。
+              第四，如果是校园网，多半有这一层限制且你无权修改，
+              直接改用手机热点做完实验。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：（没有报错）连上以后每隔几十秒掉一次线，反复自动重连</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              按概率排：
+              <b class="font-semibold">① 供电不足</b>——Wi-Fi 发射瞬间电流冲到 500mA，
+              劣质 USB 线压降过大，芯片掉电复位（日志里会有 Brownout）；
+              ② 信号弱或同频干扰严重，2.4GHz 上挤着微波炉、蓝牙、邻居的十几个 AP；
+              ③ 路由器把长时间没有数据往来的客户端踢下线（节能策略）；
+              ④ 开了省电模式导致心跳包延迟过高，被路由器判定为空闲。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              先换一根粗一点的短 USB 线、换到机箱后面板的口，排除供电。
+              再看 RSSI：低于 -75 就把开发板挪近，或者加一个有外置天线的开发板版本。
+              然后在路由器里把 2.4GHz 信道固定为 1、6、11 中的一个
+              （这三个是互不重叠的信道），不要用「自动」。
+              确认 <code class="icode">WiFi.setSleep(false)</code> 已经调用。
+              如果要彻底避免被踢，可以在 <code class="icode">loop()</code> 里
+              每 30 秒主动做一次无害的网络活动（比如读一次 RSSI 并打印），
+              让路由器认为这个客户端一直活跃。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇真正的收获不是「会连 Wi-Fi」，而是学会了一种
+            <b class="font-semibold text-ink">处理异步操作的思维方式</b>。
+            把它收成三句话：
+          </p>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">第一，要联网就用 STA，要给别人连才用 AP。</b>
+            <code class="icode">softAP</code> 是自己发热点，不是连 Wi-Fi，这个误解要先破掉。
+            <b class="font-semibold text-ink">第二，网络操作永远是异步的，必须配超时和状态机。</b>
+            <code class="icode">WiFi.begin()</code> 立刻返回，成功与否靠轮询
+            <code class="icode">WiFi.status()</code>；
+            设了超时才不会被一块连不上的网络拖死。
+            <b class="font-semibold text-ink">第三，连不上先查频段，再查状态码。</b>
+            ESP32 只有 2.4GHz；状态码 1 是找不到网络、4 是密码错、6 是未连接——
+            这三个数字能帮你把排查范围一下子缩小到具体的一步。
+          </p>
+
+          <div class="stat mt-6">
+            <span class="stat-k">超时与重试策略</span>
+            <span class="stat-v">15 秒超时 / 5 秒重试</span>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold text-ink">把超时改成 5 秒，观察差异。</b>
+                把 <code class="icode">WIFI_TIMEOUT_MS</code> 改成 5000，
+                故意写错密码，数一数日志里「连接超时」出现的间隔变成了多少。
+                然后想一想：如果这块板子用电池供电，
+                超时设长一点和短一点，各自省电还是费电？
+                （提示：射频工作时的电流是空闲时的好几倍。）
+              </li>
+              <li>
+                <b class="font-semibold text-ink">加一个 RSSI 采样与统计。</b>
+                在 <code class="icode">ST_CONNECTED</code> 状态里每 500ms 采一次 RSSI，
+                累计 20 次后算出平均值、最大值、最小值打印一次。
+                拿着板子在家里走一圈，记录不同房间的三组数据，
+                画一张「距离 — RSSI」的粗略曲线。
+                这份实测数据可以直接写进实验报告。
+              </li>
+              <li>
+                <b class="font-semibold text-ink">把状态机扩成「设备自身的状态指示」。</b>
+                让板载 LED 在四种情况下有四种不同表现：
+                连接中快闪、冷却中慢闪、已连接常亮、已连接但 RSSI 低于 -75 时
+                每 3 秒闪一下「警报」式的双闪。
+                这个练习的价值在于：你会发现
+                <code class="icode">updateStatusLed()</code> 也会变复杂，
+                从而理解为什么「状态多的时候一定要用状态机，不要用一堆 if」。
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-bt.html">蓝牙串口通信</a>——不用路由器也能用手机控制板子，以及蓝牙和 Wi-Fi 为什么不能同时用。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-gpio.html">ESP32 GPIO 控制</a>——如果 ADC 或 PWM 还没弄明白，先回去补这一篇。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="../esp32.html">ESP32 物联网专题</a>——回到栏目页看 MQTT、传感器等后续内容。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="esp32-gpio.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">ESP32 GPIO 控制</p>
+          </a>
+          <a href="esp32-bt.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">蓝牙串口通信</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

@@ -1,0 +1,2516 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>门电路与数字接口电平 - McuStudy</title>
+  <meta name="description" content="知识体系 · 数字电子系列：一个 3.3V 方波，接 74LS00 能用、接 74HC00 就是不能用，为什么？从二极管的开关特性与二极管门电路为什么被淘汰讲起，拆开 TTL 与 CMOS 门的内部结构：多发射极三极管、推挽输出级、VOH 为什么只有 3.6V，CMOS 为什么静态功耗几乎为零、动态功耗 P=CV²f 从哪来，传输门与三态门、开漏与集电极开路为什么必须外接上拉。然后逐条讲清 VOH/VOL/VIH/VIL、噪声容限 VNH/VNL、扇出系数、IOH/IOL/IIH/IIL 的定义与测量条件，给出 5V TTL / 5V CMOS / 3.3V LVTTL / 3.3V LVCMOS / 2.5V / 1.8V 的电平对比表，用数字回答「为什么 3.3V 能驱动 5V TTL 而反过来不行」，并把 5V 与 3.3V 互连的五种方案连同各自的缺陷讲透。含 5 道数值例题（噪声容限、IO 直驱 LED 电流预算、I2C 上拉与总线电容、扇出系数、CMOS 动态功耗）。">
+  <meta name="keywords" content="门电路,TTL,CMOS,二极管门电路,多发射极三极管,推挽输出,图腾柱,集电极开路,OC,开漏,OD,上拉电阻,三态门,传输门,VOH,VOL,VIH,VIL,噪声容限,VNH,VNL,扇出系数,IOH,IOL,IIH,IIL,LVTTL,LVCMOS,74HC,74HCT,74LS,电平转换,输入悬空,施密特触发器,传输延迟,tpLH,tpHL,上升时间,地弹,总线缓冲器,74HC245,I2C上拉">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">门电路与数字接口电平</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          门电路与数字接口电平
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          同一个 3.3V 方波，从 STM32 的引脚送出去：接到一块 5V 的 <b class="font-semibold text-ink">74LS00</b> 上工作正常，接到另一块 5V 的 <b class="font-semibold text-ink">74HC00</b> 上就是死活不认。你换线、换引脚、重烧固件都没用，因为问题不在程序里——<b class="font-semibold text-ink">74LS00 判定「高电平」的门限是 2.0V，74HC00 是 3.5V</b>。3.3V 越过了第一条线，没越过第二条线。这一篇要回答的就是：这两条线是从哪来的、V<sub>OH</sub>/V<sub>OL</sub>/V<sub>IH</sub>/V<sub>IL</sub> 到底是什么、噪声容限与扇出怎么算、为什么 3.3V 能驱动 5V TTL 却驱动不了 5V CMOS。它属于<b class="font-semibold text-ink">学科基础层</b>：讲门电路内部的原理与参数，而不是讲接线手册。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">层级：<b>第 1 层 · 学科基础 → 数字电子（第 15 篇）</b></span>
+          <span class="stat-pill">教材：<b>阎石、王红《数字电子技术基础》第 6 版 第 3 章</b></span>
+          <span class="stat-pill">阅读约 <b>42</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-diode-gate">二极管门电路为什么被淘汰</a>
+          <a class="toc-link is-sub" href="#sub-bjt-switch">三极管开关状态与反相器</a>
+          <a class="toc-link is-sub" href="#sub-ttl-inside">TTL 门内部结构剖析</a>
+          <a class="toc-link is-sub" href="#sub-cmos">CMOS 门与 P=CV²f</a>
+          <a class="toc-link is-sub" href="#sub-transmission">传输门、三态门与开漏</a>
+          <a class="toc-link is-sub" href="#sub-params">电气参数与噪声容限</a>
+          <a class="toc-link is-sub" href="#sub-levels">电平标准与 3.3V↔5V 互连</a>
+          <a class="toc-link is-sub" href="#sub-nonideal">悬空、延迟、地弹与施密特</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link is-sub" href="#ex-noise">例 1 · 噪声容限双向判断</a>
+          <a class="toc-link is-sub" href="#ex-led">例 2 · IO 直驱 LED 电流预算</a>
+          <a class="toc-link is-sub" href="#ex-i2c">例 3 · I2C 上拉与总线电容</a>
+          <a class="toc-link is-sub" href="#ex-fanout">例 4 · 扇出系数怎么算</a>
+          <a class="toc-link is-sub" href="#ex-power">例 5 · CMOS 动态功耗</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-mcu-tolerance">FT 引脚与普通引脚的内部差别</a>
+          <a class="toc-link is-sub" href="#sub-mcu-noise">三个真实配对的噪声容限</a>
+          <a class="toc-link is-sub" href="#sub-mcu-led">一个 IO 能带几个 LED</a>
+          <a class="toc-link is-sub" href="#sub-mcu-i2c">I2C 为什么必须开漏加上拉</a>
+          <a class="toc-link is-sub" href="#sub-mcu-wire">长导线、容性负载与串扰</a>
+          <a class="toc-link is-sub" href="#sub-mcu-schmitt">施密特输入与总线缓冲器</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-diode-gate">二极管门电路为什么被淘汰</a>
+            <a class="toc-link is-sub" href="#sub-bjt-switch">三极管开关状态与反相器</a>
+            <a class="toc-link is-sub" href="#sub-ttl-inside">TTL 门内部结构剖析</a>
+            <a class="toc-link is-sub" href="#sub-cmos">CMOS 门与 P=CV²f</a>
+            <a class="toc-link is-sub" href="#sub-transmission">传输门、三态门与开漏</a>
+            <a class="toc-link is-sub" href="#sub-params">电气参数与噪声容限</a>
+            <a class="toc-link is-sub" href="#sub-levels">电平标准与 3.3V↔5V 互连</a>
+            <a class="toc-link is-sub" href="#sub-nonideal">悬空、延迟、地弹与施密特</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link is-sub" href="#ex-noise">例 1 · 噪声容限双向判断</a>
+            <a class="toc-link is-sub" href="#ex-led">例 2 · IO 直驱 LED 电流预算</a>
+            <a class="toc-link is-sub" href="#ex-i2c">例 3 · I2C 上拉与总线电容</a>
+            <a class="toc-link is-sub" href="#ex-fanout">例 4 · 扇出系数怎么算</a>
+            <a class="toc-link is-sub" href="#ex-power">例 5 · CMOS 动态功耗</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-mcu-tolerance">FT 引脚与普通引脚的内部差别</a>
+            <a class="toc-link is-sub" href="#sub-mcu-noise">三个真实配对的噪声容限</a>
+            <a class="toc-link is-sub" href="#sub-mcu-led">一个 IO 能带几个 LED</a>
+            <a class="toc-link is-sub" href="#sub-mcu-i2c">I2C 为什么必须开漏加上拉</a>
+            <a class="toc-link is-sub" href="#sub-mcu-wire">长导线、容性负载与串扰</a>
+            <a class="toc-link is-sub" href="#sub-mcu-schmitt">施密特输入与总线缓冲器</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先给你两个现场，都是「查一天也查不出来」的那一类。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场一：同一个 3.3V 输出，两块 5V 芯片，一块能用一块不能用。</b>你用 STM32 的 PA9（串口 TX，输出 3.3V 的方波）去驱动两块 5V 的逻辑芯片：一块是老式的 <code class="icode">74LS00</code>，一块是 <code class="icode">74HC00</code>。示波器上波形很干净，3.3V 的方波，边沿也漂亮。结果 74LS00 那边一切正常，74HC00 那边一直把这段信号当成<b class="font-semibold text-ink">「不是高电平」</b>——它的输出不动。</p>
+
+          <p class="mt-3">你会开始怀疑：线接触不良？换一根。引脚坏了？换一个。固件问题？重新烧一遍。<b class="font-semibold text-ink">全是白费</b>，因为真正的答案在数据手册的一行数字里：74LS00 判定「高」的门限是 <b class="font-semibold text-ink">2.0V</b>，74HC00 是 <b class="font-semibold text-ink">3.5V</b>。你的 3.3V 越过了第一条线，没越过第二条线。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两条门限线：同一个 3.3V，两种命运">
+            <pre><code>   5.0V ┤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  VCC = 5V
+        │
+   3.5V ┤─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  ← 74HC00（5V CMOS）的 VIH
+        │                        ▲
+        │                        │  差 0.2V，就差这么一点点
+   3.3V ┤────────────────────────┴─────────────  STM32 输出的高电平
+        │                        ▲
+        │                        │  余量 1.3V，非常安全
+   2.0V ┤─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┴─ ─ ─ ─ ─ ─ ─  ← 74LS00（5V TTL）的 VIH
+        │
+   0.0V ┤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  GND
+
+【这一篇的核心动作】
+   能不能直连，永远是同一件事：
+   把「输出高电平的保证下限 VOH(min)」和「输入判为高的保证门限 VIH(min)」放在一起比。
+   差值就是【高电平噪声容限 VNH】。VNH 大于零，才有资格谈直连；小于零，怎么试都没用。
+
+【但你现在还答不上来的三个问题】
+   ① 74LS00 的 2.0V 和 74HC00 的 3.5V 是从哪来的？为什么差这么多？
+   ② VOH(min) 为什么要写成「min」？它是被什么限制住的？
+   ③ 如果两块芯片都是 3.3V 的，是不是就不用算了？</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场二：代码明明写了输出高，万用表量出来是 0.2V。</b>你把一个引脚配成开漏输出（<code class="icode">GPIO_MODE_OUTPUT_OD</code>），然后 <code class="icode">HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET)</code>，量引脚电压：0.2V。你反复确认代码、换引脚、加打印，都没用。真相是：<b class="font-semibold text-ink">开漏输出的引脚在物理上根本没有「输出高电平」这个能力</b>——它内部只有一个能往下拉的管子，说「输出高」的意思是「我松手了」，高电平必须由外部的上拉电阻拉出来。你没接上拉电阻，那条线就一直趴在地上。</p>
+
+          <p class="mt-3">这两个现场的共同点是：<b class="font-semibold text-ink">你缺的不是经验，而是门电路内部那几张图和那几个参数</b>。你只要知道 TTL 的输入级是一个多发射极三极管、CMOS 的输入是两个 MOS 管栅极，你就能自己推出这两条门限线为什么差这么多；你只要知道开漏输出级只有一只下拉管，你就永远不会忘记上拉电阻。</p>
+
+          <h3 id="sub-why-what" class="mt-7 text-base font-semibold">这一篇讲什么，和动手型教程怎么分工</h3>
+
+          <p class="mt-3">站内已经有一篇动手型的 <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-level.html">3.3V 电平与硬件安全</a>，那一篇解决的是<b class="font-semibold text-ink">「工程上怎么接」</b>：哪些引脚是 5V 容忍的 FT 引脚、继电器能不能用 IO 直驱、怎么看数据手册的引脚类型表、分压电阻怎么选、供电与去耦。它是一张可以照着查的接线表。</p>
+
+          <p class="mt-3">而这一篇属于<b class="font-semibold text-ink">学科基础层</b>，回答的是更下面一层的「为什么」：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>问题</th><th>这一篇讲</th><th>动手型那篇讲</th></tr></thead>
+              <tbody>
+                <tr><td>3.3V 能不能接 5V 器件？</td><td>算出噪声容限，说明「能」或「不能」的边界在哪</td><td>给一张「能不能接」的对照表，照着查</td></tr>
+                <tr><td>V<sub>IH</sub> 为什么是 2.0V？</td><td>从 TTL 输入级的多发射极三极管推出 2.0V</td><td>告诉你手册里这一行数字叫什么</td></tr>
+                <tr><td>为什么必须外接上拉电阻？</td><td>从开漏输出级的结构说明它没有拉高能力，再算阻值</td><td>给出 4.7kΩ / 2.2kΩ 的经验取值</td></tr>
+                <tr><td>一个 IO 能带几个负载？</td><td>扇出系数的定义与两条电流路径的计算</td><td>给出 20mA 单脚上限、150mA 整片上限</td></tr>
+                <tr><td>信号偶尔出错怎么办？</td><td>用噪声容限、上升时间、地弹做定量分析</td><td>用万用表逐点量电压，找接线问题</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">学习顺序建议</div>
+            <p>如果你是第一次接触这块内容，建议<b>先读这一篇的原理，再去翻那篇动手教程查表</b>。反过来也可以：先照表把线接对、让实验跑起来，遇到「为什么这里非要加个电阻」的疑问时再回到这一篇。<b>两篇是互为表里的关系</b>——只背表格，你遇到表上没有的组合就抓瞎；只懂原理不算数，你接线时还是会漏掉共地和上电顺序。</p>
+          </div>
+
+          <p class="mt-3">最后提醒一句篇幅说明：这一篇会有不少公式和数字，但你不需要背。你只需要记住三件事的道理——<b class="font-semibold text-ink">输出侧有 V<sub>OH</sub>/V<sub>OL</sub>，输入侧有 V<sub>IH</sub>/V<sub>IL</sub>，同一个方向上的两者之差就是噪声容限</b>。其余的数值都可以现场查、现场算。</p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节按<b class="font-semibold text-ink">技术演进的时间顺序</b>走一遍：二极管门（为什么被淘汰）→ 三极管开关（反相器）→ TTL（怎么把反相器做成门、输出高电平为什么只有 3.6V）→ CMOS（互补结构、功耗从哪来）→ 传输门 / 三态门 / 开漏（输出侧的特殊形态）。走完这条路，你再回头看 V<sub>OH</sub>/V<sub>OL</sub>/V<sub>IH</sub>/V<sub>IL</sub> 这四个参数，就会发现它们每一个都能被结构解释，而不是四个要硬背的符号。</p>
+
+          <h3 id="sub-diode-gate" class="mt-7 text-base font-semibold">二极管门电路：能用，但注定被淘汰</h3>
+
+          <p class="mt-3">数字电路的第一代实现方式非常朴素：<b class="font-semibold text-ink">用二极管的单向导电性做逻辑</b>。这一段历史值得花十分钟，因为它把「电平偏移」这个贯穿全篇的概念讲得最清楚——今天你遇到的绝大部分电平互连问题，本质上都是它的变种。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">先看二极管的开关特性。</b>做逻辑的时候，我们不关心它那条指数曲线，只关心两个状态：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>状态</th><th>条件</th><th>等效电路</th><th>典型数值</th></tr></thead>
+              <tbody>
+                <tr><td><b>正向导通</b></td><td>阳极电位高于阴极约 0.5V 以上</td><td>一个恒压源 + 一个小电阻</td><td>硅管 <b>0.6~0.8V</b>（工程上取 0.7V）；肖特基 <b>0.3~0.5V</b>；锗管 0.2~0.3V</td></tr>
+                <tr><td><b>反向截止</b></td><td>阳极电位低于阴极</td><td>近似开路（但带着一个结电容）</td><td>漏电流 nA~µA 级；结电容 1~10pF</td></tr>
+                <tr><td><b>状态切换</b></td><td>从导通到截止需要抽走存储电荷</td><td>—</td><td>反向恢复时间 t<sub>rr</sub>：普通整流管 µs 级，开关管 ns 级</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">注意最后一行的 t<sub>rr</sub>：<b class="font-semibold text-ink">二极管不是理想开关，它从导通切到截止要花时间</b>。这就是二极管门速度上不去的物理原因之一（另一个是结电容）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">再看二极管怎么做出「与」和「或」。</b>以与门为例（教材里叫 DRL 逻辑，Diode-Resistor Logic）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="二极管与门：结构、真值表与那个 0.7V">
+            <pre><code>【电路】两个二极管的负极分别接输入 A、B，正极连在一起作为输出 F，
+        F 再经过一个电阻 R 接到 +VCC（5V）。
+
+                    +5V
+                     │
+                    [R]   ← 上拉电阻，几 kΩ
+                     │
+        A ──|&lt;|──┬── F（输出）
+                 │
+        B ──|&lt;|──┘
+      （二极管方向：正极朝 F，负极朝输入）
+
+【分析】只要有一个输入是低电平（0V），那个二极管就正向导通，
+        把 F 钳在 0V + 0.7V = 0.7V —— 这就是【低电平】。
+        只有 A、B 同时为高（5V）时，两个二极管都不导通，
+        F 被 R 拉到 +VCC = 5V —— 这才是【高电平】。
+
+【真值表】
+        A      B    │   F（理想逻辑）  F（实际电压）
+      ─────────────┼──────────────────────────────
+        低     低   │        低            0.7V
+        低     高   │        低            0.7V
+        高     低   │        低            0.7V
+        高     高   │        高            5.0V（空载）
+
+【已经看到了两个致命问题】
+   ① 低电平不是 0V，而是 0.7V —— 被一个 PN 结【抬高】了。
+   ② 输出的低电平是靠二极管钳出来的，它不是一个「可靠的 0V」，
+      温度一变（-2mV/℃）这个 0.7V 还会漂。</code></pre>
+          </div>
+
+          <p class="mt-3">再看或门（把二极管方向反过来、电阻接地），它的毛病是<b class="font-semibold text-ink">高电平被压低</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="二极管或门：高电平被压低一个 PN 结">
+            <pre><code>【电路】两个二极管的正极分别接输入 A、B，负极连在一起作为输出 F，
+        F 再经过电阻 R 接地。
+
+        A ──|&gt;|──┬── F（输出）
+                 │
+        B ──|&gt;|──┤
+                 │
+                [R]
+                 │
+                GND
+
+【分析】任一输入为高（5V）时，那个二极管导通，
+        F = 5V − 0.7V = 4.3V（高电平，但【掉了 0.7V】）。
+        A、B 全为低时，两个二极管都不导通，F 被 R 拉到 0V（低电平，干净）。
+
+【真值表】
+        A      B    │   F（理想逻辑）  F（实际电压）
+      ─────────────┼──────────────────────────────
+        低     低   │        低            0.0V
+        低     高   │        高            4.3V  ← 少了 0.7V
+        高     低   │        高            4.3V  ← 少了 0.7V
+        高     高   │        高            4.3V  ← 少了 0.7V</code></pre>
+          </div>
+
+          <p class="mt-3">到这里，二极管门电路的三个致命缺陷已经全部露头了。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">缺陷一：电平偏移（每一级都偏一次，而且方向还不一样）。</b>与门把低电平抬高 0.7V，或门把高电平压低 0.7V。<b class="font-semibold text-ink">门电路的价值在于级联</b>——逻辑运算从来不是一级就结束的。可你只要把两级串起来，偏移就叠加一次：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="算给你看：为什么二极管门无法级联">
+            <pre><code>【级联二极管或门】高电平每一级损失 0.7V（VCC = 5V）
+
+    级数     输出高电平      输出低电平    还能被后级认成「高」吗？
+    ──────────────────────────────────────────────────────────
+    第 1 级      4.3V           0.0V      能（后级 TTL 要求 ≥ 2.0V）
+    第 2 级      3.6V           0.0V      能（余量只剩 1.6V）
+    第 3 级      2.9V           0.0V      勉强（余量 0.9V）
+    第 4 级      2.2V           0.0V      危险（余量 0.2V，温度一变就挂）
+    第 5 级      1.5V           0.0V      ✗ 彻底失效
+
+【级联二极管与门】低电平每一级抬高 0.7V（后级 VIL 上限只有 0.8V）
+
+    级数     输出低电平      还能被后级认成「低」吗？
+    ──────────────────────────────────────────────────
+    第 1 级      0.7V        勉强（上限 0.8V，余量 0.1V）
+    第 2 级      1.4V        ✗ 早就超过 0.8V 了，后级会读成「高」
+
+【结论】二极管门电路不是「不好用」，而是【根本无法构成多层逻辑】。
+        一个连两级都串不起来的门，在数字系统里没有位置 ——
+        这就是它在 1960 年代之后迅速被 DTL、TTL 取代的根本原因。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">缺陷二：没有驱动能力。</b>输出端的高电平是经过一个几 kΩ 的电阻得到的，也就是说输出阻抗就是 kΩ 量级。后级输入只要吸走 0.5mA，输出就会掉 0.5mA × 5kΩ = 2.5V——高电平直接从 4.3V 掉到 1.8V。<b class="font-semibold text-ink">它的扇出（能带几个同类输入）大约只有 1~2 个</b>，而这个数字我们在后面会看到：74LS 系列是 20，CMOS 是几百以上。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">缺陷三：输入电流方向反常。</b>以与门为例，当某个输入是低电平时，电流是从 VCC 经 R、经二极管<b class="font-semibold text-ink">流进</b>那个输入端的。也就是说前一级要在「输出低」的时候吸收电流，而它恰好是输出阻抗最高的状态。<b class="font-semibold text-ink">前级的弱点正好撞上后级的强需求</b>，这是二极管门的死结。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">二极管的正确用法：它今天依然是硬件工程师的常客</div>
+            <p>二极管门被淘汰了，但二极管本身没有。在单片机周边，它至少还有四个高频用途：<b>① 续流</b>（继电器、电机线圈两端并联，吸收断电瞬间的反向尖峰）；<b>② 钳位保护</b>（把可能超范围的信号限制在电源轨附近）；<b>③ 单向隔离</b>（两块电源 OR 起来互不倒灌）；<b>④ 防反接</b>（电源入口串一个，接反了就不通）。这些用法和「电平整形」无关，都是利用了它的单向导电性。<b>具体的电路与电阻计算在 <a class="text-brand-600 dark:text-brand-300" href="ee-semiconductor.html">半导体器件：二极管、稳压管、三极管与 MOS 管</a> 那一篇里讲得很细。</b></p>
+          </div>
+
+          <h3 id="sub-bjt-switch" class="mt-7 text-base font-semibold">三极管的开关状态：从「放大」切到「当开关」</h3>
+
+          <p class="mt-3">二极管门的死结在于「它靠 PN 结钳位来决定电平」，而三极管能提供一个更干净的状态：<b class="font-semibold text-ink">饱和导通时，集电极和发射极之间只剩 0.1~0.3V</b>——这几乎就是一个理想的接地开关。所以在讲 TTL 之前，先把三极管当开关的用法说清楚。</p>
+
+          <p class="mt-3">你在模拟电子里学的三极管是「放大器」，工作点在放大区；而数字电路里，它<b class="font-semibold text-ink">只在两个极端状态之间跳</b>，中间过程越短越好。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>工作状态</th><th>偏置条件（NPN）</th><th>电流关系</th><th>管子上的压降</th><th>等效成什么</th></tr></thead>
+              <tbody>
+                <tr><td><b>截止</b></td><td>发射结反偏或零偏（V<sub>BE</sub> &lt; 0.5V）</td><td>I<sub>B</sub> ≈ 0，I<sub>C</sub> ≈ 0（只剩漏电）</td><td>V<sub>CE</sub> ≈ V<sub>CC</sub>（全靠外电路决定）</td><td><b>断开的开关</b></td></tr>
+                <tr><td>放大</td><td>发射结正偏，集电结反偏</td><td>I<sub>C</sub> = β·I<sub>B</sub>，正比关系成立</td><td>V<sub>CE</sub> 由外电路决定，可以很大</td><td>受控电流源（<b>开关应用里要避开</b>）</td></tr>
+                <tr><td><b>饱和</b></td><td>发射结正偏，集电结也正偏</td><td>I<sub>C</sub> 由外电路决定，不再受 β 控制</td><td>V<sub>CE(sat)</sub> ≈ <b>0.1~0.3V</b></td><td><b>闭合的开关</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">怎么保证一定进饱和？</b>外电路先决定「饱和时集电极能流多少电流」，再让基极给出足够多的电流去支撑它：</p>
+
+          <p class="mt-3"><code class="icode">I<sub>CS</sub> = (V<sub>CC</sub> − V<sub>CE(sat)</sub>) / R<sub>C</sub></code> &nbsp;&nbsp;→&nbsp;&nbsp; <code class="icode">I<sub>B</sub> ≥ I<sub>CS</sub> / β</code></p>
+
+          <p class="mt-3">其中 <code class="icode">I<sub>CS</sub></code> 叫集电极饱和电流，也就是这个开关闭合时流过的电流。工程上取 <b class="font-semibold text-ink">2~5 倍的余量</b>（<code class="icode">I<sub>B</sub> = (2~5) × I<sub>CS</sub> / β</code>），原因很实在：<b class="font-semibold text-ink">β 的分散性极大</b>，同一型号的管子 β 可能从 100 到 400，而且随温度变化；按手册的最小 β 算、再留几倍余量，才能保证这一批板子全都进饱和。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三极管反相器：一个 3.3V 输入换成 5V 输出的电路">
+            <pre><code>【电路】NPN 三极管，基极经限流电阻接输入，集电极经负载电阻接 +5V
+
+                   +5V
+                    │
+                  [R_C]  1kΩ
+                    │
+        Vin ──[R_B]──┤ 集电极 ────► Vout
+                    │
+                 ┌──┴──┐
+                 │  B  │      NPN（S8050 等）
+                 │     │
+                 └──┬──┘
+                    │ 发射极
+                   GND
+
+【两种输入状态】
+
+   Vin = 低（0V）：V_BE ≈ 0V → 三极管【截止】
+                   → 集电极几乎没有电流 → R_C 上没有压降
+                   → Vout = +5V（高电平，由 R_C 拉出来）
+
+   Vin = 高（3.3V）：I_B = (3.3V − 0.7V) / R_B
+                   → 只要 I_B 够大，三极管【饱和】
+                   → V_CE(sat) ≈ 0.2V → Vout ≈ 0.2V（低电平）
+
+【关键结论一】输入高 → 输出低；输入低 → 输出高。
+             这就是它叫【反相器】的原因（逻辑功能是非门）。
+
+【关键结论二】输出高电平等于 +5V，与输入端是 3.3V 还是 5V 无关！
+             所以三极管反相器天然就是一个「电平转换器」：
+             3.3V 的输入，可以换来一个 5V 的输出。
+             这一条在单片机周边极其有用 —— 你的 3.3V IO 想驱动一个
+             5V 的继电器、5V 的蜂鸣器、5V 的逻辑输入，加一个三极管就够了。
+
+【关键结论三】R_C 的值决定「这个开关能带多大负载」：
+             R_C = 1kΩ 时，饱和电流约 (5 − 0.2) / 1kΩ = 4.8mA。
+             负载要更大的电流，就必须减小 R_C，同时把 I_B 加大。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="快速算一遍基极电阻（3.3V IO 驱动 5V、5mA 负载）">
+            <pre><code>【已知】VCC = 5V，R_C = 1kΩ，三极管 β 按最小值 100 保守估算，
+       STM32 的 IO 输出高电平 3.3V，V_BE ≈ 0.7V
+
+【第一步】集电极饱和电流
+        I_CS = (5V − 0.2V) / 1kΩ ≈ 4.8mA
+
+【第二步】临界饱和需要的基极电流
+        I_B(临界) = I_CS / β = 4.8mA / 100 = 48µA
+
+【第三步】留 5 倍余量（深度饱和）
+        I_B = 48µA × 5 ≈ 240µA
+
+【第四步】算 R_B
+        R_B = (3.3V − 0.7V) / 240µA = 2.6V / 240µA ≈ 10.8kΩ
+        → 取标准值 10kΩ（略小的阻值余量更大，取 4.7kΩ 也是常见做法）
+
+【第五步】用 10kΩ 反算一次，确认无误
+        I_B = 2.6V / 10kΩ = 260µA
+        I_C 能支撑到 260µA × 100 = 26mA  ≫ 4.8mA  ✅ 深度饱和，可靠
+
+【一句提醒】这个 240µA 对 STM32 的 IO 来说完全不算负担
+           （单脚上限 20mA，推荐工作电流 8mA 以内），
+           所以「用三极管驱动负载」几乎不会给 IO 增加压力。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">饱和越深，关断越慢：一个真实的取舍</div>
+            <p>把三极管推到深度饱和能保证可靠导通，但代价是<b>基区里存了多余的电荷</b>。要关断它，得先把这些电荷抽走，这段时间叫<b>存储时间 t<sub>s</sub></b>，它是三极管开关延迟里最大的一块。所以高速逻辑里反而要「浅饱和」——历史上 <b>74S 系列（肖特基 TTL）</b>就是靠在基极和集电极之间加一个肖特基二极管（肖特基钳位，SBD）把 V<sub>CE</sub> 钳在 0.3V 左右，让管子永远进不了深饱和，从而把延迟从十几 ns 压到几 ns。<b>这也是后来 CMOS 全面取代 TTL 的原因之一：MOS 管是电压控制、没有存储电荷问题，天生更快、更省电。</b></p>
+          </div>
+
+          <h3 id="sub-ttl-inside" class="mt-7 text-base font-semibold">TTL 门电路的内部结构：多发射极三极管、中间级、推挽输出级</h3>
+
+          <p class="mt-3">现在到了这一篇最核心的一段。<b class="font-semibold text-ink">你只要看懂这张图，前面那些 TTL 参数就全部有解释了</b>：为什么输入门限是 2.0V、为什么输出高电平只有 3.6V、为什么拉电流能力只有几百 µA、为什么输入悬空会被当成高电平。</p>
+
+          <p class="mt-3">教材里以 <b>74 系列两输入与非门</b>（相当于 74LS00 的一个门）为典型。<b class="font-semibold text-ink">它由三级组成</b>，每一级的职责都很清楚：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="TTL 与非门的内部结构（概念图，各系列阻值不同）">
+            <pre><code>                          +5V (VCC)
+                           │
+                        [ R1 ]          20kΩ 量级
+                           │
+              ┌────────────┴────────────┐
+              │   T1：多发射极三极管      │   ← 【输入级】实现「与」逻辑
+              │   （两个发射极 = 两个输入）│
+              └──┬───────────┬──────────┘
+                 │ 基极        │（T1 的「集电极」接到 T2 基极）
+        A ───────┤(发射极1)    │
+        B ───────┤(发射极2)    │
+                 │             │
+                （T1 的集电极）
+                              │
+                          ┌───┴───┐
+                          │   T2  │        ← 【中间级】倒相 + 提供驱动
+                          └───┬───┘
+                    ┌─────────┴──────────┐
+                    │ 集电极             │ 发射极
+                 [ R2 ]                  │
+                    │                    │
+                 ┌──┴──┐                 │
+                 │  T3 │  ← 射极跟随器   │
+                 └──┬──┘                 │
+                 [ R4 ]                  │
+                    │                    │
+                 ┌──┴──┐                 │
+                 │  T4 │  ← 上拉输出管   │
+                 └──┬──┘                 │
+                    ├──── |&lt;| ────┬── F（输出）
+                    │      D      │
+                    │             │
+                    │          ┌──┴──┐
+                    │          │  T5 │   ← 下拉输出管
+                    │          └──┬──┘
+                    │             │
+                   GND           GND
+                （T2 的发射极直接驱动 T5 的基极）
+
+【三级分工】
+   输入级（T1）：多发射极三极管，用它实现「与」——任一发射极被拉低，
+                 电流就从这个发射极流走，T1 的集电极（也就是 T2 的基极）
+                 得不到电流，后级就不动。
+   中间级（T2）：倒相与电流放大，一路给 T5 的基极（下拉）,
+                 另一路给 T3/T4（上拉）。注意它是「一管分成两路」——
+                 这个结构自动保证了上下两个输出管【不会同时导通】。
+   输出级（T3、T4、T5、D）：推挽结构（也叫图腾柱 totem-pole）。
+                 上拉管 T4 + 二极管 D 负责输出高电平，
+                 下拉管 T5 负责输出低电平。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">把两种输入情况代进去算一遍</b>，这张图就活了：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>输入情况</th><th>T1（输入级）</th><th>T2（中间级）</th><th>T5（下拉管）</th><th>T3 / T4（上拉管）</th><th>输出 F</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>至少一个输入为低</b>（例如 A = 0.3V）</td>
+                  <td>该发射极正向导通，把 T1 基极钳在约 1.0V；T1 深度饱和</td>
+                  <td>基极得不到电流 → <b>截止</b></td>
+                  <td>基极无电流 → <b>截止</b></td>
+                  <td>由 R2 提供基极电流 → <b>导通</b></td>
+                  <td class="text-brand-600 dark:text-brand-300"><b>高电平</b></td>
+                </tr>
+                <tr>
+                  <td><b>两个输入全为高</b>（例如都是 3.3V）</td>
+                  <td>两个发射极都截止；T1 的电流只能走集电极，全部灌进 T2 基极（T1 倒置工作）</td>
+                  <td>基极有电流 → <b>饱和导通</b></td>
+                  <td>发射极有电流 → <b>饱和导通</b></td>
+                  <td>T2 集电极电位被拉低 → T3、T4 <b>截止</b></td>
+                  <td class="text-rose-600 dark:text-rose-400"><b>低电平</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">看出来了吗？<b class="font-semibold text-ink">「有低就输出高、全高才输出低」，这就是与非门</b>（NAND）——而且它只用了五个三极管和一个二极管就完成了，不需要任何「判断」电路。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">更妙的是「推挽」这两个字的含义：</b>上下两个输出管永远是一开一关，所以输出既不需要外部上拉电阻（和后面要讲的开漏完全不同），也不会出现上下管同时导通把 VCC 短到地的致命情况。<b class="font-semibold text-ink">代价是它对输出端被外部强拉的处理能力很差</b>——如果你把两个 TTL 推挽输出直接接在一起，一个要输出高、一个要输出低，那就是两只管子隔着几欧姆对打，电流瞬间到几十上百毫安，芯片发烫甚至烧毁。<b>这一条记住，后面讲总线争用还会用到。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="TTL 输出高电平时到底发生了什么：VOH ≈ 3.6V 的完整推导">
+            <pre><code>【输出高电平时，电流是这样走的】
+
+    +5V ──[R2]──┐
+                │
+              ┌─┴─┐
+              │T3 │ 基极
+              └─┬─┘
+             [R4]│ 发射极（射极跟随器）
+              ┌─┴─┐
+              │T4 │ 基极 ← 由 T3 的发射极驱动
+              └─┬─┘
+                ├── |&lt;| ──┬──── F（输出高）
+                │    D    │
+                          └──► 后级输入（几乎不吃电流，因为 TTL 输入也是 PN 结）
+
+【从 +5V 到输出端，中间经过了几级 PN 结？】
+   +5V → T3 的基极-发射极（约 0.7V）→ T4 的基极-发射极（约 0.7V）→ 二极管 D（约 0.7V）
+
+   等等，T3 和 T4 是两级射极跟随器串联，再加一个二极管，那不是 2.1V 吗？
+   实际上 T4 的基极被 T3 的发射极驱动，T3 集电极接 VCC —— 这两级串起来
+   造成的总压降只有【两个 PN 结】（T4 的 V_BE 与二极管 D），
+   工程上用最经典的这个式子：
+
+        VOH ≈ VCC − V_BE(T4) − V_D
+            ≈ 5.0V − 0.7V − 0.7V
+            ≈ 3.6V          ← 这就是「TTL 输出高电平 3.6V」的由来
+
+【带载之后还会更低】
+   输出高电平时，负载电流由 T4 通过射极跟随器提供，
+   而 T4 的基极电流来自 R2 那条高阻通路（几十 kΩ 量级）。
+   所以要拉出哪怕 1mA 的电流，都会让 T4 的工作点下降、VOH 继续往下掉。
+   这就是为什么数据手册里 VOH 的测试条件只有【IOH = −0.4mA】这种小电流，
+   而且保证值只有 2.4V（7400）/ 2.7V（74LS00）——远远低于 3.6V 的典型值。
+
+【反过来看输出低电平】
+   输出低时 T5 饱和导通，V_CE(sat) ≈ 0.2~0.4V，
+   并且 T5 的集电极可以直接灌入 8~16mA 的电流（手册 IOL 的测试条件）。
+   → 所以 TTL 的【灌电流能力远大于拉电流能力】，这是它的鲜明特征。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">顺便解释：TTL 的 V<sub>IH</sub> 为什么是 2.0V</div>
+            <p>看输入级。要让后级动作，T1 的基极电位得升到大约 <b>2.1V</b> 左右（T1 发射结 0.7V + T2 发射结 0.7V + T5 发射结 0.7V ≈ 2.1V，其中 T2、T5 要导通），所以输入端至少要给出 <b>2.0V</b> 才能保证被识别为高。<b>它不是设计者「选」了 2.0V，而是「三个 PN 结」这个物理事实加上温度和工艺余量算出来的。</b>同理，V<sub>IL</sub> = 0.8V 也是从「输入低电平时 T1 必须深度饱和、把后级彻底关掉」推出来的。<b>记住这个视角：TTL 的门限由 PN 结个数决定，而 CMOS 的门限由电源电压决定（0.7×V<sub>DD</sub>）——这就是两类器件门限差别的总根源。</b></p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">TTL 的输入悬空会被当成「高电平」——CMOS 完全没有这个性质</div>
+            <p>因为 TTL 的输入端是一个多发射极三极管的发射极：<b>悬空时没有电流通路，相当于「没有把这个发射极拉低」</b>，后级就当它是高电平。老一代工程师因此有「不用的 TTL 输入可以悬空」的习惯（虽然不推荐，容易拾取干扰）。<b>但 CMOS 输入的悬空是完全不同的另一回事</b>——它的输入是两个绝缘栅，悬空时电位随机漂移，会产生持续的穿通电流，是明确的故障状态。<b>「TTL 悬空 = 高、CMOS 悬空 = 灾难」，这一条后面还会专门讲。</b></p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">TTL 家族的分支</b>（数据手册里那些后缀就是这些区别）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>系列</th><th>全称 / 特征</th><th>典型传输延迟 t<sub>pd</sub></th><th>每门功耗</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">74</td><td>标准 TTL</td><td>约 10ns</td><td>约 10mW</td><td>最老的系列，教材里的典型电路就是它</td></tr>
+                <tr><td class="font-mono text-xs">74L</td><td>Low-power，内部电阻加大</td><td>约 33ns</td><td>约 1mW</td><td>慢，但省电</td></tr>
+                <tr><td class="font-mono text-xs">74S</td><td>Schottky，肖特基钳位防深饱和</td><td>约 3ns</td><td>约 20mW</td><td>快，但功耗大</td></tr>
+                <tr><td class="font-mono text-xs">74LS</td><td>Low-power Schottky（<b>最经典</b>）</td><td>约 9~15ns</td><td>约 2mW</td><td>速度与功耗平衡，教材与实验中见得最多</td></tr>
+                <tr><td class="font-mono text-xs">74ALS</td><td>Advanced LS</td><td>约 4ns</td><td>约 1mW</td><td>LS 的改良版</td></tr>
+                <tr><td class="font-mono text-xs">74F</td><td>Fast</td><td>约 3ns</td><td>约 4mW</td><td>高速场合</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">注意这张表里<b class="font-semibold text-ink">没有 74HC、74HCT</b>：它们名字里带 74，但内部是 CMOS，不是 TTL。这正是下一节的内容——也是这一篇开头那个「两块 5V 芯片命运不同」之谜的谜底所在。</p>
+
+          <h3 id="sub-cmos" class="mt-7 text-base font-semibold">CMOS 门电路：互补结构、静态功耗几乎为零、动态功耗 P=CV²f</h3>
+
+          <p class="mt-3">TTL 靠「PN 结的压降」做逻辑，所以它的门限被 PN 结个数锁死、输出高电平被 PN 结压低、静态时一直在耗电（一个门约 2mW，一片 MSI 芯片几十个门就是几十 mW）。<b class="font-semibold text-ink">CMOS 换了一条路：用一对互补的 MOS 管，让「导通的那一只」永远是从电源到输出、或者从输出到地，中间没有直流通路。</b>结果是门限跟着电源走、输出摆幅几乎到轨、静态功耗接近零。今天你手上的 STM32、ESP32、几乎所有现代数字芯片，内部都是 CMOS。</p>
+
+          <p class="mt-3">先看最基本的单元：<b class="font-semibold text-ink">CMOS 反相器</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="CMOS 反相器：一只 PMOS + 一只 NMOS 的互补结构">
+            <pre><code>                       +VDD（例如 3.3V）
+                         │
+                         │
+                    ┌────┴────┐
+                    │  PMOS   │  栅极 ← 输入 Vin
+                    │  （上管）│
+                    └────┬────┘
+                         │
+                         ├──────────► Vout（输出）
+                         │
+                    ┌────┴────┐
+                    │  NMOS   │  栅极 ← 输入 Vin（和上管接同一个输入）
+                    │  （下管）│
+                    └────┬────┘
+                         │
+                        GND
+
+【两种稳态】
+
+   Vin = 低（0V）：
+        PMOS：V_GS = 0V − 3.3V = −3.3V → 导通（PMOS 是负压导通）
+        NMOS：V_GS = 0V → 截止
+        → 电流通路只有「VDD → PMOS → 输出」，把输出拉到 VDD
+        → Vout = 高（约等于 VDD，几乎到轨）
+
+   Vin = 高（3.3V）：
+        PMOS：V_GS = 3.3V − 3.3V = 0V → 截止
+        NMOS：V_GS = 3.3V → 导通
+        → 电流通路只有「输出 → NMOS → GND」，把输出拉到地
+        → Vout = 低（约等于 0V，几乎是干净的 0V）
+
+【「互补」这两个字是整个 CMOS 的精髓】
+   任何稳态下，上下两只管子【必有一只截止】。
+   于是从 VDD 到 GND 之间【不存在直流通路】——
+   稳态电流只剩下 MOS 管的漏电（现代工艺下 nA 量级，甚至更低）。
+   → 静态功耗几乎为零。这就是 CMOS 能用在电池设备里的根本原因。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">注意输出侧的三个推论（后面全都要用到）</div>
+            <p><b>① 输出摆幅几乎到轨。</b>高电平能到 V<sub>DD</sub>（带载时掉一点点，比如 74HC 在 5V、4mA 时保证 V<sub>OH</sub> ≥ 3.98V），低电平几乎是 0V。<b>这跟 TTL 的 3.6V / 0.2V 完全不同</b>——CMOS 的输出高电平是「跟着电源走的」。<b>② 门限也到轨之间。</b>CMOS 的输入端是两只 MOS 管的栅极，翻转点大致在 V<sub>DD</sub>/2 附近，所以规范里取 V<sub>IH</sub> = 0.7V<sub>DD</sub>、V<sub>IL</sub> = 0.3V<sub>DD</sub>。<b>这也是为什么谈 CMOS 电平必须带上电源电压</b>：3.3V CMOS 的 V<sub>IH</sub> 是 2.31V，5V CMOS 的 V<sub>IH</sub> 是 3.5V，同名不同数。<b>③ 输入电流几乎为零。</b>栅极是绝缘的，输入电流只有漏电（74HC 手册给 ±1µA，实际远小于此）。<b>所以 CMOS 的直流扇出大得离谱</b>——但它要消耗的是另一种东西：输入电容。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">接下来是这一节的重点：动态功耗 P = C·V²·f 是从哪来的。</b>很多同学会背这个公式，但说不出「那个 V 为什么是平方」「那个 C 是谁的电容」。我们把一次翻转的电荷账完整算一遍。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="P = CV²f 的推导：一次翻转，电源要拿出多少电荷？">
+            <pre><code>【场景】输出端挂着负载电容 C_L（下一级的输入电容、走线电容、你自己的电路）
+        输出从 0 翻到 1：PMOS 导通，电源通过 PMOS 给 C_L 充电
+
+  ① 电容上的电压从 0V 升到 VDD，需要从电源取走的电荷量：
+         Q = C_L × VDD                      （单位：库仑）
+
+  ② 电源把这么多电荷「举」到 VDD 的高度，做的功是：
+         W = Q × VDD = C_L × VDD²           （单位：焦耳）
+
+  ③ 这些能量去哪了？一半留在了电容里（1/2 × C_L × VDD²），
+     另一半在 PMOS 管的导通电阻上变成了热（管子内阻分压造成的损耗）。
+
+  ④ 输出从 1 翻回 0：NMOS 导通，电容里存的那 1/2 × C_L × VDD²
+     全部在 NMOS 上变成热，电源不参与。
+
+  【所以一个完整的「充—放」周期，从电源净取走 C_L × VDD² 的能量，
+    而电容自己回到原状态，一点都没留。】
+
+  ⑤ 如果这个节点每秒翻转 f 次（f = 频率，单位 Hz），
+     那么每秒消耗的能量就是：
+
+         P = C_L × VDD² × f                 （单位：瓦特 W）
+
+【公式的三个变量，分别代表什么】
+     C_L ：被驱动的电容（下一级输入电容 + 走线电容），单位 F
+           → 减轻它：少带负载、缩短走线（这就是「扇出要克制」的原因）
+     VDD ：电源电压，单位 V
+           → 它是【平方】！从 5V 降到 3.3V，功耗变成 (3.3/5)² = 44%；
+             从 3.3V 降到 1.8V，变成 (1.8/3.3)² = 30%
+           → 所以【降功耗的第一手段永远是降压，第二手段才是降频】
+     f   ：翻转频率，单位 Hz（注意：是「翻转次数」，不是时钟频率本身；
+           一个节点一个时钟周期最多翻转一次，翻转率还与你写的代码有关）
+
+【数值感受一下】
+    · 一个门带 10pF 负载、VDD = 3.3V、1MHz 翻转：
+          P = 10pF × 3.3² × 1MHz = 10e-12 × 10.89 × 1e6 ≈ 0.109mW
+      —— 单个门很小，但芯片里有几百万个门，一乘就不可忽视。
+    · STM32 的一个 IO 带 20pF 走线、在 72MHz 下持续翻转：
+          P = 20pF × 3.3² × 72MHz = 20e-12 × 10.89 × 72e6 ≈ 15.7mW
+      —— 【一个脚就 15.7mW】。20 个脚同时高速翻转就是约 314mW，
+         这已经超过很多封装的热预算了。
+      所以「让不用的 IO 别乱翻转」「能用 2MHz 输出速度就别用 50MHz」
+      不只是 EMC 建议，是实实在在地省电、降温。</code></pre>
+          </div>
+
+          <p class="mt-3">除了上面这部分，CMOS 还有一笔额外的动态功耗：<b class="font-semibold text-ink">穿通功耗（也叫交越功耗、短路功耗）</b>。输入的边沿在 V<sub>IL</sub> 和 V<sub>IH</sub> 之间经过时，上下两只管子会<b class="font-semibold text-ink">同时处于导通状态</b>，V<sub>DD</sub> 到 GND 之间出现一条短暂的直流通路。输入边沿越慢，这段「同时导通」的时间越长，这笔功耗越大。这就是后面我们要强调<b>「CMOS 的输入不要停在中间电平、边沿别太慢」</b>的物理原因——它不只是逻辑问题，而是真的在烧电、发热。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>系列</th><th>电源范围</th><th>输入门限 V<sub>IH</sub></th><th>驱动能力（5V / 3.3V）</th><th>典型 t<sub>pd</sub></th><th>它适合干什么</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">4000B</td><td>3V ~ 18V</td><td>0.7×V<sub>DD</sub></td><td>很弱，约 ±0.25mA（V<sub>DD</sub>=5V）</td><td>约 100ns（5V）</td><td>宽压、超低功耗的慢速逻辑；<b>不能直接驱动 LED</b></td></tr>
+                <tr><td class="font-mono text-xs">74HC</td><td>2V ~ 6V</td><td>0.7×V<sub>CC</sub> = <b>3.5V</b>（5V 时）</td><td>±4mA</td><td>约 9ns（5V）</td><td>5V 系统内部逻辑；<b>3.3V 驱动不了它的输入</b></td></tr>
+                <tr><td class="font-mono text-xs">74HCT</td><td>4.5V ~ 5.5V</td><td><b>2.0V</b>（TTL 兼容输入）</td><td>±4mA</td><td>约 9ns（5V）</td><td><b>3.3V 器件的救星</b>：3.3V 输出能直接驱动它</td></tr>
+                <tr><td class="font-mono text-xs">74AHC</td><td>2V ~ 5.5V</td><td>0.7×V<sub>CC</sub></td><td>±8mA</td><td>约 5ns（5V）</td><td>更快的 5V CMOS；同样不兼容 3.3V 输入</td></tr>
+                <tr><td class="font-mono text-xs">74AHCT</td><td>4.5V ~ 5.5V</td><td><b>2.0V</b>（TTL 兼容）</td><td>±8mA</td><td>约 5ns（5V）</td><td>快 + 3.3V 可驱动，需要高速时首选</td></tr>
+                <tr><td class="font-mono text-xs">74LVC</td><td>1.65V ~ 3.6V</td><td>0.7×V<sub>CC</sub>（3.3V 时 2.31V）</td><td>±24mA（3.3V）</td><td>约 4ns</td><td>3.3V 系统的主力；<b>输入可承受 5V</b>，常用来做电平转换</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">「HCT」和「HC」只差一个字母，却是能不能直连的分水岭</div>
+            <p>74<b>HC</b> 的输入是纯 CMOS，门限 <b>0.7×V<sub>CC</sub> = 3.5V</b>（5V 供电）；74<b>HCT</b> 的输入内部加了一级电平移动，把门限压到 <b>2.0V</b>，专门用来接受 TTL（以及 3.3V）电平。所以在 3.3V ↔ 5V 的场合，<b>看到「HCT」基本就等于看到「能接」</b>：74HCT245（八路总线收发）、74AHCT1G04（单门反相器）、74HCT14（施密特反相器）都是实验室里最常用的一类「电平转换兼驱动」。<b>这也是初学者最该收藏的一条速记：3.3V 出、5V 进，找 HCT。</b></p>
+          </div>
+
+          <h3 id="sub-transmission" class="mt-7 text-base font-semibold">传输门、三态门与开漏输出：输出侧的三种「特殊形态」</h3>
+
+          <p class="mt-3">前面讲的推挽输出是「我能主动输出高，也能主动输出低」。但数字系统里还有三种更灵活的输出形态，它们各自解决一个推挽做不到的问题：<b class="font-semibold text-ink">传输门</b>解决「怎么把一个模拟/双向信号接通或断开」，<b class="font-semibold text-ink">三态门</b>解决「多块芯片怎么共用一条总线」，<b class="font-semibold text-ink">开漏输出</b>解决「怎么让多个器件安全地共享一根线、以及怎么输出一个比自己电源更高的电平」。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">先说 CMOS 传输门（Transmission Gate，TG）。</b>它其实就是把一只 NMOS 和一只 PMOS 并联起来，用互补的信号去开关它：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="CMOS 传输门：为什么必须用一对管子，而不是一只">
+            <pre><code>【电路】
+
+                 ┌──────────┬──────────┐
+                 │   NMOS   │   PMOS   │
+      Vi ────────┤ S      D ├──┬───────┤ S      D ├─────── Vout
+                 └────┬─────┘  │       └────┬─────┘
+                      │        │            │
+                   （栅极 C）  │         （栅极 C̄）
+                      │        │            │
+      控制端 C ───────┘        │      控制端 C 经过反相器 → C̄
+                              （衬底/体接法按工艺而定）
+
+【为什么不能只用一只 NMOS？】
+   NMOS 导通的条件是 V_GS ≥ V_TH（例如 V_TH = 1V）。
+   要传一个「高电平」时，源极电位会升到 VDD 附近，于是
+        V_GS = V_C（栅极电位）− V_S（源极电位）
+   会随着输出电压升高而【越来越小】。当 V_S 升到 V_C − V_TH 时，
+   管子自动截止 —— 高电平只能传到 VDD − V_TH，传不到 VDD。
+   这叫【阈值损失】，在 3.3V 系统里会损失大约 0.7~1V，非常致命。
+
+【PMOS 有对称的毛病】它传高电平很好，但传低电平时同样有阈值损失。
+
+【并联之后】
+   NMOS 负责把低电平稳稳地拉到 0V，
+   PMOS 负责把高电平稳稳地送到 VDD，
+   两者互补，全摆幅；而且合成后的导通电阻在输入电压变化时比较平坦。
+   → 所以模拟开关（CD4066、74HC4066）、多路选择器、以及几乎所有
+      CMOS 触发器内部，用的都是这种「一对管子并联」的结构。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">再说三态门（也叫三态输出、TS 输出）。</b>它在普通推挽输出上加了一个使能端，让输出多出第三种状态——<b class="font-semibold text-ink">高阻态（Z）</b>，也就是「两只输出管都关掉，输出端既不拉高也不拉低，等于从总线上脱开」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三态总线：同一时刻只能有一个器件说话">
+            <pre><code>【结构】                数据总线（一根线，挂多个器件）
+        ┌──────────┐            │
+        │ 器件 A    │───┬────────┤   A 的 OE 有效 → A 驱动总线
+        │ 三态输出  │   │        │   A 的 OE 无效 → A 的输出是高阻
+        └──────────┘   │        │
+        ┌──────────┐   │        │
+        │ 器件 B    │───┤        │   只有被选中的那一个才能驱动
+        │ 三态输出  │   │        │
+        └──────────┘   │        │
+        ┌──────────┐   │        │
+        │ 器件 C    │───┘        │
+        │ 三态输出  │            │
+        └──────────┘            │
+                            上拉或下拉电阻
+                          （保证总线上没有器件驱动时
+                            它有一个确定的电平，而不是悬空）
+
+【三条使用纪律】
+   ① 同一时刻【只能有一个】器件使能输出。
+      两个器件同时驱动、一个要输出高另一个要输出低，叫总线争用
+      （bus contention）：两只 MOS 管隔着几欧姆对打，电流几十 mA，
+      芯片发热、电平被拉到中间值，两边都读错。
+   ② 上电与复位期间，所有器件都处于高阻 —— 此时总线是悬空的。
+      而 CMOS 输入悬空是明确禁止的状态（下一节讲），所以总线上
+      必须加上拉或下拉电阻，把空闲电平钉住。
+   ③ 使能切换时要留出「先关旧的、再开新的」的死区时间，
+      否则两个器件的使能会在几十 ns 内重叠，就是一次瞬时争用。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">最后是开漏（OD）与集电极开路（OC）输出——它是初学者最容易用错、也最值得理解的一种。</b>它的输出级<b class="font-semibold text-ink">只有一只下拉管，没有上拉管</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="开漏输出的本质：它根本没有「输出高电平」这个能力">
+            <pre><code>【推挽输出】                      【开漏输出】
+      +VDD                              +VDD
+       │                                 │
+   ┌───┴───┐                             │  （这里没有管子）
+   │ 上拉管 │  ← 有                        │
+   └───┬───┘                             │
+       ├────► 输出                   ┌───┴───┐
+   ┌───┴───┐                        │ 下拉管 │  ← 只有这一只
+   │ 下拉管 │                        └───┬───┘
+   └───┬───┘                             ├────► 输出
+      GND                               GND
+
+   「输出高」= 上拉管导通        「输出高」= 下拉管截止
+   「输出低」= 下拉管导通        「输出低」= 下拉管导通
+
+   高电平由芯片自己产生          高电平【没人产生】——
+                                 下拉管截止时输出端是「悬空」的，
+                                 必须由【外部上拉电阻】把线拉到某个电平。
+
+【这就是开头那个现场二的答案】
+   代码写「输出高」只是让下拉管松开手；没有外部上拉电阻，
+   引脚上量到的就是负载残留下来的电荷和漏电决定的随机值
+   （通常接近 0V，于是你量到 0.2V）。
+
+【关键好处一：高电平的电平由你自己的上拉电阻决定】
+   上拉电阻接 3.3V，线上的高电平就是 3.3V；
+   上拉电阻接 5V，线上的高电平就是 5V。
+   → 开漏输出【天生就是电平转换器】。
+     3.3V 的单片机可以借它输出一个 5V 的高电平
+     （代价是上升沿变成 RC 充电，速度受限）。
+
+【关键好处二：多个开漏输出可以直接接在一起，实现「线与」】
+   任何一个拉低，线就是低；全都松手，线才被上拉电阻拉高。
+   于是 F = F1 · F2 · F3 ……，不用额外加与门。
+   中断线共享、I2C 总线、复位线共享，用的都是这个性质。
+
+【关键好处三：输出管的耐压可以做得比电源高】
+   典型例子：74LS07（集电极开路缓冲器）输出端耐压可到 30V，
+   于是它可以直接驱动一个 12V 的继电器 —— 而推挽输出绝对不行
+   （T4 的集电极接在 VCC 上，输出端超过 VCC 就会倒灌）。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">上拉电阻怎么选？两个方向同时夹。</b>这一条是工程上最常被忽略的计算，我们先给出结论，第 3 节会完整算一遍：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>约束</th><th>限制的是</th><th>公式</th><th>直观解释</th></tr></thead>
+              <tbody>
+                <tr><td><b>阻值不能太小</b></td><td>上拉电阻的<b>下限</b></td><td class="font-mono text-xs">R(min) = (VDD − VOL(max)) / IOL(max)</td><td>输出低电平时，电流从电源经电阻灌进下拉管。电阻太小 → 电流超过下拉管的承受能力 → V<sub>OL</sub> 被抬高（可能被读成高）甚至烧管</td></tr>
+                <tr><td><b>阻值不能太大</b></td><td>上拉电阻的<b>上限</b></td><td class="font-mono text-xs">t_r ≈ 0.8473 × R × C_bus<br>（也可用 2.2RC 粗算）</td><td>下拉管松开手后，靠电阻给总线电容充电。电阻太大 → 充电太慢 → 上升沿爬不上去，高速时直接通信失败</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>推挽输出</th><th>开漏 / 集电极开路输出</th></tr></thead>
+              <tbody>
+                <tr><td>输出高电平</td><td>芯片主动输出，接近电源轨</td><td><b>由上拉电阻和上拉电源决定</b>（或由负载本身提供）</td></tr>
+                <tr><td>输出低电平</td><td>下拉管饱和，干净的低</td><td>同样干净的低，且灌电流能力通常更强</td></tr>
+                <tr><td>能否多器件共享一根线</td><td class="text-rose-600 dark:text-rose-400"><b>不能</b>，会总线争用</td><td class="text-brand-600 dark:text-brand-300"><b>能</b>，天生「线与」</td></tr>
+                <tr><td>速度</td><td>快，上升下降都由低阻管子驱动</td><td>受 RC 充电限制，<b>上升沿是瓶颈</b></td></tr>
+                <tr><td>静态功耗</td><td>低（推挽不导通时几乎不耗电）</td><td>输出低时有持续电流（V/R），「线与」长期拉低会耗电</td></tr>
+                <tr><td>电平转换能力</td><td>不行（高电平被自己的电源锁死）</td><td><b>可以</b>，上拉接哪一侧就是哪一侧的电平</td></tr>
+                <tr><td>典型用途</td><td>普通数字输出、时钟、SPI、UART 的 TX</td><td>I2C（SDA/SCL）、共享中断线、共享复位线、驱动高压负载</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-params" class="mt-7 text-base font-semibold">门电路的主要电气参数：每一个都带条件，每一个都有出处</h3>
+
+          <p class="mt-3">到这里你已经见过这些符号很多次了。现在把它们一次性定义清楚。<b class="font-semibold text-ink">电气参数最大的陷阱是「不看条件」</b>——手册里的 V<sub>OH</sub> 从来不是「这个芯片输出高电平是多少伏」，而是「在某个指定的拉电流下，输出高电平<b>至少</b>还有多少伏」。丢掉条件，这个数字就没有意义。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>参数</th><th>全称</th><th>定义</th><th>测量/规定条件（关键！）</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">V<sub>OH</sub></td>
+                  <td>Output High Voltage</td>
+                  <td>输出高电平时，输出端电压的<b>最低保证值</b>（min）</td>
+                  <td>必须指定 <b>I<sub>OH</sub></b>（拉电流大小）、V<sub>CC</sub>（例如 4.75V~5.25V）、温度范围。负载越重，V<sub>OH</sub> 越低</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">V<sub>OL</sub></td>
+                  <td>Output Low Voltage</td>
+                  <td>输出低电平时，输出端电压的<b>最高保证值</b>（max）</td>
+                  <td>必须指定 <b>I<sub>OL</sub></b>（灌电流大小）。灌得越多，V<sub>OL</sub> 越高</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">V<sub>IH</sub></td>
+                  <td>Input High Voltage</td>
+                  <td>被<b>保证</b>识别为高电平的输入电压下限（min）</td>
+                  <td>与频率、边沿速度无关，是直流门限；但要注意它随 V<sub>CC</sub> 变化（CMOS 是 0.7×V<sub>CC</sub>）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">V<sub>IL</sub></td>
+                  <td>Input Low Voltage</td>
+                  <td>被<b>保证</b>识别为低电平的输入电压上限（max）</td>
+                  <td>V<sub>IH</sub> 与 V<sub>IL</sub> 之间的区域是<b>不确定区</b>，落在里面的电平没有任何保证</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">I<sub>OH</sub></td>
+                  <td>Output High Current</td>
+                  <td>输出高电平时能提供的电流（手册里常写成 <b>负值</b>，表示「流出」引脚）</td>
+                  <td>典型：TTL 只有 −0.4mA；CMOS 是 ±4mA 或 ±24mA，对称得多</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">I<sub>OL</sub></td>
+                  <td>Output Low Current</td>
+                  <td>输出低电平时能吸收的电流（正值，表示「灌入」引脚）</td>
+                  <td>典型：74LS 是 8mA；74HC 是 4mA；74LVC 在 3.3V 可到 24mA</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">I<sub>IH</sub></td>
+                  <td>Input High Current</td>
+                  <td>输入为高电平时，<b>输入引脚自己</b>吸入的电流</td>
+                  <td>TTL 典型 ≤ 20µA；CMOS 典型 ≤ ±1µA（几乎是漏电级）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">I<sub>IL</sub></td>
+                  <td>Input Low Current</td>
+                  <td>输入为低电平时，<b>输入引脚自己</b>流出的电流（手册里常写成负值）</td>
+                  <td>TTL 典型 ≤ −0.4mA（这就是 TTL 输入「吃电流」的来源）；CMOS 同样 ≤ ±1µA</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">符号方向的坑：正负号不是排版错误</div>
+            <p>手册里 <code class="icode">IOH = −0.4mA</code>、<code class="icode">IIL = −0.4mA</code> 这种写法是<b>约定</b>：以「电流流进引脚为正、流出引脚为负」为惯例（不同厂商可能反过来，所以每份手册都要先看它的定义脚注）。<b>工程上你只需要记住两件事</b>：<b>① 输出低（灌电流）时，前级要吸收多少个 mA</b>——这个能力叫 I<sub>OL</sub>，通常大；<b>② 输出高（拉电流）时，前级能给出多少个 mA</b>——这个能力叫 I<sub>OH</sub>，TTL 里小得可怜（0.4mA），CMOS 里和 I<sub>OL</sub> 基本对称。<b>「TTL 的强项是拉低、CMOS 的强项是两边都行」这句话，就是从这里来的。</b></p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">把这四组参数放到一张图上，噪声容限就自己出来了。</b>噪声容限回答的问题是：<b class="font-semibold text-ink">从输出端到输入端这段路（导线、连接器、插针、面包板）上，最多能叠加多少干扰电压，而这一位逻辑还能被正确识别？</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="噪声容限的定义：输出保证值 与 输入门限 之间那段距离">
+            <pre><code>【高电平方向的噪声容限 VNH】
+
+   VDD ┤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       │
+       │        ← 干扰叠加进来
+       │              │
+       │              ▼  最多 0.7V
+   VOH ├─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  前级【保证】能给出的最低高电平
+       │
+       │     这一段距离 = VNH
+       │
+   VIH ├─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  后级【保证】能认成高的最低电平
+       │
+       │
+       │     这一段是【不确定区】，谁都不保证
+       │
+   VIL ├─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  后级【保证】能认成低的最高电平
+       │
+       │     这一段距离 = VNL
+       │
+   VOL ├─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  前级【保证】不会超过的最高低电平
+       │              ▲
+       │              │  最多 0.4V
+       │        ← 干扰叠加进来
+   GND ┤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        VNH = VOH(min) − VIH(min)        高电平噪声容限
+        VNL = VIL(max) − VOL(max)        低电平噪声容限
+        VN  = min(VNH, VNL)              取小的那个作为这个接口的总噪声容限
+
+【为什么必须用「保证值」而不是典型值】
+   典型值是常温、典型样品下的数值（TTL 的 VOH 典型 3.4~3.6V），
+   而工程要用【最坏情况】：-40℃ 和 +85℃、电源偏低、批次偏差。
+   两份手册的保证值一对，算出来的容限才是可靠的。
+   用典型值算出来的 1.4V 容限是幻觉，保证值算出来的 0.7V 才是真的。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">再看扇出系数。它回答的是「一个输出能带几个同类输入」。</b></p>
+
+          <p class="mt-3"><code class="icode">N<sub>扇出</sub> = min( I<sub>OH(max)</sub> / I<sub>IH(max)</sub> , &nbsp;I<sub>OL(max)</sub> / I<sub>IL(max)</sub> )</code></p>
+
+          <p class="mt-3">两条路径都要算，取小的那个——因为高电平方向和低电平方向各有一条电流通路，<b class="font-semibold text-ink">哪条先撑不住，输出电平就先失效</b>。以 74LS00 为例：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="74LS 系列扇出系数 = 20 是怎么来的">
+            <pre><code>【参数（74LS00 数据手册保证值）】
+    IOH(max) = −0.4mA     ；输出高时最多能给出 0.4mA
+    IIH(max) =  20µA      ；每个输入为高时自己要吸走 20µA
+    IOL(max) =  8mA       ；输出低时最多能吸收 8mA
+    IIL(max) = −0.4mA     ；每个输入为低时自己要流出 0.4mA
+
+【高电平方向】
+    能带个数 = 0.4mA / 20µA = 400 / 20 = 20 个
+
+【低电平方向】
+    能带个数 = 8mA / 0.4mA = 20 个
+
+【取小的 → 扇出系数 N = 20】
+
+    巧合吗？不是。TTL 系列的输入结构决定了 IIH 和 IIL 的比例，
+    让两个方向同时卡在 20 这个数字上 —— 这是当年 TTL 系列
+    内部设计时刻意做出来的「整齐」，方便工程师记。
+
+【CMOS 的扇出为什么不是这么算的】
+    74HC 的 IIH / IIL 只有 ±1µA 量级，代进去：
+        4mA / 1µA = 4000 个
+    但这是【直流】扇出，没有任何实际意义 —— 因为带 4000 个输入，
+    负载电容会是 4000 × 5pF = 20nF，上升时间会长到毫秒级，电路根本不能工作。
+    → 【CMOS 的扇出由电容和速度决定，而不是由直流电流决定。】
+      手册通常不标直流扇出，只标「能驱动 N 个 LS-TTL 负载」或者
+      直接给出「最大负载电容」「输出上升时间测试条件」。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>系列</th><th>V<sub>OH</sub>(min)</th><th>V<sub>OL</sub>(max)</th><th>V<sub>IH</sub>(min)</th><th>V<sub>IL</sub>(max)</th><th>I<sub>OH</sub> / I<sub>OL</sub></th><th>I<sub>IH</sub> / I<sub>IL</sub></th><th>直流扇出</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">7400（标准 TTL）</td><td>2.4V</td><td>0.4V</td><td>2.0V</td><td>0.8V</td><td>−0.4mA / 16mA</td><td>40µA / −1.6mA</td><td>10</td></tr>
+                <tr><td class="font-mono text-xs">74LS（低功耗肖特基）</td><td>2.7V</td><td>0.5V</td><td>2.0V</td><td>0.8V</td><td>−0.4mA / 8mA</td><td>20µA / −0.4mA</td><td><b>20</b></td></tr>
+                <tr><td class="font-mono text-xs">74HC（5V CMOS）</td><td>4.4V</td><td>0.1V</td><td><b>3.5V</b></td><td>1.5V</td><td>−4mA / 4mA</td><td>±1µA</td><td>数千（无实际意义）</td></tr>
+                <tr><td class="font-mono text-xs">74HCT（TTL 兼容输入）</td><td>4.4V</td><td>0.1V</td><td><b>2.0V</b></td><td>0.8V</td><td>−4mA / 4mA</td><td>±1µA</td><td>数千（同上）</td></tr>
+                <tr><td class="font-mono text-xs">CD4000B（V<sub>DD</sub>=5V）</td><td>4.6V</td><td>0.4V</td><td>3.5V</td><td>1.5V</td><td>−0.25mA / 0.25mA</td><td>±1µA</td><td>极弱，几乎只能带 CMOS 输入</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">这些数字的来源说明：</b>上表按各系列数据手册的<b>保证值</b>（worst-case）整理，温度与电源条件为常见工业级范围；TTL 的数值是最经典的一组（教材与手册一致），CMOS 的 V<sub>OH</sub>/V<sub>OL</sub> 取的是带载条件下的保证值（例如 74HC 在 V<sub>CC</sub>=4.5V、I<sub>OL</sub>=4mA 时 V<sub>OL</sub> ≤ 0.33V，空载时是 0.1V）。<b>实际用的时候一定看你手上那颗芯片对应型号的手册</b>——同一个 74HC00，不同厂商、不同 V<sub>CC</sub>，这些数字都会变。</p>
+
+          <h3 id="sub-levels" class="mt-7 text-base font-semibold">电平标准对比：为什么 3.3V 能驱动 5V TTL，反过来却不行</h3>
+
+          <p class="mt-3">把前面所有的铺垫收拢，回答这一篇开头那个问题。先看一张总表——<b class="font-semibold text-ink">这张表建议你抄进笔记本</b>，它覆盖了你在实验室里 90% 会遇到的电平组合。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>电平标准</th><th>V<sub>OH</sub>(min)</th><th>V<sub>OL</sub>(max)</th><th>V<sub>IH</sub>(min)</th><th>V<sub>IL</sub>(max)</th><th>V<sub>NH</sub></th><th>V<sub>NL</sub></th></tr></thead>
+              <tbody>
+                <tr><td><b>5V TTL</b>（7400 系列）</td><td>2.4V</td><td>0.4V</td><td>2.0V</td><td>0.8V</td><td>0.4V</td><td>0.4V</td></tr>
+                <tr><td><b>5V TTL</b>（74LS 系列）</td><td>2.7V</td><td>0.5V</td><td>2.0V</td><td>0.8V</td><td>0.7V</td><td>0.3V</td></tr>
+                <tr><td><b>5V CMOS</b>（74HC @ V<sub>CC</sub>=5V）</td><td>4.4V</td><td>0.1V</td><td><b>3.5V</b></td><td>1.5V</td><td>0.9V</td><td>1.4V</td></tr>
+                <tr><td><b>5V CMOS</b>（4000B @ V<sub>DD</sub>=5V）</td><td>4.6V</td><td>0.4V</td><td><b>3.5V</b></td><td>1.5V</td><td>1.1V</td><td>1.1V</td></tr>
+                <tr><td><b>3.3V LVTTL</b>（JEDEC 规范值）</td><td>2.4V</td><td>0.4V</td><td>2.0V</td><td>0.8V</td><td>0.4V</td><td>0.4V</td></tr>
+                <tr><td><b>3.3V LVCMOS</b>（0.7/0.3×V<sub>DD</sub>）</td><td>2.9V</td><td>0.4V</td><td>2.31V</td><td>0.99V</td><td>0.59V</td><td>0.59V</td></tr>
+                <tr><td><b>2.5V LVCMOS</b></td><td>2.1V</td><td>0.4V</td><td>1.75V</td><td>0.7V</td><td>0.35V</td><td>0.3V</td></tr>
+                <tr><td><b>1.8V LVCMOS</b>（JESD8-7）</td><td>1.35V</td><td>0.45V</td><td>1.17V</td><td>0.63V</td><td>0.18V</td><td>0.18V</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">表里的 V<sub>NH</sub>、V<sub>NL</sub> 是按上一节的公式（V<sub>NH</sub> = V<sub>OH</sub>(min) − V<sub>IH</sub>(min)，V<sub>NL</sub> = V<sub>IL</sub>(max) − V<sub>OL</sub>(max)）用<b>同一行内部</b>的数据算出来的——它描述的是「这一族器件自己级联自己」时的抗干扰能力。<b class="font-semibold text-ink">注意 3.3V LVCMOS 和 1.8V 的噪声容限只有 0.59V 和 0.18V</b>：低压电平的容限天生就小，这就是为什么低压系统对布线、去耦、串扰的要求比 5V 系统严格得多。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">STM32F103 属于哪一族？</b>它的数据手册在 V<sub>DD</sub> = 3.3V 下给出：V<sub>IL</sub> ≤ 0.8V、V<sub>IH</sub> ≥ 2.0V（这就是 LVTTL 的输入门限）；输出侧在 8mA 条件下 V<sub>OL</sub> ≤ 0.4V、V<sub>OH</sub> ≥ V<sub>DD</sub> − 0.4V = <b>2.9V</b>（PC13/PC14/PC15 例外，只有 3mA）。<b>所以 STM32 的口径是：门限按 LVTTL（2.0V/0.8V），输出摆幅比 LVTTL 的保证值更好（2.9V 而不是 2.4V）。</b>后面算余量时，我们两种情况都算给你看。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="方向一：3.3V 输出 → 5V 输入，两种情况天差地别">
+            <pre><code>【情况 A：3.3V 输出 → 5V TTL 输入（74LS00 这类）】
+
+    输出侧：VOH(min) = 2.9V（STM32 手册值，8mA 下）
+    输入侧：VIH(min) = 2.0V（74LS00 手册值）
+    高电平噪声容限 VNH = 2.9V − 2.0V = 【0.9V】  ✅ 安全
+
+    低电平方向：
+    输出侧：VOL(max) = 0.4V
+    输入侧：VIL(max) = 0.8V
+    低电平噪声容限 VNL = 0.8V − 0.4V = 【0.4V】  ✅ 安全
+
+    → 结论：可以直接连。就算退一步用 LVTTL 的保守保证值 VOH = 2.4V 算，
+      也还有 0.4V 余量，依然成立。
+
+【情况 B：3.3V 输出 → 5V CMOS 输入（74HC00，VCC = 5V）】
+
+    输出侧：VOH(min) = 2.9V（已经是理想情况了）
+    输入侧：VIH(min) = 0.7 × 5V = 3.5V
+    高电平噪声容限 VNH = 2.9V − 3.5V = 【−0.6V】  ❌ 不成立
+
+    就算 STM32 空载输出接近理想的 3.3V：
+    VNH = 3.3V − 3.5V = 【−0.2V】  ❌ 依然不成立
+
+    → 结论：不能直连。信号在逻辑上「看起来像高电平」，
+      但在 74HC00 的门限面前它根本不算高。
+      这就是开头那个「一块能用一块不能用」的完整答案。
+
+【怎么救？三个办法，从省事到彻底】
+    ① 换成 74HCT00：输入门限 2.0V，VNH = 2.9 − 2.0 = 0.9V ✅
+       （最省事 —— 只是把芯片型号换掉，电路一个字都不用改）
+    ② 引脚配成开漏输出 + 上拉电阻接到 5V：高电平变成 5V，VNH = 5 − 3.5 = 1.5V ✅
+       （但要接受上升沿变慢，且这条线不能再被别的推挽输出驱动）
+    ③ 用专用电平转换芯片 / MOS 管双向转换模块 ✅（最通用，见下一节的方案对比）</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="方向二：5V 输出 → 3.3V 输入，卡住它的不是门限，是绝对最大额定值">
+            <pre><code>【情况 C：5V TTL 输出 → STM32 普通引脚（非 FT）】
+
+    先算逻辑：5V TTL 的 VOH(min) = 2.7V（典型 3.4~3.6V）
+              STM32 的 VIH(min) = 2.0V
+              VNH = 2.7V − 2.0V = 0.7V  ✅ 逻辑上完全够
+
+    再算电气：5V TTL 输出的高电平【实际约 3.6V】（还记得 VOH ≈ 3.6V 的推导吗）
+              而 STM32 普通引脚的绝对最大额定值是 VDD + 0.3V = 【3.6V】
+              → 贴在上限上，甚至因为 VCC 波动而超过
+              → 引脚内部的保护二极管开始导通，电流灌进 VDD 网络  ❌
+
+    结论：这个方向【不是逻辑问题，是过压问题】。
+          「3.3V 能驱动 5V TTL，反过来不行」—— 反过来的「不行」
+          指的是这一步：一个逻辑上完全成立的连接，电气上会损坏芯片。
+
+【情况 D：5V CMOS 输出 → STM32 普通引脚】
+
+    VOH(min) = 4.4V（74HC @5V），远高于 3.6V 上限  ❌ 更严重
+
+【情况 E：5V 输出 → STM32 的 FT 引脚（5V 容忍）】
+
+    绝对最大额定值：FT 引脚允许到约 5.5V（数据手册规定）
+    逻辑：VOH(min) = 2.7V（TTL）/ 4.4V（CMOS）都远高于 VIH = 2.0V  ✅
+    → 数字输入模式下可以直接接（这是动手型那篇《3.3V 电平与硬件安全》
+      重点讲的内容，包括 FT 只在数字输入模式生效等三个前提）</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">「3.3V 能不能和 5V 接」必须同时过两关</div>
+            <p><b>第一关是逻辑关：</b>V<sub>OH</sub>(min) ＞ V<sub>IH</sub>(min)，也就是噪声容限大于零。这一关管的是「信号能不能被认出来」。<b>第二关是电气关：</b>任何引脚上的电压都不超过它的绝对最大额定值（非 FT 引脚约 V<sub>DD</sub>+0.3V = 3.6V，FT 引脚约 5.5V）。这一关管的是「芯片会不会坏」。<b>很多人只算第一关，于是得出「5V TTL 接 3.3V 没问题」的结论——逻辑上没错，但芯片会在几周内坏掉或者当场发烫。</b>反过来，只查第二关（引脚能不能扛 5V）而不看门限，就会遇到「接上了、不烧，但就是不工作」的情况（3.3V 驱动 5V CMOS 就是这一类）。<b>两关都过，才叫「能直接连」。</b></p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">把四种情形汇总成一张判定表：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>情形</th><th>逻辑关</th><th>电气关</th><th>结论</th><th>方案</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>3.3V 输出 → 5V TTL 输入</td>
+                  <td class="text-brand-600 dark:text-brand-300">✅ V<sub>NH</sub> = 0.9V</td>
+                  <td class="text-brand-600 dark:text-brand-300">✅ 不涉及过压</td>
+                  <td class="text-brand-600 dark:text-brand-300"><b>直接连</b></td>
+                  <td>什么都不用加</td>
+                </tr>
+                <tr>
+                  <td>3.3V 输出 → 5V CMOS 输入（HC 系列）</td>
+                  <td class="text-rose-600 dark:text-rose-400">❌ V<sub>NH</sub> = −0.2~−0.6V</td>
+                  <td class="text-brand-600 dark:text-brand-300">✅</td>
+                  <td class="text-rose-600 dark:text-rose-400"><b>不能连</b></td>
+                  <td>换 74HCT / 开漏上拉到 5V / 电平转换芯片</td>
+                </tr>
+                <tr>
+                  <td>5V TTL 或 CMOS 输出 → 3.3V 普通引脚</td>
+                  <td class="text-brand-600 dark:text-brand-300">✅ 门限够</td>
+                  <td class="text-rose-600 dark:text-rose-400">❌ 3.6~5V 超过 3.6V 上限</td>
+                  <td class="text-rose-600 dark:text-rose-400"><b>不能连</b></td>
+                  <td>改用 FT 引脚 / 分压 / 电平转换 / MOS 双向</td>
+                </tr>
+                <tr>
+                  <td>5V 输出 → 3.3V 的 FT 引脚</td>
+                  <td class="text-brand-600 dark:text-brand-300">✅</td>
+                  <td class="text-brand-600 dark:text-brand-300">✅（≤ 5.5V）</td>
+                  <td class="text-brand-600 dark:text-brand-300"><b>直接连</b></td>
+                  <td>只在数字输入模式下成立</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">不能直连时，五种方案各有各的缺陷。</b>下表是这一节最实用的一张——它不是为了告诉你「用哪个」，而是告诉你「每个方案会在什么条件下失效」：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>方案</th><th>方向</th><th>速度</th><th>成本</th><th>它擅长什么</th><th>它的致命缺陷</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>专用电平转换芯片</b><br><span class="font-mono text-[12.5px]">TXS0108E / TXB0104 / 74LVC1T45 / 74LVC245</span></td>
+                  <td>单向或双向</td>
+                  <td>高（几十 Mbps）</td>
+                  <td>几元</td>
+                  <td>一次解决多路、有驱动能力、速度快</td>
+                  <td><b>要注意型号的脾气</b>：TXB0104 不能用于开漏总线（会自激）；TXS 系列内部带弱上拉，在 I2C 上会和外部上拉叠加，阻值要重算；两侧都要供电、都要共地</td>
+                </tr>
+                <tr>
+                  <td><b>电阻分压</b></td>
+                  <td>只能 5V→3.3V 单向</td>
+                  <td>低（100kHz 以上明显变形）</td>
+                  <td>几分钱</td>
+                  <td>便宜、简单、点对点低速信号</td>
+                  <td><b>不能用于总线</b>（会破坏线与）；分压点阻抗高、易受干扰；有持续静态电流；边沿被 RC 拖慢；<b>不能反向</b></td>
+                </tr>
+                <tr>
+                  <td><b>二极管钳位 + 串联限流</b></td>
+                  <td>只能 5V→3.3V</td>
+                  <td>中（限流电阻会拖慢边沿）</td>
+                  <td>几分钱</td>
+                  <td>「我已经接上了，先保住芯片」的应急保护</td>
+                  <td><b>钳位点算不过来</b>：硅二极管把它钳在 V<sub>DD</sub>+0.7V = 4.0V，<b>仍然超过 3.6V 上限</b>；换肖特基是 3.3+0.3 = 3.6V，<b>刚好贴在线上</b>，温度一漂就超；必须串电阻把电流限到 1mA 以下，边沿就慢了。<b>它是保护措施，不是转换方案</b></td>
+                </tr>
+                <tr>
+                  <td><b>MOS 管双向电平转换</b><br><span class="font-mono text-[12.5px]">BSS138 + 两侧上拉</span></td>
+                  <td><b>双向自动</b></td>
+                  <td>中高（受上拉与电容限制）</td>
+                  <td>几毛钱</td>
+                  <td>I2C、双向数据线、需要电平翻译又不想用芯片</td>
+                  <td>两侧都要上拉（有静态电流）；栅极必须接<b>低压侧</b>电源；只适合信号不适合功率；上拉阻值受总线电容约束（下一节算）</td>
+                </tr>
+                <tr>
+                  <td><b>开漏 + 上拉到目标电压侧</b></td>
+                  <td>双向自动</td>
+                  <td>低（上升沿是 RC 充电）</td>
+                  <td>几分钱</td>
+                  <td>I2C 的标准解法；多器件共享一根线</td>
+                  <td>上升沿慢、速度受限；输出低时有静态电流；<b>要求总线上所有器件都必须支持开漏</b>（有一个推挽器件就把线卡死了）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">四个容易被漏掉的前提，任何一个不满足都会「莫名其妙」</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>共地。</b>所有电平都是相对各自的地来说的。两块板子不共地，你量出来的电压是漂的，「高电平」根本不存在。这是实验室里最经典的一条。</li>
+              <li><b>上电顺序。</b>FT 引脚的 5V 容忍以 V<sub>DD</sub> 存在为前提：如果 STM32 还没上电、而 5V 器件已经在往引脚上灌信号，电流会顺着内部结构流进 V<sub>DD</sub> 网络，把芯片「半供电」地拉起来，行为完全不可预测。<b>规矩：先共地、再上电、最后接信号；断电时反过来。</b></li>
+              <li><b>总线电容。</b>I2C 规范规定总线电容不超过约 400pF。线越长、挂的器件越多，电容越大，上拉电阻就必须越小；而电阻越小静态电流越大、低电平越难压下去。<b>这是一条真实的权衡曲线，第 3 节会算。</b></li>
+              <li><b>方向。</b>电平转换芯片大多有方向控制（DIR 引脚）或方向检测（TXS/TXB 系列）。方向搞反了，电路会「看起来接对了但就是不通」，甚至两个器件对着驱动。</li>
+            </ul>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">还有一个容易忽略的事实：同为 3.3V，也可能连不上</div>
+            <p>3.3V 不是一个「电平」，而是一族：<b>3.3V LVTTL</b>（门限 2.0V/0.8V）和 <b>3.3V LVCMOS</b>（门限 0.7V<sub>DD</sub> = 2.31V）就不同。一个按 LVTTL 设计的输出（保证 2.4V）去驱动一个按 LVCMOS 设计的输入（要求 2.31V），理论余量只有 <b>0.09V</b>——几乎等于没有。所以在同一个 3.3V 系统里，如果混用了不同家族的芯片，<b>稳妥的做法依然是查一对手册的 V<sub>OH</sub>(min) 与 V<sub>IH</sub>(min)</b>，而不是想当然地认为「都是 3.3V 就没问题」。这一条在换料、国产替代、二手模块混用时特别容易踩到。</p>
+          </div>
+
+          <h3 id="sub-nonideal" class="mt-7 text-base font-semibold">门电路不是理想的：悬空、传输延迟、上升时间与地弹</h3>
+
+          <p class="mt-3">前面讲的都是「稳态」：输入已经稳定在高或低，输出已经稳定在高或低。可真实的电路里有两类麻烦全都在<b class="font-semibold text-ink">稳态之外</b>：一类是输入<b class="font-semibold text-ink">没有稳定在任何一个合法电平</b>（悬空、缓慢变化），另一类是信号<b class="font-semibold text-ink">正在切换的那一瞬间</b>（延迟、边沿、地弹）。这一节把这两类问题在门电路层面说清楚。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第一件事：CMOS 的输入绝对不能悬空。</b>这句话你大概听过很多次，但值得把三个后果分别说清楚，因为它们严重程度递增：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="CMOS 输入悬空的三重后果（以及为什么 TTL 没这么严重）">
+            <pre><code>【后果一：输入电位不确定 → 逻辑乱跳】
+   CMOS 输入的阻抗极高（栅极绝缘，输入电阻 10^12Ω 量级）。
+   悬空时，节点上的电荷没有任何泄放通路，
+   电位由【漏电流、周围电场、人手触摸、邻近走线耦合】共同决定。
+   → 输出会在高低之间随机跳，而且对「手靠近」这种干扰极其敏感。
+   → 现象：没接任何东西的输入引脚，读数乱跳；计数器乱计；
+          中断莫名其妙触发。这是你「查代码查一天」的经典来源。
+
+【后果二：输入停在中间电平 → 穿通电流 → 静态功耗暴涨、发热】
+   如果悬空电位恰好漂在 VDD/2 附近（很常见），
+   互补的 PMOS 和 NMOS 会【同时半导通】，
+   VDD 到 GND 之间出现一条持续的直流通路。
+   → 本来静态电流只有 nA 级的门，会突然变成 mA 级
+   → 静态功耗从「几乎为零」变成「持续发热」
+   → 几十个悬空输入一起漂，芯片会明显发烫
+
+【后果三：输出可能自激振荡】
+   输入停在过渡区时，输出既不是高也不是低，
+   这个中间电平通过寄生耦合反馈回输入，形成振荡。
+   → 电流进一步上升，同时变成一个很强的电磁噪声源，
+     会干扰同一块板子上的其他电路。
+
+【为什么 TTL 悬空不这么严重？】
+   TTL 的输入是一个多发射极三极管的发射极：
+   悬空时相当于「没有把这个发射极拉低」→ 后级当成高电平处理，
+   状态是确定的（虽然噪声容限会变差，也不推荐）。
+   → 【TTL 悬空 = 高电平（确定，不推荐）；CMOS 悬空 = 灾难（不确定）】
+     这句话的物理来源就在这里，不要混用。
+
+【正确做法（按优先级）】
+   ① 不用的 CMOS 输入直接接 VDD 或 GND（最干净）
+   ② 或者接一个 10kΩ 的上拉/下拉电阻（便于以后改动、也能限流）
+   ③ 总线上没有器件驱动时，必须由总线上拉/下拉电阻把电平钉住
+   ④ 单片机自己的 IO：不用就配成模拟输入或在 CubeMX 里设成
+      「无上拉无下拉的输入」也要谨慎 —— 最好明确设成上拉/下拉</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第二件事：信号不是瞬间跳变的——传输延迟与边沿时间。</b>门电路有延迟，边沿有斜率，这两件事决定了你的电路能跑多快。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="tpLH、tpHL、tpd 与上升/下降时间的定义">
+            <pre><code>【传输延迟】输入变化到输出变化之间的时间，都按【50% 幅度点】测量
+
+   输入   ────┐                    ┌────
+              │                    │
+              └────────────────────┘
+                    │
+                    │←  tpHL（输出从高变低）
+                    │
+   输出   ─────────┐│        ┌────────
+                   ││        │
+                   └┴────────┘
+                    │
+                    │←  tpLH（输出从低变高）
+
+   平均传输延迟  tpd = (tpLH + tpHL) / 2
+
+   · 为什么手册给两个：因为 TTL 的拉高（靠射极跟随器）和拉低（靠饱和管）
+     能力不对称，tpLH 和 tpHL 本来就不一样
+   · 手册里的 tpd 一定带条件：VCC、负载电容 C_L（常是 15pF）、温度
+   · 典型值参考：74LS00 约 9~15ns；74HC00 在 5V 约 8~15ns；
+     74AHC00 约 5ns；74LVC00 在 3.3V 约 4ns
+   · 负载电容越大，延迟越大（输出级要给 C_L 充放电，时间 ∝ C_L）
+
+【上升/下降时间】按 10% ~ 90% 幅度点测量
+
+        100% ┤        ┌────────────
+             │      ╱
+         90% ┤─────╱ ← 这里
+             │    │
+         10% ┤────┘ ← 到这里，这段时间叫 t_r
+             │  ←→
+          0% ┤────────────────────
+
+   对一阶 RC 充电：t_r ≈ 2.2 × R × C
+   （2.2 = ln(0.9/0.1) ≈ 2.197，是从 10% 充到 90% 需要的时间常数个数）
+
+   · 输出级的等效输出电阻 R_o 与负载电容 C_L 就是这个 RC
+   · 74HC 的输出电阻大致几十到一百多欧姆；74LVC 在 3.3V 更低
+   · 边沿太慢的三个后果：
+       ① 后级穿通功耗增加（发热）
+       ② 信号在门限附近停留时间长 → 更容易被噪声翻错
+       ③ 串扰窗口变长（相邻线的耦合时间变长）
+   · 边沿太快的后果：dv/dt 和 di/dt 大 → 串扰、地弹、EMI 变严重
+   → 【边沿快慢是一个取舍，不是越快越好 —— 够用就行。】</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第三件事：地弹（ground bounce）与开关噪声。</b>这是「程序明明没错，但偶尔就是会误触发」的一大来源，也是所有高速数字设计的必修课。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="地弹：V = L × di/dt，算给你看有多大">
+            <pre><code>【物理图像】
+   芯片内部的地（VSS）并不是「理想的地」。从芯片内部的晶体管，
+   到芯片的地引脚，再到 PCB 的接地铜皮，中间要经过：
+       · 芯片内部的键合线（bond wire）：几 nH
+       · 芯片引脚与封装：几 nH
+       · PCB 走线：约 1nH/mm
+   这一整串【寄生电感】是地弹的根源。
+
+   电感的基本性质：U = L × di/dt
+   —— 电流变化越快，电感上产生的电压跌落越大。
+
+【算一算：8 个 IO 同时从高翻到低】
+   每个引脚灌入 20mA（满负载），8 个脚同时翻转，
+   在 2ns 内完成电流建立，封装加走线的寄生电感合计约 5nH：
+
+       di/dt = (8 × 20mA) / 2ns = 160mA / 2ns = 80 A/µs
+       U = L × di/dt = 5nH × 80A/µs = 400 mV   ← 地弹电压！
+
+   【400mV 是什么概念？】
+   低电平噪声容限 VNL 只有 0.4V（LVTTL）。
+   这 400mV 的地弹，恰好把整个低电平容限【一次性吃掉】。
+   → 于是「板子上的其他芯片偶尔读错」「偶尔误触发中断」
+     「偶尔通信出错」，而且随温度、随程序行为变化，极难复现。
+
+【地弹的典型现象】
+   · 一组 LED 同时点亮/熄灭时，别的地方出问题
+   · 并口数据线 8 位同时翻转时，时钟被误触发
+   · 电机启动、继电器吸合瞬间，MCU 复位
+
+【对策（按性价比排序）】
+   ① 去耦电容（每个电源脚旁边 100nF）—— 让瞬态电流就近取，不走长路
+   ② 芯片地引脚多一点、PCB 上多打接地过孔、地平面完整
+   ③ 降低边沿速率：串 22~100Ω 电阻、或把 MCU 的输出速度档位调低
+   ④ 分组翻转：8 位同时翻变成有先有后（软件上分两次写端口）
+   ⑤ 缩短走线、减少回路的面积</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第四件事，也是排错利器：施密特触发器输入。</b>普通 CMOS 输入只有一个翻转点（V<sub>IH</sub> 与 V<sub>IL</sub> 之间那段不确定区），而施密特触发器输入<b class="font-semibold text-ink">有两个</b>翻转点——上升时用高门限 V<sub>T+</sub>，下降时用低门限 V<sub>T−</sub>，两个门限之间的差叫<b class="font-semibold text-ink">滞回宽度 V<sub>H</sub></b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="施密特触发器的滞回：为什么它能抗抖动">
+            <pre><code>【普通输入的转移特性】          【施密特输入的转移特性】
+
+   Vout                          Vout
+     │        ┌──────             │        ┌──────
+     │       ╱                    │       ╱
+     │      ╱  ← 只有一个翻转点    │      ╱
+     │     ╱                      │     ╱
+     └────┴───────── Vin          └────┴───────── Vin
+         VIL VIH                       VT−  VT+
+                                    ←──→
+                                  滞回宽度 VH
+
+【施密特的工作方式】
+   · 输入从低往上升：必须【超过 VT+】才翻转成高
+   · 输入从高往下降：必须【低于 VT−】才翻转回低
+   · 落在 VT− 与 VT+ 之间的抖动，对输出【完全没有影响】——
+     因为输出「记着」上一次的状态
+
+   典型数值：74HC14（六路施密特反相器）在 VCC = 5V 时
+       VT+ ≈ 2.7V，VT− ≈ 1.9V，滞回宽度 VH ≈ 0.8V
+       （不同厂商、不同温度会有差异，用前查手册）
+
+【它解决三个典型的现实问题】
+   ① 机械按键抖动：触点弹跳期间输入电压在门限附近来回穿，
+      普通输入会输出一串脉冲（计数多计、中断误触发）；
+      施密特的滞回把小于 VH 的抖动全部吞掉。
+   ② 缓慢变化的信号：RC 充电、光敏电阻分压、长导线上的信号，
+      边沿可能是毫秒级；施密特输入既不会被中间电平卡住，
+      还能把它整形成边沿陡峭的干净方波。
+   ③ 有噪声的远距离信号：只要噪声幅度 &lt; VH，就不会误翻转。
+
+【重要提醒：施密特不是万能的】
+   · 按键的触点抖动幅度可能远超 0.8V，所以【软件消抖仍然必须做】
+     （一般 10~20ms）
+   · 施密特只解决「电平被判错」的问题，不解决「信号根本没到」的问题
+   · 有些引脚不是施密特输入（例如模拟输入引脚、某些专用引脚），
+     要查手册确认
+   · STM32 的数字输入通路上是施密特触发器（参考手册的 GPIO 结构图里
+     那个带滞回符号的缓冲器就是它），但引脚配成模拟模式时它被断开</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">什么时候该主动去找一个「施密特输入」？</div>
+            <p>三个信号特征：<b>① 边沿慢</b>（超过几百 ns 还没走完过渡区）；<b>② 有抖动或毛刺</b>（机械触点、继电器、长线拾取）；<b>③ 会被用来计数或触发中断</b>（一旦多计一次就是逻辑错误）。<b>三者占一个，就优先选带施密特输入的器件或引脚</b>：74HC14（六路反相）、74HC132（四路与非）、STM32 的部分定时器输入通道、以及几乎所有专用按键/编码器接口芯片。<b>这一条在电机、继电器、长排线附近的项目里尤其重要——那些环境里的噪声幅度足以把普通输入反复推过门限。</b></p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">这一节的五道题，都是你在实际项目里一定会遇到的。<b class="font-semibold text-ink">建议你拿笔跟着算一遍</b>——不是为了记住答案，而是为了养成「先查两个保证值、再算差」的手指记忆。第四题和第五题会告诉你一个重要的观念：<b class="font-semibold text-ink">扇出和功耗这两个参数，在 CMOS 世界里都不能只按直流电流算</b>。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>题号</th><th>题目</th><th>它练的是什么</th></tr></thead>
+              <tbody>
+                <tr><td><b>例 1</b></td><td>3.3V 与 5V 器件两两配对，算噪声容限并判断能否直连</td><td>噪声容限公式 + 逻辑关/电气关两道门</td></tr>
+                <tr><td><b>例 2</b></td><td>一个 IO 直驱 LED：限流电阻怎么选、能不能同时带 4 个</td><td>电流预算、I<sub>OL</sub> 上限、整片电流上限</td></tr>
+                <tr><td><b>例 3</b></td><td>I2C 400kHz、总线电容 200pF，上拉电阻取多少</td><td>上拉电阻的双向约束、RC 上升时间</td></tr>
+                <tr><td><b>例 4</b></td><td>一个引脚能带几路输入（含 CMOS 的「电容扇出」）</td><td>扇出系数的两条电流路径 + 为什么 CMOS 要换算法</td></tr>
+                <tr><td><b>例 5</b></td><td>高速翻转一个 IO 要花多少功耗，怎么实测反推电容</td><td>P = CV²f 的正用与反用</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="ex-noise" class="mt-7 text-base font-semibold">例 1：两两配对算噪声容限，判断哪些组合能直连</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目。</b>你手上有四颗芯片，想把它们两两连起来。请用数据手册的保证值算出每个方向的噪声容限，并判断哪些组合可以直接连、哪些必须加转换电路。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>器件</th><th>电源</th><th>V<sub>OH</sub>(min)</th><th>V<sub>OL</sub>(max)</th><th>V<sub>IH</sub>(min)</th><th>V<sub>IL</sub>(max)</th><th>出处</th></tr></thead>
+              <tbody>
+                <tr><td><b>A. STM32F103 引脚</b></td><td>3.3V</td><td><b>2.9V</b>（I<sub>OH</sub> = −8mA）</td><td><b>0.4V</b>（I<sub>OL</sub> = 8mA）</td><td><b>2.0V</b></td><td><b>0.8V</b></td><td>STM32F103 数据手册电气特性表</td></tr>
+                <tr><td><b>B. 74LS00</b>（5V TTL）</td><td>5V</td><td>2.7V</td><td>0.5V</td><td>2.0V</td><td>0.8V</td><td>74LS 系列手册</td></tr>
+                <tr><td><b>C. 74HC00</b>（5V CMOS）</td><td>5V</td><td>4.4V（I<sub>OH</sub> = −4mA）</td><td>0.1V（I<sub>OL</sub> = 4mA）</td><td><b>3.5V</b></td><td>1.5V</td><td>74HC 系列手册（V<sub>CC</sub>=4.5V 条件下的保守值）</td></tr>
+                <tr><td><b>D. 74HCT00</b>（TTL 兼容输入）</td><td>5V</td><td>4.4V</td><td>0.1V</td><td><b>2.0V</b></td><td>0.8V</td><td>74HCT 系列手册</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">求解。</b>每个方向都算两个数（高电平方向和低电平方向），再取小的那个作为这个接口的总容限：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 1 解：六个方向的完整计算">
+            <pre><code>【组合 ①】A（STM32）→ B（74LS00）
+   高：VNH = VOH(A) − VIH(B) = 2.9V − 2.0V = 0.9V   ✅
+   低：VNL = VIL(B) − VOL(A) = 0.8V − 0.4V = 0.4V   ✅
+   → 总容限 VN = min(0.9, 0.4) = 0.4V
+   → 逻辑关通过；电气关也不涉及过压（3.3V 系统内部）
+   → 结论：【可以直接连】。这是最经典的一组安全连接。
+
+【组合 ②】A（STM32）→ C（74HC00）
+   高：VNH = 2.9V − 3.5V = 【−0.6V】  ❌ 负的，连理想情况都过不去
+       就算按空载的 3.3V 算：3.3V − 3.5V = −0.2V  ❌ 仍然为负
+   低：VNL = 1.5V − 0.4V = 1.1V   ✅（低电平方向毫无问题）
+   → 结论：【不能直接连】。而且你注意到了吗：
+     它在【低电平方向非常健康，高电平方向是负的】。
+     这解释了故障现象——信号「有低没有高」，
+     在示波器上看波形是「被削掉上半截」的样子。
+
+【组合 ③】A（STM32）→ D（74HCT00）
+   高：VNH = 2.9V − 2.0V = 0.9V   ✅
+   低：VNL = 0.8V − 0.4V = 0.4V   ✅
+   → 结论：【可以直接连】。这就是前面说的「找 HCT」：
+     把 C 换成 D，一模一样的电路，问题消失。
+
+【组合 ④】B（74LS00）→ A（STM32 普通引脚）
+   高：VNH = 2.7V − 2.0V = 0.7V   ✅ 逻辑关通过
+   低：VNL = 0.8V − 0.5V = 0.3V   ✅ 逻辑关通过
+   → 但电气关：74LS00 输出高的【实际电压约 3.6V】
+     （回顾 VOH ≈ VCC − 0.7V − 0.7V 的推导，手册 min 2.7V、
+      典型 3.4~3.6V）
+     而 STM32 普通引脚的绝对最大额定值 = VDD + 0.3V = 【3.6V】
+   → 结论：【逻辑上能连，电气上不能连】——
+     它正好压在上限上，电源一旦偏高（3.3V + 5% = 3.465V，
+     上限变 3.765V，看似更宽松，但 5V 器件的 VOH 也跟着升），
+     就会长期顶着保护二极管工作。
+
+【组合 ⑤】C（74HC00）→ A（STM32 普通引脚）
+   高：VNH = 4.4V − 2.0V = 2.4V   ✅ 逻辑非常宽裕
+   低：VNL = 0.8V − 0.1V = 0.7V   ✅
+   → 电气关：4.4V（典型接近 5V）远超 3.6V 上限  ❌
+   → 结论：【不能直接连到普通引脚】。
+     改用 FT 引脚：上限约 5.5V，5V 信号有 0.5V 余量，✅ 可行。
+
+【组合 ⑥】A（STM32）→ 一个 3.3V LVCMOS 输入（VIH = 0.7 × 3.3V = 2.31V）
+   高：VNH = 2.9V − 2.31V = 0.59V   ✅（成立，但明显比 0.9V 紧张）
+   低：VNL = 0.99V − 0.4V = 0.59V   ✅
+   → 结论：能连，但【余量只有 0.59V】。
+     如果你的板子地弹、串扰、电源波动加起来可能吃掉 0.3V，
+     那就只剩 0.29V，属于「实验室能用、现场不敢保证」的级别。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">从这道题里提炼三条判据</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>容限为负 = 一定不行，且没有任何调试余地。</b>这种连接不存在「接触好一点就能通」的可能，别浪费时间换线。</li>
+              <li><b>容限 0.2V 以下 = 不要做。</b>它会被温度、地弹、串扰、电源容差吃掉。工程上一般认为 <b>0.4V 以上才舒服，0.2V 是底线</b>。</li>
+              <li><b>两个方向都要算，取小的那个。</b>例 1 的组合 ① 里高电平方向有 0.9V、低电平方向只有 0.4V——真正决定这根线可靠性的，是那个 0.4V。</li>
+            </ul>
+          </div>
+
+          <h3 id="ex-led" class="mt-7 text-base font-semibold">例 2：一个 IO 直驱 LED 的电流预算，能不能带 4 个</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目。</b>用 STM32 的一个引脚直接驱动 4 个红色 LED（每个工作电流约 6mA，正向压降 2.0V），供电 3.3V。求限流电阻的取值；并判断这 4 个 LED 能不能都挂在这一个引脚上。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 2 解：先算一个，再算四个">
+            <pre><code>【已知条件】
+    VDD = 3.3V（STM32 供电，也就是 LED 的电源）
+    VF  = 2.0V（红色 LED 正向压降，典型值，@5~10mA）
+    VOL = 0.4V（STM32 引脚输出低时的最大电压，@IOL = 8mA 条件）
+    IOL(max) = 8mA（保证 VOL ≤ 0.4V 的电流）
+    单脚绝对最大灌电流 = 20mA      整片 VDD/GND 总电流上限 = 150mA
+
+【接法】用【灌电流】方式，也就是低电平点亮：一个 LED 接一个引脚
+
+        +3.3V ──►|── LED ──[ R ]──┬── STM32 引脚
+                                  │
+                       引脚输出低 → 电流灌入引脚 → LED 亮
+                       引脚输出高 → 两端同电位 → LED 灭
+
+【第一步：算限流电阻】
+    回路方程：VDD = VF + I × R + VOL
+    移项：   R = (VDD − VF − VOL) / I
+             = (3.3V − 2.0V − 0.4V) / 6mA
+             = 0.9V / 6mA
+             = 150Ω                     ← 取 150Ω（E24 标准值里有）
+
+【第二步：一个引脚带 4 个 LED，总电流是多少】
+    I_total = 4 × 6mA = 24mA
+
+    对比两条上限：
+      · 单脚绝对最大灌电流 20mA   → 24mA ＞ 20mA   ❌ 超了
+      · 8mA 那条保证线            → 24mA 时 VOL 会明显抬高（不止 0.4V），
+                                    LED 电流也会跟着变小、亮度不均
+    → 结论：【不能用这一个引脚带 4 个 LED】。绝对最大额定值是
+      「超过就可能永久损坏」的线，不是「最好不要超过」的建议值。
+
+【第三步：正确做法】
+    · 把那 4 个 LED 分到 4 个引脚上，每脚 6mA（都在 8mA 以内 ✅）
+      4 个脚合计 24mA，远小于整片 150mA 的预算 ✅
+    · 或者用一个三极管 / MOS 管扩流：
+      引脚只提供约 240µA 的基极电流，24mA 走三极管，引脚毫无压力
+      （这就是「IO 不够用的时候怎么办」的标准答案）
+
+【第四步：进阶——这个 150Ω 真的稳吗？把所有偏差代进去】
+
+    条件是会变的：LED 正向压降有分散性（1.8~2.2V），
+    电源有容差（3.3V ± 5%），VOL 也随电流变。算两个极端：
+
+    极端一（电流最大）：VF = 1.8V，VDD = 3.465V（+5%），VOL = 0.3V
+        I = (3.465 − 1.8 − 0.3) / 150Ω = 1.365V / 150Ω = 9.1mA
+
+    极端二（电流最小）：VF = 2.2V，VDD = 3.135V（−5%），VOL = 0.4V
+        I = (3.135 − 2.2 − 0.4) / 150Ω = 0.535V / 150Ω = 3.6mA
+
+    → 同一批板子上，LED 电流可能在【3.6mA ~ 9.1mA】之间浮动，相差 2.5 倍。
+      这就是「3.3V 直驱 LED 亮度不一致」的根本原因：
+      【限流电阻的裕量太小】（只有 0.9V 可供调节，而 VF 的不确定度就有 ±0.2V）。
+    → 想亮度一致，两个办法：① LED 串在 5V 上（裕量 2.5V，稳定性好得多）；
+      ② 用恒流驱动或专用 LED 驱动芯片。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">顺便解释一个历史遗留问题：为什么 LED 传统上接成「低电平点亮」</div>
+            <p>因为 TTL 的拉电流能力（I<sub>OH</sub> = 0.4mA）远远小于灌电流能力（I<sub>OL</sub> = 8mA）：<b>它输出高的时候根本推不动一个 LED，输出低的时候轻松灌 8mA</b>。所以在 TTL 时代，「LED 接在电源和输出之间、低电平点亮」是唯一的接法，这个习惯一直留到今天。<b>而 CMOS（包括 STM32）的拉、灌能力基本对称</b>（都是 8mA / 20mA 的量级），所以高电平点亮、低电平点亮都可以。用 74LS00 带 LED 时把上面第 3.3V 换成 5V、V<sub>OL</sub> 换成 0.5V、I 换成 8mA，得到 R = (5 − 2.0 − 0.5) / 8mA = 312Ω，取 300Ω——这就是老教材里那个经典数值的来历。</p>
+          </div>
+
+          <h3 id="ex-i2c" class="mt-7 text-base font-semibold">例 3：I2C 上拉电阻到底取多少（400kHz、总线电容 200pF）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目。</b>一条 I2C 总线，供电 3.3V，工作频率 400kHz（快速模式），估算总线电容 200pF。求上拉电阻的合理取值范围，并算出它决定的上升时间。顺便解释「为什么模块上默认焊的是 4.7kΩ，而高速时要改成 2.2kΩ」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 3 解：上拉电阻被两条约束夹在中间">
+            <pre><code>【已知条件】
+    VDD  = 3.3V
+    总线电容 C_b = 200pF（两根线各自的走线电容 + 每个器件的引脚电容之和；
+                        经验值：走线约 1pF/cm，一个 I2C 器件引脚约 5~10pF）
+    VOL(max) = 0.4V（I2C 规范规定的低电平上限）
+    IOL(min) = 3mA （I2C 规范要求：器件拉低时至少要能灌 3mA，标准/快速模式）
+    频率 400kHz → 快速模式规定上升时间 t_r(max) = 300ns
+    频率 100kHz → 标准模式规定上升时间 t_r(max) = 1000ns
+
+【约束一：阻值不能太小（下限）—— 由低电平时的灌电流决定】
+    输出低时，电流从 VDD 经上拉电阻灌进那个拉低的器件：
+    IOL = (VDD − VOL) / R_p
+    要求 IOL ≤ 3mA（不然器件压不住低电平，VOL 会升上去）：
+    R_p(min) = (VDD − VOL) / IOL = (3.3V − 0.4V) / 3mA = 2.9V / 3mA
+             = 【967Ω】
+
+【约束二：阻值不能太大（上限）—— 由上升时间决定】
+    上升沿是电源经上拉电阻给总线电容充电的 RC 过程。
+    I2C 规范给出的公式（从 0.3VDD 充到 0.7VDD）：
+        t_r = 0.8473 × R_p × C_b
+    要求 t_r ≤ 300ns：
+        R_p(max) = t_r(max) / (0.8473 × C_b)
+                 = 300ns / (0.8473 × 200pF)
+                 = 300e-9 / 1.6946e-7
+                 = 【1770Ω】
+
+【合起来：R_p 必须落在 967Ω ~ 1770Ω 之间】
+    取标准值【1.5kΩ】最稳妥（居中，两边都留余量）。
+    校验：
+      · 上升时间 t_r = 0.8473 × 1500Ω × 200pF = 254ns ≤ 300ns  ✅
+      · 低电平电流 IOL = 2.9V / 1500Ω = 1.93mA ≤ 3mA        ✅
+      · 静态功耗（两根线都长期拉低的最坏情况，几乎不会发生）：
+        2 × (3.3V − 0.4V) × 1.93mA ≈ 11.2mW                 可接受
+
+【对照：为什么模块默认 4.7kΩ，而 400kHz 下必须换小】
+    用 4.7kΩ、C_b = 200pF 算：
+      · 100kHz（t_r ≤ 1000ns）：t_r = 0.8473 × 4700 × 200p = 796ns  ✅ 刚好够
+      · 400kHz（t_r ≤ 300ns）：t_r = 796ns ＞ 300ns              ❌ 超标 2.7 倍
+    → 现象：100kHz 通信一切正常，一把频率提到 400kHz 就大量 NACK、
+      数据错乱、偶尔整个总线卡死。别人告诉你「I2C 很皮实」，
+      其实是你没把频率提上去过。
+    → 4.7kΩ 之所以成为默认值，是因为绝大多数模块只用 100kHz。
+
+【再对照：如果 C_b 涨到 400pF（I2C 规范的电容上限）】
+      R_p(max) = 300ns / (0.8473 × 400pF) = 885Ω
+      而 R_p(min) = 967Ω
+    → 【885Ω ＜ 967Ω，区间是空的！】
+      这不是算错了，而是说明：规范里的「400pF 上限」和「300ns 上升时间」
+      是分别在不同场景下给的，二者同时用满就无解。
+      实际工程结论：400kHz 下把总线电容控制在【200pF 以内】，
+      线太长、器件太多就降速到 100kHz，或者上 I2C 缓冲器 / 中继器
+      （PCA9515、TCA9517 这类，它们把总线切成两段，各自算电容）。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">0.8473 这个数字是怎么来的</div>
+            <p>RC 充电的电压公式是 <code class="icode">v(t) = VDD × (1 − e<sup>−t/RC</sup>)</code>。求从 0.3V<sub>DD</sub> 充到 0.7V<sub>DD</sub> 需要的时间：</p>
+            <p class="mt-2"><code class="icode">t = RC × ln( (1 − 0.3) / (1 − 0.7) ) = RC × ln(0.7/0.3) = RC × ln(2.333) = 0.8473 × RC</code></p>
+            <p class="mt-2">而大家更熟悉的 <code class="icode">t<sub>r</sub> ≈ 2.2RC</code> 是 10%~90% 的定义（ln9 ≈ 2.197）。<b>两个公式都对，区别只在「从哪一段量到哪一段」</b>——用的时候一定看清手册给的是哪个定义。<b>I2C 规范用的是 0.3/0.7 的定义</b>，所以你算 I2C 上升时间必须用 0.8473，用 2.2 会把答案算大 2.6 倍，选出偏小的电阻（虽然偏小更安全，但静态电流会浪费）。</p>
+          </div>
+
+          <h3 id="ex-fanout" class="mt-7 text-base font-semibold">例 4：一个引脚能带几路输入（以及 CMOS 为什么不能这么算）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目。</b>一个 STM32 引脚（I<sub>OL</sub> = 8mA、I<sub>OH</sub> = −8mA，V<sub>IH</sub> = 2.0V、V<sub>IL</sub> = 0.8V）要同时驱动多路输入。分别计算它驱动（a）74LS 系列输入、（b）74HC 系列输入时的扇出系数，并说明为什么（b）的答案没有实际意义。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 4 解：直流扇出 与 电容扇出的对比">
+            <pre><code>【已知条件】
+    STM32 引脚：IOL(max) = 8mA，IOH(max) = −8mA
+    74LS 输入：  IIH = 20µA（高电平时自己吸走），IIL = −0.4mA（低电平时自己流出）
+    74HC 输入：  IIH = IIL = ±1µA（手册最大值），输入电容 Ci ≈ 3.5pF（典型值）
+
+【（a）驱动 74LS 输入】
+    高电平方向：8mA / 20µA = 8000µA / 20µA = 400 路
+    低电平方向：8mA / 0.4mA = 20 路
+    取小的 → 【扇出 = 20 路】
+
+    → 低电平方向先撑不住，因为 TTL 输入在低电平时要从引脚里
+      「抽」走 0.4mA（IIL），比高电平时的 20µA 大 20 倍。
+    → 注意：这个 20 恰好也是 74LS 自己带 74LS 的扇出数。
+      对 STM32 来说，因为它两边都是 8mA，所以结果刚好一致。
+
+【（b）驱动 74HC 输入】
+    高电平方向：8mA / 1µA = 8000 路
+    低电平方向：8mA / 1µA = 8000 路
+    取小的 → 【直流扇出 = 8000 路】  ← 这个数字是纸面上的幻觉
+
+    为什么是幻觉？因为 CMOS 输入真正消耗的不是电流，而是【电荷】：
+    每一个输入都是一个 3.5pF 的电容，输出每翻转一次，
+    就要给每一个输入电容充放电一次。
+
+【换成电容来算（这才是真正的限制）】
+    设：走线电容 20pF（约 20cm 的线），
+        STM32 输出级的等效输出电阻 R_o ≈ 60Ω（按典型值估算）
+    带 N 路输入时，总负载电容：
+        C_L = 20pF + N × 3.5pF
+    上升时间近似 t_r ≈ 2.2 × R_o × C_L
+    要求上升时间不超过 50ns（保证信号质量和时序）：
+        2.2 × 60Ω × C_L ≤ 50ns
+        C_L ≤ 50e-9 / 132 = 379pF
+        N ≤ (379pF − 20pF) / 3.5pF ≈ 【102 路】
+
+    如果要求更严（t_r ≤ 20ns，比如要跑 20MHz 的 SPI 时钟）：
+        C_L ≤ 20e-9 / 132 = 152pF  →  N ≤ 37 路
+    如果线更长（走线 100pF）：
+        N ≤ (379 − 100) / 3.5 ≈ 79 路
+
+    → 结论：【CMOS 的扇出由「电容 + 你要跑多快」共同决定】，
+      8000 这个直流数字永远不会成为真正的瓶颈。
+      手册里也因此几乎不标 CMOS 的直流扇出，
+      只标「最大负载电容」或「输出上升时间的测试条件」。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">扇出系数只在「同一个电平族」内部才有意义</div>
+            <p>再看一个反例：74LS00 的输出（I<sub>OH</sub> = −0.4mA）驱动 74HC 输入（I<sub>IH</sub> = 1µA），按电流算是 400 路，按低电平算是 8000 路——<b>数字大得漂亮，但这个连接根本不成立</b>：74LS 输出高电平的保证值只有 2.7V，而 74HC 的 V<sub>IH</sub> 是 3.5V，<b>第一关就过不去</b>。<b>所以正确的顺序永远是：先确认电平兼容（噪声容限 &gt; 0），再算扇出。</b>顺序颠倒的话，你会得到一堆「理论上能带几千路」的荒谬结论。需要跨族驱动时，正确做法是中间加一级——比如用 74HCT 做翻译（输入 TTL 门限、输出 CMOS 摆幅），再由它去带一大片 CMOS 负载。</p>
+          </div>
+
+          <h3 id="ex-power" class="mt-7 text-base font-semibold">例 5：高速翻转一个 IO 要花多少功耗（以及怎么实测反推电容）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目。</b>STM32 的一个引脚上挂着 20pF 的走线与输入电容，供电 3.3V。（a）它以 1MHz 方波翻转时，动态功耗是多少？（b）如果这个引脚用来输出 36MHz 的 SPI 时钟，功耗是多少？8 个引脚同时这样跑呢？（c）电源电压从 3.3V 降到 2.0V 能省多少？（d）如果实测这个引脚在 1MHz 方波下平均多消耗 0.13mA 电流，反推实际负载电容是多少？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 5 解：P = CV²f 的正用与反用">
+            <pre><code>【公式回顾】
+    P = C_L × VDD² × f
+    其中 C_L 单位 F，VDD 单位 V，f 单位 Hz（每秒的【翻转次数】，
+    方波在频率 f 下，每秒正好有 f 次上升沿，所以直接用 f）
+
+【（a）1MHz 的方波】
+    P = 20pF × (3.3V)² × 1MHz
+      = 20e-12 × 10.89 × 1e6
+      = 2.18e-4 W
+      = 【0.218mW】   —— 很小，几乎可以忽略
+
+【（b）36MHz 的 SPI 时钟】
+    P = 20pF × 10.89 × 36e6
+      = 20e-12 × 10.89 × 3.6e7
+      = 7.84e-3 W
+      = 【7.84mW】    —— 一个脚就快 8mW 了
+
+    8 个引脚同时这么跑：
+    P = 8 × 7.84mW = 【62.7mW】
+
+    这个数字有多大？对比一下：STM32F103 在 72MHz 全速运行、
+    外设全开时整片功耗大约 100~200mW 量级。
+    → 【8 个高速翻转的 IO 就吃掉了整片功耗的三分之一】。
+
+【（c）把电源从 3.3V 降到 2.0V（频率不变）】
+    P(2.0V) / P(3.3V) = (2.0/3.3)² = 0.367
+    单脚那 7.84mW → 2.88mW，【降低 63%】
+
+    → 再看同一件事的另一面：如果改成降频，
+      36MHz → 18MHz，功耗直接减半（线性关系）。
+    → 所以【省功耗的顺序是：先降压（平方关系），再降频（线性），
+      最后才是优化翻转次数（也是线性）】。
+      但注意：降压会同时缩小噪声容限（回到例 1 的第 ⑥ 组，
+      2.0V 系统的容限会比 3.3V 小很多），不能只看功耗。
+
+【（d）实测反推电容】
+    引脚对电源的【平均】电流，等于它每秒钟从 VDD 搬走的电荷量：
+        I_avg = C_L × VDD × f          （注意：这里 VDD 是一次方）
+    这是 P = CV²f 两边同时除以 VDD 得到的：
+        P / VDD = (C × VDD² × f) / VDD = C × VDD × f = I_avg
+    移项反推：
+        C_L = I_avg / (VDD × f) = 0.13mA / (3.3V × 1MHz)
+            = 1.3e-4 / 3.3e6
+            = 3.94e-11 F
+            = 【约 39pF】
+
+    → 这个方法和万用表就能做：让引脚输出一个已知频率的方波，
+      比较「输出方波时」和「引脚静止时」的整片电流差，
+      就能反推这根线上到底挂了多少电容。
+      【这是排查「为什么这个引脚边沿这么慢」的实用手段】——
+      如果反推出来是 200pF 而不是你预期的 20pF，
+      那就是线太长、或者挂了太多输入、或者有个焊点短路了。
+
+【（e）把三部分功耗放在一起看】
+    一个数字电路节点的总功耗由三块组成：
+      ① 静态功耗：CMOS 稳态时只有漏电（nA 级），基本可以忽略
+      ② 动态功耗（翻转功耗）：C_L × VDD² × f   ← 上面算的这些
+      ③ 穿通功耗（交越功耗）：输入边沿经过过渡区时上下管同时导通
+         产生的短路电流，与【翻转频率】和【边沿时间】都成正比
+    → 这就是为什么「让不用的 IO 停下来」「把输出速度档位调低」
+      「不要用软件去高频翻转一个没接东西的引脚」
+      不只是 EMC 建议，而是实实在在的功耗与发热问题。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">五道题算完，你应该带走的一个思维习惯</div>
+            <p>回头看一下：例 1 用的是<b>减法</b>（两个保证值相减），例 2、例 3 用的是<b>除法 + 取区间交集</b>（两个约束夹出一个范围），例 4、例 5 用的是<b>换一个物理量来算</b>（不是电流而是电荷/电容）。<b>这三种思维覆盖了数字接口设计里 90% 的定量问题</b>：<b>能连吗</b>（减法）、<b>参数取多少</b>（区间）、<b>能不能带动</b>（换成电荷或电容）。你不需要记住任何一个具体数字，但这三种算法要刻在手上——因为它们背后的参数都能在现场查到。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4">前面三节都是「器件层面」的知识。这一节把它们全部落到你手上那块板子上：<b class="font-semibold text-ink">STM32 的引脚内部到底是什么结构、为什么有 FT 和普通之分、你那几个真实器件之间的噪声容限各是多少、一个 IO 到底能带几个 LED、I2C 为什么非要开漏加上了不可、三十厘米的杜邦线会把信号搞成什么样、以及按键为什么要走施密特输入</b>。这六个问题，基本覆盖了初学者在「电平与接口」上会踩的全部坑。</p>
+
+          <h3 id="sub-mcu-tolerance" class="mt-7 text-base font-semibold">FT 引脚与普通引脚的内部差别：5V 容忍是从哪来的</h3>
+
+          <p class="mt-3">先看一个 STM32 的 GPIO 引脚内部都有什么。<b class="font-semibold text-ink">这张图值得记住，因为它解释了你遇到的几乎所有引脚怪现象</b>：为什么引脚会「漏电」、为什么超压会发烫、为什么同一个引脚既能做输入又能做输出、为什么模拟输入要单独配置。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="GPIO 引脚内部结构：普通引脚 与 FT（5V 容忍）引脚的唯一差别">
+            <pre><code>【普通引脚（非 FT）的内部结构】
+
+                    VDD
+                     │
+                     ├───────────┐
+                     │           │
+                     │        ┌──┴──┐
+        上保护二极管 ─┴─ |&lt;| ──┤     │ ← 【上钳位二极管：接到 VDD】
+       （ESD 保护）           └──┬──┘
+                                │
+    引脚 ──┬─────────────────────┼──────────┐
+           │                     │          │
+           │        ┌────────────┴───────┐  │
+           │        │  施密特输入缓冲器   │──┼──► 输入数据寄存器 / 复用功能
+           │        └────────────────────┘  │
+           │                                │
+           │   ┌──────────────────────────┐ │
+           ├───┤ 输出驱动器（P-MOS+N-MOS）│◄┘
+           │   └──────────────────────────┘
+           │        ↑ 输出数据寄存器
+           │
+           ├───[ 可配置上拉/下拉电阻 ]─── VDD / VSS
+           │
+           └───[ 模拟开关 ]────► ADC 输入（模拟模式时接通）
+                     │
+                  ┌──┴──┐
+       下保护二极管 ─┤     │ ← 【下钳位二极管：接到 VSS】
+                  └──┬──┘
+                    GND
+
+【关键点：上钳位二极管接在 VDD 上】
+   引脚电压一旦超过 VDD + 0.3V（约 3.6V），这个二极管就【正向导通】，
+   电流从引脚直接灌进 VDD 电源网络。
+   后果有三层：
+     ① 轻：把引脚电压钳在 3.6V 左右，信号被削顶（逻辑可能还是对的）
+     ② 中：电流灌进 VDD 网络，把整片芯片「半供电」地拉起来，
+            可能引起异常复位、外设乱动、功耗飙升
+     ③ 重：电流超过二极管的承受能力（手册里叫「注入电流」，
+            STM32 规定单个引脚一般不超过 ±5mA，整片不超过 ±25mA），
+            二极管烧毁 → 引脚永久损坏（可能表现为「这个脚一直读高」
+            或者「这个脚把 VDD 短路到地」）
+
+【FT 引脚（Five-volt Tolerant，5V 容忍）的差别】
+   唯一的重大差别在【上方那个钳位结构】：
+       · 上保护二极管【不接 VDD】，而是接在一个独立的钳位网络上
+         （不会把 5V 灌进 VDD 轨）
+       · 因此引脚上可以长期加 5V 电压，二极管不导通
+       · 引脚串联的输入通路能承受更高的电压（厚栅氧 / 分压结构）
+   于是它的绝对最大额定值从「VDD + 0.3V」放宽到【约 5.5V】。
+
+【怎么知道哪个引脚是 FT】
+   查数据手册的【引脚定义表】，里面有一列叫「I/O structure」
+   或「I/O level」，写着 FT / FTf / TTa / B 之类的标号，
+   表下面一定有这些标号的含义说明（例如 FT = 5V tolerant）。
+   STM32F103 的常见分布是：
+       · PA8 ~ PA15、PB2 ~ PB15 等：FT
+       · PA0 ~ PA7、PB0、PB1 等：非 FT（因为它们是 ADC 通道，见下）
+   【不同型号、不同封装差别很大，一定要查你手上那颗的表。】</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>普通引脚（非 FT）</th><th>FT 引脚（5V 容忍）</th></tr></thead>
+              <tbody>
+                <tr><td>数字输入绝对最大额定值</td><td><b>V<sub>DD</sub> + 0.3V ≈ 3.6V</b></td><td><b>约 5.5V</b></td></tr>
+                <tr><td>接 5V 信号（数字输入模式）</td><td class="text-rose-600 dark:text-rose-400">不允许，保护二极管持续导通</td><td class="text-brand-600 dark:text-brand-300">允许</td></tr>
+                <tr><td>做 ADC 模拟输入</td><td class="text-brand-600 dark:text-brand-300">可以（ADC 通道引脚都是非 FT 的）</td><td class="text-rose-600 dark:text-rose-400"><b>不可以</b>——FT 与模拟功能基本互斥</td></tr>
+                <tr><td>配成输出、又被外部 5V 驱动</td><td class="text-rose-600 dark:text-rose-400">危险</td><td class="text-rose-600 dark:text-rose-400"><b>同样危险</b>（见下面的限制）</td></tr>
+                <tr><td>内部上拉/下拉</td><td>可用</td><td>可用；但在 5V 输入场景下的具体限制<b>以型号手册为准</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">「FT」三个必须一起记住的限制</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>只在数字输入模式下成立。</b>FT 说的是「这个引脚作为输入、外面给它 5V，它扛得住」。如果这个引脚被你配成了<b>推挽输出</b>，而外部又有一个 5V 的源在驱动它（比如两边都是输出、或者外部器件在它输出高时把线拉到 5V），那 5V 就会通过输出级的 P-MOS 结构灌进去——<b>同样的引脚，配置不同，耐压不同。</b></li>
+              <li><b>模拟模式不适用。</b>引脚一旦切到模拟输入（给 ADC 用），FT 特性就没有了。这也是为什么 ADC 通道引脚通常不做成 FT：模拟通路上不能有会导通到 5V 的钳位结构，否则测量会失真。<b>「想测 5V 的模拟量」必须自己分压，不能靠 FT。</b></li>
+              <li><b>芯片没上电时不要接信号。</b>V<sub>DD</sub> = 0 时，5V 信号加在引脚上会通过内部结构给芯片「寄生供电」，芯片可能半死不活地启动、行为不可预测，长期还会损伤器件。正确的上电顺序是：<b>先共地 → 再给 MCU 上电 → 最后接入外部信号</b>；断电时反过来。</li>
+            </ul>
+          </div>
+
+          <p class="mt-3">还有一条实操经验：<b class="font-semibold text-ink">不要因为「反正有 FT」就把 5V 信号随便往上接。</b>FT 是「允许」而不是「鼓励」——一个 5V 的输入信号意味着噪声容限只有 <code class="icode">5.0 − 2.0 = 3.0V</code>（逻辑上很宽裕），但同时也意味着这个引脚的输入电流、边沿速率、以及和相邻引脚之间的耦合，都在按 5V 的摆幅工作。能用 3.3V 的器件替代就替代，实在不行再上 FT 或加转换。<b>动手型那篇 <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-level.html">3.3V 电平与硬件安全</a> 里有更完整的引脚类型速查表和继电器/驱动相关的内容，涉及具体接线时去看那一篇。</b></p>
+
+          <h3 id="sub-mcu-noise" class="mt-7 text-base font-semibold">三个真实配对的噪声容限：哪些线可以拉长，哪些必须短</h3>
+
+          <p class="mt-3">理论讲完了，来看你板子上真实存在的三根线。假设你的 STM32 跑在 3.3V，要连三个外设：<b class="font-semibold text-ink">① 一个 3.3V 的传感器模块；② 一块 5V 的 74LS 系列逻辑板；③ 一块 5V 的 74HC 系列逻辑板</b>。我们用第 3 节例 1 的方法，把三根线的容限和「噪声预算」一次算清。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>连线</th><th>V<sub>NH</sub></th><th>V<sub>NL</sub></th><th>总容限 VN</th><th>噪声预算（地弹 + 串扰 + 电源波动）</th><th>还能剩多少</th><th>结论</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>STM32 → 3.3V 传感器（LVCMOS 输入，V<sub>IH</sub>=2.31V）</td>
+                  <td>0.59V</td><td>0.59V</td><td><b>0.59V</b></td><td>约 0.15~0.3V（板子干净时 0.15V）</td><td>0.29~0.44V</td>
+                  <td class="text-brand-600 dark:text-brand-300">可以，但线别太长、别贴着电机/继电器走</td>
+                </tr>
+                <tr>
+                  <td>STM32 → 74LS00（5V TTL 输入）</td>
+                  <td>0.9V</td><td>0.4V</td><td><b>0.4V</b></td><td>约 0.15~0.3V</td><td>0.1~0.25V</td>
+                  <td class="text-muted">低电平方向是瓶颈；<b>线要短、要远离干扰源</b></td>
+                </tr>
+                <tr>
+                  <td>STM32 → 74HC00（5V CMOS 输入）</td>
+                  <td><b>−0.6V</b></td><td>1.1V</td><td><b>−0.6V</b></td><td>—</td><td>—</td>
+                  <td class="text-rose-600 dark:text-rose-400"><b>不能连</b>，换 74HCT 或加转换电路</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">「噪声预算」这个概念值得单独说一句。</b>噪声容限是<b class="font-semibold text-ink">总量</b>，而这条线上真实存在的干扰有好几个来源，它们会一起吃掉这个总量：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>干扰来源</th><th>典型幅度（按典型值估算）</th><th>它什么时候变大</th><th>对策</th></tr></thead>
+              <tbody>
+                <tr><td>地弹 / 开关噪声</td><td>0.05~0.4V</td><td>多个 IO 同时翻转、电流大、地回路长</td><td>去耦电容、多地引脚、降低边沿速率、分组翻转</td></tr>
+                <tr><td>串扰（容性 + 感性耦合）</td><td>0.05~0.3V</td><td>长距离平行走线、边沿快、距离近</td><td>缩短、拉开距离、中间夹地线、源端串阻</td></tr>
+                <tr><td>电源波动 / 纹波</td><td>0.02~0.1V</td><td>负载突变、LDO 反应慢、去耦不足</td><td>加大去耦、改用更快的 LDO、加 π 型滤波</td></tr>
+                <tr><td>反射 / 振铃</td><td>0.1~0.5V（长线高速时）</td><td>线长超过临界长度、阻抗不匹配</td><td>串 22~100Ω 源端电阻、缩短线、降速</td></tr>
+                <tr><td>静电 / 人手触摸</td><td>可能到几百伏（瞬态）</td><td>非防静电环境、面板按钮引出线</td><td>TVS 管、RC 滤波、加施密特输入</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">一个实用的判据：留一半</div>
+            <p>工程上的经验做法是：<b>让 VN 至少是「预计噪声」的两倍</b>。比如第一行那根线算出来 VN = 0.59V，而你估计板子上最坏情况有 0.3V 噪声，那么 0.59V ＜ 2 × 0.3V = 0.6V，正好卡在临界——这时候要么缩短线、要么加缓冲器、要么换更低压差的方案。<b>反过来，如果 VN 只有 0.2V 而你还没做任何降噪措施，那这根线就是一颗定时炸弹</b>：实验室常温下能用，装到有电机的现场、或者换一批芯片就不行了。这也是「为什么同样的电路，别人做能用我做就不能用」最常见的答案之一——<b>不是电路错了，是余量太薄。</b></p>
+          </div>
+
+          <h3 id="sub-mcu-led" class="mt-7 text-base font-semibold">一个 IO 能带几个 LED：三种接法与电流预算</h3>
+
+          <p class="mt-3">第 3 节的例 2 已经算过数值，这里把三种接法放在一起对比，并给出「什么负载能直驱、什么负载必须扩流」的判断表。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="IO 驱动负载的三种接法：从省事到通用">
+            <pre><code>【接法一：灌电流（低电平点亮）—— 最省事】
+
+        +3.3V ──►|── LED ──[ R ]──┬── 引脚
+                                  │
+        引脚输出低 → 电流灌入引脚 → 亮
+        引脚输出高 → 两端都接近 3.3V → 灭
+
+    R = (VDD − VF − VOL) / I = (3.3 − 2.0 − 0.4) / 6mA = 150Ω
+    一个引脚最多带 8mA（保证 VOL ≤ 0.4V），绝对最大 20mA。
+    → 一个引脚带一个 6mA 的 LED：✅
+    → 一个引脚带四个 6mA 的 LED（24mA）：❌ 超绝对最大额定值
+
+【接法二：拉电流（高电平点亮）—— 对 CMOS 同样可行】
+
+        +3.3V
+          │
+        引脚 ──[ R ]──►|── LED ── GND
+        （引脚输出高时点亮；VOH(min) = 2.9V @8mA）
+    R = (VOH − VF) / I = (2.9 − 2.0) / 6mA = 150Ω
+    → CMOS 的拉、灌能力对称，两种接法都行。
+    → 但在 TTL 上不行：74LS 的 IOH 只有 0.4mA，连一个 LED 都点不亮。
+      【这就是 LED 传统上接成「低电平点亮」的历史原因。】
+
+【接法三：三极管/MOS 扩流 —— 需要多个同时亮、或大电流时】
+
+        +5V（可以用更高的电压！）
+          │
+       负载（LED 串 / 蜂鸣器 / 继电器线圈 / 电机）
+          │
+       ┌──┴──┐
+       │ NPN │  （S8050：Ic 最大 500mA 以上）
+       └──┬──┘
+         GND
+          ▲
+      基极限流 R_B = 10kΩ ← 引脚（只需提供约 260µA）
+
+    · 引脚只出 260µA，负载电流全部走三极管 → 引脚零压力
+    · 负载可以接 5V / 12V，与 3.3V 的引脚无关
+      （这就是「用低压 IO 控制高压负载」的标准结构）
+    · 多个 LED 并联在集电极上：一个三极管带 4 个 6mA 的 LED 毫无问题
+    · 继电器、电机这类【感性负载】必须在线圈两端并一个续流二极管</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>负载</th><th>典型电流</th><th>能不能用 IO 直驱（STM32，单脚 8mA 推荐 / 20mA 绝对最大）</th><th>正确做法</th></tr></thead>
+              <tbody>
+                <tr><td>单个 LED（6mA）</td><td>6mA</td><td class="text-brand-600 dark:text-brand-300">✅ 可以</td><td>串限流电阻，低电平或高电平点亮都行</td></tr>
+                <tr><td>4 个 LED 并联</td><td>24mA</td><td class="text-rose-600 dark:text-rose-400">❌ 超单脚上限</td><td>分到 4 个引脚，或一个三极管扩流</td></tr>
+                <tr><td>有源蜂鸣器</td><td>20~30mA</td><td class="text-rose-600 dark:text-rose-400">❌ 贴/超上限</td><td>三极管（顺便解决感性负载的续流问题）</td></tr>
+                <tr><td>小继电器线圈</td><td>30~70mA</td><td class="text-rose-600 dark:text-rose-400">❌ 绝对不行</td><td>三极管 + 续流二极管（或 ULN2003 这类驱动器）</td></tr>
+                <tr><td>直流小电机</td><td>100mA~1A</td><td class="text-rose-600 dark:text-rose-400">❌ 绝对不行</td><td>MOS 管 + 驱动芯片 + 完整保护（续流、去耦）</td></tr>
+                <tr><td>数码管（8 段全亮）</td><td>8 段 × 8mA = 64mA</td><td class="text-rose-600 dark:text-rose-400">❌ 一个脚就 64mA</td><td>位选/段选都用三极管或专用驱动（74HC595 + ULN2003）</td></tr>
+                <tr><td>WS2812 灯带的一颗灯</td><td>约 20~60mA</td><td class="text-rose-600 dark:text-rose-400">❌ 但从数据线看不是负载</td><td>数据线只用 IO 送信号（几乎无电流），<b>但要注意 5V 数据电平</b>——3.3V 有时能识别，稳妥要加电平转换</td></tr>
+                <tr><td>另一个 CMOS 输入</td><td>±1µA</td><td class="text-brand-600 dark:text-brand-300">✅ 可以带很多</td><td>受电容与速度限制（见第 3 节例 4）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">整片电流预算也别忘：单脚不超 ≠ 整片不超</div>
+            <p>STM32F103 的整片 V<sub>DD</sub>/V<sub>SS</sub> 总电流上限是 <b>150mA</b>（数据手册绝对最大额定值）。如果你点亮 20 个 LED、每个 8mA，那就是 160mA——<b>每一个引脚都在上限内，但整片超了</b>。现象是：芯片发烫、电压被拉低、随机复位。<b>所以做 LED 阵列/数码管这类「多个负载同时亮」的设计时，一定要先算总量</b>：20 个 LED × 8mA = 160mA ＞ 150mA，必须改成「扫描点亮」（同一时刻只有一路亮，配合人眼视觉暂留）或者用外部驱动芯片。<b>还有一个小细节：PC13/PC14/PC15 这三个引脚的驱动能力只有 3mA</b>（因为它们兼顾 RTC 与低速晶振功能），用它们点 LED 时电阻要重新算，不能照抄 150Ω。</p>
+          </div>
+
+          <h3 id="sub-mcu-i2c" class="mt-7 text-base font-semibold">I2C 为什么必须开漏加上拉：从「线与」说到上拉阻值</h3>
+
+          <p class="mt-3">I2C 是「开漏 + 上拉」最标准的应用，它把开漏的三个好处全用上了。<b class="font-semibold text-ink">如果你只理解一句「I2C 要加上拉电阻」，那么当总线上挂了七八个器件、或者两个主设备时，你一定会遇到解释不了的现象。</b>所以这一节把结构、原因和参数一次讲透。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="I2C 总线的物理结构：开漏输出 + 上拉电阻 + 线与">
+            <pre><code>                          +3.3V
+                            │
+                   ┌────────┴────────┐
+                  [Rp]             [Rp]      ← 上拉电阻（阻值见下表）
+                   │                 │
+    SCL ───────────┴─────┬─────┬─────┴─────────── SCL
+                        │     │
+    SDA ────────────────┼─────┼─────────────────── SDA
+                        │     │
+                  ┌─────┴─┐ ┌─┴───────┐  ┌────────┐
+                  │ 主机   │ │ 从机 A  │  │ 从机 B │  …… 可以挂很多个
+                  │（MCU）│ │（传感器）│  │（EEPROM）│
+                  └───────┘ └─────────┘  └────────┘
+                   每个器件的 SDA/SCL 都是【开漏】的：
+                   要么「拉低」（导通到地），要么「松手」（高阻）
+                   谁都不许主动输出高电平
+
+【线与（wired-AND）是怎么工作的】
+   · 只要【任何一个】器件把 SDA 拉低 → 整条线就是低电平
+   · 【所有】器件都松手 → 上拉电阻把线拉高 → 才是高电平
+   · 于是：总线电平 = 所有器件输出的【逻辑与】
+     这正是多主仲裁、时钟同步、以及从机应答（ACK）所依赖的机制。
+
+【如果没有上拉电阻会怎样】
+   所有器件都松手时，整条线是【悬空】的。
+   而 I2C 的输入侧是 CMOS 输入 —— 悬空 = 电位随机漂移
+   → 通信时好时坏、完全随机、和温度/手靠近都有关系。
+   这就是「I2C 一定要加上拉，而且要在总线末端附近加」的原因。
+
+【如果某个器件是推挽输出会怎样】
+   别的器件拉低时，它还在输出高 →
+   两只管子隔着几欧姆对打 → 短路电流几十 mA →
+   总线电平被拉到中间值（谁都读不对）、器件发热、甚至烧毁。
+   → 这也解释了为什么 STM32 的 I2C 引脚【必须】配成
+     GPIO_MODE_AF_OD（复用开漏），而不能配成推挽。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么偏偏是开漏？四个原因，缺一不可：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>原因</th><th>说明</th><th>如果换成推挽会怎样</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>① 线与实现多主仲裁</b></td>
+                  <td>两个主机同时发送时，发「1」的器件读回总线发现是「0」，就知道自己输了仲裁，立刻退出——这个机制<b>完全建立在「线与」之上</b></td>
+                  <td>发「1」的器件会强行把线拉高，另一个想拉低的拉不动，仲裁彻底失效；两边还可能对打</td>
+                </tr>
+                <tr>
+                  <td><b>② 一根线双向传输</b></td>
+                  <td>SDA 既传数据又收 ACK，方向随时翻转；开漏的「松手 = 高」天然允许这种双向共享</td>
+                  <td>总得有个时刻决定谁驱动，方向切换错误就是对打</td>
+                </tr>
+                <tr>
+                  <td><b>③ 时钟同步（clock stretching）</b></td>
+                  <td>从机拉低 SCL 就能让主机「等一下」，靠的也是线与：谁拉低都算低</td>
+                  <td>时钟线上如果有一个推挽输出，从机就完全没有拉低的可能</td>
+                </tr>
+                <tr>
+                  <td><b>④ 不同电源域共存 + 上电顺序安全</b></td>
+                  <td>上拉到 3.3V，那么 3.3V 和 5V 容忍的器件可以挂在同一条线上；<b>器件没上电时输出是高阻，不会把总线拉死</b></td>
+                  <td>未上电的推挽输出引脚状态不可控，可能把整条总线按在低电平上（经典故障：一个模块没供电，整条 I2C 就全挂）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">上拉电阻速查表</b>（按第 3 节例 3 的两条约束算：R<sub>min</sub> = 967Ω，R<sub>max</sub> = t<sub>r</sub>(max) / (0.8473 × C<sub>b</sub>)）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>总线电容 C<sub>b</sub></th><th>100kHz（t<sub>r</sub> ≤ 1000ns）</th><th>400kHz（t<sub>r</sub> ≤ 300ns）</th><th>1MHz（t<sub>r</sub> ≤ 120ns，快速模式+）</th></tr></thead>
+              <tbody>
+                <tr><td>100pF（短线、两三个器件）</td><td>R ≤ 11.8kΩ → 取 <b>4.7kΩ</b></td><td>R ≤ 3.54kΩ → 取 <b>2.2kΩ</b></td><td>R ≤ 1.42kΩ → 取 <b>1.2kΩ</b></td></tr>
+                <tr><td>200pF（约 30cm 排线、四五个器件）</td><td>R ≤ 5.9kΩ → 取 <b>4.7kΩ</b></td><td>R ≤ 1.77kΩ → 取 <b>1.5kΩ</b></td><td class="text-rose-600 dark:text-rose-400">R ≤ 708Ω，<b>与 R<sub>min</sub> 冲突，无解</b></td></tr>
+                <tr><td>400pF（I2C 规范的电容上限）</td><td>R ≤ 2.95kΩ → 取 <b>2.2kΩ</b></td><td class="text-rose-600 dark:text-rose-400">R ≤ 885Ω，<b>与 R<sub>min</sub> 冲突，无解</b></td><td class="text-rose-600 dark:text-rose-400">无解</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">「无解」该怎么办？三条路，按推荐顺序：<b class="font-semibold text-ink">① 降速</b>（400kHz 降到 100kHz，容限立刻宽松十倍）；<b class="font-semibold text-ink">② 减小总线电容</b>（缩短线、少挂器件、走线远离其他信号）；<b class="font-semibold text-ink">③ 用 I2C 缓冲器/中继器</b>（PCA9515、TCA9517 等，把总线切成两段，每段各自算电容，代价是引入几十 ns 的额外延迟，且要注意它们对时钟拉伸的支持）。<b>千万不要的做法是「把电阻换成 1kΩ 硬上」</b>——那样虽然上升沿变快了，但低电平时灌电流会超过器件能力，V<sub>OL</sub> 抬高，可能出现「读不出 ACK」这种更隐蔽的故障。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">I2C 排错四条实战口诀</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>先量静态电平：</b>总线上没有通信时，SDA 和 SCL 都应该是 <b>V<sub>DD</sub></b>（被上拉电阻拉高）。如果量到 0V，说明有器件一直拉着（或者线短路、或者某个器件没上电）。</li>
+              <li><b>再量低电平电平值：</b>通信时低电平应该 ≤ 0.4V。如果量到 0.8~1.5V，说明<b>上拉电阻太小、或者器件驱动能力不足</b>。</li>
+              <li><b>看上升沿形状：</b>用示波器看上升沿，如果它是一个明显的指数曲线（而不是陡直的边沿），那就是上拉电阻 + 总线电容的 RC 在起作用——<b>按住第 3 节例 3 的公式算一遍就知道该换多大的电阻</b>。</li>
+              <li><b>引脚模式再确认一次：</b>必须是开漏复用（AF_OD），并且外部真的有上拉电阻。<b>「内部上拉能不能代替外部上拉」——不能</b>：STM32 内部上拉是几十 kΩ 的弱上拉，配上 200pF 的总线电容，上升时间会是几十微秒，连 100kHz 都跑不动。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-mcu-wire" class="mt-7 text-base font-semibold">长导线、容性负载与串扰：杜邦线是怎么把信号搞坏的</h3>
+
+          <p class="mt-3">这一节解决的是「板子上的原理图完全正确，但一连上 30cm 的杜邦线就出错」。<b class="font-semibold text-ink">原因只有两个：电容和耦合。</b>我们把它们都算成数字。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="长导线的三个效应：RC 变慢、传输线反射、串扰">
+            <pre><code>【效应一：RC 变慢（最常见）】
+
+    STM32 引脚 ──┬── 30cm 杜邦线 ──┬── 目标器件输入
+                │                  │
+             输出电阻 R_o        输入电容 + 走线电容
+
+    电容估算（按典型值估算）：
+       · 普通杜邦线/排线：约 1pF/cm  → 30cm ≈ 30pF
+       · 目标器件输入电容：约 5pF
+       · STM32 输出电阻 R_o：约 50Ω（按典型值估算）
+    总负载 C_L ≈ 35pF
+
+    上升时间：t_r ≈ 2.2 × R_o × C_L = 2.2 × 50Ω × 35pF ≈ 3.9ns
+    → 很快，什么都不用做。✅
+
+    【但如果中间串了一个 1kΩ 的保护电阻】（很多人为了「保护引脚」会串）：
+       t_r ≈ 2.2 × 1000Ω × 35pF = 77ns
+       → 对 400kHz 的 I2C（要求 ≤ 300ns）：还能用
+       → 对 10MHz 的 SPI（周期 100ns，上升沿要远小于周期的 1/10，
+         也就是 ≤ 10ns）：❌ 直接不能用
+       这就是「串了保护电阻之后 SPI 就 不通了」的完整解释。
+
+【效应二：传输线反射（线一长就出现）】
+
+    电信号在导线上的传播速度大约是【15cm/ns】（约光速的 2/3）。
+    判断要不要按「传输线」处理的粗略判据：
+        线长 ＞ 上升时间 × 传播速度 / 6
+    代入 t_r = 3.9ns：
+        临界长度 ≈ 3.9ns × 15cm/ns / 6 ≈ 10cm
+
+    → 也就是说：【30cm 的杜邦线 + 几 ns 的快速边沿，已经进入
+      「要把线当传输线看」的范畴了】。
+      现象是：过冲（overshoot）、下冲（undershoot）、振铃（ringing）、
+      上升沿上出现台阶。
+      过冲可能把 3.3V 的信号冲到 4.5V 以上 —— 又一个「逻辑上没问题、
+      电气上超绝对最大额定值」的隐蔽杀手。
+
+    对策（按有效性排序）：
+      ① 缩短线（最有效）
+      ② 源端串一个 22~100Ω 的电阻（不是 1kΩ！它要匹配阻抗而不是限流）
+      ③ 降低引脚的输出速度档位（STM32 的 GPIO 有 Low/Medium/High/Very High
+         四档，把 50MHz 那档改成 2MHz，边沿变慢，反射立刻减轻）
+      ④ 信号线旁边伴随一根地线（降低回路面积与串扰）
+
+【效应三：串扰（相邻线之间）】
+
+    两根线平行时，它们之间有：
+       · 互容 C_c：一根线的电压变化会通过电容往邻线注入电荷
+       · 互感 M：一根线的电流变化会在邻线感应出电压
+
+    用分压模型粗算（按典型值估算）：
+       产生干扰的线电压摆幅 3.3V、上升时间 3.9ns
+       两根杜邦线平行 20cm、间距 1mm：互容约 2pF
+       被干扰线的总对地电容约 35pF
+
+       耦合过来的电压 ≈ 3.3V × C_c / (C_c + C_total)
+                      = 3.3V × 2pF / (2 + 35) pF
+                      ≈ 【0.18V】
+
+    → 0.18V 是什么概念？回到前面的噪声预算表：
+      一根 LVTTL 连线的总容限只有 0.4V（低电平方向），
+      这 0.18V 一口气吃掉了【45%】。
+      再叠上地弹和电源波动，就所剩无几了 ——
+      「明明单独测都正常，接上另一根线就出错」就是这个原因。
+
+    对策：
+      ① 缩短平行距离，尽量让信号线垂直交叉而不是平行
+      ② 两根线之间夹一根地线（最有效，直接把互容切掉一半以上）
+      ③ 降低边沿速率（把输出速度档位调低，干扰 ∝ dv/dt）
+      ④ 对特别敏感的线（时钟、复位、中断）单独走线、避开功率线</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>线长</th><th>信号速率</th><th>主要风险</th><th>建议措施</th></tr></thead>
+              <tbody>
+                <tr><td>&lt; 10cm（板内走线）</td><td>任意（几十 MHz 以内）</td><td>串扰为主</td><td>走线拉开距离、必要时夹地</td></tr>
+                <tr><td>10~30cm（杜邦线）</td><td>≤ 1MHz</td><td>串扰、地弹</td><td>降低输出速度档位、夹地线</td></tr>
+                <tr><td>10~30cm（杜邦线）</td><td>≥ 10MHz（SPI 时钟等）</td><td><b>反射 + 振铃 + 过冲</b></td><td>串 22~100Ω 源端电阻、缩短、降速</td></tr>
+                <tr><td>&gt; 50cm</td><td>任意</td><td>三大效应全赶上</td><td>改用差分/缓冲器/驱动器（如 74HC245 中继、RS-485 这类差分方案）</td></tr>
+                <tr><td>任何长度</td><td>I2C 400kHz</td><td>RC 上升时间超标</td><td>算 t<sub>r</sub> = 0.8473·R·C<sub>b</sub>，必要时降速或用中继器</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-mcu-schmitt" class="mt-7 text-base font-semibold">施密特输入接机械按键，以及总线缓冲器该放在哪</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">先说按键。</b>机械按键在按下和松开的一瞬间，金属触点会弹跳（bounce）——不是一次干净的通断，而是在几毫秒内通断好几次。这一个物理事实会同时带来两个层面的问题，<b class="font-semibold text-ink">而它们必须分别解决</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>层面</th><th>问题</th><th>现象</th><th>解决手段</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>电平层</b>（模拟问题）</td>
+                  <td>触点弹跳期间，引脚电压在门限附近来回穿越；如果引脚上有 RC 滤波，边沿还会很慢</td>
+                  <td>引脚被读成「高—低—高—低」的多个脉冲；边沿慢时还会停在中间电平，产生穿通电流、功耗上升</td>
+                  <td><b>硬件</b>：RC 低通（10kΩ + 100nF，时间常数约 1ms）+ <b>施密特输入</b>（把慢边沿整形成陡边沿、把小于滞回宽度的抖动吞掉）</td>
+                </tr>
+                <tr>
+                  <td><b>逻辑层</b>（时间问题）</td>
+                  <td>即使电平已经干净，真实的机械抖动仍可能持续 5~20ms</td>
+                  <td>一次按键被识别成好几次（计数多计、菜单跳两格）</td>
+                  <td><b>软件</b>：检测到变化后延时 10~20ms 再确认一次（或在定时器中断里做状态机消抖）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么「施密特输入」是硬件层的首选？</b>因为它顺手解决了两个本来需要两套电路的问题：<b class="font-semibold text-ink">① 慢边沿整形</b>——RC 滤波后的边沿可能有几百微秒，普通输入会长时间停在不确定区，而施密特输入只要越过一次门限就干脆地翻转；<b class="font-semibold text-ink">② 抗小幅度抖动</b>——滞回宽度 V<sub>H</sub>（74HC14 在 5V 时约 0.8V）之内的任何波动都不会引起输出变化。<b>STM32 的数字输入通路本身就是施密特结构</b>（在参考手册的 GPIO 框图里，那个带滞回符号的缓冲器就是），但要注意：<b>引脚配成模拟模式时它被断开</b>，而且不同型号、不同引脚（尤其专用引脚）的结构不完全一样，做高可靠设计时要查手册确认。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">施密特 + RC ≠ 万能：三个必须补上的动作</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>软件消抖不能省。</b>机械抖动的幅度往往远超滞回宽度（触点是一整段通断，不是小噪声），硬件施密特只保证「边沿干净」，不保证「只有一次变化」。正确组合是：<b>RC + 施密特负责电平干净，软件 10~20ms 确认负责次数正确。</b></li>
+              <li><b>RC 的时间常数要两头兼顾。</b>太小（比如 10kΩ + 1nF = 10µs）过滤不掉抖动；太大（比如 1MΩ + 1µF = 1s）会让按键反应迟钝、并且边沿慢到可能触发电平判错。一般取 <b>1~10ms</b>（10kΩ + 100nF = 1ms 是经典组合）。</li>
+              <li><b>按键引出线要当「天线」对待。</b>面板按键往往通过几十厘米的排线引到前面板，这段线会拾取干扰、也可能引入静电。加 TVS 管、加 RC、必要时用光耦或专用按键接口芯片（如 TCA9534 这类带消抖/中断的扩展器）。</li>
+            </ul>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">再说总线缓冲器/驱动器。</b>「总线」这个词在单片机里的含义很广：并行的数据/地址线、SPI 的 MOSI/SCK、一堆器件共享的中断线……<b class="font-semibold text-ink">只要你发现「一个引脚要面对很多个输入、或者要驱动一根很长的线」，就该想到缓冲器。</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>器件</th><th>功能</th><th>它解决什么</th><th>用的时候注意</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">74HC245 / 74LVC245</td><td>八路双向总线收发器（DIR 控方向、OE 控使能）</td><td>长总线、多器件、需要隔离/分段驱动</td><td>方向必须在总线空闲时切换；OE 上电时要保证高阻（加下拉电阻）</td></tr>
+                <tr><td class="font-mono text-xs">74HC244 / 74LVC244</td><td>八路单向三态缓冲器</td><td>把 MCU 与「有很多输入的长线」隔开，MCU 只看到几 pF</td><td>输出使能无效时必须高阻，否则会和总线上的其他器件争用</td></tr>
+                <tr><td class="font-mono text-xs">74HC14 / 74HCT14</td><td>六路施密特反相器</td><td>按键、慢边沿、带噪声的远距离信号整形</td><td>它是反相的（两次串联就还原）；不同系列的滞回宽度不同</td></tr>
+                <tr><td class="font-mono text-xs">74HC07 / 74LS07</td><td>开漏（OD/OC）缓冲器</td><td>电平转换 + 高压负载（74LS07 输出耐压可达 30V）</td><td>必须外接上拉电阻，速度受 RC 限制</td></tr>
+                <tr><td class="font-mono text-xs">74LVC1T45 / 74LVC2T45</td><td>单/双路双向电平转换器</td><td>3.3V ↔ 5V/1.8V 的电平翻译（带方向控制）</td><td>两侧都要供电、要共地；方向引脚不能悬空</td></tr>
+                <tr><td class="font-mono text-xs">ULN2003 / ULN2803</td><td>达林顿阵列（7/8 路，内含续流二极管）</td><td>继电器、电机、大电流 LED 阵列的驱动</td><td>输出是「灌电流」型（负载接电源与输出之间）；饱和压降约 1V，要算进负载电流</td></tr>
+                <tr><td class="font-mono text-xs">74HC595</td><td>串入并出移位寄存器（8 位，带输出锁存）</td><td>用 3 个引脚换 8 个输出，做数码管/LED 阵列</td><td>输出驱动能力仍受本身限制，大电流要再级联 ULN2003</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">缓冲器最常见的三种用法（对号入座）</div>
+            <p><b>① 为了「隔离电容」。</b>一条 30cm 的总线上挂了 8 个器件（每个 5pF）加走线 30pF，合计 70pF。MCU 引脚直接驱动它，上升时间会变慢、延迟变大。此时在 MCU 和目标器件之间插一级 74HC245：<b>MCU 只看到 5pF（缓冲器的输入电容），缓冲器负责去驱动那 70pF</b>——信号质量立刻改善。这是缓冲器最实用、也最容易被忽略的用法。<b>② 为了「扩电流」。</b>一个 IO 只能 8mA，而负载要 60mA——用 ULN2003 或三极管。<b>③ 为了「隔离风险」。</b>外部接口（排针、接线端子、长线）最容易被打坏，中间加一级几毛钱的缓冲器，坏的是缓冲器而不是几百块的 MCU。<b>这是「用一块钱的芯片保护一百块的芯片」的经典思路。</b></p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见误解与坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误解与坑</h2>
+
+          <p class="mt-4">下面这十条，每一条都写成「<b class="font-semibold text-ink">你以为的 → 为什么错 → 该怎么做</b>」。<b class="font-semibold text-ink">建议你把第十条读两遍</b>——它是所有排错工作的前提：你以为自己在观察信号，其实你只看到了它的一部分。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 1：「3.3V 和 5V 都是『高电平』，接上就能用」</div>
+            <p><b>为什么错：</b>「高电平」不是电压数值，而是<b>相对某个器件的门限</b>说的一句话。同一个 3.3V，对门限 2.0V 的 74LS 是「高得绰绰有余」，对门限 3.5V 的 74HC 是「根本不算高」。反过来 5V 器件的输出对 3.3V 引脚可能是过压。<b>更隐蔽的是：同为 3.3V 的两个器件也可能连不上</b>——3.3V LVTTL 的输入门限是 2.0V，而 3.3V LVCMOS 是 2.31V，两者相差 0.31V，一个按 LVTTL 设计的弱输出（保证 2.4V）去驱动 LVCMOS 输入，余量只剩 0.09V。<b>该怎么做：</b>永远把两个器件的 <code class="icode">VOH(min)</code> 和 <code class="icode">VIH(min)</code>（以及 <code class="icode">VIL(max)</code> 和 <code class="icode">VOL(max)</code>）配成一对来算噪声容限；同时检查绝对最大额定值。<b>「名字一样」和「电压一样」都不是判据，「保证值算出来的余量」才是。</b></p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">坑 2：「CMOS 的输入不用就空着，反正没接负载」</div>
+            <p><b>为什么错：</b>CMOS 输入是高阻的绝缘栅，悬空时电位由漏电、耦合和你的手共同决定，<b>它既不是高也不是低</b>。后果按严重程度递增：① 逻辑随机跳变、误触发中断；② 电位漂在 V<sub>DD</sub>/2 附近时上下管同时半导通，静态功耗从 nA 级暴涨到 mA 级、芯片发烫；③ 输出自激振荡，变成一个持续的电磁噪声源。<b>TTL 的悬空是另一个故事</b>（多发射极三极管结构让它默认为高），但同样不推荐。<b>该怎么做：</b>不用的输入直接接 V<sub>DD</sub> 或 GND；需要留改动余地就串一个 10kΩ 电阻接过去；总线上没有器件驱动时，必须有上拉或下拉把电平钉住。<b>「不接」不是一种状态，是一个未定义状态。</b></p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 3：「上拉电阻随便选 10kΩ 就行；内部上拉也能代替外部上拉」</div>
+            <p><b>为什么错：</b>上拉电阻被两条约束夹在中间——<b>阻值太小</b>会让低电平时灌进下拉管的电流超标、V<sub>OL</sub> 抬高甚至烧管；<b>阻值太大</b>会让上升沿变成缓慢的 RC 充电、高速通信直接失败。10kΩ 在 100kHz、短线、器件少的场合确实能用，但在 <b>400kHz、200pF 总线</b>下算出来的上升时间是 <code class="icode">0.8473 × 10kΩ × 200pF = 1.69µs</code>，超过规范限制的 300ns 五倍多。至于内部上拉：<b>STM32 的内部上拉是几十 kΩ 的弱上拉</b>（用于给悬空引脚一个确定电平），配 200pF 总线电容的上升时间在几十微秒量级，连 100kHz 的 I2C 都跑不动。<b>该怎么做：</b>用 <code class="icode">R(min) = (V<sub>DD</sub> − V<sub>OL</sub>)/I<sub>OL</sub></code> 和 <code class="icode">R(max) = t<sub>r</sub>(max)/(0.8473·C<sub>b</sub>)</code> 算出区间再取值；外部上拉电阻是必须焊的，不能靠内部弱上拉省掉。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 4：「输出高电平就等于电源电压」</div>
+            <p><b>为什么错：</b>输出高只是「上拉通路导通」，中间一定会有压降。TTL 的经典值是 <b>V<sub>OH</sub> ≈ V<sub>CC</sub> − 0.7V − 0.7V ≈ 3.6V</b>（两个 PN 结），带载后更低，手册的保证值只有 2.4V（7400）/ 2.7V（74LS00）；CMOS 好一些（74HC 在 5V、4mA 下保证 4.4V），但同样会随负载电流下降。<b>这个误解的后果很具体</b>：你以为 5V 的输出可以直接给 3.3V 引脚，于是拿 3.6V 去顶 3.6V 的绝对最大额定值；或者你以为 3.3V 的输出足够驱动 5V CMOS，结果差了 0.2V。<b>该怎么做：</b>查 V<sub>OH</sub> 的<b>保证值</b>，并且看清它的测试条件（拉多少电流）；设计余量时用保证值，不要用「电源电压」或「典型值」。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">坑 5：「V<sub>OH</sub>/V<sub>OL</sub>/V<sub>IH</sub>/V<sub>IL</sub> 是四个固定数字，抄下来就行」</div>
+            <p><b>为什么错：</b>这四个参数<b>全都带条件</b>。V<sub>OH</sub> 和 V<sub>OL</sub> 依赖负载电流、电源电压、温度；V<sub>IH</sub> 和 V<sub>IL</sub> 在 CMOS 里直接跟着电源走（0.7×V<sub>DD</sub> / 0.3×V<sub>DD</sub>），一个 74HC00 在 5V 供电时 V<sub>IH</sub> 是 3.5V，在 4.5V 供电时就变成 3.15V——<b>同一颗芯片，两张手册数字</b>。温度的影响也不小：TTL 的门限会随温度漂移，CMOS 的驱动能力在高温下会下降。<b>该怎么做：</b>抄参数的时候把条件一起抄下来（「74HC00，V<sub>CC</sub>=4.5V，I<sub>OL</sub>=4mA，−40~85℃ → V<sub>OL</sub> ≤ 0.33V」）。<b>脱离条件抄下来的数字，用的时候一定会坑你。</b></p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">坑 6：「用典型值算余量就够了」</div>
+            <p><b>为什么错：</b>典型值是常温、典型样品下的中位数，<b>它不代表任何一颗芯片的保证</b>。用典型值算出来的余量会明显偏乐观：74LS00 的 V<sub>OH</sub> 典型 3.4~3.6V，保证值只有 2.7V；74HC 的 V<sub>OL</sub> 空载典型 0.01V，带 4mA 时保证 0.33V。用典型值算出的 1.4V 高电平余量是幻觉，用保证值算出的 0.7V 才是真的。<b>工程上的余量计算必须用「最坏情况」</b>：低电源电压 + 高温 + 两个器件都取手册的 min/max。<b>该怎么做：</b>到手一颗芯片就翻它的电气特性表，认准 min/max 列；如果做量产设计，还要把批次分散性、温漂都算进去，最后再留一倍余量。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 7：「扇出按电流算，CMOS 能带几千路输入」</div>
+            <p><b>为什么错：</b>CMOS 输入的直流电流只有 ±1µA，按 4mA 的输出能力算，确实能算出「几千路」——<b>但这个数字永远不会成为真正的限制</b>。因为 CMOS 输入消耗的是电荷：每一路输入都是一个 3~10pF 的电容，输出每翻转一次就要给它们全体充放电一次。带上 4000 路输入，负载电容会是 20nF 量级，上升时间会长到毫秒级，电路根本不能工作。<b>所以 CMOS 的扇出要用「电容 + 你要跑多快」来算</b>（第 3 节例 4 的算法）。<b>还有一层：扇出只在同一个电平族里才有意义</b>——74LS 驱动 74HC 按电流算是几百路，但门限那一关根本过不去。<b>该怎么做：</b>先确认电平兼容，再按负载电容和时序要求估算可带的输入数；不确定就用一级缓冲器隔离。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">坑 8：「两个输出接在一起没关系；I2C 引脚配推挽也行」</div>
+            <p><b>为什么错：</b>两个推挽输出接在一起时，一个要输出高（上管导通到 V<sub>DD</sub>）、一个要输出低（下管导通到 GND），电流从 V<sub>DD</sub> 经两只管子直接到 GND——<b>这是一条只有几欧姆阻抗的短路路径</b>，电流几十上百 mA，芯片发烫、电平被拉到不确定的中间值（两边都读错）。<b>I2C 更是把这一点变成了硬要求</b>：多主仲裁、时钟同步、从机 ACK，全部建立在「线与」之上；只要有<b>一个</b>器件配成推挽输出，别人拉低时它就一直在往外推高电平，轻则通信不稳，重则烧引脚。<b>该怎么做：</b>共享总线一律用开漏/三态 + 上拉，并且保证同一时刻只有一个器件在驱动；STM32 的 I2C 引脚必须配 <code class="icode">GPIO_MODE_AF_OD</code>；切换使能时留出「先关旧、再开新」的死区时间。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">坑 9：「绝对最大额定值就是『允许的工作范围』」</div>
+            <p><b>为什么错：</b>这是数据手册里最容易被误读的一张表。<b>「建议工作条件（Recommended Operating Conditions）」</b>才是芯片正常工作的范围（例如 V<sub>DD</sub> = 2.0~3.6V、温度 −40~85℃）；<b>「绝对最大额定值（Absolute Maximum Ratings）」</b>是「超过它就可能永久损坏」的<span class="text-rose-600 dark:text-rose-400">极限</span>，<b>它描述的是一条不能碰的边界，不是可以长期停留的工作区</b>。比如「单脚 I<sub>OL</sub> 绝对最大 20mA」的意思是：你偶尔、短暂地到 20mA 可能不坏，但长期在 20mA 下工作，V<sub>OL</sub> 会明显抬高、发热加剧、寿命受损；正常设计要按「8mA 时 V<sub>OL</sub> ≤ 0.4V」这条推荐条件来。<b>该怎么做：</b>设计值取推荐条件，绝对最大值只用来判断「这个意外情况会不会烧芯片」（比如插拔瞬间的冲击）；任何长期工作点都应该落在推荐范围内并留余量。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">坑 10：「示波器上看到一条漂亮的 3.3V 方波，说明信号没问题」</div>
+            <p><b>为什么错：</b>示波器的默认档位会骗你。把时基放在 1ms/格、电压档放在 1V/格，任何方波看起来都很漂亮——<b>但你看不到三件真正要命的事</b>：<b>① 上升时间</b>（可能已经 200ns，而你的 SPI 要跑 10MHz）；<b>② 过冲与振铃</b>（30cm 杜邦线上可能冲到 4.5V，逻辑上「能用」，但每一次过冲都在顶绝对最大额定值、都在注入衬底电流）；<b>③ 地弹与电源纹波</b>（用测量的「地」本身在抖，普通单点测量甚至看不出来）。<b>此外，万用表量电压会骗得更彻底</b>：它对脉冲信号给出的是平均值，一个占空比 50%、只有 1.5V 摆幅的信号可能被读成 0.75V，你会以为「它就是低电平」。<b>该怎么做：</b>测数字信号至少要看三样东西——<b>上升/下降时间、过冲幅度、以及稳态电平</b>；怀疑地弹时用「双通道分别测两端的地」或者探头接地弹簧（不要用长地线夹，那个回路本身就会拾取干扰）；关键信号用「单次触发」抓上电瞬间和切换瞬间的波形。<b>信号质量是看出来的，不是猜出来的。</b></p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与自检 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自检</h2>
+
+          <p class="mt-4">这一篇从「二极管为什么做不出能级联的门」一路走到「30cm 的杜邦线会把信号搞成什么样」。如果只允许你带走一页纸，那就是下面这一页。</p>
+
+          <h3 class="mt-7 text-base font-semibold">要点清单</h3>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>门电路的核心是「电平」，不是「电压」。</b>同一个电压对不同的器件可能是高、可能是低，也可能落在谁都不保证的不确定区——判据永远是<b>输出保证值与输入门限之差（噪声容限）</b>。</li>
+            <li><b>二极管门电路被淘汰于三个死结：</b>电平偏移（每级 ±0.7V，两级就串不起来）、无驱动能力（输出阻抗 kΩ 级）、输入电流方向反常（前级最弱的状态恰好撞上后级需求最大的时刻）。</li>
+            <li><b>三极管当开关用只有两个状态：</b>截止（断开）和饱和（闭合，V<sub>CE(sat)</sub> ≈ 0.1~0.3V）。要保证可靠饱和，按 <code class="icode">I<sub>B</sub> ≥ (2~5) × I<sub>CS</sub>/β</code> 取基极电流，因为 β 的分散性极大。三极管反相器天然是电平转换器（3.3V 输入 → 5V 输出）。</li>
+            <li><b>TTL 的三级结构决定了它全部的脾气：</b>多发射极三极管输入级（所以 V<sub>IH</sub> = 2.0V、输入悬空算高）、中间级倒相（所以上下输出管不会同时导通）、推挽输出级（所以输出高的能力远弱于输出低：0.4mA vs 8mA）。</li>
+            <li><b>TTL 的 V<sub>OH</sub> ≈ 3.6V 是「V<sub>CC</sub> 减去两个 PN 结」算出来的</b>，不是设计失误；带载后更低，手册保证值只有 2.4~2.7V。</li>
+            <li><b>CMOS 的互补结构让任何稳态下都有一只管子截止</b>，所以静态功耗几乎为零、输出摆幅几乎到轨、门限跟着电源走（0.7V<sub>DD</sub> / 0.3V<sub>DD</sub>）——<b>这就是「3.3V 能驱动 5V TTL，却驱动不了 5V CMOS」的全部原因。</b></li>
+            <li><b>动态功耗 P = C<sub>L</sub>·V<sub>DD</sub>²·f</b> 来自「每翻转一次就要从电源搬走 C<sub>L</sub>·V<sub>DD</sub> 的电荷」；V<sub>DD</sub> 是平方项，所以<b>省电第一手段是降压，第二是降频</b>。CMOS 还有一笔穿通功耗，与翻转频率和边沿时间成正比。</li>
+            <li><b>门限的物理来源：</b>TTL 由 PN 结个数决定（≈ 2.1V → 规范取 2.0V），CMOS 由电源电压决定（0.7V<sub>DD</sub>）。不要混用两族的数字。</li>
+            <li><b>开漏/OC 输出没有「输出高」这个能力</b>，它只会拉低或松手——所以必须外接上拉。换来的是三大好处：线与（多器件共享一根线）、电平转换（上拉接哪侧就是哪侧电平）、输出管耐压可高于电源。</li>
+            <li><b>上拉电阻被两条约束夹住：</b><code class="icode">R(min) = (V<sub>DD</sub> − V<sub>OL</sub>)/I<sub>OL</sub></code>（低电平时不能灌太多电流）与 <code class="icode">R(max) = t<sub>r</sub>(max)/(0.8473·C<sub>b</sub>)</code>（高电平要充得够快）。I2C 400kHz + 200pF 时这个区间是 967Ω ~ 1.77kΩ。</li>
+            <li><b>三态门共享总线有三条纪律：</b>同一时刻只有一个器件驱动、空闲时必须有上拉/下拉把电平钉住、使能切换要留死区。推挽输出之间绝不允许直接连接。</li>
+            <li><b>四个参数 + 两个容限：</b>V<sub>OH</sub>(min)/V<sub>OL</sub>(max) 是输出的保证值，V<sub>IH</sub>(min)/V<sub>IL</sub>(max) 是输入的保证门限，<b>V<sub>NH</sub> = V<sub>OH</sub> − V<sub>IH</sub>、V<sub>NL</sub> = V<sub>IL</sub> − V<sub>OL</sub></b>，取小的那个作为这根线的总容限。<b>必须用保证值，必须带条件。</b></li>
+            <li><b>任何互连都要过两关：</b>逻辑关（容限 &gt; 0，工程上建议 &gt; 0.4V）和电气关（不超过绝对最大额定值，非 FT 引脚约 V<sub>DD</sub>+0.3V、FT 引脚约 5.5V）。<b>只过一关都是不行的</b>——前者造成「接上不工作」，后者造成「能用但会坏」。</li>
+            <li><b>扇出在 TTL 里是两个电流方向的除法取小</b>（74LS = 20）；<b>在 CMOS 里要换成「电容 + 速度」来算</b>，直流算出来的几千路没有实际意义。</li>
+            <li><b>CMOS 输入绝不能悬空</b>（逻辑乱跳 → 穿通电流发热 → 自激振荡）；TTL 悬空虽然默认算高，同样不推荐。</li>
+            <li><b>非理想效应要按数字管：</b>t<sub>r</sub> ≈ 2.2RC（10%~90%）或 0.8473RC（I2C 的 0.3~0.7 定义）、线长超过 <code class="icode">t<sub>r</sub> × 15cm/ns / 6</code> 就要按传输线处理、地弹 <code class="icode">V = L·di/dt</code>（8 路 20mA 在 2ns 内的变化，5nH 上就有 400mV）。</li>
+            <li><b>施密特输入解决「电平被判错」，软件消抖解决「次数不对」</b>——机械按键两个都要做，RC + 施密特负责波形干净，10~20ms 确认负责计数正确。</li>
+            <li><b>缓冲器是「用在正确位置」才有价值：</b>放在 MCU 与「长线 + 多负载」之间，让 MCU 只看到几 pF；同时它也是「用一块钱的芯片保护一百块的 MCU」的最实用手段。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">一页速查：本篇用到的全部公式</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>公式</th><th>它算什么</th><th>单位与注意事项</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">V<sub>NH</sub> = V<sub>OH</sub>(min) − V<sub>IH</sub>(min)</td><td>高电平噪声容限</td><td>V；两个值都必须是<b>保证值</b>，且条件（电流、温度、电源）要对得上</td></tr>
+                <tr><td class="font-mono text-xs">V<sub>NL</sub> = V<sub>IL</sub>(max) − V<sub>OL</sub>(max)</td><td>低电平噪声容限</td><td>V；总容限取两者较小值</td></tr>
+                <tr><td class="font-mono text-xs">N = min( I<sub>OH</sub>/I<sub>IH</sub> , I<sub>OL</sub>/I<sub>IL</sub> )</td><td>扇出系数（TTL）</td><td>无量纲；CMOS 请改用负载电容与上升时间估算</td></tr>
+                <tr><td class="font-mono text-xs">R<sub>p</sub>(min) = (V<sub>DD</sub> − V<sub>OL</sub>)/I<sub>OL</sub></td><td>上拉电阻下限</td><td>Ω；用最坏情况的最小 I<sub>OL</sub>（I2C 规范常取 3mA）</td></tr>
+                <tr><td class="font-mono text-xs">R<sub>p</sub>(max) = t<sub>r</sub>(max)/(0.8473 × C<sub>b</sub>)</td><td>上拉电阻上限</td><td>Ω；0.8473 对应 0.3~0.7V<sub>DD</sub> 的定义，I2C 规范用的就是这个</td></tr>
+                <tr><td class="font-mono text-xs">t<sub>r</sub> ≈ 2.2 × R × C</td><td>上升时间（10%~90%）</td><td>s；普通 RC 边沿、缓冲器/串联电阻的计算用这个</td></tr>
+                <tr><td class="font-mono text-xs">P = C<sub>L</sub> × V<sub>DD</sub>² × f</td><td>CMOS 动态功耗</td><td>W；C 单位 F、f 是每秒翻转次数。反推电容：<code class="icode">C = I<sub>avg</sub>/(V<sub>DD</sub>·f)</code></td></tr>
+                <tr><td class="font-mono text-xs">U = L × di/dt</td><td>地弹电压</td><td>V；L 单位 H（封装与走线的寄生电感），di/dt 是电流变化率</td></tr>
+                <tr><td class="font-mono text-xs">L<sub>临界</sub> ≈ t<sub>r</sub> × v / 6</td><td>要不要按传输线处理</td><td>m；v ≈ 15cm/ns（FR4/普通线材的粗略值）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">自测题</h3>
+
+          <p class="mt-3">先自己写答案，再对照下面的参考答案。<b class="font-semibold text-ink">能答对 5 道以上，这一篇就算真的读进去了。</b></p>
+
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>STM32（3.3V，V<sub>OH</sub> ≥ 2.9V @8mA）要驱动一个工作在 5V、输入门限为 0.7×V<sub>CC</sub> 的 CMOS 逻辑芯片。请说明为什么直连不成立，并给出至少两种解决方案。</li>
+            <li>为什么 TTL 的输出高电平典型值只有 3.6V，而不是接近 5V？请从它的输出级结构解释。它带载之后会怎样变化？</li>
+            <li>一条 I2C 总线，C<sub>b</sub> = 150pF，工作在 400kHz。请算出一个可用的上拉电阻值并说明依据（I2C 规范：V<sub>OL</sub> ≤ 0.4V、I<sub>OL</sub> ≥ 3mA、t<sub>r</sub> ≤ 300ns）。</li>
+            <li>一个 CMOS 输入悬空时会发生什么？请说出三重后果，并解释为什么 TTL 悬空的表现不一样。</li>
+            <li>某个 STM32 引脚要同时驱动 12 路 74HC 输入（每路输入电容约 3.5pF，走线 20pF，输出阻抗约 50Ω）。请估算上升时间，并判断能不能跑 10MHz 的 SPI 时钟。</li>
+            <li>数据手册写着「单脚 I<sub>OL</sub> 绝对最大 20mA、推荐条件 8mA 时 V<sub>OL</sub> ≤ 0.4V」。你要用 4 个引脚各驱动一个 6mA 的 LED，这个设计安全吗？如果把 4 个 LED 都挂在一个引脚上呢？</li>
+          </ol>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第 1 题答案</div>
+            <p>5V CMOS 的输入门限是 <code class="icode">0.7 × 5V = 3.5V</code>，而 STM32 的 V<sub>OH</sub> 保证值是 2.9V（空载也只有 3.3V），所以高电平噪声容限 <code class="icode">V<sub>NH</sub> = 2.9 − 3.5 = −0.6V</code>，<b>为负值</b>——不是「不稳定」，而是完全不可能被识别为高。<b>解决方案至少三种：</b>① 换成 74HCT 系列（输入门限 2.0V，V<sub>NH</sub> 变成 0.9V）；② 把 STM32 引脚配成开漏输出，加上拉电阻接到 5V（高电平变成 5V）；③ 用专用电平转换器（如 74LVC1T45、TXS0108E）或 MOS 管双向转换电路。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第 2 题答案</div>
+            <p>TTL 的推挽输出级在高电平时，电流路径是「V<sub>CC</sub> → T4 的基极-发射极 → 二极管 D → 输出」，中间经过<b>两个 PN 结</b>，所以 <code class="icode">V<sub>OH</sub> ≈ V<sub>CC</sub> − 0.7V − 0.7V ≈ 3.6V</code>。<b>带载之后还要再低</b>：输出高电平时的电流由 T4 通过射极跟随器提供，而 T4 的基极电流来自一条几十 kΩ 的高阻通路，所以哪怕拉出 1mA，V<sub>OH</sub> 都会明显下降。这正是手册里 V<sub>OH</sub> 的测试条件只有 −0.4mA、保证值只有 2.4~2.7V 的原因。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第 3 题答案</div>
+            <p><b>下限：</b><code class="icode">R(min) = (3.3 − 0.4)/3mA = 967Ω</code>。<b>上限：</b><code class="icode">R(max) = 300ns/(0.8473 × 150pF) = 300e-9/1.27095e-7 ≈ 2.36kΩ</code>。<b>可用区间是 967Ω ~ 2.36kΩ，取 1.5kΩ 或 2.2kΩ 都在区间内</b>（1.5kΩ 更保守，1.8kΩ 居中）。校验：1.5kΩ 时 t<sub>r</sub> = 0.8473 × 1500 × 150pF ≈ 191ns ≤ 300ns ✅，低电平电流 2.9V/1500Ω = 1.93mA ≤ 3mA ✅。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第 4 题答案</div>
+            <p><b>三重后果：</b>① 电位不确定 → 逻辑随机跳变、误触发中断；② 电位漂在 V<sub>DD</sub>/2 附近时上下管同时半导通，产生穿通电流，静态功耗从 nA 级涨到 mA 级、芯片发热；③ 输出可能自激振荡，成为持续的电磁噪声源。<b>TTL 不一样的原因：</b>TTL 的输入端是一个多发射极三极管的发射极，悬空时没有电流通路，相当于「没有把这个发射极拉低」，后级会把它当成高电平——<b>状态是确定的</b>（虽然噪声容限变差，也不推荐）。所以「TTL 悬空算高、CMOS 悬空是灾难」这句话的物理来源在输入级的结构差别上。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第 5 题答案</div>
+            <p>负载电容 <code class="icode">C<sub>L</sub> = 20pF + 12 × 3.5pF = 62pF</code>。上升时间 <code class="icode">t<sub>r</sub> ≈ 2.2 × 50Ω × 62pF ≈ 6.8ns</code>。<b>结论：虽然勉强能用，但不推荐。</b>10MHz 的周期是 100ns，上升时间 6.8ns 约占周期的 7%，信号完整性还过得去；但这条线已经接近 10cm 的传输线临界长度（<code class="icode">6.8ns × 15cm/ns / 6 ≈ 17cm</code>），而且 12 路输入意味着 12 个负载同时给引脚的边沿「拖后腿」。<b>更稳妥的做法是加一级 74HC244/74LVC244 缓冲器</b>：MCU 引脚只看到缓冲器那 5pF（t<sub>r</sub> 降到约 0.55ns），12 路负载交给缓冲器去驱动。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第 6 题答案</div>
+            <p><b>4 个引脚各带一个 6mA 的 LED：安全。</b>每个引脚 6mA 落在推荐条件 8mA 以内（V<sub>OL</sub> 能保证 ≤ 0.4V），4 个脚合计 24mA，远小于整片 150mA 的预算。<b>4 个 LED 都挂在一个引脚上：不安全。</b>总电流 24mA 已经超过「绝对最大 20mA」这条不能碰的线；即使芯片侥幸没坏，V<sub>OL</sub> 也会被抬得远高于 0.4V，LED 亮度会明显不均、电流分配还会因为 V<sub>F</sub> 的分散性而更糟。<b>正确做法：</b>分到 4 个引脚，或者用一个三极管/MOS 管扩流（引脚只提供约 240µA 的基极电流）。顺便记住第 9 条坑：绝对最大额定值不是「可以长期工作」的范围。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>
+              <b>测一条总线的上升时间，反推电容。</b>拿一块带 I2C 或 PWM 输出的板子，用示波器测一根信号线的上升时间（从 10% 到 90%）。已知上拉电阻或输出阻抗，用 <code class="icode">t<sub>r</sub> ≈ 2.2RC</code> 反推总负载电容，再和「1pF/cm × 线长 + 器件引脚电容」的估算值对比。<b>目标：亲手感受「杜邦线的电容有多大」。</b>
+            </li>
+            <li>
+              <b>做一次完整的 LED 电流预算并实测验证。</b>选一个 LED，查它的 V<sub>F</sub> 范围，按推荐电流算出限流电阻，然后用万用表实测电阻两端的电压反推真实电流。<b>再把 V<sub>F</sub> 换成同型号另一颗 LED 重复一次</b>，观察电流变化多少——这就是第 3 节例 2 里「亮度不一致」的实测版本。
+            </li>
+            <li>
+              <b>用 74HC14 和 74HC04 对比按键波形。</b>搭一个按键 + RC（10kΩ + 100nF）的输入电路，同一个信号分别送进普通反相器（74HC04）和施密特反相器（74HC14），用示波器比较输出端在按下和松开瞬间的波形差别。<b>目标：亲眼看到滞回把抖动吞掉的那一段。</b>
+            </li>
+            <li>
+              <b>复现一次「3.3V 驱动 5V CMOS 失败」。</b>找一块 5V 供电的 74HC 系列芯片，用 3.3V 的 MCU 引脚去驱动它的一个输入，记录现象（输出不动或只在某些条件下动）；然后把 74HC 换成 74HCT（或加上拉电阻接到 5V 的开漏输出），再测一次。<b>目标：把这一篇开头那个「查一天也查不出来」的现场，变成你亲手复现过的一个实验。</b>做这个实验时注意：<b>绝不要</b>把 5V 信号直接接到非 FT 引脚上——那是坑 9 说的「碰绝对最大额定值」。
+            </li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">延伸阅读</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>想继续深入的方向</th><th>去看</th><th>它接着讲什么</th></tr></thead>
+              <tbody>
+                <tr><td>工程上到底怎么接</td><td><a class="text-brand-600 dark:text-brand-300" href="stm32-basic-level.html">3.3V 电平与硬件安全</a></td><td>引脚类型速查表、继电器与电机能不能直驱、数据手册怎么看、供电与去耦</td></tr>
+                <tr><td>二极管、三极管、MOS 管本身</td><td><a class="text-brand-600 dark:text-brand-300" href="ee-semiconductor.html">半导体器件：二极管、稳压管、三极管与 MOS 管</a></td><td>PN 结、伏安特性、开关参数、驱动的具体计算</td></tr>
+                <tr><td>门电路之间的逻辑关系（上一篇）</td><td><a class="text-brand-600 dark:text-brand-300" href="ee-logic-algebra.html">逻辑代数与卡诺图化简</a></td><td>真值表、布尔代数、用门电路实现任意逻辑</td></tr>
+                <tr><td>用门电路搭出功能电路（下一篇）</td><td><a class="text-brand-600 dark:text-brand-300" href="ee-combinational.html">组合逻辑电路</a></td><td>编码器、译码器、数据选择器、加法器、竞争冒险</td></tr>
+                <tr><td>板级干扰与抑制</td><td><a class="text-brand-600 dark:text-brand-300" href="ee-emc.html">电磁兼容与信号完整性基础</a></td><td>地弹、串扰、去耦、布线与屏蔽的系统方法</td></tr>
+                <tr><td>电路的等效与建模</td><td><a class="text-brand-600 dark:text-brand-300" href="ee-circuit-equivalent.html">电路等效与戴维南定理</a></td><td>把上面那些 RC、分压、阻抗问题统一成一个工具</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">最后留一句话给你：<b class="font-semibold text-ink">数字电路看起来是「0 和 1」的世界，但把 0 和 1 变成电压、再把电压可靠地送到下一个芯片，全程都是模拟问题。</b>这一篇讲的所有参数、公式和陷阱，本质上都是在回答同一个问题：<b class="font-semibold text-ink">我凭什么相信对面那颗芯片读到的是我想要的那个 1？</b>——能算出噪声容限、能算出上升时间、能算出电流预算的那一天，你就从「照抄电路」变成了「自己设计电路」。</p>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="ee-logic-algebra.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">逻辑代数与卡诺图化简</p>
+          </a>
+          <a href="ee-combinational.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：数字电子 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">组合逻辑电路</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

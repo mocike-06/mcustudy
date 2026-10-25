@@ -1,0 +1,3516 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>定时器与计数原理 - McuStudy</title>
+  <meta name="description" content="知识体系第 28 篇：定时器和计数器是同一套硬件，差别只在「数自己的时钟还是数外面的脉冲」。从时钟源、预分频 PSC、计数器 CNT、自动重载 ARR 到更新事件，一路讲到输入捕获、输出比较、PWM、互补输出与死区、定时器级联、编码器接口和 SysTick 系统时基，含 72MHz 下 PSC/ARR 的反算、测频法与测周法的误差对比、四级级联算例与可直接编译运行的 HAL 代码。">
+  <meta name="keywords" content="STM32定时器,预分频PSC,自动重载ARR,CNT,更新事件UEV,UIF,影子寄存器,输入捕获,测频法,测周法,PWM模式1,占空比,中央对齐,互补输出,死区时间DTG,BKIN,定时器级联,TRGO,ITR,编码器接口,正交编码器,四倍频,SysTick,HAL_Delay,uwTick,软件定时器,51定时器,TH0,TL0,TMOD,TCON">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">定时器与计数原理</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          定时器与计数原理
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          单片机里有一个外设，它的全部本事就是<b class="font-semibold text-ink">「数数」</b>：来一个时钟沿加一，数到头了就举手报告一次。
+          听起来简单得不像话，但你把它的输入换个来源（自己的时钟、外部引脚、另一个定时器），把它的「数到头」接个不同的出口（中断、DMA、引脚翻转、触发 ADC），
+          它就变成了延时、频率计、PWM 发生器、电机换相器、正交编码器接口、系统心跳——<b class="font-semibold text-ink">所有这些功能共用同一个计数器</b>。
+          这一篇要讲的就是那个计数器，以及它身上挂的几件「外挂」。搞懂这一套之后你会发现：输入捕获、输出比较、PWM、编码器接口，<b class="font-semibold text-ink">不再是四个要分别背下来的外设，而是同一个东西的四种用法</b>。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="stat-pill">第 2 层 · 嵌入式核心</span>
+          <span class="stat-pill">核心原理 · 第 <b>28</b> 篇</span>
+          <span class="stat-pill">教材：张毅刚 第 5 章 · 刘火良 第 26~29 章</span>
+          <span class="stat-pill">阅读约 <b>50</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-essence">定时器的本质：一个会自己数数的寄存器</a>
+          <a class="toc-link is-sub" href="#sub-clocksource">时钟源：数自己的钟，还是数外面的脉冲</a>
+          <a class="toc-link is-sub" href="#sub-formula">定时时间的计算：PSC 与 ARR</a>
+          <a class="toc-link is-sub" href="#sub-compare51">和 51 定时器的对应关系</a>
+          <a class="toc-link is-sub" href="#sub-uev">更新事件、影子寄存器与计数模式</a>
+          <a class="toc-link is-sub" href="#sub-capture">输入捕获：把外部的时间抓进来</a>
+          <a class="toc-link is-sub" href="#sub-output">输出比较与 PWM：把时间送出去</a>
+          <a class="toc-link is-sub" href="#sub-cascade">级联与编码器接口</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link is-sub" href="#calc-1">例 1：72MHz 反算 1ms / 20ms / 1s</a>
+          <a class="toc-link is-sub" href="#calc-2">例 2：16 位定时器最长能定多久</a>
+          <a class="toc-link is-sub" href="#calc-3">例 3：由 PWM 频率反算 ARR 与占空比</a>
+          <a class="toc-link is-sub" href="#calc-4">例 4：测频法与测周法的误差对比</a>
+          <a class="toc-link is-sub" href="#calc-5">例 5：51 的 50ms 定时初值</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-tim2-1ms">TIM2 配成 1ms 更新中断</a>
+          <a class="toc-link is-sub" href="#sub-pwm-breath">TIM3_CH1 输出 1kHz PWM 做呼吸灯</a>
+          <a class="toc-link is-sub" href="#sub-capture-code">输入捕获：测频率与占空比</a>
+          <a class="toc-link is-sub" href="#sub-soft-timer">一个 1ms 中断带多个任务</a>
+          <a class="toc-link is-sub" href="#sub-resource">定时器不够用怎么办</a>
+          <a class="toc-link is-sub" href="#sub-systick">系统时基：SysTick 与 HAL_Delay</a>
+          <a class="toc-link is-sub" href="#sub-debug-order">不中断 / 没输出的排查顺序</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-essence">定时器的本质：一个会自己数数的寄存器</a>
+            <a class="toc-link is-sub" href="#sub-clocksource">时钟源：数自己的钟，还是数外面的脉冲</a>
+            <a class="toc-link is-sub" href="#sub-formula">定时时间的计算：PSC 与 ARR</a>
+            <a class="toc-link is-sub" href="#sub-compare51">和 51 定时器的对应关系</a>
+            <a class="toc-link is-sub" href="#sub-uev">更新事件、影子寄存器与计数模式</a>
+            <a class="toc-link is-sub" href="#sub-capture">输入捕获：把外部的时间抓进来</a>
+            <a class="toc-link is-sub" href="#sub-output">输出比较与 PWM：把时间送出去</a>
+            <a class="toc-link is-sub" href="#sub-cascade">级联与编码器接口</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link is-sub" href="#calc-1">例 1：72MHz 反算 1ms / 20ms / 1s</a>
+            <a class="toc-link is-sub" href="#calc-2">例 2：16 位定时器最长能定多久</a>
+            <a class="toc-link is-sub" href="#calc-3">例 3：由 PWM 频率反算 ARR 与占空比</a>
+            <a class="toc-link is-sub" href="#calc-4">例 4：测频法与测周法的误差对比</a>
+            <a class="toc-link is-sub" href="#calc-5">例 5：51 的 50ms 定时初值</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-tim2-1ms">TIM2 配成 1ms 更新中断</a>
+            <a class="toc-link is-sub" href="#sub-pwm-breath">TIM3_CH1 输出 1kHz PWM 做呼吸灯</a>
+            <a class="toc-link is-sub" href="#sub-capture-code">输入捕获：测频率与占空比</a>
+            <a class="toc-link is-sub" href="#sub-soft-timer">一个 1ms 中断带多个任务</a>
+            <a class="toc-link is-sub" href="#sub-resource">定时器不够用怎么办</a>
+            <a class="toc-link is-sub" href="#sub-systick">系统时基：SysTick 与 HAL_Delay</a>
+            <a class="toc-link is-sub" href="#sub-debug-order">不中断 / 没输出的排查顺序</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              这一篇的钥匙只有一句话：<b>定时器和计数器是同一套硬件</b>。
+              差别只在「数的是自己的时钟，还是外面的脉冲」；<br>
+              再往上，输入捕获 / 输出比较 / PWM / 编码器接口，
+              都是同一个计数器换了不同的「外挂」。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先看一个几乎每个人都写过的延时函数。你在 51 上点灯、在 STM32 上写流水灯，第一次学「延时」的时候都是这么写的：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="软件延时：每个初学者都写过的三行">
+            <pre><code>void delay_ms(uint32_t ms)
+{
+    /* 空循环硬耗时间：靠 CPU 一条一条执行指令来「数」出这段延时 */
+    for (uint32_t i = 0; i &lt; ms * 1000U; i++) {
+        __NOP();          /* 什么也不干，纯粹烧时间 */
+    }
+}</code></pre>
+          </div>
+
+          <p class="mt-3">这段代码能跑，你按一下、灯亮一下，看起来没问题。但它身上背着<b class="font-semibold text-ink">三个致命问题</b>，而且这三个问题全都会在真实项目里咬你一口。</p>
+
+          <h3 class="mt-7 text-base font-semibold">问题一：它占着 CPU 不放</h3>
+
+          <p class="mt-3">空循环的本质是「让 CPU 原地踏步」。这段时间里 CPU <b class="font-semibold text-ink">什么都做不了</b>——不能读按键、不能刷数码管、不能回应串口。你延时 500ms，就等于把整台单片机的 500ms 白白扔掉。</p>
+          <p class="mt-3">更麻烦的是它是<b class="font-semibold text-ink">串行叠加</b>的。假设你要同时做三件事：按键扫描（每 20ms 一次）、数码管刷新（每 5ms 一次）、串口上报（每 1s 一次）。用软件延时，你只能这样排：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="用软件延时「拼」出多个周期，是一件越来越痛苦的事">
+            <pre><code>while (1) {
+    key_scan();       /* 假设内部 delay 20ms  */
+    seg_refresh();    /* 假设内部 delay 5ms   */
+    delay_ms(975);    /* 再凑够 1 秒，然后串口上报 */
+    uart_report();
+}
+/* 于是：
+ *  · 串口周期 = 20 + 5 + 975 + 上报耗时，永远不会正好是 1 秒；
+ *  · 只要 uart_report() 今天多花了 3ms，明天数码管刷新就变成 5ms + 3ms；
+ *  · 想再加一个「每 100ms 读一次 ADC」，你得回去把 975 重新分配一遍。 */
+</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">问题二：它的时间是不确定的——换台电脑编译一遍就变了</h3>
+
+          <p class="mt-3">这是最容易被低估的一条。软件延时的真实时长取决于三件你控制不了的事：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">编译优化等级</b>：Keil 里把优化从 <code class="icode">-O0</code> 改成 <code class="icode">-O2</code>，编译器发现这个空循环「没有副作用」，可能把它整个删掉或者合并掉，<b>延时直接变成几乎为零</b>。你调好的 20ms 消抖变成 0.2ms，按键立刻开始疯狂误触发。</li>
+            <li><b class="font-semibold text-ink">主频</b>：同样一份代码，STM32 跑 72MHz 和跑 8MHz（比如你改错了 PLL 配置、或者程序掉进了内部 HSI），延时差 9 倍。</li>
+            <li><b class="font-semibold text-ink">中断</b>：延时期间来一个中断，CPU 去处理中断，循环被暂停，<b>实际延时会变长</b>。中断越频繁，偏差越大，而且是不可预测的抖动。</li>
+          </ul>
+
+          <p class="mt-3">还有一条更隐蔽的：<b class="font-semibold text-ink">不同型号、不同编译器版本、不同库版本的指令周期数都不一样</b>。所以「我用 1000 次空循环大概是 1ms」这种结论，换一个人编译就不成立了。它不是一个可以写进设计文档的数字。</p>
+
+          <h3 class="mt-7 text-base font-semibold">问题三：它无法与其它任务并行</h3>
+
+          <p class="mt-3">第三点是前两点的必然结果。你的项目最后一定长成这样：采样要 10ms、显示要 50ms、上报要 1s、还有一路 PWM 要一直输出。用软件延时，这四件事只能抢同一个 CPU 时间轴，<b class="font-semibold text-ink">谁也不能「同时在跑」</b>——你在等 1 秒的时候，PWM 的引脚是不会自己翻转的（除非你用中断，而中断又回到了「谁来数时间」的问题上）。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">核心转折：让「时间」变成一种硬件资源</div>
+            <p>定时器做的事，就是把「数时间」这件事<b>从 CPU 手里拿走</b>，交给一个独立的硬件去数。你只需要在初始化时告诉它：<b>数到多少个时钟沿，就举手报告一次</b>。之后它自己在那儿数，CPU 该干嘛干嘛，等它举手（中断）的时候你再去处理。</p>
+            <p class="mt-2">这一下就同时解决了三个问题：<b>CPU 被解放</b>（不用原地踏步了）、<b>时间是硬件给的</b>（只要晶振准，它就是准的，和编译器、优化等级、中断都无关）、<b>多个时间尺度天然并行</b>（多个定时器各自数各自的，或者一个定时器数基准、软件在里面分频出不同周期）。</p>
+            <p class="mt-2">从这一刻起，「时间」和 GPIO、串口、ADC 一样，成了<b>一种可以被分配、被配置、被复用的硬件资源</b>。这是嵌入式开发里最重要的一个观念转变。</p>
+          </div>
+
+          <p class="mt-3">顺便说一句：这一篇对你在 51 上学的东西是完全兼容的。51 的 T0/T1 也是同一套思路——<b class="font-semibold text-ink">TH0/TL0 装初值、溢出置 TF0、进中断</b>。你在 51 上被「重装初值」折磨过的那些细节，到了 STM32 会变成「为什么它不用重装」，所以这一篇的很多地方都会把两边摆在一起讲。</p>
+
+          <p class="mt-3">下面正式开始：先把这个硬件到底长什么样讲清楚，然后你会发现后面所有的功能，<b class="font-semibold text-ink">都只是往这张框图的不同位置接了一根线</b>。</p>
+        </section>
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="mt-12 text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节的任务是让你在脑子里建起一张图：<b class="font-semibold text-ink">一个时钟源、一个预分频器、一个计数器、一个比较寄存器，加上几个出口</b>。建好这张图之后，输入捕获、PWM、编码器这些东西就不再是新的知识点了，只是这张图上不同的接线方式。</p>
+
+          <h3 id="sub-essence" class="mt-7 text-base font-semibold">定时器的本质：一个会自己数数的寄存器</h3>
+
+          <p class="mt-3">如果只允许用一句话概括定时器，那就是：<b class="font-semibold text-ink">它就是一个加一（或减一）的寄存器，每来一个时钟沿加一；加到某个上限时归零，并顺手发一个「我数满了」的通知</b>。</p>
+
+          <p class="mt-3">完整的框图长这样，请你把它记住——本文后面每一个功能，都能在这张图上找到位置：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="定时器内部框图（这张图是本文的骨架）">
+            <pre><code>                     ┌──────────────────────────────────────────────────────┐
+                     │                 定时器外设（TIMx）                    │
+                     │                                                      │
+  ┌───────────┐      │  ┌──────────┐   ┌──────────┐   ┌──────────┐          │
+  │ 时钟源选择 │      │  │  预分频   │   │  计数器   │   │ 自动重载  │          │
+  │           │      │  │   PSC    │   │   CNT    │   │   ARR    │          │
+  │ ①内部时钟 ├─────►│  │ ÷(PSC+1) ├──►│  每来一个 ├──►│ 数到 ARR  │          │
+  │ ②外部ETR  │      │  │          │   │  沿 +1    │   │ 就归零    │          │
+  │ ③其它TIM  │      │  └──────────┘   └────┬─────┘   └────┬─────┘          │
+  │ ④ITR内部 │      │                      │              │                │
+  └───────────┘      │                      │  ┌───────────┘                │
+                     │                      │  │                            │
+                     │                      ▼  ▼                            │
+                     │              ┌──────────────────┐                    │
+                     │              │   更新事件 UEV    │───────┬───────────┼──► 中断 UIF
+                     │              └──────────────────┘       │           │
+                     │                                         ├───────────┼──► DMA 请求
+                     │                                         │           │
+                     │                                         └───────────┼──► 把 ARR / PSC 的
+                     │                                                     │    预装载值真正生效
+                     │      ┌──────────── 外挂区 ────────────┐              │
+                     │      │                               │              │
+                     │      │  ● 输入捕获 ICx ：把 CNT 的值  │◄── 外部引脚  │
+                     │      │     「抓」进 CCR 寄存器         │              │
+                     │      │                               │              │
+                     │      │  ● 输出比较 OCx ：CNT 与 CCR   │───► 引脚      │
+                     │      │     比较，翻转 / 置位 / 清零    │              │
+                     │      │                               │              │
+                     │      │  ● 编码器接口：用两路正交信号    │◄── 编码器 A/B│
+                     │      │     控制 CNT 加还是减           │              │
+                     │      └───────────────────────────────┘              │
+                     └──────────────────────────────────────────────────────┘
+
+  【三个寄存器的分工，务必分清】
+    PSC  预分频器：把输入时钟「减速」。写 PSC 实际是 ÷(PSC+1)。
+                   它的值只在【更新事件】时才被重新加载（也有影子寄存器）。
+    CNT  计数器  ：当前数到几了。这是唯一一个一直在变的寄存器。
+    ARR  自动重载：数到多少算「满」。CNT 到达 ARR 后归零，并产生更新事件。
+                   你写进去的是「预装载值」，真正生效也要等更新事件。
+</code></pre>
+          </div>
+
+          <p class="mt-3">这个框图的每一块，其实都能用生活里的东西类比：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>部件</th><th>它管什么</th><th>生活类比</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">时钟源</td><td>给计数器提供「一下」的节奏，决定数得快不快</td><td>闹钟的走时机构频率</td></tr>
+                <tr><td class="font-mono text-xs">PSC</td><td>把时钟先减速，让计数器不用数那么快</td><td>秒针前面那个齿轮组</td></tr>
+                <tr><td class="font-mono text-xs">CNT</td><td>已经数了多少下</td><td>表盘上的指针位置</td></tr>
+                <tr><td class="font-mono text-xs">ARR</td><td>数到多少算一圈</td><td>表盘一圈是 60 格</td></tr>
+                <tr><td class="font-mono text-xs">UEV</td><td>「数满一圈了」这个事件本身</td><td>整点报时的那个「当」</td></tr>
+                <tr><td class="font-mono text-xs">CCR</td><td>比较值／捕获值，用来和 CNT 比大小或存 CNT 的快照</td><td>你在表盘上贴的一个标记点</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">「定时器」和「计数器」的区别，只有一个开关</div>
+            <p>很多人以为这是两个外设。其实<b>它们是同一套硬件</b>，区别只在<b>时钟从哪来</b>：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li>数<b>自己的系统时钟</b>（分频之后）→ 因为时钟频率是已知且精确的，数的个数换算成时间就是确定的 → 这时候叫<b>定时器</b>。</li>
+              <li>数<b>外部引脚上来的脉冲</b>→ 数出来的是「外面来了几个脉冲」，和时间无关 → 这时候叫<b>计数器</b>。</li>
+            </ul>
+            <p class="mt-2">51 上这个开关就是 <code class="icode">TMOD</code> 里的 <code class="icode">C/T</code> 位：<b>0 是定时、1 是计数</b>。STM32 上没有这一位，因为它做得更彻底——时钟源是一个四选一的多路开关（下一小节就讲）。<b>所以「定时器/计数器」不是两种外设，是同一个外设的两种接法。</b></p>
+          </div>
+
+          <h3 id="sub-clocksource" class="mt-7 text-base font-semibold">时钟源：数自己的钟，还是数外面的脉冲</h3>
+
+          <p class="mt-3">STM32 的定时器在时钟入口处放了一个多路选择器，一般有四路可选。你可以把它想成一个「节拍从哪来」的开关：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>时钟源</th><th>节拍来自哪里</th><th>典型的「必须用它」的场景</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>内部时钟</b><br><span class="font-mono text-xs">CK_INT</span></td>
+                  <td>APB 总线时钟（经倍频规则后的定时器时钟）</td>
+                  <td>99% 的场景：延时、PWM、系统 tick、测量本机时间</td>
+                </tr>
+                <tr>
+                  <td><b>外部时钟模式 1</b><br><span class="font-mono text-xs">ETR 引脚</span></td>
+                  <td>芯片上一根叫 ETR 的引脚，外面每来一个脉冲就数一下</td>
+                  <td>数外部事件：水表脉冲、光电开关计数、外部时钟源作为时基</td>
+                </tr>
+                <tr>
+                  <td><b>外部时钟模式 2</b><br><span class="font-mono text-xs">其它定时器的 TRGO</span></td>
+                  <td>另一个定时器的更新事件（它每数满一圈，我数一下）</td>
+                  <td>级联：把一个定时器的溢出当作另一个的时钟，做出超长周期</td>
+                </tr>
+                <tr>
+                  <td><b>内部触发</b><br><span class="font-mono text-xs">ITRx</span></td>
+                  <td>芯片内部已经连好的触发线，也是另一个定时器送来的信号</td>
+                  <td>级联、或者用某个事件去复位/启动/门控当前定时器</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">STM32 特有的坑：APB 预分频不为 1 时，定时器时钟会「倍频」</div>
+            <p>这一条不看时钟树一定会算错。规则是：<b>如果 APBx 预分频系数不是 1，那么挂在这条总线上的定时器，时钟 = 2 × PCLKx</b>；如果预分频系数正好是 1，定时器时钟就等于 PCLKx。</p>
+            <p class="mt-2">在 STM32F103C8T6 上跑标准 72MHz 配置时：</p>
+            <div class="code-block mt-3" data-lang="text" data-title="F103 标准时钟树：APB1 是 36MHz，但定时器是 72MHz">
+              <pre><code>SYSCLK = 72MHz（外部 8MHz 晶振 × PLL 9 倍频）
+   │
+   ├─ AHB 预分频 ÷1 ──► HCLK = 72MHz   （内核、DMA、存储器用这个）
+   │
+   ├─ APB1 预分频 ÷2 ─► PCLK1 = 36MHz
+   │                     │
+   │                     └─ 因为预分频 ÷2 ≠ 1，所以要 ×2 补回来
+   │                        ──► TIM2 / TIM3 / TIM4 的时钟 = 36MHz × 2 = 72MHz ✅
+   │
+   └─ APB2 预分频 ÷1 ─► PCLK2 = 72MHz
+                         │
+                         └─ 因为预分频 ÷1 = 1，所以不倍频
+                            ──► TIM1 的时钟 = 72MHz ✅
+
+【一个常见的自相矛盾】
+   有人看到 PCLK1 = 36MHz，就以为 TIM2 的时钟是 36MHz，
+   于是按 36MHz 算 PSC 和 ARR —— 结果定时时间整整差了一倍。
+
+【更隐蔽的另一种情况】
+   如果你把 APB1 预分频改成 ÷1（PCLK1 = 72MHz），
+   那 TIM2 的时钟就【不倍频】了，正好还是 72MHz —— 结果一样。
+   所以「PCLK1=36 时定时器是 72」和「PCLK1=72 时定时器是 72」都成立，
+   这也是为什么很多人根本没意识到有倍频这回事，
+   直到换了个主频配置才突然发现定时全乱。</code></pre>
+            </div>
+            <p class="mt-2"><b>怎么避免踩这个坑？</b>两个办法：① 用 CubeMX 的 Clock Configuration 页，把鼠标放在定时器那一行，它会直接告诉你这个定时器的实际时钟是多少；② 在程序里用 <code class="icode">HAL_RCC_GetPCLK1Freq()</code> 读出来自己算：<code class="icode">if (prescaler != 1) timer_clk = 2 * pclk;</code>。绝对不要凭印象写死 72 这个数字。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">什么时候必须用外部时钟？</b>判断标准很简单：<b class="font-semibold text-ink">当你要「数的东西」不是时间，而是外面发生的事件次数时</b>。</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>水表、电表、流量计输出的脉冲 → 每一个脉冲代表一个计量单位，你要数的是<b>脉冲个数</b>，不是时间 → 用 ETR 外部时钟模式 1。这样做的好处是 CPU 完全不用管，数到一定个数（ARR）才进一次中断，1 万个脉冲只需要进 1 次中断。</li>
+            <li>电梯/机床的限位开关抖动计数、霍尔传感器的转速脉冲 → 同样用外部时钟模式。</li>
+            <li>要做一个 24 小时甚至几天的超长定时 → 内部时钟数不了那么久（16 位不够），用级联（外部时钟模式 2）把上一级的溢出当节拍。</li>
+            <li>反过来说：<b>如果只是想「测一下这段代码跑了多久」，那永远用内部时钟</b>，不要去接外部信号。</li>
+          </ul>
+
+          <p class="mt-3">另外提醒一句：走 ETR 或外部触发时，引脚上的信号不是「直接」驱动计数器的，中间通常还有<b>极性选择（上升沿/下降沿/双边沿）、预分频（每 2/4/8 个脉冲算一次）、数字滤波（连续采样 N 次一致才认账）</b>三级处理。这一套和后面输入捕获用的是同一套滤波电路，所以信号有毛刺的时候，不用额外加 RC 电路，先试试把滤波器的值调大。</p>
+
+          <h3 id="sub-formula" class="mt-7 text-base font-semibold">定时时间的计算：PSC 与 ARR</h3>
+
+          <p class="mt-3">这是全篇最重要的一个公式，先把每一项的物理意义说清楚：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="定时时间公式：逐项解释">
+            <pre><code>            (PSC + 1) × (ARR + 1)
+      T  =  ───────────────────────
+                   f_clk
+
+  T      一次「数满一圈」需要的时间（秒）。也就是两次更新事件之间的间隔。
+  f_clk  定时器的输入时钟频率（Hz）。注意：是【倍频规则之后】的时钟，
+         不是 PCLK，也不是 SYSCLK 想当然的那个值。
+  PSC    预分频寄存器里的值。实际分频系数是 (PSC + 1)，所以 PSC=0 表示不分频。
+  ARR    自动重载寄存器里的值。实际一圈数 (ARR + 1) 个数，所以 ARR=0 表示每来一个沿就满。
+
+  【为什么处处都是 +1？】
+    因为这两个寄存器都是「从 0 开始数」的：
+      PSC = 0  → 不分频（÷1），不是 ÷0（÷0 没有意义）
+      PSC = 71 → ÷72
+      ARR = 999 → 一圈 1000 个数（0,1,2,...,999 正好 1000 个）
+      ARR = 0  → 一圈只有 1 个数
+    这个 +1 忘了写，算出来的时间就是错的，而且是「差一点点」这种最难发现的错。</code></pre>
+          </div>
+
+          <p class="mt-3">把公式倒过来，你会看到一件重要的事：<b class="font-semibold text-ink">PSC 和 ARR 的乘积决定了周期，但这个乘积怎么分配，决定了「分辨率」</b>。</p>
+
+          <p class="mt-3">举个具体的：72MHz 的定时器时钟，要做 1ms 定时，需要 <code class="icode">(PSC+1) × (ARR+1) = 72000</code>。72000 有很多种拆法：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>PSC</th><th>ARR</th><th>计数时钟</th><th>一圈多少个数</th><th>占空比/比较值能调多少档</th><th>评价</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">7199</td><td class="font-mono text-xs">9</td><td>10 kHz</td><td>10</td><td>只有 10 档，每档 10%</td><td>周期对，但太粗，不能用</td></tr>
+                <tr><td class="font-mono text-xs">719</td><td class="font-mono text-xs">99</td><td>100 kHz</td><td>100</td><td>100 档，每档 1%</td><td>勉强可用</td></tr>
+                <tr><td class="font-mono text-xs">71</td><td class="font-mono text-xs">999</td><td>1 MHz</td><td>1000</td><td>1000 档，每档 0.1%</td><td><b>★ 最常用的配法</b></td></tr>
+                <tr><td class="font-mono text-xs">7</td><td class="font-mono text-xs">8999</td><td>9 MHz</td><td>9000</td><td>9000 档，每档约 0.011%</td><td>更细，但一圈数得多，改 ARR 后生效慢</td></tr>
+                <tr><td class="font-mono text-xs">0</td><td class="font-mono text-xs">71999</td><td>72 MHz</td><td>72000</td><td>7.2 万档</td><td>ARR 没超 16 位（65535）吗？超了，用不了</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">反算 PSC 与 ARR 的四步法（照这个顺序做，不会错）</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>确认定时器时钟 f_clk。</b>查时钟树或读 <code class="icode">HAL_RCC_GetPCLK1Freq()</code>，别忘了「预分频不为 1 就 ×2」这一条。</li>
+              <li><b>先算总的计数次数</b> <code class="icode">N = T × f_clk</code>。这一步就把单位换算做完了（毫秒换成秒，别搞错 1000 倍）。</li>
+              <li><b>先定 ARR 的位数上限，再分频。</b>16 位定时器的 ARR 最大 65535，所以 <code class="icode">(ARR+1) ≤ 65536</code>。为了让分辨率尽量高（比较值能调的档数尽量多），<b>先取 ARR 尽可能大</b>，剩下的留给 PSC：<code class="icode">PSC+1 = N / (ARR+1)</code>。如果 N 大于 65536 × 65536，那这个定时器<b>一次根本定不了那么久</b>，必须级联（见例 2）。</li>
+              <li><b>回代核对误差。</b>因为 PSC 只能取整数，除不尽就会有误差：<code class="icode">T实际 = (PSC+1)×(ARR+1) / f_clk</code>，误差 = (T实际 − T目标)/T目标。误差在 ppm 级（百万分之几）就完全够用。</li>
+            </ol>
+            <p class="mt-2">实务上更省事的做法是第 3 步反过来：<b>先把 PSC 定成一个能让计数时钟变成「整数 MHz」的值</b>（比如 72MHz ÷ 72 = 1MHz），这样 ARR 就正好等于「多少微秒」，心算非常快——1MHz 计数时钟下 <code class="icode">ARR+1</code> 就是微秒数。这也是为什么 72 分频（PSC=71）在 72MHz 的板子上出现频率极高。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">ARR 的位数，决定了一次能定多长。</b>这一点在选型时非常关键：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>计数器宽度</th><th>ARR 最大值</th><th>72MHz、PSC 取最大（65535）时最长一圈</th><th>典型器件</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>8 位</b></td><td class="font-mono text-xs">255</td><td>（PSC 也是 8 位时）255×256/72e6 ≈ 0.9ms</td>
+                  <td>51 的定时器方式 2 就是 8 位</td>
+                </tr>
+                <tr>
+                  <td><b>13 位</b></td><td class="font-mono text-xs">8191</td><td>—</td>
+                  <td>51 的定时器方式 0（历史遗留，几乎不用）</td>
+                </tr>
+                <tr>
+                  <td><b>16 位</b></td><td class="font-mono text-xs">65535</td>
+                  <td><b>65536 × 65536 / 72e6 ≈ 59.65 秒</b></td>
+                  <td>51 的方式 1；STM32F103 的全部定时器</td>
+                </tr>
+                <tr>
+                  <td><b>24 位</b></td><td class="font-mono text-xs">16777215</td><td>—（内核里的 SysTick 是 24 位，且没有 PSC）</td>
+                  <td>Cortex-M 的 SysTick</td>
+                </tr>
+                <tr>
+                  <td><b>32 位</b></td><td class="font-mono text-xs">4294967295</td>
+                  <td>配合 16 位 PSC 可到数天量级</td>
+                  <td>STM32F4/F7 的 TIM2、TIM5</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">看到「16 位最长 59.65 秒」这个数字，你就明白为什么会有「级联」这个需求了：<b class="font-semibold text-ink">要定 1 小时，单个 16 位定时器从原理上就做不到</b>，只能让定时器去数另一个定时器的溢出。这一块在例 2 和第 2 节最后一小节会详细展开。</p>
+
+          <h3 id="sub-compare51" class="mt-7 text-base font-semibold">和 51 定时器的对应关系</h3>
+
+          <p class="mt-3">你在张毅刚那本书第 5 章学的 51 定时器，和 STM32 的定时器是<b class="font-semibold text-ink">同一个思想的两个版本</b>。把两边摆在一起看，你会发现 STM32 只是把 51 里「隐含的东西」显式地做成了寄存器。</p>
+
+          <p class="mt-3">先回忆 51 的四种工作方式（这里只讲和定时/计数相关的部分）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="51 定时器 T0 的四种方式（对应张毅刚 第 5 章）">
+            <pre><code>方式 0：13 位定时/计数器
+        ┌──────────── TH0（8 位）────────────┬─── TL0 低 5 位 ───┐
+        最大计数值 2^13 = 8192
+        初值要装两次（TH0 和 TL0 各一次），溢出后要【手动重装】
+        这是 8048 时代留下的兼容方式，新设计基本不用
+
+方式 1：16 位定时/计数器  ★ 最常用
+        ┌──────────── TH0（8 位）────────────┬──── TL0（8 位）────┐
+        最大计数值 2^16 = 65536
+        初值 = 65536 − 需要计的个数
+        溢出后 TF0 置 1，【必须在中断里手动重装初值】
+
+方式 2：8 位自动重装  ★ 相当于 STM32 的 ARR
+        ┌── TH0（8 位，只当重载值用，不参与计数）──┐
+        └── TL0（8 位，真正的计数器）─────────────┘
+        TL0 溢出时，硬件自动把 TH0 的值复制进 TL0
+        → 不需要在中断里重装，中断响应慢一点也不会丢时间
+
+方式 3：双 8 位（只有 T0 有）
+        TL0 用 T0 自己的控制位（TR0/TF0）当 8 位定时器
+        TH0 借用 T1 的 TR1/TF1 位，再当另一个 8 位定时器
+        此时 T1 只能当波特率发生器用（不产生中断）
+
+【51 的两个硬约束，STM32 都没有】
+  ① 51 的时钟是固定的：机器周期 = 12 / f_osc。
+     12MHz 晶振 → 机器周期 1µs，定时器每个机器周期加 1。
+     【没有预分频器】—— 想要更长的定时，只能在中断里用软件再数一个变量。
+  ② 51 的外部计数最高频率 = f_osc / 24。
+     因为外部脉冲要保证高电平、低电平各自至少维持一个机器周期。
+     12MHz 晶振 → 最高只能数 500kHz 的脉冲。</code></pre>
+          </div>
+
+          <p class="mt-3">现在把它们一一对应起来。这张表建议你对照着记，<b class="font-semibold text-ink">左边是你已经会的，右边是你正要学的</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>功能</th><th>51（张毅刚 第 5 章）</th><th>STM32（刘火良 第 26~29 章）</th><th>差异要点</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>时钟来源</td>
+                  <td><code class="icode">TMOD</code> 的 <code class="icode">C/T</code> 位：0=内部机器周期，1=外部 T0/T1 引脚</td>
+                  <td>时钟源多路开关：内部 / ETR / TRGO / ITRx</td>
+                  <td>51 只有两选一；STM32 是四选一，还带极性、预分频、滤波</td>
+                </tr>
+                <tr>
+                  <td>分频</td>
+                  <td><b>没有</b>，固定 ÷12（机器周期）</td>
+                  <td><code class="icode">PSC</code>，÷(PSC+1)，16 位可编程</td>
+                  <td>这是 STM32 能「一个定时器定出 1µs 到 59 秒任意时间」的根本原因</td>
+                </tr>
+                <tr>
+                  <td>当前计数值</td>
+                  <td><code class="icode">TH0</code> + <code class="icode">TL0</code>（读的时候要小心，见坑 7）</td>
+                  <td><code class="icode">CNT</code>（一个 16 位寄存器，一次读完）</td>
+                  <td>STM32 读 CNT 是原子的，不用原子操作技巧</td>
+                </tr>
+                <tr>
+                  <td>重载值（数到多少算满）</td>
+                  <td>方式 0/1：<b>没有这个寄存器</b>，靠你在中断里重装初值；方式 2：<code class="icode">TH0</code> 当重载值</td>
+                  <td><code class="icode">ARR</code>，硬件自动重装，永远不需要软件介入</td>
+                  <td><b>核心差异</b>：STM32 相当于天生就是「方式 2 的自动重装」，但宽度是全位宽</td>
+                </tr>
+                <tr>
+                  <td>启动/停止</td>
+                  <td><code class="icode">TCON</code> 的 <code class="icode">TR0</code> / <code class="icode">TR1</code></td>
+                  <td><code class="icode">CR1</code> 的 <code class="icode">CEN</code> 位（HAL 里是 <code class="icode">HAL_TIM_Base_Start()</code>）</td>
+                  <td>一样是「软件置 1 才开始数」</td>
+                </tr>
+                <tr>
+                  <td>溢出标志</td>
+                  <td><code class="icode">TCON</code> 的 <code class="icode">TF0</code> / <code class="icode">TF1</code></td>
+                  <td><code class="icode">SR</code> 的 <code class="icode">UIF</code> 位</td>
+                  <td>51 的 TF 进中断后硬件自动清；STM32 的 UIF 在 HAL 里由中断服务函数清</td>
+                </tr>
+                <tr>
+                  <td>中断使能</td>
+                  <td><code class="icode">IE</code> 的 <code class="icode">ET0</code>/<code class="icode">ET1</code> + <code class="icode">EA</code></td>
+                  <td><code class="icode">DIER</code> 的 <code class="icode">UIE</code> + NVIC 使能</td>
+                  <td><b>STM32 是两级</b>：外设级 + 内核级，两层都要开</td>
+                </tr>
+                <tr>
+                  <td>触发事件（不改 CNT 直接产生一次溢出）</td>
+                  <td>没有对应功能</td>
+                  <td><code class="icode">EGR</code> 的 <code class="icode">UG</code> 位（软件触发更新）</td>
+                  <td>可以用来「立刻把预装载值刷新生效」，见坑 3</td>
+                </tr>
+                <tr>
+                  <td>中断向量</td>
+                  <td>固定：<code class="icode">Timer0_ISR</code> / 中断号 1、3</td>
+                  <td>按定时器分开：<code class="icode">TIM2_IRQHandler</code> …</td>
+                  <td>STM32 每个定时器都有自己的向量，不用在中断里判断是谁</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么 STM32 不需要「每次在中断里重装初值」</div>
+            <p>因为 51 的方式 0 和方式 1 <b>不是自动重装</b>：溢出后 TH0/TL0 从 0 继续数（或者从你上次装的值继续数到溢出），你必须在中断服务函数里重新写一遍初值。这带来两个后果：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>中断响应有延迟，时间就有误差。</b>从溢出到你把新初值写进去，中间过了多少个机器周期，取决于当前在执行什么指令、有没有更高级的中断在跑。所以 51 用方式 1 做长时间累计的时候，误差会一点点攒起来。</li>
+              <li><b>丢初值是经典 bug。</b>如果中断被关了、或者中断函数里忘了重装，定时器会以 65536 个机器周期为周期一直跑——很多人「定时器突然慢了几十倍」就是这么来的。</li>
+            </ul>
+            <p class="mt-2">STM32 的 ARR 是<b>硬件自动重装</b>：CNT 撞到 ARR 的那一刻，硬件在同一拍里把 CNT 清零（或按方向重载），不需要任何软件参与。所以：<b>你的中断服务函数晚进 1µs、10µs，定时精度都不会受影响</b>——中断里做的事只是「响应这个事件」，而不是「维持这个周期」。这是 51 到 STM32 最重要的一个观念升级。</p>
+            <p class="mt-2">顺便回答一个常见困惑：<b>那 STM32 的中断里到底要不要操作 ARR？</b>一般不要。如果你的中断延迟已经大到影响定时精度，说明你的中断写得太长了，应该去优化中断，而不是去中断里重装寄存器。</p>
+          </div>
+
+          <p class="mt-3">还有一个观念上的差异值得单独说：<b class="font-semibold text-ink">51 的「软件分频」思维在 STM32 上要改掉</b>。51 因为不能预分频，想要 1 秒定时，标准做法是让定时器 50ms 中断一次，然后在中断里累加一个变量数到 20。到了 STM32，你<b>既可以用 PSC/ARR 直接把周期做长</b>（一个 16 位定时器在不级联的情况下最长约 59 秒），也可以沿用累加变量的办法（后面第 4 节「一个 1ms 中断带多个任务」讲的就是这种混合做法，它其实是最灵活的）。两种都可以，但要知道硬件能做到什么程度，别让软件去干硬件本来就能干的事。</p>
+
+          <h3 id="sub-uev" class="mt-7 text-base font-semibold">更新事件、影子寄存器与计数模式</h3>
+
+          <p class="mt-3">「数满一圈」这件事在 STM32 里有个正式名字：<b class="font-semibold text-ink">更新事件（Update Event，UEV）</b>。它不是一个孤立的中断源，而是一个<b class="font-semibold text-ink">会同时触发好几件事的总闸</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="更新事件 UEV 会同时做四件事">
+            <pre><code>                          CNT 数到 ARR（或数到 0）
+                                   │
+                                   ▼
+                        ┌──────────────────────┐
+                        │   更新事件 UEV        │
+                        └──────────┬───────────┘
+                                   │
+        ┌──────────────────┬───────┴────────┬──────────────────────┐
+        ▼                  ▼                ▼                      ▼
+ ①置 UIF 标志       ②触发 DMA 请求     ③把 PSC 的预装载值    ④把 ARR 的预装载值
+   （SR 寄存器）       （如果 UDE=1）     真正生效              真正生效
+        │                               （PSC 影子寄存器）     （ARR 影子寄存器）
+        ▼
+  如果 UIE=1 且
+  NVIC 也开了
+        │
+        ▼
+   进中断服务函数
+   （HAL 会调 HAL_TIM_PeriodElapsedCallback）
+
+  ⚠ 注意 ③④：这两个「生效」不是可有可无的细节，
+     它直接解释了「为什么我改了 ARR，定时时间没有立刻变」。</code></pre>
+          </div>
+
+          <p class="mt-3">先说<b>中断</b>这条最常用的路：CNT 溢出 → UIF 置位 → 如果 <code class="icode">DIER</code> 里的 <code class="icode">UIE</code> 是 1、并且 NVIC 里这个定时器的中断也开了 → CPU 进入 <code class="icode">TIMx_IRQHandler</code>。用 HAL 的话，HAL 的中断入口会判断是哪个事件，然后回调你的 <code class="icode">HAL_TIM_PeriodElapsedCallback()</code>。<b class="font-semibold text-ink">这就是「定时器让时间变成硬件资源」的落地方式</b>：你不用等，硬件到点了会来找你。</p>
+
+          <p class="mt-3">再说那条很容易被忽略的 DMA 路：更新事件可以触发一次 DMA 请求（把 <code class="icode">DIER</code> 里的 <code class="icode">UDE</code> 置 1）。这条路的经典用法是<b class="font-semibold text-ink">让 DMA 每次更新事件时自动把下一个 CCR 值搬进比较寄存器</b>——于是你可以预先在内存里放一张 1000 个点的正弦表，让定时器一个周期一个点地把它「播」出去，CPU 完全不参与。这就是「定时器 + DMA 做任意波形发生器」的原理。它也是「定时器是很多外设的节拍源」的一个例子：DMA、ADC 都可以被定时器的事件驱动。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">影子寄存器：为什么改了 ARR 不会立刻生效</h4>
+
+          <p class="mt-3">这是新手最容易困惑的一点，值得单独讲。你写代码 <code class="icode">__HAL_TIM_SET_AUTORELOAD(&amp;htim2, 1999)</code>，然后发现定时周期还是原来的值，要等到「下一次溢出」之后才变。<b class="font-semibold text-ink">这不是 bug，是设计</b>。</p>
+
+          <p class="mt-3">原因在于：ARR（以及 PSC、CCR）这些寄存器实际上<b class="font-semibold text-ink">是成对存在的</b>——你写进去的那个叫<b>预装载寄存器</b>（preload register），真正被硬件拿去比较的那个叫<b>影子寄存器</b>（shadow register）。写了预装载寄存器之后，值要等到下一个更新事件才被搬进影子寄存器。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="预装载寄存器与影子寄存器">
+            <pre><code>你写代码                   硬件实际用
+    │                          │
+    ▼                          ▼
+┌─────────────┐  更新事件   ┌─────────────┐
+│ ARR 预装载值 │ ─────────► │ ARR 影子寄存器│──► 参与「CNT 是否数满」的比较
+│ （你写的）   │  （UEV）    │ （硬件用的） │
+└─────────────┘             └─────────────┘
+
+【为什么非要这么设计？】
+  假设你正在输出一个 PWM，ARR 决定频率。如果写进去立刻生效，
+  而写入的时刻又恰好落在计数周期中间，那这一圈就会变成一个
+  「半截长」的畸形周期 —— 输出波形上会出现一个不该有的窄脉冲。
+
+  有了影子寄存器，所有修改都被推迟到「这一圈数完」这个整齐的时间点上，
+  波形永远是完整的整数个周期。这是【用延迟换稳定】的经典硬件设计。
+
+【怎么控制这个行为？】
+  ARR 的预装载由 CR1 的 ARPE 位控制：
+    ARPE = 1（CubeMX 默认 Enable）→ 有影子寄存器，修改在下一个 UEV 生效
+    ARPE = 0                      → 写 ARR 立刻生效（此时才等价于 51 的直接写）
+
+  PSC 也有影子寄存器，但它在 STM32 上【总是】在 UEV 时才被重新加载，
+  没有开关可关 —— 所以「启动后再改 PSC」几乎不会立刻看到效果。
+  正确做法是：停止定时器 → 改 PSC → 重新启动，
+  或者干脆重新初始化一次（HAL_TIM_Base_Init + Start）。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">想让修改立刻生效的两种做法（以及一个副作用）</div>
+            <p><b>做法一：软件触发一次更新事件。</b>把 <code class="icode">EGR</code> 寄存器的 <code class="icode">UG</code> 位置 1，硬件会立刻「假装数满了一圈」，把预装载值搬进影子寄存器。<b>副作用</b>：这个动作同时会把 CNT 清零、并（在 <code class="icode">URS=0</code> 时）置起 UIF 标志——如果你开了更新中断，就会多进一次中断。所以要么接受这次多余的中断，要么临时把 <code class="icode">URS</code> 位设成「只由硬件溢出产生中断」。</p>
+            <p class="mt-2"><b>做法二：把 ARPE（自动重载预装载）关掉。</b>此时写 ARR 立刻生效。代价是失去了波形完整性保护，适合「我只在停止状态下改参数」的场合。</p>
+            <p class="mt-2"><b>最省心的建议：</b>需要动态改变频率时（比如做可调频的 PWM），<b>在更新中断里改 ARR</b>——那一刻本来就正好是 UEV，新值会马上被搬进影子寄存器，既及时又不会撕裂波形。这也是日志里「在中断里改 ARR」唯一正当的理由。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">三种计数模式：向上、向下、中央对齐</h4>
+
+          <p class="mt-3">CNT 不一定要「从 0 往上数到 ARR」。它可以往下数，也可以上下往复，这个行为由 <code class="icode">CR1</code> 里的 <code class="icode">CMS</code> 位（以及 <code class="icode">DIR</code> 方向位）控制：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种计数模式的波形对比（以 ARR = 4 为例）">
+            <pre><code>【向上计数 UP】CNT: 0 → 1 → 2 → 3 → 4 → 0 → 1 → ...（溢出时产生 UEV）
+
+   CNT  4 ┤    ┌───┐       ┌───┐       ┌───┐
+        3 ┤    │   │       │   │       │   │
+        2 ┤    │   │       │   │       │   │
+        1 ┤    │   │       │   │       │   │
+        0 ┤────┘   └───────┘   └───────┘   └────
+          UEV↑     UEV↑      UEV↑      UEV↑
+          一个周期 = 5 个计数（ARR+1）→ 频率 = f_clk / (PSC+1) / (ARR+1)
+
+【向下计数 DOWN】CNT: ARR → ... → 1 → 0 → ARR → ...（下溢时产生 UEV）
+
+   CNT  4 ┤────┐       ┌────┐       ┌────┐
+        3 ┤    │       │    │       │    │
+        2 ┤    │       │    │       │    │
+        1 ┤    │       │    │       │    │
+        0 ┤    └───────┘    └───────┘    └───
+          周期同样是 (ARR+1) 个计数，只是方向反了
+
+【中央对齐 CENTER-ALIGNED】0 → ARR → 0 → ARR → ...（上下往复）
+
+   CNT  4 ┤    ┌───┐           ┌───┐
+        3 ┤   ┌┘   └┐         ┌┘   └┐
+        2 ┤  ┌┘     └┐       ┌┘     └┐
+        1 ┤ ┌┘       └┐     ┌┘       └┐
+        0 ┤─┘         └─────┘         └──
+          一个输出周期 = 2 × ARR 个计数
+          → 频率 = f_clk / (PSC+1) / (2 × ARR)   ← 分母是 2×ARR，不是 ARR+1！
+          波形是【对称】的：上升段和下降段镜像
+
+【要点】
+  · 向上/向下是「锯齿波」式计数，一个周期 (ARR+1) 个数。
+  · 中央对齐是「三角波」式计数，一个周期 2×ARR 个数，波形左右对称。
+  · 中央对齐时更新事件可能在上溢和下溢两端都产生，
+    所以周期中断的频率可能是 PWM 频率的两倍 ——
+    高级定时器（TIM1/TIM8）还额外提供了重复计数器 RCR，
+    可以把更新事件再除以 (RCR+1)，专门用来处理这个场合。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>向上计数</th><th>向下计数</th><th>中央对齐</th></tr></thead>
+              <tbody>
+                <tr><td>CNT 轨迹</td><td>0 → ARR，归零</td><td>ARR → 0，回到 ARR</td><td>0 → ARR → 0，往复</td></tr>
+                <tr><td>一个周期的计数个数</td><td>(ARR+1)</td><td>(ARR+1)</td><td><b>2 × ARR</b></td></tr>
+                <tr><td>PWM 频率公式</td><td colspan="2"><code class="icode">f_clk/((PSC+1)(ARR+1))</code></td><td><code class="icode">f_clk/((PSC+1)·2·ARR)</code></td></tr>
+                <tr><td>占空比公式（PWM 模式 1）</td><td colspan="2"><code class="icode">CCR/(ARR+1)</code></td><td><code class="icode">CCR/ARR</code></td></tr>
+                <tr><td>波形对称性</td><td>不对称（锯齿）</td><td>不对称（锯齿）</td><td><b>对称（三角）</b></td></tr>
+                <tr><td>谐波成分</td><td>含大量偶次谐波</td><td>含大量偶次谐波</td><td>偶次谐波大幅抵消，<b>谐波更小</b></td></tr>
+                <tr><td>死区插入的对称性</td><td>死区只加在一个边沿，互补的两路不对称</td><td>同左</td><td><b>两边沿都能对称插入死区</b></td></tr>
+                <tr><td>典型用途</td><td>绝大多数场合：延时、普通 PWM、DAC 滤波</td><td>少见（一般用向上就够）</td><td><b>电机驱动、逆变器、需要低谐波的场合</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">为什么电机的 PWM 喜欢中央对齐</div>
+            <p>两个原因，都来自「对称」这两个字：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>谐波更小。</b>边沿对齐的 PWM 在每个周期里只有一个边沿在「抖动」（调制时边沿位置变化），它的频谱里偶次谐波很丰富；中央对齐的波形左右对称，<b>对称波形只含奇次谐波，偶次谐波被抵消掉</b>。对电机来说，谐波意味着额外的铁损、铜损、转矩脉动和可听噪声。所以同样的开关频率下，中央对齐的电机运行更安静、发热更小、转矩更平稳。</li>
+              <li><b>死区对称。</b>互补输出的上下两个管之间必须插死区（下一小节详述）。边沿对齐时，一个周期里只有两个开关边沿集中在周期的固定位置；中央对齐时，两个边沿分别位于三角波的两个对称位置，<b>死区带来的「有效占空比损失」在两个半周期里是对称抵消的</b>，而边沿对齐会造成输出电压的直流偏移，这个偏移在低速时会变成明显的转速/转矩误差。</li>
+            </ul>
+            <p class="mt-2">代价也要知道：同样的计数时钟下，中央对齐的频率比边沿对齐低一半（分母是 2×ARR），而且分辨率相同的情况下 ARR 要取一半，所以<b>「要 20kHz 的中央对齐 PWM」比「要 20kHz 的边沿对齐 PWM」更吃定时器资源</b>。</p>
+          </div>
+
+          <h3 id="sub-capture" class="mt-7 text-base font-semibold">输入捕获：把外部的时间抓进来</h3>
+
+          <p class="mt-3">前面讲的都是「定时器自己数自己的时钟」。从这一小节开始，我们给这个计数器挂上不同的「外挂」。第一件外挂叫<b class="font-semibold text-ink">输入捕获（Input Capture，IC）</b>，它解决的问题是：<b class="font-semibold text-ink">怎么用定时器测量外部信号的频率、周期、脉宽、占空比？</b></p>
+
+          <p class="mt-3">原理简单得惊人：<b class="font-semibold text-ink">在外部信号出现指定边沿的那一瞬间，把 CNT 的当前值抄一份存进 CCR 寄存器</b>。因为 CNT 是随时间匀速增加的，两次捕获得到的两个 CCR 值之差，就是这两次边沿之间过了多少个计数时钟——时间就出来了。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="输入捕获的时序：一次上升沿到下一次上升沿">
+            <pre><code>外部信号（接在 TI1 上）
+                    ┌──────────┐          ┌──────────┐
+   ─────────────────┘          └──────────┘          └─────────
+        ▲                                  ▲
+        │ 第 1 个上升沿                     │ 第 2 个上升沿
+        │                                  │
+        ▼ 硬件自动把此刻的 CNT 抄进 CCR1     ▼ 再抄一次
+   ┌────────────────┐                ┌────────────────┐
+   │  CCR1 = 1234   │                │  CCR1 = 51234  │
+   └────────────────┘                └────────────────┘
+
+CNT 在内部一直匀速地数（假设计数时钟 1MHz，即 1µs 一个数）
+  0 ──────────► 1234 ────────────────────► 51234 ──────────►
+                 │                            │
+                 └────── 50000 个数 ──────────┘
+                              │
+                              ▼
+              周期 = 50000 × 1µs = 50ms  →  频率 = 20Hz
+              如果你想测的是高电平时间，就配置成
+              「上升沿捕获 + 下降沿捕获」各一次，两者相减即可。
+
+【硬件里到底发生了什么】
+     TI1 引脚 ──► 输入滤波（连续 N 次采样一致才认）──► 边沿检测（选上升/下降/双边）
+                                                            │
+                                                            ▼
+                                                ┌───────────────────────┐
+                                                │ 把 CNT 的值复制到 CCR1 │
+                                                │ 同时置 CC1IF 标志      │
+                                                └───────────┬───────────┘
+                                                            ▼
+                                              CC1IE=1 则进捕获中断：
+                                              HAL_TIM_IC_CaptureCallback()
+
+【读 CCR1 会自动清标志】
+    这是硬件设计的小贴心：你一读 CCR1，CC1IF 就清了。
+    所以不要在中断里「先干别的事、最后才读 CCR1」，
+    更不要在中断外面随便读它。</code></pre>
+          </div>
+
+          <p class="mt-3">捕获通道上可以配置的三样东西，每一件都有实际用途：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>配置项</th><th>作用</th><th>什么时候要动它</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>捕获边沿</b><br><span class="font-mono text-xs">CC1P / CC1NP</span></td>
+                  <td>选上升沿、下降沿、还是双边沿都捕</td>
+                  <td>测周期用「同一个边沿」（如上升沿对上升沿）；测高电平时间用「先上升后下降」；双边沿适合做通用脉宽测量</td>
+                </tr>
+                <tr>
+                  <td><b>输入预分频</b><br><span class="font-mono text-xs">IC1PSC</span></td>
+                  <td>每 1 / 2 / 4 / 8 个有效边沿才捕获一次</td>
+                  <td>信号频率太高、中断太密时，捕一次跳过几次（注意：捕获的是「第 N 个边沿」的时刻，不是平均值）</td>
+                </tr>
+                <tr>
+                  <td><b>输入滤波</b><br><span class="font-mono text-xs">IC1F</span></td>
+                  <td>用采样时钟连续采若干次，连续 N 次都是同一个电平才算一个有效边沿</td>
+                  <td>信号有毛刺、长线引入干扰、机械触点抖动。<b>优先用硬件滤波，比软件消抖更省 CPU</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">测频法和测周法：两种测频率的思路，适用区间完全不同</h4>
+
+          <p class="mt-3">「测一个信号的频率」有两种思路，而它们各有各的死角。这一段是这一小节最重要的内容。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="测频法 vs 测周法：两种思路的本质">
+            <pre><code>【测频法】固定一个「闸门时间」Tg，数闸门内来了多少个脉冲
+
+   外部信号  ─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌
+              └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘
+   闸门      ┌──────────────────────────────────────┐   Tg = 1 秒
+             │         数到 N = 50 个脉冲            │
+             └──────────────────────────────────────┘
+   结论：频率 f = N / Tg         误差来源：±1 个脉冲（边界上数不完整）
+
+【测周法】用已知的高频时钟去数「一个信号周期」有多少个计数
+
+   外部信号  ─┐                    ┌────────
+              └────────────────────┘
+              │◄──── 一个完整周期 T ────►│
+   内部时钟  ─┴┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─ 每个数字代表 1 个计数
+              数到 N = 20000 个计数
+   结论：周期 T = N / f_clk，频率 f = f_clk / N
+         误差来源：±1 个计数（起点和终点各差一个刻度）
+
+【两者的误差公式（这是选型的依据）】
+
+   测频法的相对误差 ≈ 1 / (f × Tg)
+       → 频率越高，误差越小；频率越低，误差越大（因为分母小）
+
+   测周法的相对误差 ≈ f / f_clk
+       → 频率越低，误差越小；频率越高，误差越大（因为周期短、数的数少）
+
+【分界点】让两者相等：1/(f·Tg) = f/f_clk  →  f = √(f_clk / Tg)
+   取 f_clk = 72MHz、Tg = 1 秒：
+        f = √(72 000 000) ≈ 8485 Hz ≈ 8.5 kHz
+   →  低于约 8.5kHz：用测周法更准
+   →  高于约 8.5kHz：用测频法更准
+   （注意这个分界点会随你的闸门时间和时钟频率变化，公式记牢就行）</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>测频法（数脉冲个数）</th><th>测周法（数时钟个数）</th></tr></thead>
+              <tbody>
+                <tr><td>数的是什么</td><td>外部信号的脉冲个数</td><td>内部高频时钟的周期数</td></tr>
+                <tr><td>谁的精度决定结果</td><td>闸门时间的准确度（一般是晶体，很准）</td><td>内部计数时钟的准确度（同样来自晶体）</td></tr>
+                <tr><td>误差公式</td><td><code class="icode">±1/(f·Tg)</code></td><td><code class="icode">±f/f_clk</code>（测 N 个周期时是 <code class="icode">±f/(N·f_clk)</code>）</td></tr>
+                <tr><td>适合的频率段</td><td><b>高频</b>（几十 kHz 以上）</td><td><b>低频</b>（几十 Hz ~ 几 kHz）</td></tr>
+                <tr><td>在 50Hz 上的表现</td><td>1 秒闸门下只有 50 个数，误差 ±2%</td><td>1MHz 计数下数 20000 个，误差 ±0.005%</td></tr>
+                <tr><td>在 20kHz 上的表现</td><td>1 秒闸门下数 20000 个，误差 ±0.005%</td><td>72MHz 计数下只数 3600 个，误差 ±0.028%</td></tr>
+                <tr><td>响应速度</td><td>慢：必须等满一个闸门（1 秒）才有结果</td><td>快：一个（或几个）信号周期就能出结果</td></tr>
+                <tr><td>占用资源</td><td>需要一个精确的闸门定时（另一个定时器或 SysTick）+ 脉冲计数（ETR 或外部中断）</td><td>一个输入捕获通道 + 一个溢出计数（周期超过量程时）</td></tr>
+                <tr><td>实现难度</td><td>闸门同步麻烦（闸门开始/结束时的半个脉冲），要用「等精度」技巧才准</td><td>简单直接，一个捕获通道搞定，还能顺便测占空比</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">还有第三种：多周期同步法（等精度测量）</div>
+            <p>工程上真正做频率计，用的往往是两者的结合：<b>用被测信号的边沿去「开门」和「关门」，同时数被测脉冲个数和被时钟个数</b>。这样闸门时间不再是固定的 1 秒，而是被测信号周期的整数倍，<b>边界上的 ±1 误差只发生在时钟那一侧</b>：相对误差 ≈ <code class="icode">1/(Tg · f_clk)</code>，与被测频率无关——所以叫「等精度」。</p>
+            <p class="mt-2">举例：闸门约 1 秒（由被测信号自己决定）、时钟 72MHz，则不管测 50Hz 还是 20kHz，相对误差都是 1/(1×72e6) ≈ 1.4×10⁻⁸，也就是 0.014ppm 量级。<b>这就是市面上几百块的频率计的底牌。</b>实现方式就是第 4 节要讲的「PWM 输入模式 + 溢出补偿」的加强版：一路通道捕被测信号（同时用来复位计数器），另一路通道捕时钟。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">PWM 输入模式：一个通道同时得到周期和占空比</h4>
+
+          <p class="mt-3">要测一个 PWM 的<b>频率</b>和<b>占空比</b>，朴素的做法是用两个捕获通道、或者用同一个通道捕两次（先上升沿后下降沿）。但 STM32 提供了一个更漂亮的做法：<b class="font-semibold text-ink">PWM 输入模式（PWM Input Mode）</b>。它只用<b>一个引脚</b>，硬件自动把「周期」和「高电平时间」分别存进两个 CCR，软件一减一除就得到占空比。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="PWM 输入模式的接线原理">
+            <pre><code>                    ┌──────────────────────────────────────────┐
+   外部 PWM 信号      │              一个定时器                    │
+        │            │                                          │
+        └──► TI1 ────┼──┬──► TI1FP1（上升沿）──► IC1 ──► CCR1 = 周期
+                     │  │                                       │
+                     │  └──► TI1FP2（下降沿）──► IC2 ──► CCR2 = 高电平时间
+                     │                                          │
+                     │  同时：TI1FP1 还被接到【从模式控制器】上，
+                     │        配置成 Reset 模式 ——
+                     │        每个上升沿都把 CNT 清零！          │
+                     └──────────────────────────────────────────┘
+
+   波形上就是这样的（CNT 每个周期都从 0 重新开始数）：
+                                    ┌──────────────────────┐
+   PWM 输入   ─────────────────────┘                      └──────────
+              ▲                                            ▲
+              │ 上升沿：CNT 清 0，同时 CCR1 记下【上一圈的周期】
+              │
+              ▼ 下降沿：CCR2 记下 CNT 此刻的值 = 高电平持续了多少个计数
+   CNT        0 ──► 高电平段 ──► CCR2 ──► 继续数 ──► CCR1 ──► 被清 0
+                                                        （下一圈开始）
+
+   于是：  周期 = CCR1 / f_cnt
+           占空比 = CCR2 / CCR1   ← 注意分母是 CCR1，不是 ARR！
+
+   【为什么分母不是 ARR？】
+     因为从模式配置成了 Reset，CNT 是被外部信号清零的，
+     它数到多少完全取决于外部信号的周期，和 ARR 没关系。
+     ARR 在这里只要设成 0xFFFF（最大）即可，防止还没数到就被自己溢出清零。
+
+   【代价 / 限制】
+     · 占用两个捕获通道（IC1 和 IC2），而且它们必须都映射到 TI1 上。
+     · 只支持 TI1 和 TI2 两组，不是任意通道都能做。
+     · 外部信号周期不能超过定时器的量程（16 位时是 65535 个计数），
+       否则要先加大 PSC，或者做溢出计数。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">溢出处理：两次捕获之间定时器自己先转了一圈怎么办</div>
+            <p>这是输入捕获最容易被忽略的一个坑，而且它在「测低频信号」时必然发生。假设你的计数时钟是 1MHz、ARR = 65535（量程 65.5ms），要测一个 1Hz 的信号（周期 1000ms）：两次捕获之间，<b>定时器自己已经溢出 15 次了</b>。这时候直接相减 <code class="icode">CCR_new − CCR_old</code>，得到的是一个完全错误的数字。</p>
+            <p class="mt-2">解决办法只有一个：<b>给溢出次数单独记一个数</b>。两种实现方式：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>软件计数（常用）：</b>开更新中断，在中断里 <code class="icode">overflow_cnt++</code>；捕获中断里算 <code class="icode">总计数 = overflow_cnt × (ARR+1) + CCR_new − CCR_old</code>，算完把 <code class="icode">overflow_cnt</code> 清 0。这个写法在下面第 4 节有完整代码。</li>
+              <li><b>硬件帮忙（更稳）：</b>在捕获中断里顺便查一下更新标志 UIF 是不是也被置起来了——如果置了，说明在这次捕获前后正好发生了一次溢出，而更新中断可能还没来得及执行（比如优先级更低）。这时候把溢出计数再补 1。这个「补一刀」的细节，是保证长时间测量不错数的关键。</li>
+            </ul>
+            <p class="mt-2">判断「要不要处理溢出」的准则很简单：<b>只要被测信号的最长周期超过 ARR 对应的量程，就必须处理</b>。做设计时可以先估算一下：量程 = (ARR+1)/f_cnt，留 2~3 倍余量最舒服。</p>
+          </div>
+
+          <h3 id="sub-output" class="mt-7 text-base font-semibold">输出比较与 PWM：把时间送出去</h3>
+
+          <p class="mt-3">第二件外挂叫<b class="font-semibold text-ink">输出比较（Output Compare，OC）</b>，它和输入捕获正好是一对镜像：输入捕获是「外面的事件 → 抄走 CNT」，输出比较是「CNT 到点了 → 改变输出引脚」。</p>
+
+          <p class="mt-3">比较的对象是 CCR 寄存器：硬件不停地比较 CNT 和 CCR，相等的那一刻（或者说满足某种不等关系的那一刻），按照你配置的动作去动引脚。可选的动作有：<b class="font-semibold text-ink">翻转、强制为高、强制为低、保持不变</b>。其中「翻转」这一个动作，就足以做出任意频率的方波：让 CNT 每数到 CCR 就翻转一次引脚，得到的就是一个半周期等于 CCR 个计数的方波。</p>
+
+          <p class="mt-3">但真正在工程里天天用的是 PWM 模式，因为它比「翻转」多了一个关键能力：<b class="font-semibold text-ink">每个周期自动重置输出电平，占空比由 CCR 单独决定</b>。看波形就明白了：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="PWM 模式 1 与模式 2：极性正好相反">
+            <pre><code>【PWM 模式 1（向上计数）】CNT &lt; CCR 时输出【有效】电平
+
+   ARR = 999, CCR = 300  （占空比 = 300/1000 = 30%）
+   CNT  0 ────────► 300 ──────────────► 999 ─► 0
+        ┌──────────┐
+        │  有效     │
+   ─────┘          └──────────────────────────────
+        │◄─ 300 ──►│◄────── 700 ─────────────────►│
+        高电平 30%          低电平 70%
+        （假设极性配置为「有效=高」）
+
+【PWM 模式 2（向上计数）】CNT &lt; CCR 时输出【无效】电平 —— 正好反过来
+
+   ARR = 999, CCR = 300
+        ┌────────────────────────────────────────┐
+        │              有效（高）                 │
+   ─────┘                                        └──────
+        │◄────── 300 ──────►│◄──── 700 ──────────►│
+        低电平 30%（无效）        高电平 70%（有效）
+
+【两个「极性」概念要分清，这是最容易混的地方】
+
+   ① OC 模式（PWM1 / PWM2）：决定「CNT 和 CCR 的大小关系」对应哪种电平
+   ② 输出极性（CCxP 位）    ：决定「有效电平」到底是高还是低
+                               CCxP=0 → 有效电平 = 高；CCxP=1 → 有效电平 = 低
+
+   两者组合出四种结果，但工程上【只用一种组合】最不容易乱：
+        PWM 模式 1 + 极性不反相（CCxP = 0）
+   这时候一切都直观：占空比 = CCR/(ARR+1)，CCR 越大高电平越长。
+   其它三种组合都对，但会让「占空比公式」变成一个要查表的条件式，
+   除了「驱动低电平有效的 LED / 反相驱动」这种明确需求，别去动它。
+
+【占空比公式（PWM 模式 1、极性不反相、向上计数）】
+        占空比 = CCR / (ARR + 1)
+   【注意分母是 (ARR+1)】
+        CCR = 0        → 占空比 0%（输出一直无效，全低）
+        CCR = ARR+1    → 占空比 100%（输出一直有效，全高）
+        CCR &gt; ARR+1    → 硬件不会报错，效果等同于 100%
+   这给了你一个安全范围：写 CCR 时不用小心翼翼地避免越界，
+   但反过来，如果你算错了导致一直 100%，波形上就再也看不出调制了。</code></pre>
+          </div>
+
+          <p class="mt-3">把频率和占空比两个公式放在一起，你就得到了 PWM 的全部设计流程：<b class="font-semibold text-ink">先用 PSC 和 ARR 定频率，再用 CCR 定占空比</b>。它们之间有一个必须权衡的东西：<b class="font-semibold text-ink">分辨率</b>。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">频率与分辨率的权衡：这是 PWM 设计里唯一需要动脑子的地方</div>
+            <p>一圈数 (ARR+1) 个数，就意味着占空比只能分成 (ARR+1) 档。<code class="icode">ARR = 999</code> 时每档 0.1%，<code class="icode">ARR = 99</code> 时每档 1%，<code class="icode">ARR = 9</code> 时每档 10%（这时候调占空比是「跳」的，做呼吸灯会看到明显的台阶）。</p>
+            <p class="mt-2">而 <code class="icode">f_pwm = f_clk / ((PSC+1)(ARR+1))</code>——<b>ARR 大则分辨率高、频率低</b>。所以流程是：</p>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li>先定 PWM 频率（电机一般 10~20kHz，避开人耳听觉范围；LED 调光 1~5kHz 足够；加热丝可以几百 Hz）。</li>
+              <li>用 <code class="icode">(PSC+1)(ARR+1) = f_clk / f_pwm</code> 算出总的分频比。</li>
+              <li>优先把 ARR 取到 1000~4000 这个量级（分辨率 0.1%~0.025%，呼吸灯非常顺滑），剩下的分给 PSC。</li>
+              <li>如果算出来 ARR 只能取到很小的值（说明频率太高、时钟不够快），那就是硬件到极限了——要么降频率，要么换更高主频的芯片，不要指望软件补偿。</li>
+            </ol>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">互补输出与死区：为什么半桥驱动必须要有它</h4>
+
+          <p class="mt-3">到目前为止 PWM 都是「一个通道一根线」。但只要你去驱动电机、逆变器、大功率加热，就一定会遇到<b class="font-semibold text-ink">半桥（H 桥的一半）</b>这种结构：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="半桥：上下两个开关管，绝对不能同时导通">
+            <pre><code>              VCC（比如 24V / 310V）
+                │
+                ├──────────────┐
+                │              │
+                │         ┌────┴────┐
+                │         │  上管 Q1 │◄── 由 CH1（主输出）驱动
+                │         └────┬────┘
+                │              │
+                │              ├────────► 输出到电机 / 负载
+                │              │
+                │         ┌────┴────┐
+                │         │  下管 Q2 │◄── 由 CH1N（互补输出）驱动
+                │         └────┬────┘
+                │              │
+                └──────────────┴──────  GND
+
+   【致命场景：直通（shoot-through）】
+     如果 Q1 和 Q2 同时导通 —— 电源正极和地之间只剩两个
+     导通电阻（毫欧级），电流 = VCC / (Rds_on_Q1 + Rds_on_Q2)。
+     24V / 0.02Ω = 1200A（理论值，实际会被电源和引线限制）。
+     结果：不是「工作不正常」，而是【瞬间烧毁】两个管子，
+     严重时连驱动芯片和电源一起带走。
+
+   【为什么会同时导通？】
+     因为 MOS 管的关断不是瞬间的：
+       · 栅极电荷要泄放，关断有几十到几百纳秒的延迟；
+       · 上管还带着米勒电容和体二极管的反向恢复。
+     所以「给下管发导通命令」的时刻，必须比「给上管发关断命令」
+     晚一段时间 —— 这段时间就叫【死区时间（Dead Time）】。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="死区时间：在两次开通之间硬插入一段「都不导通」">
+            <pre><code>【没有死区】两路驱动信号的边沿完全对齐
+
+   CH1  ────┐                    ┌────────────
+            └────────────────────┘
+   CH1N ────────────────┐                    ┌──
+                        └────────────────────┘
+                        ▲▲
+                        └┴── 这段时间【理论上】两管同时收到导通命令
+                            实际因为关断延迟，会真的出现同时导通 → 直通
+
+【插入死区后】上下管之间强制留出空档
+
+   CH1  ────┐                    ┌────────────
+            └────┐               │
+                 │ 死区          │
+   CH1N ─────────┘  ┌────────────┘         ┌──
+                    └──────────────────────┘
+            ▲        ▲
+            │        └─ 下管导通前，上管必须已经可靠关断
+            └─ 上管导通前，下管必须已经可靠关断
+            期间两管都不导通，负载电流走【体二极管】续流
+
+【死区带来的代价（要心里有数）】
+   · 输出电压损失：死区期间输出电压由体二极管钳位（约 -0.7V 或 VCC+0.7V），
+     所以实际输出比理论占空比少一点点 → 低速时表现为转矩/转速偏差。
+   · 死区是【时间】单位，不是占空比单位：PWM 频率越高，
+     死区占整个周期的比例越大，损失越明显。
+     20kHz（周期 50µs）配 1µs 死区 → 理论最大占空比已经损失 2%！
+   · 所以死区要「够用就好」：够覆盖关断延迟 + 余量，不要盲目设大。</code></pre>
+          </div>
+
+          <p class="mt-3">STM32 把这个功能做在了硬件里：<b class="font-semibold text-ink">高级定时器（TIM1、TIM8）的每个通道都有 CHx 和 CHxN 一对互补输出</b>，死区由 <code class="icode">BDTR</code> 寄存器里的 <code class="icode">DTG[7:0]</code> 字段生成，不需要软件去算延时。这个死区发生器的工作细节：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="BDTR 寄存器：死区时间与刹车">
+            <pre><code>BDTR 寄存器（Break and Dead-Time Register）
+
+  ┌──────┬──────┬─────┬─────┬──────┬─────┬─────┬──────┐
+  │ MOE  │ AOE  │ BKP  │ BKE │ OSSR │ OSSI│ LOCK │ DTG  │
+  └──────┴──────┴─────┴─────┴──────┴─────┴─────┴──────┘
+     │      │      │      │      │      │              │
+     │      │      │      │      │      │              └─ 死区时间（8 位）
+     │      │      │      │      │      └─ 空闲时输出状态：0=释放(高阻)，1=保持无效电平
+     │      │      │      │      └─ 关闭时（MOE=0）输出状态：同上
+     │      │      │      └─ 刹车输入使能（BKIN 引脚/比较器）
+     │      │      └─ 刹车输入极性
+     │      └─ 自动恢复输出：刹车解除后，在下一个更新事件自动重新使能 MOE
+     └─ 主输出使能：=0 时所有输出被强制到空闲状态
+        【这是 PWM 没输出的头号原因之一，见第 4 节排查清单】
+
+【死区时间的计算】DTG 分了 4 段，越往后的段步进越大：
+
+  DTG[7:5] = 0xx  →  DT = DTG[7:0]          × t_DTS     范围 0 ~ 127 t_DTS
+  DTG[7:5] = 10x  →  DT = (64 + DTG[5:0])   × 2 t_DTS   范围 128 ~ 254 t_DTS
+  DTG[7:5] = 110  →  DT = (32 + DTG[4:0])   × 8 t_DTS   范围 256 ~ 504 t_DTS
+  DTG[7:5] = 111  →  DT = (32 + DTG[4:0])   × 16 t_DTS  范围 512 ~ 1008 t_DTS
+
+  其中 t_DTS 是死区发生器的时钟周期，由 CR1 的 CKD 位选择：
+      CKD = 00 → t_DTS = 1 / f_timer
+      CKD = 01 → t_DTS = 2 / f_timer
+      CKD = 10 → t_DTS = 4 / f_timer
+
+  例：f_timer = 72MHz，CKD = 00 → t_DTS = 13.89ns
+      想要 1µs 死区：1µs / 13.89ns = 72 → 取第一段，DTG = 72 = 0x48
+      想要 10µs 死区：10µs / 13.89ns = 720 → 落在第 4 段，
+                      720 / 16 = 45，再减 32 = 13 → DTG = 0b111_01101 = 0xED
+      （注意第 4 段的步进是 16 t_DTS = 222ns，所以【设不出】任意精确值，
+        只能设成 16 的倍数附近 —— 这是硬件限制，不是 bug）
+
+【刹车输入 BKIN】
+   BKIN 是一根专门的输入（也有极性选择），一旦有效：
+     · 硬件【异步】地把 MOE 清零 —— 不等时钟，立刻生效；
+     · 所有输出按 OSSI 的配置进入空闲状态；
+     · 置起 BIF 标志，可以进刹车中断。
+   典型用法：把过流比较器（比如采样电阻 + LM393）的输出直接接到 BKIN，
+   一旦电流超标，硬件在纳秒级就把六个输出全关掉，
+   比软件进中断再关快了几个数量级 —— 这是保护功率管最关键的一道防线。
+   AOE = 1 时，刹车解除后会在下一个更新事件自动恢复输出，
+   适合「过流是瞬态、可以自动重启」的场合（比如有刷电机的堵转保护）。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">上电顺序里的一个致命细节</div>
+            <p>MOS 管的栅极在上电时可能是浮空的，这时候上下管有可能都处于半导通状态。所以做功率驱动时：<b>① 先让定时器把两路输出都置为「无效电平」并且死区已经配好，再让功率级的电源上电</b>；② 用 <code class="icode">MOE</code> 作为总开关——初始化完成后才置 MOE；③ 有条件的话给栅极加<b>下拉电阻</b>，让驱动芯片没上电时栅极被可靠拉低。</p>
+            <p class="mt-2">我见过太多「一上电就炸管」的案例，最后查出来是「程序还没跑到初始化，驱动芯片的输出已经因为浮空而乱跳」。<b>软件的顺序，决定硬件的生死。</b></p>
+          </div>
+
+          <h3 id="sub-cascade" class="mt-7 text-base font-semibold">级联与编码器接口</h3>
+
+          <p class="mt-3">这一小节讲两件「外挂」，它们看起来毫不相关，但本质上都是<b class="font-semibold text-ink">「不数自己的时钟，而是数别人给的事件」</b>——正好回到本文开头那句话：定时器和计数器是同一套硬件。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">定时器级联：让一个定时器去数另一个的溢出</h4>
+
+          <p class="mt-3">前面算过，16 位定时器在 72MHz 下、PSC 拉满，一圈最长也就 59.65 秒。要定 1 小时、1 天怎么办？答案是<b class="font-semibold text-ink">级联</b>：把上一级定时器的「更新事件」当成下一级定时器的时钟。</p>
+
+          <p class="mt-3">这件事需要两个配置配合：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">主定时器要「把更新事件输出到 TRGO 引脚」</b>。TRGO 是定时器内部的一根广播线（TRGO = Trigger Output），它可以选择输出什么东西，由 <code class="icode">CR2</code> 的 <code class="icode">MMS</code> 位决定：可以输出「更新事件」（MMS=010，级联时最常用）、「使能」（001）、「比较脉冲」（011）、或者某个通道的 OCxREF（100~111）。选 010，就是「我每数满一圈，就在 TRGO 上发一个脉冲」。</li>
+            <li><b class="font-semibold text-ink">从定时器要「用外部时钟模式 2 或内部触发，把 TRGO 当自己的节拍」</b>。从定时器通过 <code class="icode">SMCR</code> 寄存器选择触发源（<code class="icode">TS</code> 位选 ITR0~ITR3）和工作方式（<code class="icode">SMS</code> 位）。</li>
+          </ul>
+
+          <p class="mt-3"><b class="font-semibold text-ink">这里有一个必须查表的细节：ITR0~ITR3 不是「任意定时器都能选」</b>。芯片内部只有四条固定的触发线，每条线硬连接到某个特定的定时器，具体对应关系写在参考手册的「TIMx 内部触发连接（TIMx internal trigger connection）」表里。<b>所以级联之前一定要查那张表</b>——CubeMX 里反而更省事：在 Slave Mode 选好 Trigger Mode 之后，Trigger Source 的下拉框里能选到的，就是硬件上真的连了的。在 F103 上，「TIM2 当主、TIM3 当从」是一个很常见的组合。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两级级联：72MHz → 1kHz → 1Hz">
+            <pre><code>【目标】先用 TIM2 把 72MHz 分到 1kHz，再用 TIM3 数 TIM2 的溢出得到 1Hz
+
+   ┌──────────────────────────┐         ┌──────────────────────────┐
+   │        TIM2（主）         │         │       TIM3（从）          │
+   │                          │         │                          │
+   │  CK_INT = 72MHz          │         │  时钟源 = TRGO of TIM2    │
+   │      │                   │         │       ▲                  │
+   │      ▼                   │         │       │                  │
+   │  PSC = 7199  → ÷7200     │         │  PSC = 0  → ÷1           │
+   │      │                   │         │       │                  │
+   │      ▼  10kHz            │         │       ▼  1kHz            │
+   │  CNT 数到 ARR = 9        │         │  CNT 数到 ARR = 999      │
+   │      │  （即 ÷10）        │         │      │  （即 ÷1000）     │
+   │      ▼                   │         │      ▼                  │
+   │   1kHz 更新事件 ─────────┼─ TRGO ─►│   1Hz 更新事件 → 中断     │
+   │   （MMS = 010）           │         │   （SMS = 外部时钟模式2） │
+   └──────────────────────────┘         └──────────────────────────┘
+
+   验算：72 000 000 / 7200 / 10 = 1000 Hz          （TIM2 的更新频率）
+         1000 / 1 / 1000 = 1 Hz                    （TIM3 的更新频率）
+         1Hz → 周期 1 秒，误差为 0（三个数都是整除）
+
+【级联的好处】
+   · 把一个 16 位定时器「扩」成 32 位：两级各 16 位，
+     理论最大分频比 65536 × 65536 ≈ 4.3 × 10^9，
+     72MHz 下可以定出 59.65 秒 × 65536 ≈ 45 天。
+   · 每一级的中断都可以单独使用：比如 TIM2 的 1kHz 用来做
+     控制环，TIM3 的 1Hz 用来做数据记录 —— 一份时钟，多个节奏。
+   · CPU 负担为零：所有分频都是硬件做的，不占一次中断。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">不止两级：级联是可以叠的</div>
+            <p>理论上可以把 TIM2 → TIM3 → TIM4 → TIM5 一路串下去，每一级再除 65536 倍。实际做「1 小时定时」只需要三级就够（例 2 给了完整算法）。要注意的是：<b>级联链越长，最后一级的「分辨率」越差</b>——第一级数 72000 个时钟才出 1 个脉冲，最后一级每动一下就是 1 秒，你想在这上面做微调是不可能的。所以级联适合做「粗时间基准」，精细的时间还得靠专门的定时器。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">编码器接口：让硬件替你数电机的转角</h4>
+
+          <p class="mt-3">旋转编码器（正交编码器）输出两路方波 A 和 B，它们频率相同、相位相差 90°。<b class="font-semibold text-ink">这 90° 的相位差就是「方向」的全部信息</b>，而 STM32 的定时器可以靠纯硬件把它解出来：<b class="font-semibold text-ink">根据两相的电平关系，决定 CNT 是加还是减</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="正交编码器的四种状态与四倍频">
+            <pre><code>【正转（A 相超前 B 相 90°）】
+
+   A  ────┐       ┌───────┐       ┌────
+          └───────┘       └───────┘
+   B  ────────┐       ┌───────┐       ┌
+              └───────┘       └───────┘
+          S1      S2      S3      S4     S1  ...
+
+   状态序列：S1 → S2 → S3 → S4 → S1 → ...
+   每个状态对应 (A,B) 的一组编码：
+        S1 = (1,0)    S2 = (1,1)    S3 = (0,1)    S4 = (0,0)
+
+【反转（B 相超前 A 相 90°）】状态序列反着走
+   状态序列：S1 → S4 → S3 → S2 → S1 → ...
+
+【四倍频是怎么来的 —— 这是本节的关键】
+   一个完整的正交周期 = 信号走完 S1→S2→S3→S4 四个状态。
+   而在这四个状态之间，有【4 个边沿】：
+        A 的上升沿（S4→S1）      A 的下降沿（S2→S3）
+        B 的上升沿（S1→S2）      B 的下降沿（S3→S4）
+
+   → 编码器接口模式 3（Encoder Mode 3）会在【两相的每一个边沿】都计数
+   → 机械上转一格（一个正交周期），CNT 变化 4
+   → 这就是【四倍频】：把编码器的分辨率直接提高 4 倍
+
+   模式 1 / 模式 2 只在一个相的边沿计数（2 倍频），
+   工程上基本都用模式 3，白拿 4 倍分辨率为什么不用。
+
+【方向识别】
+   硬件在每个边沿都会看「另一相此刻的电平」：
+     正转时，A 的上升沿总落在 B 为低的时候
+     反转时，A 的上升沿总落在 B 为高的时候
+   → 硬件据此决定 CNT++ 还是 CNT−−，不需要软件判断
+
+   → 所以 CNT 里装的就是【带符号的位置】，读出来转成 int16_t
+     直接就是「正转了多少格 / 反转了多少格」。
+
+【机械抖动的影响，必须知道】
+   普通的旋钮式编码器（不带定位、或者用机械触点的那种）在转动时
+   触点会弹跳，产生一串快速的 A/B 跳变。硬件会把它们全部计进去 ——
+   表现为：手明明只转了一格，CNT 却跳了 2~3 个数，或者来回抖。
+
+   对策（按有效性排序）：
+     ① 打开输入滤波器（CCMR 里的 IC1F/IC2F），连续采样一致才认账；
+        这是最省事、最可靠的一招，编码器模式下的滤波字段同样有效。
+     ② 换用光电编码器 / 磁编码器（AS5600 等），从根本上没有抖动。
+     ③ 软件侧做「最小变化量」过滤：只有 CNT 变化超过阈值才认，
+        或者周期性采样并做滑动平均（代价是响应变慢）。
+     ④ 硬件加 RC 滤波（10kΩ + 100nF，截止约 160Hz）——只在转速很低时可用。
+
+   ⚠ 不要用「软件延时消抖」去处理编码器：转速快的时候会把真实边沿也吃掉。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">编码器接口为什么是「同一个计数器」的最好例证</div>
+            <p>回头看一下子：编码器接口没有引入任何新的硬件资源——它就是那个 CNT，只不过<b>「加还是减」不再由计数方向位决定，而是由 A/B 两相的电平决定</b>。CNT 还是那个 CNT，ARR 还是那个 ARR（编码器模式下一般把 ARR 设成 65535，让它能正反转都能数很大范围），CCR 依然可以用来在特定位置触发中断（比如「转到这里就输出一个信号」）。</p>
+            <p class="mt-2">这就是本文反复强调的那句话最好的例子：<b>输入捕获、输出比较、PWM、编码器接口，全都是同一个计数器换了不同的外挂。</b>你不需要把它们当成四块知识去背——<b>你只需要记住那个计数器，再记住四根线怎么接</b>。</p>
+          </div>
+
+        </section>
+
+<!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="mt-12 text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">定时器这一块的坑，<b class="font-semibold text-ink">九成以上都是算错的，不是配错的</b>。所以这一节不厌其烦地把最常见的五类计算从头做一遍：正着算（给定时间求 PSC/ARR）、反着算（给定频率求参数）、算极限（最长能定多久）、算误差（两种测频方法的胜负）、以及 51 那边的老算法。每个例子的单位换算都写出来，你照着走一遍就不会错。</p>
+
+          <h3 id="calc-1" class="mt-7 text-base font-semibold">例 1：72MHz 反算 1ms / 20ms / 1s 的 PSC 与 ARR</h3>
+
+          <p class="mt-3">已知定时器时钟 <code class="icode">f_clk = 72MHz</code>（已按倍频规则确认：这是倍频之后的定时器时钟，不是 PCLK1 的 36MHz）。我们分别要 1ms、20ms、1s 三个周期，求 PSC 和 ARR。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 1：三个周期的完整推导">
+            <pre><code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【第 0 步】先算总的分频比 N = T × f_clk
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   1ms：N = 0.001 s × 72 000 000 Hz = 72 000
+   20ms：N = 0.020 s × 72 000 000 Hz = 1 440 000
+   1s ：N = 1.000 s × 72 000 000 Hz = 72 000 000
+
+   注意单位：T 必须换成【秒】再乘，否则会差 1000 倍。
+   这三个 N 就是 (PSC+1)×(ARR+1) 需要等于的数。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【1ms】N = 72000
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   习惯做法：先让计数时钟变成「整数 MHz」，这样 ARR 就等于微秒数。
+
+       PSC + 1 = 72          →  PSC = 71
+       计数时钟 = 72MHz ÷ 72 = 1MHz（即 1µs 一个数，心算极快）
+
+       ARR + 1 = 72000 ÷ 72 = 1000
+       ARR = 999
+
+   验算：T = (71+1) × (999+1) / 72 000 000
+           = 72 × 1000 / 72 000 000
+           = 72000 / 72 000 000
+           = 0.001 s = 1.000 ms        ✅ 误差 0
+
+   分辨率：一圈 1000 个数 → 最小可调 1µs，占 1ms 的 0.1%。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【20ms】N = 1 440 000
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   ★ 推荐配法（保持 1µs 分辨率，和 1ms 那个共用同一个计数时钟）：
+
+       PSC = 71                            → 计数时钟 1MHz
+       ARR + 1 = 1 440 000 ÷ 72 = 20 000
+       ARR = 19 999
+
+   验算：T = 72 × 20000 / 72 000 000 = 0.02 s = 20.000 ms   ✅ 误差 0
+   检查：ARR = 19999 ≤ 65535，没超 16 位              ✅
+
+   ☆ 另一种配法（周期相同，但分辨率差很多）：
+       PSC = 719（÷720）→ 计数时钟 100kHz（10µs 一个数）
+       ARR = 199       → 一圈 200 个数
+       T = 720 × 200 / 72e6 = 0.002 s ... 等等，这是 2ms，不是 20ms！
+       → 正确写法：PSC+1 = 7200（PSC = 7199）→ 10kHz；ARR+1 = 200 → ARR = 199
+       T = 7200 × 200 / 72e6 = 0.02 s                      ✅
+       但分辨率只有 200 档（10µs），做输入捕获测脉宽时会明显不够细。
+   → 结论：同样的周期，【PSC 越小、ARR 越大，分辨率越高】。
+     只要 ARR 没超过 65535，就优先把分频比堆到 ARR 上。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【1s】N = 72 000 000 —— 这里有个绕不开的矛盾
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   如果还想保持 1µs 分辨率，ARR + 1 就得是 72 000 000，
+   而 16 位定时器的 ARR 最大只有 65535（一圈最多 65536 个数）。
+   → 【1µs 分辨率和 1 秒周期，一个 16 位定时器给不了】
+     必须二选一：要么牺牲分辨率加大 PSC，要么用级联（见例 2）。
+
+   方案 A：整数配比，误差 0（推荐，好算好调）
+
+       PSC + 1 = 7200        →  PSC = 7199    （计数时钟 10kHz，即 100µs 一个数）
+       ARR + 1 = 10 000      →  ARR = 9999
+       T = 7200 × 10000 / 72 000 000 = 72 000 000 / 72 000 000 = 1.000000 s  ✅
+
+   方案 B：把分辨率榨到最大（接受一点点误差）
+
+       ARR + 1 取满 = 65536  →  ARR = 65535
+       PSC + 1 = 72 000 000 ÷ 65536 = 1098.63…  ← 除不尽，只能取整
+       取 PSC + 1 = 1099     →  PSC = 1098
+       反算 ARR + 1 = 72 000 000 ÷ 1099 = 65514.65…  → 只能取 65514，ARR = 65513
+
+       验算：T实际 = 1099 × 65514 / 72 000 000
+                    = 71 999 886 / 72 000 000
+                    = 0.99999842 s
+
+       误差 = (0.99999842 − 1) / 1 = −1.58 × 10⁻⁶ = −1.58 ppm
+       → 每秒短 1.58µs。跑一天（86400 秒）累计短 0.137 秒。
+
+       这个误差大不大？看你干什么：
+          · 做数据记录的时间戳：完全够用（一天差 0.14 秒无所谓）。
+          · 做实时时钟（RTC）：不够，一天差 0.14 秒意味着一个月差 4 秒。
+          · 做串口波特率：够用，1.58ppm 远小于串口能容忍的 2%。
+
+   ★ 结论：能凑出整数就凑整数（方案 A），凑不出来再接受 ppm 级误差，
+     并且【一定要把这个误差算出来写进设计文档】——
+     「大概准」和「准到多少」是两回事。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">把「1MHz 计数时钟」变成条件反射</div>
+            <p>在 72MHz 的板子上，<code class="icode">PSC = 71</code> 出现频率极高，因为 1MHz 的计数时钟意味着 <b>CNT 每加 1 就是 1 微秒</b>、<code class="icode">ARR = 999</code> 就是 1ms、<code class="icode">ARR = 19999</code> 就是 20ms，全都是心算。做输入捕获测脉宽时更是如此——<b>捕到的 CCR 差值直接就是微秒数</b>，不用再换算。养成「先问计数时钟是多少」的习惯，能省掉大量计算错误。</p>
+          </div>
+
+          <h3 id="calc-2" class="mt-7 text-base font-semibold">例 2：一个 16 位定时器最长能定多久，要定 1 小时该怎么级联</h3>
+
+          <p class="mt-3">这道题在做「定时记录数据」「超时保护」「整点上报」这类需求时必算，而且它的结论会直接决定你要不要动级联。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 2：极限时间与 1 小时级联方案">
+            <pre><code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【第一步】单个 16 位定时器的极限
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   要让周期最长，就要让 (PSC+1)×(ARR+1) 最大。
+   PSC 和 ARR 都是 16 位寄存器，最大值都是 65535，所以：
+
+       (PSC+1)最大 = 65536      (ARR+1)最大 = 65536
+       总计数个数 = 65536 × 65536 = 4 294 967 296
+
+       T_max = 4 294 967 296 / 72 000 000 = 59.6522 秒
+
+   → 【结论一】f_clk = 72MHz 时，一个 16 位定时器最长只能定约 59.65 秒。
+     注意这不是「推荐值」，而是两面都拉满的极限值：
+     此时 ARR 和 PSC 都写到了 65535，一次溢出要等将近 1 分钟，
+     定时器的分辨率也低到没法看（改一个 ARR 就是几十微秒）。
+     工程上一般不会这么用，真正要长周期请直接级联。
+
+   【顺便算一下：如果是 32 位定时器呢？】
+     STM32F4/F7 上的 TIM2、TIM5 是 32 位的，ARR 最大 0xFFFFFFFF。
+     仍然配上 16 位 PSC 拉满：
+       T = 4 294 967 296 × 65536 / 72 000 000
+         = 2.8147 × 10¹⁴ / 7.2 × 10⁷
+         = 3 909 000 秒 ≈ 45.2 天
+     → 一颗 32 位定时器，单级就能做到 45 天的周期，不需要级联。
+       （这也是为什么 F4/F7 的电机和 RTOS 项目很少做定时器级联。）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【第二步】要定 1 小时，需要多大的总分频比？
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   1 小时 = 3600 秒
+   总分频比 N_total = 3600 × 72 000 000 = 2.592 × 10¹¹
+
+   单级上限 4.295 × 10⁹，比 N_total 小了 60 倍
+   → 单级【不可能】做到，必须级联。
+   两级上限 = (4.295×10⁹)² ≈ 1.84×10¹⁹ ≫ 2.592×10¹¹
+   → 两级【绰绰有余】。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【方案 A：两级级联（最省资源，推荐）】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   第一级 TIM2：把 72MHz 分成 1kHz（顺手留下一个 1ms 的节拍，很实用）
+
+       PSC = 7199（÷7200）  →  计数时钟 10kHz（100µs 一个数）
+       ARR = 9    （÷10）    →  更新频率 1kHz，周期 1ms
+       验算：72 000 000 / 7200 / 10 = 1000 Hz        ✅
+
+   第二级 TIM3：时钟来自 TIM2 的 TRGO（即 1kHz 的更新事件）
+                再分 3 600 000 倍，得到 1/3600 Hz（周期 1 小时）
+
+       PSC = 3599（÷3600）
+       ARR = 999 （÷1000）
+       分频比 = 3600 × 1000 = 3 600 000     （≤ 4.295×10⁹，合法）✅
+       输出频率 = 1000 Hz / 3 600 000 = 2.7778 × 10⁻⁴ Hz
+       周期 = 1 / 2.7778×10⁻⁴ = 3600 秒 = 1 小时        ✅ 误差 0
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【方案 B：三级级联（每一级的周期都是「整数好记的时间」）】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   有时候你希望每一级都有自己的用途（1ms 做控制、1s 做记录、
+   1 小时做上报），那就串三级，每一级的数都特别好记：
+
+       TIM2：PSC = 7199, ARR = 9      →  1ms  (1kHz)     ← 主，MMS = 010 输出 UEV
+       TIM3：PSC = 0,    ARR = 999    →  1s   (1Hz)      ← 从，时钟 = TIM2 的 TRGO
+       TIM4：PSC = 35,   ARR = 99     →  1 小时          ← 从，时钟 = TIM3 的 TRGO
+
+   最后一级验算：(35+1) × (99+1) = 3600
+                 输入 1Hz ÷ 3600 = 2.7778 × 10⁻⁴ Hz → 周期 3600 秒 ✅
+
+   总级联比 = 72000 × 1000 × 3600 = 2.592 × 10¹¹
+             → 2.592 × 10¹¹ / 72 000 000 = 3600 秒 ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【别忘了：还有两条不用级联的路】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   路一：软件累加。让定时器每 1 秒中断一次，在中断里把一个
+         uint32_t 变量加 1，加到 3600 就认为过了一小时。
+         优点：简单、参数好调、随时能改。
+         缺点：需要 1 秒一次的更新中断（CPU 有负担）；
+               如果中途关过中断，累计会丢。
+         → 这是 51 时代的标准做法（因为 51 连 1 秒都定不了）。
+
+   路二：用 RTC（实时时钟外设）。RTC 有独立的 32.768kHz 晶振和
+         日历寄存器，本来就是干这个的，还能在主电源断电后靠
+         纽扣电池继续走。做「整点上报」这类需求，
+         正确答案通常是 RTC，而不是定时器级联。
+         → 定时器级联适合「我必须精确知道过了多长时间，
+            并且需要它在主时钟域里跟其它任务同步」的场合。
+
+   【选择建议】
+     · 只要一个「很久之后叫我一次」的定时 → 软件累加足够。
+     · 要精确、不想占中断、且要在主时钟域 → 两级级联（方案 A）。
+     · 要真实日期时间、要掉电继续走 → RTC。</code></pre>
+          </div>
+
+          <h3 id="calc-3" class="mt-7 text-base font-semibold">例 3：由 PWM 频率反算 ARR 与 PSC，再算占空比和实际输出电压</h3>
+
+          <p class="mt-3">这次的已知条件是 PWM 的三个需求：<b class="font-semibold text-ink">频率 1kHz、占空比 30%、引脚高电平 3.3V</b>，用的定时器时钟仍然是 72MHz。要求给出 PSC、ARR、CCR，算出实际输出的平均电压，并评估分辨率够不够。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 3：PWM 参数的完整反算">
+            <pre><code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【第一步】算总的分频比
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   边沿对齐、向上计数：
+       f_pwm = f_clk / ((PSC+1) × (ARR+1))
+       →  (PSC+1) × (ARR+1) = f_clk / f_pwm = 72 000 000 / 1000 = 72 000
+
+   （和例 1 的 1ms 定时是同一个式子 ——
+     因为 1kHz 的周期就是 1ms，PWM 的本质就是一个定时器
+     加上「在周期中间再比一次」而已。）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【第二步】分配 72000 给 PSC 和 ARR —— 优先喂饱 ARR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   ★ 常用配法：PSC = 71（÷72）→ 计数时钟 1MHz；ARR = 999 → 一圈 1000 个数
+
+       验算：72 000 000 / 72 / 1000 = 1000 Hz              ✅
+
+       分辨率：一圈 1000 档 → 占空比步进 0.1%
+       验证「够不够」：人眼对亮度变化的感知大约在 1% 量级，
+       0.1% 的步进做呼吸灯已经非常顺滑（1000 级灰阶）。
+
+   ☆ 追求更细的配法：PSC = 7（÷8）→ 计数时钟 9MHz；ARR = 8999 → 9000 档
+       验算：72 000 000 / 8 / 9000 = 1000 Hz               ✅
+       分辨率：0.011%（9000 级）——但一圈要数 9000 个数，
+       改 ARR 之后要等一圈才生效，动态变频时响应更慢。
+
+   ✗ 糟糕的配法：PSC = 7199（÷7200），ARR = 9（10 档）
+       频率也是 1kHz，但占空比只能取 0%、10%、20%…100% 这 11 个值，
+       做呼吸灯会看到明显的台阶 —— 这就是【分辨率被 PSC 吃掉】的典型后果。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【第三步】算 CCR：占空比 30%
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   PWM 模式 1、极性不反相（有效电平 = 高）：
+       占空比 = CCR / (ARR+1) = CCR / 1000 = 30%
+       →  CCR = 300
+
+   【注意分母是 ARR+1 = 1000，不是 ARR = 999】
+        如果按 CCR/ARR 算，会得到 CCR = 299.7，取 300 之后
+        实际占空比是 300/1000 = 30.0%（对的），看起来「碰巧对了」——
+        但周期改成 ARR = 99 时差别就出来了：
+        CCR/ARR 会算出 29.7，CCR/(ARR+1) 算出 30 整。
+        养成写 (ARR+1) 的习惯，别赌。
+
+   另外算两个边界，确认自己对公式的手感：
+       要 5%  →  CCR = 0.05 × 1000 = 50
+       要 0%  →  CCR = 0
+       要 100% → CCR = 1000（= ARR+1，此时 CNT 永远小于 CCR，输出恒为有效）
+       要 50% →  CCR = 500（此时 CCR 正好等于 ARR/2，是最「对称」的位置）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【第四步】算实际输出电压（PWM 最常用的意义就在这里）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   PWM 经过低通滤波（或者驱动一个「响应不过来」的负载，比如电机、
+   加热丝、LED），等效出来的就是【平均电压】：
+
+       方法一：直接接 LED 调光（看的是平均亮度）
+           平均电压 = 高电平 × 占空比 = 3.3V × 30% = 0.99 V
+
+       方法二：用 MOS 管开关 12V 的加热丝
+           平均电压 = 12V × 30% = 3.6 V
+           （注意：这里 12V 是负载电源的电压，
+             STM32 引脚只是控制 MOS 的栅极，本身仍在 3.3V 域里。）
+
+       方法三：用 RC 滤波 + ADC 读回来做反馈
+           RC 时间常数要远大于 PWM 周期（1ms），
+           比如 R = 10kΩ、C = 10µF → τ = RC = 0.1 s = 100ms，
+           纹波峰峰值 ≈ 高电平 × (T/τ) = 3.3 × 0.001/0.1 = 33 mV，
+           平均值 = 0.99V（误差 1% 量级，够 ADC 用）。
+
+   【反查：如果你的 ADC 读回 1.65V，占空比是多少？】
+       假设 3.3V 域、RC 滤波后读数：
+       占空比 = 1.65 / 3.3 = 50%   →  CCR = 0.5 × 1000 = 500
+       这就是「闭环调压 / 闭环调光」的基本算式。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【第五步】换成中央对齐，参数要重算（这是最容易忘的一步）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   中央对齐的频率公式分母多了个 2：
+       f_pwm = f_clk / ((PSC+1) × 2 × ARR)
+
+   仍然用 PSC = 71（计数时钟 1MHz）：
+       1000 Hz = 1 000 000 / (2 × ARR)  →  ARR = 500
+
+   验算：1 000 000 / (2 × 500) = 1000 Hz                  ✅
+
+   占空比公式也换了：
+       占空比 = CCR / ARR = CCR / 500 = 30%  →  CCR = 150
+
+   【对比一下两个方案的「代价」】
+       边沿对齐：ARR = 999，一圈 1000 个数，分辨率 0.1%
+       中央对齐：ARR = 500，一圈 2×500 = 1000 个数，分辨率 0.2%
+    → 同样的计数时钟和同样的 PWM 频率下，
+      中央对齐的分辨率是边沿对齐的一半。
+      换来的是：波形对称、谐波小、死区对称。
+      做电机驱动，这笔账是划算的；做 LED 调光，就没必要。</code></pre>
+          </div>
+
+          <h3 id="calc-4" class="mt-7 text-base font-semibold">例 4：测频法与测周法，在 50Hz 和 20kHz 上谁更准</h3>
+
+          <p class="mt-3">这道题是「输入捕获」这一块的选型依据。已知条件：内部时钟 <code class="icode">f_clk = 72MHz</code>（可以分频使用），测频法的闸门时间 <code class="icode">Tg = 1 秒</code>，被测信号有两个：工频 50Hz 和超声/开关电源常见的 20kHz。两种方法各测一次，比一比相对误差。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 4：两种测频方法的误差对比">
+            <pre><code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【方法一：测频法】固定 1 秒闸门，数被测信号来了多少个脉冲
+              误差来源：闸门开始/结束时的 ±1 个脉冲
+              相对误差 ≈ 1 / (f × Tg)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   ▸ 测 50Hz：
+       计数值 N = 50 × 1s = 50
+       ±1 个数 → 相对误差 = 1/50 = 2%
+       结果表述：50 Hz ± 1 Hz（也就是 49 ~ 51 Hz 之间都可能）
+       → 【完全不可用】。工频测量、转速测量里 2% 的误差毫无意义。
+
+   ▸ 测 20kHz：
+       计数值 N = 20000 × 1s = 20000
+       ±1 个数 → 相对误差 = 1/20000 = 0.005% = 50 ppm
+       结果表述：20000 Hz ± 1 Hz
+       → 【非常好】。而且注意：闸门固定 1 秒时，
+         测频法的【绝对】误差永远是 ±1Hz，
+         频率越高，相对误差越小 —— 这就是它适合高频的原因。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【方法二：测周法】用内部时钟数「一个信号周期」有多少个计数
+              误差来源：起点和终点各差 1 个计数 → ±1 个数
+              相对误差 ≈ f / f_clk（测 1 个周期时）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   ▸ 测 50Hz（周期 20ms）：
+       先看量程：72MHz 不分频时，一个周期需要
+                 20ms × 72MHz = 1 440 000 个计数
+                 —— 远超 16 位的 65535！直接测会溢出。
+       → 方案 A：PSC = 71 把计数时钟降到 1MHz
+                 计数值 N = 20ms / 1µs = 20000
+                 相对误差 = 1/20000 = 0.005%（比测频法的 2% 好 400 倍）
+       → 方案 B：保持 72MHz，但做溢出补偿（下一节的代码）
+                 计数值 N = 1 440 000（跨越 21 次溢出）
+                 相对误差 = 1/1 440 000 = 0.0000694% ≈ 0.69 ppm
+                 （每 20ms 的绝对误差只有 13.9ns）
+       → 【低频必须用测周法】，这句话在这里体现得淋漓尽致。
+
+   ▸ 测 20kHz（周期 50µs）：
+       72MHz 不分频：N = 50µs × 72MHz = 3600 个计数
+       相对误差 = 1/3600 = 0.0278% = 278 ppm
+       结果表述：20000 Hz ± 5.56 Hz
+       → 【不如测频法的 ±1Hz】。因为周期太短，数的数太少，
+         一个计数的量化误差就占了 1/3600。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【汇总对比表】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   被测频率   测频法（1s 闸门）          测周法（72MHz）           胜者
+   ────────  ────────────────────────  ───────────────────────  ──────
+    50 Hz     ±1/50   = ±2%      ✗      ±1/1440000 = ±0.69ppm ★  测周法
+   500 Hz     ±1/500  = ±0.2%           ±1/144000  = ±6.9ppm ★  测周法
+     5 kHz    ±1/5000 = ±0.02%          ±1/14400   = ±69ppm   ★  测周法
+     8.5kHz   两者打平（分界点 ≈ √(f_clk/Tg) = √72e6 ≈ 8485 Hz）
+    20 kHz    ±1/20000 = ±50ppm   ★     ±1/3600    = ±278ppm     测频法
+   100 kHz    ±1/100000 = ±10ppm  ★     ±1/720     = ±1390ppm    测频法
+
+   【结论与用法】
+     · 低于约 8.5kHz → 用测周法（输入捕获），而且【顺便就能测占空比】。
+     · 高于约 8.5kHz → 用测频法（ETR 外部计数 + 精确闸门）。
+     · 分界点不是固定的：把闸门时间从 1s 延长到 10s，
+       分界点降到 √(72e6/10) ≈ 2683 Hz；把时钟换成 168MHz，
+       分界点升到 √(168e6) ≈ 12961 Hz。公式记住就行。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【如果两个频段都要测？用「多周期测周法」把低频优势搬到高频】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   测周法数 1 个周期的误差是 ±1 个数。
+   如果【连续数 M 个周期】再一起算，误差仍然是 ±1 个数，
+   但分母变成了 M × N：
+
+       测 20kHz，连续测 100 个周期（总时长 5ms）：
+           N = 72 000 000 / 20000 × 100 = 360 000
+           相对误差 = 1/360000 = 2.78 ppm = 0.00028%
+           频率误差 = 20000 × 2.78e-6 = 0.056 Hz   ★ 比测频法还好！
+       （代价：要等 5ms 才出一个结果，响应变慢，而且 360000
+         超出 16 位量程，需要溢出补偿或降低计数时钟。）
+
+   这就是「用响应速度换算精度」的经典权衡 ——
+   和示波器上「慢扫描更稳」是同一个道理。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">别忘了一个前提：这些误差都是「量化误差」</div>
+            <p>上面算的全是±1 计数的量化误差，前提是<b>你的晶振是准的</b>。普通的 HC-49S 无源晶振，标称精度通常是 ±20ppm ~ ±30ppm（含温度漂移），也就是说<b>测 20kHz 时晶振本身就会带来 0.4~0.6Hz 的误差</b>——和测周法的量化误差同一个量级。</p>
+            <p class="mt-2">所以：<b>当量化误差已经小于 10 倍晶振误差时，再折腾算法就没意义了</b>。想要更准，第一步是换温补晶振（TCXO）或者用外部的高稳频率基准，而不是去优化算法。这条在仪器类项目里是必须知道的。</p>
+          </div>
+
+          <h3 id="calc-5" class="mt-7 text-base font-semibold">例 5：51 的 50ms 定时初值（张毅刚 第 5 章的老算法）</h3>
+
+          <p class="mt-3">这道题是给你「对照」用的。51 的定时器初值算法和 STM32 的 PSC/ARR 算法在思路上是同一件事，但有个关键区别：<b class="font-semibold text-ink">51 算的是「往上数到哪里溢出」，STM32 算的是「数满一圈要多少个数」</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 5：12MHz 晶振、50ms 定时，51 的初值怎么算">
+            <pre><code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【已知】晶振 f_osc = 12MHz，要定时 50ms，用 T0、方式 1
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   第一步：算机器周期（51 的一个机器周期 = 12 个振荡周期）
+       机器周期 = 12 / f_osc = 12 / 12 000 000 = 1 × 10⁻⁶ s = 1µs
+       → 【51 定时器每 1µs 加 1】
+
+   第二步：算需要多少个机器周期
+       N = 50ms / 1µs = 50 000
+       检查量程：方式 1 是 16 位，最多 65536 个数
+                 50000 &lt; 65536  ✅ 方式 1 装得下
+       （如果算出来超过 65536，就只能先定一个短时间，
+         再在中断里用软件变量累加，这是 51 上的常规操作。）
+
+   第三步：算初值
+       51 的定时器是【向上数到溢出】，所以初值要从满量程倒着减：
+           初值 = 2¹⁶ − N = 65536 − 50000 = 15536
+       转成十六进制：15536 = 0x3CB0
+           （核对：0x3CB0 = 3×4096 + 12×256 + 0 + 176
+                      = 12288 + 3072 + 176 = 15536 ✅）
+
+       装载：
+           TH0 = 0x3C;      /* 高 8 位 */
+           TL0 = 0xB0;      /* 低 8 位 */
+           TMOD = 0x01;     /* T0，方式 1（16 位定时器） */
+           TR0  = 1;        /* 启动计数 */
+           ET0  = 1; EA = 1;/* 开 T0 中断、开总中断 */
+
+   第四步：中断服务函数里必须重新装初值
+       void Timer0_ISR(void) interrupt 1
+       {
+           TH0 = 0x3C;      /* ← 这两行不能省！ */
+           TL0 = 0xB0;
+           /* 你的 50ms 任务 */
+       }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【同样的 50ms，STM32 怎么写？对照看差异】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   f_clk = 72MHz，计数时钟取 1MHz（PSC = 71）：
+
+       ARR + 1 = 50ms / 1µs = 50 000     →  ARR = 49 999
+       验算：72 × 50000 / 72 000 000 = 0.05 s ✅  误差 0
+       检查：ARR = 49999 ≤ 65535 ✅
+
+   中断服务函数里【什么都不用装】：
+       void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+       {
+           if (htim-&gt;Instance == TIM2) {
+               /* 直接写你的任务，不需要重装任何寄存器 */
+           }
+       }
+   硬件会在 CNT 撞到 ARR 的同一拍里自动把 CNT 清零。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【误差对比：这才是「自动重装」真正的价值】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   ▸ 51 方式 1 的误差来源：
+       ① 重装初值需要时间。从 TF0 置位到你的 ISR 执行完
+          「TH0=…; TL0=…;」这两条指令，中间至少有
+          中断响应延迟（几个机器周期）+ 流水线打断 + 现场保护。
+          保守估计 5~10µs。这段时间里定时器【已经又数了几个数】，
+          而你把初值一装，这几个数就白丢了 —— 于是每个周期
+          都长一点点，误差【逐周期累积】。
+       ② 中断被更高优先级中断打断 → 延迟更长 → 丢得更多。
+       ③ 如果中断被关了（EA=0）整段没响应，那就不只是误差，
+          而是直接丢了一整个周期。
+
+   ▸ 数量级感受（按典型值估算）：
+       假设每次重装平均丢 3 个机器周期 = 3µs，
+       50ms 周期 → 每周期误差 3µs / 50ms = 60 ppm
+       累积 1 分钟（1200 个周期）→ 累计偏差 1200 × 3µs = 3.6ms
+       累积 1 小时 → 累计偏差 216ms
+
+   ▸ STM32 的误差来源：
+       只有晶振本身的误差（±20~30ppm，就是那颗 8MHz 晶振的锅）。
+       硬件自动重装，中断晚进 100µs 都不影响周期。
+       → 「定时准不准」这件事，从「取决于你的中断写得好不好」
+         变成了「取决于你的晶振买得好不好」。
+         这就是硬件替你干活的价值。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">五道例题的「一句话总结」</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>例 1</b>：先算 N = T × f_clk，再优先把分频比堆给 ARR（分辨率），凑不出整数就算 ppm 级误差。</li>
+              <li><b>例 2</b>：16 位 72MHz 最长 59.65 秒；1 小时要两级级联（÷72000 → 1kHz，再 ÷3600000）。</li>
+              <li><b>例 3</b>：PWM 先按 <code class="icode">(PSC+1)(ARR+1) = f_clk/f_pwm</code> 定频率，再用 <code class="icode">CCR/(ARR+1)</code> 定占空比；中央对齐记得分母多乘 2。</li>
+              <li><b>例 4</b>：分界点 <code class="icode">f = √(f_clk/Tg)</code>，72MHz + 1 秒闸门 → 约 8.5kHz；低频测周、高频测频。</li>
+              <li><b>例 5</b>：51 的初值 = 满量程 − 计数值，而且每周期都要重装；STM32 用 ARR，一次配置永久生效。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="mt-12 text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4">前面全是原理，这一节把它落到寄存器、CubeMX 参数和可以直接编译运行的代码上。目标平台是 <b class="font-semibold text-ink">STM32F103C8T6（Blue Pill）+ STM32CubeMX + HAL 库</b>，系统时钟 72MHz。下面每一段代码都是完整的、可以单独编译的，<b class="font-semibold text-ink">CubeMX 里要配哪些参数也一并写出来</b>——因为定时器的问题十有八九不是代码写错，是 CubeMX 里少勾了一个框。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>定时器</th><th>类型</th><th>总线</th><th>位数</th><th>通道</th><th>本文里拿它做什么</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">TIM1</td><td>高级控制</td><td>APB2（72MHz）</td><td>16 位</td>
+                  <td>4 路 + 3 路互补（CH1/1N、CH2/2N、CH3/3N、CH4）+ BKIN</td>
+                  <td>互补 PWM、电机驱动（带死区、刹车）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TIM2</td><td>通用</td><td>APB1（72MHz×2 倍频）</td><td>16 位</td>
+                  <td>4 路</td><td><b>1ms 系统节拍</b>、软件定时器框架</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TIM3</td><td>通用</td><td>APB1（72MHz）</td><td>16 位</td>
+                  <td>4 路</td><td><b>PWM 输出</b>、<b>输入捕获测频率</b></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TIM4</td><td>通用</td><td>APB1（72MHz）</td><td>16 位</td>
+                  <td>4 路</td><td>编码器接口（CH1/CH2 接 A/B 相）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">SysTick</td><td>内核（不属于 ST 外设）</td><td>内核时钟</td><td>24 位递减</td>
+                  <td>无</td><td>HAL 的 1ms 时基（<code class="icode">HAL_Delay</code>）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">注意这张表的信息量：<b class="font-semibold text-ink">F103C8T6 上一共只有 4 个定时器可用</b>（TIM1~TIM4），这就是第 4 节后面「定时器不够用怎么办」那一小节的现实背景。F103 的高密度型号（比如 F103ZET6）还会多出 TIM5~TIM8，但你这颗 Blue Pill 上就是这四个。</p>
+
+          <h3 id="sub-tim2-1ms" class="mt-7 text-base font-semibold">TIM2 配成 1ms 更新中断：从参数推导到完整代码</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第一步：确认时钟。</b>CubeMX 的 Clock Configuration 页把 SYSCLK 配到 72MHz（HSE 8MHz × PLL 9）。此时 APB1 预分频 = 2 → PCLK1 = 36MHz → 因为预分频不是 1，TIM2 的时钟 = 36 × 2 = <b>72MHz</b>。这一步千万别凭印象，<b>把鼠标放在 CubeMX 时钟树上 TIM2 那一格，它会直接告诉你实际频率</b>。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第二步：算参数。</b>用例 1 的结论：<code class="icode">PSC = 71</code>（计数时钟 1MHz，1µs 一个数）、<code class="icode">ARR = 999</code>（一圈 1000 个数）→ 更新周期 <code class="icode">72 × 1000 / 72 000 000 = 1.000 ms</code>，误差 0。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="CubeMX 里 TIM2 要改的每一格">
+            <pre><code>【CubeMX → Timers → TIM2】
+
+  Clock Source            : Internal Clock          ← 时钟源选内部
+  Channel1~4              : Disabled                ← 只要时基，不用通道
+
+  ── Parameter Settings ──────────────────────────────────────────
+  Prescaler (PSC - 16 bits value)      : 71          ← ÷(71+1) = ÷72
+  Counter Mode                         : Up          ← 向上计数
+  Counter Period (AutoReload Register) : 999         ← 一圈 1000 个数
+  Internal Clock Division (CKD)        : No Division ← 死区/滤波用的分频，这里无所谓
+  auto-reload preload                  : Enable      ← ARPE=1，改 ARR 在 UEV 生效
+  Trigger Event Selection              : Reset       ← 不用 TRGO 时可不管
+
+  ── NVIC Settings ───────────────────────────────────────────────
+  TIM2 global interrupt                : ☑ Enabled   ← 必须勾！
+  Preemption Priority                  : 1           ← 比 SysTick(15) 高，比紧急中断低
+  Sub Priority                         : 0
+
+  【关键提醒】上面这个 NVIC 勾选框，是「定时器不进中断」的第一号原因。
+  参数区（Parameter Settings）只管定时器自己数不数，
+  勾了 NVIC 才管「数满了要不要叫 CPU」——【两件事，两个地方】。</code></pre>
+          </div>
+
+          <p class="mt-3">CubeMX 生成的初始化代码大致长这样，你要能看懂每一行的意思：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="Core/Src/tim.c —— CubeMX 生成的 TIM2 初始化">
+            <pre><code>#include "tim.h"
+
+TIM_HandleTypeDef htim2;
+
+void MX_TIM2_Init(void)
+{
+    TIM_ClockConfigTypeDef  sClockSourceConfig = {0};
+    TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+    htim2.Instance = TIM2;
+    htim2.Init.Prescaler         = 71;      /* ÷72  → 72MHz/72 = 1MHz */
+    htim2.Init.CounterMode       = TIM_COUNTERMODE_UP;
+    htim2.Init.Period            = 999;     /* 一圈 1000 个数 → 1ms */
+    htim2.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
+    htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+    if (HAL_TIM_Base_Init(&amp;htim2) != HAL_OK) {
+        Error_Handler();
+    }
+
+    /* 时钟源：内部时钟（CK_INT）。这一步不能省，
+       否则时钟源选择位不会被写进 SMCR。 */
+    sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+    if (HAL_TIM_ConfigClockSource(&amp;htim2, &amp;sClockSourceConfig) != HAL_OK) {
+        Error_Handler();
+    }
+
+    /* 主从模式：这里没用 TRGO，配成复位即可 */
+    sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+    sMasterConfig.MasterSlaveMode     = TIM_MASTERSLAVEMODE_DISABLE;
+    if (HAL_TIMEx_MasterConfigSynchronization(&amp;htim2, &amp;sMasterConfig) != HAL_OK) {
+        Error_Handler();
+    }
+}
+
+/* 这个函数在 stm32f1xx_hal_msp.c 里，由 CubeMX 生成。
+   它做的是【外设时钟使能】和【中断优先级】—— 出了问题第一个查这里。 */
+void HAL_TIM_Base_MspInit(TIM_HandleTypeDef *tim_baseHandle)
+{
+    if (tim_baseHandle-&gt;Instance == TIM2) {
+        __HAL_RCC_TIM2_CLK_ENABLE();                    /* ① 开外设时钟！ */
+        HAL_NVIC_SetPriority(TIM2_IRQn, 1, 0);          /* ② 设优先级 */
+        HAL_NVIC_EnableIRQ(TIM2_IRQn);                  /* ③ 开 NVIC！ */
+    }
+}</code></pre>
+          </div>
+
+          <p class="mt-3">接下来是你自己要写的两段：启动定时器，以及在那个人人都会用到的回调函数里累加软件 tick。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="Core/Src/main.c —— 启动 TIM2 并维护一个软件毫秒 tick">
+            <pre><code>#include "main.h"
+#include "tim.h"
+
+/* volatile 必须有：这个变量在中断里被改、在主循环里被读，
+   编译器不知道它会「自己变」，不加 volatile 优化后可能读到旧值。
+   （这一点在讲 C 语言进阶那篇里重点说过。） */
+volatile uint32_t g_ms_tick = 0;
+
+int main(void)
+{
+    HAL_Init();                     /* 这里面会配好 SysTick 的 1ms 时基 */
+    SystemClock_Config();           /* 72MHz */
+    MX_GPIO_Init();
+    MX_TIM2_Init();
+
+    /* ★ 启动定时器并【同时开更新中断】
+       不加 _IT 就是只启动、不进中断 —— 这是第二个高频翻车点。 */
+    if (HAL_TIM_Base_Start_IT(&amp;htim2) != HAL_OK) {
+        Error_Handler();
+    }
+
+    while (1) {
+        /* 主循环里可以放心地用这个 tick 做非阻塞的定时 */
+        static uint32_t t_last = 0;
+        if ((g_ms_tick - t_last) &gt;= 500U) {   /* 每 500ms */
+            t_last += 500U;                   /* 注意是 +=，不是 = ，
+                                                 这样不会累积漂移 */
+            HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);   /* 板载 LED */
+        }
+    }
+}
+
+/* ★ 更新中断最终会走到这里。
+   HAL 已经在 stm32f1xx_it.c 的 TIM2_IRQHandler 里调用了
+   HAL_TIM_IRQHandler(&amp;htim2)，它会清标志、判断事件类型，
+   然后回调下面这个弱函数 —— 你只要重写它就行。 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim-&gt;Instance == TIM2) {
+        g_ms_tick++;                /* 就这么一行。硬件负责准，软件负责数 */
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这段代码里有三个「少一个字就废掉」的地方</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><code class="icode">HAL_TIM_Base_Start_IT()</code> 的 <code class="icode">_IT</code> 后缀。<code class="icode">HAL_TIM_Base_Start()</code> 只让计数器跑起来，<b>不会开更新中断</b>，现象是「定时器明明在跑，回调函数一次都不进」。</li>
+              <li>回调函数名必须是 <code class="icode">HAL_TIM_PeriodElapsedCallback</code>（周期溢出）——不要写成 <code class="icode">HAL_TIM_OC_DelayElapsedCallback</code>（输出比较）或者 <code class="icode">HAL_TIM_IC_CaptureCallback</code>（输入捕获）。<b>三个回调对应三种事件，名字差一点就永远不进。</b></li>
+              <li><code class="icode">volatile</code> 不能省。省了以后在 <code class="icode">-O2</code> 下，主循环里那个 <code class="icode">while ((g_ms_tick - t) &lt; 500)</code> 有可能被优化成死循环——编译器认为循环里没人改这个变量。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-pwm-breath" class="mt-7 text-base font-semibold">TIM3_CH1 输出 1kHz PWM：呼吸灯的完整实现</h3>
+
+          <p class="mt-3">这个例子的参数和例 3 完全一致：72MHz、1kHz、CCR 从 0 到 1000 慢慢来回走，LED 就会呼吸。<b class="font-semibold text-ink">先看 CubeMX 里多出来的那几步</b>——PWM 比纯时基多了一个「引脚要复用成 AF 模式」的环节，这也是 PWM 没输出的常见原因。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="CubeMX 里 TIM3_CH1 输出 PWM 的配置">
+            <pre><code>【第一步：先想清楚用哪个引脚】
+  TIM3_CH1 在不同封装上映射到不同引脚：
+     · 默认（无重映射）：PA6
+     · 部分重映射      ：PB4
+     · 完全重映射      ：PC6
+  Blue Pill 上最省事的是 PA6，不用动 AFIO 重映射。
+  CubeMX 里直接在芯片图上点 PA6 → 选 TIM3_CH1 即可。
+  【注意】一旦选了重映射的引脚，CubeMX 会自动生成
+  __HAL_AFIO_REMAP_TIM3_PARTIAL() 之类的调用 —— 这行必须保留。
+
+【第二步：Timers → TIM3】
+
+  Clock Source : Internal Clock
+  Channel1     : PWM Generation CH1        ← 关键！选 PWM Generation
+
+  ── Parameter Settings ──────────────────────────────────────────
+  Prescaler (PSC)     : 71        → 计数时钟 1MHz
+  Counter Mode        : Up
+  Counter Period(ARR) : 999       → 1kHz（1MHz / 1000）
+  auto-reload preload : Enable
+  PWM Mode            : PWM mode 1  ← CNT &lt; CCR 时输出有效电平
+  Pulse (CCR1)        : 0           ← 初值 0，占空比 0%，由程序改
+  Output compare preload : Enable   ← ★ CCR 的预装载，改 CCR 不会撕裂波形
+  CH Polarity         : High        ← 有效电平为高（不反相）
+
+  ── GPIO Settings（CubeMX 自动带到这个标签页）────────────────────
+  PA6 Mode            : Alternate Function Push Pull
+  PA6 Pull            : No pull-up and no pull-down（外部有驱动电路时）
+  PA6 Maximum output speed : High   ← ★ PWM 频率较高时要设 High，
+                                        否则边沿变得很缓，波形变成三角形
+  PA6 Alternate Function  : 自动显示为 TIM3_CH1（AF 编号由 CubeMX 填）
+
+【第三步】NVIC 这里【不用】勾。呼吸灯不需要 PWM 中断，
+  主循环里改 CCR 就够了 —— 下一小节说明为什么。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="Core/Src/tim.c —— TIM3 PWM 初始化（CubeMX 生成，已加注释）">
+            <pre><code>#include "tim.h"
+
+TIM_HandleTypeDef htim3;
+
+void MX_TIM3_Init(void)
+{
+    TIM_ClockConfigTypeDef  sClockSourceConfig = {0};
+    TIM_MasterConfigTypeDef sMasterConfig = {0};
+    TIM_OC_InitTypeDef      sConfigOC = {0};
+
+    htim3.Instance = TIM3;
+    htim3.Init.Prescaler         = 71;      /* 1MHz 计数时钟 */
+    htim3.Init.CounterMode       = TIM_COUNTERMODE_UP;
+    htim3.Init.Period            = 999;     /* 1kHz PWM */
+    htim3.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
+    htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+    if (HAL_TIM_Base_Init(&amp;htim3) != HAL_OK) {
+        Error_Handler();
+    }
+
+    sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+    if (HAL_TIM_ConfigClockSource(&amp;htim3, &amp;sClockSourceConfig) != HAL_OK) {
+        Error_Handler();
+    }
+
+    /* ★ 注意：PWM 也要先做一次 IC/OC 的通用初始化 */
+    if (HAL_TIM_PWM_Init(&amp;htim3) != HAL_OK) {
+        Error_Handler();
+    }
+
+    sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+    sMasterConfig.MasterSlaveMode     = TIM_MASTERSLAVEMODE_DISABLE;
+    if (HAL_TIMEx_MasterConfigSynchronization(&amp;htim3, &amp;sMasterConfig) != HAL_OK) {
+        Error_Handler();
+    }
+
+    /* ★ 通道配置：这才是「PWM 模式 1 / 极性 / CCR」真正落笔的地方 */
+    sConfigOC.OCMode     = TIM_OCMODE_PWM1;         /* PWM 模式 1 */
+    sConfigOC.Pulse      = 0;                       /* CCR1 初值 = 0 */
+    sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;     /* 有效电平为高 */
+    sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+    if (HAL_TIM_PWM_ConfigChannel(&amp;htim3, &amp;sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
+        Error_Handler();
+    }
+    /* HAL_TIM_PWM_ConfigChannel 内部会顺手把 OC1PE（输出比较预装载）置 1，
+       所以你后面写的 CCR 会在下一个更新事件时才生效 ——
+       这正是我们要的：波形永远是完整的整数个周期。 */
+
+    HAL_TIM_MspPostInit(&amp;htim3);   /* 这一步配置 PA6 的复用功能 */
+}</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="Core/Src/main.c —— 呼吸灯主循环（在中断之外改 CCR）">
+            <pre><code>#include "main.h"
+#include "tim.h"
+
+int main(void)
+{
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_TIM3_Init();
+
+    /* ★ 启动 PWM 输出。忘了这一句，CCR 配得再完美引脚也不会动。 */
+    if (HAL_TIM_PWM_Start(&amp;htim3, TIM_CHANNEL_1) != HAL_OK) {
+        Error_Handler();
+    }
+
+    /* 直接写 CCR1 初值，也可以（和 CubeMX 里填 Pulse 等价） */
+    __HAL_TIM_SET_COMPARE(&amp;htim3, TIM_CHANNEL_1, 0);
+
+    int32_t  ccr  = 0;        /* 当前占空比对应的比较值 */
+    int32_t  step = 2;        /* 每次变化的步进 */
+
+    while (1) {
+        ccr += step;
+
+        /* 到两头就反向：0 → 1000 → 0 → 1000 ... */
+        if (ccr &gt;= 1000) { ccr = 1000; step = -step; }
+        if (ccr &lt;= 0)    { ccr = 0;    step = -step; }
+
+        /* ★ 就是这一句在改占空比。
+           注意它是写在主循环里，不是写在中断里 —— 原因见下面的说明。 */
+        __HAL_TIM_SET_COMPARE(&amp;htim3, TIM_CHANNEL_1, (uint32_t)ccr);
+
+        /* 用 SysTick 的 HAL_Delay 控制呼吸速度。
+           一个完整呼吸周期 = 2 × 1000/2 × 2ms = 2 秒左右，
+           眼睛看起来刚好。 */
+        HAL_Delay(2);
+    }
+}
+
+/* __HAL_TIM_SET_COMPARE 展开后就是一次对 CCR1 寄存器的写：
+ *     (htim)-&gt;Instance-&gt;CCR1 = (__COMPARE__);
+ * 16 位寄存器一次写完，是原子的，不存在「高低字节撕裂」的问题。
+ * （如果在 8 位机上，写 16 位寄存器就有撕裂风险 —— 这也是
+ *   51 上读 TH0/TL0 必须用特殊技巧的原因，见坑 7。） */</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">为什么呼吸灯的 CCR 一定要在主循环里改，而不是在中断里改</div>
+            <p>新手有一个直觉：「PWM 是定时的东西，那改占空比也应该放在定时器中断里，才『同步』、才『精确』」。这个直觉在呼吸灯这个场景下是<b>错的</b>，理由有三条：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>这个任务根本不需要精确的时刻。</b>呼吸灯是给人眼看的，人眼对 1ms 量级的时间抖动完全无感。把不需要精确的事放进中断，是浪费中断资源。</li>
+              <li><b>CCR 有预装载（OC1PE），你在任何时刻写都是安全的。</b>HAL 的 <code class="icode">HAL_TIM_PWM_ConfigChannel</code> 已经帮你把输出比较预装载打开了，所以你写进去的值会被硬件推迟到下一个更新事件才生效——<b>不管你在主循环的哪一句改写它，波形都不会出现半个周期的畸形脉冲</b>。既然硬件已经保证了同步，你就不需要用中断来「人工同步」。</li>
+              <li><b>中断里做事越少越好。</b>这一条是中断那一篇的核心结论：中断服务函数应该「记录事件、置个标志，赶紧回去」。在中断里做浮点运算、查表、改一堆寄存器，会拖长中断时间，影响其它中断的响应——<b>呼吸灯占用了中断，代价是别的地方的实时性</b>。</li>
+            </ul>
+            <p class="mt-2"><b>那什么时候必须在中断里改 CCR？</b>两种场合：① 你要做的是<b>变频</b>（改 ARR）而不是变占空比——改 ARR 需要卡在更新事件那一刻，放在更新中断里最自然；② 你要让占空比的变化<b>与某个外部事件严格对齐</b>（比如「每次过零点之后的第 N 个周期才开始新占空比」）。除此之外，主循环里改就够了。</p>
+          </div>
+
+          <p class="mt-3">还有一个实践上的小问题：<b class="font-semibold text-ink">呼吸灯用 <code class="icode">HAL_Delay(2)</code> 是可以的，但如果你同时还要做别的事，就该换成时间戳比较</b>：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="把呼吸灯改成非阻塞（和例 1 的 g_ms_tick 配合）">
+            <pre><code>/* 非阻塞版呼吸灯：主循环永不停留，其它任务照常执行 */
+static void breath_led_poll(void)
+{
+    static uint32_t t_last = 0;
+    static int32_t  ccr    = 0;
+    static int32_t  step   = 2;
+
+    if ((g_ms_tick - t_last) &lt; 2U) {
+        return;                 /* 还没到 2ms，直接返回，不阻塞 */
+    }
+    t_last = g_ms_tick;         /* 是赋值不是累加：呼吸灯不需要防漂移 */
+
+    ccr += step;
+    if (ccr &gt;= 1000) { ccr = 1000; step = -step; }
+    if (ccr &lt;= 0)    { ccr = 0;    step = -step; }
+
+    __HAL_TIM_SET_COMPARE(&amp;htim3, TIM_CHANNEL_1, (uint32_t)ccr);
+}
+
+/* 主循环里这样用：
+ *   while (1) {
+ *       breath_led_poll();      // 每 2ms 动一次，瞬间返回
+ *       key_poll();             // 按键扫描，不受影响
+ *       uart_poll();            // 串口处理，不受影响
+ *   }
+ * 这就是「时间片轮询」的味道，下一小节把它系统化。 */</code></pre>
+          </div>
+
+<h3 id="sub-capture-code" class="mt-7 text-base font-semibold">TIM4 输入捕获：测一个外部方波的频率和占空比</h3>
+
+          <p class="mt-3">这个例子的目标是「给一个外部方波，报出它的频率和占空比」。为了不和上面的 PWM 例子抢引脚，这里改用 <b class="font-semibold text-ink">TIM4 的 CH1（PB6）和 CH2（PB7）</b>：CH1 抓上升沿，CH2 抓下降沿，两者配合就能同时拿到周期和高电平宽度。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="CubeMX 里 TIM4 输入捕获的配置">
+            <pre><code>【CubeMX → Timers → TIM4】
+
+  Clock Source : Internal Clock
+  Channel1     : Input Capture direct mode      ← CH1 直接接到引脚，测上升沿
+  Channel2     : Input Capture direct mode      ← CH2 直接接到引脚，测下降沿
+
+  ── Parameter Settings ──────────────────────────────────────────
+  Prescaler (PSC)     : 71      → 计数时钟 1MHz（1 个数 = 1µs）
+  Counter Period(ARR) : 65535   ← ★ 一圈拉到最大（65.535ms）
+  auto-reload preload : Enable
+
+  ── Input Capture Channel 1 / Channel 2 ────────────────────────
+  Polarity            : Rising Edge（CH1） / Falling Edge（CH2）
+  IC Prescaler        : No division  ← 每个边沿都抓，不做 N 分频
+  Input Filter (IC1F) : 0x3          ← ★ 采样 8 次全同才算有效边沿，
+                                        是「读数乱跳」的第一号解药
+
+  ── GPIO Settings ───────────────────────────────────────────────
+  PB6 / PB7           : 自动配成 Input floating（浮空输入）
+                        如果信号源是开漏输出（比如某些传感器），
+                        要改成 Pull-up。
+
+  ── NVIC Settings ───────────────────────────────────────────────
+  TIM4 global interrupt : ☑ Enabled    ← 捕获中断和溢出中断共用这一个入口
+  Preemption Priority   : 2
+
+【注意】输入捕获【不需要】外部中断（EXTI）。
+  引脚上的边沿是送到定时器的捕获单元，由定时器硬件记录 CNT，
+  和 EXTI 那条「外部中断线」是两套完全不同的东西。
+  很多人在这里绕弯路：把 PB6 配成 EXTI 再自己读时间戳，
+  那样只能得到「大致时刻」，精度被中断延迟吃掉，
+  而且做不到硬件同时记录两个边沿。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="Core/Src/tim.c —— TIM4 输入捕获初始化">
+            <pre><code>#include "tim.h"
+
+TIM_HandleTypeDef htim4;
+
+void MX_TIM4_Init(void)
+{
+    TIM_ClockConfigTypeDef  sClockSourceConfig = {0};
+    TIM_MasterConfigTypeDef sMasterConfig = {0};
+    TIM_IC_InitTypeDef      sConfigIC = {0};
+
+    htim4.Instance = TIM4;
+    htim4.Init.Prescaler         = 71;       /* 1MHz → 1 个数 = 1µs */
+    htim4.Init.CounterMode       = TIM_COUNTERMODE_UP;
+    htim4.Init.Period            = 65535;    /* 一圈 65.535ms */
+    htim4.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
+    htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+    if (HAL_TIM_Base_Init(&amp;htim4) != HAL_OK) {
+        Error_Handler();
+    }
+
+    sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+    if (HAL_TIM_ConfigClockSource(&amp;htim4, &amp;sClockSourceConfig) != HAL_OK) {
+        Error_Handler();
+    }
+    if (HAL_TIM_IC_Init(&amp;htim4) != HAL_OK) {   /* ★ 输入捕获要先做这一步 */
+        Error_Handler();
+    }
+
+    sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+    sMasterConfig.MasterSlaveMode     = TIM_MASTERSLAVEMODE_DISABLE;
+    if (HAL_TIMEx_MasterConfigSynchronization(&amp;htim4, &amp;sMasterConfig) != HAL_OK) {
+        Error_Handler();
+    }
+
+    /* ── CH1：上升沿，测「周期」的起点 ── */
+    sConfigIC.ICPolarity  = TIM_INPUTCHANNELPOLARITY_RISING;
+    sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;   /* 直接映射到 TI1 */
+    sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;             /* 每个边沿都抓 */
+    sConfigIC.ICFilter    = 3;                          /* 滤波 8 个采样点 */
+    if (HAL_TIM_IC_ConfigChannel(&amp;htim4, &amp;sConfigIC, TIM_CHANNEL_1) != HAL_OK) {
+        Error_Handler();
+    }
+
+    /* ── CH2：下降沿，测「高电平宽度」的终点 ── */
+    sConfigIC.ICPolarity  = TIM_INPUTCHANNELPOLARITY_FALLING;
+    sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;   /* 直接映射到 TI2 */
+    sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+    sConfigIC.ICFilter    = 3;
+    if (HAL_TIM_IC_ConfigChannel(&amp;htim4, &amp;sConfigIC, TIM_CHANNEL_2) != HAL_OK) {
+        Error_Handler();
+    }
+}</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="Core/Src/main.c —— 捕获逻辑（含两次捕获之间溢出的补偿）">
+            <pre><code>#include "main.h"
+#include "tim.h"
+
+/* ────────────────────────────────────────────────────────────────
+   测量结果。全部是 volatile：中断里写、主循环里读。
+   ──────────────────────────────────────────────────────────────── */
+typedef struct {
+    uint32_t period_us;      /* 一个完整周期的微秒数 */
+    uint32_t high_us;        /* 高电平的微秒数     */
+    uint32_t freq_hz;        /* 换算出来的频率     */
+    uint32_t duty_permille;  /* 占空比，千分数（0~1000） */
+    uint8_t  valid;          /* 收到过至少一对边沿才置 1 */
+} capture_result_t;
+
+volatile capture_result_t g_cap = {0};
+
+static volatile uint32_t s_ovf_cnt    = 0;   /* 溢出次数累加器 */
+static volatile uint32_t s_last_rise  = 0;   /* 上一次上升沿的 CNT */
+static volatile uint32_t s_rise_ovf   = 0;   /* 上升沿那一刻的溢出计数 */
+static volatile uint32_t s_last_fall  = 0;   /* 上一次下降沿的 CNT */
+static volatile uint32_t s_fall_ovf   = 0;
+static volatile uint8_t  s_rise_ready = 0;   /* 收到过上升沿？ */
+static volatile uint8_t  s_fall_ready = 0;   /* 收到过下降沿？ */
+
+/* 【这一句是全部精力的关键】把「CNT 的圈数」和「圈内的位置」
+   合成一个单调递增的 32 位时间戳。
+   s_ovf_cnt 每 65.536ms 加 1，2³² × 65.536ms ≈ 8.1 年才会回绕，
+   在这类测量里可以认为永不溢出。 */
+static inline uint32_t make_stamp(uint32_t ovf, uint32_t cnt)
+{
+    return (ovf &lt;&lt; 16) | cnt;      /* 因为一圈正好是 2¹⁶ 个数 */
+}
+
+int main(void)
+{
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_TIM4_Init();
+
+    /* ★ 三条启动语句，缺一不可：
+       前两条开两个通道的【捕获中断】，第三条开【溢出中断】。
+       注意 HAL_TIM_IC_Start_IT 只开捕获中断，
+       它【不会】帮你开更新中断 —— 溢出计数必须自己另开。 */
+    HAL_TIM_IC_Start_IT(&amp;htim4, TIM_CHANNEL_1);   /* CH1 捕获中断 */
+    HAL_TIM_IC_Start_IT(&amp;htim4, TIM_CHANNEL_2);   /* CH2 捕获中断 */
+    HAL_TIM_Base_Start_IT(&amp;htim4);                /* 溢出中断（更新事件） */
+
+    while (1) {
+        if (g_cap.valid) {
+            /* 你的业务：显示到 OLED、打印到串口、做闭环控制… */
+            /* printf("f = %lu Hz, duty = %lu.%lu %%\r\n",
+                      g_cap.freq_hz,
+                      g_cap.duty_permille / 10,
+                      g_cap.duty_permille % 10); */
+        }
+    }
+}
+
+/* ────────────────────────────────────────────────────────────────
+   ① 溢出中断：只做一件事 —— 把圈数加一
+   ──────────────────────────────────────────────────────────────── */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim-&gt;Instance == TIM4) {
+        s_ovf_cnt++;
+    }
+}
+
+/* ────────────────────────────────────────────────────────────────
+   ② 捕获中断：两个通道共用这一个回调，靠 htim-&gt;Channel 区分
+   ──────────────────────────────────────────────────────────────── */
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim-&gt;Instance != TIM4) {
+        return;
+    }
+
+    /* ★★★ 溢出竞态补偿 ★★★
+       有一种情况必须处理：边沿到来的那一瞬间，CNT 已经回绕，
+       但溢出中断还没被 CPU 响应（NVIC 还没来得及进 ISR）。
+       此时 s_ovf_cnt 还停留在旧值，直接算差值会得到一个
+       「少了整整一圈」的结果 —— 表现为偶尔蹦出一个
+       巨大或极小的错值。
+
+       判断方法：如果 UIF 已经置位，说明【刚刚发生过溢出】。
+       我们就地补上这一圈，并清掉标志
+       （清掉之后 HAL_TIM_IRQHandler 就不会再调一次
+         PeriodElapsedCallback，正好避免重复计数）。 */
+    if (__HAL_TIM_GET_FLAG(htim, TIM_FLAG_UPDATE) != RESET) {
+        s_ovf_cnt++;
+        __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_UPDATE);
+    }
+
+    uint32_t ovf = s_ovf_cnt;                        /* 先锁存，保证两个通道一致 */
+    uint32_t cnt = HAL_TIM_ReadCapturedValue(htim, htim-&gt;Channel);
+
+    if (htim-&gt;Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
+        /* ── 上升沿：一个周期的起点 ── */
+        if (s_rise_ready) {
+            uint32_t now  = make_stamp(ovf, cnt);
+            uint32_t prev = make_stamp(s_rise_ovf, s_last_rise);
+            uint32_t period = now - prev;           /* 自动回绕，不受 32 位溢出影响 */
+
+            g_cap.period_us = period;
+            if (period &gt; 0U) {
+                g_cap.freq_hz = 1000000UL / period; /* 1MHz 计数时钟 → 1 个数 1µs */
+            }
+
+            /* 如果这一刻也已经收到了下降沿，就可以算占空比了 */
+            if (s_fall_ready) {
+                uint32_t fstamp  = make_stamp(s_fall_ovf, s_last_fall);
+                uint32_t high    = fstamp - prev;
+                g_cap.high_us    = high;
+                g_cap.duty_permille = (uint32_t)((uint64_t)high * 1000ULL / period);
+                g_cap.valid = 1;
+            }
+        }
+        s_last_rise  = cnt;
+        s_rise_ovf   = ovf;
+        s_rise_ready = 1;
+        s_fall_ready = 0;                   /* 新周期开始，等这一轮的下一个下降沿 */
+
+    } else if (htim-&gt;Channel == HAL_TIM_ACTIVE_CHANNEL_2) {
+        /* ── 下降沿：高电平的终点 ── */
+        s_last_fall  = cnt;
+        s_fall_ovf   = ovf;
+        s_fall_ready = 1;
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这段代码里的三个关键设计，值得逐条看懂</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>把「圈数」和「圈内位置」拼成一个时间戳。</b><code class="icode">(ovf &lt;&lt; 16) | cnt</code> 之所以成立，是因为 ARR 取满 65535，一圈正好 2¹⁶ 个数。这样两个时间戳相减就是真正的「过了多少个计数」，中间溢出了多少次都自动包含在内。<b>这是定时器做长时间测量的通用套路</b>（RTOS 的 tick、里程计、编码器计数都用它）。</li>
+              <li><b>差值用的是无符号减法。</b><code class="icode">now - prev</code> 在 uint32_t 上是「模 2³² 减法」，就算时间戳回绕，结果也是对的——前提是两个时间戳相差不超过 2³¹ 个计数（约 8.1 年 / 2）。<b>所以永远不要写 <code class="icode">if (now &gt; prev) diff = now - prev;</code></b>，那个判断反而会把回绕的那一刻算错。</li>
+              <li><b>占空比用 <code class="icode">(uint64_t)high * 1000 / period</code>。</b>先乘后除是为了保住精度。如果写成 <code class="icode">high / period * 1000</code>，整数除法会先把小数部分丢掉，结果永远是 0 或 1000；而且 high × 1000 在 period 很大时有溢出 32 位的风险，所以强转成 64 位。<b>「先乘后除、必要时升位宽」是所有定点运算的基本功。</b></li>
+            </ul>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">选 1MHz 还是 72MHz 做计数时钟？</b>这是这道题里唯一需要权衡的参数，算一下就清楚了（被测信号设为 20kHz 方波）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>计数时钟（PSC）</th><th>20kHz 时的计数值</th><th>量化误差</th><th>一圈时长（ARR=65535）</th><th>低频时会不会溢出</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>1MHz（PSC=71）</td><td>50 个数</td><td>±1/50 = <b>±2%</b></td><td>65.5ms</td>
+                  <td>低于约 15Hz 才可能溢出，很安全</td>
+                </tr>
+                <tr>
+                  <td>8MHz（PSC=8）</td><td>400 个数</td><td>±0.25%</td><td>8.2ms</td>
+                  <td>低于约 122Hz 就可能溢出一次</td>
+                </tr>
+                <tr>
+                  <td>72MHz（PSC=0）</td><td>3600 个数</td><td>±0.028%</td><td>0.91ms</td>
+                  <td>低于 1.1kHz 就会溢出（靠补偿解决）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">结论很直白：<b class="font-semibold text-ink">被测信号频率越高，就越要把 PSC 调小</b>；而调小 PSC 带来的溢出问题，正好由上面那段「圈数 + 圈内位置」的补偿逻辑解决。<b>有了溢出补偿，你就没必要为了低频而牺牲分辨率了</b>——例 4 里说的「方案 B」就是它。这也是为什么工程代码里几乎都会保留一个溢出计数器，哪怕当前测试条件下根本用不上。</p>
+
+          <p class="mt-3">如果只要测「PWM 的周期和占空比」这一件事，STM32 还提供了一个更省事的硬件模式，连溢出补偿都不太需要：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="进阶：PWM 输入模式 —— 一个引脚同时得到周期和占空比">
+            <pre><code>【原理】把从模式配成「复位模式」，触发源选 TI1FP1，
+       并且让 IC2 间接映射到 TI1FP1（而不是 TI2）：
+
+       CH1（直接 TI1，上升沿）→ 既触发捕获，又复位 CNT
+       CH2（间接 TI1，下降沿）→ 同一个引脚上的下降沿
+
+       于是硬件自动得到：
+           CCR1 = 整个周期的计数  （CNT 从 0 数到下一个上升沿）
+           CCR2 = 高电平的计数    （CNT 从 0 数到下降沿）
+       占空比 = CCR2 / CCR1 —— 不需要中断，随时读随时有。
+
+【CubeMX 配置】
+
+  TIM4 → Channel1 : Input Capture direct mode
+         Channel2 : Input Capture indirect mode   ← ★ 注意是 indirect
+  Combined Channels : PWM Input on CH1            ← ★ 选了这个会自动配好上面
+  Trigger Source    : TI1FP1（自动）
+  Slave Mode        : Reset mode（自动）
+  CH1 Polarity      : Rising Edge
+  CH2 Polarity      : Falling Edge
+  IC Prescaler      : No division
+
+【读结果的代码，只有三行】
+
+    /* 不需要捕获中断，也不需要溢出计数 —— 因为每个周期
+       CNT 都被硬件复位，永远不会累积到溢出。 */
+    uint32_t period = HAL_TIM_ReadCapturedValue(&amp;htim4, TIM_CHANNEL_1);
+    uint32_t high   = HAL_TIM_ReadCapturedValue(&amp;htim4, TIM_CHANNEL_2);
+    uint32_t duty   = (uint32_t)((uint64_t)high * 1000ULL / period);
+
+  ★ 唯一的坑：【先读 CCR1 再读 CCR2】。因为 CCR1 那一读会
+    顺带把「周期在更新」的锁存逻辑走一遍，反过来读
+    （先 CCR2 后 CCR1）在更新事件刚好发生的瞬间可能读到
+    上一周期的半个值，占空比会瞬间蹦到离谱的数。
+    HAL 库在 HAL_TIM_ReadCapturedValue 里没有替你做这个保护。
+
+【什么时候用 PWM 输入模式，什么时候用两次捕获法？】
+
+  用 PWM 输入模式：     信号频率稳定、你只要周期和占空比、
+                        不想写中断、要低 CPU 占用。
+  用两次捕获法：        信号频率变化很大（换量程）、要测
+                        频率的同时还要测多个通道、
+                        或者需要记录「每一个周期分别是多少」
+                        （PWM 输入模式每周期更新一次，
+                         你只能读到最新值）。</code></pre>
+          </div>
+
+          <h3 id="sub-soft-timer" class="mt-7 text-base font-semibold">用定时器做软件定时器：一个 1ms 中断带起一堆任务</h3>
+
+          <p class="mt-3">这是定时器最实用、也最能体现「时间是一种资源」的用法。<b class="font-semibold text-ink">需求很常见</b>：一个 LED 要每 500ms 闪一下、一个传感器要每 100ms 读一次、一个状态机要每 10ms 跑一步、一个超时判断要每 1 秒检查一次——但你手上一共只有 4 个定时器，还想留两个做 PWM 和捕获。<b>答案是：只需要一个 1ms 的更新中断，剩下的全部用软件在它的基础上「切片」。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="时间片轮询的三层结构">
+            <pre><code>┌──────────────────────────────────────────────────────────────┐
+│  硬件层：TIM2 每 1ms 产生一次更新中断                        │
+│          ISR 里只做一件事：g_ms_tick++                       │
+│          （它是一把「时间的尺子」，不干任何业务）             │
+└──────────────────────────┬───────────────────────────────────┘
+                           │  每 1ms 加 1
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│  调度层：软件定时器表（一张 const 数组 + 一次遍历）          │
+│          每项 = {周期, 上次运行时刻, 函数指针, 使能标志}     │
+│          「到点了吗？到了就跑一下，然后把时刻推后一个周期」   │
+└──────────────────────────┬───────────────────────────────────┘
+                           │  调用
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│  任务层：led_task() / sensor_task() / sm_task() / timeout()  │
+│          每个任务都必须是【短小、不阻塞】的                   │
+│          它们的节拍全部来自同一个 1ms 中断                    │
+└──────────────────────────────────────────────────────────────┘
+
+  时间轴（每格 1ms，横轴是时间）：
+
+  TIM2 ─┤1ms├─┤1ms├─┤1ms├─┤1ms├─┤1ms├─┤1ms├─┤1ms├─┤1ms├─┤1ms├─
+        tick 累加： 1    2    3    4    5    6    7    8    9
+
+  1ms  任务： ●    ●    ●    ●    ●    ●    ●    ●    ●   （每格都跑）
+  10ms 任务：●                   ●                   ●        （每 10 格）
+  100ms任务：●                                       ●        （每 100 格）
+  500ms任务：●                                                （每 500 格）
+             └── 全部由同一个 CNT 的溢出事件驱动 ──┘</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="Core/Src/soft_timer.h —— 软件定时器的定义">
+            <pre><code>#ifndef __SOFT_TIMER_H
+#define __SOFT_TIMER_H
+
+#include "main.h"
+
+/* 任务函数原型：不传参、不返回，执行时间要短 */
+typedef void (*task_fn_t)(void);
+
+typedef struct {
+    const char *name;         /* 任务名，调试用 */
+    uint32_t    period_ms;    /* 周期，毫秒 */
+    uint32_t    last_ms;      /* 上一次执行时的 g_ms_tick */
+    task_fn_t   fn;           /* 要调用的函数 */
+    uint8_t     enable;       /* 1 = 使能，0 = 暂停（可以随时开关） */
+} soft_timer_t;
+
+extern volatile uint32_t g_ms_tick;
+extern soft_timer_t      g_timers[];
+extern const uint32_t    g_timer_count;
+
+void soft_timer_poll(void);       /* 在【主循环】里反复调用 */
+void soft_timer_enable(const char *name, uint8_t en);
+
+#endif /* __SOFT_TIMER_H */</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="Core/Src/soft_timer.c —— 调度器本体">
+            <pre><code>#include "soft_timer.h"
+
+volatile uint32_t g_ms_tick = 0;         /* 由 TIM2 中断每 1ms 加 1 */
+
+/* ── 前向声明 ── */
+static void task_led(void);
+static void task_sensor(void);
+static void task_state_machine(void);
+static void task_timeout_check(void);
+static void task_hello(void);
+
+/* ────────────────────────────────────────────────────────────────
+   定时器表：整个系统的「时间表」都在这里。
+   加一个新任务 = 写一个函数 + 在这张表里加一行，就这么简单。
+   ──────────────────────────────────────────────────────────────── */
+soft_timer_t g_timers[] = {
+    /* name            period_ms  last_ms  fn                   enable */
+    { "led",              500,       0,   task_led,            1 },
+    { "sensor",           100,       0,   task_sensor,         1 },
+    { "sm",                10,       0,   task_state_machine,  1 },
+    { "timeout",         1000,       0,   task_timeout_check,  1 },
+    { "hello",           2000,       0,   task_hello,          0 },  /* 先关着 */
+};
+const uint32_t g_timer_count = sizeof(g_timers) / sizeof(g_timers[0]);
+
+/* ────────────────────────────────────────────────────────────────
+   ★ 调度器：在主循环里被反复调用，绝不放在中断里
+   ──────────────────────────────────────────────────────────────── */
+void soft_timer_poll(void)
+{
+    uint32_t now = g_ms_tick;            /* 先锁存：遍历过程中 tick 还会变 */
+
+    for (uint32_t i = 0; i &lt; g_timer_count; i++) {
+        soft_timer_t *t = &amp;g_timers[i];
+
+        if (!t-&gt;enable) {
+            /* 暂停的任务：把时刻跟着 tick 走，
+               这样重新使能时会从「现在」开始重新计时，不会补跑。 */
+            t-&gt;last_ms = now;
+            continue;
+        }
+
+        /* ★ 无符号减法：就算 g_ms_tick 回绕（49.7 天）也依然正确 */
+        if ((now - t-&gt;last_ms) &gt;= t-&gt;period_ms) {
+
+            /* 【关键】先把时刻推进一个周期，再执行任务。
+               这样即使任务执行中 tick 又走了几毫秒，
+               下次的节拍也不会被推后 —— 这叫「不累积漂移」。 */
+            t-&gt;last_ms += t-&gt;period_ms;
+
+            /* 【补拍保护】如果任务被卡住太久（比如某个任务阻塞了 30ms），
+               last_ms 会远远落后于 now，上面的 += 追不上，
+               于是下一轮 poll 会连续触发好几次 —— 这叫「补拍风暴」。
+               把落后超过一个周期的直接丢帧，只保留最新节拍。 */
+            if ((now - t-&gt;last_ms) &gt;= t-&gt;period_ms) {
+                t-&gt;last_ms = now;        /* 丢帧：宁可漏一次，不要连跑五次 */
+            }
+
+            t-&gt;fn();                     /* 执行任务本体 */
+        }
+    }
+}
+
+void soft_timer_enable(const char *name, uint8_t en)
+{
+    for (uint32_t i = 0; i &lt; g_timer_count; i++) {
+        if (strcmp(g_timers[i].name, name) == 0) {
+            g_timers[i].enable = en ? 1 : 0;
+            return;
+        }
+    }
+}
+
+/* ────────────────────────────────────────────────────────────────
+   任务本体：每一个都要【短小、非阻塞】
+   ──────────────────────────────────────────────────────────────── */
+static void task_led(void)
+{
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+}
+
+static void task_sensor(void)
+{
+    /* 读一次传感器。如果传感器是 I2C/SPI 的，
+       注意 HAL 的阻塞版函数（HAL_I2C_Mem_Read）可能要 1~2ms，
+       这已经接近 10ms 周期的 20% 了 ——
+       要么用中断/DMA 版，要么把周期放宽。 */
+}
+
+static void task_state_machine(void)
+{
+    /* 状态机走一步：开销小、节奏固定，非常适合 10ms 时间片 */
+}
+
+static void task_timeout_check(void)
+{
+    /* 超时判断：拿某个时间戳和 g_ms_tick 比一比 */
+}
+
+static void task_hello(void)
+{
+    /* 一个默认关闭的任务，演示「运行时动态开关」 */
+}</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="Core/Src/main.c —— 唯一的那个中断 + 极简主循环">
+            <pre><code>int main(void)
+{
+    HAL_Init();                 /* 内含 SysTick 1ms 时基 */
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_TIM2_Init();             /* PSC=71, ARR=999, 开更新中断 */
+
+    HAL_TIM_Base_Start_IT(&amp;htim2);      /* 整个系统的节拍源，就这一句 */
+
+    soft_timer_enable("hello", 1);      /* 需要时再打开 */
+
+    while (1) {
+        soft_timer_poll();      /* ★ 主循环里唯一的常驻动作 */
+
+        /* 将来要加事件驱动的代码（按键扫描、串口收包解析），
+           也写在这里，和轮询任务并行不冲突。 */
+    }
+}
+
+/* ────────────────────────────────────────────────────────────────
+   ★★ 全系统唯一的周期中断：只累加 tick，别的什么都不干。
+   为什么不在这个中断里直接调用任务函数？
+     · 任务函数一多、一慢，中断时间就被拉长，
+       高优先级中断（比如串口、ADC）的响应会变差。
+     · 中断里不能调用 HAL_Delay、不能做阻塞操作。
+     · 中断里做业务，代码极难调试（不能在断点停、变量要 volatile）。
+   所以：中断只负责「记录时间」，业务永远在主循环里跑。
+   ──────────────────────────────────────────────────────────────── */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim-&gt;Instance == TIM2) {
+        g_ms_tick++;
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">时间片轮询的三个硬约束（违背了就会出玄学 bug）</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>所有任务必须「短小且非阻塞」。</b>任何一个任务里写了 <code class="icode">HAL_Delay(50)</code>，整个系统的节拍就垮了——别人都在等它。要等待就在任务里置个状态、下次进来再看，<b>用状态机代替延时</b>。</li>
+              <li><b>任务的最坏执行时间之和，必须小于最短周期。</b>1ms 那个任务如果跑了 1.5ms，它就永远追不上节拍。工程上一般要求<b>总占用率低于 50%</b>，留一半余量给突发情况。</li>
+              <li><b>调度器必须在主循环里调用，不能放在中断里。</b>如果把 <code class="icode">soft_timer_poll()</code> 塞进 <code class="icode">HAL_TIM_PeriodElapsedCallback</code>，它就退化成了「在中断里跑所有业务」——上面列的三条坏处全中。中断与主循环的分工，就是这一节最想让你记住的东西。</li>
+            </ul>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这套框架 vs SysTick vs RTOS：什么时候该升级</div>
+            <p>同样一个 1ms 节拍，三种用法，各占一个复杂度台阶：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>只用 <code class="icode">HAL_GetTick()</code> 比较时间戳</b>：任务只有两三个、彼此独立时，最省事。缺点是每个任务都要自己写 <code class="icode">if (now - last &gt;= N)</code>，代码重复。</li>
+              <li><b>本文这套软件定时器表</b>：任务五个以上、需要统一开关和统一节拍管理时用。代码量很小（一百行以内），可读性好，可调试性好（断点随便打）。<b>中小项目的最佳选择。</b></li>
+              <li><b>上 RTOS（FreeRTOS 等）</b>：任务之间有复杂的同步/通信需求、需要优先级抢占、需要阻塞式 API（信号量、队列、任务通知）时再上。上了 RTOS 之后，本文这套框架和 RTOS 的 <code class="icode">vTaskDelay</code> 是两套并存的时间体系，<b>不要混用</b>——否则很容易出现「HAL_Delay 在 RTOS 下不准」这类经典困惑（见下一小节）。</li>
+            </ul>
+          </div>
+
+<h3 id="sub-resource" class="mt-7 text-base font-semibold">定时器不够用怎么办</h3>
+
+          <p class="mt-3">F103C8T6 上只有 4 个定时器，而一个稍微像样的项目往往同时需要：系统节拍、两路 PWM 调光、一路输入捕获测转速、一路编码器接口、还要一个做超时——<b class="font-semibold text-ink">五个需求，四个定时器，怎么办？</b>答案是：<b>大部分需求其实不需要独占一个定时器</b>。下面按「先省钱、后花钱」的顺序给你五条路。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第一招（首选）：一个定时器的多个通道输出多路 PWM。</b>这是最常见也最容易被忽略的用法。TIM1~TIM4 每个都有 4 个独立通道，<b>共用同一个 CNT、同一个 PSC、同一个 ARR，但每个通道有自己独立的 CCR</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="一个定时器四路 PWM：哪些能不同、哪些必须相同">
+            <pre><code>┌──────────────────────── 共用的部分（改一个，四路全变）────────────────────────┐
+│  PSC  ← 计数时钟（决定分辨率）                                                │
+│  ARR  ← 周期（决定 PWM 频率）★ 所以【四路的频率必须完全相同】                 │
+│  CNT  ← 唯一的那个计数器，四路同时和它比较                                    │
+│  计数模式、CKD、时钟源                                                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                    │
+        ┌───────────────┬───────────┴───────┬───────────────┐
+        ▼               ▼                   ▼               ▼
+   ┌─────────┐    ┌─────────┐        ┌─────────┐    ┌─────────┐
+   │ CH1/CCR1│    │ CH2/CCR2│        │ CH3/CCR3│    │ CH4/CCR4│
+   │ 各自独立│    │ 各自独立│        │ 各自独立│    │ 各自独立│
+   │ 占空比  │    │ 占空比  │        │ 占空比  │    │ 占空比  │
+   │ 极性    │    │ 极性    │        │ 极性    │    │ 极性    │
+   │ 输出使能│    │ 输出使能│        │ 输出使能│    │ 输出使能│
+   └─────────┘    └─────────┘        └─────────┘    └─────────┘
+     3 个 LED 调光 / 3 路电机 / RGB 三色灯，一个 TIM3 全包了
+
+【代码：四路各自独立的占空比】
+    HAL_TIM_PWM_Start(&amp;htim3, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&amp;htim3, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&amp;htim3, TIM_CHANNEL_3);
+    HAL_TIM_PWM_Start(&amp;htim3, TIM_CHANNEL_4);
+
+    __HAL_TIM_SET_COMPARE(&amp;htim3, TIM_CHANNEL_1, 100);   /* 10% */
+    __HAL_TIM_SET_COMPARE(&amp;htim3, TIM_CHANNEL_2, 300);   /* 30% */
+    __HAL_TIM_SET_COMPARE(&amp;htim3, TIM_CHANNEL_3, 500);   /* 50% */
+    __HAL_TIM_SET_COMPARE(&amp;htim3, TIM_CHANNEL_4, 750);   /* 75% */
+    /* 频率？四路都是 1kHz，改不了单独一路 —— 这就是共用的代价。 */
+
+【要变频？四路必须一起变，而且 CCR 要跟着重算】
+    改 ARR 之后，原来写死的 CCR 含义就变了。
+    正确做法：把「占空比」存成百分比，变频时重算 CCR：
+
+        uint32_t new_arr = 719;                 /* 想改成 100kHz */
+        __HAL_TIM_SET_AUTORELOAD(&amp;htim3, new_arr);
+        __HAL_TIM_SET_COMPARE(&amp;htim3, TIM_CHANNEL_1, (new_arr + 1) * 10 / 100);
+        __HAL_TIM_SET_COMPARE(&amp;htim3, TIM_CHANNEL_2, (new_arr + 1) * 30 / 100);
+        /* …把四路都按新 ARR 重新算一遍 */
+    如果只是改占空比、不改频率，就【不需要】动 ARR，
+    直接写 CCR 就够了（下一小节的排查顺序里会用到这一点）。</code></pre>
+          </div>
+
+          <p class="mt-3">每路 PWM 具体落在哪个引脚，是配置时第一个要确认的事。<b class="font-semibold text-ink">F103 的引脚复用表不长，但坑不少</b>，下面这张表把常用的都列出来了，<b>特别注意最后一列的冲突</b>——很多「PWM 配好了却没输出」的案子，根因是那个引脚被别的外设占着。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>定时器</th><th>CH1</th><th>CH2</th><th>CH3</th><th>CH4</th><th>默认引脚上的常见冲突</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">TIM1</td>
+                  <td class="font-mono text-xs">PA8</td><td class="font-mono text-xs">PA9</td>
+                  <td class="font-mono text-xs">PA10</td><td class="font-mono text-xs">PA11</td>
+                  <td>PA9/PA10 = USART1 的 TX/RX；PA11 = USB_DM（Blue Pill 的 USB 座就接在这）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TIM2</td>
+                  <td class="font-mono text-xs">PA0</td><td class="font-mono text-xs">PA1</td>
+                  <td class="font-mono text-xs">PA2</td><td class="font-mono text-xs">PA3</td>
+                  <td>PA0 = WKUP，很多板子上焊了按键；PA2/PA3 = USART2 的 TX/RX</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TIM3</td>
+                  <td class="font-mono text-xs">PA6</td><td class="font-mono text-xs">PA7</td>
+                  <td class="font-mono text-xs">PB0</td><td class="font-mono text-xs">PB1</td>
+                  <td>PA7 同时是 TIM1_CH1N 的复用脚（同一引脚两个外设）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TIM3<br>部分重映射</td>
+                  <td class="font-mono text-xs">PB4</td><td class="font-mono text-xs">PB5</td>
+                  <td class="font-mono text-xs">PB0</td><td class="font-mono text-xs">PB1</td>
+                  <td>PB4 = NJTRST，用之前必须关掉 JTAG（保留 SWD）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TIM3<br>完全重映射</td>
+                  <td class="font-mono text-xs">PC6</td><td class="font-mono text-xs">PC7</td>
+                  <td class="font-mono text-xs">PC8</td><td class="font-mono text-xs">PC9</td>
+                  <td>需要开 AFIO 时钟 + 关 JTAG；PC6~PC9 在 48 脚封装上不存在</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TIM4</td>
+                  <td class="font-mono text-xs">PB6</td><td class="font-mono text-xs">PB7</td>
+                  <td class="font-mono text-xs">PB8</td><td class="font-mono text-xs">PB9</td>
+                  <td>PB6/PB7 就是 I2C1 的 SCL/SDA，同时用 I2C1 就冲突</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TIM1<br>互补输出</td>
+                  <td class="font-mono text-xs">PB13</td><td class="font-mono text-xs">PB14</td>
+                  <td class="font-mono text-xs">PB15</td><td>—</td>
+                  <td>CH1N/CH2N/CH3N 与 CH1/CH2/CH3 共用同一个 CCR，占空比必然相同</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TIM1<br>刹车</td>
+                  <td class="font-mono text-xs">PB12</td><td>—</td><td>—</td><td>—</td>
+                  <td>BKIN 被拉低会立刻关掉全部输出并清 MOE —— 查「PWM 突然消失」必看这一脚</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第二招：一个定时器的一个中断，带一堆软件定时器。</b>上一小节的框架就是干这个的——<b>无论你有多少个「每 N 毫秒做一次」的需求，都只花一个定时器</b>。这条几乎能消掉一半的定时器需求，因为工程里大多数「定时」根本不是硬件时序，只是「过一会儿提醒我一下」。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第三招：用 SysTick 当业务节拍。</b>SysTick 是内核自带的，<b>不占 F103 那 4 个定时器里的任何一个</b>。HAL 已经把它配成 1ms 了，直接 <code class="icode">HAL_GetTick()</code> 就能拿来比较时间戳。<b>代价是：它属于 HAL 的时基，你不能改它的频率</b>（改了 <code class="icode">HAL_Delay</code> 就全乱），也不能在它上面挂自己的回调（除非你重写 <code class="icode">HAL_IncTick</code> 或 <code class="icode">SysTick_Handler</code>，那样容易和 HAL 打架）。<b>结论：用它读时间可以，用它做精确硬件时序不行。</b></p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第四招：软件 PWM。</b>当你要的是「八路 LED 各自调光」这种<b>慢速、不需要精确波形</b>的需求时，完全可以省掉硬件 PWM，用一个定时器中断自己刷引脚：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="8 路软件 PWM：一个中断刷八个引脚（附代价分析）">
+            <pre><code>/* ────────────────────────────────────────────────────────────────
+   原理：把 100µs 分成 100 份，每一份里逐个通道比较「计数 &lt; 占空比」，
+   是就拉高、不是就拉低。
+       100 份 × 100µs = 10ms 一整轮 → PWM 频率 100Hz，分辨率 1%
+   ──────────────────────────────────────────────────────────────── */
+#define SWPWM_CH     8
+#define SWPWM_LEVELS 100        /* 分辨率：1% */
+
+static volatile uint8_t s_duty[SWPWM_CH] = {0};   /* 0~100 */
+static uint8_t          s_phase = 0;
+
+/* 引脚表：把 8 个 GPIO 端口和引脚号放在一张表里，方便循环 */
+static GPIO_TypeDef *const s_port[SWPWM_CH] = {
+    GPIOA, GPIOA, GPIOA, GPIOA, GPIOB, GPIOB, GPIOB, GPIOB
+};
+static const uint16_t s_pin[SWPWM_CH] = {
+    GPIO_PIN_1, GPIO_PIN_2, GPIO_PIN_3, GPIO_PIN_4,
+    GPIO_PIN_5, GPIO_PIN_6, GPIO_PIN_7, GPIO_PIN_8
+};
+
+/* ★ 这个函数由定时器中断每 100µs 调用一次 */
+void swpwm_tick(void)
+{
+    s_phase++;
+    if (s_phase &gt;= SWPWM_LEVELS) {
+        s_phase = 0;
+    }
+    for (uint8_t i = 0; i &lt; SWPWM_CH; i++) {
+        /* 低电平有效还是高电平有效，按你的驱动电路定 */
+        if (s_phase &lt; s_duty[i]) {
+            HAL_GPIO_WritePin(s_port[i], s_pin[i], GPIO_PIN_SET);
+        } else {
+            HAL_GPIO_WritePin(s_port[i], s_pin[i], GPIO_PIN_RESET);
+        }
+    }
+}
+
+/* 设置占空比（0~100）。注意 s_duty 是 8 位，读写是原子的，
+   所以主循环里直接赋值就行，不需要关中断。 */
+void swpwm_set(uint8_t ch, uint8_t duty)
+{
+    if (ch &lt; SWPWM_CH &amp;&amp; duty &lt;= SWPWM_LEVELS) {
+        s_duty[ch] = duty;
+    }
+}
+
+/* ────────────────────────────────────────────────────────────────
+   【代价分析 —— 什么时候能用、什么时候别用】
+
+   ① CPU 开销：100µs 一次中断 = 每秒 10000 次。
+      每次中断要循环 8 个通道（每个通道一次 HAL_GPIO_WritePin，
+      约 10~20 个周期），算上进出中断的开销，
+      每次大约 1~2µs → 占用率约 1%~2%。可以接受，
+      但别忘了【它只在 100Hz 以下好用】。
+
+   ② 抖动：软件 PWM 的边沿时刻取决于中断响应延迟。
+      如果恰好有个串口中断在处理，边沿可能晚几微秒 ——
+      对 LED 完全无所谓，对音频/电机就是致命伤。
+
+   ③ 频率上限：想要 1kHz 的软件 PWM（1ms 一轮、100 级），
+      中断间隔就要 10µs → 每秒 10 万次中断 → CPU 直接烧掉。
+      【1kHz 以上必须用硬件 PWM。】
+
+   ④ 低功耗杀手：100µs 一次中断意味着 CPU 永远没法进深度睡眠。
+      电池项目里这是硬伤。
+
+   ⑤ 引脚必须是【普通推挽输出】，不能配成 AF 模式 ——
+      因为这次真的是「软件在控制引脚电平」。
+
+   【结论】软件 PWM 只适合：LED 调光、继电器、蜂鸣器、
+   加热丝这类「慢速、对波形不敏感」的负载，
+   而且通道数多、硬件定时器实在不够的时候。
+   电机、音频、开关电源 → 老老实实上硬件 PWM。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第五招（最后一招）：换型号。</b>如果算下来确实需要 6 路不同频率的硬件 PWM 加两路编码器接口，那就<b>别硬省了</b>——把 F103C8T6 换成 F103RCT6（TIM1~TIM8 全有，还多 256KB Flash）或者 F407（两个 32 位定时器 + 更快的时钟）。<b>选型阶段多花十块钱，比在软件里绕三个月便宜得多。</b>这一条同样适用于引脚不够：F103C8T6 只有 37 个 IO，很多「功能实现不了」最后都是引脚问题。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">一个「定时器分配表」的习惯</div>
+            <p>项目一开始就画一张表，把每个定时器的用途、参数、占用的引脚写清楚，贴在代码注释的开头：</p>
+            <div class="code-block mt-3" data-lang="c" data-title="Core/Src/main.c 开头的时间资源分配表">
+              <pre><code>/* ══════════════════════════════════════════════════════════════
+ *  定时器资源分配（改动前先看这张表！）
+ * ══════════════════════════════════════════════════════════════
+ *  TIM1  高级  PA8/PA9/PA10  互补 PWM 驱动半桥，20kHz，带死区 1µs
+ *                            （BKIN=PB12 接驱动芯片的 FAULT）
+ *  TIM2  通用  —             1ms 系统节拍 → g_ms_tick（软件定时器框架）
+ *  TIM3  通用  PA6/PA7       2 路 PWM：PA6 = 调光 1kHz，PA7 = 蜂鸣器 4kHz
+ *                            ★ 注意：这两路【频率必须相同】！
+ *                              要不同频率就得把蜂鸣器挪到 TIM4。
+ *  TIM4  通用  PB6/PB7       输入捕获测转速（1MHz 计数时钟）
+ *  SysTick 内核 —            HAL 时基（HAL_Delay / HAL_GetTick）
+ *
+ *  剩余可用：TIM3 的 PB0/PB1（CH3/CH4，占空比独立、频率同 CH1/CH2）
+ *             TIM4 的 PB8/PB9（CH3/CH4）
+ *  ══════════════════════════════════════════════════════════════ */</code></pre>
+            </div>
+            <p class="mt-2">这张表在项目里能省掉大量「我当初为什么把这个引脚给谁了」的困惑——<b>尤其是半年后回来改代码的时候，或者交给同事接手的时候</b>。引脚和外设的冲突是嵌入式项目里最典型的「改一处、坏三处」，一张表就是最便宜的防护。</p>
+          </div>
+
+          <h3 id="sub-systick" class="mt-7 text-base font-semibold">SysTick 与 HAL 的时基：HAL_Delay 背后的那套东西</h3>
+
+          <p class="mt-3">前面所有的例子里，<code class="icode">HAL_Delay</code> 和 <code class="icode">HAL_GetTick</code> 都像是「天上掉下来的」——现在该把它拆开了。<b class="font-semibold text-ink">SysTick 不属于 ST 的任何一个外设，它是 Cortex-M3 内核里自带的一个 24 位递减计数器</b>，所有 Cortex-M 芯片都有，地址在系统控制空间里，跟 TIM1~TIM4 完全不是一回事。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="SysTick 的四个寄存器和它怎么变成 uwTick">
+            <pre><code>┌─────────────────────── Cortex-M3 内核 ───────────────────────┐
+│                                                              │
+│   SysTick（24 位【递减】计数器，不是递增！）                  │
+│                                                              │
+│     CTRL  (0xE000E010)  控制：使能、中断使能、时钟源、计数标志│
+│     LOAD  (0xE000E014)  重装载值（24 位，最大 0xFFFFFF）      │
+│     VAL   (0xE000E018)  当前值（读它得到「还剩多少」）        │
+│     CALIB (0xE000E01C)  校准值（一般不用）                    │
+│                                                              │
+│     工作方式：VAL 从 LOAD 开始每来一个时钟减 1，              │
+│               减到 0 → 下一拍重装成 LOAD、置 COUNTFLAG、      │
+│               如果 TICKINT=1 → 触发【SysTick 异常】（异常号 15）│
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+     HAL_Init()
+        └─ HAL_InitTick(TICK_INT_PRIORITY = 15)
+              └─ HAL_SYSTICK_Config(SystemCoreClock / (1000U / uwTickFreq))
+                    uwTickFreq = HAL_TICK_FREQ_DEFAULT = 1（也就是 1ms）
+                    → 72 000 000 / 1000 = 72000
+                    → LOAD = 72000 − 1 = 71999
+                    → 每 1ms 触发一次 SysTick 异常
+
+     SysTick_Handler()            【在 stm32f1xx_it.c 里】
+        └─ HAL_IncTick()
+              └─ uwTick += uwTickFreq;      /* uwTick 每 1ms 加 1 */
+
+     HAL_GetTick()  →  return uwTick;       /* 就是一个全局变量 */
+
+     HAL_Delay(ms)
+        └─ tickstart = HAL_GetTick();
+           while ((HAL_GetTick() - tickstart) &lt; ms) { }   ← 死等
+
+     ★ 所以 HAL_Delay 的真相：它【不睡眠、不省电、不让出 CPU】，
+       就是在主循环里空转，一直问到 uwTick 涨够了为止。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">为什么 HAL_Delay 绝对不能在中断里调用（会死锁，不是「不准」）</div>
+            <p>这是新手最容易踩、而且症状最吓人的一个坑：<b>程序不是变慢，是整个卡死</b>。原因是一个再简单不过的循环依赖：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><code class="icode">HAL_Delay</code> 要等 <code class="icode">uwTick</code> 变大才返回；</li>
+              <li><code class="icode">uwTick</code> 只在 <b>SysTick 中断</b>里变大；</li>
+              <li>而你现在<b>正待在另一个中断里</b>。Cortex-M 的中断不会互相抢占，除非新来的中断优先级<b>数值更小</b>。SysTick 的优先级被 HAL 设成了 <b>15（最低）</b>；</li>
+              <li>所以只要你这个中断的优先级数值 ≤ 15（实际上就是你配的任何值），<b>SysTick 都无法抢占它</b>——它得等你返回才轮得到；</li>
+              <li>你等它，它等你 → <b>死锁，永远出不来</b>。看门狗喂不上，几秒后复位——于是现象变成「设备每隔几秒重启一次」，更难查。</li>
+            </ul>
+            <p class="mt-2"><b>正确做法：中断里只记录时刻，不做等待。</b>需要「过一会儿再做事」，就在中断里记个时间戳或置个标志，让主循环去判断：</p>
+            <div class="code-block mt-3" data-lang="c" data-title="中断里想要延时怎么办：三种正确写法">
+              <pre><code>/* ✗ 错误：直接等待 —— 死锁 */
+void HAL_GPIO_EXTI_Callback(uint16_t pin)
+{
+    HAL_Delay(10);                  /* 永远卡在这里 */
+    do_something();
+}
+
+/* ✓ 写法一：记录时刻，主循环里判断（最通用） */
+static volatile uint32_t s_event_tick = 0;
+static volatile uint8_t  s_event_flag = 0;
+
+void HAL_GPIO_EXTI_Callback(uint16_t pin)
+{
+    s_event_tick = HAL_GetTick();   /* 读一个变量，安全，不阻塞 */
+    s_event_flag = 1;
+}
+
+/* 主循环里： */
+void event_poll(void)
+{
+    if (s_event_flag &amp;&amp; (HAL_GetTick() - s_event_tick) &gt;= 10U) {
+        s_event_flag = 0;
+        do_something();
+    }
+}
+
+/* ✓ 写法二：中断里数中断次数（不需要 HAL 时基） */
+static volatile uint8_t s_skip = 0;
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim-&gt;Instance == TIM2) {
+        if (++s_skip &gt;= 10) {       /* 10 个 1ms = 10ms */
+            s_skip = 0;
+            do_something();
+        }
+    }
+}
+
+/* ✓ 写法三：真要微秒级精确延时，用 DWT 周期计数器
+   （Cortex-M3 的调试单元里有一个自由运行的 CYCCNT，
+     不占任何定时器，也不依赖中断） */
+static inline void dwt_delay_us(uint32_t us)
+{
+    uint32_t start = DWT-&gt;CYCCNT;
+    uint32_t ticks = us * (SystemCoreClock / 1000000U);
+    while ((DWT-&gt;CYCCNT - start) &lt; ticks) { }
+}
+/* 用之前要开：CoreDebug-&gt;DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+                DWT-&gt;CYCCNT = 0;
+                DWT-&gt;CTRL  |= DWT_CTRL_CYCCNTENA_Msk;
+   注意：某些调试器连接状态下 DWT 才可用，
+         而且它同样【不能在长时间里空转】——只是把等待从 ms 缩到 µs。 */</code></pre>
+            </div>
+          </div>
+
+          <p class="mt-3">SysTick 还有一个必须知道的地方：<b class="font-semibold text-ink">它只有 24 位，而且 HAL 把它用掉了</b>。24 位意味着 <code class="icode">LOAD</code> 最大 16777215，按 72MHz 算，一次最长只能数 <code class="icode">16777215 / 72 000 000 = 233ms</code>。这刚好够做 1ms 的时基，但<b>想做更长的周期就必须靠 <code class="icode">uwTick</code> 累加</b>。<code class="icode">uwTick</code> 是 32 位、单位 1ms，能表示 <code class="icode">2³² ms ≈ 49.7 天</code>——所以嵌入式设备连续运行超过 49.7 天后，所有用 <code class="icode">HAL_GetTick</code> 做绝对比较的代码都会突然出错，<b>而用无符号差值比较（<code class="icode">now - last &gt;= N</code>）的代码则安然无恙</b>。这就是前面几段代码里反复强调「用差值、不要用绝对值比较」的原因。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="RTOS 为什么需要一个周期 tick：系统时基与业务定时器的分工">
+            <pre><code>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【裸机：1ms 节拍由 SysTick 提供，HAL_Delay 消费它】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   SysTick ──每 1ms──▶ uwTick++        （系统时基：记录「现在几点」）
+                          │
+                          ├──▶ HAL_Delay / HAL_GetTick
+                          └──▶ 你的时间戳比较、软件定时器表
+
+   TIM2/TIM3 等 ───────▶ PWM、输入捕获、死区、编码器
+                          （业务定时器：产生和测量【精确的硬件时序】）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【RTOS：同样需要这个节拍，但它叫「tick」，而且用途变了】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   FreeRTOS 需要【周期性的 tick 中断】来驱动内核，没有 tick 它就不转：
+
+     · 任务的时间片轮转（同优先级任务每 tick 换一次）
+     · vTaskDelay / vTaskDelayUntil 的计时（延时是「让出 CPU」，
+       不是空转 —— 这是它和 HAL_Delay 的本质区别）
+     · 超时判断（信号量、队列、事件组带超时的等待）
+     · 软件定时器（FreeRTOS 的 xTimerCreate）的时基
+     · 统计任务的运行时间
+
+   典型配置（FreeRTOSConfig.h）：
+       #define configTICK_RATE_HZ  ((TickType_t)1000)   /* 1kHz = 1ms 一个 tick */
+       #define configUSE_PREEMPTION 1
+       #define configUSE_TIME_SLICING 1
+
+   【关键问题：tick 从哪来？】
+     默认是 SysTick（port.c 里的 xPortSysTickHandler）。
+     但 SysTick 只有一个，而 HAL 也在用它做时基 → 【冲突】。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【冲突的三种表现（CubeMX 上 FreeRTOS 之后常见）】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   ① HAL_Delay 卡死或者时间完全不对
+      → HAL 的时基被 RTOS 接管了，uwTick 不再按 1ms 增长。
+
+   ② HAL_InitTick 报错 / 编译警告
+      → HAL 想初始化 SysTick，RTOS 也想，两边打架。
+
+   ③ 在中断里调 HAL_Delay —— 依然是死锁，而且更隐蔽
+      → 和裸机同理，SysTick 优先级最低，等不到 tick。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【正确做法】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   ① CubeMX 里把 HAL 的时基【挪走】：
+        Project Manager → Advanced Settings → Timebase Source
+        选 TIM6 或 TIM7（基本定时器，没有引脚、没有 PWM 能力，
+        专门干这个最合适。板上只有 TIM1~TIM4 的话选一个你不用的，
+        比如用 TIM4，反正它只产生 1ms 中断）。
+       这样：SysTick 归 FreeRTOS（tick），TIM6 归 HAL（uwTick），
+             各用各的，互不干扰。
+
+   ② 业务代码里【统一用 RTOS 的 API】，不要混着用：
+        HAL_Delay(10)      →  vTaskDelay(pdMS_TO_TICKS(10))
+        HAL_GetTick()      →  xTaskGetTickCount()
+       （osDelay / osKernelGetTickCount 是 CMSIS-RTOS 的等价写法。）
+       混用两套时间体系，等于在自己脚下埋雷。
+
+   ③ 硬件时序【永远留给定时器外设】，不要交给 RTOS：
+       1kHz 以上的 PWM、死区、输入捕获 —— 这些是硬件的活儿。
+       RTOS 的 tick 是 1ms 级的，用它做时序精度差了三个数量级。
+       任务里要调 PWM，就是改一个 CCR 的值，然后继续让硬件去跑。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【一张表记住分工】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   项目              系统时基（SysTick / HAL / RTOS tick）  业务定时器（TIMx）
+   ────────────────  ─────────────────────────────────────  ──────────────────
+   精度              1ms 级（软件节拍）                      纳秒~微秒级（硬件）
+   谁在数            CPU 每 tick 干一件事                    纯硬件，不占 CPU
+   中断负担          每 1ms 一次（很轻）                     只在需要时开中断
+   用途              记录时刻、任务调度、超时判断            PWM、捕获、死区、编码器
+   能不能停          RTOS 调度时不能停（停了系统就不转）     可以随时启停
+   µs 级延时         做不到（最小刻度 1ms）                  可以（ARR 决定刻度）
+   低功耗友好度      差（永远在唤醒）                        好（用完就关）</code></pre>
+          </div>
+
+          <h3 id="sub-debug-order" class="mt-7 text-base font-semibold">「定时器不中断 / PWM 没输出」的排查顺序</h3>
+
+          <p class="mt-3">这两个现象占了初学者定时器问题的绝大多数。<b class="font-semibold text-ink">不要一上来就怀疑硬件、也不要瞎改代码</b>——按下面的顺序走，每一步都能把范围砍掉一半。这个顺序不是我编的，它就是<b>信号从时钟到引脚的传播路径</b>：时钟 → 计数 → 事件 → 中断 → 输出 → 引脚。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="六步排查法：按信号传播的顺序走">
+            <pre><code>╔══════════════════════════════════════════════════════════════╗
+║  第 1 步：RCC 时钟使能了吗？（外设的「电源开关」）           ║
+╚══════════════════════════════════════════════════════════════╝
+
+  查什么：__HAL_RCC_TIM2_CLK_ENABLE() 有没有被调用
+          （CubeMX 生成的 MX_TIMx_Init 里，它会出现在 MspInit 中）
+  怎么看：调试器里看 RCC-&gt;APB1ENR 的 TIM2EN 位（bit 0）是不是 1
+          TIM3/TIM4 = bit 1 / bit 2；TIM1 在 APB2ENR 的 bit 11
+  症状特点：★★★ 最阴的一种 —— 【不报错、不 HardFault、寄存器写不进去】。
+          因为时钟没开时，写定时器寄存器的操作被总线静默丢弃，
+          读回来永远是 0。你以为配好了，其实一个字节都没写进去。
+  顺便查：AFIO 时钟（__HAL_RCC_AFIO_CLK_ENABLE）——
+          只有用重映射时才需要，但漏了会导致引脚复用无效。
+
+╔══════════════════════════════════════════════════════════════╗
+║  第 2 步：PSC / ARR 算对了吗？（数得对不对、快不快）         ║
+╚══════════════════════════════════════════════════════════════╝
+
+  查什么：① f_clk 到底是多少（别忘了 APB 预分频 ≠ 1 时定时器时钟要 ×2）
+          ② PSC / ARR 的数值是不是按例 1 的步骤算出来的
+          ③ 计数模式对不对（中央对齐会让频率减半！）
+  怎么看：调试器里【连续读两次 TIMx-&gt;CNT】：
+            · 两次值在变      → 时钟到了，计数正常 ✅ 往下走
+            · 两次值都不变    → 计数器没启动，或时钟源没配上 → 回第 1 步
+            · 值变得极快/极慢 → PSC 算错了，或者 f_clk 不是你以为的那个
+          再读 TIMx-&gt;SR 的 UIF 位：为 1 说明【确实溢出过】——
+          只要你停下来看，它几乎总该是 1（因为 1ms 就溢出一次）。
+          UIF 是 0 而且 CNT 在动 → ARR 设得太大，你等的时间不够长。
+  常见错：把 1ms 写成 1s（少乘了 1000）、把 72MHz 当成 36MHz、
+          中央对齐时忘了分母 ×2。
+
+╔══════════════════════════════════════════════════════════════╗
+║  第 3 步：中断使能位与 NVIC 使能了吗？（要不要叫 CPU）       ║
+╚══════════════════════════════════════════════════════════════╝
+
+  这一层有两个「开关」，【两个都得开】，而且它们在两个不同的寄存器里：
+
+     ① 外设级：TIMx-&gt;DIER 的 UIE 位（bit 0）
+        —— 定时器自己的「允许我发中断请求」
+        —— 代码里是 __HAL_TIM_ENABLE_IT(&amp;htim, TIM_IT_UPDATE)
+     ② 内核级：NVIC-&gt;ISER[0] 里 TIM2_IRQn（28 号）对应的位
+        —— 内核的「我允许这个中断进来」
+        —— 代码里是 HAL_NVIC_EnableIRQ(TIM2_IRQn)
+        —— CubeMX 里就是那个 NVIC Settings 的勾选框
+
+  症状区分（很有用）：
+     UIE=1、NVIC=0  → 定时器 SR 的 UIF 一直是 1（没人清），
+                      但回调函数永远不进 —— 现象就是「不中断」
+     UIE=0、NVIC=1  → 同上，进不去
+     两个都是 1     → 那问题不在这一层
+
+  还要查三件事：
+     · 优先级分组与优先级数值（HAL_Init 里设的分组）
+     · 【全局中断有没有被关】：程序里有没有残留 __disable_irq()；
+       HAL 的临界区用的是 PRIMASK，进了临界区就别想响应中断
+     · 有没有硬件故障把中断卡住了：调试器停在哪？是不是在
+       HardFault_Handler / Error_Handler 里死循环？
+
+╔══════════════════════════════════════════════════════════════╗
+║  第 4 步：启动函数调了吗？（而且调的是「带 _IT」那个吗）     ║
+╚══════════════════════════════════════════════════════════════╝
+
+  ★★★ 这是出现频率最高的一条，几乎一半的「不中断」都是它。
+
+   要 1ms 更新中断：
+       HAL_TIM_Base_Start_IT(&amp;htim2);     ✅ 对
+       HAL_TIM_Base_Start(&amp;htim2);        ✗ 只启动、不开中断！
+
+   要 PWM 输出：
+       HAL_TIM_PWM_Start(&amp;htim3, TIM_CHANNEL_1);        ✅ 对
+       HAL_TIM_Base_Start(&amp;htim3);                      ✗ 计数器在跑，
+                                                          但通道输出没使能
+       HAL_TIM_PWM_Start(&amp;htim3, TIM_CHANNEL_2);        ✗ 通道号写错，
+                                                          你等的是 CH1
+
+   要输入捕获：
+       HAL_TIM_IC_Start_IT(&amp;htim4, TIM_CHANNEL_1);      ✅ 对（要中断）
+       HAL_TIM_IC_Start(&amp;htim4, TIM_CHANNEL_1);         ✗ 不产生中断
+   要溢出计数：还要额外一句 HAL_TIM_Base_Start_IT(&amp;htim4);
+               ★ HAL_TIM_IC_Start_IT 不会帮你开更新中断。
+
+  怎么确认：调试器里看 TIMx-&gt;CR1 的 CEN 位（bit 0）和
+            TIMx-&gt;CCER 的 CC1E 位（bit 0）：
+              CEN=0  → 根本没启动
+              CC1E=0 → 通道输出没使能（PWM 一定没输出）
+
+╔══════════════════════════════════════════════════════════════╗
+║  第 5 步：引脚复用配了吗？（AF 模式 + AF 编号 + 重映射）     ║
+╚══════════════════════════════════════════════════════════════╝
+
+  只有定时器内部一切正常、但【引脚上量不到波形】时，才轮到这一步。
+
+  查什么：
+    ① GPIO 模式必须是【复用推挽输出】(Alternate Function Push-Pull)
+       调试器看 GPIOA-&gt;CRL/CRH 里那个引脚的 4 位配置：
+           0xB = AF 推挽（对）    0x1/0x3 = 通用输出（错，软件才能控制）
+           0x4 = 浮空输入（错，那是给输入捕获用的）
+    ② AFIO 重映射（如果用重映射引脚）：AFIO-&gt;MAPR 对应位 +
+       __HAL_RCC_AFIO_CLK_ENABLE() 是否都到位
+    ③ 引脚【有没有被别的外设占用】——查上面那张引脚表的冲突列
+       （PA9/PA10 给串口了？PA11 给 USB 了？PB6/PB7 给 I2C 了？）
+    ④ 输出速度（GPIO_Speed）：PWM 频率高（&gt; 100kHz）时设 Low
+       会让边沿变缓、波形失真成三角形，设 High 或 Medium
+    ⑤ 高级定时器 TIM1/TIM8 还要看 TIMx-&gt;BDTR 的 MOE 位（bit 15）：
+       MOE=0 → 【PWM 一定没输出】（主输出被关闭）
+       MOE 什么时候会被清 0？刹车输入 BKIN 有效时（PB12 被拉低），
+       或者代码里手动做了 __HAL_TIM_MOE_DISABLE。
+       → 「昨天还好好的 PWM 今天没输出了」先看 BKIN 那一脚。
+
+╔══════════════════════════════════════════════════════════════╗
+║  第 6 步：最后才怀疑硬件                                         ║
+╚══════════════════════════════════════════════════════════════╝
+
+  到这一步，软件已经全部走通了，那才轮到：
+     · 换一个引脚试（把 CH1 从 PA6 换到 PA7，看波形出不出来）
+       —— 出来 = 引脚或焊接问题，没出来 = 你还有软件没查到
+     · 示波器/逻辑分析仪直接量引脚（不要靠 LED 猜）
+     · 共地了吗？（尤其量外部信号时，不共地就是一堆噪声）
+     · 板子上的 LED/上拉电阻把引脚"拉死"了？（有些板子的 LED
+       直接接在 PA6 上还串了个小电阻，会明显影响波形）
+     · 换一块板子/换一颗芯片（真的遇到过引脚被打坏的情况）
+     · 供电电压够不够（3.3V 掉到 2.8V 时，高电平可能推不上去）
+
+  【为什么硬件放最后】因为前面五步都是「几分钟能查完」的，
+  而换板子、飞线、买芯片是「几小时到几天」的。
+  按概率排，前面五步能解决 90% 以上的问题。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>现象</th><th>最可能的原因（按概率排序）</th><th>一眼确认的方法</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>回调函数一次都不进</td>
+                  <td>① 用了 <code class="icode">HAL_TIM_Base_Start</code>（少了 _IT）<br>② NVIC 没使能<br>③ 回调函数名写错</td>
+                  <td>看 <code class="icode">CR1.CEN</code> 与 <code class="icode">DIER.UIE</code> 是否都为 1</td>
+                </tr>
+                <tr>
+                  <td>中断进了一次就再也不进</td>
+                  <td>中断标志没被清（自己写的 IRQHandler 里漏了清标志）</td>
+                  <td>看 <code class="icode">SR.UIF</code> 是否一直挂着 1</td>
+                </tr>
+                <tr>
+                  <td>PWM 完全没有输出</td>
+                  <td>① 没调 <code class="icode">HAL_TIM_PWM_Start</code><br>② 引脚没配 AF<br>③ TIM1 的 MOE=0 / BKIN 被拉低<br>④ CCR=0（占空比 0%）</td>
+                  <td>看 <code class="icode">CCER.CC1E</code>、<code class="icode">BDTR.MOE</code>、<code class="icode">GPIOx-&gt;CRL</code></td>
+                </tr>
+                <tr>
+                  <td>PWM 有输出但频率不对（差 2 倍）</td>
+                  <td>中央对齐模式：频率公式分母多了个 2</td>
+                  <td>看 <code class="icode">CR1.CMS</code> 是不是 00</td>
+                </tr>
+                <tr>
+                  <td>PWM 频率差了整整一倍（快一倍）</td>
+                  <td>时钟算错：把 APB1 的 36MHz 当成了定时器时钟，实际是 72MHz</td>
+                  <td>CubeMX 时钟树上鼠标悬停 TIMx 那一格</td>
+                </tr>
+                <tr>
+                  <td>占空比能改但一动就闪、波形有毛刺</td>
+                  <td>输出比较预装载（OCxPE）没开，改 CCR 的瞬间被"看见"了</td>
+                  <td>看 <code class="icode">CCMR1.OC1PE</code> 是否为 1</td>
+                </tr>
+                <tr>
+                  <td>输入捕获的读数偶尔蹦出一个错值</td>
+                  <td>两次捕获之间溢出了，没做补偿；或者没有输入滤波</td>
+                  <td>看溢出计数有没有在累加；加大 <code class="icode">IC1F</code> 滤波</td>
+                </tr>
+                <tr>
+                  <td>51 那边：定时时间总是偏长一点点</td>
+                  <td>中断里重装初值有延迟，误差逐周期累积</td>
+                  <td>改用方式 2（8 位自动重装）或缩短初值重装路径</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">如果只记一句话</b>：<b>调试器里读五样东西——<code class="icode">RCC-&gt;APB1ENR</code>（时钟开没开）、<code class="icode">CR1.CEN</code>（启动没启动）、<code class="icode">CNT</code>（在不在数）、<code class="icode">DIER.UIE</code> + <code class="icode">NVIC-&gt;ISER</code>（中断通没通）、<code class="icode">CCER.CC1E</code> + <code class="icode">BDTR.MOE</code>（输出开没开）</b>。这五样一看，问题必然落在其中一层，不用猜。</p>
+
+</section>
+
+        <!-- ---------------------------- 5. 常见误解与坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="mt-12 text-xl font-semibold">常见误解与坑</h2>
+
+          <p class="mt-4">下面这十条，是定时器这一块最典型、也最费时间的认知偏差。每一条都按「<b class="font-semibold text-ink">错误认知 → 为什么错 → 正确做法</b>」写，<b>建议对照自己的代码过一遍</b>——尤其第 4、5、7 条，很多人是在被坑过好几次之后才真正记住的。</p>
+
+          <div class="card card-pad mt-4">
+            <h3 id="pit-1" class="text-sm font-semibold">坑 1：把定时器当成「一个延时函数」</h3>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">错误认知：</b>「定时器就是用来延时的，我要延时的时候调它一下。」</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">为什么错：</b>延时只是它在「数自己的时钟」这件事上顺带产生的一个副产品。定时器真正的身份是<b>一个能被 CPU 读写的计数器 + 一整套比较/捕获/触发电路</b>。把它当延时函数用，等于买了一台机床只用它压纸——你会觉得定时器「不够用」，其实是没意识到它同时能做时基、PWM、捕获、编码器、触发 ADC、产生 DMA 请求。</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">正确做法：</b>配置定时器时先问三个问题：<b>它在数谁（时钟源）？数到多少（ARR）？数到之后要干什么（更新事件→中断/DMA/触发/输出）？</b>「延时」只是第三个问题的一种答案。同样一个 TIM2，可以既做 1ms 系统节拍、又用它的 TRGO 去触发 ADC 采样，还能把 CH1 配成输出比较去翻转一个引脚——<b>一份硬件，多份产出</b>。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <h3 id="pit-2" class="text-sm font-semibold">坑 2：以为定时器的时钟就是 PCLK1（36MHz）</h3>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">错误认知：</b>「APB1 的时钟是 36MHz，所以 TIM2 的时钟是 36MHz，PSC 要按 36MHz 算。」</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">为什么错：</b>STM32 有一条专门的规则：<b>当 APB 预分频系数不为 1 时，挂在这条总线上的定时器时钟会被自动 ×2</b>。所以 APB1 = 36MHz 时，TIM2~TIM4 拿到的是 <b>72MHz</b>。按 36MHz 去算 PSC，得到的时间会正好差一倍——而且「差一倍」这种错误特别隐蔽，因为它看起来很合理，你不会怀疑。</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">正确做法：</b>永远不要在脑子里推算这个频率。<b>CubeMX 的时钟树上把鼠标悬停在那颗定时器上，它会直接显示实际时钟</b>（比如 "TIM2 clock: 72 MHz"）；或者代码里用 <code class="icode">HAL_RCC_GetPCLK1Freq()</code> 读出来，按「预分频是否为 1」判断要不要 ×2。更重要的是：<b>算完参数后用示波器或逻辑分析仪量一下实际周期</b>，花三十秒就能把这个隐藏错误钉死。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <h3 id="pit-3" class="text-sm font-semibold">坑 3：改 ARR 之后以为立刻就生效了</h3>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">错误认知：</b>「我在主循环里写了 <code class="icode">__HAL_TIM_SET_AUTORELOAD(&amp;htim, 999)</code>，下一个周期就是 1ms 了。」</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">为什么错：</b>当 <b>ARPE（自动重载预装载使能）= 1</b> 时（CubeMX 里那个 "auto-reload preload: Enable" 就是它），你写的值先进<b>预装载寄存器</b>，要等到<b>下一个更新事件 UEV</b> 才被搬进真正起作用的影子寄存器。<b>你的本意是「防止改到一半的周期被用上」，而延迟生效正是它的目的，不是 bug。</b>所以现象是：改了 ARR 以后，这<em>一</em>个周期还是旧的，从下一个周期起才变。</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">正确做法：</b>想要「写完立即生效」，就把 ARPE 关掉（<code class="icode">htim.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE</code>）——但那样在动态变频时，可能产生一个畸形的短周期或长周期。更好的做法是<b>接受延迟、并利用它</b>：要平滑变频就配合更新中断，在中断里（也就是 UEV 刚发生时）写下一个值；要做「频率渐变」就在每个更新中断里按表推进一格。另外注意：<b>中央对齐模式下分频比的分母是 2×ARR</b>，改 ARR 时别忘了这一点。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <h3 id="pit-4" class="text-sm font-semibold">坑 4：在中断里给定时器「重装初值」（51 的后遗症）</h3>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">错误认知：</b>「51 里中断服务函数第一件事就是 <code class="icode">TH0 = 0x3C; TL0 = 0xB0;</code>，STM32 肯定也要重装，不装就不准了。」</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">为什么错：</b>STM32 的 ARR 是<b>硬件自动重装</b>的：CNT 撞到 ARR 的同一拍里，硬件已经把 CNT 清零、把 ARR 的预装载值搬进影子寄存器、置 UIF、再问你要不要中断。<b>你什么都不用做，周期就已经是精确的。</b>反过来，如果你在中断里手动写 ARR 或 CNT，反而会破坏这个精确性：中断响应有延迟（几微秒到几十微秒），你写进去的时刻已经晚于溢出时刻，周期的抖动就被你亲手引进来了。</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">正确做法：</b><b>中断里只做业务，不碰 ARR、不碰 CNT、不碰 PSC。</b>唯一可以在中断里改的是 CCR（改占空比、改输出比较值），因为它也有预装载保护。要理解这个差别，记住一句话：<b>51 的初值计算里包含了「软件重装的延迟」，STM32 的 PSC/ARR 计算里没有任何软件参与——这是两种计时哲学。</b>（想知道「自动重装」到底省掉了多少误差，回看例 5 的误差对比。）</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <h3 id="pit-5" class="text-sm font-semibold">坑 5：把占空比算成 CCR / ARR</h3>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">错误认知：</b>「ARR = 999，CCR = 300，那占空比就是 300/999 = 30.03%，差不多是 30% 嘛。」</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">为什么错：</b><b>一个完整的周期有 (ARR+1) 个计数</b>，因为 CNT 的取值是 0、1、2 … ARR，一共 ARR+1 个值。所以分母是 ARR+1 = 1000，不是 999。CCR = 300 时占空比精确是 30.00%，而不是 30.03%。这个「差不多」在 ARR 很大的时候看起来无所谓，但当 ARR 很小（比如 9）时，误差会放大到 10%——而且它还会污染你的反算：<b>用 CCR/ARR 反推「想要 30% 时 CCR 该填多少」，会算出 299.7，四舍五入到 300，看起来又对了</b>，于是这个错误被永久地藏起来了。</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">正确做法：</b>一律背这个式子：<b>边沿对齐向上计数 → 占空比 = CCR / (ARR+1)</b>。还想再确认一遍，就把两个边界代进去：<code class="icode">CCR = 0</code> 应该是 0%，<code class="icode">CCR = ARR+1</code> 应该是 100%（此时 CNT 永远小于 CCR，即永远处于有效电平）。<b>中央对齐是例外</b>：向上向下各走一趟，一圈是 2×ARR 个计数，占空比 = CCR / ARR（严格说是 <code class="icode">(2·ARR − 2·CCR)/(2·ARR)</code> 那份推导，工程上用 CCR/ARR 这个近似就够了，因为它是硬件在上下两段分别比较的结果）。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <h3 id="pit-6" class="text-sm font-semibold">坑 6：以为 HAL_Delay 是「精确延时」、可以在任何地方用</h3>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">错误认知：</b>「<code class="icode">HAL_Delay(1)</code> 就是精确的 1 毫秒，在中断里用一下也没事。」</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">为什么错：</b>两层错。① <b>它不精确</b>：它只是「等到 uwTick 长了至少 1 才算完」，而 uwTick 是 1ms 一跳的，加上中断延迟，<code class="icode">HAL_Delay(1)</code> 实际可能是 1.0~2.0ms；② <b>在中断里用它必然死锁</b>：uwTick 只在 SysTick 中断里增加，而 SysTick 的优先级被 HAL 设成最低的 15，任何中断都能把它挡住——你在中断里等它，它等你退出中断，互相等到天荒地老（详见第 4 节的死锁分析）。</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">正确做法：</b>主循环里可以用（可读性好、够用），但要清楚它是<b>忙等</b>——浪费 CPU、不让 CPU 睡觉，电池项目里要慎用。中断里绝对不能用，改成「记录时间戳 + 主循环判断」或者「数中断次数」。<b>需要微秒级精度</b>就用 DWT 的 CYCCNT（第 4 节有现成函数）或者干脆交给定时器硬件去产生时序。<b>需要「不浪费 CPU 的等待」</b>就上 RTOS 的 <code class="icode">vTaskDelay</code>（它会让出 CPU）。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <h3 id="pit-7" class="text-sm font-semibold">坑 7：以为一个定时器的四路 PWM 可以输出四种频率</h3>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">错误认知：</b>「TIM3 有 4 个通道，那我 CH1 输出 1kHz 的调光、CH2 输出 4kHz 的蜂鸣器、CH3 输出 20kHz 的电机驱动，正好一个定时器全包了。」</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">为什么错：</b><b>四个通道共用同一个 CNT、同一个 PSC、同一个 ARR</b>。频率由 CNT 数到 ARR 的时间决定，所以<b>四路的频率必然完全相同</b>，能各自独立的只有 CCR（占空比）、极性、输出使能。上面那个需求在一个 TIM3 上<b>物理上做不到</b>——这不是库的限制，是硬件的结构。</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">正确做法：</b>① <b>需求合并</b>：调光和蜂鸣器如果都能接受 1kHz，就用同一个定时器的不同通道；② <b>拆到不同定时器</b>：频率真的不同就用 TIM3 + TIM4（F103C8T6 上就这四颗，要提前规划引脚）；③ <b>要变频就四路一起变</b>：把占空比存成百分比，改 ARR 时把所有 CCR 按新 ARR 重算一遍（第 4 节有代码）；④ <b>慢速负载考虑软件 PWM</b>（LED、继电器这类），用普通 IO 刷出来，省下整个定时器。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <h3 id="pit-8" class="text-sm font-semibold">坑 8：互补输出不做死区，直接接半桥</h3>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">错误认知：</b>「互补输出就是一个高一个低，正好驱动上下管，接上就能用。」</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">为什么错：</b>理想波形是「互补」，现实中的 MOS 管关断需要时间（几百纳秒到几微秒，取决于驱动电阻和栅极电荷）。只要上下管的导通时刻出现哪怕一丁点重叠，<b>电源正极就通过两个管子直接连到地——这就是短路（直通、shoot-through）</b>。短路电流可以到几十上百安培，轻则烧保险、重则炸管炸驱动芯片，而且它发生在微秒级，你根本来不及反应。<b>这一条不是「可能出问题」，而是「一定会出问题」</b>——只是早晚和严重程度的问题。</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">正确做法：</b>必须用硬件死区：<b>高级定时器 TIM1/TIM8 的 BDTR 寄存器有 DTG（死区时间发生器）</b>，CubeMX 里在 Break and Dead Time 那一栏填 Dead Time（通常给 500ns~2µs，要按你的 MOS 关断时间和驱动能力来定），它会自动在 CHx 和 CHxN 的翻转之间插入延迟，<b>整个过程由硬件保证，软件不用管</b>。同时在硬件上也要留后手：<b>把 BKIN 刹车输入接到驱动芯片的故障输出脚上</b>，一旦过流/过温，硬件会在几个时钟内把所有输出拉到安全状态（并清 MOE），比软件响应快几个数量级。<b>另外：死区时间是「先关后开」的净空时间，它会略微改变实际占空比</b>——高精度场合要把它算进去补偿。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <h3 id="pit-9" class="text-sm font-semibold">坑 9：以为「测周法一定比测频法准」（或反过来）</h3>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">错误认知：</b>「测周法用内部高速时钟去数，精度肯定比测频法高，所以测频率一律用输入捕获。」</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">为什么错：</b>两种方法都是<b>量化测量</b>，误差都是一个计数：测频法是「闸门边界的 ±1 个信号脉冲」，测周法是「起止边界的 ±1 个时钟计数」。谁的相对误差小，取决于被测频率、内部时钟频率和闸门时间三者的关系。分界点在 <code class="icode">f ≈ √(f_clk / Tg)</code>：72MHz、1 秒闸门下，<b>分界点约 8.5kHz</b>。低于它测周法赢，高于它测频法赢——例 4 里 20kHz 那一行，测周法（±278ppm）就输给了测频法（±50ppm）。<b>「一律用哪种」这个想法本身就是错的。</b></p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">正确做法：</b>先估被测频率落在哪个区间，再选方法：<b>低频（&lt; 分界点）用输入捕获测周法</b>（顺便还能测占空比）；<b>高频用 ETR 外部计数 + 精确闸门</b>（软件定时器给一个准确的 1 秒闸门，读 CNT 就是频率）。还有两个通用改进：<b>多周期测周法</b>（连数 M 个周期再除，把 ±1 摊薄到 M×N 上）和<b>溢出补偿</b>（让高分辨率时钟也能测低频）。最后别忘了：<b>当量化误差已经小于晶振本身误差（±20~30ppm）时，继续优化算法毫无意义</b>，该换 TCXO 了。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <h3 id="pit-10" class="text-sm font-semibold">坑 10：定时器不中断 / PWM 没输出，先怀疑芯片坏了</h3>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">错误认知：</b>「配置和例程一模一样，就是不动，肯定是芯片/板子坏了，换一块试试。」</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">为什么错：</b>这两类现象里，<b>九成以上是软件问题，而且集中在同样的五个地方</b>：外设时钟没使能、PSC/ARR 算错、NVIC 没使能、启动函数用错（少了 <code class="icode">_IT</code>）、引脚没配复用。更关键的是：<b>这些问题全都可以在不换任何硬件的前提下、用调试器在一分钟内定位</b>。先换板子，等于放弃了唯一能学到东西的机会——而且换完板子问题大概率还在，因为它们本来就不是硬件问题。</p>
+            <p class="mt-2 text-[13px] text-muted"><b class="text-ink">正确做法：</b>按第 4 节那个<b>六步排查顺序</b>走（它本身就是信号从时钟到引脚的传播路径）：RCC 时钟使能 → PSC/ARR 对不对（读两次 CNT 看变不变）→ DIER 的 UIE 与 NVIC → 启动函数（<code class="icode">HAL_TIM_Base_Start_IT</code> / <code class="icode">HAL_TIM_PWM_Start</code>）→ 引脚 AF 模式与引脚冲突（TIM1 还要看 <code class="icode">BDTR.MOE</code>）→ 最后才是硬件。调试器里读<b>五样东西</b>（<code class="icode">APB1ENR</code>、<code class="icode">CR1.CEN</code>、<code class="icode">CNT</code>、<code class="icode">DIER.UIE</code> + <code class="icode">NVIC-&gt;ISER</code>、<code class="icode">CCER.CC1E</code> + <code class="icode">BDTR.MOE</code>）就能把范围锁死在一层。<b>把它变成一个肌肉记忆式的流程，比记住任何一个具体答案都有用。</b></p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 6. 小结与自检 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="mt-12 text-xl font-semibold">小结与自检</h2>
+
+          <h3 class="mt-6 text-base font-semibold">一、要点清单</h3>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>定时器和计数器是同一套硬件</b>，区别只在时钟源是「自己的内部时钟」还是「外面的脉冲」。理解了这一点，ETR 外部计数、编码器接口、输入捕获就都成了同一件事的不同说法。</li>
+            <li><b>结构永远是：时钟源 → PSC → CNT → 和 ARR 比较 → 归零产生更新事件。</b>后面所有的 Input Capture / Output Compare / PWM / 编码器接口，都是在这条链路上挂不同的「外挂」——捕获是「把 CNT 抄到 CCR」，比较是「拿 CNT 和 CCR 比」，PWM 是「比较的结果直接驱动引脚」。</li>
+            <li><b>定时时间 T = (PSC+1)(ARR+1) / f_clk。</b>反算的顺序是：先算 N = T × f_clk → 优先把分频比堆给 ARR（保分辨率）→ ARR 装不下再加大 PSC → 凑整数，凑不出就算出 ppm 级误差并写进设计文档。</li>
+            <li><b>定时器时钟不等于 PCLK。</b>APB 预分频 ≠ 1 时要 ×2（F103 上 APB1 = 36MHz → TIM2~4 = 72MHz）。这个 ×2 是「差一倍」类错误的头号来源。</li>
+            <li><b>ARR 的位数决定一次能定多长。</b>16 位 + 72MHz 的极限是 59.65 秒；要更长就级联（TRGO → ITR），或者用 32 位定时器（F4/F7 的 TIM2/TIM5，单级可达 45 天）。</li>
+            <li><b>更新事件 UEV 一次性干四件事</b>：置 UIF（可以中断）、发 DMA 请求、让 ARR 的预装载值生效（影子寄存器）、把 CNT 清零。所以「改 ARR 不会立即生效」不是 bug，是预装载机制在保护你的波形。</li>
+            <li><b>51 和 STM32 的分水岭是「谁负责重装」。</b>51 在中断里用软件重装初值，重装延迟逐周期累积成误差；STM32 硬件自动重装，「定时准不准」从「看你中断写得好不好」变成了「看晶振买得好不好」。</li>
+            <li><b>测频还是测周，先算分界点 √(f_clk/Tg)。</b>72MHz + 1 秒闸门 ≈ 8.5kHz：低频用输入捕获测周（顺带得占空比），高频用 ETR 计数闸门。溢出补偿 + 多周期测量是两个通用的精度放大器。</li>
+            <li><b>一个定时器的多路 PWM 频率必然相同</b>（共用 CNT/ARR），只有占空比能各自独立。这是规划引脚和定时器时最容易忘的硬约束。</li>
+            <li><b>系统时基和业务定时器是两回事。</b>SysTick（或 RTOS 的 tick）负责「现在几点、该调度谁」，精度 1ms、每毫秒都要打扰 CPU；定时器外设负责「产生和测量精确的硬件时序」，纳秒到微秒级、不占 CPU。<b>别让 HAL_Delay 进中断，别拿 tick 当波形源。</b></li>
+          </ul>
+
+          <h3 class="mt-8 text-base font-semibold">二、自测题（8 道，先自己想再看答案）</h3>
+
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>定时器时钟 72MHz，要一个 <b>500ms</b> 的更新中断。请给出 PSC 与 ARR 的取值、写出验算过程，并说明你为什么这么分配（提示：ARR 最大 65535）。</li>
+            <li>为什么你在 CubeMX 里看到 APB1 = 36MHz，而 TIM2 的时钟却是 72MHz？这个规则在什么情况下<b>不</b>成立？</li>
+            <li>你配好了 TIM2 的更新中断，但 <code class="icode">HAL_TIM_PeriodElapsedCallback</code> 一次都不进。请按可能性从高到低列出至少四个原因，并各给一句确认方法。</li>
+            <li>PWM 模式 1、极性高、ARR = 999、CCR = 250。占空比是多少？<b>引脚在周期里的哪个阶段输出高电平？</b>如果把极性改成 Low，又变成什么样？</li>
+            <li>用输入捕获测一个 8Hz 的方波，计数时钟 1MHz、ARR = 65535，会遇到什么问题？请给出两种解法并比较它们的精度。</li>
+            <li>为什么 <code class="icode">HAL_Delay</code> 不能在中断服务函数里调用？请把「谁等谁」的循环依赖说清楚，并给出两种正确的替代写法。</li>
+            <li>同一个 TIM3 的 CH1 和 CH2 都配成了 PWM 输出，你希望 CH1 是 1kHz、CH2 是 5kHz。<b>能不能做到？</b>如果不能，给出三种可行的替代方案。</li>
+            <li>要用一个 16 位定时器（72MHz）做到「1 小时一次」的事件，请说明为什么单级做不到、需要几级、并给出一套具体的参数（写清 PSC 和 ARR）。</li>
+          </ol>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">答案与解析</div>
+            <ol class="mt-2 list-decimal space-y-4 pl-5">
+              <li>
+                <b>N = 0.5s × 72 000 000 = 36 000 000。</b>先试「把分频比堆给 ARR」：ARR 最大 65535，36e6 / 65536 = 549.3——除不尽，会引入误差。改用<b>整数配比</b>：<code class="icode">PSC = 7199</code>（÷7200 → 计数时钟 10kHz，1 个数 = 100µs）、<code class="icode">ARR = 4999</code>（一圈 5000 个数）。验算：<code class="icode">7200 × 5000 / 72 000 000 = 36 000 000 / 72 000 000 = 0.5s</code>，<b>误差 0</b>，且 ARR = 4999 ≤ 65535。为什么这么分：<b>ARR 越大分辨率越好</b>（这里 100µs 的刻度对 500ms 的周期完全够用），而 PSC 只是为了让计数时钟落在一个好算的整数上。
+              </li>
+              <li>
+                因为 STM32 有一条专门的规则：<b>APB 预分频系数不为 1 时，该总线上定时器的时钟会被自动 ×2</b>。F103 的标准配置里 APB1 预分频 = 2（PCLK1 = 36MHz），所以 TIM2~TIM4 拿到 36 × 2 = 72MHz；APB2 预分频 = 1（PCLK2 = 72MHz），TIM1 本来就是 72MHz。<b>不成立的情况：APB 预分频 = 1</b>——此时定时器时钟就等于 PCLK，没有 ×2。所以「×2」这件事必须结合预分频系数一起看，不能无条件套用。
+              </li>
+              <li>
+                按概率排：<b>① 启动函数用错</b>——用了 <code class="icode">HAL_TIM_Base_Start()</code> 而不是 <code class="icode">HAL_TIM_Base_Start_IT()</code>；确认方法：看调试器里 <code class="icode">TIM2-&gt;DIER</code> 的 UIE 位是否为 1。<b>② NVIC 没使能</b>——CubeMX 里 NVIC Settings 那个勾没打；确认方法：看 <code class="icode">NVIC-&gt;ISER[0]</code> 对应 TIM2_IRQn（28 号）的位。<b>③ 外设时钟没使能</b>——<code class="icode">__HAL_RCC_TIM2_CLK_ENABLE()</code> 没被调用（此时写寄存器被静默丢弃、读回来是 0）；确认方法：看 <code class="icode">RCC-&gt;APB1ENR</code> 的 bit 0。<b>④ 回调函数名写错</b>——写成了 <code class="icode">HAL_TIM_OC_DelayElapsedCallback</code> 或自己拼错；确认方法：在 <code class="icode">TIM2_IRQHandler</code> 里打个断点，看它到底有没有被调用（进了 IRQHandler 但不进回调 = 名字问题）。另外还有两个次要原因：中断标志没清（自己重写了 IRQHandler）、全局中断被 <code class="icode">__disable_irq()</code> 关掉了。
+              </li>
+              <li>
+                占空比 = <code class="icode">CCR / (ARR+1) = 250 / 1000 = 25%</code>。<b>PWM 模式 1 + 极性高</b>：向上计数时 <code class="icode">CNT &lt; CCR</code> 输出<b>有效电平</b>，而「极性高」意味着有效电平就是高电平——所以<b>每个周期的前 250 个计数（前 25% 的时间）引脚是高，后 75% 是低</b>。把极性改成 Low，则「有效电平」变成低电平：<b>前 25% 变低、后 75% 变高</b>——占空比从「高电平占 25%」翻转成「高电平占 75%」，<b>波形整体反相，但周期和 CCR 都没变</b>。这一条是理解「PWM 模式 1/2」与「极性」这两个独立旋钮的关键：<b>模式 1 和模式 2 决定「CNT 小于还是大于 CCR 时有效」，极性决定「有效到底是高还是低」，两者组合出四种等效波形。</b>
+              </li>
+              <li>
+                <b>问题：溢出。</b>计数时钟 1MHz、ARR = 65535 时，一圈只有 65.535ms，而 8Hz 的周期是 125ms——<b>一个周期里会溢出一次</b>（125 / 65.535 = 1.9，即跨过一次甚至两次溢出）。如果直接用「本次捕获值 − 上次捕获值」，会算出一个远小于真实值的周期，频率自然也就错得离谱。<b>解法一（保精度）</b>：加一个溢出计数器，在更新中断里 +1，用 <code class="icode">(ovf &lt;&lt; 16) | cnt</code> 拼成完整时间戳再相减（第 4 节的代码就是它）——精度仍然是 1µs，相对误差 1/125000 ≈ 8ppm。<b>解法二（降分辨率换简单）</b>：加大 PSC，把计数时钟降到 100kHz（PSC = 719），则 125ms 对应 12500 个数，一圈 655.35ms 装得下，不需要补偿——但分辨率从 1µs 变成 10µs，相对误差 1/12500 = 80ppm。<b>结论：溢出补偿用十行代码换来了 10 倍精度。</b>
+              </li>
+              <li>
+                因为存在<b>循环依赖</b>：<code class="icode">HAL_Delay</code> 的循环条件是 <code class="icode">(HAL_GetTick() - tickstart) &lt; ms</code>，也就是<b>等 uwTick 变大</b>；而 uwTick 只在 <b>SysTick 中断</b>里增加；SysTick 的优先级被 HAL 设为 <b>15（最低）</b>，Cortex-M 的中断又必须优先级数值更小才能抢占——<b>于是 SysTick 无法抢占你正在执行的那个中断</b>。结果：你在中断里等 uwTick，uwTick 在等 SysTick，SysTick 在等你退出中断。<b>三者互等，死锁</b>。两种正确替代：<b>① 记录时间戳 + 主循环判断</b>（中断里只写 <code class="icode">s_event_tick = HAL_GetTick(); s_flag = 1;</code>，主循环里判断差值到没到）；<b>② 数中断次数</b>（在 1ms 的定时器中断里 <code class="icode">if (++n &gt;= 10)</code>，凑够 10 次就是 10ms）。要微秒级延时用 DWT-&gt;CYCCNT。
+              </li>
+              <li>
+                <b>不能。</b>因为四个通道共用同一个 CNT、PSC 和 ARR，而频率完全由「CNT 数到 ARR 的时间」决定——<b>同一个定时器的所有通道频率必然相同</b>，能独立配置的只有 CCR（占空比）、极性和输出使能。<b>三种替代方案：</b>① <b>拆到两个定时器</b>：把 5kHz 那一路挪到 TIM4（F103C8T6 上还有 TIM1/TIM4 可用），代价是额外占一个定时器和一个引脚；② <b>合并频率需求</b>：如果 5kHz 只是「蜂鸣器听起来更响」，其实 1kHz 也能响，那就都用 1kHz，省下一个定时器；③ <b>软件 PWM / 外部器件</b>：慢速负载（LED、继电器）用普通 IO 在主循环或 100µs 中断里刷出来，省掉硬件 PWM；或者用带 PWM 的 IO 扩展芯片、可编程时钟芯片（如 NE555、专用的 LED 驱动）。选哪种，取决于你的频率需求是否真的不可让步。
+              </li>
+              <li>
+                <b>单级做不到：</b>1 小时 = 3600s，总分频比 <code class="icode">N = 3600 × 72 000 000 = 2.592 × 10¹¹</code>；而一个 16 位定时器即使 PSC 和 ARR 都拉满，最多也只有 <code class="icode">65536 × 65536 = 4.295 × 10⁹</code>（对应 59.65 秒）——<b>差了 60 倍，所以必须级联</b>。两级就够了（(4.295e9)² ≈ 1.8e19 ≫ 2.592e11）。<b>一套具体参数（两级方案）：</b>TIM2 作为主：<code class="icode">PSC = 7199</code>（÷7200 → 10kHz）、<code class="icode">ARR = 9</code>（÷10）→ 更新频率 1kHz（周期 1ms），并把 <code class="icode">MMS = 010</code>（TRGO 输出更新事件）；TIM3 作为从：时钟源选 <b>ITR（Internal Trigger）</b>接 TIM2 的 TRGO，<code class="icode">PSC = 3599</code>（÷3600）、<code class="icode">ARR = 999</code>（÷1000）→ 分频比 3600 × 1000 = 3 600 000 → 输出频率 <code class="icode">1000 / 3 600 000 = 2.7778e-4 Hz</code> → <b>周期正好 3600 秒 = 1 小时，误差 0</b>。如果想要「每一级的周期都是整数好记的时间」（1ms / 1s / 1 小时各有用处），就串三级：TIM2 出 1kHz、TIM3 出 1Hz（PSC=0, ARR=999）、TIM4 再 ÷3600（PSC=35, ARR=99）。
+              </li>
+            </ol>
+          </div>
+
+          <h3 class="mt-8 text-base font-semibold">三、练习（5 项，建议按顺序做）</h3>
+
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li><b>亲手验一遍「1ms 到底是不是 1ms」。</b>把 TIM2 配成 1ms 更新中断，在回调里累加 <code class="icode">g_ms_tick</code>；主循环里每 1000 个 tick 翻转一次 LED，同时用手机秒表或逻辑分析仪量「翻转 10 次」的总时间。<b>预期 20 秒，实测差多少？</b>如果差了整整一倍，回去看坑 2；如果只是差几十毫秒，那正是晶振误差，用本文的公式估一下是否吻合。</li>
+            <li><b>把呼吸灯升级成「按键调速 + 非阻塞」。</b>要求：按住按键时呼吸变快、松开变慢，全程不能使用 <code class="icode">HAL_Delay</code>；按键消抖也用时间戳判断。<b>验收标准</b>：在呼吸的同时，串口仍能每 100ms 打印一次当前 CCR 值——这就是「非阻塞」的直接证据。</li>
+            <li><b>用输入捕获做一个「转速表」。</b>用一个定时器（TIM3）产生 1kHz~5kHz 的可变频率方波，用另一个（TIM4）去捕获它，算出频率并打印到串口；再用逻辑分析仪测出真实频率，<b>把两者列成表，算出每个频点的相对误差</b>。然后把 PSC 从 71 改成 0（72MHz 计数时钟）重做一遍，对比误差——你会亲眼看到例 4 那张表。</li>
+            <li><b>用 TIM1 的互补输出驱动一个半桥，先用示波器确认死区。</b>把死区时间设成 1µs，同时观察 CH1 和 CH1N 两路波形，<b>量出实际死区是多少</b>（注意别把探头地线接错，双通道要共地）。然后逐步加大负载电流，观察波形是否出现异常尖峰。<b>再做一次「故意把死区设成 0」的实验</b>——用低压小电流的电源、并串上保护电阻，看看波形会出现什么（这一步是为了让你对坑 8 有身体记忆，不要在高压下做）。</li>
+            <li><b>把软件定时器框架扩展成「任务体检器」。</b>在调度器里用 <code class="icode">DWT-&gt;CYCCNT</code> 记录每个任务执行前后的周期数，算出每个任务的执行时间；把最长执行时间存起来，如果某个任务超过设定阈值（比如周期的 20%），就置一个错误标志并打印任务名。<b>验收标准：故意在某个任务里写一个 <code class="icode">HAL_Delay(5)</code>，你的体检器能报出是哪一个任务拖垮了节拍。</b>这个练习做完，你对「中断只记录时间、业务在主循环」这条原则会有完全不同的体会。</li>
+          </ol>
+
+          <div class="callout callout-tip mt-6">
+            <div class="callout-title">回到这一篇的主线</div>
+            <p>如果这篇只留一句话，那就是开头那句：<b>定时器和计数器是同一套硬件，区别只在数的是自己的时钟还是外面的脉冲。</b></p>
+            <p class="mt-2">而 <b>PSC、CNT、ARR、CCR、UEV、TRGO/ITR</b> 这几个寄存器，构成了一个「可以任意拼接的时间工具箱」：</p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li>把 CNT 和一个固定值比 → <b>定时中断</b>（本文第 4 节的第一个例子）</li>
+              <li>把 CNT 和 CCR 比、结果送到引脚 → <b>PWM</b>（呼吸灯）</li>
+              <li>把 CNT 抄到 CCR（由外部边沿触发）→ <b>输入捕获</b>（测频率、测占空比）</li>
+              <li>把外部脉冲当计数时钟 → <b>计数器</b>（ETR 计脉冲、编码器接口测正反转）</li>
+              <li>把 UEV 送给另一个定时器当时钟 → <b>级联</b>（做出任何长度的周期）</li>
+              <li>把 UEV 送给 ADC/DAC/DMA → <b>精确等间隔采样</b>（这是下一篇之后会反复遇到的手法）</li>
+            </ul>
+            <p class="mt-2">下一次你面对一个「需要一个周期性动作」的需求时，别再写 <code class="icode">for</code> 空循环了——<b>先想清楚这个动作要多准、要不要和别的任务并行，然后决定它是该交给硬件定时器，还是交给一个小小的软件定时器表。</b>这个判断能力，就是这一篇真正想给你的东西。</p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="core-interrupt.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">中断与异常机制</p>
+          </a>
+          <a href="core-serial.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：继续深入核心原理 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">串行通信原理</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

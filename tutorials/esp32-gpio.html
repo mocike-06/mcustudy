@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 GPIO 控制 - McuStudy</title>
+  <meta name="description" content="ESP32 GPIO 完整教程：哪些引脚不能碰（GPIO6-11 内部 Flash、GPIO34-39 只能输入、GPIO0/2/12/15 strapping）、digitalWrite/pinMode 用法、LEDC 硬件 PWM 调光为什么不用 analogWrite、ADC 12 位分辨率与非线性问题。">
+  <meta name="keywords" content="ESP32 GPIO,strapping引脚,GPIO34输入,ledcSetup,ledcWrite,PWM调光,ESP32 ADC,12位分辨率,analogRead">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="esp32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../esp32.html" class="hover:text-brand-600 dark:hover:text-brand-300">ESP32</a>
+          <span>/</span>
+          <span class="text-muted">教程正文</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          ESP32 GPIO 控制
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          用按键控制 LED，并用硬件 PWM 做 5 档调光，顺带读一个电位器。
+          重点不是代码有多难，而是先把 ESP32 的引脚地图刻进脑子：
+          哪六个引脚碰了就烧板子、哪四个引脚只能输入、哪四个引脚接外设会让板子启动失败。
+          这三类坑讲清楚，你在 ESP32 上踩的雷会少一大半。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">芯片：<b>ESP32-WROOM-32</b></span>
+          <span class="stat-pill">工具：<b>Arduino IDE</b></span>
+          <span class="stat-pill">阅读约 <b>14</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>ESP32 的引脚有很多「禁区」，动手接线之前一定要先看一遍——用错引脚的表现往往是「烧录成功但程序不运行」。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-compare.html">从 51 / STM32 到 ESP32</a> —— GPIO6~11 与 GPIO34~39 为什么不能随便用</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-level.html">3.3V 供电与 GPIO 安全</a> —— 引脚电流上限、输入专用引脚、能不能接 5V</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-cpp.html">C++ 与 Arduino API 基础</a> —— <code class="icode">pinMode</code> / <code class="icode">digitalWrite</code> 这些函数是从哪来的</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-pinmap">引脚分类：哪些能碰，哪些不能</a>
+          <a class="toc-link is-sub" href="#sub-strapping">strapping 引脚为什么危险</a>
+          <a class="toc-link is-sub" href="#sub-pwm">为什么不用 analogWrite</a>
+          <a class="toc-link is-sub" href="#sub-adc">ADC 与 12 位分辨率</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link is-sub" href="#sub-circuit">电路原理与接线表</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-pinmap">引脚分类：哪些能碰，哪些不能</a>
+            <a class="toc-link is-sub" href="#sub-strapping">strapping 引脚为什么危险</a>
+            <a class="toc-link is-sub" href="#sub-pwm">为什么不用 analogWrite</a>
+            <a class="toc-link is-sub" href="#sub-adc">ADC 与 12 位分辨率</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link is-sub" href="#sub-circuit">电路原理与接线表</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            如果你是从 51 或 STM32 转过来的，会觉得「点个灯」这件事上
+            ESP32 本该一模一样：<code class="icode">pinMode</code>、
+            <code class="icode">digitalWrite</code>、<code class="icode">digitalRead</code>，
+            三个函数搞定。函数确实一模一样，但<b class="font-semibold text-ink">引脚本身的规矩完全不同</b>。
+            51 的 P1 口八个脚基本可以随便用，STM32 的大部分脚复用之后也都能当普通 IO；
+            ESP32 的 34 个可用引脚里，真正「随便用」的只有一半左右。
+          </p>
+          <p class="mt-3">
+            原因是 ESP32 是一颗<b class="font-semibold text-ink">SoC（片上系统）</b>而不是单纯的单片机：
+            它内部集成了 Flash 控制器、Wi-Fi/蓝牙射频、ADC、触摸传感器、DAC 等等，
+            很多引脚在出厂时就被内部功能占用了。对外只留出一部分，其中又有一部分带着特殊的启动职责。
+            所以学 ESP32 的第一步不是学函数，而是<b class="font-semibold text-ink">背引脚地图</b>。
+          </p>
+
+          <h3 id="sub-pinmap" class="mt-7 text-base font-semibold">引脚分类：哪些能碰，哪些不能</h3>
+          <p class="mt-3">
+            下面这张表把 ESP32-WROOM-32 上所有你会见到的引脚分成五类。
+            建议在做任何接线之前先查这张表，而不是接线之后再来找原因。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>类别</th>
+                  <th>引脚</th>
+                  <th>能不能当普通 IO</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b class="font-semibold text-ink">内部 Flash</b></td>
+                  <td class="font-mono text-xs">GPIO6 ~ GPIO11</td>
+                  <td>绝对不能</td>
+                  <td>已连到模组内的 SPI Flash，接外设轻则跑飞、重则写坏固件</td>
+                </tr>
+                <tr>
+                  <td><b class="font-semibold text-ink">只能输入</b></td>
+                  <td class="font-mono text-xs">GPIO34 / 35 / 36 / 39</td>
+                  <td>只能做输入</td>
+                  <td>没有输出驱动电路，<code class="icode">digitalWrite</code> 写了也没用；也没有内部上拉下拉</td>
+                </tr>
+                <tr>
+                  <td><b class="font-semibold text-ink">strapping</b></td>
+                  <td class="font-mono text-xs">GPIO0 / 2 / 12 / 15</td>
+                  <td>能，但要小心</td>
+                  <td>上电瞬间的电平决定启动模式，接了会「拉偏」的外设会导致启动失败</td>
+                </tr>
+                <tr>
+                  <td>串口占用</td>
+                  <td class="font-mono text-xs">GPIO1 (TX0) / GPIO3 (RX0)</td>
+                  <td>能，但不建议</td>
+                  <td>接了外设会干扰下载和串口日志；调试阶段留着别用</td>
+                </tr>
+                <tr>
+                  <td>JTAG 调试</td>
+                  <td class="font-mono text-xs">GPIO12 ~ GPIO15</td>
+                  <td>能</td>
+                  <td>默认关闭，只有用专业调试器时才需要避让</td>
+                </tr>
+                <tr>
+                  <td><b class="font-semibold text-ink">安全通用</b></td>
+                  <td class="font-mono text-xs">GPIO4 / 5 / 13 / 14 / 16 ~ 19 / 21 ~ 23 / 25 ~ 27 / 32 / 33</td>
+                  <td>随便用</td>
+                  <td>数字输入输出都行，PWM 也行，是接外设的首选</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">接线前先记住这四句话</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><b class="font-semibold">GPIO6 ~ GPIO11 当它们不存在。</b>这是烧板子的头号原因，没有之一。</li>
+              <li><b class="font-semibold">GPIO34 / 35 / 36 / 39 不要拿来做输出。</b>想让 LED 亮却接到 34 上，是最典型的「代码没错但灯不亮」。</li>
+              <li><b class="font-semibold">GPIO0 / 2 / 12 / 15 接外设前先想一秒。</b>接了按键、LED、传感器，可能让板子根本起不来。</li>
+              <li><b class="font-semibold">所有引脚都是 3.3V 电平，能承受的绝对最大值就是 3.3V。</b>把 5V 直接接到任何 GPIO 上，都在赌芯片的命。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-strapping" class="mt-7 text-base font-semibold">strapping 引脚为什么危险</h3>
+          <p class="mt-3">
+            <b class="font-semibold text-ink">strapping 是「捆绑、绑带」的意思。</b>
+            ESP32 复位结束的那一瞬间，芯片会去读这几个引脚的电平，把它们当作「绑带上的标记」来决定自己怎么启动。
+            这个读取动作只发生在复位的几百微秒内，之后就完全变成普通 IO 了。
+            问题恰恰出在这几百微秒——如果你的外设通过电阻把某个 strapping 引脚拉到了错误电平，
+            芯片就会进入错误的启动模式。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>引脚</th>
+                  <th>上电时它被读作</th>
+                  <th>电平要求</th>
+                  <th>接外设的后果</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">GPIO0</td>
+                  <td>启动模式选择</td>
+                  <td>高电平 = 正常启动；低电平 = 进入下载模式</td>
+                  <td>接了一个按下就接地的按键，开机瞬间正按着 → 卡在 <code class="icode">waiting for download</code></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">GPIO2</td>
+                  <td>启动模式辅助 &amp; 板载 LED</td>
+                  <td>低电平更安全</td>
+                  <td>被外部电路强拉高可能导致启动失败；多数开发板已焊板载 LED，通常可用</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">GPIO12</td>
+                  <td>Flash 电压选择</td>
+                  <td><b class="font-semibold">必须是低电平</b></td>
+                  <td>上电被拉高 → Flash 供电电压选错，芯片直接不启动，是最凶的一个</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">GPIO15</td>
+                  <td>U0TXD 启动打印开关（MTDO）</td>
+                  <td>高电平（默认，内部上拉）＝打印；低电平＝关闭打印</td>
+                  <td>它是 MTDO，只控制 U0TXD 的启动打印，<b class="font-semibold">不是启动模式的选择脚</b>；拉低不会干扰启动流程，只是看不到日志</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">那实际做项目时怎么办</div>
+            <p>
+              不是绝对不能碰，而是要<b class="font-semibold">让外设在上电瞬间「不使劲」</b>：
+              接 LED 时让 LED 的回路在断电状态下不把引脚拉向反方向；
+              接按键时避免「按键一直接地」的接法配合 GPIO0；
+              接传感器时优先挑那些在复位期间输出高阻的芯片。
+              最稳妥的做法：<b class="font-semibold text-ink">只要有一个安全引脚可用，就优先用安全引脚</b>，
+              把 GPIO0/2/12/15 留给板子上的按键和指示灯。
+            </p>
+          </div>
+
+          <h3 id="sub-pwm" class="mt-7 text-base font-semibold">为什么不用 analogWrite</h3>
+          <p class="mt-3">
+            在 Arduino UNO 上做调光，你会写 <code class="icode">analogWrite(9, 128)</code>。
+            ESP32 也提供这个函数（内部就是转给 LEDC），但它有两个致命限制：
+            <b class="font-semibold text-ink">频率固定、分辨率固定，而且一次只能管一路</b>。
+            做 LED 调光够用，但一旦要做电机调速（要几千赫兹避免啸叫）、
+            或者做舵机（要 50Hz）、或者要 13 位精度，<code class="icode">analogWrite</code> 就完全不够了。
+          </p>
+          <p class="mt-3">
+            ESP32 真正的 PWM 硬件叫 <b class="font-semibold text-ink">LEDC</b>
+            （LED Control，设计初衷就是驱动 LED，但做任何 PWM 都能用）。
+            它的结构是这样的：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="LEDC 硬件结构：定时器决定频率，通道决定占空比">
+            <pre><code>  ┌──────────────── LEDC 外设 ────────────────┐
+  │                                          │
+  │  定时器 0 ──┬── 高速通道 0 ── GPIO16      │
+  │  (频率+位数) └── 高速通道 1 ── GPIO17      │
+  │                                          │
+  │  定时器 1 ──┬── 高速通道 2 ── 未使用       │
+  │  (频率+位数) └── 高速通道 3 ── 未使用       │
+  │                                          │
+  │  定时器 2 ──┬── 低速通道 0 ── 未使用       │
+  │  定时器 3 ──┴── 低速通道 1 ── 未使用       │
+  │                                          │
+  │  一共 4 个定时器 + 16 个通道               │
+  │  同一个定时器下的通道共享频率和分辨率       │
+  │  每个通道各自有一个独立的占空比比较值       │
+  └──────────────────────────────────────────┘
+
+  分三步使用：
+    ledcSetup(通道号, 频率, 分辨率位数)   ← 配置定时器
+    ledcAttachPin(引脚, 通道号)           ← 把引脚接到通道
+    ledcWrite(通道号, 占空比)             ← 随时改占空比</code></pre>
+          </div>
+
+          <p class="mt-4">
+            <b class="font-semibold text-ink">频率和分辨率是互相制约的。</b>
+            时钟源是 80MHz，如果频率设 5000Hz，那么一个周期里最多能分出
+            80 000 000 ÷ 5 000 = 16000 个时隙，也就是约 13 位分辨率。
+            你把频率调到 40MHz，就只剩 1 位（只能表示 0 或 100%），根本没法调光。
+            反过来，频率越低能用的分辨率越高，但 LED 会开始肉眼可见地闪。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>用途</th>
+                  <th>推荐频率</th>
+                  <th>推荐分辨率</th>
+                  <th>理由</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>LED 调光</td><td class="font-mono text-xs">5000 Hz</td><td class="font-mono text-xs">8 ~ 13 位</td><td>远高于人眼感知，且避开了人耳可听范围</td></tr>
+                <tr><td>直流电机调速</td><td class="font-mono text-xs">15000 ~ 20000 Hz</td><td class="font-mono text-xs">8 ~ 10 位</td><td>超过 20kHz 人耳听不到，避免电机啸叫</td></tr>
+                <tr><td>舵机</td><td class="font-mono text-xs">50 Hz</td><td class="font-mono text-xs">14 ~ 16 位</td><td>舵机要求 20ms 周期，分辨率越高角度越细</td></tr>
+                <tr><td>蜂鸣器发声</td><td class="font-mono text-xs">可听频段</td><td class="font-mono text-xs">10 位左右</td><td>频率本身就是音高，占空比固定 50%</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-adc" class="mt-7 text-base font-semibold">ADC 与 12 位分辨率</h3>
+          <p class="mt-3">
+            ADC（模数转换器）负责把连续的电压变成数字。<b class="font-semibold text-ink">12 位</b>
+            意味着它把量程切成 <code class="icode">2¹² = 4096</code> 份，
+            读数范围是 <b class="font-semibold text-ink">0 ~ 4095</b>。
+            和 51 外挂的 ADC0809（8 位，256 份）相比精度高得多，
+            但 ESP32 的 ADC 有几个非常容易被忽略的脾气：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>
+              <b class="font-semibold text-ink">分 ADC1 和 ADC2 两组，而 ADC2 和 Wi-Fi 互斥。</b>
+              ADC1 是 GPIO32~39，ADC2 是 GPIO0/2/4/12~15/25~27。
+              一旦 Wi-Fi 启动，ADC2 就读不出正确值。
+              所以做联网项目时，<b class="font-semibold">模拟量一律接 ADC1</b>（32~39）。
+              这组里 GPIO34~39 是「只能输入」，用它们做模拟输入天然安全；GPIO32/33 是双向脚，做模拟输入同样没问题。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">量程由「衰减」决定，不是天生 0~3.3V。</b>
+              <b class="font-semibold text-ink">Arduino-ESP32 的 analogRead() 默认就在 11 dB 档（Atten=3）</b>，
+              不是 0 dB。Arduino 官方文档给这一档的量程约 150~3100 mV；芯片数据手册按 Atten=3 给的是 150~2450 mV，
+              并注明测量结果高于约 2450 mV 时精度会比表里更差——两个来源的 11 dB / Atten=3 上限口径不同。
+              要测 1.1V 以内的小信号，应该显式调用
+              <code class="icode">analogSetAttenuation(ADC_0db)</code>
+              换到 100~950 mV 档来提高分辨率——不是「必须先调到 11 dB」。
+              各档对照（dB 名 / Atten 编号 / 量程）：ADC_0db / Atten=0 → 100~950 mV，
+              ADC_2_5db / Atten=1 → 100~1250 mV，ADC_6db / Atten=2 → 150~1750 mV，
+              ADC_11db / Atten=3 → 150~2450 mV（数据手册）或 150~3100 mV（Arduino 文档）。
+              很多人抱怨「电位器拧到一半就不动了」，那多半是代码里被显式改成了 0 dB 档，或抽头接错。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">非线性很明显。</b>
+              这是 ESP32 的老毛病：靠近 0V 和靠近量程上限时，读数会明显偏离理想直线，
+              实测误差可以到几十毫伏甚至更多。
+              官方为此提供了校准 API，在 Arduino 里对应
+              <code class="icode">analogReadMilliVolts()</code>——
+              它内部查校准表并自动补偿，比
+              <code class="icode">analogRead() * 3.3 / 4095</code> 准得多。
+              <b class="font-semibold">要求不高就用原始值算比例，要求准确就用毫伏函数。</b>
+            </li>
+            <li>
+              <b class="font-semibold text-ink">源阻抗要低。</b>
+              ADC 内部是「采样保持电容」，采样瞬间要从你的电路里吸一小口电流。
+              如果信号源内阻太大（比如用 1MΩ 的电位器），电容来不及充满，读数就会偏低且乱跳。
+              经验做法：电位器选 10kΩ，并在抽头与地之间并一个 100nF 电容。
+            </li>
+          </ul>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">digitalWrite / pinMode 到底做了什么</div>
+            <p>
+              这三个函数在 ESP32 上的含义和 AVR 略有差别，值得单独说清楚：
+            </p>
+            <ul class="list-disc space-y-1.5 pl-5 mt-3">
+              <li><code class="icode">pinMode(pin, OUTPUT)</code>——把引脚接到 GPIO 输出矩阵上，关闭输入缓冲，设置驱动强度。</li>
+              <li><code class="icode">pinMode(pin, INPUT_PULLUP)</code>——启用芯片内部的约 45kΩ 上拉电阻。按键直接接引脚与 GND 即可，省一个外部电阻。注意 GPIO34~39 没有这个内部电阻，写了也不生效。</li>
+              <li><code class="icode">digitalWrite(pin, HIGH)</code>——输出 3.3V。<b class="font-semibold">不是 5V</b>，这是和 51/STM32（多为 5V/3.3V 混用）最大的心理落差。</li>
+              <li><code class="icode">digitalRead(pin)</code>——读回引脚电平。注意 ESP32 的引脚复用很灵活，一个引脚可以同时被配置成输出并读回自己输出的电平，这一点比 51 的准双向口更直观。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            这个实验一共四个元件，接线十分钟能搞定，但每一根线都有它的道理。
+            我们故意把三个引脚分别选在「安全引脚」「能输入能输出的普通引脚」「只能输入的引脚」上，
+            让你在动手过程中把前两节讲的分类用一遍。
+          </p>
+
+          <h3 id="sub-circuit" class="mt-7 text-base font-semibold">电路原理与接线表</h3>
+
+          <p class="mt-3">
+            先说 LED 为什么必须串电阻。LED 是二极管，导通后它两端的电压基本固定在
+            1.8~2.2V（红光）附近，<b class="font-semibold text-ink">多出来的电压必须有东西承担</b>。
+            如果直接把 LED 接在 3.3V 和 GND 之间，这个「多出来的 1.1V」会试图推动一个非常大的电流，
+            结果是 LED 瞬间烧掉，或者 GPIO 输出级被烧穿。
+            串上电阻后，电流被限制在
+            <code class="icode">(3.3V − 2.0V) ÷ 220Ω ≈ 6mA</code>，
+            既能看清楚又不伤芯片。ESP32 的单脚电流官方并没有「绝对最大值」——
+            Absolute Maximum Ratings 表里唯一的电流项是全芯片累积 IO 输出电流 1200 mA；
+            可查的是 DC 特性表：I_OH 最大 40 mA（VDD3P3_CPU 与 VDD3P3_RTC 域、驱动档位拉到最大时，
+            域内同时拉高的脚越多会从约 40 mA 降到约 29 mA）、VDD_SDIO 域 I_OH 20 mA、I_OL 28 mA。
+            IO_MUX 的驱动档位是 0≈5 / 1≈10 / 2≈20（默认）/ 3≈40 mA，
+            工程上按默认档位（≈20 mA）的一半以内、即 ≈10 mA 长期使用留余量；
+            确实需要更大电流就显式把驱动档位调到 3，并接受域内降额。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>元件</th>
+                  <th>引脚 / 规格</th>
+                  <th>连接到</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>LED（5mm 红色）</td>
+                  <td>正极（长脚）</td>
+                  <td class="font-mono text-xs">GPIO16</td>
+                  <td>安全通用引脚，支持 LEDC 输出 PWM</td>
+                </tr>
+                <tr>
+                  <td>LED 负极（短脚）</td>
+                  <td>—</td>
+                  <td>经 220Ω 电阻接 GND</td>
+                  <td>电阻串在负极侧或正极侧都行，效果完全一样</td>
+                </tr>
+                <tr>
+                  <td>限流电阻</td>
+                  <td class="font-mono text-xs">220Ω ~ 1kΩ</td>
+                  <td>串在 LED 与 GND 之间</td>
+                  <td>220Ω 时电流约 6mA；1kΩ 也可，只是暗一些</td>
+                </tr>
+                <tr>
+                  <td>轻触按键</td>
+                  <td>一端（任一脚）</td>
+                  <td class="font-mono text-xs">GPIO4</td>
+                  <td>用芯片内部上拉，不接 VCC，省一个电阻</td>
+                </tr>
+                <tr>
+                  <td>轻触按键</td>
+                  <td>另一端（对角脚）</td>
+                  <td>GND</td>
+                  <td>按下时把 GPIO4 拉到低电平</td>
+                </tr>
+                <tr>
+                  <td>消抖电容（推荐）</td>
+                  <td class="font-mono text-xs">100nF 瓷片</td>
+                  <td>GPIO4 与 GND 之间</td>
+                  <td>硬件先滤一层毛刺，剩下的交给软件消抖</td>
+                </tr>
+                <tr>
+                  <td>电位器</td>
+                  <td class="font-mono text-xs">10kΩ 三脚</td>
+                  <td>两端分别接 3V3 与 GND</td>
+                  <td>两端接反只会让旋转方向相反，不会损坏</td>
+                </tr>
+                <tr>
+                  <td>电位器中间抽头</td>
+                  <td>第 2 脚（中间脚）</td>
+                  <td class="font-mono text-xs">GPIO34</td>
+                  <td>只能输入的 ADC1 通道，做模拟输入最合适</td>
+                </tr>
+                <tr>
+                  <td>滤波电容（推荐）</td>
+                  <td class="font-mono text-xs">100nF 瓷片</td>
+                  <td>GPIO34 与 GND 之间</td>
+                  <td>降低 ADC 读数跳动</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意图</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="接线示意（按键 + PWM 调光 + 电位器）">
+            <pre><code>       ESP32-WROOM-32 开发板
+    ┌──────────────────────────────┐
+    │                              │
+    │   GPIO16 ●───────┬───────────┼──── LED 正极（长脚）
+    │                  │           │
+    │                  │        ┌──┴──┐
+    │                  │        │ LED │
+    │                  │        └──┬──┘
+    │                  │           │
+    │                  └──[220Ω]───┘  ← 电阻也可以画在这一侧
+    │                              │
+    │                            GND
+    │                              │
+    │   GPIO4  ●───────┬───────────┼──── 按键一端
+    │                  │           │
+    │              [100nF]      ┌──┴──┐
+    │                  │        │ 按键 │
+    │                  │        └──┬──┘
+    │                  │           │
+    │                  └───────────┴──── 按键另一端
+    │                            GND
+    │                              │
+    │   3V3    ●───────────────────┼──── 电位器 1 脚
+    │                              │
+    │   GPIO34 ●───────────────────┼──── 电位器 2 脚（中间抽头）
+    │              │               │
+    │          [100nF]             │
+    │              │               │
+    │   GND    ●───┴───────────────┼──── 电位器 3 脚
+    │                              │
+    └──────────────────────────────┘
+
+  要点：
+  1. GPIO16 → LED → 220Ω → GND，高电平点亮
+  2. GPIO4 用内部上拉，按键只接 GPIO4 与 GND 两根线
+  3. 电位器两端接 3V3 和 GND，中间抽头接 GPIO34
+  4. GPIO34 只能输入，不要试图往上接 LED
+  5. 全程 3.3V，不要把 5V 引进任何 GPIO
+
+  ⚠ 绝对不要用 GPIO6 / 7 / 8 / 9 / 10 / 11
+     它们连着模组内部的 Flash，接外设会写坏固件</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线顺序建议</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>开发板先<b class="font-semibold">断电</b>（拔掉 USB），所有接线都在断电状态下完成。</li>
+            <li>先接 LED 支路：GPIO16 → LED 正极 → LED 负极 → 220Ω → GND。</li>
+            <li>再接按键：一端 GPIO4，另一端 GND；有 100nF 就并在按键两端。</li>
+            <li>最后接电位器：两端 3V3 / GND，中间抽头 GPIO34。</li>
+            <li>通读一遍接线，重点确认「GND 是不是真的接到了板子的 GND 排针」——
+                很多人把 GND 接到了 VIN 旁边的 5V 上，一上电就是短路。</li>
+            <li>插上 USB，先看电源灯亮不亮，再上传程序。</li>
+          </ol>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">上电前必查</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>有没有误用 GPIO6~11。这是唯一会让板子永久损坏的错误，务必先查。</li>
+              <li>LED 有没有串电阻，电阻阻值是不是 220Ω~1kΩ 之间。</li>
+              <li>电位器的两端是不是接在 3V3 和 GND 上，而不是 5V 和 GND。</li>
+              <li>按键有没有误接 GPIO0。GPIO0 上也挂着一个按键（BOOT），两者会打架。</li>
+              <li>杜邦线有没有松动。面包板上的线接触不良，是「程序明明对的却不工作」的常见原因。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            先给一个三行的最小例子建立信心，再上完整程序。
+            完整程序做到三件事：<b class="font-semibold text-ink">按键消抖并切换亮度档位、
+            用 LEDC 硬件 PWM 输出对应占空比、周期性读取电位器的 ADC 值并打印</b>。
+            三个功能共用一个 <code class="icode">loop()</code>，全部用非阻塞写法。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="01-blink.ino —— 最小示例：板载 LED 闪烁">
+            <pre><code>/* 最小示例：让板载 LED 闪烁，用来确认「上传成功 + 引脚能输出」
+ * 多数 ESP32 开发板的板载 LED 接在 GPIO2 上，高电平点亮；
+ * 如果你的板子 LED 是低电平点亮（少数批次），把 HIGH 和 LOW 对调即可
+ * 注意：GPIO2 是 strapping 引脚，但开发板上的板载 LED 是厂家设计好的，
+ *       直接用它没问题；如果你外接 LED，请改用 GPIO16 这类安全引脚 */
+
+#define PIN_LED 2
+
+void setup() {
+    pinMode(PIN_LED, OUTPUT);       /* 把 GPIO2 配置成推挽输出 */
+}
+
+void loop() {
+    digitalWrite(PIN_LED, HIGH);    /* 输出 3.3V，LED 亮 */
+    delay(500);                     /* 保持 500ms */
+    digitalWrite(PIN_LED, LOW);     /* 输出 0V，LED 灭 */
+    delay(500);                     /* 保持 500ms，于是形成 1Hz 闪烁 */
+}</code></pre>
+          </div>
+
+          <div class="code-block mt-4" data-lang="c" data-title="esp32-gpio-pwm.ino —— 按键 + PWM 调光 + ADC 采样">
+            <pre><code>/* =====================================================================
+ *  esp32-gpio-pwm.ino —— 按键切换亮度档位 + LEDC 硬件 PWM 调光 + ADC 采样
+ *  目标板：ESP32 Dev Module（ESP32-WROOM-32）
+ *
+ *  硬件接线：
+ *    LED  正极(长脚) -> GPIO16，负极 -> 220Ω -> GND
+ *    按键 一端 -> GPIO4，另一端 -> GND（使用芯片内部上拉）
+ *    电位器 两端 -> 3V3 / GND，中间抽头 -> GPIO34
+ *
+ *  功能：
+ *    1. 短按按键，在 0 / 25% / 50% / 75% / 100% 五档亮度之间循环
+ *    2. 调光用 LEDC 硬件 PWM，频率 5kHz、8 位分辨率
+ *    3. 每 200ms 读一次电位器，打印 ADC 原始值与校准后的毫伏值
+ * ===================================================================== */
+
+/* ---------------- 引脚定义：接线改了只改这三行 ---------------- */
+#define PIN_LED    16    /* LED 驱动脚，必须是「能输出」的引脚 */
+#define PIN_KEY     4    /* 按键输入脚，使用内部上拉 */
+#define PIN_POT    34    /* 电位器输入脚；GPIO34 只能输入，天然适合做 ADC */
+
+/* ---------------- LEDC（硬件 PWM）参数 ---------------- */
+#define LEDC_CHANNEL    0        /* 通道 0；ESP32 共 16 个 LEDC 通道 */
+#define LEDC_FREQ       5000     /* 5kHz：人眼看不到闪、人耳听不到声 */
+#define LEDC_RES_BITS   8        /* 8 位 → 占空比 0~255，正好一个字节 */
+
+/* 五档亮度的占空比表 */
+const uint8_t LEVELS[5] = { 0, 64, 128, 192, 255 };
+uint8_t levelIndex = 0;                  /* 当前档位下标 0~4 */
+
+/* ---------------- 按键消抖状态 ---------------- */
+bool     keyStable   = HIGH;             /* 消抖之后的稳定电平，初始为松开 */
+bool     keyLastRaw  = HIGH;             /* 上一次读到的原始电平 */
+uint32_t keyChangeMs = 0;                /* 原始电平最后一次变化的时刻 */
+const uint32_t DEBOUNCE_MS = 30;         /* 连续 30ms 不变才算稳定 */
+
+/* ---------------- 串口打印节流 ---------------- */
+uint32_t lastPrintMs = 0;                /* 上一次打印 ADC 的时刻 */
+const uint32_t PRINT_INTERVAL_MS = 200;  /* 每 200ms 打印一次，别刷太快 */
+
+void setup() {
+    /* 串口初始化，波特率必须和串口监视器一致 */
+    Serial.begin(115200);
+    delay(800);                          /* 等 USB 转串口枚举完成，避免开头丢字 */
+
+    /* ---- 引脚方向 ---- */
+    pinMode(PIN_LED, OUTPUT);            /* GPIO16 输出 */
+    pinMode(PIN_KEY, INPUT_PULLUP);      /* GPIO4 输入 + 内部约 45kΩ 上拉
+                                            松开时读到 HIGH，按下时被 GND 拉到 LOW */
+    /* 说明：GPIO34 不需要（也不能）设置上拉，它天生只能输入 */
+
+    /* ---- 配置 LEDC 三步走 ----
+     * 第 1 步：ledcSetup(通道, 频率, 分辨率位数)
+     * 这一步只是在配置「定时器」，还没有和任何引脚发生关系 */
+    ledcSetup(LEDC_CHANNEL, LEDC_FREQ, LEDC_RES_BITS);
+
+    /* 第 2 步：ledcAttachPin(引脚, 通道)
+     * 把 GPIO16 的输出来源切换成 LEDC 通道 0。
+     * 之后这个引脚不应该再用 digitalWrite 去写，否则两边会打架 */
+    ledcAttachPin(PIN_LED, LEDC_CHANNEL);
+
+    /* 第 3 步：ledcWrite(通道, 占空比)
+     * 先输出初始档位，避免上电时 LED 处于不确定状态 */
+    ledcWrite(LEDC_CHANNEL, LEVELS[levelIndex]);
+
+    /* ---- 配置 ADC ----
+     * 12 位分辨率 → 读数 0~4095
+     * 衰减选 11dB，量程约 0~3.1V，才能用满整个电位器行程 */
+    analogReadResolution(12);
+    analogSetAttenuation(ADC_11db);
+
+    /* ---- 开机自述，方便核对接线 ---- */
+    Serial.println();
+    Serial.println("=== ESP32 GPIO / PWM / ADC 演示 ===");
+    Serial.printf("LED = GPIO%d   按键 = GPIO%d   电位器 = GPIO%d\n",
+                  PIN_LED, PIN_KEY, PIN_POT);
+    Serial.println("短按按键切换亮度档位（5 档循环）");
+    Serial.println("-----------------------------------");
+}
+
+void loop() {
+    /* ================= 1. 按键扫描 + 软件消抖（非阻塞） =================
+     * 机械按键在按下和松开的瞬间，金属触点会弹跳，
+     * 电平在几毫秒内来回抖好几次。如果直接判断 digitalRead，
+     * 按一次会被当成按了七八次。这叫「抖动」，必须处理。 */
+    bool raw = digitalRead(PIN_KEY);         /* 读当前电平：按下 = LOW */
+
+    if (raw != keyLastRaw) {                 /* 原始电平发生了变化 */
+        keyChangeMs = millis();              /* 重新开始计时 */
+        keyLastRaw  = raw;
+    }
+
+    /* 只有当电平「稳定超过 DEBOUNCE_MS」且「和上次确认过的状态不同」，
+     * 才认定这是一次真实的动作 */
+    if (millis() - keyChangeMs >= DEBOUNCE_MS &amp;&amp; raw != keyStable) {
+        keyStable = raw;
+
+        if (keyStable == LOW) {              /* 只在按下那一刻响应，松开不响应 */
+            levelIndex = (levelIndex + 1) % 5;          /* 0→1→2→3→4→0 循环 */
+            ledcWrite(LEDC_CHANNEL, LEVELS[levelIndex]);/* 改占空比 = 改亮度 */
+
+            Serial.printf("亮度档位 -> %d / 4，占空比 = %3d / 255（约 %d%%）\n",
+                          levelIndex,
+                          LEVELS[levelIndex],
+                          LEVELS[levelIndex] * 100 / 255);
+        }
+    }
+
+    /* ================= 2. 周期性读取电位器 =================
+     * 用 millis() 做节流而不是 delay()，
+     * 这样按键扫描永远不会被阻塞，按下去立刻就有反应 */
+    if (millis() - lastPrintMs >= PRINT_INTERVAL_MS) {
+        lastPrintMs = millis();
+
+        int raw12 = analogRead(PIN_POT);              /* 0 ~ 4095 */
+        int mv    = analogReadMilliVolts(PIN_POT);    /* 内部查校准表后的毫伏值 */
+
+        /* 两种换算方式的对比，正是这一节想让你看到的区别：
+         *   线性估算 = raw12 * 3300 / 4095
+         *   校准结果 = analogReadMilliVolts()
+         * 括号里同时打印，方便你直接看出误差有多大 */
+        Serial.printf("ADC = %4d  (线性估算 %4d mV)  校准电压 %4d mV\n",
+                      raw12, raw12 * 3300 / 4095, mv);
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">ledcSetup(0, 5000, 8)</code>——
+              这三个参数对应「哪个通道、多快、多细」。
+              参数顺序很容易记混，记法是「<b class="font-semibold">通道 → 频率 → 位数</b>」，
+              频率是 Hz，位数是 bit。
+              它的返回值是实际能达到的频率，你没用到可以忽略。
+            </li>
+            <li>
+              <code class="icode">ledcAttachPin(PIN_LED, LEDC_CHANNEL)</code>——
+              <b class="font-semibold text-ink">参数顺序和 ledcSetup 相反</b>（引脚在前、通道在后），
+              这是新手最常写反的一行。
+              这一步的本质是把 GPIO 的输出矩阵切换到 LEDC 外设，
+              之后用 <code class="icode">digitalWrite</code> 写这个引脚不会有任何效果——
+              因为它已经不听 GPIO 寄存器的话了。
+            </li>
+            <li>
+              <code class="icode">ledcWrite(LEDC_CHANNEL, LEVELS[levelIndex])</code>——
+              占空比的取值范围由分辨率决定：8 位就是 0~255。
+              <code class="icode">0</code> 表示全灭，<code class="icode">255</code> 表示常亮，
+              中间的 128 表示一半时间高一半时间低。
+              人眼的视觉暂留会把 5kHz 的方波「平均」成一个稳定亮度，这就是调光的全部原理。
+            </li>
+            <li>
+              <code class="icode">analogReadResolution(12)</code> 与
+              <code class="icode">analogSetAttenuation(ADC_11db)</code>——
+              这两行必须一起写。前者决定读数的「刻度数」，后者决定刻度覆盖多宽的电压。
+              默认就是 11 dB 档（约 150~3100 mV），不用改也能量到 3.1V；只有显式改成 0 dB 档才会缩到约 100~950 mV，那时电位器拧到 1/3 处读数就到顶了。
+            </li>
+            <li>
+              <code class="icode">analogReadMilliVolts(PIN_POT)</code>——
+              直接返回毫伏值，内部用出厂校准数据做了逐点补偿。
+              和 <code class="icode">raw12 * 3300 / 4095</code> 这种线性换算相比，
+              它在量程两端更准。程序里两个都打印，就是为了让你亲眼看到差距。
+            </li>
+            <li>
+              <code class="icode">(levelIndex + 1) % 5</code>——
+              取模是写「循环切换」最干净的办法。
+              <code class="icode">% 5</code> 保证结果永远落在 0~4，
+              到 4 之后自动回 0，不需要任何 <code class="icode">if</code> 判断。
+            </li>
+            <li>
+              三次 <code class="icode">millis() - xxx &gt;= 间隔</code> 判断——
+              整个 <code class="icode">loop()</code> 里<b class="font-semibold text-ink">没有一处 delay()</b>。
+              这就是「非阻塞」：每一次循环都飞快跑完，按键随时能被响应，
+              ADC 也不会因为等延时而被拖慢。
+              写 ESP32 程序请从第一天就养成这个习惯，因为后面加了 Wi-Fi、蓝牙之后，
+              <code class="icode">delay()</code> 会直接引发看门狗复位。
+            </li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">如果你用的是 Arduino-ESP32 3.x 核心</div>
+            <p>
+              3.x 里官方推荐的新写法是
+              <code class="icode">ledcAttach(pin, freq, resolution)</code> 一句话完成前两步，
+              再用 <code class="icode">ledcWrite(pin, duty)</code> 直接按引脚写。
+              老的三步写法仍然可用，只是编译时会看到
+              <code class="icode">'ledcSetup' is deprecated</code> 的提示——
+              <b class="font-semibold">那是警告不是错误</b>，程序照常上传运行。
+              本站示例统一用三步写法，因为它在 2.x 和 3.x 上都能编译，
+              而且能让你看清「定时器 / 通道 / 引脚」是三件不同的事。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            上传完成后打开串口监视器（<b class="font-semibold text-ink">115200</b>），
+            先看开机自述，再动手操作。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="串口监视器应有的输出（示例）">
+            <pre><code>=== ESP32 GPIO / PWM / ADC 演示 ===
+LED = GPIO16   按键 = GPIO4   电位器 = GPIO34
+短按按键切换亮度档位（5 档循环）
+-----------------------------------
+ADC = 2048  (线性估算 1650 mV)  校准电压 1692 mV
+ADC = 2051  (线性估算 1652 mV)  校准电压 1694 mV
+亮度档位 -> 1 / 4，占空比 =  64 / 255（约 25%）
+ADC = 3120  (线性估算 2514 mV)  校准电压 2566 mV
+ADC = 3133  (线性估算 2524 mV)  校准电压 2578 mV
+亮度档位 -> 2 / 4，占空比 = 128 / 255（约 50%）
+亮度档位 -> 3 / 4，占空比 = 192 / 255（约 75%）
+亮度档位 -> 4 / 4，占空比 = 255 / 255（约 100%）
+亮度档位 -> 0 / 4，占空比 =   0 / 255（约 0%）
+ADC = 4095  (线性估算 3300 mV)  校准电压 3201 mV</code></pre>
+          </div>
+
+          <ol class="mt-4 list-decimal space-y-2 pl-5">
+            <li>上电后 LED 是<b class="font-semibold text-ink">熄灭</b>状态，因为初始档位是 0。</li>
+            <li>每短按一次按键，LED 亮度跳一档：灭 → 微亮 → 半亮 → 较亮 → 最亮 → 灭，然后循环。</li>
+            <li>亮度的变化是<b class="font-semibold text-ink">瞬间跳变</b>的，不是渐变的——因为我们直接改占空比，没有做渐变过渡。</li>
+            <li>按住按键不放，只会触发一次；不会出现「按住就疯狂跳档」的现象，说明消抖生效了。</li>
+            <li>慢慢旋转电位器，串口打印的 ADC 值从 0 平滑升到 4095，两个电压值同步变化。</li>
+            <li>把电位器转到两头极限位置，ADC 值稳定停在 0 或 4095 不再抖动。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>LED 完全没反应，但串口打印正常</td>
+                  <td>程序在跑，问题在 LED 那一路</td>
+                  <td>LED 极性是否插反、电阻是否漏装、是否误接到 GPIO34 这类只能输入的脚</td>
+                </tr>
+                <tr>
+                  <td>LED 一直亮着，按按键有打印但亮度不变</td>
+                  <td>引脚还处在 <code class="icode">digitalWrite</code> 控制下，LEDC 没接管</td>
+                  <td>检查 <code class="icode">ledcAttachPin</code> 的两个参数是不是写反了</td>
+                </tr>
+                <tr>
+                  <td>按一次按键连跳好几档</td>
+                  <td>消抖没起作用</td>
+                  <td>确认 <code class="icode">DEBOUNCE_MS</code> 是 30，按键两端是否并了 100nF</td>
+                </tr>
+                <tr>
+                  <td>按键完全没反应，串口也没有「亮度档位」打印</td>
+                  <td>GPIO4 一直是高电平，按键没有真正接地</td>
+                  <td>按键的两只脚接错了同一侧（轻触键同侧两脚是内部连通的，要跨对角接）</td>
+                </tr>
+                <tr>
+                  <td>ADC 读数一直是 0</td>
+                  <td>GPIO34 被死死拉在低电平</td>
+                  <td>电位器中间抽头有没有接错到两端脚；是否误把抽头接到了 GND</td>
+                </tr>
+                <tr>
+                  <td>ADC 读数一直是 4095</td>
+                  <td>输入电压超过了量程</td>
+                  <td>抽头是不是接到了 3V3；输入电压超过当前档位上限（默认 11 dB 档约 3100 mV）读数就会顶在 4095</td>
+                </tr>
+                <tr>
+                  <td>电位器只转前 1/3 程，读数就到 4095 了</td>
+                  <td>衰减档被显式改成了 0 dB（量程只剩约 100~950 mV）</td>
+                  <td>确认没有把衰减改成 0 dB——analogRead() 默认就在 11 dB 档（约 150~3100 mV）</td>
+                </tr>
+                <tr>
+                  <td>ADC 读数末位一直跳 ±30 左右</td>
+                  <td>属于正常噪声</td>
+                  <td>接受它；要更稳就加 100nF 电容，或在软件里做多次采样取平均</td>
+                </tr>
+                <tr>
+                  <td>串口每隔几秒从头重新打印</td>
+                  <td>芯片在反复复位</td>
+                  <td>看复位原因，多数是供电不足（Brownout）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">顺手量一下真实误差</div>
+            <p>
+              程序里同时打印了「线性估算 mV」和「校准电压 mV」，这就是现成的实验数据。
+              转动电位器到七八个位置，每个位置记一组数，把两组值的差值算出来，
+              你会看到误差在量程中段只有十几毫伏，而在接近 0V 和 3.3V 时会明显变大——
+              这正是 ESP32 ADC 非线性特性的实证。
+              把这个表格写进实验报告，比写一百句「精度较高」都有用。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            ESP32 的 GPIO 问题有个特点：<b class="font-semibold text-ink">很多故障看起来像软件 bug，其实是引脚选错了</b>。
+            所以下面的第一条和第三条，建议在接线之前就先读一遍。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">报错原文：rst:0x1 (POWERON_RESET),boot:0x3 (DOWNLOAD_BOOT(UART0/UART1/SDIO_REI_REO_V2)) waiting for download</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              芯片上电后没有正常启动，而是直接停在了下载模式等待电脑发程序。
+              原因是 strapping 引脚在上电瞬间被外设拉到了错误电平——
+              最常见的是 <code class="icode">GPIO0</code> 上接了一个「一端接地」的按键，
+              而开机瞬间恰好按着，或者 <code class="icode">GPIO12</code> 被外设拉高了。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              先拔掉所有外设，只留 USB，看能不能正常启动——能，就证明是外设把 strapping 引脚带偏了。
+              然后把外设改接到 GPIO16 / 17 / 18 / 19 / 21 / 22 / 23 这类安全引脚上。
+              如果确实必须用 GPIO0，就改接线方式，让它在<b class="font-semibold">断电和上电瞬间都是高电平</b>
+              （例如按键改成接 VCC 侧、由代码判断高电平为按下），
+              或者加一个上拉电阻把默认状态固定住。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：error: 'ledcSetup' was not declared in this scope</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              编译器不认识这个函数，说明它编译的目标根本不是 ESP32。
+              99% 的情况是「工具 → 开发板」里选的还是 Arduino Uno / Nano，
+              或者开发板包没装成功。
+              <code class="icode">ledcSetup</code> 是 ESP32 核心特有的函数，AVR 里没有。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              回到「工具 → 开发板 → esp32 → ESP32 Dev Module」重新选一次，
+              并确认「工具 → 端口」也是正确的 COM 号。
+              改完板型后建议把 IDE 重启一次，避免缓存残留。
+              如果列表里压根没有 esp32 这一项，说明开发板包没装上，先回去看
+              <a class="text-brand-600 dark:text-brand-300" href="esp32-env.html">Arduino IDE 环境搭建</a>。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：Brownout detector was triggered（同时伴随 LED 一亮就重启）</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              掉电复位，说明 3.3V 电压被拉垮了。
+              在 GPIO 实验里通常有三个原因：
+              一是 LED <b class="font-semibold">没有串限流电阻</b>，GPIO 输出级被大电流拖垮；
+              二是把外设接到了 5V 上再用 GPIO 去驱动，形成对灌；
+              三是 USB 线太细或插在前置面板口，本来就供不上电。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              先断电，量一下 LED 支路有没有电阻。
+              再确认所有外设都接在 3V3 而不是 5V/VIN 上。
+              最后换 USB 线和 USB 口，优先机箱后面板直插。
+              供电确实紧张时（比如同时驱动好几个 LED 或继电器），
+              改用外部 5V/1A 电源从 VIN 脚供电，并<b class="font-semibold">拔掉 USB</b>。
+              另外提醒一句：<b class="font-semibold text-ink">GPIO 绝对不要直接驱动继电器线圈或电机</b>，
+              必须经过三极管或驱动模块，这属于电路设计的硬规矩。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：ADC 读数乱跳（末位跳几十甚至上百），或者读数明显偏低</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              ESP32 的 ADC 本身就比较「毛」。原因按概率排：
+              信号源内阻太大（用了 100kΩ 以上的电位器）、
+              接线太长引入了干扰、
+              没有设衰减导致在非线性区工作、
+              以及 ADC 本来就存在 ±1% 左右的固有噪声。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              第一，电位器换成 10kΩ，并在抽头与 GND 之间并 100nF 瓷片电容，这是最有效的一招。
+              第二，杜邦线尽量短，别和电机、继电器、开关电源的线捆在一起。
+              第三，加上 <code class="icode">analogSetAttenuation(ADC_11db)</code>，让工作点落在量程中段。
+              第四，软件上做「多次采样取平均」或中值滤波：
+              连续读 16 次去掉最大最小再平均，读数立刻稳定下来。
+              第五，如果要用 Wi-Fi，模拟量必须接 GPIO32~39（ADC1），
+              <b class="font-semibold">接在 ADC2 上会读到完全错误的值</b>。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：（没有报错）按键按一次，串口打印了两三次「亮度档位 ->」</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              机械按键的触点弹跳。金属触点在闭合的瞬间会连续弹跳几毫秒，
+              CPU 在这几毫秒里能执行上万次循环，于是同一个动作被读成好几个边沿。
+              这不是代码 bug，而是所有机械按键的物理特性，
+              51 和 STM32 上同样存在，只是 ESP32 主频高（240MHz），抖得更容易被捕捉到。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              软件消抖（本页代码已经做了）：检测到电平变化后等 30ms，
+              再确认电平仍然保持，才认定动作有效。
+              硬件上再并一个 100nF 电容到 GND，能把毛刺提前滤掉。
+              两个一起用效果最好。
+              注意一个细节：消抖代码里判断的是
+              <code class="icode">raw != keyStable</code> 而不是
+              <code class="icode">raw != keyLastRaw</code>，
+              前者保证「一次按下只响应一次」，后者会导致长按连续触发。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇的主线是「先认引脚，再写代码」。把结论收成三句：
+          </p>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">第一，ESP32 的引脚是有等级的。</b>
+            GPIO6~11 是禁区，GPIO34~39 只能输入，GPIO0/2/12/15 上电瞬间有特殊职责，
+            剩下的才是可以随便用的。接线之前查一遍分类表，能省掉一大半调试时间。
+            <b class="font-semibold text-ink">第二，PWM 要用 LEDC 三步走。</b>
+            频率和分辨率互相制约，「配置定时器 → 绑定引脚 → 改占空比」这三步
+            是后面学电机调速、舵机控制的共同基础。
+            <b class="font-semibold text-ink">第三，模拟输入认准 ADC1。</b>
+            接 GPIO32~39、设好 11dB 衰减、加一个 100nF 电容，
+            这三件事做完，ESP32 的 ADC 就够课设和毕设用了。
+          </p>
+
+          <div class="stat mt-6">
+            <span class="stat-k">本次实验占用的引脚</span>
+            <span class="stat-v">GPIO16 / GPIO4 / GPIO34</span>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold text-ink">用电位器代替按键调光。</b>
+                把 <code class="icode">analogRead(PIN_POT)</code> 的 0~4095 值
+                用 <code class="icode">map()</code> 映射到 0~255，直接写进
+                <code class="icode">ledcWrite()</code>。
+                做完之后想一想：为什么这时按键就不需要消抖了？
+                （提示：模拟量的抖动在视觉上表现为亮度的轻微闪烁，而不是跳档。）
+              </li>
+              <li>
+                <b class="font-semibold text-ink">做真正的呼吸灯。</b>
+                在 <code class="icode">loop()</code> 里用一个每 10ms 加 1 的变量，
+                让它从 0 涨到 255 再降回 0，循环往复，每步都写进
+                <code class="icode">ledcWrite()</code>。
+                调一调步长，观察「渐变是否顺滑」与「CPU 占用」之间的取舍。
+                进阶：把频率从 5000Hz 改成 50Hz，看看 LED 会变成什么样，解释这个现象。
+              </li>
+              <li>
+                <b class="font-semibold text-ink">给 ADC 加一层软件滤波。</b>
+                连续读 16 次 <code class="icode">analogRead</code>，
+                去掉一个最大值和一个最小值，剩下求平均，再打印。
+                对比滤波前后的波动幅度，把两组数据记进实验报告。
+                再想一想：如果被测信号本身变化很快（比如测量电机的转速脉冲），
+                这种「多次采样平均」会带来什么副作用？
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-wifi.html">WiFi 连接与 STA 模式</a>——让板子连上路由器，开始做联网功能。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-bt.html">蓝牙串口通信</a>——用手机直接控制这些引脚，不需要路由器。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="../esp32.html">ESP32 引脚速查表</a>——接线前对照栏目页上的完整引脚表更快。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="esp32-env.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">Arduino IDE 环境搭建</p>
+          </a>
+          <a href="esp32-wifi.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">WiFi 连接与 STA 模式</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

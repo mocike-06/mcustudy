@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>51 单片机教程 · STC89C52 从入门到项目实战 | McuStudy</title>
+  <meta name="description" content="51 单片机（STC89C52RC）系统教程：开发环境搭建、最小系统、LED 流水灯、定时器、外部中断、UART 串口、LCD1602 液晶与 DHT11 温湿度综合项目，全部基于 Keil C51 + Proteus，附完整可编译代码与避坑提示。">
+  <meta name="keywords" content="51单片机,STC89C52,STC89C52RC,Keil C51,Proteus,定时器,外部中断,串口通信,LCD1602,DHT11,单片机教程">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/site.js" defer></script>
+</head>
+
+<body data-page="mcu51" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 页面 Hero ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-12 sm:py-14">
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="index.html" class="hover:text-brand-600">首页</a><span>/</span><span class="text-muted">51单片机</span>
+        </nav>
+        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">51 单片机教程</h1>
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+          51 单片机是绝大多数人接触的第一颗芯片：结构简单、资料最多、每一根引脚都能亲手测到波形，
+          写完代码到看见灯亮之间只隔一次下载。它没有庞大的库和抽象层，寄存器就摆在数据手册里，
+          你操作什么、硬件就做什么，这种「所见即所得」正是建立底层直觉最快的方式。
+          本专题以 STC89C52RC 为核心，从 Keil C51 建工程、最小系统电路，一路讲到定时器、中断、串口、
+          LCD1602 与 DHT11 综合项目。学完之后你能独立完成按键、数码管、液晶、传感器这类常见题目，
+          也能顺畅衔接到 STM32 的 HAL 库开发——因为 GPIO、定时器、中断、串口这几个概念，你已经在 51 上手动实现过一遍了。
+        </p>
+        <div class="mt-6 flex flex-wrap gap-2.5">
+          <span class="stat-pill"><b>8</b> 个专题</span>
+          <span class="stat-pill">芯片：<b>STC89C52RC</b></span>
+          <span class="stat-pill">工具：<b>Keil C51 + Proteus</b></span>
+          <span class="stat-pill">建议周期：<b>4~6 周</b></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== 学习顺序建议 ============================== -->
+    <section class="wrap pb-14 sm:pb-16">
+      <div class="card card-pad">
+        <h2 class="text-base font-semibold">学习顺序建议</h2>
+        <p class="mt-2 text-[13px] leading-relaxed text-muted">
+          这 8 个专题是层层递进的，跳跃着学会在中断和串口处卡很久。建议按下面的节奏走。
+        </p>
+        <div class="mt-6 grid gap-6 sm:grid-cols-3">
+          <div class="mini-step">
+            <span class="step-num">1</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">先把环境和最小系统跑通</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                装好 Keil C51，在 Proteus 里画出晶振 + 复位 + 电源，能点亮一个 LED 再往下走。
+              </p>
+            </div>
+          </div>
+          <div class="mini-step">
+            <span class="step-num">2</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">再啃定时器与中断</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                定时器和外部中断是 51 的分水岭，TH/TL 初值一定要自己动手算一遍，不要只抄代码。
+              </p>
+            </div>
+          </div>
+          <div class="mini-step">
+            <span class="step-num">3</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">最后用综合项目收口</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                串口 + LCD1602 + DHT11 串成一个能演示的小系统，简历和课设都能直接拿去用。
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 基础篇 ============================== -->
+    <section class="wrap py-14 sm:py-16">
+      <p class="sec-eyebrow">Foundations</p>
+      <h2 class="sec-title">基础篇：写代码之前，先把这 7 件事弄明白</h2>
+      <p class="sec-desc">
+        51 单片机的门槛其实不在代码，而在于它默认你已经懂电、懂二进制、懂寄存器。
+        这 7 篇把缺的那层地基一次补齐——每篇都从“这个名词到底是什么意思”讲起，
+        配手算例题、ASCII 电路图、速查表和排查清单。
+      </p>
+
+      <div class="callout callout-info mt-8">
+        <div class="callout-title">为什么要在专题前面加一个基础篇</div>
+        下面的 8 个专题里会直接出现「P1 的字节地址是 <code class="icode">0x90</code>，可按位寻址」
+        「把 <code class="icode">TMOD &amp;= 0xF0</code> 写进去配置方式 1」
+        「限流电阻按 <code class="icode">R = (VCC − VF) / I</code> 算」这类句子。
+        它们默认你已经知道什么是寄存器、什么是十六进制、什么是欧姆定律。
+        如果你看这几句会卡住，那不是你笨，是缺了这一层。<b class="font-semibold text-ink">修完再往下走，后面会顺很多。</b>
+      </div>
+
+      <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
+        <!-- 基础 1 -->
+        <a id="b-electricity" href="tutorials/mcu51-basic-electricity.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">电学基础：电压、电流与电阻</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            电压到底是什么、为什么电路必须成回路、欧姆定律 <code class="icode">U = I × R</code> 的三种变形与手算例题、
+            功率怎么算、电阻该选几瓦。附万用表档位说明与“测电流必须把表串进回路”的保命提醒。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">欧姆定律</span>
+            <span class="badge-plain">分压分流</span>
+            <span class="badge-plain">万用表用法</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 2 -->
+        <a id="b-components" href="tutorials/mcu51-basic-components.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                <rect x="9" y="9" width="6" height="6"/>
+                <path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">常用元件：从色环电阻到三极管</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            色环电阻逐个读出来、贴片 <code class="icode">103</code> 是什么意思、电容单位换算与极性、
+            LED 正向压降与限流电阻算例、二极管为什么要续流、三极管怎么当开关用、按键为什么必须加上拉。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">色环读法</span>
+            <span class="badge-plain">LED 限流</span>
+            <span class="badge-plain">三极管开关</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 3 -->
+        <a id="b-number" href="tutorials/mcu51-basic-number.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">数制与位运算</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            二进制与十六进制互转的手算方法、为什么嵌入式偏爱十六进制、补码与 <code class="icode">0xFF</code> 的两种解读、
+            <code class="icode">&amp; | ^ ~ &lt;&lt; &gt;&gt;</code> 逐个逐位演算，以及置位/清零/翻转/判断四个标准动作。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">二↔十六进制</span>
+            <span class="badge-plain">补码</span>
+            <span class="badge-plain">位运算四动作</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 4 -->
+        <a id="b-digital" href="tutorials/mcu51-basic-digital.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">数字电路与电平</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            高低电平是一个范围而不是固定值、TTL 与 CMOS 标准的差别、3.3V 与 5V 器件能不能直连、
+            为什么很多电路“低电平点亮”、逻辑门对应的位运算符、上拉下拉与按键消抖。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">电平标准</span>
+            <span class="badge-plain">3.3V↔5V</span>
+            <span class="badge-plain">上拉下拉</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 5 -->
+        <a id="b-c" href="tutorials/mcu51-basic-c.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m8 6-6 6 6 6M16 6l6 6-6 6"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">C 语言基础</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            从“一个 C 程序长什么样”讲起：<code class="icode">#include</code> 与 <code class="icode">main</code>、
+            Keil C51 的 <code class="icode">int</code> 是 16 位、数组查表、指针为什么能改实参、宏定义与
+            <code class="icode">volatile</code>。配 3 个可编译程序与 8 条编译报错排查。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">指针与数组</span>
+            <span class="badge-plain">宏定义</span>
+            <span class="badge-plain">volatile</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 6 -->
+        <a id="b-register" href="tutorials/mcu51-basic-register.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m12 2 9 5-9 5-9-5 9-5Z"/>
+                <path d="m3 12 9 5 9-5"/>
+                <path d="m3 17 9 5 9-5"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">单片机内部结构与寄存器</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            51 内部有哪些模块、地址是什么、<b class="font-semibold text-ink">SFR 到底是什么</b>、位寻址地址怎么算、
+            机器周期与晶振选择、复位后各寄存器初值、P0 口为什么必须外接上拉。全站最常出现却从未定义的词，这一篇讲透。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">SFR</span>
+            <span class="badge-plain">位寻址</span>
+            <span class="badge-plain">时钟与复位</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 基础 7 -->
+        <a id="b-toolchain" href="tutorials/mcu51-basic-toolchain.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m4 17 6-6-6-6"/>
+                <path d="M12 19h8"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">从源码到芯片：编译、HEX 与烧录</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            预处理→编译→汇编→链接每个阶段做了什么、优化等级为什么会毁掉软件延时、
+            Intel HEX 逐字段拆解（含真实样例）、Keil 工程哪些文件该进 Git、STC-ISP 为什么要冷启动下载。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">编译与链接</span>
+            <span class="badge-plain">HEX 格式</span>
+            <span class="badge-plain">ISP 烧录</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 教程目录 ============================== -->
+    <section class="wrap py-14 sm:py-16">
+      <p class="sec-eyebrow">Tutorials</p>
+      <h2 class="sec-title">8 个专题，按顺序学</h2>
+      <p class="sec-desc">每个专题都配完整代码、Proteus 仿真要点与踩坑记录。点开卡片即可进入对应教程。</p>
+
+      <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
+        <!-- 1 -->
+        <a id="c-env" href="tutorials/mcu51-env.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 1 5.4-5.4l-2.3 2.3 1.7 1.7 2.3-2.3a4 4 0 0 1-5.4-5.4Z"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">开发环境搭建</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            装好 Keil C51（µVision）并完成注册，新建第一个工程、把 <code class="icode">.c</code> 源文件加进 Target，
+            勾选生成 HEX 输出，再用 STC-ISP 把程序下载进芯片。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">Keil 工程配置</span>
+            <span class="badge-plain">输出 HEX</span>
+            <span class="badge-plain">STC-ISP 下载</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 2 -->
+        <a id="c-min-system" href="tutorials/mcu51-min-system.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M10 3v2M14 3v2M10 19v2M14 19v2M3 10h2M3 14h2M19 10h2M19 14h2"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">51 最小系统电路原理</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            单片机 + 晶振电路 + 复位电路 + 电源，四部分缺一不可。讲清楚 11.0592MHz 与 12MHz 的取舍、
+            上电复位与按键复位的区别，以及为什么少了任何一个部分芯片都不工作。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">晶振电路</span>
+            <span class="badge-plain">复位电路</span>
+            <span class="badge-plain">电源与去耦</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 3 -->
+        <a id="c-led" href="tutorials/mcu51-led.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.3 1 2.1h5c0-.8.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/>
+              </svg>
+            </span>
+            <span class="badge-easy">入门</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">IO 口输出：LED 流水灯</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            理解准双向 IO 口的输出特性、灌电流与拉电流的区别，会算限流电阻；
+            用 <code class="icode">P1 = 0xFE</code> 和移位操作实现流水灯与跑马灯效果。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">准双向 IO</span>
+            <span class="badge-plain">灌电流 / 拉电流</span>
+            <span class="badge-plain">移位控制</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 4 -->
+        <a id="c-timer" href="tutorials/mcu51-timer.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">定时器原理与定时</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            从机器周期讲到 TMOD / TCON 的每一位配置，梳理方式 0 / 1 / 2 的差别，
+            手算 TH / TL 初值，并用定时器中断做出精确的 1 秒基准。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">机器周期</span>
+            <span class="badge-plain">TMOD / TCON</span>
+            <span class="badge-plain">TH / TL 初值</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 5 -->
+        <a id="c-exti" href="tutorials/mcu51-exti.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M13 2 4.5 13H11l-1 9 8.5-11H12l1-9Z"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">外部中断触发</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            INT0 / INT1 的引脚与触发方式选择（IT0 / IT1 的下降沿与低电平），
+            中断号 0 与 2 的写法，以及按键从硬件 RC 消抖到软件延时的完整处理。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">INT0 / INT1</span>
+            <span class="badge-plain">IT0 / IT1</span>
+            <span class="badge-plain">按键消抖</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 6 -->
+        <a id="c-uart" href="tutorials/mcu51-uart.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 12h4l2-6 3 12 3-9 2 3h4"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">UART 串口通信</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            配置 SCON 与 PCON 进入方式 1，按晶振推算波特率并反推 TH1 / TL1 初值，
+            搞懂为什么通信场景要选 11.0592MHz，最后用中断实现不定长收发。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">SCON / PCON</span>
+            <span class="badge-plain">波特率计算</span>
+            <span class="badge-plain">中断收发</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 7 -->
+        <a id="c-lcd1602" href="tutorials/mcu51-lcd1602.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h2M11 9h2M15 9h2M7 13h10"/>
+              </svg>
+            </span>
+            <span class="badge-mid">进阶</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">LCD1602 液晶驱动</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            认识 HD44780 控制器与指令集，在 8 位和 4 位数据总线之间做选择，
+            严格按 RS / RW / EN 时序写驱动，并用忙标志 BF 取代死等延时。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">HD44780</span>
+            <span class="badge-plain">4 位总线</span>
+            <span class="badge-plain">RS/RW/EN 时序</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+        <!-- 8 -->
+        <a id="c-dht11" href="tutorials/mcu51-dht11.html" class="card card-pad card-hover group scroll-mt-24">
+          <div class="flex items-start justify-between gap-3">
+            <span class="icon-tile">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3s5 5.5 5 9.5a5 5 0 0 1-10 0C7 8.5 12 3 12 3Z"/><path d="M12 17a2.5 2.5 0 0 0 2.5-2.5"/>
+              </svg>
+            </span>
+            <span class="badge-hard">综合</span>
+          </div>
+          <h3 class="mt-4 text-[15px] font-semibold transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">综合项目：温湿度采集</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            DHT11 单总线时序全解析：起始信号、微秒级延时、40 位数据的格式与校验和验证，
+            再把结果实时显示到 LCD1602 上，串成一个完整的小系统。
+          </p>
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            <span class="badge-plain">单总线时序</span>
+            <span class="badge-plain">微秒级延时</span>
+            <span class="badge-plain">校验和</span>
+          </div>
+          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-300">
+            查看教程 →
+          </span>
+        </a>
+
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 避坑提示 ============================== -->
+    <section class="wrap py-14 sm:py-16">
+      <p class="sec-eyebrow">Pitfalls</p>
+      <h2 class="sec-title">避坑提示</h2>
+      <p class="sec-desc">下面这些坑几乎每个 51 新手都会踩一遍，提前看一遍能省下好几个晚上。</p>
+
+      <div class="mt-8 grid gap-5 sm:grid-cols-2">
+
+        <div class="callout callout-warn">
+          <div class="callout-title">晶振旁边那两个 30pF 电容不是装饰</div>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            晶振必须配两个 20~30pF 的负载电容接地，它们和晶振一起构成稳定的振荡回路。
+            省掉电容最常见的现象是「程序偶尔能跑、一碰就死机」，甚至干脆不起振。
+            电容还要尽量贴近晶振和单片机的 XTAL1 / XTAL2 引脚，走线越短越好。
+          </p>
+        </div>
+
+        <div class="callout callout-warn">
+          <div class="callout-title">串口助手一片乱码：先查波特率和晶振</div>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            乱码九成以上是波特率对不上。用 12MHz 晶振配 9600bps 无法整除，误差大到必然出错；
+            换成 11.0592MHz 后，9600 / 19200 等常用波特率都能整除。
+            另外确认两端的数据位、停止位、校验位一致，并且单片机是 TTL 电平，
+            接电脑 USB 转串口模块时别把 TX / RX 接反（应当交叉连接）。
+          </p>
+        </div>
+
+        <div class="callout callout-warn">
+          <div class="callout-title">LED 不亮：先看限流电阻和接法</div>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            51 的 IO 口拉电流能力很弱（约几百微安），灌电流能力才强（约 10~20mA），
+            所以标准接法是 LED 阳极经限流电阻接 VCC、阴极接 IO 口，输出低电平点亮。
+            限流电阻一般取 220Ω~1kΩ：太小会烧 IO 口或 LED，太大亮度几乎看不见。
+            如果代码没错却不亮，先量一下 LED 有没有装反、电阻有没有虚焊。
+          </p>
+        </div>
+
+        <div class="callout callout-warn">
+          <div class="callout-title">中断服务函数里别写延时和 printf</div>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            中断服务函数应当尽量短。在里面调用长延时或串口打印，会长时间占用 CPU，
+            导致主循环卡顿、其他中断被错过，串口打印本身还可能因为重入把数据搅乱。
+            正确做法是在中断里只置一个标志位或写进缓冲区，真正的处理交回主循环完成。
+          </p>
+        </div>
+
+        <div class="callout callout-warn">
+          <div class="callout-title">sbit 必须定义在可位寻址的地址上</div>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            <code class="icode">sbit</code> 只能作用于位寻址区：字节地址能被 8 整除的特殊功能寄存器
+            （如 P0~P3、TCON、SCON、IE、TMOD 之外的多数 SFR），或 20H~2FH 的位寻址 RAM。
+            给不可位寻址的寄存器定义 sbit 会直接编译报错。
+            典型例子就是 TMOD：它字节地址 0x89 不能被 8 整除，只能整体赋值，不能 <code class="icode">sbit</code> 单独操作某一位。
+          </p>
+        </div>
+
+        <div class="callout callout-tip">
+          <div class="callout-title">先用 Proteus 仿真验证，再上硬件</div>
+          <p class="mt-2 text-[13px] leading-relaxed text-muted">
+            烧录进芯片再排查问题，你分不清是电路错了还是代码错了。
+            先在 Proteus 里把最小系统、LED、LCD、串口都跑通，用虚拟示波器看时序波形，
+            确认逻辑无误后再上真实硬件，剩下的问题基本就只在焊接和接线上了。
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 常用寄存器速查 ============================== -->
+    <section class="wrap py-14 sm:py-16">
+      <p class="sec-eyebrow">Reference</p>
+      <h2 class="sec-title">常用寄存器速查</h2>
+      <p class="sec-desc">调程序时最常翻的就是这张表。注意「可位寻址」一列——它决定了你能不能用 <code class="icode">sbit</code>。</p>
+
+      <div class="table-scroll">
+        <table class="table-mcu">
+          <thead>
+            <tr>
+              <th>寄存器</th>
+              <th>作用</th>
+              <th>常用位</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code class="icode">P0</code></td>
+              <td>P0 口数据寄存器（字节地址 0x80，可位寻址）。作为普通 IO 时为漏极开路，需外接上拉电阻；扩展总线时复用为低 8 位地址 / 数据总线。</td>
+              <td><code class="icode">P0.0</code> ~ <code class="icode">P0.7</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">P1</code></td>
+              <td>P1 口数据寄存器（字节地址 0x90，可位寻址）。纯准双向 IO，内部已有上拉，驱动 LED、按键、LCD 数据线最常用。</td>
+              <td><code class="icode">P1.0</code> ~ <code class="icode">P1.7</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">P2</code></td>
+              <td>P2 口数据寄存器（字节地址 0xA0，可位寻址）。准双向 IO；扩展外部存储器时输出高 8 位地址。</td>
+              <td><code class="icode">P2.0</code> ~ <code class="icode">P2.7</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">P3</code></td>
+              <td>P3 口数据寄存器（字节地址 0xB0，可位寻址）。每个引脚都有第二功能。</td>
+              <td><code class="icode">P3.0/RXD</code>、<code class="icode">P3.1/TXD</code>、<code class="icode">P3.2/INT0</code>、<code class="icode">P3.3/INT1</code>、<code class="icode">P3.4/T0</code>、<code class="icode">P3.5/T1</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">TMOD</code></td>
+              <td>定时器 / 计数器方式寄存器（字节地址 0x89）。高 4 位控制 T1，低 4 位控制 T0。<b>不可位寻址</b>，只能整体赋值，例如 <code class="icode">TMOD = 0x01;</code>。</td>
+              <td><code class="icode">GATE</code>、<code class="icode">C/T</code>、<code class="icode">M1</code>、<code class="icode">M0</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">TCON</code></td>
+              <td>定时器控制寄存器（字节地址 0x88，可位寻址）。负责启停定时器、设置外部中断触发方式，并保存溢出与中断请求标志。</td>
+              <td><code class="icode">TF1</code>、<code class="icode">TR1</code>、<code class="icode">TF0</code>、<code class="icode">TR0</code>、<code class="icode">IE1</code>、<code class="icode">IT1</code>、<code class="icode">IE0</code>、<code class="icode">IT0</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">SCON</code></td>
+              <td>串行口控制寄存器（字节地址 0x98，可位寻址）。选择工作方式、允许收发、保存收发中断标志与第 9 位数据。</td>
+              <td><code class="icode">SM0</code>、<code class="icode">SM1</code>、<code class="icode">SM2</code>、<code class="icode">REN</code>、<code class="icode">TI</code>、<code class="icode">RI</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">IE</code></td>
+              <td>中断允许寄存器（字节地址 0xA8，可位寻址）。总开关 EA 关闭时，任何中断都不会被响应。</td>
+              <td><code class="icode">EA</code>、<code class="icode">ET2</code>、<code class="icode">ES</code>、<code class="icode">ET1</code>、<code class="icode">EX1</code>、<code class="icode">ET0</code>、<code class="icode">EX0</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">PCON</code></td>
+              <td>电源控制寄存器（字节地址 0x87，不可位寻址）。最高位 SMOD 用于串口波特率加倍，其余位与掉电、空闲等低功耗模式有关。</td>
+              <td><code class="icode">SMOD</code>、<code class="icode">SMOD0</code>、<code class="icode">PD</code>、<code class="icode">IDL</code></td>
+            </tr>
+            <tr>
+              <td><code class="icode">IP</code></td>
+              <td>中断优先级寄存器（字节地址 0xB8，可位寻址）。设置两级中断优先级，处理中断嵌套。</td>
+              <td><code class="icode">PS</code>、<code class="icode">PT1</code>、<code class="icode">PX1</code>、<code class="icode">PT0</code>、<code class="icode">PX0</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="hint mt-4">
+        提示：以上地址以标准 8051 / STC89C52 为准。STC 系列额外增加的 SFR（如 AUXR、P4 口、看门狗 WDT_CONTR）
+        请以对应型号的官方数据手册为准。
+      </p>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 示例代码 ============================== -->
+    <section class="wrap py-14 sm:py-16">
+      <p class="sec-eyebrow">Code</p>
+      <h2 class="sec-title">完整代码示例：LED 流水灯</h2>
+      <p class="sec-desc">
+        把下面这段代码原样贴进 Keil 新建的 <code class="icode">main.c</code>，按 12MHz 晶振编译，
+        用 STC-ISP 下载到 STC89C52RC，接在 P1 口的 8 个 LED 就会依次点亮。
+      </p>
+
+      <div class="code-block" data-lang="c" data-title="main.c —— LED 流水灯">
+        <pre><code>#include &lt;reg52.h&gt;          /* 包含 8051 标准寄存器定义，P1、unsigned int 等都在里面 */
+
+/* ---------------------------------------------------------------
+ * 硬件连接说明（共阳极接法，最常见）
+ *   P1.0 ~ P1.7 各接一个 LED 的阴极
+ *   每个 LED 的阳极各串一只 220Ω~1kΩ 限流电阻，再接到 +5V
+ *   因此：IO 输出低电平(0) -> LED 点亮；输出高电平(1) -> LED 熄灭
+ * --------------------------------------------------------------- */
+
+sbit LED0 = P1^0;         /* sbit 定义单个引脚，P1 字节地址 0x90 可位寻址 */
+sbit LED7 = P1^7;         /* 这里演示 sbit 用法，主循环中仍用字节整体赋值 */
+
+/* ---------------------------------------------------------------
+ * 函数：Delay_ms
+ * 作用：软件延时，晶振 12MHz 时约延时 ms 毫秒
+ * 说明：51 的机器周期 = 12 / 晶振频率 = 1us，所以内层空循环次数
+ *       按经验取值即可；对时间精度要求高时请改用定时器。
+ * --------------------------------------------------------------- */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i;
+    unsigned char j;
+
+    for (i = 0; i &lt; ms; i++)          /* 外层：循环 ms 次，每次约 1 毫秒 */
+    {
+        for (j = 0; j &lt; 120; j++)     /* 内层：空循环，负责"吃掉"这 1 毫秒 */
+        {
+            ;                          /* 空语句，什么都不做，只消耗时间 */
+        }
+    }
+}
+
+/* ---------------------------------------------------------------
+ * 函数：main
+ * 作用：主函数，程序入口。单片机没有操作系统，必须写成死循环，
+ *       否则 main 执行完就"跑飞"了。
+ * --------------------------------------------------------------- */
+void main(void)
+{
+    unsigned char led;                 /* 保存当前要输出的 LED 状态 */
+
+    P1 = 0xFF;                         /* 上电先把 P1 全部拉高，8 个 LED 全灭 */
+
+    while (1)                          /* 主循环：单片机的程序永远不退出 */
+    {
+        led = 0xFE;                    /* 0xFE = 1111 1110B，最低位为 0 -> P1.0 点亮 */
+
+        while (1)
+        {
+            P1 = led;                  /* 把状态输出到 P1 口，驱动 LED */
+            Delay_ms(200);             /* 保持 200ms，让肉眼能看清流水效果 */
+
+            led = (led &lt;&lt; 1) | 0x01;   /* 左移一位，并把最低位补 1（保持熄灭） */
+
+            if (led == 0xFF)           /* 8 个 LED 都轮流亮过一遍后，低 8 位全变 1 */
+            {
+                break;                 /* 跳出内层循环，重新从 P1.0 开始 */
+            }
+        }
+    }
+}
+</code></pre>
+      </div>
+
+      <p class="hint mt-4">
+        说明：<code class="icode">Delay_ms</code> 是软件延时，实际时长受晶振频率与编译器优化等级影响，
+        仅适合流水灯、数码管扫描这类对时间不敏感的场景。需要精确定时请参考
+        <a href="tutorials/mcu51-timer.html" class="text-brand-600 dark:text-brand-300 hover:underline">定时器原理与定时</a> 一节，用定时器中断替代。
+      </p>
+    </section>
+
+    <hr class="hr-soft wrap">
+
+    <!-- ============================== 收尾说明 ============================== -->
+    <section class="wrap py-14 sm:py-16">
+      <div class="callout callout-info">
+        <div class="callout-title">关于本页的教程链接</div>
+        <p class="mt-2 text-[13px] leading-relaxed text-muted">
+          本页 8 张卡片目前都指向页内锚点（形如 <code class="icode">href="tutorials/mcu51-env.html"</code>），
+          仅用于占位与页面结构演示，点击后不会跳转到真正的文章。
+          上线前请把每个 <code class="icode">href</code> 替换成对应教程文章的真实地址，
+          例如 <code class="icode">mcu51-env.html</code>、<code class="icode">mcu51-timer.html</code> 这类独立文章页。
+          新文章可以直接复制本站的教程页模板来写，骨架、目录、代码块样式都已经做好。
+        </p>
+        <div class="mt-5">
+          <a href="article-template.html" class="btn-outline">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 3h7v7M21 3l-9 9M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/>
+            </svg>
+            查看教程页模板
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

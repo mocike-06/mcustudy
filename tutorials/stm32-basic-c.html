@@ -1,0 +1,1740 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C 语言进阶：指针、结构体与回调 - McuStudy</title>
+  <meta name="description" content="STM32 基础地基第四篇：把 HAL 库里满屏的 C 语法一次讲透。指针的类型为什么重要、为什么 HAL 函数几乎都收指针、结构体与 -&gt; 的含义、位域与 _Pos/_Msk 掩码风格、函数指针怎么读、回调与 weak 符号覆盖、const/volatile/static 不加会出什么事、typedef 与 HAL 命名规律，含三个完整可编译程序。">
+  <meta name="keywords" content="C语言指针,结构体指针,箭头运算符,函数指针,回调函数,volatile,const,static,位域,位掩码,typedef,uint8_t,stdint.h,HAL命名规范">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="stm32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../stm32.html" class="hover:text-brand-600 dark:hover:text-brand-300">STM32</a>
+          <span>/</span>
+          <span class="text-muted">C 语言进阶</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          C 语言进阶：指针、结构体与回调
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你学过的 C 语言是「考试用的 C」：数组、循环、函数、printf。而 HAL 库里的 C 是「工程用的 C」：满屏的 <code class="icode">-&gt;</code>、结构体指针、函数指针、<code class="icode">const</code>/<code class="icode">volatile</code>/<code class="icode">static</code>、以及 <code class="icode">uint8_t</code> 这种没见过的基本类型。这一篇不讲语法书上的边角料，只讲<b>你在 STM32 代码里会天天遇到的那部分</b>：每个概念都配一个「不加它会出什么事」的实例，最后用三个完整程序把它们串起来——这三个程序不需要单片机，在电脑上编译就能跑，你可以放心地反复改着玩。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="stat-pill">语言：<b>C99</b></span>
+          <span class="stat-pill">可在电脑上验证</span>
+          <span class="stat-pill">阅读约 <b>24</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-pointer-review">指针复习与强化</a>
+          <a class="toc-link is-sub" href="#sub-pointer-arg">指针作为函数参数</a>
+          <a class="toc-link is-sub" href="#sub-struct">结构体：把一组数据捆在一起</a>
+          <a class="toc-link is-sub" href="#sub-struct-pointer">结构体指针</a>
+          <a class="toc-link is-sub" href="#sub-arrow">「-&gt;」到底是什么意思</a>
+          <a class="toc-link is-sub" href="#sub-bitfield">位域与位掩码</a>
+          <a class="toc-link is-sub" href="#sub-funcptr">函数指针（重点）</a>
+          <a class="toc-link is-sub" href="#sub-callback">回调：函数指针 + 一个全局变量（重点）</a>
+          <a class="toc-link is-sub" href="#sub-qualifier">const / volatile / static</a>
+          <a class="toc-link is-sub" href="#sub-typedef">typedef 与 HAL 的命名风格</a>
+          <a class="toc-link" href="#sec-hardware">硬件资源说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-prog1">程序一：结构体指针传参</a>
+          <a class="toc-link is-sub" href="#sub-prog2">程序二：函数指针回调表</a>
+          <a class="toc-link is-sub" href="#sub-prog3">程序三：模拟 HAL 的 weak 回调</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-pointer-review">指针复习与强化</a>
+            <a class="toc-link is-sub" href="#sub-pointer-arg">指针作为函数参数</a>
+            <a class="toc-link is-sub" href="#sub-struct">结构体：把一组数据捆在一起</a>
+            <a class="toc-link is-sub" href="#sub-struct-pointer">结构体指针</a>
+            <a class="toc-link is-sub" href="#sub-arrow">「-&gt;」到底是什么意思</a>
+            <a class="toc-link is-sub" href="#sub-bitfield">位域与位掩码</a>
+            <a class="toc-link is-sub" href="#sub-funcptr">函数指针（重点）</a>
+            <a class="toc-link is-sub" href="#sub-callback">回调：函数指针 + 一个全局变量（重点）</a>
+            <a class="toc-link is-sub" href="#sub-qualifier">const / volatile / static</a>
+            <a class="toc-link is-sub" href="#sub-typedef">typedef 与 HAL 的命名风格</a>
+            <a class="toc-link" href="#sec-hardware">硬件资源说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-prog1">程序一：结构体指针传参</a>
+            <a class="toc-link is-sub" href="#sub-prog2">程序二：函数指针回调表</a>
+            <a class="toc-link is-sub" href="#sub-prog3">程序三：模拟 HAL 的 weak 回调</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">先明确这一篇的边界：<b class="font-semibold text-ink">它不是 C 语言教程，而是一份「HAL 代码里的 C 语法翻译表」。</b>凡是 HAL 里出现过、而基础 C 课没讲透的东西，这里都讲；讲不到的（位运算技巧、复杂宏、编译链接细节）一律不碰。</p>
+          <p class="mt-3">为什么必须补这一课？因为 HAL 的 API 设计有三条铁律，每一条都对应一类你没学过的语法：<b class="font-semibold text-ink">①</b> 配置信息一律打包成结构体传进去（→ 结构体）；<b class="font-semibold text-ink">②</b> 传的是结构体的地址而不是结构体本身（→ 指针与 <code class="icode">-&gt;</code>）；<b class="font-semibold text-ink">③</b> 中断里该干什么由你提供函数，库来调用（→ 函数指针与回调）。</p>
+
+          <h3 id="sub-pointer-review" class="mt-7 text-base font-semibold">指针复习与强化：类型为什么重要</h3>
+          <p class="mt-3">把内存想象成<b class="font-semibold text-ink">一排编了号的抽屉</b>，每个抽屉装 1 个字节。抽屉的编号就是<b class="font-semibold text-ink">地址</b>。你在 C 里写 <code class="icode">uint8_t flag;</code>，编译器就在这排抽屉里找一个空位（比如 0x20000010 号），把 <code class="icode">flag</code> 这个名字和那个编号绑起来。</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><code class="icode">&amp;flag</code> 是「取地址」——问出抽屉的编号，结果是 <code class="icode">0x20000010</code>。</li>
+            <li><code class="icode">uint8_t *p = &amp;flag;</code> 定义了一个<b class="font-semibold text-ink">指针变量</b> <code class="icode">p</code>，它自己也是一个抽屉（在 32 位机上占 4 个字节），里面存的内容是「0x20000010」这个编号。</li>
+            <li><code class="icode">*p</code> 是「解引用」——按 <code class="icode">p</code> 里存的编号找到那个抽屉，取出里面的东西。</li>
+          </ul>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">指针变量的类型，决定了「加一走多远」</div>
+            <p>这是最容易被忽略、又最容易造成「读出来是乱值」的一条规则。指针的加减法不是按 1 个字节算，而是<b>按它指向的类型大小算</b>：</p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><code class="icode">uint8_t *p; p + 1</code> → 地址增加 <b>1</b> 字节（指向下一个字节）</li>
+              <li><code class="icode">uint16_t *p; p + 1</code> → 地址增加 <b>2</b> 字节</li>
+              <li><code class="icode">uint32_t *p; p + 1</code> → 地址增加 <b>4</b> 字节</li>
+              <li><code class="icode">MyStruct *p; p + 1</code> → 地址增加 <b>sizeof(MyStruct)</b> 字节</li>
+            </ul>
+            <p class="mt-2">同时类型还决定「解引用读几个字节」：<code class="icode">*p</code> 在 <code class="icode">uint8_t*</code> 下读 1 字节，在 <code class="icode">uint32_t*</code> 下读 4 字节。STM32 的寄存器全是 32 位的，所以操作寄存器必须用 <code class="icode">uint32_t*</code>——用错类型读出来的就是错位的字节组合。</p>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="指针的类型：实地数一数">
+            <pre><code>#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+
+int main(void)
+{
+  uint8_t  buf[8] = {0};
+
+  uint8_t  *p8  = buf;                 /* 指向第 0 个字节 */
+  uint16_t *p16 = (uint16_t *)buf;     /* 强制当成 16 位来看 */
+  uint32_t *p32 = (uint32_t *)buf;     /* 强制当成 32 位来看 */
+
+  printf("p8  = %p, p8  + 1 = %p\n", (void *)p8,  (void *)(p8  + 1));
+  printf("p16 = %p, p16 + 1 = %p\n", (void *)p16, (void *)(p16 + 1));
+  printf("p32 = %p, p32 + 1 = %p\n", (void *)p32, (void *)(p32 + 1));
+
+  /* 在一台 32 位 / 64 位电脑上，典型输出是：
+       p8  = 0x7ffd1234, p8  + 1 = 0x7ffd1235   ← 加 1 字节
+       p16 = 0x7ffd1234, p16 + 1 = 0x7ffd1236   ← 加 2 字节
+       p32 = 0x7ffd1234, p32 + 1 = 0x7ffd1238   ← 加 4 字节
+     三个指针的起始地址完全一样，但「加一」走的路程差 4 倍。 */
+  return 0;
+}</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">野指针</b>：定义了指针却没让它指向合法的东西，就解引用。比如 <code class="icode">uint32_t *p; *p = 1;</code>——<code class="icode">p</code> 里是栈上留下的垃圾值，可能是 0x00000000，也可能是某个寄存器的地址。往那里写数据，轻则改掉别的变量，重则触发 HardFault 让程序死掉。<b class="font-semibold text-ink">空指针</b>：约定「不指向任何有效地址」的指针用 <code class="icode">NULL</code> 表示（本质是 0）。它本身合法，解引用它就崩。</p>
+          <p class="mt-3">三句话记住指针：<b class="font-semibold text-ink">①</b> 指针里存的是地址；<b class="font-semibold text-ink">②</b> 指针的类型决定加一走多远、解引用读几个字节；<b class="font-semibold text-ink">③</b> 用之前必须让它指向合法的东西。</p>
+
+          <h3 id="sub-pointer-arg" class="mt-7 text-base font-semibold">指针作为函数参数：为什么 HAL 的函数几乎都收指针</h3>
+          <p class="mt-3">先看一个每个人初学 C 时都踩过的坑：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="值传递：改不了外面的变量">
+            <pre><code>#include &lt;stdio.h&gt;
+
+/* 这个函数想把外面的 x 改成 100，但它做不到 */
+void set_to_100(int x)
+{
+  x = 100;          /* 改的是「副本」，不是外面那个 x */
+}
+
+int main(void)
+{
+  int a = 5;
+  set_to_100(a);
+  printf("a = %d\n", a);   /* 输出 a = 5，不是 100 */
+  return 0;
+}</code></pre>
+          </div>
+
+          <p class="mt-3">原因：C 语言的函数参数默认是<b class="font-semibold text-ink">值传递</b>——调用时把实参的值复制一份给形参。<code class="icode">set_to_100(a)</code> 复制了 <code class="icode">a</code> 里的 5 给形参 <code class="icode">x</code>，之后函数里改的是那个副本 <code class="icode">x</code>，和 <code class="icode">a</code> 再没有关系。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="值传递 vs 指针传递：内存里发生了什么">
+            <pre><code>【值传递】 void set_to_100(int x);      调用：set_to_100(a);
+
+    main 的栈帧                      set_to_100 的栈帧
+   ┌──────────────┐                 ┌──────────────┐
+   │  a = 5       │ ───复制 5────►  │  x = 5       │
+   └──────────────┘                 └──────┬───────┘
+                                           │ x = 100 改的是这里
+                                           ▼
+                                    ┌──────────────┐
+                                    │  x = 100     │
+                                    └──────────────┘
+    函数返回后 x 消失，a 依然是 5。❌ 改不到外面
+
+【指针传递】 void set_to_100(int *x);    调用：set_to_100(&amp;a);
+
+    main 的栈帧                      set_to_100 的栈帧
+   ┌──────────────┐                 ┌──────────────┐
+   │  a = 5       │ ◄───────────────│  x = &amp;a      │
+   └──────┬───────┘   顺着地址写回   └──────────────┘
+          │                                │ *x = 100
+          ▼                                ▼
+   ┌──────────────┐
+   │  a = 100     │  ← 函数里通过地址改的是「真身」
+   └──────────────┘
+    函数返回后 a 已经是 100。✅ 改到了外面</code></pre>
+          </div>
+
+          <p class="mt-3">HAL 之所以几乎每个函数都收指针，有三个理由，每一个都很实际：</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">避免拷贝大结构体。</b><code class="icode">UART_HandleTypeDef</code> 里有十几个成员，加起来几十个字节。如果按值传递，每次调用函数都要复制几十字节到栈上，既费时间又费栈空间。传一个 4 字节的地址就搞定了。</li>
+            <li><b class="font-semibold text-ink">允许函数修改实参。</b>HAL 需要在函数内部改变句柄里的状态字段：调用 <code class="icode">HAL_UART_Transmit()</code> 时，它要把 <code class="icode">gState</code> 改成「忙」，发完再改回「就绪」。如果传的是副本，这些状态改动全部丢失，HAL 就废了。</li>
+            <li><b class="font-semibold text-ink">可以表达「没有」。</b>指针可以传 <code class="icode">NULL</code> 表示「这次不用这个参数」。比如 <code class="icode">HAL_UART_Transmit(&amp;huart1, NULL, 0, 100)</code> 可以表示「发零个字节」。如果参数是结构体，就没法表达「空」这个含义。</li>
+          </ul>
+          <p class="mt-3">最后补一个 <code class="icode">const</code> 指针的用法：HAL 里常见 <code class="icode">HAL_UART_Transmit(UART_HandleTypeDef *huart, const uint8_t *pData, ...)</code>。第二个参数带 <code class="icode">const</code>，是明确告诉你：<b>这个函数保证不修改你传进去的数据</b>，你可以放心把只读数据（比如字符串常量）交给它。</p>
+
+          <h3 id="sub-struct" class="mt-7 text-base font-semibold">结构体：把一组相关的数据捆在一起</h3>
+          <p class="mt-3">结构体（struct）解决的痛点是：<b class="font-semibold text-ink">想让一组数据永远一起出现、一起传递</b>。没有结构体时，描述一个 LED 的状态要写散装变量：<code class="icode">led_pin</code>、<code class="icode">led_port</code>、<code class="icode">led_speed</code>、<code class="icode">led_mode</code>……函数签名会变成一长串参数；有了结构体，就变成一句话：<code class="icode">void led_init(LedConfig *cfg)</code>。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="结构体的定义、初始化与访问">
+            <pre><code>#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+
+/* ---------- 定义一种新类型 ----------
+ * typedef 的作用是「给类型起个新名字」，见后文 typedef 那一节。
+ * 成员按声明顺序存放在内存里，sizeof(LedConfig) 可能大于成员大小之和
+ * （因为编译器会插入填充字节来对齐），所以结构体大小一律用 sizeof() 求。 */
+typedef struct
+{
+  uint16_t pin;       /* 引脚掩码，如 0x2000 表示第 13 脚 */
+  uint8_t  port;      /* 端口编号，如 2 表示 GPIOC */
+  uint8_t  mode;      /* 0 = 推挽输出，1 = 开漏输出 */
+  uint32_t speed;     /* 输出速度，单位 Hz */
+} LedConfig;
+
+int main(void)
+{
+  /* ---------- 三种初始化写法 ---------- */
+  LedConfig a = {0};                    /* ★ 推荐：全部成员清零 */
+  LedConfig b = {0x2000, 2, 0, 2000000};/* 按声明顺序依次赋值 */
+  LedConfig c = {                      /* 带成员名（C99 起支持，最不易错） */
+    .pin   = 0x2000,
+    .port  = 2,
+    .mode  = 0,
+    .speed = 2000000
+  };
+
+  /* ---------- 用「点」访问成员 ---------- */
+  a.pin   = 0x2000;
+  a.port  = 2;
+  a.speed = 2000000;
+
+  printf("sizeof(LedConfig) = %u 字节\n", (unsigned)sizeof(LedConfig));
+  printf("a: pin=0x%04X port=%u mode=%u speed=%u\n",
+         a.pin, a.port, a.mode, a.speed);
+  printf("c: pin=0x%04X port=%u mode=%u speed=%u\n",
+         c.pin, c.port, c.mode, c.speed);
+
+  /* ---------- 结构体数组：一次管理好几个 LED ---------- */
+  LedConfig leds[3] = {
+    { .pin = 0x2000, .port = 2, .mode = 0, .speed = 2000000 },  /* PC13 */
+    { .pin = 0x0001, .port = 0, .mode = 0, .speed = 2000000 },  /* PA0  */
+    { .pin = 0x0001, .port = 1, .mode = 1, .speed = 2000000 }   /* PB0  */
+  };
+
+  for (int i = 0; i &lt; 3; i++)
+  {
+    printf("leds[%d] 在端口 %u 的第 %u 脚\n",
+           i, leds[i].port, __builtin_ctz(leds[i].pin));  /* 数出掩码里 1 的位置 */
+  }
+
+  return 0;
+}
+
+/* ============================================================================
+ * 为什么推荐写 = {0} ？
+ *
+ * LedConfig a;         ← 危险！a 是局部变量，在栈上，成员值是上一次别人留下的垃圾。
+ *                        你只赋了 pin 和 port，mode / speed 就是随机的。
+ *                        如果这个结构体被交给 HAL，HAL 会把每个字段都读一遍，
+ *                        于是外设被配成了莫名其妙的样子。
+ *
+ * LedConfig a = {0};   ← 安全。C 语言规定：初始化列表里没写到的成员一律为 0。
+ *                        一句话把所有成员清零，一个字都不用多打。
+ *
+ * 这条规则适用于所有「配置结构体」，包括 HAL 的 GPIO_InitTypeDef、
+ * UART_InitTypeDef、TIM_Base_InitTypeDef 等等。
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <h3 id="sub-struct-pointer" class="mt-7 text-base font-semibold">结构体指针：为什么 HAL 要传地址</h3>
+          <p class="mt-3">把上一节的两个概念合起来：<b class="font-semibold text-ink">结构体指针就是「指向结构体的指针」</b>，它存的是整个结构体的起始地址。定义写法是在类型名后加 <code class="icode">*</code>：<code class="icode">LedConfig *p;</code>。</p>
+          <p class="mt-3">它的价值和「指针作为函数参数」那一节完全一样：传一个 4 字节的地址，就能让函数读写整个结构体，既不拷贝也不怕改不到。HAL 里所有 Init 类函数都长这样：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="结构体指针的三种典型用法">
+            <pre><code>#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+
+typedef struct
+{
+  uint16_t pin;
+  uint8_t  port;
+  uint8_t  mode;
+  uint32_t speed;
+} LedConfig;
+
+/* ---------- 用法一：收结构体指针，直接修改调用者的结构体 ---------- */
+void led_set_speed(LedConfig *cfg, uint32_t new_speed)
+{
+  if (cfg == NULL)        /* ★ 收指针的函数，第一件事永远是判空 */
+  {
+    return;
+  }
+  cfg-&gt;speed = new_speed; /* -&gt; 就是「按地址找到结构体，再取这个成员」 */
+}
+
+/* ---------- 用法二：只读，不修改。加 const 表明态度 ---------- */
+void led_print(const LedConfig *cfg)
+{
+  if (cfg == NULL)
+  {
+    return;
+  }
+  printf("端口 %u，引脚掩码 0x%04X，模式 %u，速度 %u\n",
+         cfg-&gt;port, cfg-&gt;pin, cfg-&gt;mode, cfg-&gt;speed);
+  /* cfg-&gt;speed = 1;    ← 如果写了这一行，编译会直接报错：
+                            error: assignment of read-only location
+                          这就是 const 的作用：把「我不会改」变成编译器能检查的承诺。 */
+}
+
+int main(void)
+{
+  LedConfig led = { .pin = 0x2000, .port = 2, .mode = 0, .speed = 1000000 };
+
+  LedConfig *p = &amp;led;        /* p 指向 led */
+
+  led_print(p);               /* 端口 2，引脚掩码 0x2000，模式 0，速度 1000000 */
+
+  led_set_speed(&amp;led, 2000000);  /* 传地址，函数里就能改到 led 本体 */
+  led_set_speed(p,     4000000);  /* 等价写法：p 里存的就是 &amp;led */
+
+  led_print(&amp;led);            /* 端口 2，引脚掩码 0x2000，模式 0，速度 4000000 */
+
+  /* ---------- 用法三：结构体指针 + 数组遍历 ---------- */
+  LedConfig leds[3] = {
+    { 0x2000, 2, 0, 2000000 },
+    { 0x0001, 0, 0, 2000000 },
+    { 0x0001, 1, 1, 2000000 }
+  };
+
+  for (LedConfig *it = leds; it &lt; leds + 3; it++)   /* it 每次 +1 走 sizeof(LedConfig) 字节 */
+  {
+    led_print(it);
+  }
+
+  return 0;
+}</code></pre>
+          </div>
+
+          <h3 id="sub-arrow" class="mt-7 text-base font-semibold">「-&gt;」到底是什么意思</h3>
+          <p class="mt-3">这个符号是 C 里最让人不安的东西之一，但它其实只是一个<b class="font-semibold text-ink">简写</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="p->member 与 (*p).member 完全等价">
+            <pre><code>假设 p 是「指向 LedConfig 的指针」：
+
+    p-&gt;speed          ← 惯用写法
+    (*p).speed        ← 完全等价的展开写法
+
+  为什么需要这个简写？因为不能写成 *p.speed。
+  C 语言的运算符优先级表里，「.」比「*」高，所以：
+
+    *p.speed    实际含义是   *(p.speed)     ❌
+                先取 p 的 speed 成员 —— 可是 p 是个指针，指针没有成员，编译报错。
+                就算能取到，那也是「对一个数值解引用」，毫无意义。
+
+    (*p).speed  必须先给 *p 加括号，让它先解引用得到结构体，再取成员 ✅
+                每次都写括号太啰嗦，于是 C 提供了「-&gt;」这个专门干这事的运算符。
+
+  【读法】把「-&gt;」读成「它指向的那个结构体的」：
+     huart-&gt;Instance   读作「huart 指向的那个结构体的 Instance 成员」
+     cfg-&gt;speed        读作「cfg 指向的那个结构体的 speed 成员」</code></pre>
+          </div>
+
+          <p class="mt-3">所以 HAL 里的 <code class="icode">huart-&gt;Instance</code> 翻译成大白话就是：<b class="font-semibold">「huart 这个句柄指向的结构体，它里面的 Instance 成员」</b>。而那个 <code class="icode">Instance</code> 本身又是一个指针（指向 <code class="icode">USART1</code> 这个外设的寄存器块），所以还能继续往下点：<code class="icode">huart-&gt;Instance-&gt;DR = data;</code> ——「句柄指向的串口外设的 DR 寄存器」。这就是 HAL 内部搬运数据的那一行代码。</p>
+
+          <h3 id="sub-bitfield" class="mt-7 text-base font-semibold">位域与位掩码：两种描述「寄存器里第几位」的方式</h3>
+          <p class="mt-3">寄存器里常常是「几个位表示一个含义」，比如 GPIO 的 CRH 里每 4 个位描述一个引脚。C 语言提供了两种方式来表达这件事。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">方式一：位域（bit-field）</b>——在结构体里直接声明「这个成员占几个位」：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="位域：语法与它的三个坑">
+            <pre><code>#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+
+/* 用位域描述「一个引脚在 CRH 里的那 4 个位」 */
+typedef struct
+{
+  uint16_t mode  : 2;   /* 占 2 个位：输出模式 */
+  uint16_t cnf   : 2;   /* 占 2 个位：输入/输出配置 */
+  uint16_t spare : 12;  /* 补满 16 位 */
+} PinConfigBits;
+
+int main(void)
+{
+  PinConfigBits pc = {0};
+
+  pc.mode = 3;          /* 二进制 11 */
+  pc.cnf  = 0;          /* 二进制 00 */
+
+  printf("sizeof = %u 字节\n", (unsigned)sizeof(PinConfigBits));
+
+  /* 把整个结构体当成一个 16 位数来看 */
+  uint16_t raw = *(uint16_t *)&amp;pc;
+  printf("raw = 0x%04X\n", raw);   /* 典型输出 0x0003 */
+
+  return 0;
+}
+
+/* ============================================================================
+ * 位域的语法很优雅，但在「操作硬件寄存器」这件事上，HAL 和 CMSIS 都刻意
+ * 不用它，原因有三个：
+ *
+ *   ① 位的排列顺序（谁在高位谁在低位）依赖编译器和 CPU 的大小端，
+ *      标准没有强制规定。换编译器可能就变了，这在硬件编程里是致命的。
+ *
+ *   ② 位域成员不能取地址（没有独立的字节地址），
+ *      所以不能写 &amp;pc.mode 传给别人。
+ *
+ *   ③ 多个位域成员的读写，编译器可能生成「读整个字 → 改位 → 写回整个字」
+ *      的序列，和你想的「只动这 4 个位」不一定一致。
+ *
+ * 你在 STM32 的官方代码里几乎看不到位域，只在一些协议解析（如网络包头）
+ * 里才会见到。
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">方式二：位掩码（mask）</b>——CMSIS 头文件采用的方式，为每个位段定义一对宏：<code class="icode">_Pos</code> 表示「从第几位开始」，<code class="icode">_Msk</code> 表示「这一段的掩码」。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="CMSIS 的 _Pos / _Msk 风格（真实存在的宏）">
+            <pre><code>/* ---------- stm32f103xb.h 里的真实定义（节选） ---------- */
+#define GPIO_CRH_MODE13_Pos   (20U)
+#define GPIO_CRH_MODE13_Msk   (0x3UL &lt;&lt; GPIO_CRH_MODE13_Pos)   /* = 0x00300000 */
+#define GPIO_CRH_CNF13_Pos    (22U)
+#define GPIO_CRH_CNF13_Msk    (0x3UL &lt;&lt; GPIO_CRH_CNF13_Pos)    /* = 0x00C00000 */
+
+/* ---------- 标准操作套路：先「清位」再「置位」 ---------- */
+void gpio_pc13_output_pp(void)
+{
+  /* 第一步：把这一段位清零。
+     为什么要 ~ ？因为掩码是「哪几位要动」，取反后就是「哪几位要保持」，
+     和原来的值相与，就能把这些位清成 0，其他位纹丝不动。 */
+  GPIOC-&gt;CRH &amp;= ~GPIO_CRH_MODE13_Msk;
+
+  /* 第二步：把新值左移到正确位置，再或进去。
+     用 | 而不是 = ，同样是为了不影响其他位。 */
+  GPIOC-&gt;CRH |= (0x3UL &lt;&lt; GPIO_CRH_MODE13_Pos);   /* 11 = 输出模式，最高 50MHz */
+
+  /* 顺带把 CNF 配成 00（通用推挽输出） */
+  GPIOC-&gt;CRH &amp;= ~GPIO_CRH_CNF13_Msk;               /* 清 0 之后不用再置位 */
+}
+
+/* ============================================================================
+ * 【为什么必须「先清后置」】新手最常犯的错是直接写：
+ *
+ *     GPIOC-&gt;CRH |= (0x3UL &lt;&lt; 20);
+ *
+ * 如果这几位原来是 0，看起来是对的。但如果原来是 0b10（输入模式），
+ * 或上 0b11 就得到 0b11 —— 结果是「非法的混合值」，引脚行为不可预测。
+ *
+ * 「清位 + 置位」这两行是 C 语言操作寄存器最基础、也最重要的一个套路，
+ * 记住它的固定形式：
+ *     寄存器 &amp;= ~掩码;                     // 清
+ *     寄存器 |=  (值 &lt;&lt; 位置);              // 置
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <h3 id="sub-funcptr" class="mt-7 text-base font-semibold">函数指针：把函数当成一个可以传递的东西（重点）</h3>
+          <p class="mt-3">前面说过，变量在内存里有地址。其实<b class="font-semibold text-ink">函数也有地址</b>——函数编译后就是一段机器码，存在 Flash 里的某个位置，函数名本身就代表这个地址。既然函数有地址，就可以用指针存起来，以后通过这个指针来调用它。这种指针就叫<b class="font-semibold text-ink">函数指针</b>。</p>
+          <p class="mt-3">函数指针的声明语法是所有 C 语法里最丑的一个，但读法有固定套路：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="函数指针声明怎么读">
+            <pre><code>看这一行：      void (*cb)(void);
+
+【读法：从变量名出发，先看右边，再看左边，遇到括号就往外跳】
+
+   ① 找到变量名        cb
+   ② 它右边是          (void)        → 说明 cb 是个「收 void 参数的函数」
+   ③ 它左边是          *             → 说明 cb 是个「指针」
+   ④ 再往左            void          → 说明这个函数的返回值是 void
+   ─────────────────────────────────────────────────────
+   合起来读：cb 是一个「指向『收 void 参数、返回 void 的函数』的指针」
+
+【括号为什么不能省】对比这两种写法，它们含义完全不同：
+
+   void (*cb)(void);     ← cb 是「指向函数的指针」
+   void *cb(void);       ← cb 是「一个函数，它返回 void*」
+                            （没有 * 号包裹，cb 先和右边的 () 结合）
+
+【带参数的例子】
+   void (*handler)(uint8_t ch, uint16_t len);
+   读作：handler 是指向「收一个 uint8_t 和一个 uint16_t、返回 void 的函数」的指针
+
+   uint8_t (*getter)(void);
+   读作：getter 是指向「不收参数、返回 uint8_t 的函数」的指针
+
+【用 typedef 解救自己】每次写 (*name)(...) 太痛苦，标准做法是给类型起名字：
+
+   typedef void (*Callback_t)(uint8_t ch);    ← 定义一个「回调类型」
+   Callback_t cb;                              ← 现在声明清爽多了
+   Callback_t table[4];                        ← 还能直接开数组</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="函数指针的最小例子">
+            <pre><code>#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+
+/* 两个普通函数：收两个 int，返回 int */
+int add(int a, int b) { return a + b; }
+int sub(int a, int b) { return a - b; }
+
+/* 一个「收函数指针当参数」的函数 —— 这就是「把函数当参数传」 */
+int calc(int a, int b, int (*op)(int, int))
+{
+  return op(a, b);        /* 通过指针调用。也可以写成 (*op)(a, b)，两者等价 */
+}
+
+int main(void)
+{
+  /* 1) 函数名本身就是地址，可以直接赋给函数指针 */
+  int (*p)(int, int) = add;
+  printf("p(3, 4)   = %d\n", p(3, 4));        /* 7 */
+
+  /* 2) 加 &amp; 也可以，效果完全一样（函数名和 &amp;函数名 是同一个值） */
+  p = &amp;sub;
+  printf("p(10, 4)  = %d\n", p(10, 4));       /* 6 */
+  printf("(*p)(10,4)= %d\n", (*p)(10, 4));     /* 6，显式解引用写法 */
+
+  /* 3) 把函数当参数传进去 —— 函数指针存在的最大意义 */
+  printf("calc(3,4,add) = %d\n", calc(3, 4, add));   /* 7  */
+  printf("calc(3,4,sub) = %d\n", calc(3, 4, sub));   /* -1 */
+
+  /* 4) 函数指针数组 = 跳转表（HAL 和 RTOS 里大量使用） */
+  int (*ops[2])(int, int) = { add, sub };
+  for (int i = 0; i &lt; 2; i++)
+  {
+    printf("ops[%d](6, 2) = %d\n", i, ops[i](6, 2));  /* 8 和 4 */
+  }
+
+  return 0;
+}
+
+/* ============================================================================
+ * 这段代码说明了什么？
+ *   · func 和 &amp;func 是同一个值；调用时 (*p)(...) 和 p(...) 也是等价的。
+ *     所以不要纠结「要不要加 &amp; 和 *」，两种写法编译器都接受。
+ *   · 同一个 calc() 函数，传不同的函数进去就做不同的事 ——
+ *     这就是「把行为当作参数」的能力，也是回调机制的全部基础。
+ *   · 标准库的 qsort() 就靠这一招：你告诉它「怎么比较两个元素」，
+ *     它就能给任意类型的数据排序。这正是 HAL 回调的同一个套路。
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">函数指针最容易犯的两个错</div>
+            <p><b class="font-semibold">① 签名不匹配。</b>函数指针的类型包含了「参数类型」和「返回值类型」，这两个必须与它指向的函数完全一致。如果 <code class="icode">typedef void (*cb_t)(uint8_t);</code> 而你赋给它一个 <code class="icode">void f(uint16_t ch)</code>，某些编译器只给个警告就放过了。运行时参数会按错误的宽度传递，栈上的数据被读错，表现为<b>「程序跑飞，但报错位置莫名其妙」</b>——这类 bug 极难查，因为出错的地方和执行的地方不在一起。<b>对策：打开所有警告（Keil 里选 <code class="icode">-Wall</code> 或 AC6 的 <code class="icode">-Werror</code>），并且用 typedef 统一签名。</b></p>
+            <p class="mt-2"><b class="font-semibold">② 调用了一个 NULL 函数指针。</b>函数指针变量默认可能是 0，直接 <code class="icode">cb()</code> 就是跳到地址 0 执行，立刻 HardFault。<b>对策：凡是要通过指针调用的地方，先判 <code class="icode">if (cb != NULL)</code>。</b>HAL 内部对回调的调用就是这个习惯——不过它靠的是「弱符号一定存在一个空实现」来保证指针永远有效，是另一种思路。</p>
+          </div>
+
+          <h3 id="sub-callback" class="mt-7 text-base font-semibold">回调：函数指针 + 一个全局变量（重点）</h3>
+          <p class="mt-3">把上面所有零件拼起来，<b class="font-semibold text-ink">回调（Callback）就是「你把一个函数指针交给别人保存起来，别人在合适的时机通过它调用你的函数」</b>。生活类比：你把手机号留给快递员，不是你自己一直站在门口等，而是他到了打给你。手机号 = 函数指针，快递员 = 库代码，打电话 = 调用回调。</p>
+          <p class="mt-3">在 HAL 里，这个「保存函数指针」的动作不是运行期做的，而是<b class="font-semibold text-ink">链接期由链接器完成的符号覆盖</b>。这两者的区别很重要：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>运行期注册回调（你写 <code class="icode">set_callback(myfunc)</code>）</th><th>链接期符号覆盖（HAL 的做法）</th></tr></thead>
+              <tbody>
+                <tr><td>什么时候建立联系</td><td>程序运行时，调用注册函数那一刻</td><td>编译链接时，链接器挑符号那一刻</td></tr>
+                <tr><td>怎么写</td><td>库里存一个函数指针变量，提供 <code class="icode">xxx_register(cb)</code></td><td>库里的函数是 <code class="icode">__weak</code> 空实现，你写同名函数即可</td></tr>
+                <tr><td>能不能改</td><td>能，运行中随时换一个回调</td><td>不能，一个程序里只能有一个版本</td></tr>
+                <tr><td>写错了会怎样</td><td>注册失败，通常库会返回错误码</td><td>静默退回库里的空实现，<b>不报任何错</b></td></tr>
+                <tr><td>好处</td><td>灵活，一个工程里可以有多个实例、多套回调</td><td>简单，用户代码更短，不写也能编译过</td></tr>
+                <tr><td>典型代表</td><td>RTOS 的任务钩子、GUI 库的事件绑定</td><td>STM32 HAL 的 <code class="icode">HAL_xxx_Callback</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">weak 的本质：链接器的一条规则，不是 C 语言的语法</div>
+            <p><code class="icode">__weak</code> 不是标准 C 的关键字，它是编译器/链接器的<b>扩展属性</b>。<b>链接器处理符号时的规则是：同名符号里，强符号优先于弱符号；如果两个都是强符号，才报「重复定义」错误。</b>HAL 把所有回调都定义成弱符号的空函数，于是「你不写也能过，你写了就用你的」。这条规则你在普通 C 课本里绝对找不到，但它是 HAL 能用起来的关键——<b>也解释了为什么回调函数名拼错时不会有任何报错</b>：拼错的函数名成了一个新的、没人调用的强符号。</p>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="__weak 在不同编译器下的写法（跨平台宏）">
+            <pre><code>/* ============================================================================
+ * __weak 这个属性，不同工具链的写法不一样：
+ *   · ARM Compiler 5（Keil MDK 里老的 armcc）  →  __weak
+ *   · ARM Compiler 6（armclang，基于 Clang）   →  __attribute__((weak))
+ *   · GCC / Clang（STM32CubeIDE、Makefile 工程）→  __attribute__((weak))
+ *
+ * ST 的 CMSIS 已经帮你写好了一个统一的宏，在 cmsis_compiler.h 里：
+ *     #define __WEAK   __attribute__((weak))
+ * 所以在 HAL 工程里，优先用 __WEAK（注意全大写），
+ * 或者直接用 HAL 自己的 __weak。
+ *
+ * 如果你写的是不依赖 CMSIS 的纯 C 代码，就用下面这个可移植宏：
+ * ============================================================================ */
+
+#if defined(__GNUC__) || defined(__clang__)
+#  define MY_WEAK  __attribute__((weak))
+#elif defined(__CC_ARM)
+#  define MY_WEAK  __weak
+#else
+#  define MY_WEAK                       /* 不支持的编译器：退化成普通强符号 */
+#endif
+
+/* ---------- 库里的弱定义：一定存在，但什么都不做 ---------- */
+MY_WEAK void on_button_pressed(void)
+{
+  /* 空实现。它的存在保证了「即使没人覆盖它，调用它也不会崩」。 */
+}
+
+/* ---------- 用户代码里的强定义：覆盖上面那个 ---------- */
+/* 只要不写 MY_WEAK，它就是强符号，链接器会选它。
+void on_button_pressed(void)
+{
+  // 用户自己的处理逻辑
+}
+*/</code></pre>
+          </div>
+
+          <h3 id="sub-qualifier" class="mt-7 text-base font-semibold">const / volatile / static：三个限定符，各有一类「不加会出什么事」</h3>
+          <p class="mt-3">这三个关键字在基础 C 课里通常一笔带过，但在单片机代码里它们是<b class="font-semibold text-ink">正确性问题</b>，不是风格问题。逐个说清。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>关键字</th><th>一句话含义</th><th>不加/加了会怎样</th><th>典型用途</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">const</td><td>只读，编译器不许你改它</td><td>加了之后误改会<b>编译报错</b>；常量数据会被放进 Flash（.rodata），<b>不占 SRAM</b></td><td>查找表、字符串常量、只读的配置结构体</td></tr>
+                <tr><td class="font-mono text-xs">volatile</td><td>「这个值随时可能被别人改，每次都必须重新读」</td><td>不加：编译器可能把值缓存在 CPU 寄存器里，或者直接优化掉整个循环 → <b>读不到新值、死循环、延时归零</b></td><td>硬件寄存器、中断与主循环共享的变量、DMA 缓冲区</td></tr>
+                <tr><td class="font-mono text-xs">static</td><td>修饰全局变量/函数：只在<b>本文件</b>可见；修饰局部变量：<b>保持上次的值</b></td><td>不加（对全局变量）：其他文件也能用，重名就冲突；不加（对局部变量）：每次进函数都重新初始化</td><td>文件私有的辅助函数、需要记住状态的局部变量</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="三个限定符各来一个「不加就出事」的实例">
+            <pre><code>#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+
+/* ============================================================================
+ * 【const】把常量放进 Flash，省 SRAM
+ * ============================================================================ */
+
+/* 这个表 256 个 uint16_t，占 512 字节。
+   不加 const：编译器把它放在 .data 段（SRAM），F103C8T6 只有 20KB SRAM。
+   加了 const：放进 .rodata 段（跟着代码一起烧进 Flash），SRAM 占用为 0。 */
+const uint16_t sin_table[256] = { /* ... 反正运行时不会改 ... */ 0 };
+
+/* ============================================================================
+ * 【volatile】不加以至于「读不到新值」
+ * ============================================================================ */
+
+/* 模拟一个「会被中断修改」的全局变量。
+   假设这是中断服务函数在跑： */
+volatile uint8_t g_flag = 0;        /* ★ volatile 必须加 */
+uint32_t g_count = 0;
+
+void some_interrupt_handler(void)
+{
+  g_flag = 1;                        /* 中断里把它改成 1 */
+  g_count++;
+}
+
+/* ❌ 没有 volatile 的版本（假设 g_flag 没加 volatile）：
+     while (g_flag == 0) { }
+   编译器分析后发现：这个循环体内没有修改 g_flag 的语句，
+   于是它认定「读一次就够了」——把 g_flag 读进 CPU 寄存器，
+   然后拿寄存器里的旧值反复比较。中断里改的是内存，
+   寄存器里的副本永远是 0，循环永远不会退出。这就是「程序死在 while 里」。
+
+   ✅ 加了 volatile 之后，编译器每次比较都老老实实去内存读一遍，
+      中断改完立刻能被看到。 */
+
+/* ============================================================================
+ * 【static】两种完全不同的含义，靠位置区分
+ * ============================================================================ */
+
+/* 含义一：修饰全局变量 / 函数 —— 限制作用范围在本文件内。
+   好处：a.c 和 b.c 可以各有一个同名的 static 辅助函数，互不干扰。 */
+static uint32_t calc_checksum(const uint8_t *data, uint32_t len)
+{
+  uint32_t sum = 0;
+  for (uint32_t i = 0; i &lt; len; i++)
+  {
+    sum += data[i];
+  }
+  return sum;
+}
+
+/* 含义二：修饰局部变量 —— 变量不再放在栈上，而是放在静态区，
+   只在第一次进入函数时初始化一次，之后一直保留上次的值。 */
+uint32_t next_sequence_number(void)
+{
+  static uint32_t seq = 0;    /* 注意：初始化只执行一次，不会每次调用都归零 */
+  seq++;
+  return seq;
+}
+
+int main(void)
+{
+  /* static 局部变量的效果演示 */
+  printf("%u %u %u\n", next_sequence_number(),
+                       next_sequence_number(),
+                       next_sequence_number());   /* 输出 1 2 3，不是 1 1 1 */
+
+  /* const 的效果：试图修改会编译报错 */
+  /* sin_table[0] = 1;    ← error: assignment of read-only location */
+
+  uint8_t buf[4] = {1, 2, 3, 4};
+  printf("checksum = %u\n", calc_checksum(buf, 4));   /* 10 */
+
+  return 0;
+}
+
+/* ============================================================================
+ * ⚠ 一个常被忽略的组合：static 局部变量被中断和主循环同时访问
+ *
+ *     uint32_t get_tick(void)
+ *     {
+ *       static uint32_t tick = 0;
+ *       return ++tick;          ← 如果中断里也调这个函数……
+ *     }
+ *
+ * 「++」不是原子操作：它实际是「读 → 加一 → 写回」三步。
+ * 如果中断在「读」之后、「写回」之前插进来，两次加一就只生效一次。
+ * 而且如果这个变量被中断修改，编译器可能把它缓存起来 —— 这时候
+ * 光加 volatile 还不够（volatile 不保证原子性），
+ * 正确的做法是关中断保护，或者用 __disable_irq() / __enable_irq() 包起来。
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <h3 id="sub-typedef" class="mt-7 text-base font-semibold">typedef 与 HAL 的命名风格：看懂名字就知道类型</h3>
+          <p class="mt-3">先解决一个最基础的问题：<code class="icode">uint8_t</code> 是什么？它来自标准头文件 <code class="icode">stdint.h</code>，是 C99 标准为了「让整数类型的宽度可移植」而定义的一批别名。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>类型名</th><th>宽度</th><th>范围</th><th>在 STM32 上对应什么</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">uint8_t</td><td>8 位无符号</td><td>0 ~ 255</td><td><code class="icode">unsigned char</code></td></tr>
+                <tr><td class="font-mono text-xs">int8_t</td><td>8 位有符号</td><td>−128 ~ 127</td><td><code class="icode">signed char</code></td></tr>
+                <tr><td class="font-mono text-xs">uint16_t</td><td>16 位无符号</td><td>0 ~ 65535</td><td><code class="icode">unsigned short</code></td></tr>
+                <tr><td class="font-mono text-xs">uint32_t</td><td>32 位无符号</td><td>0 ~ 4294967295</td><td><code class="icode">unsigned int</code>（也是 unsigned long）</td></tr>
+                <tr><td class="font-mono text-xs">int32_t</td><td>32 位有符号</td><td>−2147483648 ~ 2147483647</td><td><code class="icode">int</code></td></tr>
+                <tr><td class="font-mono text-xs">uint64_t</td><td>64 位无符号</td><td>0 ~ 1.8×10¹⁹</td><td><code class="icode">unsigned long long</code></td></tr>
+                <tr><td class="font-mono text-xs">size_t</td><td>与地址宽度同</td><td>32 位机上即 32 位</td><td><code class="icode">unsigned int</code>，用于表示长度/大小</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">为什么要用这些名字而不是直接写 <code class="icode">unsigned char</code>？因为 C 标准只规定了「<code class="icode">char</code> 至少 8 位、<code class="icode">int</code> 至少 16 位」，具体几位由编译器决定。<b class="font-semibold text-ink">而单片机编程里「这个变量必须是 16 位」往往是硬性要求</b>（比如硬件寄存器就是 16 位宽）。用 <code class="icode">uint16_t</code> 就把这个要求写进了代码里，换平台也不会错。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">typedef 本身的用法</b>很简单：<code class="icode">typedef 已有类型 新名字;</code>。它不创建新类型，只是起别名。它的最大价值在结构体上——没有 typedef 时，每次都要写 <code class="icode">struct LedConfig cfg;</code>；有了 typedef 就写成 <code class="icode">LedConfig cfg;</code>，一下子清爽了。HAL 的所有结构体都用这种方式。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="HAL 的命名规律（看懂名字就知道它是什么）">
+            <pre><code>/* ============================================================================
+ * HAL 的命名是有严格规律的。掌握规律后，看到一个陌生的类型名或函数名，
+ * 你能立刻判断出它是「类型」「函数」还是「常量」。
+ * ============================================================================ */
+
+/* ---------- 类型名：以 _TypeDef 结尾 ---------- */
+UART_HandleTypeDef      /* 串口「句柄」：代表一个串口实例，含状态与配置 */
+GPIO_InitTypeDef        /* GPIO「初始化参数」：只是一堆配置值，不含状态 */
+TIM_Base_InitTypeDef    /* 定时器基础单元的参数 */
+RCC_OscInitTypeDef      /* 时钟源（振荡器）的配置参数 */
+RCC_ClkInitTypeDef      /* 时钟树（总线分频）的配置参数 */
+ADC_ChannelConfTypeDef  /* ADC 通道的配置参数 */
+
+/* 规律：xxx_HandleTypeDef 一定含「状态」，是长期存在的；
+         xxx_InitTypeDef  只含「参数」，用完就丢。 */
+
+/* ---------- 函数的返回值类型：总是这两个之一 ---------- */
+HAL_StatusTypeDef       /* 可能取值：HAL_OK / HAL_ERROR / HAL_BUSY / HAL_TIMEOUT */
+void                    /* 配置类函数常返回 void，因为失败也无处可退 */
+
+/* ---------- 函数名：HAL_ + 外设 + _ + 动作 ---------- */
+HAL_GPIO_Init()             /* 初始化 */
+HAL_GPIO_WritePin()         /* 写 */
+HAL_GPIO_ReadPin()          /* 读 */
+HAL_GPIO_TogglePin()        /* 翻转 */
+HAL_UART_Transmit_IT()      /* 后缀 _IT  = 中断方式（Interrupt），不阻塞 */
+HAL_UART_Transmit_DMA()     /* 后缀 _DMA = DMA 方式 */
+HAL_UART_RxCpltCallback()   /* 后缀 _Callback = 给你覆盖的回调函数 */
+HAL_UART_MspInit()          /* 后缀 MspInit  = 引脚/时钟/NVIC 那一半初始化 */
+__HAL_RCC_GPIOA_CLK_ENABLE()/* 前缀 __HAL_ = 宏，不是函数，展开成寄存器操作 */
+
+/* ---------- 常量与枚举：全大写，带模块前缀 ---------- */
+GPIO_PIN_13                 /* 引脚掩码，展开是 0x2000 */
+GPIO_MODE_OUTPUT_PP         /* 推挽输出模式 */
+GPIO_NOPULL                 /* 不用上下拉 */
+GPIO_SPEED_FREQ_LOW         /* 低输出速度 */
+HAL_OK                      /* 状态：成功 */
+RCC_PLLSOURCE_HSE           /* 时钟源选择 */
+UART_WORDLENGTH_8B          /* 数据位 8 位 */
+
+/* ============================================================================
+ * 快速判读口诀：
+ *   看到 _TypeDef   → 是个类型，用来定义变量
+ *   看到 HAL_ 开头  → 是个函数（或宏）
+ *   看到 __HAL_ 开头→ 肯定是宏，展开后就是寄存器操作，没有函数调用开销
+ *   看到全大写带下划线 → 是个常量/掩码/枚举值
+ *   看到 _IT / _DMA / _Callback / MspInit 后缀 → 立刻知道它的工作方式
+ * ============================================================================ */</code></pre>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件资源说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件资源说明</h2>
+          <p class="mt-4">这一节没有电路图，讲的是一个更隐蔽的「硬件」问题：<b class="font-semibold text-ink">编译器会把你写的内存访问优化掉</b>。这在电脑上写程序时几乎不会遇到（因为电脑上的变量不会被外部硬件偷偷改），但在单片机上天天发生——芯片里的寄存器会被硬件自己改，中断会改全局变量，DMA 会改缓冲区。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="volatile 到底防住了什么：编译器优化的三种「自作主张」">
+            <pre><code>【场景】某寄存器的地址是 0x4001100C，硬件会自己改变它的值。
+       你想等它变成 0x01 再往下走。
+
+  你写的代码：
+      uint32_t *reg = (uint32_t *)0x4001100C;
+      while (*reg != 0x01) { }
+      printf("等到了！\n");
+
+────────────────────────────────────────────────────────────
+【优化一：把内存值缓存到 CPU 寄存器】
+   编译器的推理：「循环体里没有任何语句修改 *reg，
+                   所以每次比较读出来的值肯定一样。
+                   那我读一次存到 CPU 寄存器 R3 里，
+                   后面反复比较 R3 就行，省下每次访问内存的时间。」
+
+   生成的汇编（示意）：
+       LDR  R3, [R0]        ; 只读这一次！
+   loop:
+       CMP  R3, #1
+       BNE  loop            ; 永远拿 R3 和 1 比
+       ...
+
+   结果：硬件把内存里的值改成了 0x01，
+         但 CPU 寄存器 R3 里还是旧值 → 循环永远出不来。❌
+
+   加了 volatile 之后：
+       LDR  R3, [R0]        ; 每次循环都重新读
+   loop:
+       CMP  R3, #1
+       BEQ  done
+       LDR  R3, [R0]        ; ← 又读了一遍
+       B    loop
+   done:
+
+────────────────────────────────────────────────────────────
+【优化二：把整个空循环删掉】
+   编译器发现循环体是空的，且它「认为」条件不会变，
+   于是直接把整个 while 删掉，连判断都不做。
+
+   你写：  for (volatile uint32_t i = 0; i &lt; 800000; i++) { }
+   没有 volatile 时它会变成：  （什么都不生成）
+
+   这就是「软件延时不加 volatile 就完全不延时」的原因。
+
+────────────────────────────────────────────────────────────
+【优化三：把两次读合并成一次】
+   你写：  if (status == 1) { ... }
+           if (status == 1) { ... }
+   编译器想：「中间没改过 status，两次一定一样」→ 只读一次，共用结果。
+   但硬件可能在这两句之间把 status 改成了 2，
+   第二句本该不成立，却被编译器当成成立了。
+
+────────────────────────────────────────────────────────────
+【结论】
+   volatile 的含义是「不要假设这个值不变，每次都老老实实去内存读」。
+   它同时禁止了上面三种优化，但它【不保证原子性】——
+       volatile uint32_t v;  v++;
+   依然是「读-改-写」三步，中断插在中间照样出错。
+   需要原子性时用「关中断」或硬件提供的原子指令。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">什么时候必须加 volatile：一张判据表</div>
+            <div class="table-scroll mt-2">
+              <table class="table-mcu">
+                <thead><tr><th>这个变量的值会被谁改</th><th>要不要 volatile</th><th>例子</th></tr></thead>
+                <tbody>
+                  <tr><td>只有本函数自己</td><td>不用</td><td>循环计数器 <code class="icode">for (int i = 0; ...)</code></td></tr>
+                  <tr><td>本文件的别的函数</td><td>不用</td><td>普通的全局配置变量</td></tr>
+                  <tr><td><b>硬件寄存器</b>（值由芯片自己改）</td><td><b>必须</b></td><td><code class="icode">USART-&gt;SR</code>、<code class="icode">GPIO-&gt;IDR</code>、任何 <code class="icode">*(volatile uint32_t *)地址</code></td></tr>
+                  <tr><td><b>中断服务函数</b>会改</td><td><b>必须</b></td><td>中断里置位的标志、中断里累加的计数</td></tr>
+                  <tr><td><b>DMA</b> 会写</td><td><b>必须</b></td><td>DMA 接收缓冲区</td></tr>
+                  <tr><td>多任务/多核共享</td><td><b>必须</b>（还要加锁）</td><td>RTOS 里的共享队列计数</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-3">好消息是：<b>你几乎不用自己判断</b>。CMSIS 头文件里所有外设寄存器都已经是 <code class="icode">__IO</code>（即 volatile）的；HAL 的句柄里那些会被中断改的字段（<code class="icode">gState</code>、<code class="icode">RxXferCount</code> 等）也标好了。<b>你唯一需要自己动手加 volatile 的地方，是你自己定义的那些「中断和主循环共享的变量」。</b></p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+          <p class="mt-4">下面三个程序<b class="font-semibold text-ink">都不需要单片机</b>，用电脑上的 GCC 或 Keil 都能编译运行。建议亲手敲一遍、改一改、看看输出怎么变——比读十遍文字管用。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">在电脑上怎么编译运行</div>
+            <p><b>方案一（推荐，最省事）：</b>装 <b>Dev-C++</b> 或 <b>Code::Blocks</b>，新建一个 C 文件，把代码粘进去，按 F11 编译运行。<b>方案二（Windows 自带命令）：</b>如果装了 MinGW 或 Git Bash 自带的 gcc，命令行执行：</p>
+            <p class="mt-2"><code class="icode">gcc -std=c99 -Wall -o demo.exe demo.c &amp;&amp; demo.exe</code></p>
+            <p class="mt-2"><b>方案三（不想装任何东西）：</b>用 Keil MDK 新建一个「空白工程」，Device 随便选一个 ARM 型号，把代码放进 <code class="icode">main.c</code>，用软件仿真（Debug → Use Simulator）跑，在 <code class="icode">printf</code> 那几行打断点看变量。注意程序三用了 <code class="icode">__attribute__((weak))</code>，只有 GCC/Clang/AC6 支持。</p>
+          </div>
+
+          <h3 id="sub-prog1" class="mt-7 text-base font-semibold">程序一：结构体指针传参，修改调用者的数据</h3>
+          <p class="mt-3">这个程序模拟 HAL 的 <code class="icode">HAL_GPIO_Init()</code> 的工作方式：配置信息装在一个结构体里，通过指针传进函数，函数就地修改并「应用」配置。运行后你会看到<b>调用者的结构体被真的改掉了</b>——这就是「为什么必须传指针」的实证。</p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="prog1_struct_pointer.c —— 完整可编译">
+            <pre><code>/* ============================================================================
+ * 程序一：结构体指针传参
+ * 编译：gcc -std=c99 -Wall -o prog1 prog1_struct_pointer.c
+ * 目的：亲眼看到「传指针能改到外面、传值改不到」
+ * ============================================================================ */
+
+#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+#include &lt;string.h&gt;
+
+/* ---------- 模拟 HAL 的配置结构体 ---------- */
+typedef struct
+{
+  uint16_t pin;        /* 引脚掩码，如 0x2000 = 第 13 脚 */
+  uint8_t  port;       /* 端口号，2 = GPIOC */
+  uint8_t  mode;       /* 0 = 推挽输出，1 = 开漏输出 */
+  uint32_t speed;      /* 输出速度 Hz */
+  char     name[16];   /* 给它起个名字，方便打印 */
+} GpioConfig;
+
+/* 把 mode 数字翻译成人类能读的字符串 */
+static const char *mode_name(uint8_t mode)
+{
+  switch (mode)
+  {
+    case 0: return "推挽输出";
+    case 1: return "开漏输出";
+    case 2: return "浮空输入";
+    default: return "未知模式";
+  }
+}
+
+/* ---------- ❌ 按值传递：改不到调用者的结构体 ---------- */
+void gpio_apply_by_value(GpioConfig cfg)
+{
+  cfg.speed = 999999;                  /* 改的是副本 */
+  strcpy(cfg.name, "被改了");
+  printf("  [值传递] 函数内部看到的 speed = %u，name = %s\n", cfg.speed, cfg.name);
+}
+
+/* ---------- ✅ 按指针传递：能改到调用者的结构体 ---------- */
+void gpio_apply_by_pointer(GpioConfig *cfg)
+{
+  /* ★ 收指针的函数，第一件事永远是判空 */
+  if (cfg == NULL)
+  {
+    printf("  [指针传递] 收到空指针，直接返回（这一句防止了程序崩溃）\n");
+    return;
+  }
+
+  /* 用 -&gt; 访问成员，直接改的就是调用者那个结构体 */
+  cfg-&gt;speed = 2000000;
+  strcpy(cfg-&gt;name, "PC13-LED");
+
+  printf("  [指针传递] 函数内部看到的 speed = %u，name = %s\n", cfg-&gt;speed, cfg-&gt;name);
+}
+
+/* ---------- 只读访问：加 const，表明「我不改你的东西」 ---------- */
+void gpio_print(const GpioConfig *cfg)
+{
+  if (cfg == NULL)
+  {
+    return;
+  }
+  printf("  端口 GP%c，引脚掩码 0x%04X，模式 %u（%s），速度 %u Hz，名字 \"%s\"\n",
+         'A' + cfg-&gt;port, cfg-&gt;pin, cfg-&gt;mode, mode_name(cfg-&gt;mode),
+         cfg-&gt;speed, cfg-&gt;name);
+  /* cfg-&gt;speed = 1;   ← 取消注释这行，编译会报错，这正是 const 的价值 */
+}
+
+int main(void)
+{
+  /* 定义一个配置：PC13 推挽输出，1MHz，名字 "LED"
+     注意 = {0} 把所有成员清零，避免随机值 */
+  GpioConfig led = {0};
+  led.pin   = 0x2000;
+  led.port  = 2;
+  led.mode  = 0;
+  led.speed = 1000000;
+  strcpy(led.name, "LED");
+
+  printf("初始状态：\n");
+  gpio_print(&amp;led);
+
+  printf("\n--- 试验 A：按值传递 ---\n");
+  gpio_apply_by_value(led);
+  printf("  调用结束后，main 里的 led：\n");
+  gpio_print(&amp;led);                       /* speed 仍是 1000000，没被改 */
+  printf("  ↑ 结论：值传递改不到外面。\n");
+
+  printf("\n--- 试验 B：按指针传递 ---\n");
+  gpio_apply_by_pointer(&amp;led);
+  printf("  调用结束后，main 里的 led：\n");
+  gpio_print(&amp;led);                       /* speed 变成 2000000，名字变了 */
+  printf("  ↑ 结论：指针传递改到了外面。\n");
+
+  printf("\n--- 试验 C：传空指针 ---\n");
+  gpio_apply_by_pointer(NULL);            /* 看函数里的判空保护 */
+  printf("  ↑ 结论：判空让「传空」变成一件安全的事。\n");
+
+  printf("\n--- 试验 D：结构体数组 + 指针遍历 ---\n");
+  {
+    GpioConfig leds[3] = {
+      { .pin = 0x2000, .port = 2, .mode = 0, .speed = 2000000, .name = "PC13" },
+      { .pin = 0x0001, .port = 0, .mode = 0, .speed = 2000000, .name = "PA0"  },
+      { .pin = 0x0001, .port = 1, .mode = 1, .speed = 2000000, .name = "PB0"  }
+    };
+
+    /* 注意 it++ 每次跳过 sizeof(GpioConfig) 个字节，这就是「指针类型重要」的体现 */
+    for (GpioConfig *it = leds; it &lt; leds + 3; it++)
+    {
+      gpio_print(it);
+    }
+  }
+
+  return 0;
+}
+
+/* ============================================================================
+ * 【预期输出】
+ *   初始状态：
+ *     端口 GPC，引脚掩码 0x2000，模式 0（推挽输出），速度 1000000 Hz，名字 "LED"
+ *
+ *   --- 试验 A：按值传递 ---
+ *     [值传递] 函数内部看到的 speed = 999999，name = 被改了
+ *     调用结束后，main 里的 led：
+ *       端口 GPC，引脚掩码 0x2000，模式 0（推挽输出），速度 1000000 Hz，名字 "LED"
+ *     ↑ 结论：值传递改不到外面。
+ *
+ *   --- 试验 B：按指针传递 ---
+ *     [指针传递] 函数内部看到的 speed = 2000000，name = PC13-LED
+ *     调用结束后，main 里的 led：
+ *       端口 GPC，引脚掩码 0x2000，模式 0（推挽输出），速度 2000000 Hz，名字 "PC13-LED"
+ *     ↑ 结论：指针传递改到了外面。
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <h3 id="sub-prog2" class="mt-7 text-base font-semibold">程序二：用函数指针实现一个简易回调表</h3>
+          <p class="mt-3">这个程序做一个「命令解析器」：输入一个命令名，程序去表里找对应的处理函数并调用。<b class="font-semibold text-ink">表里存的是函数指针</b>——想加一条命令，只需往表里加一行，不用改任何 <code class="icode">if / else</code>。这就是「跳转表（jump table）」的威力，也是 HAL、RTOS、协议栈里最常见的结构之一。</p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="prog2_callback_table.c —— 完整可编译">
+            <pre><code>/* ============================================================================
+ * 程序二：函数指针 + 回调表
+ * 编译：gcc -std=c99 -Wall -o prog2 prog2_callback_table.c
+ * 目的：理解「把函数当成数据存起来」这件事
+ * ============================================================================ */
+
+#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+#include &lt;string.h&gt;
+
+/* ============================================================================
+ * 第一步：定义一个「回调类型」
+ * 这一行是整个程序的核心。它说：处理函数必须长成 void f(int) 这个样子。
+ * ============================================================================ */
+typedef void (*CmdHandler)(int arg);
+
+/* ---------- 准备好几个符合这个签名的函数 ---------- */
+static void cmd_led_on (int arg) { printf("  → 执行：点亮 LED（参数 %d）\n", arg); }
+static void cmd_led_off(int arg) { printf("  → 执行：熄灭 LED（参数 %d）\n", arg); }
+static void cmd_beep   (int arg) { printf("  → 执行：蜂鸣器响 %d 毫秒\n", arg); }
+static void cmd_reset  (int arg) { printf("  → 执行：复位（参数被忽略：%d）\n", arg); }
+
+/* ============================================================================
+ * 第二步：定义表项类型 —— 「命令名 + 处理函数指针」配成一对
+ * ============================================================================ */
+typedef struct
+{
+  const char *name;      /* 命令字符串 */
+  CmdHandler  handler;   /* 对应的函数指针 */
+} CmdEntry;
+
+/* ============================================================================
+ * 第三步：把表建出来。注意 handler 这一列填的全是函数名（即函数地址）
+ * ============================================================================ */
+static const CmdEntry cmd_table[] =
+{
+  { "led_on",  cmd_led_on  },
+  { "led_off", cmd_led_off },
+  { "beep",    cmd_beep    },
+  { "reset",   cmd_reset   },
+};
+
+/* 表的项数：用 sizeof 算出来，加命令时不用改这个数字 */
+#define CMD_COUNT  (sizeof(cmd_table) / sizeof(cmd_table[0]))
+
+/* ============================================================================
+ * 第四步：查找并调用 —— 核心就是最后那一行
+ * ============================================================================ */
+static int dispatch(const char *cmd, int arg)
+{
+  for (uint32_t i = 0; i &lt; CMD_COUNT; i++)
+  {
+    if (strcmp(cmd_table[i].name, cmd) == 0)
+    {
+      /* ★★ 最关键的一行：通过函数指针调用。
+         注意必须判空 —— 如果表里某一项的 handler 是 NULL，
+         直接调用就是跳到地址 0，程序立刻崩溃。 */
+      if (cmd_table[i].handler != NULL)
+      {
+        cmd_table[i].handler(arg);     /* 等价于 (*cmd_table[i].handler)(arg) */
+        return 0;                      /* 成功 */
+      }
+      printf("  命令 \"%s\" 的处理函数为空\n", cmd);
+      return -2;
+    }
+  }
+  printf("  未知命令：\"%s\"\n", cmd);
+  return -1;
+}
+
+/* ============================================================================
+ * 附：一个「运行期注册回调」的版本，对比链接期覆盖的差别
+ * ============================================================================ */
+static CmdHandler g_unknown_handler = NULL;    /* 全局保存一个函数指针 */
+
+void set_unknown_handler(CmdHandler h)         /* 运行期随时可以换 */
+{
+  g_unknown_handler = h;
+}
+
+static void my_unknown_handler(int arg)
+{
+  printf("  [自定义] 遇到不认识的命令，参数 %d\n", arg);
+}
+
+int main(void)
+{
+  printf("命令表里一共有 %u 条命令\n\n", (unsigned)CMD_COUNT);
+
+  printf("--- 测试 1：正常命令 ---\n");
+  dispatch("led_on",  0);
+  dispatch("led_off", 0);
+  dispatch("beep",    200);
+
+  printf("\n--- 测试 2：未知命令（没有注册兜底处理） ---\n");
+  dispatch("fly", 1);
+
+  printf("\n--- 测试 3：注册一个兜底处理函数后再试 ---\n");
+  set_unknown_handler(my_unknown_handler);
+  if (g_unknown_handler != NULL)          /* ★ 调用前必须判空 */
+  {
+    g_unknown_handler(1);
+  }
+
+  printf("\n--- 测试 4：把整个表打印出来看看 ---\n");
+  for (uint32_t i = 0; i &lt; CMD_COUNT; i++)
+  {
+    /* 把函数指针当数字打印出来，你会看到每个函数都有不同的地址 */
+    printf("  [%u] %-8s -> 函数地址 %p\n",
+           (unsigned)i, cmd_table[i].name, (void *)cmd_table[i].handler);
+  }
+
+  return 0;
+}
+
+/* ============================================================================
+ * 【预期输出（函数地址每次编译可能不同）】
+ *   命令表里一共有 4 条命令
+ *
+ *   --- 测试 1：正常命令 ---
+ *     → 执行：点亮 LED（参数 0）
+ *     → 执行：熄灭 LED（参数 0）
+ *     → 执行：蜂鸣器响 200 毫秒
+ *
+ *   --- 测试 2：未知命令（没有注册兜底处理） ---
+ *     未知命令："fly"
+ *
+ *   --- 测试 3：注册一个兜底处理函数后再试 ---
+ *     [自定义] 遇到不认识的命令，参数 1
+ *
+ *   --- 测试 4：把整个表打印出来看看 ---
+ *     [0] led_on   -> 函数地址 0x400a10
+ *     [1] led_off  -> 函数地址 0x400a40
+ *     [2] beep     -> 函数地址 0x400a70
+ *     [3] reset    -> 函数地址 0x400aa0
+ *
+ * 【这个程序对应到 STM32 里的什么？】
+ *   · cmd_table 这种「名字 → 函数」的表，在 STM32 里就是中断向量表：
+ *       向量表的每一项就是一个函数指针，NVIC 按索引去取。
+ *   · set_unknown_handler 这种「运行期注册」，RTOS 的任务钩子常用。
+ *   · HAL 用的是第三种方式：链接期符号覆盖（见程序三）。
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <h3 id="sub-prog3" class="mt-7 text-base font-semibold">程序三：模拟 HAL 的 weak 空回调 + 用户覆盖</h3>
+          <p class="mt-3">这个程序用三份代码模拟一个 HAL 式的小库：<b>库提供弱定义的空回调，用户写同名函数覆盖它</b>。它和 HAL 的 <code class="icode">HAL_UART_RxCpltCallback</code> 是同一套机制。请特别注意最后那个实验：<b>把用户函数名改错一个字母，程序照常编译通过，但回调永远不执行</b>——这就是 HAL 里最隐蔽的一类 bug。</p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="prog3_weak_callback.c —— 单文件版（便于直接编译）">
+            <pre><code>/* ============================================================================
+ * 程序三：模拟 HAL 的 weak 回调机制
+ * 编译：gcc -std=c99 -Wall -o prog3 prog3_weak_callback.c
+ *       （需要 GCC / Clang / ARM Compiler 6；ARM Compiler 5 用 __weak）
+ *
+ * 说明：真实工程里这三部分在三个文件中（库 .c / 库 .h / 用户 .c），
+ *       这里为了能单文件编译，用「分区」的方式模拟。
+ * ============================================================================ */
+
+#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+#include &lt;string.h&gt;
+
+/* ============================================================================
+ * 【第 0 区】可移植的 weak 宏定义
+ * ============================================================================ */
+#if defined(__GNUC__) || defined(__clang__)
+#  define MY_WEAK  __attribute__((weak))
+#elif defined(__CC_ARM)
+#  define MY_WEAK  __weak
+#else
+#  define MY_WEAK
+#endif
+
+/* ============================================================================
+ * 【第 1 区】模拟库的头文件：类型定义 + 函数声明
+ * ============================================================================ */
+
+/* 模拟 UART_HandleTypeDef：简化到只留最关键的成员 */
+typedef struct
+{
+  void    *Instance;      /* 指向哪个外设（这里用不上，只演示成员的存在） */
+  uint32_t BaudRate;      /* 波特率 */
+  uint8_t *pRxBuffPtr;    /* 接收缓冲区 */
+  uint16_t RxXferSize;    /* 本次要收多少字节 */
+  uint16_t RxXferCount;   /* 还剩多少没收到 */
+} MyUartHandle;
+
+/* 库对外提供的函数 */
+void MyUart_Init(MyUartHandle *huart);
+void MyUart_RxStart(MyUartHandle *huart, uint8_t *buf, uint16_t size);
+void MyUart_SimulateOneByteReceived(MyUartHandle *huart);   /* 模拟硬件收到一个字节 */
+
+/* 库声明了这几个回调，但不确定用户会不会实现 */
+void MyUart_RxCpltCallback(MyUartHandle *huart);
+void MyUart_ErrorCallback(MyUartHandle *huart);
+
+/* ============================================================================
+ * 【第 2 区】模拟库的实现文件（真实工程里是别人写好、你不改的 .c）
+ * ============================================================================ */
+
+/* ---- 弱定义：空实现。它的存在保证了「用户不写也能编译链接通过」 ---- */
+MY_WEAK void MyUart_RxCpltCallback(MyUartHandle *huart)
+{
+  (void)huart;    /* 消除「参数未使用」警告，展开就是 (void)huart; */
+}
+
+MY_WEAK void MyUart_ErrorCallback(MyUartHandle *huart)
+{
+  (void)huart;
+}
+
+/* ---- 库的内部函数 ---- */
+void MyUart_Init(MyUartHandle *huart)
+{
+  if (huart == NULL)
+  {
+    return;
+  }
+  huart-&gt;pRxBuffPtr  = NULL;
+  huart-&gt;RxXferSize  = 0;
+  huart-&gt;RxXferCount = 0;
+  printf("[库] MyUart_Init 完成，波特率 = %u\n", huart-&gt;BaudRate);
+}
+
+void MyUart_RxStart(MyUartHandle *huart, uint8_t *buf, uint16_t size)
+{
+  if (huart == NULL || buf == NULL || size == 0)
+  {
+    return;
+  }
+  huart-&gt;pRxBuffPtr  = buf;
+  huart-&gt;RxXferSize  = size;
+  huart-&gt;RxXferCount = size;
+  printf("[库] 开始接收 %u 个字节（相当于打开了 RXNE 中断）\n", size);
+}
+
+/* 这个函数模拟「硬件收到一个字节 → 进中断 → HAL_UART_IRQHandler 处理」的全过程 */
+void MyUart_SimulateOneByteReceived(MyUartHandle *huart)
+{
+  static uint8_t fake_data = 'A';
+
+  if (huart == NULL || huart-&gt;pRxBuffPtr == NULL)
+  {
+    return;
+  }
+
+  /* ① 把「硬件寄存器」里的字节搬进缓冲区（对应 HAL 读 DR 寄存器） */
+  *huart-&gt;pRxBuffPtr = fake_data;
+
+  /* ② 计数器减一 */
+  if (huart-&gt;RxXferCount &gt; 0)
+  {
+    huart-&gt;RxXferCount--;
+  }
+
+  printf("[库] 收到一个字节 '%c'，还剩 %u 个没收到\n",
+         fake_data, huart-&gt;RxXferCount);
+
+  fake_data++;
+  if (fake_data &gt; 'Z')
+  {
+    fake_data = 'A';
+  }
+
+  /* ③ 如果收满了，就调用回调 —— 这是整段代码的关键 */
+  if (huart-&gt;RxXferCount == 0)
+  {
+    printf("[库] 收满了！现在调用 MyUart_RxCpltCallback()\n");
+    MyUart_RxCpltCallback(huart);      /* ★ 这一行在库里，你改不了 */
+  }
+}
+
+/* ============================================================================
+ * 【第 3 区】用户代码（相当于你写在自己的 main.c 里的部分）
+ * ============================================================================ */
+
+/* ★ 用户覆盖：同名、同参数类型、不加 MY_WEAK。
+     链接器看到「一个强符号 + 一个弱符号」，会选强的这个。 */
+void MyUart_RxCpltCallback(MyUartHandle *huart)
+{
+  printf("  [用户回调] 收到完整一帧！共 %u 字节，第一个字节是 '%c'\n",
+         huart-&gt;RxXferSize, huart-&gt;pRxBuffPtr[0]);
+
+  /* 真实工程里这里要做「重新武装」：
+     HAL_UART_Receive_IT(huart, buf, size);    ← 不写这句就只能收一帧 */
+  printf("  [用户回调] （真实工程里要在这里重新启动接收）\n");
+}
+
+/* ============================================================================
+ * main
+ * ============================================================================ */
+int main(void)
+{
+  /* 接收缓冲区 —— 必须是全局或 static！这里放 main 外面更规范，
+     放 main 里也可以（main 的生命周期贯穿整个程序），
+     但如果放在某个会被返回的普通函数里就危险了。 */
+  static uint8_t rx_buf[4];
+
+  MyUartHandle huart1 = {0};      /* ★ = {0} 清零，避免状态字段是垃圾值 */
+  huart1.Instance = (void *)0x40013800;   /* 假装这是 USART1 的基地址 */
+  huart1.BaudRate = 115200;
+
+  MyUart_Init(&amp;huart1);
+
+  printf("\n--- 开始接收 4 个字节 ---\n");
+  MyUart_RxStart(&amp;huart1, rx_buf, 4);
+
+  printf("\n--- 模拟硬件依次收到 4 个字节 ---\n");
+  for (int i = 0; i &lt; 4; i++)
+  {
+    MyUart_SimulateOneByteReceived(&amp;huart1);
+  }
+
+  printf("\n--- 再收一轮（演示「不重新武装就收不到」） ---\n");
+  MyUart_SimulateOneByteReceived(&amp;huart1);
+  printf("（注意上面什么回调都没有触发，因为 RxXferCount 已经是 0，库直接返回了）\n");
+
+  printf("\n=== 关键实验 ===\n");
+  printf("现在把用户那个函数名从 MyUart_RxCpltCallback 改成\n");
+  printf("MyUart_RxCpltCallBack（大写 B），重新编译。\n");
+  printf("你会看到：编译零错误零警告，但上面那句「[用户回调]」永远消失了。\n");
+  printf("原因：你的函数名成了一个全新的强符号，没人调用它；\n");
+  printf("      而库里的弱符号空实现依然生效，所以流程走完了却什么也没发生。\n");
+
+  return 0;
+}
+
+/* ============================================================================
+ * 【预期输出】
+ *   [库] MyUart_Init 完成，波特率 = 115200
+ *
+ *   --- 开始接收 4 个字节 ---
+ *   [库] 开始接收 4 个字节（相当于打开了 RXNE 中断）
+ *
+ *   --- 模拟硬件依次收到 4 个字节 ---
+ *   [库] 收到一个字节 'A'，还剩 3 个没收到
+ *   [库] 收到一个字节 'B'，还剩 2 个没收到
+ *   [库] 收到一个字节 'C'，还剩 1 个没收到
+ *   [库] 收到一个字节 'D'，还剩 0 个没收到
+ *   [库] 收满了！现在调用 MyUart_RxCpltCallback()
+ *     [用户回调] 收到完整一帧！共 4 字节，第一个字节是 'A'
+ *     [用户回调] （真实工程里要在这里重新启动接收）
+ *
+ *   --- 再收一轮（演示「不重新武装就收不到」） ---
+ *   [库] 收到一个字节 'E'，还剩 0 个没收到     ← 注意这里没有回调！
+ *
+ * 【这个程序把 HAL 的三件事都演示了】
+ *   ① 弱符号 + 强符号覆盖：第 2 区的 MY_WEAK 空函数被第 3 区的同名函数覆盖
+ *   ② 回调的调用时机：不是「一收到字节就调」，而是「收满指定个数才调」
+ *   ③ 句柄的作用：库不知道你要收几个字节、缓冲区在哪，全靠 huart 里存的这些信息
+ * ============================================================================ */</code></pre>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+          <p class="mt-4">这一节是本篇的「翻译表」。左边是你在 HAL 代码里会<b class="font-semibold text-ink">亲眼看到</b>的写法，中间是它属于什么语法，右边是为什么要这么写。以后读代码卡住时，回到这张表里找一找即可。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>你在 HAL 里看到的写法</th><th>它是什么语法</th><th>为什么这么写</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">GPIO_InitTypeDef GPIO_InitStruct = {0};</td><td>结构体定义 + 初始化列表</td><td><code class="icode">= {0}</code> 把没写到的成员全部清零。少了它，局部结构体里是栈上的垃圾值，外设会被配成莫名其妙的样子</td></tr>
+                <tr><td class="font-mono text-xs">GPIO_InitStruct.Pin = GPIO_PIN_13;</td><td>用 <code class="icode">.</code> 访问结构体成员</td><td>变量本身是结构体（不是指针）时用点；是<code class="icode">指针</code>时才能用箭头</td></tr>
+                <tr><td class="font-mono text-xs">HAL_GPIO_Init(GPIOC, &amp;GPIO_InitStruct);</td><td>取地址 <code class="icode">&amp;</code> + 指针传参</td><td>传 4 字节地址而不是几十字节的结构体；同时让函数能修改你的结构体</td></tr>
+                <tr><td class="font-mono text-xs">void HAL_GPIO_Init(GPIO_TypeDef *GPIOx, GPIO_InitTypeDef *GPIO_Init);</td><td>结构体指针作为形参</td><td>函数内部用 <code class="icode">GPIO_Init-&gt;Pin</code> 读配置。声明里的 <code class="icode">*</code> 和调用时的 <code class="icode">&amp;</code> 是一对，缺一个就编不过</td></tr>
+                <tr><td class="font-mono text-xs">huart-&gt;Instance-&gt;DR = data;</td><td>连续两次箭头</td><td><code class="icode">Instance</code> 自己也是个指针（指向寄存器块），所以能一路点下去</td></tr>
+                <tr><td class="font-mono text-xs">if (huart-&gt;gState == HAL_UART_STATE_READY)</td><td>箭头 + 枚举比较</td><td>句柄里存着「这个外设现在在干什么」，HAL 靠它防止你重复调用</td></tr>
+                <tr><td class="font-mono text-xs">__HAL_RCC_GPIOA_CLK_ENABLE();</td><td>全大写前缀的宏</td><td>展开后是 <code class="icode">SET_BIT(RCC-&gt;APB2ENR, RCC_APB2ENR_IOPAEN)</code>，是宏不是函数，没有调用开销</td></tr>
+                <tr><td class="font-mono text-xs">GPIOC-&gt;CRH &amp;= ~GPIO_CRH_MODE13_Msk;</td><td>位掩码 + 复合赋值</td><td>清位必须用 <code class="icode">&amp;= ~掩码</code>；直接用 <code class="icode">|=</code> 会留下非法的混合值</td></tr>
+                <tr><td class="font-mono text-xs">while ((HAL_GetTick() - tickstart) &lt; wait)</td><td>读一个被中断修改的全局量</td><td><code class="icode">uwTick</code> 被 SysTick 中断加一，所以它必须是 <code class="icode">volatile</code>，否则循环读的是 CPU 寄存器里的旧副本</td></tr>
+                <tr><td class="font-mono text-xs">__weak void HAL_UART_RxCpltCallback(...) { }</td><td>弱符号 + 空实现</td><td>让「用户不写这个函数」也能链接通过；你写同名强符号就覆盖它</td></tr>
+                <tr><td class="font-mono text-xs">static void SystemClock_Config(void);</td><td>static 修饰函数</td><td>只在当前 .c 文件里可见，别的文件调不到，避免重名冲突</td></tr>
+                <tr><td class="font-mono text-xs">const uint16_t sin_table[256] = { ... };</td><td>const 数组</td><td>放进 .rodata 段跟着程序烧进 Flash，<b>SRAM 占用为 0</b>；不加 const 就白占 512 字节 SRAM</td></tr>
+                <tr><td class="font-mono text-xs">typedef struct { ... } UART_InitTypeDef;</td><td>typedef + 匿名结构体</td><td>以后写 <code class="icode">UART_InitTypeDef s;</code> 就行，不用每次写 <code class="icode">struct</code> 关键字</td></tr>
+                <tr><td class="font-mono text-xs">uint32_t *p = (uint32_t *)0x4001100C;</td><td>强制类型转换 + 指针</td><td>寄存器地址必须当成 <code class="icode">uint32_t*</code> 用，类型错了读出来就是错位的字节组合</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">在 Keil 里亲眼看见这些「看不见的东西」</div>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b>看句柄里到底存了什么：</b>进入调试（Ctrl+F5），在 Watch 1 窗口输入 <code class="icode">huart1</code>，点左边的 <b>+</b> 展开，你能看到 <code class="icode">gState</code>、<code class="icode">RxXferCount</code>、<code class="icode">Instance</code> 这些成员，以及它们在运行时怎么变。</li>
+              <li><b>看结构体的地址：</b>Watch 窗口输入 <code class="icode">&amp;huart1</code>，你会看到一个 0x2000xxxx 的地址——这就是「句柄放在 SRAM 里」的证据。</li>
+              <li><b>看 Instance 指向哪：</b>把 <code class="icode">huart1.Instance</code> 加进 Watch，它的值应该正好是 <b>0x40013800</b>（USART1 的基地址）。这一眼就把「句柄 → 寄存器」的关系坐实了。</li>
+              <li><b>看编译器有没有优化掉你的代码：</b>Debug → 反汇编窗口。如果你写的软件延时循环在汇编里只剩两三行，说明它被优化掉了——这就是缺 <code class="icode">volatile</code> 的直接证据。</li>
+              <li><b>看 const 数据放在哪：</b>编译后打开 <code class="icode">.map</code> 文件（Options → Linker → 勾选 Linker Listing），搜你的数组名：出现在 <code class="icode">.data</code> 段就是占了 SRAM，出现在 <code class="icode">.rodata</code> 或 Flash 区就是省下了。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查方案 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+          <p class="mt-4">下面每一条都是「C 语法问题伪装成硬件问题」的典型例子。判断技巧：<b class="font-semibold text-ink">如果错误信息里有 <code class="icode">type</code>、<code class="icode">pointer</code>、<code class="icode">incompatible</code>、<code class="icode">undefined</code> 这类词，那它一定是 C 层面的问题，先别去动电路。</b></p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>现象 / 报错原文</th><th>原因</th><th>解决</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>编译报错：<code class="icode">invalid type argument of '-&gt;' (have 'LedConfig')</code></td>
+                  <td>对<b>非指针</b>的变量用了 <code class="icode">-&gt;</code>。<code class="icode">-&gt;</code> 只对指针有效，普通结构体变量必须用 <code class="icode">.</code></td>
+                  <td>把 <code class="icode">cfg-&gt;pin</code> 改成 <code class="icode">cfg.pin</code>；或者写成 <code class="icode">(&amp;cfg)-&gt;pin</code>。同时回头确认函数签名里那个参数到底是不是指针</td>
+                </tr>
+                <tr>
+                  <td>编译只给警告：<code class="icode">assignment from incompatible pointer type</code>，程序能烧进去但跑飞</td>
+                  <td>函数指针签名不匹配。参数类型或返回值对不上，运行时按错误宽度传参，栈被读乱</td>
+                  <td><b>绝不要忽略这条警告。</b>用 <code class="icode">typedef void (*cb_t)(uint8_t);</code> 统一签名；Keil 里打开全部警告（AC6 加 <code class="icode">-Wall</code>）。回调类的 bug 九成都出在这里</td>
+                </tr>
+                <tr>
+                  <td>编译报错：<code class="icode">error: assignment of read-only location</code></td>
+                  <td>往 <code class="icode">const</code> 限定的成员/数组里写值。常见于把只读配置结构体传进了「要修改它」的函数</td>
+                  <td>如果确实要改，去掉 <code class="icode">const</code>；如果只是函数声明错了，把形参改成 <code class="icode">const T*</code>。别用强制转换硬绕过去——那等于关掉了编译器的保护</td>
+                </tr>
+                <tr>
+                  <td>程序<b>卡死在 <code class="icode">while (flag == 0)</code> 里出不来</b>，中断明明执行了</td>
+                  <td><code class="icode">flag</code> 是中断里修改的全局变量，但没加 <code class="icode">volatile</code>。编译器把它的值缓存在 CPU 寄存器里反复比较，读不到内存里的新值</td>
+                  <td>定义改成 <code class="icode">volatile uint8_t flag = 0;</code>。判据：<b>只要一个变量的值会被中断、DMA 或硬件改动，就必须 volatile</b></td>
+                </tr>
+                <tr>
+                  <td><b>软件延时几乎不延时</b>，<code class="icode">for</code> 循环瞬间跑完（LED 闪烁快得看不见）</td>
+                  <td>空循环的计数器没加 <code class="icode">volatile</code>，编译器发现循环体为空且「结果用不到」，把整个循环删掉了</td>
+                  <td>计数器加 <code class="icode">volatile</code>（<code class="icode">for (volatile uint32_t i = 0; i &lt; 800000; i++)</code>），或者干脆用 <code class="icode">HAL_Delay()</code>。想验证有没有被删，看反汇编窗口</td>
+                </tr>
+                <tr>
+                  <td>外设配置<b>莫名其妙</b>：明明只设了引脚号，串口却打不开 / GPIO 速度变成了奇怪的值</td>
+                  <td>局部配置结构体没初始化。只给部分成员赋了值，剩下的是栈上的垃圾数据，HAL 会全部读走</td>
+                  <td>所有配置结构体一律写成 <code class="icode">Xxx_InitTypeDef s = {0};</code>，一句话全部清零，再逐个赋值</td>
+                </tr>
+                <tr>
+                  <td><b>用户回调写了却不执行</b>，编译零错误零警告，流程却像什么都没发生</td>
+                  <td>回调函数名拼错（大小写、单复数差异）。拼错的名字成了一个全新的强符号，没人调用它；库里的弱符号空实现依然生效</td>
+                  <td>从 HAL 头文件里<b>复制</b>函数名，不要手打。在回调第一行点亮一个 LED 作为「我到底有没有被调用」的探针。这也是程序三里让你亲手做的实验</td>
+                </tr>
+                <tr>
+                  <td>链接期报错：<code class="icode">undefined reference to 'HAL_GPIO_Init'</code> / <code class="icode">L6218E: Undefined symbol</code></td>
+                  <td>函数只声明了没实现——对应的库文件没加进工程，或者这个外设的 <code class="icode">stm32f1xx_hal_xxx.c</code> 没被 CubeMX 生成</td>
+                  <td>检查工程里是否包含 <code class="icode">stm32f1xx_hal_gpio.c</code> 这类文件；CubeMX 里确认该外设已启用后重新生成代码</td>
+                </tr>
+                <tr>
+                  <td><b>中断和主循环共享的计数偶尔少加几次</b>（不是每次，很难复现）</td>
+                  <td><code class="icode">count++</code> 不是原子操作，实际是「读 → 加一 → 写回」三步。中断插在中间就会丢一次加一。<b>注意：<code class="icode">volatile</code> 解决不了这个问题</b></td>
+                  <td>用临界区保护：<code class="icode">__disable_irq(); ... __enable_irq();</code> 包住；或让主循环只在中断里读、不在主循环里写</td>
+                </tr>
+                <tr>
+                  <td>改了副本，原结构体却跟着变了（或反过来，两个结构体互相影响）</td>
+                  <td>结构体里有<b>指针成员</b>。直接赋值是「浅拷贝」——两个结构体的指针成员指向同一块内存</td>
+                  <td>要么别拷贝，直接传指针操作同一个结构体；要么做深拷贝（给指针成员另分配内存再 <code class="icode">memcpy</code>）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">一条避免 80% 这类问题的习惯</div>
+            <p>把编译器的警告级别开到最高，并且<b>把警告当成错误来对待</b>。Keil MDK（AC6）在 Options for Target → C/C++ → Misc Controls 里填 <code class="icode">-Wall</code>；GCC 用 <code class="icode">-Wall -Wextra -Werror</code>。上面十条里有四条（函数指针签名、隐式类型转换、没用到的变量、const 相关）本来都会在警告里被指出来，只是默认级别下它们被淹没了。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <h3 class="mt-6 text-base font-semibold">这一篇要记住的六句话</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">指针的类型决定「加一走多远、解引用读几个字节」</b>——所以操作 32 位寄存器必须用 <code class="icode">uint32_t*</code>。</li>
+            <li><b class="font-semibold text-ink">HAL 传指针是为了三件事</b>：不拷贝大结构体、能改到实参、能表达「没有（NULL）」。</li>
+            <li><b class="font-semibold text-ink"><code class="icode">p-&gt;m</code> 就是 <code class="icode">(*p).m</code> 的简写</b>，存在的唯一原因是 <code class="icode">.</code> 的优先级比 <code class="icode">*</code> 高。</li>
+            <li><b class="font-semibold text-ink">回调 = 函数指针 + 别人在合适的时候调用它</b>；HAL 用的是「链接期弱符号覆盖」，不是「运行期注册」。</li>
+            <li><b class="font-semibold text-ink"><code class="icode">volatile</code> 是正确性问题，不是风格问题</b>——只对「会被中断、DMA、硬件修改的变量」加；它不保证原子性。</li>
+            <li><b class="font-semibold text-ink">配置结构体一律 <code class="icode">= {0}</code></b>，这两三个字符能省掉一整类「配置莫名其妙」的 bug。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">自检题</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>为什么 <code class="icode">uint8_t *p; p + 1</code> 和 <code class="icode">uint32_t *p; p + 1</code> 走的路程不一样？如果要把地址 <code class="icode">0x4001100C</code> 当成一个 32 位寄存器来读写，该写成什么？</li>
+            <li>下面这个函数为什么改不了调用者的变量？怎么改才能改到？<br><code class="icode">void set(GpioConfig cfg) { cfg.speed = 100; }</code></li>
+            <li>把 <code class="icode">huart-&gt;Instance-&gt;DR = data;</code> 用「点」的形式展开写，应该怎么写？为什么不能直接写成 <code class="icode">*huart.Instance.DR</code>？</li>
+            <li><code class="icode">void (*cb)(uint8_t);</code> 和 <code class="icode">void *cb(uint8_t);</code> 这两行分别声明了什么？用一句话说清区别。</li>
+            <li>HAL 的回调是「弱符号」，那为什么你把 <code class="icode">HAL_UART_RxCpltCallback</code> 拼成 <code class="icode">HAL_UART_RxCpltCallBack</code> 时编译器<b>一句话都不说</b>？</li>
+            <li>一个变量 <code class="icode">uint8_t g_flag</code> 在中断里被置 1，主循环里 <code class="icode">while (g_flag == 0) { }</code> 等它。程序卡死了，为什么？加了 <code class="icode">volatile</code> 之后 <code class="icode">g_counter++</code> 还会出错吗？</li>
+          </ol>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">自检题答案</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li>因为指针加减法是按<b>指向类型的大小</b>算的：<code class="icode">uint8_t*</code> 加一走 1 字节，<code class="icode">uint32_t*</code> 加一走 4 字节。操作寄存器要写 <code class="icode">*(volatile uint32_t *)0x4001100C</code>，或者先定义 <code class="icode">volatile uint32_t *reg = (volatile uint32_t *)0x4001100C;</code> 再 <code class="icode">*reg = ...</code>。</li>
+              <li>因为参数是<b>值传递</b>，<code class="icode">cfg</code> 只是实参的副本，函数里改副本不影响外面。改成 <code class="icode">void set(GpioConfig *cfg)</code> 并写 <code class="icode">cfg-&gt;speed = 100;</code>，调用时传 <code class="icode">&amp;led</code>。</li>
+              <li>展开是 <code class="icode">(*(*huart).Instance).DR = data;</code>。不能写成 <code class="icode">*huart.Instance.DR</code>，因为 <code class="icode">.</code> 优先级高于 <code class="icode">*</code>，那样会先对<b>指针</b> <code class="icode">huart</code> 取成员，而指针没有成员，编译直接报错。</li>
+              <li>前者声明了一个<b>函数指针变量</b> <code class="icode">cb</code>，它指向「收 <code class="icode">uint8_t</code>、返回 <code class="icode">void</code> 的函数」；后者声明了一个<b>函数</b> <code class="icode">cb</code>，它收 <code class="icode">uint8_t</code>、返回 <code class="icode">void*</code>。区别全在 <code class="icode">*</code> 有没有和名字一起被括号包住。</li>
+              <li>因为那是一个全新的、合法的强符号定义——语法完全正确，只是没有任何人调用它。库里的弱符号空实现依然生效，所以流程照常走完，什么也不发生。<b>这类 bug 编译器帮不了你</b>，只能靠「从库里复制函数名」+「在回调里放一个探针（点灯）」来防。</li>
+              <li>卡死是因为 <code class="icode">g_flag</code> 没加 <code class="icode">volatile</code>，编译器把它读进 CPU 寄存器后反复比较旧副本，中断改的是内存。加 <code class="icode">volatile</code> 只保证「每次都去内存读」，<b>不保证原子性</b>——<code class="icode">g_counter++</code> 仍是「读-改-写」三步，中断插在中间照样丢计数，这种情况要用关中断或原子操作保护。</li>
+            </ol>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li><b>亲手制造一次「读不到新值」。</b>写一个程序：一个普通全局变量 <code class="icode">uint8_t flag</code>，主循环 <code class="icode">while (flag == 0) { }</code>，另一个线程/信号处理函数把它改成 1，看程序是否卡死。然后把 <code class="icode">flag</code> 改成 <code class="icode">volatile</code> 再试。<b>用 <code class="icode">-O2</code> 编译</b>，效果最明显；<code class="icode">-O0</code> 下可能看不出差别，这也是为什么很多人「本地好好的，一开优化就崩」。</li>
+            <li><b>把程序三的函数名改错一个字母</b>（<code class="icode">MyUart_RxCpltCallback</code> → <code class="icode">MyUart_RxCpltCallBack</code>），重新编译运行。确认：编译零警告，但那一行「[用户回调]」的输出彻底消失。<b>这就是 HAL 回调不执行的标准复现方式</b>，请务必亲眼见一次。</li>
+            <li><b>用反汇编验证优化。</b>在 Keil 里写 <code class="icode">for (uint32_t i = 0; i &lt; 800000; i++) { }</code>，编译后打开反汇编窗口看它生成了几行；再加上 <code class="icode">volatile</code> 看变化。</li>
+            <li><b>把程序二的命令表扩充两条</b>（比如 <code class="icode">"pwm"</code> 和 <code class="icode">"adc"</code>），要求：只往表里加两行，<b>不改 dispatch 函数一个字符</b>。体会「表驱动」比 <code class="icode">if / else</code> 好在哪。</li>
+            <li><b>观察 <code class="icode">= {0}</code> 的效果。</b>写一个带 5 个成员的结构体，先用 <code class="icode">LedConfig a;</code> 然后只赋 2 个成员并打印剩下 3 个（会看到垃圾值），再改成 <code class="icode">LedConfig a = {0};</code> 打印（全是 0）。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">延伸阅读</h3>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>这些语法在真实 HAL 代码里长什么样 → <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-hal.html">寄存器、标准库与 HAL：同一件事的三种写法</a></li>
+            <li><code class="icode">volatile</code> 与寄存器的关系，回到硬件层面 → <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-arm.html">ARM Cortex-M 与 STM32 架构</a></li>
+            <li>接下来最该看的一篇：接线之前先看它，避免烧板子 → <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-level.html">3.3V 电平与硬件安全</a></li>
+          </ul>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="stm32-basic-hal.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">寄存器、标准库与 HAL：同一件事的三种写法</p>
+          </a>
+          <a href="stm32-basic-level.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">3.3V 电平与硬件安全</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

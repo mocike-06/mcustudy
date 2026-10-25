@@ -1,0 +1,2315 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>总线与接口：并行、串行与总线选型 - McuStudy</title>
+  <meta name="description" content="知识体系第 22 篇：为什么设备一多就必须用总线、点对点连线的连接数为什么会爆炸、并行为什么在板级长距离上失效而串行凭什么反超、同步与异步的可靠性来源有什么不同、8N1 下 115200 的真实吞吐只有 11.52 kB/s、单工半双工全双工与主从多主、地址/数据/控制三要素与片选译码、轮询/中断/DMA 三种传送方式对比、单端与差分、推挽与开漏、上拉电阻与上升时间、终端匹配与信号反射、时序图里 t_su/t_h 与 SPI 四种模式、I²C 起停条件与时钟拉伸、UART/I²C/SPI/1-Wire/CAN/RS-485/USB 对比与选型决策树、总线负载与带宽预算，含 STM32 上的 I²C/SPI/RS-485/9 位 UART 代码与「通信不通」的排查顺序。">
+  <meta name="keywords" content="总线,接口,点对点连接数,并行总线,串行总线,差分信号,共模干扰,双绞线,同步通信,异步通信,UART,8N1,115200,波特率,起始位,停止位,校验位,过采样,单工,半双工,全双工,主从,多主,地址译码,片选,CS,三态门,高阻,总线复用,轮询,中断,DMA,推挽,开漏,线与,上拉电阻,上升时间,建立时间,保持时间,SPI模式,CPOL,CPHA,I2C,起始条件,停止条件,ACK,时钟拉伸,CAN,120欧姆终端电阻,RS-485,收发使能,TCA9548A,菊花链,9位模式,地址位唤醒,光耦,数字隔离器,共地,总线负载,带宽预算">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">总线与接口：并行、串行与总线选型</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          总线与接口：并行、串行与总线选型
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你在做一个采集盒子：STM32 上要挂 4 个 I²C 传感器、1 片 SPI 的 16 位 ADC、1 路 RS-485 变送器，再留一个 CAN 节点。器件买齐了，线也接上了，然后你发现<b class="font-semibold text-ink">能稳定跑起来的没几个</b>：I²C 单个接上去都好、一起挂就有一个不响应；SPI 读回来永远是 <code class="icode">0xFFFF</code>；RS-485 每次都丢第一个字节；CAN 更干脆，一条报文都收不到。你翻遍代码，每一行看起来都对——<b class="font-semibold text-ink">因为问题根本不在代码里，而在你从来没有正式学过的那一层：总线的电气规矩与协议规矩</b>。这一篇讲的就是这一层：为什么设备一多就必须要有「总线」这个东西、并行为什么打不过串行、同步和异步的可靠性分别从哪来、地址与片选是什么关系、谁来搬数据（轮询/中断/DMA）、差分与开漏为什么是多主仲裁的物理基础、时序图上的那几条竖线到底该对齐哪里、以及最后——<b class="font-semibold text-ink">面对一个具体的活儿，你该选哪条总线</b>。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">层级：<b>第 1 层 · 学科基础 → 数据转换与接口（第 22 篇）</b></span>
+          <span class="stat-pill">教材：<b>阎石《数字电子技术基础》第 6 版 第 3、4 章 + 周荷琴《微型计算机原理与接口技术》第 6 章</b></span>
+          <span class="stat-pill">阅读约 <b>58</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-why-bus">为什么需要总线：连接数的爆炸</a>
+          <a class="toc-link is-sub" href="#sub-parallel-serial">并行 vs 串行</a>
+          <a class="toc-link is-sub" href="#sub-sync-async">同步 vs 异步</a>
+          <a class="toc-link is-sub" href="#sub-duplex-master">单工、半双工、全双工与主从</a>
+          <a class="toc-link is-sub" href="#sub-three-elements">总线的三要素与三种传送方式</a>
+          <a class="toc-link is-sub" href="#sub-electrical">电气层面：差分、开漏、上拉与终端</a>
+          <a class="toc-link is-sub" href="#sub-timing">时序图怎么读</a>
+          <a class="toc-link is-sub" href="#sub-families">总线家族对比与选型决策树</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-multi-device">多个设备挂一条总线</a>
+          <a class="toc-link is-sub" href="#sub-mcu-code">代码：I²C / SPI / RS-485 / 9 位 UART</a>
+          <a class="toc-link is-sub" href="#sub-can-485">板间总线：CAN 与 RS-485</a>
+          <a class="toc-link is-sub" href="#sub-debug-order">「通信不通」的排查顺序</a>
+          <a class="toc-link is-sub" href="#sub-ground-iso">共地与隔离</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-why-bus">为什么需要总线：连接数的爆炸</a>
+            <a class="toc-link is-sub" href="#sub-parallel-serial">并行 vs 串行</a>
+            <a class="toc-link is-sub" href="#sub-sync-async">同步 vs 异步</a>
+            <a class="toc-link is-sub" href="#sub-duplex-master">单工、半双工、全双工与主从</a>
+            <a class="toc-link is-sub" href="#sub-three-elements">总线的三要素与三种传送方式</a>
+            <a class="toc-link is-sub" href="#sub-electrical">电气层面：差分、开漏、上拉与终端</a>
+            <a class="toc-link is-sub" href="#sub-timing">时序图怎么读</a>
+            <a class="toc-link is-sub" href="#sub-families">总线家族对比与选型决策树</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-multi-device">多个设备挂一条总线</a>
+            <a class="toc-link is-sub" href="#sub-mcu-code">代码：I²C / SPI / RS-485 / 9 位 UART</a>
+            <a class="toc-link is-sub" href="#sub-can-485">板间总线：CAN 与 RS-485</a>
+            <a class="toc-link is-sub" href="#sub-debug-order">「通信不通」的排查顺序</a>
+            <a class="toc-link is-sub" href="#sub-ground-iso">共地与隔离</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">前面几篇你学的都是「一个器件怎么工作」：ADC 内部怎么一位一位地试、运放怎么把信号放大、逻辑门怎么组合出功能。这一篇换了一个视角——<b class="font-semibold text-ink">当很多个器件要连在一起说话时，它们凭什么能共用同一根线而不打架</b>。这个问题听起来很抽象，但它造成的故障一点都不抽象。下面四个场景，你迟早会撞上其中一个。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景一：单个传感器都好，四个一起挂就有一个不响应</h3>
+          <p class="mt-3">你买了四个 I²C 模块：一个温湿度、一个气压、一个光照、一个 OLED 屏。为了「高效」，你把它们的 SDA/SCL 直接并在一起，只用了两根线。结果：<b class="font-semibold text-ink">单独接任何一个都正常，四个一起挂上去，总有一个（或几个）读不出来</b>，而且不一定每次都坏，重启之后「坏的那个」还可能换人。</p>
+          <p class="mt-3">这不是接触不良，而是<b class="font-semibold text-ink">地址冲突</b>：I²C 上每个从机都靠一个 7 位地址区分身份，同一根线上不允许有两个设备用同一个地址。而市面上大量模块用的芯片（比如光照的 BH1750、气压的 BMP280、温湿度的 SHT30）出厂地址是固定的，甚至不同型号的模块恰好用了同一个地址。挂在一起，主机喊「地址 0x76 汇报」，两个设备同时回答，线上出现两个设备「同时说话」的电流叠加，波形被破坏，谁都读不对。这个问题的解法在第 4 节（地址可配置引脚、I²C 多路复用器）。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景二：SPI 读回来的永远是 0xFFFF</h3>
+          <p class="mt-3">你用 SPI 接了一片 16 位 ADC，代码抄的是上次 12 位 ADC 的例程，时钟、片选、中断全都配了，就是读回来的值恒定为 <code class="icode">0xFFFF</code>（如果按「空闲时高电平」理解，这等于线上一直是高）。</p>
+          <p class="mt-3">最可能的原因是<b class="font-semibold text-ink">SPI 模式选错了</b>：SPI 没有统一的国际标准，时钟空闲时是高还是低（CPOL）、在哪个时钟沿采样（CPHA），四个组合里你选了器件不支持的那个。选错的典型症状不是「完全没有数据」，而是<b class="font-semibold text-ink">每一位都错开一格</b>——数据看上去像真的（不是 0x0000 也不是噪声），但数值整体错了，或者始终是满量程。第 3 节会带你算清这四位组合到底差在哪。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景三：RS-485 每次都丢第一个字节，CAN 一条报文都收不到</h3>
+          <p class="mt-3">这两个是「板间通信」的经典故障。RS-485 那边你写了「拉高收发使能 → 发数据 → 拉低收发使能」，逻辑上没错，但对方收到的报文<b class="font-semibold text-ink">永远少第一个字节</b>；CAN 那边你把几个节点从一块板子上星型接出来（图省事，都从中间一个接线端子分出去），结果节点一多就完全不通，节点少的时候又好像能用。</p>
+          <p class="mt-3">RS-485 的问题是<b class="font-semibold text-ink">收发使能的切换时机</b>：你以为「CPU 把数据丢进发送寄存器」就等于「数据已经发出去了」，于是在数据还在移位的时候就把使能拉低了，第一个字节的波形被拦腰截断。CAN 的问题是<b class="font-semibold text-ink">拓扑与终端</b>：CAN 是一根特性阻抗约 120 Ω 的传输线，两端必须各有一个 120 Ω 终端电阻来吸掉信号能量，星型拓扑制造出很多「支线」，信号在支线末端来回反射，采样点上的电平被判错，仲裁失败、报文全丢。第 4 节会给出这两种故障的示波器级解释和正确做法。</p>
+
+          <h3 class="mt-7 text-base font-semibold">场景四：传感器读得越来越多，主循环跑不动了</h3>
+          <p class="mt-3">这个场景最隐蔽，因为它不报错。你在主循环里轮询：读 4 个 I²C 传感器、刷一屏 OLED、再读一次 ADC。一开始好好的，等你把传感器加到 8 个、OLED 换成分辨率更高的屏，程序开始「变卡」：按键响应变慢、PWM 有点抖、还偶尔丢一次串口数据。</p>
+          <p class="mt-3">根子是<b class="font-semibold text-ink">CPU 的时间被「等」吃光了</b>。每一次 I²C 传输，CPU 都要在循环里等 ACK、等标志位，这段时间它什么也干不了。8 个传感器按 50 Hz 读，每次传输加软件开销按 500 µs 算，就是 8 × 50 × 500 µs = <b>200 ms 的 CPU 时间被耗在「等总线」上，占满一秒钟的 20%</b>。而这类活儿本来可以交给硬件去做——这就是第 2 节要讲的 <b>DMA</b>：「能跑」和「跑得稳」之间，往往就隔着这一个东西。</p>
+
+          <h3 class="mt-7 text-base font-semibold">这一篇在讲一条「从物理层到应用层」的链</h3>
+          <p class="mt-3">把这四个场景按「出问题的深度」排一下，你会发现它们正好落在通信的不同层上：<b>电气层</b>（电压、差分、终端、上拉）、<b>时序层</b>（时钟沿、建立/保持、SPI 模式）、<b>协议层</b>（地址、起始/停止、ACK、帧格式）、<b>系统层</b>（谁先说话、谁来搬数据、总线负载）。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="一次通信的四层：故障会出现在哪一层">
+            <pre><code>   ┌──────────────────────────────────────────────────────────┐
+   │ 第 4 层 · 系统层：选型、仲裁、负载                        │
+   │   · 谁来当主机？两个主机同时开口怎么办？                   │
+   │   · 这条总线上挂 8 个设备、每个 50Hz，它撑得住吗？         │
+   │   · 数据由 CPU 搬还是 DMA 搬？                            │
+   │   → 出问题的样子：设备一多就不稳、CPU 跑不动、偶尔丢包     │
+   ├──────────────────────────────────────────────────────────┤
+   │ 第 3 层 · 协议层：帧格式与事务规则                        │
+   │   · 地址、起始/停止条件、ACK/NACK、CRC、帧头帧尾           │
+   │   · 一次「读寄存器」到底要传多少个位？                     │
+   │   → 出问题的样子：地址冲突、收不到 ACK、丢第一个字节       │
+   ├──────────────────────────────────────────────────────────┤
+   │ 第 2 层 · 时序层：时钟沿与采样点                          │
+   │   · 同步还是异步？CPOL/CPHA？t_su / t_h 够不够？           │
+   │   · 采样沿和更新沿分别是哪一个？                          │
+   │   → 出问题的样子：数据整体错位一位、高速时才出错           │
+   ├──────────────────────────────────────────────────────────┤
+   │ 第 1 层 · 电气层：电压与电流                              │
+   │   · 单端还是差分？推挽还是开漏？上拉多大？要不要终端？     │
+   │   · 两块板共地了吗？要不要隔离？                          │
+   │   → 出问题的样子：完全不通、距离一长就错、电机一转就死     │
+   └──────────────────────────────────────────────────────────┘
+
+   排查时的铁律：先确认第 1 层，再往上走。
+   90% 的「通信不通」，原因在第 1 层和第 2 层，而不是协议和代码。</code></pre>
+          </div>
+
+          <p class="mt-3">这一篇的知识在教材里分两处：<b class="font-semibold text-ink">阎石《数字电子技术基础》第 6 版第 3 章</b>讲逻辑门内部的输出结构（推挽、开漏、三态门）与门电路的电平接口——那是第 1 层；<b class="font-semibold text-ink">同书第 4 章</b>讲组合逻辑电路里的译码器——那正是「地址译码 + 片选」的原型；<b class="font-semibold text-ink">周荷琴《微型计算机原理与接口技术》第 6 章</b>讲微机的总线结构、地址/数据/控制三组总线、I/O 端口的编址方式、以及轮询/中断/DMA 三种数据传送方式——那是第 3、4 层。把这几章拼起来，才是一张完整的通信地图。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">和相邻几篇的分工</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>采样、滤波与数字信号处理入门</b>（上一篇）：解决的是「一个模拟量怎么变成可信的数字量」——采样定理、抗混叠、建立时间、数字滤波。它输出的是寄存器里的一串数，<b>不负责把这些数送到别处</b>。</li>
+              <li><b>本篇</b>：解决的是「数字量在器件之间怎么走」——电气层怎么不出错、时序层怎么对齐、协议层怎么区分谁是谁、系统层怎么选型和分工。</li>
+              <li><b>存储器类型与结构</b>（下一篇）：Flash、EEPROM、RAM 各自的擦写原理与寿命。你会发现它们挂在同一条总线上（片内是 AHB/APB，片外是地址/数据总线），<b>本篇讲的地址译码与片选，正是下一篇「存储器怎么被寻址」的前提</b>。</li>
+              <li><b>ADC 与 DAC 原理</b>、<b>有源滤波与电压比较器</b>：更前面的两篇，一个讲器件内部，一个讲模拟前端。它们和本篇的分界线就是「ADC 输出端」这条线。</li>
+            </ul>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这一篇怎么读最省时间</div>
+            <p>如果你现在正在调一块板子、通信死活不通：<b>直接跳到第 4 节的「通信不通的排查顺序」</b>，那里给的是一份可以照着做的动作清单（先量电平 → 再看时钟 → 再看时序与模式 → 再查共地 → 最后才怀疑协议和代码）。</p>
+            <p class="mt-2">如果你是在做选型（这个活儿到底该用 I²C 还是 SPI、要不要上 CAN）：看第 2 节的最后两个子节（家族对比表 + 选型决策树）和第 3 节的带宽预算例题。</p>
+            <p class="mt-2">如果你是要把基础补扎实（考试、面试、想真正搞懂为什么）：从头顺着读，第 2 节的八个子节就是这门知识的主干。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+<!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+          <p class="mt-4">这一节是整篇的主干。八个子节按「为什么要有总线 → 并行还是串行 → 同步还是异步 → 谁能说话 → 靠什么区分设备、谁来搬数据 → 电气上怎么实现 → 时序上怎么看 → 最后怎么选」的顺序排。每一节都尽量落到具体的数字上，因为总线这门知识最怕的就是停留在「大概是这样」的层面。</p>
+
+          <h3 id="sub-why-bus" class="mt-7 text-base font-semibold">为什么需要总线：点对点连线的连接数会爆炸</h3>
+          <p class="mt-3">先从最朴素的思路出发：如果我有 4 个设备要互相通信，最直觉的做法是<b class="font-semibold text-ink">两两之间拉一根线</b>（这叫点对点，point-to-point）。两个设备之间一根线，三对设备三根线，看起来还好。但这笔账增长得非常快——<b class="font-semibold text-ink">N 个设备两两相连，需要 N × (N−1) / 2 条链路</b>。</p>
+          <p class="mt-3">这个公式的来历很简单：每个设备都要连到其他 N−1 个设备，一共 N × (N−1) 个「端点」，但每条链路被两端各数了一次，所以除以 2。把几个常见的规模代进去：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>设备数 N</th><th>点对点链路数<br>N × (N−1) / 2</th><th>每个设备的连线数<br>N − 1</th><th>总线方案需要的线数</th><th>差距</th></tr></thead>
+              <tbody>
+                <tr><td><b>2</b></td><td>1</td><td>1</td><td>3（地址/数据/控制各一根，简化计）</td><td>点对点更省</td></tr>
+                <tr><td><b>4</b></td><td>6</td><td>3</td><td>3</td><td>2 倍</td></tr>
+                <tr><td><b>8</b></td><td><b>28</b></td><td>7</td><td>3</td><td><b>9.3 倍</b></td></tr>
+                <tr><td><b>16</b></td><td><b>120</b></td><td>15</td><td>3</td><td><b>40 倍</b></td></tr>
+                <tr><td><b>64</b></td><td><b>2016</b></td><td>63</td><td>3</td><td><b>672 倍</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">把「线数」换算成更疼的指标：<b class="font-semibold text-ink">引脚数</b>。16 个设备点对点互连，每个设备要有 15 个引脚专门用来连线，总引脚消耗是 16 × 15 = 240 个（链路两端各算一次）。在芯片上，引脚是比晶体管贵得多的资源——封装尺寸、PCB 面积、连接器、线束成本全都跟着引脚数走。<b class="font-semibold text-ink">这就是总线存在的第一个理由：把「随设备数平方增长」的连线需求，压成「与设备数无关」的固定几根线。</b></p>
+
+          <p class="mt-3">但共享线路立刻带来一个新问题：<b class="font-semibold text-ink">一根线上接了很多人，谁说话的时候其他人怎么办</b>。如果 16 个设备的输出脚全部硬连在一起，A 设备想输出高、B 设备想输出低，两个输出级就直接对着短路，大电流流过、线被烧、逻辑电平也没有确定值（这正是第 1 节讲的「推挽不能并联」）。所以总线必须配两样东西才能成立：</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="总线的完整定义：导线 + 规则，缺一不可">
+            <pre><code>  总线 = 一组被多方共享的导线  +  一套「谁在什么时候能说话」的规则
+
+  ┌─────────────────── 物理部分 ───────────────────┐
+  │ · 共享的导线（数据线、地址线、控制线）           │
+  │ · 每个设备都接到同一组线上                       │
+  │ · 输出必须能被「关掉」（三态门 / 开漏）          │
+  │   → 不说话的设备把自己的输出放到【高阻态】        │
+  │   → 高阻 = 相当于从线上拔掉，不参与电平决定       │
+  └─────────────────────────────────────────────────┘
+  ┌─────────────────── 逻辑部分 ───────────────────┐
+  │ · 寻址：这一轮找谁（地址 / 片选 / ID）           │
+  │ · 方向：谁发谁收（读 / 写、主 / 从）             │
+  │ · 时序：什么时候有效、什么时候采样（时钟 / 握手） │
+  │ · 仲裁：多人同时开口时听谁的（线与 / ID 优先级）  │
+  │ · 差错：说错了怎么办（校验位 / CRC / ACK）        │
+  └─────────────────────────────────────────────────┘
+
+  一句话：总线是「一套约定好的共用车道 + 交通规则」，
+          不是「把所有线都并起来」这么简单。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">三态门：让「很多人共用一根线」在物理上成立</h3>
+          <p class="mt-3">普通逻辑门（推挽输出）的输出只有两种状态：高电平、低电平。它总是「用力」驱动线路，所以两个推挽输出接在同一根线上必然打架。解决办法是给输出加第三种状态——<b class="font-semibold text-ink">高阻态（Hi-Z）</b>，此时输出级的上下两个管子都关断，引脚对线路几乎不施加任何影响，相当于「把嘴闭上、站到一边去」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三态输出的三种状态：这是所有计算机总线的基础">
+            <pre><code>  【状态一】输出高（EN = 1，D = 1）        【状态二】输出低（EN = 1，D = 0）
+
+     VDD ──┬──[ P 管导通 ]──┐                VDD ──┬──[ P 管截止 ]──┐
+           │                 │                     │                 │
+           │              ┌──┴── 线 = 1            │              ┌──┴── 线 = 0
+           │              │                       │              │
+           │           [ N 管截止 ]               │           [ N 管导通 ]
+         GND ─────────────┴──                     GND ─────────────┴──
+
+  【状态三】高阻（EN = 0）：两个管子都截止
+
+     VDD ──┬──[ P 管截止 ]──┐
+           │                 │
+           │              ┌──┴── 线 = ？  ← 由【别的设备】或上拉电阻决定
+           │              │                 本设备对线的影响 ≈ 0
+           │           [ N 管截止 ]
+         GND ─────────────┴──
+
+  【总线上怎么用】同一时刻，最多只允许【一个】设备处于状态一或状态二，
+                  其余全部处于状态三。这条规矩由协议保证（片选 / 仲裁）。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">顺带解释两个你在教材和手册里一定会看到的名词</div>
+            <p><b>总线复用（地址/数据复用）：</b>早期的 8086 为了省引脚，让 AD0~AD15 这 16 根线<b>分时充当</b>地址线和数据线——第一个时钟周期送地址（此时 ALE 信号为高，外部用锁存器把地址存下来），之后的周期传数据。代价是每一次访问都要多花一个周期，好处是引脚少了一半。这个思路今天还在用：STM32 的 FSMC 外部总线就有「地址/数据复用模式」的选项。</p>
+            <p class="mt-2"><b>总线周期（bus cycle）：</b>一次完整的「送地址 → 选通 → 传数据 → 释放」过程。它由几个时钟周期组成，而「一个总线周期能传几个字节」直接决定了总线的带宽——这就是第 3 节要算的东西。</p>
+          </div>
+
+          <h3 id="sub-parallel-serial" class="mt-7 text-base font-semibold">并行 vs 串行：并行为什么在板级长距离上失效，串行凭什么反超</h3>
+          <p class="mt-3">有了上面「三态门 + 规则」的基础，接下来的问题是：<b class="font-semibold text-ink">我一次传一位，还是一次传八位？</b>这就是并行和串行的分岔。</p>
+          <p class="mt-3">先说结论，免得你以为这是个「串行更先进」的故事：<b class="font-semibold text-ink">并行在芯片内部至今仍然是绝对主力</b>。你打开 STM32F103 的参考手册，看到的 AHB 总线是 32 位并行、APB2 是 32 位并行、外部 FSMC 可以挂 16 位并行 SRAM；CPU 每个时钟周期从 Flash 取 64 位指令，那也是并行。原因很直接——<b>在芯片内部，走线短（毫米级）、层数多、几乎不花额外的引脚钱，并行的「一次传多位」就是纯粹的带宽优势</b>，没有任何理由不用。</p>
+          <p class="mt-3">但一旦走出芯片、走到 PCB 上、走到几十厘米的排线或几米的电缆上，情况完全反过来。并行总线在板级长距离上有<b class="font-semibold text-ink">四重代价</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>代价</th><th>物理原因</th><th>工程后果</th></tr></thead>
+              <tbody>
+                <tr><td><b>① 引脚数与线数</b></td><td>并行要 N 根数据线 + 地址线 + 控制线，每一根都要占两端的引脚、走一根线、过一个连接器触点</td><td>8 位数据 + 16 位地址 + 读/写/片选等控制，轻松突破 30 根。连接器和排线成本按根数算，PCB 面积按线数涨</td></tr>
+                <tr><td><b>② 串扰</b></td><td>相邻走线之间存在互容 C<sub>m</sub> 和互感 L<sub>m</sub>：一根线上的电压跳变会在邻居上感应出尖峰。线越密、边沿越陡，耦合越强</td><td>数据线互相干扰，出现随机误码；为抑制串扰必须拉大线距（工程上常用「3W 规则」：线间距 ≥ 3 倍线宽），于是布线面积又涨</td></tr>
+                <tr><td><b>③ 同步偏移 skew</b></td><td>信号在 FR-4 板上的传播速度约 15 cm/ns（约 6.5 ns/m，按典型微带线估算）。八根线长度不可能完全一致，时钟线与数据线的延时也不可能完全一致</td><td>skew 会直接吃掉接收端的建立/保持窗口。低频时窗口有 100 ns，skew 1 ns 不算什么；到 100 MHz（周期 10 ns）时 1 ns 就是 10%，再快就撑不住</td></tr>
+                <tr><td><b>④ 布线层数与成本</b></td><td>要控制阻抗、要等长、要拉开间距，就必须有完整的地平面和更多的布线层</td><td>8 位并行总线在双面板上基本做不到可靠的高速传输，得升到 4 层甚至 6 层——这是最直观的「钱」的代价</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">现在来算一次公平的对比：<b class="font-semibold text-ink">同一个时钟频率下，8 位并口和 1 根串行线，原始带宽差多少？</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="同一时钟下的原始带宽：并口确实赢 8 倍">
+            <pre><code>【方案 A】8 位并行、源同步（时钟与数据一起走）
+
+   数据线   D0~D7  ────────────────  8 根
+   时钟线   CLK    ────────────────  1 根
+   控制线   STB/ACK ───────────────  2 根
+   共 11 根线，两端各 11 个引脚
+
+   时钟 10 MHz，每个时钟周期传 1 字节（理想情况）：
+        带宽 = 10 MHz × 8 bit = 80 Mbit/s = 10 MB/s
+
+   但真实并口通常要握手：选通 → 等待对方确认 → 恢复，一个字节
+   往往要 3~4 个时钟周期：
+        带宽 = 10 MHz / 3 × 8 bit ≈ 26.7 Mbit/s ≈ 3.3 MB/s
+
+【方案 B】1 根串行线（UART 8N1，位率 10 Mbit/s）
+
+   数据线   1 根（+ 地线）
+   位率 10 Mbit/s，但 8N1 每 10 位才运 8 位数据：
+        有效载荷 = 10 Mbit/s × 8/10 = 8 Mbit/s = 1 MB/s
+
+【对比结论】
+   · 理想并口（10 MB/s）是串行（1 MB/s）的 【10 倍】
+   · 带握手的并口（3.3 MB/s）是串行的 【3.3 倍】
+   · 但并口用了 11 根线，串行用了 1 根 ——
+     按「每根线的带宽」算，串行反而赢：
+        并行：10 MB/s ÷ 11 根 ≈ 0.91 MB/s 每根
+        串行：1 MB/s ÷ 1 根  = 1.0 MB/s 每根   ← 更高</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">所以「串行胜出」的真正原因，从来不只是带宽</div>
+            <p>如果你只算原始带宽，并行永远赢。串行之所以在今天全面接管板间与设备间通信，是因为它把四个别的问题一次性解决了：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>线少 = 便宜。</b>少一根线就少一个引脚、少一个连接器触点、少一份故障率。产品上「线束成本」是真实存在的科目，一根差分线能顶掉 11 根单端线，这笔账太划算。</li>
+              <li><b>差分让长距离成为可能。</b>两根线一起走、扭在一起，外部干扰同时落在两根线上（共模），接收端只取两者之差，干扰就被减掉了。这是串行能在几米、几十米电缆上跑的前提，而单端并行做不到（详见本节的电气子节）。</li>
+              <li><b>时钟可以内嵌。</b>串行不需要额外送一根时钟线：I²C 把时钟和数据一起传（接收方自己恢复采样点），UART 干脆让双方各自用晶振数时间，USB/以太网/PCIe 用编码把时钟信息嵌在数据流里。这省掉了一根最容易出问题的线——<b>时钟与数据的 skew</b> 正是并行高速化的最大障碍。</li>
+              <li><b>可以级联与堆叠。</b>串行链路可以一个接一个串下去（菊花链）、也可以做成「一条链路上挂很多节点」（多点总线），甚至可以把多条串行通道并起来用（多 lane）：PCIe x16 就是 16 条串行 lane 并行工作。<b>注意这最后一点——「并行」并没有消失，它只是从「很多根慢速单端线」变成了「少量高速差分 lane」。</b></li>
+            </ul>
+          </div>
+
+          <p class="mt-3">把这条演进线画出来就很清楚了：<b class="font-semibold text-ink">早期的并行是「用线数换速度」，现代的串行是「用单根线的速度换线数」，而单根线的速度靠的是差分与工艺</b>。今天一条 PCIe 3.0 的 lane 就能跑 8 GT/s，16 条 lane（32 根差分线）合计约 126 Gbit/s；而一块 64 位、200 MHz 的传统并行总线只有 12.8 Gbit/s——<b class="font-semibold text-ink">串行用少得多的引脚赢了两个数量级</b>。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>并行</th><th>串行</th></tr></thead>
+              <tbody>
+                <tr><td>典型场合</td><td>芯片内部总线（AHB/APB）、并口屏、并口 ADC、老式打印机口</td><td>板内 I²C/SPI、板间 UART/RS-485/CAN、设备级 USB/SATA/PCIe</td></tr>
+                <tr><td>线数（8 位为例）</td><td>数据 8 + 时钟 + 控制 ≈ 11 根起</td><td>1（单端）或 2（差分）根</td></tr>
+                <tr><td>原始带宽</td><td>高（同频下是串行的 8 倍）</td><td>低，但可以用高得多的频率补回来</td></tr>
+                <tr><td>距离上限</td><td>短（板上几厘米到几十厘米；长距离必须降速或加缓冲）</td><td>长（差分串行几米到上千米；见家族对比表）</td></tr>
+                <tr><td>主要敌人</td><td>skew、串扰、反射、布线层数</td><td>单端时的共模干扰与地电位差；高频时的衰减与抖动</td></tr>
+                <tr><td>成本结构</td><td>贵在引脚、连接器、PCB 层数</td><td>贵在两端的收发器芯片</td></tr>
+                <tr><td>什么时候仍然选它</td><td>片内、极短距离、需要极低延迟（不需要打包解包）、带宽要求高而距离极短</td><td>板间、线缆、多设备共享、需要隔离或长距离</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-sync-async" class="mt-7 text-base font-semibold">同步 vs 异步：两种完全不同的可靠性来源</h3>
+          <p class="mt-3">串行通信里最根本的一个分岔是：<b class="font-semibold text-ink">时钟要不要跟着数据一起走</b>。跟着走的是同步通信（SPI、I²C），不跟着走、靠双方事先约好速率的是异步通信（UART）。这两条路线的可靠性来源完全不同，所以它们的容错方式也完全不同。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">同步通信的可靠性来自「共享参考」。</b>时钟线和数据线一起走，接收方用送来的时钟去采样数据。因为时钟和数据经历的是同一段走线、同一个温度、同一批工艺偏差，它们的延时是「一起漂」的——绝对延时可能不确定，但<b>相对关系稳定</b>。接收方只要保证数据在采样沿前后各稳定一段时间（这就是建立时间 t<sub>su</sub> 和保持时间 t<sub>h</sub>），就能百分之百采对。所以同步总线的速率可以做到很高（SPI 常见 10~50 MHz），代价是多一根时钟线和「skew 随距离累积」的毛病。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">异步通信的可靠性来自「每帧重新对表 + 定期校准」。</b>UART 只有一根数据线，双方各自用自己的晶振数时间。它靠三件东西保证正确：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="UART 一帧的结构：每一位都在解决一个具体问题">
+            <pre><code>  空闲（高）   起始位       D0   D1   D2   D3   D4   D5   D6   D7   校验位  停止位
+  ─────────┐   ┌────┐   ┌────┐                                        ┌────┐   ┌────
+           │   │    │   │    │  ...（数据位，LSB 先发）...             │    │   │
+           └───┘    └───┘   └──┘                                        └────┘   └───
+            ↑                                                              ↑
+        【帧同步点】                                              【帧错误检测点】
+     下降沿被检测到 →                                         停止位必须是高，
+     接收方把位计数器清零，                                     否则报 Framing Error
+     之后每 1/波特率 采一次                                      （双方速率不匹配、
+                                                                 线被拉低、噪声）
+
+  一位一位的分工：
+   · 起始位（1 位，低）：把「异步」变回「同步」——
+        每帧都给接收方一次重新对表的机会，累计误差不会跨帧累积。
+   · 数据位（5~9 位，本例 8 位）：真正要传的信息，低位先发。
+   · 校验位（0 或 1 位）：奇偶校验，只能发现「奇数个位出错」，
+        检不出偶数个错，也没有纠错能力。
+   · 停止位（1 或 2 位，高）：① 标记帧结束；② 给接收方留一点
+        处理时间（尤其在慢速 MCU 上）；③ 提供一个「必须是高」的
+        检查点，速率不匹配时会立刻暴露成帧错误。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么异步必须容忍误差，而容忍度又那么小？</b>算一笔账：一帧 10 位（1 起始 + 8 数据 + 1 停止，即 8N1）。接收方在起始位下降沿对齐，然后数时间。等它去采<b>停止位</b>的时候，距离对齐点已经过了 <b>9.5 个位时间</b>。如果发送方的位率比接收方快 ε，累计偏移就是 9.5 × ε 个位时间；要保证偏移小于半个位时间（否则就采到隔壁位去了），需要：</p>
+          <p class="mt-3"><code class="icode">9.5 × ε &lt; 0.5&nbsp;&nbsp;→&nbsp;&nbsp;ε &lt; 0.5 / 9.5 ≈ 5.3%</code></p>
+          <p class="mt-3">这是<b>理论上限</b>，实际还要扣掉过采样带来的量化误差（16 倍过采样时，起始沿的检测有 ±1/16 位时间的误差）和采样表决窗口占掉的部分。所以 STM32F103 参考手册（RM0008）给出的接收容差是：<b>16 倍过采样、8 位数据时约 ±3.75%，9 位数据时约 ±3.41%</b>。这个数字非常有用——它解释了为什么「晶振差不多就行」这种想法会翻车：两个设备各自的波特率误差要<b>加起来</b>再和 3.75% 比。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">11.0592 MHz 这个奇怪频率的来历</div>
+            <p>51 单片机的经典晶振频率是 11.0592 MHz，很多人觉得这个数字莫名其妙。原因就在这里：51 的一个机器周期是 12 个时钟，11.0592 MHz ÷ 12 = <b>921.6 kHz</b>；用这个频率去分频，<b>9600、19200、115200 等标准波特率可以做到误差为 0</b>。而如果用「整数好看」的 12 MHz，12 ÷ 12 = 1 MHz，1 MHz ÷ 9600 = 104.17——除不尽，实际波特率变成 9615，误差 0.16%，能忍；但换成更高的波特率误差会迅速变大。<b>结论：异步通信里，晶振频率是被波特率反过来决定的，不是随便挑的。</b>STM32 因为有时钟树和分数分频器（USARTDIV 有小数部分），可以从 72 MHz 直接分出标准波特率，所以不需要这种怪频率。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">接下来是异步通信最容易被忽略的一件事：帧开销会实实在在地吃掉带宽。</b>你在代码里写的是「发一个字节」，线上实际传的是 10 个位（8N1）。这个 1.25 倍的「税」在低速时无所谓，在高速和大量数据时就很疼。把几种常见帧格式列出来：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>帧格式</th><th>每帧位数</th><th>每字节有效载荷率</th><th>115200 bps 下的实际吞吐</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td><code class="icode">8N1</code>（8 数据、无校验、1 停止）</td><td><b>10</b></td><td><b>8/10 = 80%</b></td><td><b>11,520 B/s ≈ 11.52 kB/s</b></td><td>最常用。每字节约 86.8 µs</td></tr>
+                <tr><td><code class="icode">8E1</code>（8 数据、偶校验、1 停止）</td><td>11</td><td>8/11 = 72.7%</td><td>10,472 B/s ≈ 10.47 kB/s</td><td>多一个校验位，吞吐降 9.1%</td></tr>
+                <tr><td><code class="icode">8N2</code>（8 数据、无校验、2 停止）</td><td>11</td><td>8/11 = 72.7%</td><td>10,472 B/s ≈ 10.47 kB/s</td><td>两个停止位主要是给慢速接收方留时间</td></tr>
+                <tr><td><code class="icode">7E1</code>（7 数据、偶校验、1 停止）</td><td>10</td><td>7/10 = 70%（且只有 7 位信息）</td><td>11,520 帧/s，但每帧只有 7 位数据</td><td>老式 ASCII 终端时代的标准</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">注意最后一列和第一列的对比：<b class="font-semibold text-ink">把校验位打开，吞吐直接掉 9%</b>；而如果波特率不变、改成 8N2，同样掉 9%。这就是硬件设计里常见的取舍——可靠性和带宽从来是同一个天平的两端。这个数字在第 3 节还会再精确算一遍。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">最后是「采样点」这件事。</b>异步接收方并不是在每一位的中间「看一眼」就完事，而是用远高于波特率的内部时钟去<b>过采样</b>：STM32 默认 16 倍过采样（每 16 个采样时钟对应 1 个数据位），在检测到起始位下降沿后，再用第 8、9、10 个采样时钟<b>三取二</b>确认这一位，之后的每一位都在这三个点上表决。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="16 倍过采样：为什么偏偏采第 8、9、10 个点">
+            <pre><code>  一个数据位的宽度 = 16 个采样时钟
+
+  采样时钟序号  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16
+                │  │  │  │  │  │  │  ▼  ▼  ▼  │  │  │  │  │  │
+                                     └──┬──┘
+                                    三取二表决
+                                    采样点落在【位的中点】
+
+  为什么不在 1、2、3 采：那里紧贴上一个位的边沿，
+      线上的电平可能还没稳定（边沿抖动、反射、RC 延迟）。
+  为什么不在 14、15、16 采：那里紧贴下一个位的边沿，同样危险。
+  为什么取【三个点】：单个点被一个噪声尖峰打中就会误判，
+      三点表决可以挡掉单点的毛刺（代价是容错窗口变窄）。
+
+  【代价】采样窗口占掉了 3/16 个位时间，所以前面算的 ±5.3%
+         理论容差要缩到手册给的 ±3.75%。
+
+  【8 倍过采样】STM32 还可以选 OVER8 = 1（8 倍过采样），
+      采第 4、5、6 点。窗口更窄、抗噪更差，但同样时钟下
+      能支持更高的波特率（或降低对时钟精度的要求）。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>同步通信（SPI、I²C）</th><th>异步通信（UART）</th></tr></thead>
+              <tbody>
+                <tr><td>时钟</td><td>随数据一起传（或由主机产生）</td><td>不传时钟，双方各自数时间</td></tr>
+                <tr><td>可靠性来源</td><td>时钟与数据共享路径，相对关系稳定</td><td>每帧用起始位重新对齐 + 过采样表决 + 停止位校验</td></tr>
+                <tr><td>对时钟精度的要求</td><td>不高（同一来源）；对 skew 敏感</td><td><b>高</b>：两端误差之和要小于约 3.75%（16× 过采样、8 位数据）</td></tr>
+                <tr><td>典型速率</td><td>100 kHz ~ 50 MHz（SPI 可更高）</td><td>9600 bps ~ 几 Mbit/s</td></tr>
+                <tr><td>每字节开销</td><td>1 个 ACK 位（I²C）或 0（SPI）</td><td>2 位起（起始 + 停止），占 20%</td></tr>
+                <tr><td>距离</td><td>板上（几十厘米内）；I²C 更短</td><td>板间几米（RS-232 约 15 m）；加收发器后 RS-485 可上千米</td></tr>
+                <tr><td>额外线数</td><td>+1（时钟）</td><td>0</td></tr>
+                <tr><td>多设备</td><td>I²C 靠地址；SPI 靠片选</td><td>点对点为主；多机要靠 9 位模式或上层协议</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-duplex-master" class="mt-7 text-base font-semibold">单工、半双工、全双工，主从与多主：谁能决定什么时候说话</h3>
+          <p class="mt-3">这一节看起来像在背概念，其实它回答的是一个非常实际的问题：<b class="font-semibold text-ink">当我按下「发送」，线上会不会正好有别的东西也在说话？</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>模式</th><th>含义</th><th>典型例子</th><th>代价与限制</th></tr></thead>
+              <tbody>
+                <tr><td><b>单工</b><br>Simplex</td><td>只能单向传输，甲永远发、乙永远收</td><td>只接 TX 的调试串口（只打印不接收）、红外遥控发射、模拟传感器输出</td><td>最便宜；但无法回传状态，出了问题也无法查询</td></tr>
+                <tr><td><b>半双工</b><br>Half-duplex</td><td>双向，但同一时刻只能一个方向。需要「转向」</td><td>I²C（SDA 一根线双向）、RS-485 两线制、1-Wire、CAN</td><td>省线；但转向需要时间，且必须解决「现在轮到谁」——这正是仲裁存在的理由</td></tr>
+                <tr><td><b>全双工</b><br>Full-duplex</td><td>两个方向同时传，各用各的通道</td><td>UART 的 TX/RX、SPI 的 MOSI/MISO、RS-422/四线 RS-485</td><td>效率最高；但线数翻倍，且 SPI 全双工的「同时收发」常被初学者当成 bug</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">SPI 是「天然全双工」的，这一点很多人没意识到</div>
+            <p>SPI 有 MOSI（主机发、从机收）和 MISO（从机发、主机收）两根方向相反的数据线，加上时钟，构成一个<b>移位寄存器环</b>：主机每送出一个位，就从 MISO 收回一个位。<b>所以 SPI 的「读」操作实际上是「用一次写操作把数据换回来」</b>——这就是为什么 STM32 的 HAL 里读 SPI 器件常用 <code class="icode">HAL_SPI_TransmitReceive()</code> 而不是先发后收：你要发一个「读命令字节」，同时收回来的一定是一个（无意义的）字节；然后你发一个空字节（0xFF），才能把真正的数据移回来。<b>读一个寄存器要发两次，这个「多出来的一次」就是 SPI 最典型的协议开销。</b></p>
+          </div>
+
+          <p class="mt-3">接下来是总线的灵魂问题：<b class="font-semibold text-ink">「谁能决定什么时候说话」</b>。所有总线协议的核心机制都在回答它，因为共享线路上唯一不能容忍的事情就是「两个人同时开口」。工程上有三种分配「发言权」的思路：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>机制</th><th>怎么工作</th><th>优点</th><th>缺点</th><th>用它的总线</th></tr></thead>
+              <tbody>
+                <tr><td><b>主机点名</b><br>（集中式）</td><td>只有一个主机，所有通信都由它发起：主机送地址或拉片选，被选中的从机才能回答</td><td>逻辑简单、不会冲突、从机可以做得很便宜（不用判断冲突）</td><td>主机是单点故障；从机不能主动上报（只能等主机来问）；主机忙的时候总线就闲着</td><td>I²C（单主时）、SPI、USB</td></tr>
+                <tr><td><b>硬件仲裁</b><br>（分布式）</td><td>谁想说话就先听、边发边听：多个节点同时开始时，靠电气特性（线与 / 显性位）自动决出胜负，输的那个立刻退出、下次再来</td><td>无需中心节点；紧急报文可以靠优先级先发（CAN 的 ID 越小优先级越高）；总线利用率高</td><td>需要能「边发边听」的收发器和可靠的仲裁规则；报文长度、优先级分配都要设计</td><td>CAN、I²C（多主）、RS-485 上的某些协议</td></tr>
+                <tr><td><b>令牌 / 时隙</b><br>（调度式）</td><td>按预先排好的时间表轮流说话（时间触发），或持有令牌者才能发</td><td>延迟确定、可预测（这对实时控制非常关键）</td><td>需要全局时间同步；空闲时隙浪费带宽；灵活性差</td><td>TTCAN、FlexRay、LIN 的主从调度表、令牌环网</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么说「多主」是件大事？</b>因为它改变了系统的实时性上限。在单主系统（标准 I²C、SPI）里，一个从机就算检测到紧急事件（比如过流），也只能等主机下次来问——这段等待时间取决于主机的轮询周期，可能是 10 ms，也可能是 1 s。而在 CAN 这样的多主系统里，<b>任何节点在总线空闲时都可以立刻开口，而且优先级高的报文会自动赢得仲裁、先占用总线</b>。这就是为什么汽车上的刹车、气囊信号能用 CAN 传——不是因为 CAN 快（经典 CAN 只有 1 Mbit/s），而是因为它<b>可预测</b>。</p>
+          <p class="mt-3">顺带说清一个常被混淆的点：<b class="font-semibold text-ink">多主不等于「可以随便同时发」</b>。I²C 支持多主，两个主机同时开始发送时靠「线与」逐位仲裁（谁想发 1 但线上是 0，谁就输），输了的主机自动转为从机模式。这条路能走通，前提是第 6 个子节要讲的「开漏 + 上拉」——<b>如果 I²C 用推挽输出，多点同时说话会直接烧片子，根本不会有仲裁这回事</b>。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">选型时的第一问，其实是这一节的内容</div>
+            <p>很多选型指南上来就问「要多少速度」，其实更该先问三句：<b>① 谁发起通信？</b>（一定要一个主机吗，还是每个节点都要主动上报？）<b>② 最坏情况下，一条紧急消息多久之内必须发出去？</b>（这个决定了你能不能容忍轮询）<b>③ 会有两个节点同时开口的场面吗？</b>（会的话就必须选支持仲裁的总线或协议）把这三问答完，UART/RS-485/CAN 的选择基本就定了，剩下的才是速率和距离的细节。</p>
+          </div>
+        <h3 id="sub-three-elements" class="mt-7 text-base font-semibold">总线的三要素与三种数据传送方式</h3>
+          <p class="mt-3">不管并行还是串行、同步还是异步，一条总线上的信号按职责永远分成三组——这就是教材里说的<b class="font-semibold text-ink">地址总线、数据总线、控制总线</b>。周荷琴《微型计算机原理与接口技术》第 6 章把这三组线的方向、宽度与作用讲得很清楚，这里把它们落到一张图上：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三组总线 + 地址译码 + 片选：一个最小系统的骨架">
+            <pre><code>                      ┌───────────────────────────────────────┐
+                      │            CPU / MCU                   │
+                      │  地址寄存器   数据寄存器   控制单元     │
+                      └───┬───────────────┬───────────────┬────┘
+                          │               │               │
+                  ┌───────┴──────┐ ┌──────┴──────┐ ┌──────┴────────┐
+                  │ 地址总线 A0~A15│ │数据总线 D0~D7│ │ 控制总线       │
+                  │ 【单向】往外发 │ │ 【双向】     │ │ RD / WR /      │
+                  │ 宽度决定空间   │ │ 宽度决定一次 │ │ CS / INT /     │
+                  │ 16 位 → 64 KB  │ │ 传多少位     │ │ CLK / RESET    │
+                  └───────┬──────┘ └──────┬──────┘ └──────┬────────┘
+                          │               │               │
+                          ▼               │               │
+                ┌───────────────────┐     │               │
+                │ 地址译码器 74LS138│     │               │
+                │ 输入：A13 A14 A15 │     │               │
+                │ 输出：CS0 ~ CS7   │     │               │
+                └──┬────┬────┬────┬─┘     │               │
+                   │    │    │    │       │               │
+                 CS0  CS1  CS2  CS3       │               │
+                   │    │    │    │       │               │
+            ┌──────▼┐ ┌─▼───┐ ┌▼────┐ ┌──▼─────┐         │
+            │ ROM   │ │ RAM │ │ 8255│ │ ADC0809│◄────────┘
+            │ 8 KB  │ │8 KB │ │ IO  │ │  8 位  │
+            └───────┘ └─────┘ └─────┘ └────────┘
+             0x0000   0x2000  0x4000   0x6000
+             ~0x1FFF  ~0x3FFF ~0x5FFF  ~0x7FFF
+
+  【读一次数据的完整过程】
+   ① CPU 把目标地址放到地址总线上（比如 0x2100）
+   ② 译码器看到 A15~A13 = 001 → 只把 CS1 拉低，其余片选保持高
+   ③ RAM 发现自己的 CS 有效，接管数据总线（其余器件输出高阻）
+   ④ CPU 发出 RD 有效 → RAM 把 0x2100 单元的内容放上数据总线
+   ⑤ CPU 在 RD 的上升沿采样数据 → 一次总线周期结束</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>总线</th><th>方向</th><th>作用</th><th>宽度决定什么</th><th>少了它会怎样</th></tr></thead>
+              <tbody>
+                <tr><td><b>地址总线</b></td><td>单向（主设备 → 从设备）</td><td>回答「这一次操作的是谁、哪个单元」</td><td>寻址空间：16 位 → 64 KB；20 位 → 1 MB（8086）；32 位 → 4 GB</td><td>无法区分设备，所有从设备同时响应、同时驱动数据线 → 冲突</td></tr>
+                <tr><td><b>数据总线</b></td><td>双向</td><td>真正搬运的信息（指令、数据、状态）</td><td>一次能传多少位：8 位要四次才能传一个 32 位数，32 位一次搞定</td><td>没有信息通道，什么都传不了</td></tr>
+                <tr><td><b>控制总线</b></td><td>多为单向，部分双向</td><td>规定「怎么传」：读还是写、什么时候有效、谁先谁后、出错了怎么办</td><td>不决定宽度，决定<b>时序与握手能力</b></td><td>数据线上的电平没有意义——对方不知道这是数据还是垃圾</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">片选（CS）与地址译码的关系，值得单独说清。</b>地址总线上的 16 根线并不是「一根线选一个设备」——那是浪费。真实做法是<b class="font-semibold text-ink">用译码器把高位地址翻译成一根根片选信号</b>：三根高位地址线（A15/A14/A13）可以组合出 8 种状态，接一片 74LS138 就得到 8 个片选输出，每个片选管 8 KB 空间。这就是组合逻辑电路里「译码器」最典型的用途——<b>它在总线里扮演的角色就是「门牌号码管理员」</b>。</p>
+          <p class="mt-3">低位地址（A0、A1…）则送给器件自己，用来在器件内部选寄存器。所以一条「地址」实际上被劈成两半：<b>高位 → 决定选哪个芯片（片选）；低位 → 决定选该芯片里的哪个寄存器（偏移）</b>。你在 STM32 上写 <code class="icode">GPIOA-&gt;ODR</code>，编译器算出的地址 0x4001080C 也是这个套路：<code class="icode">0x40010800</code> 是「选中 GPIOA 这个外设」，<code class="icode">+0x0C</code> 是「选它内部的 ODR 寄存器」。<b>片内的外设根本没有片选引脚，但地址译码这件事一秒都没停过</b>——它由总线矩阵（Bus Matrix）在片内完成。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">统一编址还是独立编址？STM32 与 51 站在同一边</div>
+            <p>CPU 访问「内存」和访问「外设寄存器」，可以有两种设计：<b>统一编址</b>（I/O 寄存器也占用地址空间的一部分，用同样的读写指令访问，STM32 和 51 都是这样）和<b>独立编址</b>（I/O 有自己独立的地址空间，需要专门的 IN/OUT 指令，x86 是这样）。统一编址的好处是<b>不用新增指令、任何能访问内存的方式都能访问外设</b>——这就是为什么你可以用指针、用 memcpy、用 DMA 去操作 STM32 的寄存器；坏处是<b>误写一个野指针就可能改到外设寄存器</b>，而且调试时「一段内存看起来很奇怪」往往其实是外设。</p>
+          </div>
+
+          <p class="mt-3">设备选好了、地址译码做对了，最后一个问题是：<b class="font-semibold text-ink">这趟数据到底由谁来搬？</b>这是总线知识里对代码影响最直接的一部分。三种方式：轮询、中断、DMA。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="同一件事的三种做法：读 8 个传感器，CPU 分别在干什么">
+            <pre><code>【轮询 Polling】CPU 亲自问、亲自等、亲自搬
+
+  CPU: 发起读 → 等 ACK → 等标志 → 读数据 → 存起来 → 发起下一次 …
+       │██████████████████████████████████████████████│  一直占着 CPU
+       总线上 90% 的时间在等，CPU 也陪着一起等
+
+【中断 Interrupt】外设就绪时打断 CPU，CPU 搬一小块就走
+
+  CPU: 发起读 → 干别的活 → 被中断 → 搬运 → 回去接着干活 → …
+       │▌    ██         ▌  ██          ▌  ██          │  占用 = 次数 × 每次耗时
+       好处：等待时间被利用起来了
+       代价：中断本身有开销（入栈/出栈、现场保护），次数一多就变成抖动源
+
+【DMA】硬件自己去搬，CPU 只在开头下命令、结尾收结果
+
+  CPU: 配置 DMA（源、目的、长度）→ 启动 → 干别的活 → 搬完收到中断 → 处理
+       │▌                                              ▌│  占用 ≈ 0
+       总线上：DMA 控制器作为【另一个主设备】直接读写内存和外设
+       好处：CPU 占用接近 0，且搬运节拍由硬件保证（不会因为软件抖动而变慢）
+       代价：多一个硬件模块、要处理「CPU 和 DMA 抢总线」的优先级、缓存一致性问题</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>轮询 Polling</th><th>中断 Interrupt</th><th>DMA</th></tr></thead>
+              <tbody>
+                <tr><td>CPU 占用</td><td><b>最高</b>：等待期间完全被占住（近似 100% 的等待时间都浪费）</td><td>中等：只占「搬运 + 现场保护」的时间，等待时间还给主程序</td><td><b>接近 0</b>：只在配置和完成时介入</td></tr>
+                <tr><td>典型开销</td><td>无额外机制开销，但每字节都要软件参与</td><td>STM32F103 上一次中断的进出（含入栈出栈）约 1~2 µs（按典型值估算）</td><td>搬运一个字节约等于一个总线周期，几乎是硬件的极限速度</td></tr>
+                <tr><td>吞吐能力</td><td>低。115200 bps 下每 86.8 µs 就要处理一次，轮询几乎吃满一个循环</td><td>中。适合「每次数据量小、次数不太多」的场合</td><td><b>高</b>。适合连续数据流：ADC 连续采样、SPI/I²C 批量读、串口高速收发</td></tr>
+                <tr><td>延迟确定性</td><td><b>好</b>：什么时候检查、多久检查一次，完全由你决定</td><td>一般：中断可能被更高优先级打断，也可能被临界区屏蔽</td><td>完成延迟取决于总线竞争，但节拍由硬件保证，抖动最小</td></tr>
+                <tr><td>实现难度</td><td>最简单，几行代码</td><td>中等：要处理优先级、共享变量、volatile</td><td>较难：要配对通道、算缓冲区、处理半传输/完成中断</td></tr>
+                <tr><td>适合场景</td><td>低速、低频、简单状态机；按键扫描；IO 扩展芯片；系统刚上电时的初始化</td><td>事件驱动、次数不多但要及时响应：按键、串口单字节、定时器节拍</td><td>数据流、块传输、高速采样：ADC 连续 + FFT、SPI 读 Flash、串口不定长接收、并口屏刷图</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">为什么说 DMA 是「能跑」到「跑得稳」的分水岭</div>
+            <p>用轮询和中断也能把功能做出来——这就是「能跑」。但一旦系统里有多个数据源、有实时性要求（比如同时要跑 PWM、要刷屏、要收串口），CPU 的时间就变成了稀缺资源，而<b>「等总线」这件事本身不产生任何价值</b>。DMA 把 CPU 从搬运工变成了调度者：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>节拍由硬件保证。</b>定时器触发 ADC、DMA 自动搬到缓冲区，采样间隔由晶振决定（纳秒级误差）。上一节讲的「采样间隔抖动导致滤波器失效」，根子就在这里。</li>
+              <li><b>不会因为软件抖动而丢数据。</b>中断方式下，如果某个高优先级任务占用太久，串口/ADC 的数据就可能被覆盖（ORE 溢出）。DMA 的搬运独立于 CPU，缓冲区由硬件填满，软件晚一点处理也不会丢。</li>
+              <li><b>它让你有余力去做真正重要的事。</b>CPU 省下来的时间可以用来算 PID、跑滤波、处理协议栈——系统的「上限」由 DMA 打开。</li>
+            </ul>
+            <p class="mt-2">但要记住 DMA 的本质：<b>它是总线上的另一个主设备，和 CPU 抢总线</b>。所以它并不是「免费的搬运工」——配置不当（比如让 DMA 和 CPU 频繁争抢同一块存储区）反而会拖慢整体性能。第 4 节会给出一个具体的配置样例。</p>
+          </div>
+
+          <h3 id="sub-electrical" class="mt-7 text-base font-semibold">电气层面：差分与开漏、上拉与终端</h3>
+          <p class="mt-3">前面讲的全是「逻辑」，这一节讲「电」。之所以要单独拿出来，是因为<b class="font-semibold text-ink">总线上 90% 的疑难杂症都发生在这一层</b>：代码完全正确、协议完全正确，就是不通信。这一层有四个必备概念：单端与差分、推挽与开漏、上拉电阻与上升时间、终端匹配与反射。</p>
+
+          <h3 class="mt-7 text-base font-semibold">单端与差分：共模干扰是怎么被减掉的</h3>
+          <p class="mt-3">单端传输用一根信号线加一根地线，接收方测的是「信号线对地的电压」。这很省线，但有个致命弱点：<b class="font-semibold text-ink">任何叠加在这根线上的干扰都会直接被当成信号</b>。旁边一根电机线在切换，通过空间耦合在信号线上感应出 3V 的尖峰，接收方看到的就是「3V 的信号」——它无法区分这是真的还是假的。</p>
+          <p class="mt-3">差分传输用两根线，传一对<b>幅度相等、极性相反</b>的信号，接收方只关心两者的差值。关键在于：<b class="font-semibold text-ink">外部干扰对两根线的作用几乎是一样的</b>，因为它同时落在两根线上，做减法的时候就消掉了。这个「同时落在两根线上」的干扰叫共模干扰，它的抑制过程用数学写出来只有三行：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="共模抑制的数学：为什么差分能扛住几伏的干扰">
+            <pre><code>  设：有用信号为 Vs（差模），干扰为 Vn（共模，同时加到两根线上）
+
+  线 A 上的电压：  V_A = +Vs/2 + Vn
+  线 B 上的电压：  V_B = −Vs/2 + Vn
+
+  接收器只做一件事：相减
+
+      V_diff = V_A − V_B
+             = (+Vs/2 + Vn) − (−Vs/2 + Vn)
+             = Vs/2 + Vs/2 + Vn − Vn
+             = Vs            ← 干扰项 Vn 被【完全减掉】
+
+  现实中两根线的干扰不可能 100% 相同，设两者的差为 ΔVn：
+
+      V_diff = Vs + ΔVn
+
+  → 输出里的噪声 = 两根线噪声之差 ΔVn，而不是噪声本身。
+
+  【数值例子】电机换向在附近产生 20 V 的共模尖峰：
+
+    单端系统：接收端看到 20 V 尖峰        → 远超逻辑门限，必然误码
+    差分、两线噪声差 1%：残差 = 0.2 V     → 刚好等于 RS-485 接收器
+                                            200 mV 的门限，仍然危险
+    差分、两线噪声差 0.1%：残差 = 20 mV   → 只有门限的 1/10，可靠
+
+  【结论】差分的抗干扰能力，取决于两根线有多「对称」。
+          这就是为什么要【扭绞】：双绞线让两根线对干扰源
+          的几何位置不断交换，走过的面积相同、耦合量相同，
+          ΔVn 被压到极小。普通超五类网线的绞距约 1.2~2 cm
+          （按常见规格估算），每米有几十个扭绞。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="单端与差分的走线对比">
+            <pre><code>【单端】信号线 + 地参考
+
+   发送端 ──── 信号线 ────────────► 接收端      噪声 Vn 直接叠加
+          └─── 地 线 ────────────┘               接收端读到 Vs + Vn
+          （地线上还有压降、地电位差，也一起算进误差）
+
+【差分】一对线，取差值
+
+   发送端 ──── A 线 (+) ─────────► 接收端
+          └─── B 线 (−) ─────────┘              V_A − V_B = Vs
+           两根线扭绞在一起，                       噪声 Vn 被减掉
+           噪声同相落在两线上
+
+【代价与收益】
+   · 线数：2 根（差分）对 1 根（单端）+ 地
+   · 收发器：需要差分收发器（如 MAX485、TJA1050）
+   · 收益：抗共模干扰、可长距离、可用较低电压摆幅换速度</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">推挽与开漏：线与是多主仲裁的物理基础</h3>
+          <p class="mt-3">第 2 个子节讲过三态门（高阻让设备「不参与」），开漏则是另一种更巧妙的共享方式：<b class="font-semibold text-ink">输出级只有下面一个 NMOS，只能把线拉到地，永远不能主动输出高电平；高电平由外部上拉电阻提供</b>。</p>
+          <p class="mt-3">这个设计带来一个极其重要的性质：<b class="font-semibold text-ink">多个开漏输出接在同一根线上，永远不会打架</b>。因为「拉高」这件事没有人做（是电阻在做），大家只会做两件事：拉低、或者放手。放手的人什么也不影响，拉低的人立刻把线拉到 0V。最终线的状态是「只要有一个拉低，就是低；全部放手，才是高」——这个逻辑等价于「所有输出相与」，工程上叫<b class="font-semibold text-ink">线与（wired-AND）</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="线与 = 谁拉低谁赢：I²C 多主仲裁的全过程">
+            <pre><code>  3.3V ──[ 上拉 4.7kΩ ]──┬─────────────────── SDA（SDA 与 SCL 都是开漏）
+                          │
+              ┌───────────┼───────────┐
+              │           │           │
+         主机 A 的       主机 B 的     从机 C 的
+         开漏输出        开漏输出      开漏输出
+         （NMOS 栅极）   （NMOS 栅极）  （NMOS 栅极）
+
+  【线与的真值表】（1 = 放手，0 = 拉低）
+        A    B    C   │  线上实际电平
+        ──────────────┼──────────────
+        1    1    1   │  1  （上拉电阻把线拉到 3.3V）
+        1    1    0   │  0  ← 只要有一个人拉低，线就是低
+        0    0    0   │  0
+
+  【I²C 仲裁：两个主机同时开口，怎么分出胜负】
+
+    主机 A 想发地址 0x50（二进制 1010000）
+    主机 B 想发地址 0x40（二进制 1000000）
+
+    第 1 位：A 发 1（放手），B 发 1（放手） → 线上 = 1，双方读到 1 ✅
+    第 2 位：A 发 0（拉低），B 发 0（拉低） → 线上 = 0，双方读到 0 ✅
+    第 3 位：A 发 1（放手），B 发 0（拉低） → 线上 = 0
+             A 读回 0，但自己发的是 1 → 【发现自己输了】
+             A 立刻停止发送、释放总线，转为从机模式继续听
+             B 读到 0，和自己发的一致 → 【继续发，毫无察觉地赢了】
+
+  【关键】整个仲裁过程没有损失任何一位数据：
+          赢家 B 根本不知道发生过竞争，报文照常发完。
+          这就是「非破坏性仲裁」。
+
+  【为什么推挽做不到这一点】
+     推挽的两个管子会【主动驱动】。A 输出高（P 管导通，接 VDD）、
+     B 输出低（N 管导通，接 GND）→ VDD 和 GND 之间被两个导通的
+     管子直接短路，电流只受管子内阻限制，可以到几百 mA 甚至更大
+     → 管子过热损坏、电源跌落、整块板子跟着复位。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>推挽（Push-Pull）</th><th>开漏（Open-Drain）</th></tr></thead>
+              <tbody>
+                <tr><td>能输出什么</td><td>主动输出高、主动输出低</td><td>只能主动拉低；高由外部上拉提供</td></tr>
+                <tr><td>上升沿速度</td><td>快（靠管子驱动，可大电流）</td><td><b>慢</b>（靠上拉电阻给线电容充电，是 RC 充电）</td></tr>
+                <tr><td>能否并联共享一根线</td><td><b>不能</b>，会短路打架</td><td><b>能</b>，天然形成线与</td></tr>
+                <tr><td>能否做多主仲裁</td><td>不能</td><td>能（谁拉低谁赢，非破坏性）</td></tr>
+                <tr><td>电平转换</td><td>不能（高电平由自己的 VDD 决定）</td><td><b>能</b>：上拉到 3.3V 就是 3.3V 逻辑，上拉到 5V 就是 5V 逻辑</td></tr>
+                <tr><td>静态功耗</td><td>无静态电流（无翻转时）</td><td>低电平时持续有电流流过（3.3V / 4.7kΩ ≈ 0.7 mA）</td></tr>
+                <tr><td>典型用途</td><td>SPI 的 SCK/MOSI、UART 的 TX、普通 IO、PWM</td><td>I²C 的 SCL/SDA、共享中断线、共享复位线、CAN 收发器内部</td></tr>
+                <tr><td>STM32 里怎么配</td><td><code class="icode">GPIO_MODE_OUTPUT_PP</code> / <code class="icode">GPIO_MODE_AF_PP</code></td><td><code class="icode">GPIO_MODE_OUTPUT_OD</code> / <code class="icode">GPIO_MODE_AF_OD</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">上拉电阻与上升时间：I²C 最容易被忽略的一条硬指标</h3>
+          <p class="mt-3">开漏的代价就是上升沿慢。线在上拉电阻和总线电容之间做 RC 充电，<b class="font-semibold text-ink">上升时间大约等于 2.2 × R × C</b>（从 10% 到 90% 的时间）。这里 R 是上拉电阻，C 是整条总线的总电容。总线电容由三部分构成：走线电容（PCB 上约 1 pF/cm 量级）、每个器件的引脚电容（约 10 pF，按常见值估算）、接插件与探头。</p>
+          <p class="mt-3">I²C 规范（NXP UM10204）给了两条硬指标：<b>总线电容上限 400 pF</b>，以及<b>上升时间上限——标准模式（100 kHz）1000 ns、快速模式（400 kHz）300 ns</b>。这两条直接决定了你的上拉电阻能取多大：<b>速率越高、线越长、挂的器件越多，上拉电阻就必须越小</b>。第 3 节会用一个 30 cm 走线的实际例子把这笔账算清楚。</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">上拉电阻取值的两头都是坑</div>
+            <p><b>取太大（比如 10 kΩ 以上）：</b>上升沿变缓，波形变成圆角「面包」，高速时对方在采样点上读到的电平还不到门限，通信随机出错——而且用万用表量电压完全正常（因为静态电平是对的），只有示波器能看出来。</p>
+            <p class="mt-2"><b>取太小（比如 1 kΩ 以下）：</b>低电平时从 VDD 灌下来的电流变大（3.3V / 1kΩ = 3.3 mA），一方面费电，另一方面器件能否把低电平拉到规范要求的 V<sub>OL</sub>（I²C 规定 3 mA 灌电流下 V<sub>OL</sub> 不超过 0.4V）就成了问题；多主仲裁时，多个器件同时拉低还会让电流叠加。经验值：<b>100 kHz 用 4.7 kΩ，400 kHz 用 2.2~3.3 kΩ</b>，一切以算出来的上升时间为准。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">终端匹配与信号反射：什么时候必须在两端放 120 Ω</h3>
+          <p class="mt-3">最后一个电气概念，也是 CAN 与 RS-485 里最常被误解的一个：<b class="font-semibold text-ink">为什么总线两端必须各放一个 120 Ω 电阻？</b>要回答它，先接受一个反直觉的事实：<b class="font-semibold text-ink">当信号的上升沿足够快、走线足够长时，导线不再是「一根等电位的导线」，而是一条传输线</b>——信号以有限的速度沿线传播（在 FR-4 板上约 15 cm/ns，在电缆里约 20 cm/ns），线在传播过程中表现出一个固定的<b>特性阻抗 Z<sub>0</sub></b>（同轴电缆 50/75 Ω、双绞线 100~120 Ω、PCB 微带线约 50 Ω）。</p>
+          <p class="mt-3">如果线的末端什么也不接（开路），传过去的能量无处可去，就会<b class="font-semibold text-ink">反射回来</b>，和后来的信号叠加，形成振铃、过冲、甚至让接收端在采样点上判错。消除反射的唯一办法是<b class="font-semibold text-ink">让末端「看起来像一条无限长的线」</b>——接一个等于 Z<sub>0</sub> 的电阻，把能量吸收掉。双绞线的 Z<sub>0</sub> 约 120 Ω，所以 CAN 与 RS-485 的终端电阻正是 120 Ω。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="反射的来龙去脉与端接方式">
+            <pre><code>【什么时候必须考虑反射】
+   判据（工程经验）：走线的【单向传播延时】超过信号上升时间的 1/4 时，
+   就必须当成传输线处理。
+
+   板上信号速度 ≈ 15 cm/ns（FR-4 微带线，按典型值估算）
+   电缆里信号速度 ≈ 20 cm/ns
+
+   例：某 ADC 的数据线上升时间 t_r = 2 ns
+       边沿对应的空间长度 = 2 ns × 15 cm/ns = 30 cm
+       判据：走线长度 &gt; 30 cm ÷ 4 = 7.5 cm 就需要注意端接！
+
+   30 cm 走线（本例）：单向延时 = 30 / 15 = 2 ns，等于 t_r
+   → 反射回来的能量正好落在上升沿上，波形出现明显台阶或振铃。
+
+【反射系数】
+   Γ = (Z_L − Z_0) / (Z_L + Z_0)
+   · 末端开路（Z_L = ∞）：Γ = +1 → 反射波与入射波同相 → 电压翻倍（过冲）
+   · 末端短路（Z_L = 0） ：Γ = −1 → 反射波反相 → 电压被拉到 0（下冲）
+   · 末端匹配（Z_L = Z_0）：Γ = 0  → 没有反射 ✅
+
+【端接的两种常见做法】
+
+  ① 末端并联端接（CAN / RS-485 用这种）
+
+     节点A ────┬──────────────┬──── 节点B
+              [120Ω]         [120Ω]
+               │               │
+              CAN_H / CAN_L 两根线（双绞）
+              两端各一个 120Ω，中间所有节点【不接】终端电阻
+
+  ② 源端串联端接（高速数字线常用）
+
+     驱动器 ──[ 22~33Ω ]───── 长走线 ──────► 接收端（高阻）
+     电阻与驱动器内阻之和 ≈ Z_0，把反射吸收在源头
+
+【关键结论】
+   · 终端电阻不是「上拉」也不是「下拉」，它的作用是【匹配阻抗、吸收能量】
+   · 必须放在总线的【物理两端】，放中间等于没放
+   · 一条总线上只能有【两个】120Ω（每端一个），多接几个并联起来就变成 60Ω、40Ω，
+     负载过重，显性位差分电压会被拉低到识别不出来 —— CAN 不通的常见原因之一</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么「短距离也要 120 Ω」——CAN 的特殊之处</div>
+            <p>按反射判据，几厘米的短线其实不需要端接。但 CAN 是个例外：<b>标准（ISO 11898-2）要求无论线多短，两端都要有 120 Ω</b>。原因有两个：<b>①</b> CAN 靠「显性位（差分约 2V）」和「隐性位（差分约 0V）」区分，总线空闲时必须快速、干净地回到隐性状态，终端电阻给总线提供了一个确定的负载，让寄生电容能迅速放电；<b>②</b> CAN 收发器驱动的是电流型差分信号，终端电阻就是这个电流的回路负载，没有它，显性位的差分电压建立不起来。所以「CAN 只要两边各一个 120 Ω」不是经验之谈，而是规范要求。</p>
+          </div>
+        <h3 id="sub-timing" class="mt-7 text-base font-semibold">时序图怎么读：建立时间、保持时间与四种 SPI 模式</h3>
+          <p class="mt-3">前面的电气知识回答「电平对不对」，时序回答的是「<b class="font-semibold text-ink">在哪个时刻电平必须是什么</b>」。总线不通的第二大类原因就出在这里，而它的表现形式非常特别：<b class="font-semibold text-ink">数据不是错了，而是整体错位</b>。</p>
+          <p class="mt-3">先建立两个最基本的定义。<b>建立时间 t<sub>su</sub>（setup time）</b>：数据必须在采样沿<b>之前</b>稳定多久；<b>保持时间 t<sub>h</sub>（hold time）</b>：数据在采样沿<b>之后</b>还要继续保持多久。这两个参数就是「数据有效窗口」的边界，接收方是在这个窗口的中间去采样的。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="一张标准时序图的读法：更新沿 / 采样沿 / t_su / t_h">
+            <pre><code>            ┌───────┐       ┌───────┐       ┌───────┐
+   SCK  ────┘       └───────┘       └───────┘       └────
+          ▲       ▲       ▲       ▲       ▲       ▲
+          │       │       │       │       │       │
+        更新沿   采样沿  更新沿   采样沿  更新沿   采样沿
+       （发数据）(收数据)（发数据）(收数据)
+
+  数据线    ══╤═══════════╤═══╤═══════════╤═══╤═══════════
+               │  D0 有效  │   │  D1 有效  │   │  D2 有效
+               │◄─────────►│   │◄─────────►│   │
+               │           │   │           │   │
+               │◄─ t_su ──►│   │           │   │
+               │           │◄t_h►          │   │
+                           ↑
+                     在这一刻采样
+
+  【关键规则】
+   ① 数据在【更新沿】变化 —— 变化完之后有一段不稳定的时间（边沿、振铃）
+   ② 数据在【采样沿】被读取 —— 这一刻数据必须已经稳定了 t_su 以上
+   ③ 更新沿和采样沿【必须是不同的沿】（或者说不同的时刻），
+      否则发送方刚把数据推上去，接收方立刻就要采样，
+      信号还没稳定，必然出错。这就是为什么 SPI 要区分 CPOL 和 CPHA。
+   ④ 时序参数全在器件手册的「AC Characteristics / Timing
+      Characteristics」表里：t_su、t_h、最大时钟频率、t_r/t_f 都有。</code></pre>
+          </div>
+
+          <p class="mt-3">把这个框架套到 SPI 上，就得到那个让无数人第一次接触时一头雾水的<b class="font-semibold text-ink">四种模式（CPOL / CPHA）</b>。CPOL（Clock Polarity）决定时钟<b>空闲时</b>是高还是低；CPHA（Clock Phase）决定数据在<b>第几个沿</b>被采样。2 × 2 = 4 种组合：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>模式</th><th>CPOL</th><th>CPHA</th><th>SCK 空闲电平</th><th>采样沿（读数据）</th><th>更新沿（发数据）</th><th>常见使用者</th></tr></thead>
+              <tbody>
+                <tr><td><b>Mode 0</b></td><td>0</td><td>0</td><td>低</td><td><b>第 1 个沿 = 上升沿</b></td><td>第 2 个沿 = 下降沿</td><td>最常见的默认模式；W25Q 系列 Flash、多数 SPI 传感器</td></tr>
+                <tr><td><b>Mode 1</b></td><td>0</td><td>1</td><td>低</td><td><b>第 2 个沿 = 下降沿</b></td><td>第 1 个沿 = 上升沿</td><td>部分 ADC、部分 MEMS 传感器</td></tr>
+                <tr><td><b>Mode 2</b></td><td>1</td><td>0</td><td>高</td><td><b>第 1 个沿 = 下降沿</b></td><td>第 2 个沿 = 上升沿</td><td>较少见</td></tr>
+                <tr><td><b>Mode 3</b></td><td>1</td><td>1</td><td>高</td><td><b>第 2 个沿 = 上升沿</b></td><td>第 1 个沿 = 下降沿</td><td>不少 ADC、SD 卡的 SPI 模式</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="CPHA 配错为什么会导致「数据整体错位一位」">
+            <pre><code>  主机用电平波形（Mode 0：CPOL=0，CPHA=0，上升沿采样）
+
+              ┌───┐   ┌───┐   ┌───┐   ┌───┐
+   SCK  ──────┘   └───┘   └───┘   └───┘   └────
+              ↑       ↑       ↑       ↑
+            采样     更新    采样    更新
+
+  数据    ═══════╤═════════╤═════════╤═══
+                D7        D6        D5
+                ▲         ▲         ▲
+             在这些上升沿被采样 → 收到 D7 D6 D5 …（正确）
+
+  ────────────────────────────────────────────────
+
+  现在从机期待的却是 Mode 1（CPHA = 1，下降沿采样）
+  它会在【下降沿】去读线：
+
+              ┌───┐   ┌───┐   ┌───┐   ┌───┐
+   SCK  ──────┘   └───┘   └───┘   └───┘   └────
+                  ↑       ↑       ↑       ↑
+                读这里   读这里   读这里
+  数据    ═══════╤═════════╤═════════╤═══
+                D7        D6        D5
+                    ▲         ▲         ▲
+              下降沿时线上已经变成下一位了 → 收到 D6 D5 D4 …
+
+  【症状特征】读回来的数据不是「乱七八糟」，而是
+        · 恰好是正确值的 2 倍或 1/2（整体左移/右移一位）
+        · 或最低位/最高位固定是 0 或 1
+        · 温度、电压读数看起来「有理但总是差一点」
+      看到这种「规律性的错位」，第一个要怀疑的就是 CPOL/CPHA。
+      这与「接错线」「地址错」造成的【随机错误】完全不同。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">为什么「CPOL 配错有时候反而能用」</div>
+            <p>很多新手发现：明明手册写 Mode 0，自己配成 Mode 3（CPOL 和 CPHA 都反过来）居然也能正常读数据。原因是 <b>CPHA = 1 时数据在第一个沿更新、第二个沿采样</b>——它天然容忍时钟空闲电平的差异，只要「更新沿和采样沿是交替的」，相位关系就还对。而 CPHA 配错（0 和 1 之间错）几乎必然是错位。所以排错时的优先级应该是：<b>先确认 CPHA，再确认 CPOL</b>。更稳的做法是：不要靠猜，拿示波器看 SCK 空闲时的电平（定 CPOL）、看数据在哪个沿变化（定 CPHA），十秒钟就能确定。</p>
+          </div>
+
+          <p class="mt-3">I²C 没有模式之争，但它有一套同样需要「背下来」的时序约定，其中最重要的是<b class="font-semibold text-ink">起始条件、停止条件和应答位</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="I²C 的 START / STOP / ACK：三个「违反常规」的特殊时刻">
+            <pre><code>  【常规规则】I²C 规定：
+       · SCL 为低电平时，SDA 才允许变化（准备数据）
+       · SCL 为高电平时，SDA 必须保持稳定（数据有效，可被采样）
+     —— 数据位的一切都遵守这条。而 START 和 STOP 恰恰是【故意违反】它。
+
+  【起始条件 START】SCL 保持高，SDA 由高变低
+
+     SDA ────────┐
+                 └──────────         ← SDA 在 SCL 高时下降
+     SCL ──────┐   ┌──────────
+               └───┘
+               ↑
+        这个「高电平期间的下降沿」就是 START，
+        从机看到它就知道「一次传输开始了，准备接收地址」
+
+  【停止条件 STOP】SCL 保持高，SDA 由低变高
+
+     SDA ────┐
+             └──────────────        ← SDA 在 SCL 高时上升
+     SCL ──┐   ┌────────────
+           └───┘
+               ↑
+        这个「高电平期间的上升沿」就是 STOP，总线回到空闲
+
+  【数据位】SCL 低时变、SCL 高时稳定
+
+     SCL ──┐ ┌──┐ ┌──┐ ┌──┐ ┌──
+           └─┘  └─┘  └─┘  └─┘
+     SDA ──╤════╤════╤════╤────
+           D7   D6   D5   D4
+           ▲    ▲
+        在低电平期间翻转，在高电平期间被采样
+
+  【应答 ACK】每 8 位数据之后的第 9 个时钟
+
+     主机发完 8 位 → 释放 SDA（开漏，放手不管）
+     从机若收到，就在第 9 个 SCL 高电平期间把 SDA 拉低 = ACK
+     从机若没收到或忙不过来，就放手让 SDA 保持高 = NACK
+
+     主机侧怎么用：
+       · 写操作收到 NACK  → 从机地址不对 / 器件不存在 / 器件忙
+       · 读操作最后一位由主机发 NACK → 告诉从机「我读够了，别再发了」
+
+  【时钟拉伸 Clock Stretching】从机把 SCL 也拉低
+
+     从机还没准备好时，可以在 SCL 低电平期间【把 SCL 拽住不放】，
+     主机发现 SCL 没有如期升高，就只能等 —— 直到从机松手。
+     这是 I²C 里唯一一个「从机反过来控制主机」的机制。
+     · 硬件 I²C 外设一般原生支持
+     · 【软件模拟 I²C（GPIO 翻转）如果不检查 SCL 是否真的变高了，
+       遇到会拉伸的从机会读出全 0 或全 0xFF】—— 这是一个非常隐蔽的坑</code></pre>
+          </div>
+
+          <h3 id="sub-families" class="mt-7 text-base font-semibold">主要总线家族对比：每一种都是为某个痛点而生的</h3>
+          <p class="mt-3">把主流的几种总线放在一张表里对比，是这一篇最实用的部分。但看表之前请先记住一句话：<b class="font-semibold text-ink">没有「最好的总线」，只有「为某个约束而生的总线」</b>。表中最后一列的「设计初衷」，比速率和距离更能解释它们今天的样子。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>总线</th><th>线数 / 引脚</th><th>典型速率</th><th>典型距离</th><th>拓扑</th><th>多主</th><th>典型用途</th><th>设计初衷</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>UART</b></td>
+                  <td>2（TX/RX）+ 地</td>
+                  <td>9600 bps ~ 几 Mbit/s</td>
+                  <td>板上几米；加 RS-232 收发器约 15 m</td>
+                  <td>点对点</td>
+                  <td>无（天然点对点）</td>
+                  <td>调试打印、GPS/蓝牙模块、两个 MCU 之间通信</td>
+                  <td><b>最省线的人机对话</b>：只为一根线传字符而设计，速率靠双方约定</td>
+                </tr>
+                <tr>
+                  <td><b>I²C</b></td>
+                  <td>2（SCL/SDA）+ 地</td>
+                  <td>100 kbit/s（标准）<br>400 kbit/s（快速）<br>1 Mbit/s（快速+）<br>3.4 Mbit/s（高速）</td>
+                  <td>板上几十厘米（总线电容上限 400 pF）</td>
+                  <td>多点总线（多从机共享两线）</td>
+                  <td><b>支持</b>（线与仲裁）</td>
+                  <td>EEPROM、RTC、温度/气压传感器、IO 扩展、OLED 小屏</td>
+                  <td><b>省引脚</b>：飞利浦为电视内部「CPU 管一堆外围芯片」设计，两根线挂满一板子</td>
+                </tr>
+                <tr>
+                  <td><b>SPI</b></td>
+                  <td>4（SCK/MOSI/MISO/CS）+ 每个从机一根 CS</td>
+                  <td>1 ~ 50 MHz（常见）<br>可达 100 MHz 以上</td>
+                  <td>板上几十厘米（高速时更短）</td>
+                  <td>一主多从，星型片选或菊花链</td>
+                  <td>无（单主）</td>
+                  <td>Flash、SD 卡、TFT 屏、高速 ADC/DAC、以太网控制器</td>
+                  <td><b>求速度</b>：Motorola 为板内高速同步串行设计，不要地址、不要 ACK，简单直接</td>
+                </tr>
+                <tr>
+                  <td><b>1-Wire</b></td>
+                  <td>1（数据兼供电）+ 地</td>
+                  <td>16.3 kbit/s（标准）<br>125 kbit/s（Overdrive）</td>
+                  <td>几米到几十米（取决于上拉与线容）</td>
+                  <td>多点总线，每个器件有 64 位唯一 ROM ID</td>
+                  <td>单主</td>
+                  <td>DS18B20 温度传感器、电池 ID、iButton、单点身份识别</td>
+                  <td><b>极省线</b>：Maxim/Dallas 为一根线既传数据又供电（寄生供电）而设计</td>
+                </tr>
+                <tr>
+                  <td><b>CAN</b></td>
+                  <td>2（CAN_H/CAN_L，差分）+ 地</td>
+                  <td>1 Mbit/s（40 m）<br>500 kbit/s（100 m）<br>125 kbit/s（500 m）</td>
+                  <td>最长约 1 km（低速时）</td>
+                  <td>多点总线（线性，两端各 120 Ω）</td>
+                  <td><b>支持</b>（ID 优先级非破坏性仲裁）</td>
+                  <td>汽车 ECU、电机驱动器、BMS、工业设备联网</td>
+                  <td><b>抗干扰 + 可预测</b>：博世为汽车恶劣电气环境设计，差分 + CRC + 优先级仲裁</td>
+                </tr>
+                <tr>
+                  <td><b>RS-485</b><br>（电气标准，不是协议）</td>
+                  <td>2（A/B，差分）+ 地<br>（四线制可全双工）</td>
+                  <td>10 Mbit/s（12 m）<br>100 kbit/s（1200 m）</td>
+                  <td><b>最长约 1200 m</b></td>
+                  <td>多点总线（可挂 32~256 个节点）</td>
+                  <td>取决于上层协议（Modbus 是单主轮询）</td>
+                  <td>工业现场、PLC 联网、电表/水表集抄、长距离传感器</td>
+                  <td><b>远距离</b>：为工厂里几十米到上千米的连线设计，共模范围 −7V~+12V</td>
+                </tr>
+                <tr>
+                  <td><b>USB 2.0</b></td>
+                  <td>2 根差分（D+/D−）+ 5V + 地<br>（4 线）</td>
+                  <td>1.5 / 12 / 480 Mbit/s<br>（低速/全速/高速）</td>
+                  <td>约 5 m（全速/高速）；低速约 3 m</td>
+                  <td><b>星型</b>：主机 + Hub 级联（最多 7 层、127 个设备）</td>
+                  <td>无（主机集中调度）</td>
+                  <td>与 PC 通信、摄像头、U 盘、下载调试、供电</td>
+                  <td><b>即插即用 + 供电</b>：为 PC 外设设计，能热插拔、能认设备、能给 500 mA</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">表里藏着的两条规律，比背表有用</div>
+            <p><b>① 速率 × 距离大致是个常数。</b>RS-485 的 10 Mbit/s × 12 m 和 100 kbit/s × 1200 m 乘起来都是 1.2 × 10<sup>8</sup> bit·m/s 量级；CAN 的 1 Mbit/s × 40 m 是 4 × 10<sup>7</sup>。这不是巧合——它反映的是「信号在线上跑，线越长衰减和畸变越严重，只能靠降速来换距离」。<b>选型时先看距离，速率往往就被反推出来了。</b></p>
+            <p class="mt-2"><b>② 差分 + 多主 + 长距离，三者出现的组合很固定。</b>需要长距离的基本都是差分（RS-485、CAN）；需要多主的必然支持仲裁（CAN、I²C）；而板内省引脚的方案（I²C、SPI）距离都短。<b>这不是技术上的必然，而是成本上的必然</b>——每增加一项能力，都要加收发器、加规则、加验证成本。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">总线选型决策树：从约束出发，而不是从「我会用哪个」出发</h3>
+          <p class="mt-3">把前面所有内容压缩成一张可以照着实行的决策图。顺序很重要：<b class="font-semibold text-ink">先问距离（它一票否决），再问设备和线数（它决定拓扑），然后才是速率（它可以被降级），最后是「要不要多主」和「要不要供电」</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="总线选型决策树">
+            <pre><code>  ① 通信的两端在【同一块板】上吗？
+     │
+     ├─ 是（板内）─────────────────────────────────────────┐
+     │  ② 要挂几个器件？                                  │
+     │   ├─ 1~2 个，且追求速度 ────────────► 【SPI】      │
+     │   │      （Flash、屏、高速 ADC）                    │
+     │   ├─ 3 个以上，引脚紧张，速度不高 ──► 【I²C】      │
+     │   │      （传感器群、EEPROM、RTC）                  │
+     │   ├─ 极省线，只有一个器件，可慢 ───► 【1-Wire】    │
+     │   │      （DS18B20 单点测温）                       │
+     │   └─ 两个 MCU 之间，只要几根线 ────► 【UART】      │
+     │                                            │        │
+     └─ 否（板间 / 设备间）                        │        │
+        ③ 距离多远？                              │        │
+         ├─ 1 m 以内 ──────────────────────► 【UART/RS-232 或 USB】
+         ├─ 1 m ~ 100 m，有强干扰 ─────────► 【CAN】
+         │      （汽车、电机、变频器附近）
+         ├─ 10 m ~ 1200 m，单主轮询即可 ───► 【RS-485 + Modbus RTU】
+         └─ 要接电脑、要供电、要热插拔 ────► 【USB】
+                                                   │
+  ④ 会有多个节点【同时主动开口】的需求吗？          │
+     ├─ 有（事件驱动的紧急上报）──► 必须选支持仲裁的：CAN
+     ├─ 没有（等主机来问就行）────► 单主轮询即可：I²C/Modbus
+     └─ 不确定 ───────────────────► 优先选 CAN（为未来留余地）
+  ⑤ 需要顺带供电吗？
+     ├─ 需要，且只能一根线 ──► 1-Wire 寄生供电（电流很小，几 mA）
+     ├─ 需要，几根线可以 ────► USB（500 mA/口）或 4 线 RS-485（自定电源对）
+     └─ 不需要 ──────────────► 上面所有方案都可以
+  ⑥ 最后回头看速率预算（见第 3 节的带宽预算方法）：
+     如果算出来带宽不够，再回头考虑提高速率等级、改用 SPI，
+     或把一条总线拆成两条（用多路复用器）。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>你的场景</th><th>直接选它</th><th>为什么</th></tr></thead>
+              <tbody>
+                <tr><td>板上一堆传感器（温度、气压、加速度、光照）</td><td><b>I²C</b></td><td>两根线搞定，地址区分，速率够用；注意地址冲突与上拉电阻</td></tr>
+                <tr><td>读一块 W25Q Flash 或驱动 TFT 屏</td><td><b>SPI</b></td><td>几十 Mbit/s 的带宽是唯一选择，片选成本可接受</td></tr>
+                <tr><td>两台设备相距 200 m，工厂环境</td><td><b>RS-485</b></td><td>差分抗扰 + 1200 m 能力；协议选 Modbus RTU 最省事</td></tr>
+                <tr><td>小车/机器人上多个电机控制器要协同</td><td><b>CAN</b></td><td>多主、可仲裁、抗干扰；丢一帧不影响整机</td></tr>
+                <tr><td>给电脑传数据 / 做个能插拔的设备</td><td><b>USB</b></td><td>主机驱动现成、还能取电；但设备端协议栈要做（或用桥片）</td></tr>
+                <tr><td>只测一个点的温度，线越少越好</td><td><b>1-Wire</b></td><td>一根线加地，DS18B20 还能多颗并联靠 64 位 ID 区分</td></tr>
+                <tr><td>两个 MCU 相距 10 cm，只传几个字节</td><td><b>UART</b></td><td>最简单，不需要时钟线，两边都省事</td></tr>
+                <tr><td>要在一根总线上接 16 个同型号传感器（地址必然冲突）</td><td><b>SPI + 多片选</b> 或 <b>I²C + TCA9548A</b></td><td>见第 4 节的地址冲突解决思路</td></tr>
+              </tbody>
+            </table>
+          </div>
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+          <p class="mt-4">总线这门知识最大的好处是：<b class="font-semibold text-ink">几乎所有结论都能用小学算术验证</b>。会算的人选型和排错都快得多，因为「够不够用」不再靠感觉。这一节给出七道例题，每一道都对应一个真实的工程问题，建议自己先按暂停算一遍再看答案。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">估算的三步法（本节的通用套路）</div>
+            <p><b>第一步，数位（bit）：</b>这次通信在线上到底要传多少个位？把地址、命令、ACK、起始/停止全部算进去。<b>第二步，算时间：</b>位数 ÷ 位率，得到「一个事务要占总线多久」。<b>第三步，算占用率：</b>事务时间 × 每秒事务数 ÷ 1 秒，得到总线负载百分比；再留出余量判断够不够。三步都不涉及复杂的数学，但<b>跳过第一步是绝大多数「为什么我的 I²C 那么慢」的根源</b>。</p>
+          </div>
+
+          <h3 class="mt-8 text-base font-semibold">例题 1：为什么需要总线——把连接数算清楚</h3>
+          <p class="mt-3"><b>题目：</b>一块板子上有 1 个 MCU 和 16 个外围器件，需要让 MCU 能与每一个器件通信。比较三种连线方案的「链路数」和「引脚消耗」，L 表示一条链路的线数（串行取 L = 2，并行取 L = 20）。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 1 解答：链路数、引脚数、布线路径数">
+            <pre><code>【方案 A】全互联（每两个设备之间都拉一根线）
+
+   链路数 = N × (N−1) / 2 = 16 × 15 / 2 = 120 条
+   每条链路两端都要接引脚 → 引脚端点总数
+          = N × (N−1) = 16 × 15 = 240 个
+   PCB 上要布的【独立路径】= 120 条
+      （每条路径还要各自考虑长度、串扰、阻抗）
+
+【方案 B】星型点对点（每个器件单独拉线到 MCU）
+
+   MCU 侧引脚 = N × L
+      · 串行链路 L = 2：16 × 2 = 32 个引脚
+      · 并行链路 L = 20：16 × 20 = 320 个引脚  ← 一个 100 脚封装直接不够
+   器件侧引脚 = L（每个器件 2 或 20 个）
+   PCB 上要布的【独立路径】= 16 条（都汇到 MCU）
+
+【方案 C】共享总线（所有器件挂在同一组线上）
+
+   MCU 侧引脚 = L
+      · 串行总线 L = 2：2 个引脚（如 I²C 的 SCL/SDA）
+      · 并行总线 L = 20：20 个引脚（如 8 位数据 + 8 位地址 + 4 控制）
+   器件侧引脚 = L（每个器件都挂同样的几根线）
+   PCB 上要布的【独立路径】= 1 条主干（器件以分支形式搭上去）
+
+【对比表】
+
+   方案         链路数   MCU 引脚(L=2)   MCU 引脚(L=20)   布线路径数
+   ─────────────────────────────────────────────────────────────
+   全互联        120         —              —              120
+   星型点对点     16         32             320              16
+   共享总线        1          2              20               1
+
+【结论】
+   ① 引脚消耗上，总线的收益是【把 O(N×L) 变成 O(L)】——
+      加第 17 个器件时，MCU 一个引脚都不用加。
+   ② 真正压倒性的优势在【布线路径数】：从平方级（120 条）
+      降到常数级（1 条主干）。这是 PCB 能不能画出来的区别。
+   ③ 注意一个反直觉的事实：在 N 很小（N &lt; 线数 + 1）时，
+      全互联的【引脚总数】其实比并行总线更省（240 对 320）。
+      总线赢的不是引脚数，而是【路径数 + 可扩展性】。
+   ④ 共享的代价：需要三态/开漏输出、需要寻址、需要仲裁规则
+      —— 这正是第 2 节那套规则存在的全部理由。</code></pre>
+          </div>
+
+          <h3 class="mt-8 text-base font-semibold">例题 2：8N1 @ 115200 的实际有效吞吐是多少</h3>
+          <p class="mt-3"><b>题目：</b>串口配成 115200 bps、8N1。①一帧在线上占多少位、多少时间？②实际每秒能传多少字节？③理论上限（假如没有帧开销）是多少，开销占几成？④改成 8E1 会掉多少？⑤传 1 KB 数据要多久？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2 解答：把帧开销算成钱">
+            <pre><code>① 位时间 = 1 / 115200 = 8.6806 µs
+   8N1 一帧 = 1(起始) + 8(数据) + 0(校验) + 1(停止) = 10 位
+   一帧时间 = 10 × 8.6806 = 86.81 µs
+   （校验一下：115200 bps ÷ 10 位 = 11520 帧/s，1/11520 = 86.81 µs ✅）
+
+② 有效吞吐 = 11520 帧/s × 1 字节/帧 = 11,520 B/s
+             = 11.52 kB/s（十进制）= 11.25 KiB/s（二进制）
+
+③ 理论上限（只算 8 个数据位，没有任何开销）
+         = 115200 ÷ 8 = 14,400 B/s = 14.4 kB/s
+   帧开销 = (14,400 − 11,520) / 14,400 = 20.0%
+   —— 换句话说，你每传 4 个字节的数据，就有 1 个字节的位置
+      被起始位和停止位吃掉了。
+
+④ 8E1 一帧 = 1 + 8 + 1 + 1 = 11 位
+   吞吐 = 115200 ÷ 11 = 10,472.7 B/s = 10.47 kB/s
+   相比 8N1 下降 (11520 − 10473) / 11520 = 9.09%
+   —— 打开一个校验位，就付出近 10% 的带宽。
+      （值不值？如果这条线要过电机旁边，值。）
+
+⑤ 传 1024 字节：
+      1024 × 86.81 µs = 88,893 µs ≈ 88.9 ms
+   如果按「32 字节数据 + 4 字节协议头/CRC」打包（类似 Modbus RTU）：
+      有效载荷率 = 32 / 36 = 88.9%
+      实际有效吞吐 = 11,520 × 32/36 = 10,240 B/s = 10.24 kB/s
+
+【别忘软件开销】
+   HAL_UART_Transmit 这类阻塞式调用，每次调用有 20~50 µs 量级的
+   函数与状态机开销（按常见实现估算）：
+     · 一次调用发 1 个字节：有效时间 = 86.8 + 20 ≈ 107 µs
+       → 实测吞吐掉到理论值的约 81%
+     · 一次调用发 32 个字节：有效时间 = 32×86.8 + 20 = 2798 µs
+       → 达到理论值的约 99%
+   【结论】同样的波特率，缓冲区越大越接近理论吞吐。
+            逐字节发送是低速串口的头号浪费。</code></pre>
+          </div>
+
+          <h3 class="mt-8 text-base font-semibold">例题 3：I²C 读一个 2 字节寄存器需要多少位（以及 100 kHz 和 400 kHz 差多少）</h3>
+          <p class="mt-3"><b>题目：</b>用「写寄存器地址 → 重复起始 → 读两字节」的标准方式读一个 16 位寄存器（这是绝大多数 I²C 传感器的读法）。①这次事务一共传多少位？②100 kHz 和 400 kHz 下各要多少时间？③理论最大查询频率是多少？④如果器件不需要寄存器地址（直接读两字节），能省多少？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 3 解答：把每一位都列出来">
+            <pre><code>【① 位数拆解】7 位地址、写方向
+
+   阶段                        内容                位数
+   ──────────────────────────────────────────────────────
+   START  起始条件                                 1
+   地址   7 位从机地址 + 1 位 R/W(=0 写) = 8 位      8
+   ACK    从机应答                                 1
+   数据   8 位寄存器地址                           8
+   ACK    从机应答                                 1
+   Sr     重复起始（Repeated START，不释放总线）     1
+   地址   7 位从机地址 + 1 位 R/W(=1 读) = 8 位      8
+   ACK    从机应答                                 1
+   数据   第 1 字节（高字节）                       8
+   ACK    主机应答                                 1
+   数据   第 2 字节（低字节）                       8
+   NACK   主机回 NACK，表示「读够了」                1
+   STOP   停止条件                                 1
+   ──────────────────────────────────────────────────────
+   合计   1+9+9+1+9+9+9+1 = 【48 位】
+
+   （把地址位 + ACK 一起看成 9 位一组，就得到那个好记的口诀：
+     每传一个字节，线上实际走 9 个位。）
+
+【② 事务时间】
+   100 kHz：48 ÷ 100,000 = 480 µs
+   400 kHz：48 ÷ 400,000 = 120 µs        ← 整整快 4 倍
+
+【③ 理论最大查询频率（假设 100% 时间都用来做这件事）】
+   100 kHz：1 / 480 µs = 2083 次/s
+   400 kHz：1 / 120 µs = 8333 次/s
+
+【④ 不需要寄存器地址的器件（直接读 2 字节）】
+   位数 = START 1 + 地址 9 + 数据 9 + 数据 9 + STOP 1 = 29 位
+   100 kHz：290 µs（1666 次/s 变 3448 次/s）
+   400 kHz：72.5 µs
+   省下 19 位 = 39.6% 的时间 —— 这就是「多一个寄存器指针」
+   的代价。（有些器件支持连续读：一次起始把所有寄存器
+   顺序读出来，比逐个寄存器读便宜得多，也是同一个道理。）
+
+【⑤ 与软件开销对比】
+   HAL_I2C_Mem_Read（阻塞式）本身还有函数调用、状态机、
+   超时判断的开销，量级在 10~30 µs（视主频与实现而定）。
+   在 100 kHz 下这占比不到 6%，在 400 kHz 下就占到 25% ——
+   【高速总线上，软件开销不再是零头】。这也是为什么要用
+   DMA（见例题 6）而不是一次次调用阻塞函数。</code></pre>
+          </div>
+
+          <h3 class="mt-8 text-base font-semibold">例题 4：30 cm 走线配 4.7 kΩ 上拉，400 kHz 能不能用</h3>
+          <p class="mt-3"><b>题目：</b>一条 I²C 总线走线 30 cm，挂 5 个器件。①估算总线电容；②用 4.7 kΩ 上拉时上升时间是多少？③100 kHz 和 400 kHz 能过吗？④如果不能，上拉该改成多少？⑤反过来，4.7 kΩ 能承受多大电容？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 4 解答：上升时间是 I²C 的硬指标">
+            <pre><code>【① 总线电容估算】（都是量级估算，按常见值）
+   走线电容：30 cm × 1 pF/cm      ≈ 30 pF
+   器件引脚：5 个 × 10 pF/个      ≈ 50 pF
+   接插件、过孔、示波器探头       ≈ 20 pF
+   ─────────────────────────────────────
+   合计 C ≈ 100 pF     （I²C 规范允许的上限是 400 pF，
+                        所以电容不是问题，【上升时间】才是）
+
+【② 上升时间公式】
+   开漏输出靠上拉电阻给电容充电，属于 RC 充电。
+   I²C 规范里上升时间的定义是电压从 0.3×VDD 升到 0.7×VDD，
+   对应的时间常数为：
+
+        t_r = 0.8473 × R × C
+
+   （注意：如果按通用的 10%~90% 定义，系数是 2.2；
+     两个定义差了 2.6 倍。既然规范给的限值是 1000 ns/300 ns，
+     就必须用规范的定义去对比，否则会得出「什么都过不了」
+     的错误结论。）
+
+【③ 4.7 kΩ + 100 pF】
+   t_r = 0.8473 × 4700 × 100e−12 = 398 ns
+
+   100 kHz 限值 1000 ns → 398 ns ✅ 通过（余量 60%）
+   400 kHz 限值  300 ns → 398 ns ❌ 【超了 33%，不能用】
+
+【④ 该用多大的上拉】
+   反推：R ≤ t_r(限值) / (0.8473 × C)
+   400 kHz、C = 100 pF：
+        R ≤ 300e−9 / (0.8473 × 100e−12) = 3540 Ω
+   取标准值 3.3 kΩ：
+        t_r = 0.8473 × 3300 × 100e−12 = 280 ns ✅
+   取 2.2 kΩ：
+        t_r = 0.8473 × 2200 × 100e−12 = 186 ns ✅（余量更大）
+
+【⑤ 反推电容上限】
+   4.7 kΩ @ 100 kHz：C ≤ 1000e−9 / (0.8473 × 4700) = 251 pF
+   4.7 kΩ @ 400 kHz：C ≤  300e−9 / (0.8473 × 4700) =  75 pF
+   2.2 kΩ @ 400 kHz：C ≤  300e−9 / (0.8473 × 2200) = 161 pF
+
+   【一个残酷的结论】规范说总线电容上限 400 pF，但要跑 400 kHz，
+   按 400 pF 反推需要的上拉只有 885 Ω，此时静态电流
+   3.3V / 885Ω = 3.7 mA，已经超过 I²C 器件 3 mA 的灌电流能力
+   （V_OL 会抬高到规范之外）。
+   → 所以【400 kHz 的实用电容上限大约在 200 pF 上下】，
+     而不是规范里的 400 pF。这是选型时很容易踩的坑：
+     「规范说可以」不等于「你的这一版设计可以」。
+
+【顺带一算】如果上拉用了 10 kΩ（很多开发板的默认值）：
+   t_r = 0.8473 × 10000 × 100e−12 = 847 ns
+   → 100 kHz 勉强通过（余量仅 15%），400 kHz 差得远。
+   波形会明显变圆，示波器上看不出「方波」，但万用表量电平
+   完全正常 —— 这就是所谓「低速能用、一加速就随机出错」。</code></pre>
+          </div>
+
+          <h3 class="mt-8 text-base font-semibold">例题 5：差分对上的共模噪声到底被抑制了多少</h3>
+          <p class="mt-3"><b>题目：</b>电机换向在 RS-485 电缆上感应出 20 V 的共模尖峰。①如果用单端传输会怎样？②用双绞差分线、两根线的干扰幅度差 1% 和 0.1% 时，接收端看到多少噪声？③如果干扰同时有「时间差」——两线之间的偏斜 1 ns，而噪声边沿是 20 V/µs，又贡献多少？④总结：要达到 5 倍以上的门限余量，两条线的对称性要多好？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 5 解答：抗干扰能力就是对称性">
+            <pre><code>【① 单端】
+   接收端读到的是「信号 + 20 V 尖峰」。逻辑门限只有 1~2 V 量级，
+   20 V 足以让接收器在尖峰期间完全判错。
+   → 单端方案在这个环境里不可用，和代码无关。
+
+【② 差分：看两根线噪声的【差】】
+   幅度不对称 δ 时，接收端看到的残余噪声 = 20 V × δ
+
+     δ = 1%   ：残余 = 200 mV
+     δ = 0.1% ：残余 =  20 mV
+
+   对照 RS-485 接收器的差分门限 |V_AB| ≥ 200 mV：
+     · 1%   时残余噪声正好【等于门限】→ 余量 0 dB，必然误码
+     · 0.1% 时残余噪声是门限的 1/10 → 余量 20 dB，很稳
+
+【③ 时间不对称的贡献】
+   两根线的长度不可能绝对相等，干扰到达两线有微小时间差 Δt。
+   在噪声边沿期间，这个时间差会被「换算」成电压差：
+
+     噪声边沿斜率 = 20 V / 1 µs = 20 V/µs
+     Δt = 1 ns 时：残余 = 20 V/µs × 1 ns = 20 mV
+
+   （这也是为什么【双绞】很重要：扭绞让两根线不断交换位置，
+     走过的几何路径基本一致，幅度差与时间差同时被压小。）
+
+【④ 最坏情况合计】
+   幅度不对称 0.1%（20 mV）+ 时间不对称 1 ns（20 mV）
+        = 40 mV（最坏相加）
+   相对 200 mV 门限 → 仍有 5 倍（14 dB）余量 ✅
+
+【⑤ 还要检查共模范围】
+   RS-485 收发器的共模输入范围是 −7 V ~ +12 V。
+   20 V 的尖峰即使在差分上被减掉了，它【加在芯片引脚上的绝对电压】
+   仍可能超出这个范围，把输入级打坏或导致闩锁。
+   → 所以工程上还会加：屏蔽双绞、TVS/气体放电管、共模扼流圈、
+     或者干脆用隔离型收发器（见第 4 节的隔离部分）。
+   【结论】差分解决的是「精度」，隔离/保护解决的是「生存」。</code></pre>
+          </div>
+
+          <h3 class="mt-8 text-base font-semibold">例题 6：SPI 10 MHz 读一个 16 位 ADC，一秒最多能采多少次</h3>
+          <p class="mt-3"><b>题目：</b>SPI 时钟 10 MHz，ADC 转换时间 1 µs（1 MSPS 级 SAR），每次采样之间需要 0.4 µs 的片选间隔。①读 16 位数据要多久（含 8 位命令字）？②一次完整采样周期多久，最高采样率多少？③数据率多大，用中断方式 CPU 占用多少？④改用 DMA 后呢？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 6 解答：为什么高速采样必须上 DMA">
+            <pre><code>【① SPI 传输时间】
+   需要先发 8 位命令字，再读 16 位结果（SPI 是全双工，
+   发命令的同时就在收，所以总共走 24 个时钟）：
+        24 位 ÷ 10 MHz = 2.4 µs
+   如果器件不需要命令字（连续转换、直接读）：
+        16 位 ÷ 10 MHz = 1.6 µs
+
+【② 一次采样的完整周期】
+   ┌ 命令 + 读数据      2.4 µs
+   ├ ADC 转换           1.0 µs
+   └ CS 间隔等开销       0.4 µs
+   ─────────────────────────────
+   合计                3.8 µs → 1/3.8 µs = 263 kSPS
+
+   若不需要命令字：
+        1.6 + 1.0 + 0.4 = 3.0 µs → 333 kSPS
+
+   【关键观察】SPI 10 MHz 本身的传输能力没问题（1.6~2.4 µs 很快），
+   瓶颈是【ADC 的转换时间】和【协议开销】。
+   注意：这里的 SPI 带宽利用率只有 1.6/3.0 = 53%。
+   想再快，得换 20~50 MHz 的 SPI 或并行/DDR 接口的 ADC ——
+   ADC 才是这套系统的天花板。
+
+【③ 数据率与中断方式的代价】
+   263 kSPS × 2 字节 = 526 kB/s（333 kSPS 时 667 kB/s）
+   如果用「每次转换完成中断里读一次」的方式：
+        263,000 次中断/s × 每次约 2 µs（进出中断 + 读 SPI 数据）
+        = 526,000 µs/s = 【52.6% 的 CPU 时间】
+    333 kSPS 时更是 66.6% —— 而且是【碎成 26 万段】的时间，
+    主循环里任何需要连续时间的任务（比如 FFT）都没法做。
+
+【④ DMA 方案】
+   定时器触发 ADC → ADC 完成触发 DMA → DMA 把 16 位结果搬进缓冲区
+   配 1024 点的半传输/全传输中断：
+        1024 点 ÷ 263 kSPS = 3.9 ms 才中断一次
+        CPU 占用 &lt; 1%，而且每次能拿到一整块连续数据
+   【这就是第 2 节说的「分水岭」的具体数字：同样功能，
+     52% CPU 对 1% CPU，而这个差别决定系统还能不能干别的。】
+
+【⑤ 顺带算总线负载】
+   1.6 µs 传输 / 3.0 µs 周期 = SPI 时钟线上 53% 的时间有活动。
+   SPI 是点对点独占，不需要考虑别的设备抢总线，
+   所以 53% 完全安全；但如果这条 SPI 上还挂了 Flash，
+   就要把 Flash 的访问时间也算进这 3 µs 的间隙里。</code></pre>
+          </div>
+
+          <h3 class="mt-8 text-base font-semibold">例题 7：一条 I²C 总线到底能挂多少东西——带宽预算</h3>
+          <p class="mt-3"><b>题目：</b>你打算在一条 I²C 总线上挂 8 个传感器（每个 50 Hz 更新一次，每次读 2 字节寄存器，即 48 位），另外还想挂一块 128×64 的单色 OLED（10 fps 刷新）。①传感器要占多少带宽？②OLED 要占多少？③100 kHz 和 400 kHz 分别够不够？④轮询一圈的最坏延迟是多少？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 7 解答：总线负载的完整预算">
+            <pre><code>【① 传感器的带宽需求】用例题 3 的结论：一次读 = 48 位
+   每秒事务数 = 8 个 × 50 Hz = 400 次/s
+   需求 = 400 × 48 = 19,200 位/s = 19.2 kbit/s
+
+   占用率：
+        100 kHz 总线：19.2k / 100k = 19.2%
+        400 kHz 总线：19.2k / 400k =  4.8%
+
+【② OLED 的带宽需求】
+   128 × 64 单色 = 1024 字节显存（每像素 1 位）
+   每字节在 I²C 上实际走 9 位（8 数据 + 1 ACK）：
+        1024 × 9 = 9216 位
+   加上地址/控制开销（约 3 个字节的地址阶段 ≈ 27 位）：
+        合计 ≈ 9243 位
+   传一帧的时间：
+        100 kHz：9243 / 100,000 = 92.4 ms
+        400 kHz：9243 / 400,000 = 23.1 ms
+   10 fps（每秒 10 帧）的占用率：
+        100 kHz：92.4%     ← 几乎把总线占满
+        400 kHz：23.1%
+
+【③ 合计占用率】
+        100 kHz：19.2% + 92.4% = 111.6%  ❌ 【不可能实现】
+        400 kHz： 4.8% + 23.1% =  27.9%  ✅ 通过
+
+   【工程余量建议】总线占用率控制在 60%~70% 以内，
+   因为上面的计算是【平均值】，而 OLED 刷新的 23 ms 是一段
+   【连续占用】：在这段时间里传感器一次都读不了。
+   实际项目里还应把 OLED 的刷新拆成几条页地址分段发送，
+   让传感器有机会插进来。
+
+【④ 轮询一圈的最坏延迟】
+   8 个传感器轮流读一遍：
+        100 kHz：8 × 480 µs = 3.84 ms（加软件开销约 4 ms）
+        400 kHz：8 × 120 µs = 0.96 ms（加软件开销约 1.1 ms）
+   这个数字就是「最坏情况下，一个传感器的报警要多久才能被主机知道」。
+   （对比：CAN 上同样的报警可以主动发起，不需要等轮询 ——
+     这就是第 2 节「谁能决定什么时候说话」的实际价值。）
+
+【⑤ 如果 100 kHz 下非要都挂上怎么办】
+   三个方向，按性价比排序：
+     ① 提速到 400 kHz（先按例题 4 检查上拉电阻与电容）
+     ② 把总线的「读」优化：连续读多个寄存器，一次起始读 6 个字节
+        （48 位 → 1 + 9 + 9 + 9×5 + 9 + 1 = 74 位，均摊到 6 字节
+          是 12.3 位/字节，比逐字节读省得多）
+     ③ 用 TCA9548A 之类的 I²C 多路复用器，把设备分到两条
+        独立的总线上，两条总线各有各的带宽（见第 4 节）</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">七道题算下来，最该记住的三个「反直觉」</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>协议开销比你想的大得多。</b>UART 的帧开销 20%，SPI 读一个寄存器要发两次，I²C 每字节实际走 9 位。<b>「波特率」永远不等于「吞吐」</b>，通常要先打八折再算。</li>
+              <li><b>瓶颈往往不在你以为的地方。</b>例题 6 里 SPI 10 MHz 很快，但采样率被 ADC 的 1 µs 转换时间卡住；例题 7 里 400 kHz 够用，但 OLED 一次刷新的 23 ms 连续占用会让传感器集体饿肚子。<b>算平均值之外，一定要看一眼最坏情况。</b></li>
+              <li><b>电气参数会一票否决逻辑上完美的方案。</b>例题 4 里，100 kHz 能用、400 kHz 不能用，差别只是一个上拉电阻从 4.7 kΩ 改成 3.3 kΩ。<b>逻辑正确 ≠ 电气可行。</b></li>
+            </ul>
+          </div>
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+          <p class="mt-4">前面三节是原理与算术，这一节把它们落到你的板子上：<b class="font-semibold text-ink">多个设备怎么挂、代码怎么写、板间总线有什么特殊讲究、出问题按什么顺序查、什么时候必须做隔离</b>。这里的每一条都来自真实的踩坑现场。</p>
+
+          <h3 id="sub-multi-device" class="mt-7 text-base font-semibold">多个设备挂一条总线：地址冲突、片选、菊花链与 9 位模式</h3>
+          <p class="mt-3">第一个现实问题几乎每个项目都会遇到：<b class="font-semibold text-ink">我要挂 8 个同型号的传感器，但它们的 I²C 地址是出厂固定的</b>。一条 I²C 上出现两个 0x76，主机会发现「两个从机同时回 ACK」，通信随机失败，而且现象会随温度、上电顺序变化——非常难查。解决办法有四个层次：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>办法</th><th>怎么做</th><th>能挂多少</th><th>代价</th></tr></thead>
+              <tbody>
+                <tr><td><b>① 地址可配置引脚</b></td><td>器件上的 A0/A1/A2 引脚接 VDD 或 GND，决定低位地址。例如 BMP280 靠一个引脚在 0x76/0x77 之间选；ADS1115 靠两个引脚给出 0x48~0x4B 四个地址；PCA9685 用 6 个引脚可以提供 62 个地址</td><td>看器件有几个地址脚，一般 2~8 个，特别的多达 62 个</td><td>几乎为零——但需要 <b>PCB 上留出可跳线的焊盘</b>，别把地址脚直接焊死在 GND</td></tr>
+                <tr><td><b>② I²C 多路复用器</b></td><td>用 TCA9548A（8 通道）之类的芯片：主机仍然只用一对 SCL/SDA，先给多路复用器写一个「通道掩码字节」选中某一路，之后的通信就只落在那一路上</td><td>8 路 × 每路 8 个同地址器件 = 最多 64 个（再级联更多）</td><td>多一个芯片；切换通道要多一次写操作；同一时刻只能访问一路（不能并行）</td></tr>
+                <tr><td><b>③ 换用 SPI</b></td><td>SPI 靠片选区分器件，而不是靠地址——片选是「物理的」，天生不会冲突</td><td>每个器件一个 CS 引脚，有几个空闲 IO 就能挂几个</td><td>占 IO 引脚；布线根数多（每个器件 4 根线）</td></tr>
+                <tr><td><b>④ 软件模拟 I²C 分组</b></td><td>用两组不同的 GPIO 各自模拟一条 I²C，分成两条独立总线</td><td>每条总线各自一套地址</td><td>费 CPU、时序靠软件保证、不支持时钟拉伸时容易出问题；一般只用于极低速场合</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="TCA9548A 的用法：主机只看到「一个器件」，后面藏着 8 条总线">
+            <pre><code>                     ┌────────────────────────────────────────┐
+   MCU               │            TCA9548A                    │
+   ┌───────┐         │   I²C 多路复用器（8 通道）              │
+   │ SCL ──┼─────────┼──► SCL                     CH0 ────────┼──► 传感器 #1 (0x76)
+   │ SDA ──┼─────────┼──► SDA                     CH1 ────────┼──► 传感器 #2 (0x76)
+   └───────┘         │   地址：0x70 ~ 0x77        CH2 ────────┼──► 传感器 #3 (0x76)
+                     │   （由 A0/A1/A2 决定）      CH3 ────────┼──► OLED   (0x3C)
+                     │                              …          │
+                     │   写一个字节 = 通道掩码       CH7 ────────┼──► 传感器 #8 (0x76)
+                     │   bit0=1 → 只开 CH0                      │
+                     │   bit2=1 → 只开 CH2                      │
+                     │   0x00   → 全部关闭（默认状态）           │
+                     └────────────────────────────────────────┘
+
+  【读传感器 #3 的完整流程】
+     ① HAL_I2C_Master_Transmit(0x70, &amp;mask=0x04, 1)   ← 只开 CH2
+     ② HAL_I2C_Mem_Read(0x76, reg, ...)               ← 现在 0x76 只可能是 #3
+     ③ （可选）再写 0x00 关掉所有通道，避免下次误访问
+
+  【两个额外好处】
+     · 每一路的总线电容互相隔离 —— 8 个器件并联的电容不再叠加，
+       这对 400 kHz 的上升时间非常关键（回看例题 4）
+     · 不同通道可以接不同电压的器件（很多多路复用器支持电平转换）
+
+  【注意】TCA9548A 自己也要占一个地址（0x70~0x77），
+          而且它的通道掩码是「写寄存器」而不是「选地址」，
+          所以每次切换都有一次完整事务的开销（约 20 位）。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">SPI 侧的多设备问题正好相反：地址不用操心，但要操心片选和引脚数。</b>多个 SPI 从机共享 SCK、MOSI、MISO 三根线，各自一根 CS——这是最常见的星型片选接法。但还有另一种接法叫<b class="font-semibold text-ink">菊花链（daisy chain）</b>：所有器件串成一串，前一个的输出接后一个的输入，只需一根 CS。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="SPI 的两种多从机接法：星型片选 vs 菊花链">
+            <pre><code>【星型片选】各器件独立 CS —— 最常用，可单独访问
+
+   MCU ──┬── SCK  ──┬────────┬────────┬
+         ├── MOSI ──┼────────┼────────┼
+         ├── MISO ──┴────────┴────────┴   （MISO 需要三态：不选中的器件放手）
+         ├── CS0 ─────► [ADC #1]
+         ├── CS1 ─────────────────► [ADC #2]
+         └── CS2 ──────────────────────────► [Flash]
+   优点：随时单独访问任意一个；缺点：每个器件吃一个 IO
+
+【菊花链】只需一根 CS，数据像移位寄存器一样串下去
+
+   MCU ── SCK ────────────────────────────────► 所有器件共用
+         MOSI ──► [器件1] ──► [器件2] ──► [器件3] ──► … ──►┐
+                    SDI  SDO   SDI  SDO    SDI  SDO         │
+         MISO ◄─────────────────────────────────────────────┘
+
+   读 3 个 16 位器件：CS 拉低 → 连续发 48 个时钟 → CS 拉高
+        第 1 个移出的 16 位 = 离 MCU 最远的器件数据 … 依次给出
+   优点：IO 极省（N 个器件只要 4 根线），适合多片 ADC/多路开关
+   缺点：① 要 N × 位宽 个时钟才能读回全部（顺序固定）
+         ② 链路中一个器件坏掉/掉电，整条链都没数据
+         ③ 时序余量会累加（每级都有 t_su/t_h），速率要降</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">UART 天生是点对点的，它要挂多机得靠「9 位模式」这个特殊设计。</b>思路很巧：把一帧从 8 位扩成 9 位，<b>第 9 位用来区分「这一帧是地址还是数据」</b>。所有从机平时处于静音（mute）状态，只有收到地址帧时才被唤醒并比对地址，地址对上了就退出静音、开始接收后面的数据帧。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="UART 9 位多机通信：用第 9 位当「地址/数据」标志">
+            <pre><code>  主机发地址帧（第 9 位 = 1）        主机发数据帧（第 9 位 = 0）
+  ┌───────────────────────────┐    ┌───────────────────────────┐
+  │ 起始 │ D0~D7 │ 第9位=1 │ 停止 │    │ 起始 │ D0~D7 │ 第9位=0 │ 停止 │
+  └───────────────────────────┘    └───────────────────────────┘
+           └── 地址值 ──┘                     └── 数据值 ──┘
+                 │
+     所有从机都会收到这一帧，并把它当【地址】来解释
+                 │
+     ┌───────────┼───────────┬───────────┐
+     ▼           ▼           ▼           ▼
+   从机 0x01   从机 0x02   从机 0x03   …
+   地址不符    地址符合    地址不符
+   → 继续静音  → 退出静音  → 继续静音
+                → 接收后续的数据帧（第 9 位 = 0）
+
+  【为什么需要这个机制】
+    普通 8 位模式下，从机无法区分「刚收到的这个字节是地址还是数据」。
+    9 位模式把「区分」这件事交给了硬件的一位，
+    于是从机可以一直睡着，只在被点名时才醒来 —— 省 CPU、省中断。
+
+  【现实中的替代做法】
+    在 RS-485 + Modbus RTU 里，多机通信【没有用 9 位模式】，
+    而是靠一个纯软件的办法：帧之间必须有至少 3.5 个字符时间的
+    【静默间隔】。从机检测到长时间没有数据，就认为上一帧结束了，
+    把下一个字节当【地址】来解释。
+    · 好处：普通 8 位串口就能做，任何 MCU 都支持
+    · 坏处：对定时精度敏感（主频、中断延迟都可能打乱 3.5 字符），
+            所以 Modbus 规定波特率高于 19200 时固定用 1.75 ms 的间隔</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>总线</th><th>靠什么区分设备</th><th>多机能力从哪来</th><th>最容易踩的坑</th></tr></thead>
+              <tbody>
+                <tr><td><b>I²C</b></td><td>7 位地址（部分器件有 10 位地址）</td><td>地址 + 线与仲裁</td><td>同型号地址冲突；地址可配置引脚被焊死；上拉电阻过大</td></tr>
+                <tr><td><b>SPI</b></td><td>片选 CS（物理的，不是地址）</td><td>一主多从，逐个拉低 CS</td><td>忘记拉高 CS / CS 之间切换太快；MISO 未选中时没有三态</td></tr>
+                <tr><td><b>UART</b></td><td>点对点，无寻址</td><td>9 位模式（地址位唤醒）或上层软件协议</td><td>多机时所有从机的 TX 不能直接并联（会打架），要么用 RS-485 差分，要么逐级串联</td></tr>
+                <tr><td><b>1-Wire</b></td><td>每个器件有出厂唯一的 64 位 ROM ID</td><td>ROM 搜索算法逐个数出总线上的器件</td><td>搜索算法复杂；总线上器件多时上拉与速率要重新算</td></tr>
+                <tr><td><b>CAN</b></td><td>报文 ID（不是设备地址）</td><td>ID 决定优先级，任何节点都能主动发</td><td>两端 120 Ω 与拓扑；ID 分配不当导致低优先级报文被饿死</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-mcu-code" class="mt-7 text-base font-semibold">代码：把上面这些规则写出来</h3>
+          <p class="mt-3">下面五段代码是 STM32（HAL 库）里最常用的总线操作。每一段都标注了「它对应前面哪一条规则」——<b class="font-semibold text-ink">看懂代码里的等待和使能时机，比背函数名重要得多</b>。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="i2c_sensor.c：读一个 16 位寄存器（对应例题 3 的 48 位）">
+            <pre><code>#include "stm32f1xx_hal.h"
+
+/* 7 位地址要左移一位再交给 HAL（最低位是 R/W 位，由 HAL 填） */
+#define SENSOR_ADDR   (0x76 &lt;&lt; 1)
+#define REG_TEMP_H    0xF4          /* 器件手册里的寄存器地址 */
+#define REG_TEMP_L    0xF5
+
+/* 读 16 位寄存器：高字节在前（大端） */
+HAL_StatusTypeDef sensor_read_u16(I2C_HandleTypeDef *hi2c,
+                                  uint8_t reg, uint16_t *out)
+{
+    uint8_t buf[2] = {0};
+
+    /* HAL_I2C_Mem_Read 会自动产生：
+         START → 地址+W → 寄存器地址 → 重复 START → 地址+R
+              → 读 2 字节 → STOP
+       正好是第 3 节例题 3 里数出来的那 48 位。 */
+    if (HAL_I2C_Mem_Read(hi2c, SENSOR_ADDR, reg,
+                         I2C_MEMADD_SIZE_8BIT, buf, sizeof(buf), 100) != HAL_OK)
+    {
+        /* 返回 HAL_ERROR / HAL_TIMEOUT 时按这个顺序查：
+             ① SCL/SDA 静态电平是不是被拉死在 0（器件没上电/短路）
+             ② 上拉电阻是否装了（很多模块自带，自己画板容易忘）
+             ③ 从机地址是否写对（含 7 位/8 位地址的左移问题）
+             ④ 400 kHz 下上升时间是否超标（回看例题 4） */
+        return HAL_ERROR;
+    }
+
+    *out = (uint16_t)(((uint16_t)buf[0] &lt;&lt; 8) | buf[1]);
+    return HAL_OK;
+}</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="spi_adc.c：全双工读取 16 位 ADC（对应「SPI 读寄存器要发两次」）">
+            <pre><code>#define ADC_CS_GPIO_Port   GPIOA
+#define ADC_CS_Pin         GPIO_PIN_4
+
+/* SPI 是全双工的：MOSI 出去的同时 MISO 进来。
+   所以「读」也要发字节 —— 发出去的是命令和空字节（dummy），
+   收回来的是结果。空字节一般用 0x00 或 0xFF，取决于器件手册。 */
+uint16_t adc_read_16bit(SPI_HandleTypeDef *hspi)
+{
+    uint8_t tx[3] = { 0x00, 0x00, 0x00 };   /* 第 1 个字节可以是命令字 */
+    uint8_t rx[3] = { 0 };
+
+    HAL_GPIO_WritePin(ADC_CS_GPIO_Port, ADC_CS_Pin, GPIO_PIN_RESET);
+
+    /* 3 个字节 = 24 个时钟；10 MHz 下约 2.4 µs（例题 6） */
+    if (HAL_SPI_TransmitReceive(hspi, tx, rx, 3, 10) != HAL_OK)
+    {
+        HAL_GPIO_WritePin(ADC_CS_GPIO_Port, ADC_CS_Pin, GPIO_PIN_SET);
+        return 0xFFFF;                      /* 用哨兵值表示失败 */
+    }
+
+    HAL_GPIO_WritePin(ADC_CS_GPIO_Port, ADC_CS_Pin, GPIO_PIN_SET);
+
+    /* rx[0] 是发命令时同时收回来的（无意义），真正的数据在 rx[1]、rx[2]。
+       注意这里的字节顺序由【器件手册】决定，不是由 SPI 决定。
+       如果读回来的值总是「差一位」「正好一半」，先查 CPOL/CPHA。 */
+    return (uint16_t)(((uint16_t)rx[1] &lt;&lt; 8) | rx[2]);
+}
+
+/* 初始化里必须和从机对齐的三件事（HAL 里对应 hspi-&gt;Init 的字段）：
+     hspi.Init.CLKPolarity = SPI_POLARITY_LOW;    // CPOL = 0
+     hspi.Init.CLKPhase    = SPI_PHASE_1EDGE;     // CPHA = 0  → Mode 0
+     hspi.Init.FirstBit    = SPI_FIRSTBIT_MSB;    // 大多数器件 MSB 先出
+     hspi.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;  // 72/8 = 9 MHz */</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="rs485.c：收发使能切换（丢掉第一个字节与丢掉最后一个字节）">
+            <pre><code>#define RS485_DE_GPIO_Port  GPIOB
+#define RS485_DE_Pin        GPIO_PIN_0
+
+/* RS-485 两线制是半双工：发送时必须打开驱动器（DE），
+   接收时必须关掉驱动器、打开接收器（RE，通常与 DE 反相共用一个引脚）。
+
+   两个【时机】错误，症状完全不同：
+     ① DE 使能【太晚】—— 第一个字节的起始位已经发出去了，
+        驱动器还没打开 → 线上没有这个边沿 → 从机看不到帧头，
+        【丢掉第一个字节】，整个报文错位。
+     ② DE 关闭【太早】—— 最后一个字节还在移位寄存器里往外发，
+        驱动器就被关掉 → 最后一个字节被截断，
+        【丢掉最后一个字节或 CRC 报错】。 */
+void rs485_send(UART_HandleTypeDef *huart, const uint8_t *data, uint16_t len)
+{
+    /* 先把 DE 拉高：总线空闲时打开驱动器是安全的，
+       提前打开可以保证第一个起始位一定在线上了 */
+    HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, GPIO_PIN_SET);
+
+    HAL_UART_Transmit(huart, (uint8_t *)data, len, 100);
+
+    /* 关键：阻塞式发送函数返回时，只保证数据【写进了寄存器】，
+       并不保证【最后一个位已经移出移位寄存器】。
+       必须等 TC（Transmission Complete）标志，不能等 TXE。 */
+    while (__HAL_UART_GET_FLAG(huart, UART_FLAG_TC) == RESET)
+    {
+        /* 空等；也可以用 HAL_UART_TxCpltCallback 回调里关 DE */
+    }
+
+    HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, GPIO_PIN_RESET);
+
+    /* 关掉 DE 之后要留一点时间给驱动器失能（datasheet 里的
+       t_ZH/t_ZL 量级在几十到几百 ns），之后主机才能开始接收。
+       这就是半双工「转向时间」的真实来源。 */
+}
+
+/* 更稳的写法：用中断或 DMA 发送，在 TxCpltCallback 里做同一件事：
+     void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+     {
+         HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, GPIO_PIN_RESET);
+     }
+   —— 注意 HAL 的 TxCplt 回调是在 TC 置位后产生的，
+      所以这个写法天然正确。 */</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="uart9bit.c：9 位模式与地址位唤醒（多机通信）">
+            <pre><code>/* 9 位数据位 = 8 位有效数据 + 1 位「地址/数据」标志 */
+UART_HandleTypeDef huart1;
+
+void uart9bit_init(void)
+{
+    huart1.Instance          = USART1;
+    huart1.Init.BaudRate     = 9600;
+    huart1.Init.WordLength   = UART_WORDLENGTH_9B;   /* 关键：9 位 */
+    huart1.Init.StopBits     = UART_STOPBITS_1;
+    huart1.Init.Parity       = UART_PARITY_NONE;      /* 9 位模式下不带校验 */
+    huart1.Init.Mode         = UART_MODE_TX_RX;
+    huart1.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
+    HAL_UART_Init(&amp;huart1);
+
+    /* 从机侧还要打开「多机模式」和静音：
+         HAL_MultiProcessor_EnableIT(&amp;huart1);   // 使能地址位检测中断
+         HAL_MultiProcessor_EnterMuteMode(&amp;huart1);  // 平时静音，不产生中断
+       （不同系列的 HAL 里这组函数名可能略有差异，
+         寄存器层面是 CR1 的 WAKE / RWU 位。）
+       收到地址帧且地址匹配 → 退出静音，开始收数据帧。 */
+}
+
+/* 主机：先发地址帧（第 9 位 = 1），再发数据帧（第 9 位 = 0）
+   注意：9 位模式下 HAL 要求缓冲区按【uint16_t】组织。 */
+void uart9bit_send_to(uint8_t node, uint8_t value)
+{
+    uint16_t addr_frame = (uint16_t)(0x0100 | node);   /* bit8 = 1 → 地址 */
+    uint16_t data_frame = (uint16_t)(value &amp; 0x00FF);  /* bit8 = 0 → 数据 */
+
+    HAL_UART_Transmit(&amp;huart1, (uint8_t *)&amp;addr_frame, 1, 10);
+    HAL_UART_Transmit(&amp;huart1, (uint8_t *)&amp;data_frame, 1, 10);
+}
+
+/* 【当代更常见的做法】在 RS-485 上跑 Modbus RTU：
+   不用 9 位模式，而是靠「帧间 3.5 字符静默」做帧同步，
+   地址就是数据区里的第一个字节。好处是 8 位串口通吃，
+   代价是对定时和中断延迟敏感 —— 用 DMA + 空闲中断收帧最稳：
+       HAL_UARTEx_ReceiveToIdle_DMA(&amp;huart1, buf, sizeof(buf));
+   （F1 的 HAL 版本较老，常用「DMA + IDLE 中断」自己实现，
+     思路完全一样：靠总线空闲来判断一帧结束。） */</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="adc_dma.c：定时器触发 + DMA，把 CPU 占用从 52% 降到 1%（对应例题 6）">
+            <pre><code>#define ADC_BUF_LEN   1024
+uint16_t adc_buf[ADC_BUF_LEN];       /* DMA 直接往这里搬，CPU 不参与 */
+
+/* 链路：TIM2 更新事件 → 触发 ADC → ADC 转换完成 → 触发 DMA → 搬进 adc_buf
+   整条链上 CPU 一次都不出现，这就是第 2 节说的「硬件保证节拍」。 */
+void adc_dma_start(ADC_HandleTypeDef *hadc, DMA_HandleTypeDef *hdma_adc)
+{
+    /* ① DMA：外设 → 内存，循环模式，半字（16 位）对齐 */
+    hdma_adc-&gt;Init.Direction          = DMA_PERIPH_TO_MEMORY;
+    hdma_adc-&gt;Init.PeriphInc          = DMA_PINC_DISABLE;   /* ADC 数据寄存器地址固定 */
+    hdma_adc-&gt;Init.MemInc             = DMA_MINC_ENABLE;    /* 内存地址递增 */
+    hdma_adc-&gt;Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+    hdma_adc-&gt;Init.MemDataAlignment    = DMA_MDATAALIGN_HALFWORD;
+    hdma_adc-&gt;Init.Mode               = DMA_CIRCULAR;       /* 循环：满了自动回卷 */
+    hdma_adc-&gt;Init.Priority           = DMA_PRIORITY_HIGH;  /* 别被别的 DMA 通道抢太久 */
+    HAL_DMA_Init(hdma_adc);
+    __HAL_LINKDMA(hadc, DMA_Handle, *hdma_adc);
+
+    /* ② 启动：半传输和全传输各产生一次中断 → 这就是「乒乓缓冲」 */
+    HAL_ADC_Start_DMA(hadc, (uint32_t *)adc_buf, ADC_BUF_LEN);
+}
+
+/* 半传输回调：前 512 点已经就绪，可以开始算，同时后半在继续填 */
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc)
+{
+    process_samples(&amp;adc_buf[0], ADC_BUF_LEN / 2);
+}
+
+/* 全传输回调：后 512 点就绪 */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+{
+    process_samples(&amp;adc_buf[ADC_BUF_LEN / 2], ADC_BUF_LEN / 2);
+}
+
+/* 【为什么要乒乓（半传输 + 全传输）】
+     如果只在「全传输完成」时处理，从 ADC 填满最后一点到软件处理完，
+     这期间新数据会覆盖缓冲区（或 DMA 被暂停）。
+     半传输中断让「搬」和「算」在时间上重叠：
+         CPU 算前半时，DMA 正在填后半 —— 永不丢点。
+   【什么时候不用 DMA】
+     单次、低速、事件驱动的采集（比如每秒读一次温度）用 DMA 是过度设计，
+     一次 HAL_ADC_PollForConversion 反而更简单、更好调。 */</code></pre>
+          </div>
+        <h3 id="sub-can-485" class="mt-7 text-base font-semibold">板间总线：CAN 的 120 Ω 与星型拓扑、RS-485 的收发切换</h3>
+          <p class="mt-3">UART 和 I²C 是板内的东西，一旦要跨板、跨机柜，主角就换成 CAN 和 RS-485。<b class="font-semibold text-ink">这两个总线「能不能通」几乎完全由接线方式决定，与代码无关</b>——这也是它们报修率最高的原因。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="CAN 的正确拓扑：一条直线加两个终端电阻">
+            <pre><code>【✅ 正确接法】线性主干，节点用短支线挂上去
+
+   ┌─────[120Ω]──────────────────────────────────────────[120Ω]─────┐
+   │                                                                │
+   │   CAN_H ════════════════════════════════════════════════════   │
+   │   CAN_L ════════════════════════════════════════════════════   │
+   │      │              │              │              │            │
+   │      ├─支线≤30cm    ├─支线≤30cm    ├─支线≤30cm    ├─支线≤30cm  │
+   │   ┌──┴──┐        ┌──┴──┐        ┌──┴──┐        ┌──┴──┐         │
+   │   │节点1│        │节点2│        │节点3│        │节点4│         │
+   │   └─────┘        └─────┘        └─────┘        └─────┘         │
+   └────── 双绞线（CAN_H / CAN_L 扭在一起）─────────────────────────┘
+
+   · 终端电阻只在【物理两端】各一个 120Ω —— 中间节点【不要】接
+   · 支线（stub）越短越好：1 Mbit/s 时建议不超过 30 cm 量级，
+     125 kbit/s 时可以放宽到 1~2 m（速率越低，允许的支线越长）
+
+【❌ 错误接法一】星型拓扑（所有节点拉到一个中心点）
+
+            节点1
+              │
+   节点4 ─── 中心 ─── 节点2
+              │
+            节点3
+
+   为什么毁掉 CAN：
+     ① 中心点是一个【阻抗不连续点】：每个支线末端都是开路，
+        反射系数 Γ = +1（见第 2 节），信号在每个支线上来回反弹
+     ② N 条支线并联，等效电容和电感都变大，边沿变缓
+     ③ CAN 的仲裁要在【位级别】比较显性/隐性，
+        波形振铃会让某个节点把显性位读成隐性（或反过来）
+        → 仲裁失败、错误帧、总线被反复重发甚至进入错误被动
+     ④ 现象：短距离、少节点时「能用」，一加节点或一加长线就崩
+        —— 这种「有时好有时坏」最容易被误判成软件问题
+
+【❌ 错误接法二】每个节点都焊一个 120Ω
+
+   4 个节点各一个 120Ω → 并联 = 30Ω
+   → 负载过重，显性位差分电压被拉低，接收器识别不出
+   → 现象：完全不通，或只有离得最近的两个节点能通信
+
+【✅ 现场快速判断法】
+   断电（拔掉所有节点电源），用万用表量 CAN_H 与 CAN_L 之间的电阻：
+       读数 ≈ 60Ω  → 两端各 120Ω 并联，正确 ✅
+       读数 ≈ 120Ω → 只装了一个终端电阻 ❌
+       读数 ≈ 30Ω  → 装了四个（或两端各两个）❌
+       读数 = ∞    → 没装，或线断了 ❌</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么 120 Ω 是「必须」而不是「建议」</div>
+            <p>第 2 节已经给出电气解释：双绞线的特性阻抗约 120 Ω，终端电阻的作用是<b>吸收能量、消除反射</b>。CAN 的特殊之处在于它把这件事写进了规范（ISO 11898-2），而且<b>不收终端电阻会直接破坏「显性位」的建立</b>：CAN 收发器驱动的是差分电流，终端电阻是这股电流的回路负载，没有它，显性位的差分电压升不到约 2 V，接收器判别不出显性位，仲裁和位填充全部失效。所以「CAN 不通，先量 60 Ω」是所有现场工程师的第一反应。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">RS-485 的独有麻烦是「转向」。</b>两线制 RS-485 是半双工，同一对线既要发又要收，收发器内部有两个使能：DE（Driver Enable，打开驱动器）和 RE（Receiver Enable，通常低有效，打开接收器）。它们经常被接到 MCU 的同一个 GPIO 上（一个经反相，或芯片内部已经反相），于是「一个引脚决定方向」。这个引脚切换的时机就是坑（代码见上一节）。</p>
+          <p class="mt-3">RS-485 还有两个容易被忽略的细节：<b>① 终端电阻</b>——线长超过约 100 m 或速率较高时，两端同样需要 120 Ω（理由与 CAN 完全相同）；<b>② 失效安全偏置（fail-safe biasing）</b>——总线空闲时没有任何驱动器工作，A/B 之间的差分电压是 0，而 RS-485 接收器的门限是 ±200 mV，<b>0 V 落在门限之间的不确定区</b>，接收器输出可能是高也可能是低。<b>如果不加偏置，空闲时你会在 RX 引脚上收到随机跳变的噪声，被软件当成一帧帧数据</b>。解决办法是加一组偏置电阻：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="RS-485 失效安全偏置：算一次就知道为什么常用 560Ω">
+            <pre><code>  VCC（5V）
+    │
+   [R_up = 560Ω]                     把 A 线往高拉
+    │
+    ├──────────── A ─────────────┬────────────── A
+    │                            │
+    │                        [R_t = 120Ω]       终端电阻（远端）
+    │                            │
+    ├──────────── B ─────────────┴────────────── B
+    │
+   [R_down = 560Ω]                   把 B 线往低拉
+    │
+   GND
+
+  【直流分析】空闲时没有驱动器，只看偏置网络：
+     串联回路 = R_up + R_t + R_down = 560 + 120 + 560 = 1240Ω
+     回路电流 = 5V / 1240Ω = 4.03 mA
+     差分电压 = 4.03 mA × 120Ω = 484 mV
+
+  对照接收器门限 200 mV：
+     484 mV &gt; 200 mV ✅ 有 2.4 倍余量，空闲时接收器稳定输出确定的电平
+
+  【如果没有这两个偏置电阻】
+     差分电压 = 0 V，落在 ±200 mV 的不确定区里
+     → 接收器输出随机抖动 → 软件把它当成一帧帧垃圾数据
+     → 现象：「没人发数据，但串口一直在收乱码」
+
+  【注意】偏置电阻不能太小（会加重总线负载，
+          一个 485 网络通常只能带 32 个标准节点，
+          偏置也算负载），也不能太大（余量不够）。
+          总线很长时，两端各加一组偏置更稳。</code></pre>
+          </div>
+
+          <h3 id="sub-debug-order" class="mt-7 text-base font-semibold">「通信不通」的系统排查顺序</h3>
+          <p class="mt-3">这一节可能是整篇最值钱的部分。通信故障的排查有个反直觉的规律：<b class="font-semibold text-ink">越早怀疑代码，花的时间越多</b>。因为代码是「逻辑的」，你可以盯着它想很久也想不出问题，而物理层的问题用万用表量一次就有答案。所以正确的顺序是<b class="font-semibold text-ink">从下往上</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="五步排查法：从物理层往协议层走，一层都不许跳">
+            <pre><code>┌──────────────────────────────────────────────────────────────────┐
+│ 第 1 步 · 量电平（万用表，30 秒）                                 │
+│   · 器件有没有供电？VCC 对不对（3.3V 还是 5V，别接反）            │
+│   · SCL / SDA / SCK / MOSI 的静态电平是多少？                     │
+│       I²C 空闲时两线都应该是【高】（由【上拉电阻】拉到 VCC）        │
+│       → 如果是 0V：器件把线拉死了、总线上有器件没上电             │
+│         （未上电的芯片会通过内部 ESD 二极管把线拽到 0V 附近）      │
+│   · UART 的 TX 空闲时应该是【高】（空闲电平 = 逻辑 1）             │
+│       → 如果一直是低：波特率/接线问题，或者对方一直在发 0x00        │
+│   · CAN_H / CAN_L 断电时测电阻 ≈ 60Ω？（见上一小节）              │
+│   · RS-485 的 A/B 空闲差分电压 &gt; 200mV 吗？                      │
+│     → 判据：任何「应该是高」的线上量到低，先修硬件，别看代码        │
+├──────────────────────────────────────────────────────────────────┤
+│ 第 2 步 · 看时钟有没有（示波器 / 逻辑分析仪，2 分钟）              │
+│   · SCK / SCL 上有没有波形？频率是不是你配置的那个？              │
+│   · 波形是不是一直在动（不是只动一下就不动了）？                  │
+│   · 幅度对不对（3.3V 器件被 5V 拉高到 5V？开漏没上拉只有 1V？）    │
+│   → 判据：没有时钟 = 主机根本没发起传输，回到代码查初始化与调用     │
+│            有时钟但幅度/形状不对 = 电气问题，回第 1 步              │
+├──────────────────────────────────────────────────────────────────┤
+│ 第 3 步 · 看时序与模式（逻辑分析仪解码，5 分钟）                  │
+│   · 逻辑分析仪会把波形直接解码成字节 —— 这一步能看到               │
+│     「主机发了什么、从机回了什么」，信息量最大                     │
+│   · SPI：CPOL/CPHA 对不对？数据在位中间还是边沿上被采样？          │
+│     读回来的值总是「差一位」「正好一半」→ 先查 CPHA               │
+│   · UART：波特率对不对？解码出来是乱码 → 波特率差 2 倍或 4 倍？    │
+│     一个字节都解不出 → 起始位/停止位/极性（有的老设备是反相电平）   │
+│   · I²C：地址阶段有没有 ACK？（没 ACK = 没有器件应答这个地址）     │
+│     有 ACK 但数据错 → 时序或器件寄存器地址错                       │
+├──────────────────────────────────────────────────────────────────┤
+│ 第 4 步 · 查共地（万用表，1 分钟，但最容易忘）                    │
+│   · 两块板各自供电时，GND 之间有没有连起来？                      │
+│   · 用万用表【直流档】量两板 GND 之间的电压：                      │
+│       0 V      → 共地良好 ✅                                      │
+│       几十 mV  → 有地环流，低速可能还能通，高速会出错              │
+│       几伏    → 基本不可能正常通信，必须共地或做隔离               │
+│   · 现象特征：【单独测每一块板都正常，一接起来就错】——               │
+│     这几乎一定是地的问题（或者电平不匹配）                        │
+├──────────────────────────────────────────────────────────────────┤
+│ 第 5 步 · 最后才怀疑协议与代码                                    │
+│   · 协议层：命令字对不对？寄存器地址对不对？字节序对不对？         │
+│   · 代码层：初始化是否成功（HAL 的返回值看过吗）？                │
+│     DMA/中断是否使能？超时时间够不够（HAL 默认超时很短）？          │
+│     有没有别的任务在抢同一个外设？                                │
+└──────────────────────────────────────────────────────────────────┘
+
+【工具投入建议】
+   · 一块几十元的 8 通道 24 MHz 逻辑分析仪 + 免费的 PulseView，
+     能把 UART/SPI/I²C/CAN 直接解码成字节 —— 这是本题材
+     【性价比最高的一件工具】，比换任何芯片都有用
+   · 万用表解决第 1、4 步；示波器看上升时间与振铃；
+     逻辑分析仪解决第 2、3 步（它不怕「只发生一次」的故障）</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>现象</th><th>最可能的原因（按概率排序）</th><th>下一步动作</th></tr></thead>
+              <tbody>
+                <tr><td>完全没有波形</td><td>① 时钟/外设没使能 ② 引脚复用没配成 AF ③ 片选/使能引脚没动</td><td>先看代码初始化返回值，再看 SCK 是否有波形；确认 GPIO 模式是复用而不是普通输出</td></tr>
+                <tr><td>波形有，但从机不响应（I²C 无 ACK）</td><td>① 地址错（7 位/8 位左移问题）② 器件没上电或复位脚悬空 ③ 上拉缺失 ④ 器件要求先解锁/写配置</td><td>用逻辑分析仪看地址阶段；换一个已知地址扫描（0x08~0x77）</td></tr>
+                <tr><td>读回来的数据「整体差一位」或恰好一半/两倍</td><td>CPHA/CPOL 配错；或字节序（大端/小端）搞反</td><td>看数据在哪个沿变化，重配 SPI 模式（Mode 0~3）</td></tr>
+                <tr><td>数据随机出错，动一下线就好/坏</td><td>接触不良、上拉缺失或过大、上升时间超标、地环流</td><td>量上升时间；缩短总线；加共地；降速验证（降速就好 = 电气问题）</td></tr>
+                <tr><td>低速正常，一提高速率就错</td><td>上升时间超标（例题 4）、skew、反射（终端电阻）、软件开销</td><td>先按 1/4 速率试：如果降速就好，属电气层；如果降速也不行，属协议/软件层</td></tr>
+                <tr><td>两块板单独都好，接起来就错</td><td>没共地、地电位差、电平不匹配（3.3V 对 5V）、RS-485 没加偏置</td><td>量两板 GND 间电压；量空闲差分电压；考虑隔离</td></tr>
+                <tr><td>跑一段时间才出错（几分钟到几小时）</td><td>温漂、接触氧化、地环流累积、缓冲区溢出、中断被长时间屏蔽</td><td>查溢出标志（ORE/Framing Error）、加大缓冲、用 DMA、检查最长临界区</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一个屡试不爽的技巧：降速验证</div>
+            <p>把波特率/时钟频率降到原来的 1/4 甚至 1/10，再试一次。如果<b>降速后一切正常</b>，问题几乎必然在电气层（上升时间、反射、串扰、地环流、偏置）——因为降速放宽了所有时序余量；如果<b>降速后照样错</b>，问题更可能在协议或代码层（模式配错、地址错、字节序、状态机）。<b>这一次试探能在两分钟内把排查范围砍掉一半</b>，比反复读代码有效得多。</p>
+          </div>
+
+          <h3 id="sub-ground-iso" class="mt-7 text-base font-semibold">共地与隔离：两块板各自供电时到底该怎么办</h3>
+          <p class="mt-3">「共地」这个词经常被当成一句口号，但它的理由非常具体：<b class="font-semibold text-ink">电压是两点之差，没有共同的参考点，「高电平」这个说法就没有意义</b>。MCU 的 TX 输出 3.3 V，是「相对它自己的 GND 高 3.3 V」；对方接收器判断高低，是「相对它自己的 GND」。如果两块板的 GND 之间有 2 V 的电位差，那么发送方眼里的 0 V 在接收方眼里是 −2 V，发送方眼里的 3.3 V 在接收方眼里是 1.3 V——<b>逻辑电平整体平移了 2 V，误码是必然的</b>。</p>
+          <p class="mt-3">那为什么不干脆永远共地？因为共地会带来另一个问题：<b class="font-semibold text-ink">地环流（ground loop）</b>。两个系统各有自己的电源地，用信号线把地连起来之后，两边的地之间就形成了一条回路。这条回路上可能有：电机、继电器、变频器的大电流（几十安培）在地线上产生的压降；市电供电的两个插座之间的地电位差；雷击或静电的瞬态电流。<b>结果就是：你本来以为「地是 0 V」，实际上它上面有几十毫伏到几伏的噪声和跳变，而且这些噪声会直接叠加到信号上</b>。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>方案</th><th>怎么做</th><th>优点</th><th>代价</th><th>适用</th></tr></thead>
+              <tbody>
+                <tr><td><b>直接共地</b></td><td>用一根（或几根）粗线把两板的 GND 连起来，信号线再加地线回流</td><td>最简单、零成本、无延迟</td><td>地环流；地电位差直接进信号；长线时噪声大</td><td>同一电源系统、短距离（一块板上的两个模块、同一机箱内的板子）</td></tr>
+                <tr><td><b>光耦隔离</b></td><td>信号经发光二极管→光敏管传递，两侧电气完全断开；还需要隔离电源（或两侧各自供电）</td><td>抗共模电压能力强（kV 级）、成本低</td><td>速度受限（普通光耦几十 kHz~1 Mbit/s，高速光耦 6N137 约 10 Mbit/s）、功耗大、器件老化导致 CTR 衰减</td><td>低速数字量、PLC 输入输出、继电器控制</td></tr>
+                <tr><td><b>数字隔离器</b></td><td>用变压器/电容耦合的隔离芯片（ADuM1201 双通道、ADuM1250 专为 I²C、ADuM5401 自带隔离电源）</td><td>速度快（几十到上百 Mbit/s）、体积小、寿命长、通道数灵活</td><td>比光耦贵；仍需隔离电源；要注意两侧的电源域</td><td>SPI/I²C/UART/CAN 的隔离、USB 隔离、医疗与工业设备</td></tr>
+                <tr><td><b>差分 + 宽共模</b></td><td>不隔离，改用 RS-485/CAN 这类差分总线，靠收发器的共模范围硬扛</td><td>不需要隔离电源、成本最低、距离最远</td><td>共模范围有限（RS-485 为 −7V~+12V），超了就没辙</td><td>共模电压在范围内的场合（大部分工业现场）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="隔离到底隔的是什么：一张图说清「信号隔、电源也隔」">
+            <pre><code>  【隔离前】两块板各自供电，只连信号线
+
+   ┌──────────────┐                        ┌──────────────┐
+   │  板 A        │      TX ──────────►    │  板 B        │
+   │  电源 A      │      RX ◄──────────    │  电源 B      │
+   │  GND_A ──────┼────────(没连)──────────┼── GND_B      │
+   └──────────────┘                        └──────────────┘
+         电压是相对 GND 定义的，但两个 GND 之间没有确定关系
+              GND_A − GND_B = ？ → 「高电平」失去意义 ❌
+
+  【方式一：共地】把两个地连起来
+
+   ┌──────────────┐                        ┌──────────────┐
+   │  板 A        │      TX ──────────►    │  板 B        │
+   │  GND_A ──────┼════════════════════════┼── GND_B      │
+   └──────────────┘       地线（有噪声）    └──────────────┘
+         参考点统一了 ✅，但地线上任何噪声/压降都会叠加到信号上
+         长线 + 大电流负载 → 地电位差可达几百 mV 到几 V ❌
+
+  【方式二：隔离】信号和电源都断开，信息靠「光」或「磁场」过去
+
+   ┌──────────────┐                        ┌──────────────┐
+   │  板 A        │   ┌──────────────┐     │  板 B        │
+   │  MCU TX ─────┼──►│ 隔离器       │─────┼──► RX        │
+   │              │   │ (光耦 /      │     │              │
+   │  MCU RX ◄────┼───│  数字隔离器) │◄────┼─── TX        │
+   │              │   └──────────────┘     │              │
+   │  GND_A       │   ╳ 隔离栅 ╳           │  GND_B       │
+   └──────────────┘                        └──────────────┘
+       没有电气通路 → 地环流被切断 ✅
+       共模电压差可以到几百伏甚至几千伏，信号照样传 ✅
+
+  【必须同时解决的两件事】
+     ① 信号隔离：用隔离器
+     ② 电源隔离：两侧必须各有【独立的电源】
+         · 如果板 B 没有独立电源，就要加一个【隔离 DC-DC 模块】
+           或选自带隔离电源的芯片（如 ADuM5401 系列）
+         · 【只隔离信号、电源仍然共地，等于没隔离】——
+           这是最常见的隔离设计错误
+
+  【隔离的价值不只是「能通信」】
+     保护昂贵的 MCU：外部设备被雷击/短路时，隔离栅挡住浪涌；
+     医疗设备里保护人身安全；电机驱动板上把高压侧与
+     低压控制侧彻底分开（这是变频器/伺服驱动的标准做法）。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">三个真实的「共地惨案」，看现象就能对号入座</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>USB 供电的调试板 + 外部 24 V 供电的传感器板：</b>两根线一接，电脑 USB 口就开始重启或掉设备。原因是两块板的 GND 通过信号线连起来了，24 V 侧的电机电流从这条细信号地线上回流。<b>正确做法：RS-485/光耦隔离 + 传感器侧独立供电。</b></li>
+              <li><b>两块板单独测试都完美，接起来就死：</b>九成是没共地，或者共地了但有地电位差。万用表量两板 GND 间电压，如果是几伏，别调代码了。<b>如果两个系统必须隔离，就老老实实做隔离；如果共模范围在 ±12 V 以内，用 RS-485 差分最划算。</b></li>
+              <li><b>设备在实验室好用，装到现场就随机复位：</b>现场有大功率设备，地线上有瞬态。这时需要的是「共模扼流圈 + TVS + 隔离」三件套，而不是改波特率。<b>可靠性与实验室「能跑」之间的距离，往往就是这一层保护。</b></li>
+            </ul>
+          </div>
+        <!-- ---------------------------- 5. 常见误解与坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误解与坑</h2>
+          <p class="mt-4">下面十条都是「听起来有道理、实际会翻车」的说法。每一条都给出<b class="font-semibold text-ink">错在哪</b>和<b class="font-semibold text-ink">正确做法</b>，并且尽量指回前面算过的数字——因为纠正一个误解最有效的方式不是「记住结论」，而是「记住反例的数字」。</p>
+
+          <div class="card card-pad mt-4">
+            <p class="font-semibold text-ink">① 「波特率 115200，所以一秒能传 115200 ÷ 8 = 14400 个字节」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>漏掉了帧开销。8N1 每传 8 个数据位，线上实际走 10 个位（起始 + 8 数据 + 停止）。真实吞吐是 <b>11520 B/s</b>，比 14400 少 <b>20%</b>；如果打开校验位（8E1，11 位一帧），进一步降到 <b>10473 B/s</b>（再降 9%）。串口屏刷图、OTA 升级、大量日志输出时，这 20% 就是「为什么比预期慢」的答案。</p>
+            <p class="mt-2"><b>正确做法：</b>估算时先算<b>帧位数</b>再算时间（例题 2 的三步法）。另外别忘了每次调用的软件开销：逐字节调用会让实测吞吐再掉 15~20%，<b>攒够一个缓冲区再发</b>就能拿回来。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">② 「I²C 上拉电阻随便取个 10 kΩ，反正万用表量电平是对的」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>万用表量的是<b>静态</b>电平，看不出<b>动态</b>上升时间。10 kΩ 配 100 pF 的上升时间是 <b>847 ns</b>：100 kHz 只剩 15% 余量，400 kHz 需要 ≤300 ns 完全不可能。波形在地线上看是「圆角面包」，从机在采样点读到的电平还没到门限，于是出现<b>「低速能用、提速就随机出错」</b>这种最折磨人的故障。</p>
+            <p class="mt-2"><b>正确做法：</b>用 <code class="icode">t_r = 0.8473 × R × C</code> 算一遍（例题 4），100 kHz 用 4.7 kΩ、400 kHz 用 2.2~3.3 kΩ；总线长、器件多的时候把电容算进去；示波器看一眼上升沿再定稿。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">③ 「SPI 是单向的，读数据要先发命令，然后再读」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>SPI 有 MOSI 和 MISO 两根方向相反的数据线，<b>它是天然全双工的</b>：主机每移出一个位，同时就移入一个位。所以「读」在物理上必然伴随一次「写」——你发出去的 dummy 字节不是浪费，它就是时钟的来源。</p>
+            <p class="mt-2"><b>正确做法：</b>用 <code class="icode">HAL_SPI_TransmitReceive()</code> 一次完成，别写成「先 Transmit 再 Receive」；并且牢记<b>读回来的第一个字节通常是无意义的（发命令时同步收回的）</b>，真正数据从第二个字节开始——这取决于器件手册，不是 SPI 的规则。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">④ 「I²C 速率由主机决定，我把代码改成 400 kHz 就快了」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>三个东西会把你拽回来：<b>① 从机能力</b>（有些传感器只支持 100 kHz，超了就不响应）；<b>② 电气条件</b>（上拉与电容决定上升时间，见例题 4）；<b>③ 时钟拉伸</b>（慢速从机会把 SCL 拽住，实际速率自动降下来）。一条总线上挂 100 kHz 和 400 kHz 两种器件时，<b>整条总线只能按最慢的跑</b>。</p>
+            <p class="mt-2"><b>正确做法：</b>查每个器件手册支持的最高速率；混速器件用两条总线（或用 TCA9548A 分开）；提速前先按例题 4 重新选上拉电阻；实测时用逻辑分析仪看<b>实际的 SCL 频率</b>，而不是你代码里写的那个。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">⑤ 「CAN 每个节点都焊一个 120 Ω 更保险」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>终端电阻不是「上拉下拉」这类可以随便加的东西，它的作用是<b>与双绞线的特性阻抗匹配（Z<sub>0</sub> ≈ 120 Ω）</b>。多个节点各焊一个，并联值就变成 60 Ω（两个）、40 Ω（三个）、30 Ω（四个），<b>负载过重，显性位的差分电压被拉低到接收器认不出来</b>，表现是整条总线都不通。反过来，一个都不焊则完全没有终端匹配，反射导致仲裁失败。</p>
+            <p class="mt-2"><b>正确做法：</b>只在总线的<b>物理两端</b>各放一个 120 Ω，中间节点不接。现场验证方法：断电后用万用表量 CAN_H 与 CAN_L，读数应约 <b>60 Ω</b>（两个 120 Ω 并联）。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">⑥ 「星型/树型接线无所谓，反正都是并联在同一对线上」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>「电气上并联」只在<b>直流和低频</b>下成立。在高速信号的尺度上，每条分支都是一段开路传输线，末端反射系数 Γ = +1，信号会在分支上来回反弹，形成振铃。CAN 的仲裁要在<b>位级别</b>比较显性/隐性位，振铃会让某个节点把显性读成隐性，导致仲裁失败、错误帧、反复重发。<b>典型症状：短距离少节点时能用，一加节点或加长线就崩</b>——这种「时好时坏」最容易被误判成软件问题。</p>
+            <p class="mt-2"><b>正确做法：</b>CAN/RS-485 走<b>一条主干</b>，节点用尽量短的支线（1 Mbit/s 时不超过 30 cm 量级，125 kbit/s 可以放宽到 1~2 m）接入；需要分支时用集线器/中继器，而不是硬拉星型。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">⑦ 「没做隔离也一直好好的，说明我这个系统不需要隔离」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>实验室里两块板插在同一个插排上、周围没有大功率设备，地电位差可能只有几毫伏——<b>这时候任何方案都能跑</b>。到了现场，变频器、接触器、电焊机在地线上制造瞬态，地电位差轻松到几伏，共模尖峰可能超出 RS-485 的 −7V~+12V 范围，甚至通过信号线把 MCU 打坏。<b>「能跑」和「跑得稳」之间隔着的就是这一层。</b></p>
+            <p class="mt-2"><b>正确做法：</b>先量两板 GND 之间的电压（直流档）来判断地环流的量级；能靠差分总线的共模范围扛住就用 RS-485/CAN（最省成本）；超出范围或涉及高压/人身安全时必须做隔离——<b>而且要信号和电源一起隔，只隔信号等于没隔</b>。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">⑧ 「多主总线不会冲突，硬件会自动处理，软件不用管」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>硬件只保证「不会因为同时说话而损坏」以及「仲裁出赢家」，它<b>不保证系统实时性</b>。CAN 上如果低优先级 ID 的报文又长又频繁，高优先级报文也可能被长时间推迟；总线负载一高（>50%），排队延迟会急剧上升；I²C 多主仲裁输掉的一方必须<b>在应用层重新发起整帧</b>，而这个重试逻辑得你自己写。</p>
+            <p class="mt-2"><b>正确做法：</b>做总线负载预算（例题 7），把平均负载控制在 40%~50% 以内；给 CAN 报文按紧急程度分配 ID（ID 越小优先级越高，紧急信号给最小的 ID）；给周期性报文算好最坏响应时间；I²C 多主要在仲裁丢失后正确重发并检查返回值。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">⑨ 「异步串口的晶振随便挑一个整数就行」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>异步通信没有时钟线，可靠性完全建立在「双方对位时间的认识一致」上。一帧 10 位时，理论容差只有约 ±5.3%，STM32F103 手册（RM0008）给的实际接收容差是 <b>±3.75%（16× 过采样、8 位数据）</b>，而且是<b>两端误差相加</b>后再和它比。用 12 MHz 晶振跑高波特率，误差会迅速吃掉这份余量，表现为「偶尔收到乱码」「跑一会儿出一帧错」。</p>
+            <p class="mt-2"><b>正确做法：</b>选晶振时按波特率反推（这就是 11.0592 MHz 的来历：÷12 后 921.6 kHz 能被 9600/19200 整除，误差为 0）；STM32 这类有时钟树的芯片用 USARTDIV 的分数分频去凑标准波特率；开帧错误（Framing Error）检测，让错误暴露出来而不是悄悄变成乱码。</p>
+          </div>
+
+          <div class="card card-pad mt-3">
+            <p class="font-semibold text-ink">⑩ 「DMA 是高级功能，我这种小项目用不上」</p>
+            <p class="mt-2"><b class="text-brand-600 dark:text-brand-300">错在哪：</b>「小项目」的判断标准不是代码行数，而是<b>数据率和实时性</b>。例题 6 里，263 kSPS 的 ADC 用「每次转换完成中断读一次」要吃掉 <b>52.6% 的 CPU</b>，而且是碎成 26 万段的时间；再叠上一个 115200 的串口（每秒 11520 次中断）和一个 PWM，主循环基本没有连续时间可用。这类系统的天花板不是 MCU 主频，而是「CPU 有多少时间没被用在等数据上」。</p>
+            <p class="mt-2"><b>正确做法：</b>遇到「连续数据流」就考虑 DMA 加乒乓缓冲（半传输 + 全传输中断），CPU 占用能从百分之几十降到 1% 以内；但反过来，<b>每秒几次的事件型采集用 DMA 是过度设计</b>，轮询或中断更简单、更好调。判断依据始终是例题 6 那种算法：<b>事务频率 × 单次耗时 = CPU 占用</b>。</p>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">这十条的共同点</div>
+            <p>回头看，十条里有七条的错误根源是<b>把「静态正确」当成了「动态正确」</b>——万用表量电平对、短距离能通、实验室能跑、单个器件能用。剩下的三条则是<b>把「平均值」当成了「最坏情况」</b>（吞吐、负载、延迟）。所以排错和设计时的两句口头禅值得记住：<b>「动起来还是这样吗？」「最坏的时候是多少？」</b></p>
+          </div>
+        <!-- ---------------------------- 6. 小结与自检 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自检</h2>
+
+          <h3 class="mt-7 text-base font-semibold">这一篇的十二条要点</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>总线的本质是「一组被多方共享的导线 + 一套仲裁规则」。</b>共享是为了省路径（把布线路径数从 O(N²) 降到 O(1)），规则是为了让共享不出乱子。三态门、开漏、寻址、仲裁，全部是为「共享」这两个字服务的。</li>
+            <li><b>并行在片内仍然是主导，但出了芯片就失效。</b>引脚数、串扰、skew、布线层数四重成本一起上涨；串行反超靠的是差分抗干扰、时钟内嵌、线少便宜、可级联这四条，而不仅仅是「线少」。</li>
+            <li><b>同步与异步的可靠性来源完全不同。</b>同步靠时钟线本身（采样时刻由时钟定义，容忍收发双方频率有偏差但不累积）；异步靠双方对位时间的一致认识（所以晶振选择和过采样倍率很关键）。</li>
+            <li><b>「波特率」不是「吞吐」。</b>8N1 每字节线上走 10 位，115200 bps 实际只有 11.52 kB/s，帧开销 20%；再加协议头和逐字节调用的软件开销，效率还要再打折扣。</li>
+            <li><b>所有总线协议的核心问题都是「谁能决定什么时候说话」。</b>单工/半双工/全双工是方向问题，主从/多主是发言权问题；多主必须配仲裁，仲裁必然带来优先级与最坏延迟的设计任务。</li>
+            <li><b>地址、数据、控制是总线的三要素</b>；片选是「用一根线换来免寻址」的简化做法，代价是每个器件吃一个引脚。轮询、中断、DMA 三条传送路径的 CPU 占用依次下降，<b>DMA 是「能跑」到「跑得稳」的分水岭</b>——例题 6 里它是 52.6% 与 1% 的区别。</li>
+            <li><b>电气层不是「底层细节」，它会一票否决逻辑上完美的方案。</b>单端靠电压、差分靠对称；开漏加线与是 I²C 多主仲裁的物理基础；上升时间由 RC 决定，<b>I²C 的硬指标是 400 ns 还是 1478 ns，直接决定 400 kHz 能不能用</b>。</li>
+            <li><b>反射与终端匹配：信号在线上走，线就是传输线。</b>当传输延迟与上升时间可比（t<sub>pd</sub> &gt; t<sub>r</sub>/4）就必须考虑匹配；CAN 两端 120 Ω 不是可选项，它决定了显性位能不能建立起来。</li>
+            <li><b>时序图要按「更新沿 / 采样沿」来读。</b>CPOL 决定空闲电平，CPHA 决定第几个沿采样；<b>CPHA 配错的特征是数据整体错位一位</b>（读数是原值的一半或两倍），这个指纹能让你在十秒内定位问题。</li>
+            <li><b>没有最好的总线，只有为某个约束而生的总线。</b>UART 省线、I²C 省引脚、SPI 求速度、1-Wire 极省线、CAN 抗干扰可多主、RS-485 求远距离、USB 求即插即用与供电。选型从距离开始问，因为距离往往能一票否决。</li>
+            <li><b>「通信不通」按物理层→协议层的顺序排查</b>：量电平 → 看时钟 → 看时序与模式 → 查共地 → 最后才怀疑协议与代码。<b>降速验证</b>是最省时间的一次试探：降速就好是电气问题，降速还错更像协议/代码问题。</li>
+            <li><b>能跑不等于跑得稳。</b>实验室「一直好好的」不代表不需要隔离、不需要余量；把总线负载控制在 40%~70%、给最坏延迟留出预算、把「静态正确」升级成「动态正确」，工程才真正交付。</li>
+          </ul>
+
+          <h3 class="mt-8 text-base font-semibold">自测题（先自己算，再展开答案）</h3>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">1. 1 个 MCU 要接 16 个外围器件。全互联需要多少条链路？星型点对点连接时 MCU 要吃多少引脚（串行 2 线 / 并行 20 线）？为什么说总线的真正优势不只是「省引脚」？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>全互联链路数 = 16 × 15 / 2 = <b>120 条</b>（引脚端点 240 个）。星型点对点：MCU 引脚 = N × L，串行 2 线时 <b>32 个</b>，并行 20 线时 <b>320 个</b>（一个 100 脚封装直接不够）。共享总线时 MCU 只吃 <b>L 个</b>引脚（2 或 20），加第 17 个器件不用加引脚。</p>
+              <p class="mt-2">真正的优势在<b>布线路径数</b>：从 120 条独立路径降到 1 条主干，这是「PCB 能不能画出来」的区别。反过来在 N 很小时，全互联的引脚总数其实比并行总线更省（240 对 320）——所以总线赢的是<b>路径数与可扩展性</b>，不是单纯的引脚数。代价是需要寻址、三态/开漏输出和仲裁规则。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">2. 串口配成 115200、8N1。一帧多少位、多少时间？实际吞吐是多少？为什么不是 115200 ÷ 8？打开校验位（8E1）会掉多少？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>位时间 1/115200 = 8.6806 µs；8N1 一帧 10 位（1 起始 + 8 数据 + 1 停止）= 86.81 µs；吞吐 <b>11520 B/s = 11.52 kB/s</b>。</p>
+              <p class="mt-2">不是 14400 B/s，因为<b>起始位和停止位也要占时间</b>——它们不携带数据但必须传。理论上限（只有 8 个数据位）是 14400 B/s，所以帧开销正好 <b>20%</b>。8E1 一帧 11 位 → 10472.7 B/s = 10.47 kB/s，相对下降 <b>9.09%</b>。再考虑软件开销：逐字节调用 HAL_UART_Transmit 会让实测吞吐掉到理论值的约 81%，攒成 32 字节缓冲发送能回到约 99%。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">3. 用「写寄存器地址 → 重复起始 → 读两字节」的方式读一个 16 位寄存器，一次事务在 I²C 线上要走多少位？100 kHz 与 400 kHz 各需要多少时间？理论最大查询频率是多少？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>位数 = START 1 + 地址 9 + 寄存器地址 9 + 重复 START 1 + 地址 9 + 数据 9 + 数据 9 + STOP 1 = <b>48 位</b>（口诀：每个字节在线上实际走 9 位，多一个 ACK）。</p>
+              <p class="mt-2">100 kHz：480 µs → 理论 <b>2083 次/s</b>；400 kHz：120 µs → 理论 <b>8333 次/s</b>。若器件不需要寄存器指针（直接读两字节）只要 29 位，100 kHz 下 290 µs、400 kHz 下 72.5 µs，省 39.6%。另外别忘了 HAL 阻塞式调用本身有 10~30 µs 开销：在 400 kHz 下这已经占到 25%。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">4. 一条 30 cm 的 I²C 走线挂了 5 个器件，总线电容约多少？用 4.7 kΩ 上拉时上升时间是多少？400 kHz 能用吗？不能用该怎么改？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>电容 ≈ 30 cm × 1 pF/cm + 5 × 10 pF + 20 pF（接插件等）≈ <b>100 pF</b>。</p>
+              <p class="mt-2">上升时间按 I²C 规范的定义（0.3~0.7 V<sub>DD</sub>）：t<sub>r</sub> = 0.8473 × R × C = 0.8473 × 4700 × 100 pF = <b>398 ns</b>。100 kHz 的限值是 1000 ns，通过；400 kHz 的限值是 300 ns，<b>超标 33%，不能用</b>。</p>
+              <p class="mt-2">改进：按 R ≤ t<sub>r</sub>/(0.8473 × C) 反推，400 kHz 配 100 pF 时 R 必须 ≤ 3540 Ω，取 <b>3.3 kΩ</b>（280 ns）或 <b>2.2 kΩ</b>（186 ns）。另外记住 4.7 kΩ 在 400 kHz 下只能承受约 75 pF 电容——<b>规范和现实之间隔着上升时间</b>。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">5. RS-485 电缆上出现 20 V 的共模尖峰。为什么两根线的干扰只要差 1% 就很危险？双绞线在这里起什么作用？还有什么问题是差分解决不了的？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>差分接收器只看两根线的差值，共模部分被相减消掉，但<b>残余 = 共模幅度 × 不对称比例</b>。20 V × 1% = <b>200 mV</b>，正好等于 RS-485 的接收门限，余量 0 dB，必然误码；不对称 0.1% 时残余 20 mV，有 20 dB 余量。另外两线之间的时间偏斜也会贡献误差：边沿 20 V/µs、偏斜 1 ns → 20 mV。最坏情况（0.1% + 1 ns）合计 40 mV，相对 200 mV 仍有 5 倍余量。</p>
+              <p class="mt-2"><b>双绞</b>让两根线不断交换位置，使它们感受到的几何路径基本一致，从而同时压小幅度差与时间差。但差分只能提高<b>精度</b>，解决不了<b>生存</b>问题：RS-485 的共模输入范围是 −7 V~+12 V，20 V 尖峰加在引脚上仍可能打坏芯片，需要屏蔽、TVS、共模扼流圈或隔离。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">6. SPI 10 MHz 读一个 16 位 ADC（转换时间 1 µs，采样间隔 0.4 µs，需要 8 位命令字）。一次完整采样多久？最高采样率多少？为什么用中断方式会吃掉 52.6% 的 CPU？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>含命令字共 24 个时钟 = 2.4 µs；加转换 1.0 µs 和间隔 0.4 µs = <b>3.8 µs</b> → 约 <b>263 kSPS</b>（若不需要命令字则 3.0 µs / 333 kSPS）。数据率约 526~667 kB/s。</p>
+              <p class="mt-2">中断方式下：263,000 次中断/s × 每次约 2 µs（进出中断 + 读 SPI）= 526,000 µs/s = <b>52.6% 的 CPU</b>，而且是碎成 26 万段的时间，主循环没法做任何需要连续时间的运算。改用「定时器触发 ADC + DMA 搬进 1024 点缓冲 + 半传输/全传输中断」，每 3.9 ms 才中断一次，CPU 占用 <b>1%</b>。注意瓶颈其实是 ADC 的 1 µs 转换时间，SPI 带宽只用了 53%。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">7. 一条 I²C 上要挂 8 个传感器（各 50 Hz，每次读 2 字节寄存器）和一块 128×64 单色 OLED（10 fps）。100 kHz 够吗？400 kHz 呢？还要注意什么？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>传感器：8 × 50 × 48 位 = <b>19.2 kbit/s</b>（100 kHz 占总线 19.2%，400 kHz 占 4.8%）。OLED：1024 字节显存 × 9 位 + 约 27 位地址开销 ≈ 9243 位 → 100 kHz 一帧 92.4 ms、400 kHz 23.1 ms；10 fps 时分别占 92.4% 与 23.1%。</p>
+              <p class="mt-2">合计：100 kHz = 19.2% + 92.4% = <b>111.6%，不可能实现</b>；400 kHz = <b>27.9%，可行</b>。注意两点：① 这是平均值，OLED 的一次刷新是<b>连续占用</b> 23 ms，这期间传感器一次都读不到，所以最好分页刷新；② 工程上建议负载控制在 60%~70% 以内。补充数字：轮询 8 个传感器一圈的最坏延迟是 100 kHz 下 3.84 ms、400 kHz 下 0.96 ms。</p>
+            </div>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer font-semibold text-ink">8. CAN 总线通信不正常。为什么第一件事是断电后量 CAN_H 与 CAN_L 之间的电阻？正确的读数是多少？为什么星型拓扑会毁掉 CAN？</summary>
+            <div class="mt-3 text-sm leading-relaxed text-muted">
+              <p>因为 CAN 的两个 120 Ω 终端电阻是并联在 CAN_H/CAN_L 之间的，<b>断电测量就等于直接量这两个电阻的并联值</b>：正确读数约 <b>60 Ω</b>。120 Ω 说明只装了一个终端（另一端缺），30 Ω 说明装多了（四个节点各一个），∞ 说明没装或线断。</p>
+              <p class="mt-2">CAN 收发器靠差分电流驱动，终端电阻是这股电流的负载，<b>没有正确的终端，显性位的差分电压建立不起来</b>，仲裁与位填充全部失效。星型拓扑则让每个分支末端成为开路反射点（Γ = +1），波形振铃使节点把显性位读成隐性位，于是仲裁失败、错误帧、反复重发——典型症状是「短距离少节点能用，一加节点就崩」，很容易被误判成软件问题。</p>
+            </div>
+          </details>
+
+          <h3 class="mt-8 text-base font-semibold">动手练习</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li><b>测一次真实的上升时间，反推总线电容。</b>用示波器看一条 I²C 总线的 SCL 上升沿，量出从 0.3V<sub>DD</sub> 到 0.7V<sub>DD</sub> 的时间，再用 C = t<sub>r</sub> / (0.8473 × R) 反推电容（R 取你板上实际的 上拉值）。<b>然后判断：这条总线能不能跑 400 kHz？如果要把上拉改小，最小能到多少（受 3 mA 灌电流限制）？</b>这道练习把例题 4 变成你手上的数字。</li>
+            <li><b>给一个真实项目做带宽预算。</b>挑你手上任意一个项目：把挂在那条总线上的每个设备、每次事务的位数、每秒次数列成表（回看例题 7 的三步法），算出总线负载。<b>如果超过 60%，给出三个可行的改进方案并比较代价</b>（提速 / 合并读 / 拆总线）。</li>
+            <li><b>用逻辑分析仪抓一次 SPI，亲手制造「错位一位」。</b>正常读一次数据并记录；然后把 CPHA 改反（Mode 0 ↔ Mode 1）再读一次，观察读数与原值的关系；再把 CPOL 改反（Mode 0 ↔ Mode 2）观察是否还能用。<b>亲眼看过一次这个现象，以后就不会再花两小时怀疑自己的数据处理代码。</b></li>
+            <li><b>把逐字节发送改成缓冲区发送，量一下差多少。</b>写两个版本：一个循环里每次 HAL_UART_Transmit 一个字节发 1000 字节，另一个一次发 1000 字节的缓冲；各用同一个定时器计时并把耗时通过串口打印出来。<b>算一下实测吞吐与 11.52 kB/s 的理论值差多少</b>（例题 2 的软件开销部分）。</li>
+            <li><b>给你手上的板子做一次总线体检。</b>① 如果是 CAN：断电量 CAN_H-CAN_L 是不是 60 Ω，两端各有没有 120 Ω；② 如果是 RS-485：量空闲时 A/B 之间的差分电压是否大于 200 mV（不够就加偏置）；③ 如果是 I²C：量空闲电平是否被上拉到 VCC，并用示波器确认上升沿形状。<b>把三个结果记在项目笔记里——这些基线数字在下次「通信不通」时值一小时。</b></li>
+          </ol>
+
+          <h3 class="mt-8 text-base font-semibold">延伸阅读</h3>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>通信之前，信号是怎么被采样与重建的 → <a class="text-brand-600 dark:text-brand-300" href="ee-sampling.html">采样、滤波与数字信号处理入门</a></li>
+            <li>总线上的数据最后存到哪里、存储器怎么组织 → <a class="text-brand-600 dark:text-brand-300" href="ee-memory.html">存储器类型与结构</a></li>
+            <li>回到知识体系总览，看这一层还有哪些前置与后续 → <a class="text-brand-600 dark:text-brand-300" href="../knowledge.html">知识体系</a></li>
+          </ul>
+
+          <div class="callout callout-tip mt-6">
+            <div class="callout-title">写给正在做第一个项目的你</div>
+            <p>总线这一篇的知识密度很高，但真正需要你背下来的只有三件事：<b>「总线是共享的，所以必须有规则」、「波特率不等于吞吐，先数位再算时间」、「排查从物理层往上走，最后才怀疑代码」</b>。剩下的都是可以随时回来查的表和公式。</p>
+            <p class="mt-2">如果你现在正被某个「时好时坏」的通信问题折磨，请直接跳到第 4 节的<b>五步排查法</b>，从量电平开始做一遍——大多数这类问题的答案就藏在前两步里。而如果想彻底理解「为什么差分线能抗干扰」，第 2 节的电气部分和例题 5 值得反复看两遍。</p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="ee-sampling.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">采样、滤波与数字信号处理入门</p>
+          </a>
+          <a href="ee-memory.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：继续深入 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">存储器：从触发器到 Flash</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

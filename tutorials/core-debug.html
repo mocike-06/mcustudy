@@ -1,0 +1,2888 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>调试方法与工具 - McuStudy</title>
+  <meta name="description" content="知识体系第二层收尾：调试这件工作本身怎么做。先分层再二分的缩小可能性方法论、SWD 与 JTAG 的取舍与四线接法（VREF 为什么必须接）、四类断点（硬件/软件/条件/数据观察点）各自只能用在什么场合、单步与调用栈、优化等级对调试的破坏、变量的三种观察方式与实时刷新原理、printf 的三条路（串口/SWO-ITM/RTT）完整对比、日志分级与断言、示波器与逻辑分析仪等硬件工具的使用判据、系统性排查（最小可复现工程、版本回退、对照实验、统计证据），以及看门狗、复位源、备份寄存器、栈水位、CPU 占用率这些专治疑难杂症的手段。">
+  <meta name="keywords" content="调试,SWD,JTAG,ST-Link,J-Link,SWDIO,SWCLK,VREF,connect under reset,硬件断点,FPB,软件断点,BKPT,条件断点,数据观察点,watchpoint,DWT,单步调试,调用栈,优化等级,-O0,-O2,volatile,Live Watch,实时变量,环形缓冲,noinit,printf重定向,SWO,ITM,ITM_SendChar,TPIU,RTT,SEGGER,日志分级,assert_param,ASSERT,错误码,看门狗复位,IWDG,DBGMCU,复位源,RCC_CSR,备份寄存器,CPU占用率,栈水位,最小可复现工程,二分法,逻辑分析仪,示波器,万用表,HardFault">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+<main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">调试方法与工具</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          调试方法与工具
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          前面三十二篇，讲的都是<b class="font-semibold text-ink">「系统怎么正常工作」</b>：CPU 怎么执行指令、中断怎么打断主程序、定时器怎么数出 1 毫秒、DMA 怎么绕过 CPU 搬数据。这一篇反过来，讲<b class="font-semibold text-ink">「系统不正常的时候，你怎么知道是哪里不正常」</b>。
+          <b class="font-semibold text-ink">这是第二层的最后一篇，也是十篇里唯一一篇「手艺」课。</b>它不介绍任何一个新外设，而是给你一整套把故障从「一块板子不听话」收敛到「就是这一行」的工作方法：先分层再二分、每类工具只解决一类问题、偶发故障先量化频率再谈修复。
+        </p>
+
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你会拿到的东西很具体：一张 SWD 接线图（以及不接 VREF 为什么检不到芯片）、四类断点的适用范围与数量上限、printf 的三条替代路径及其时间开销对比、一份能直接抄进工程的环形日志缓冲与断言宏、复位源与备份寄存器的完整实现、CPU 占用率与栈水位的测量代码，以及一张「什么现象该先动哪件工具」的对照表。
+          <b class="font-semibold text-ink">看完它，你应该不再靠「改一改再看看」来解决问题。</b>
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="badge-brand">工程实操</span>
+          <span class="stat-pill">第 <b>33</b> 篇 · 第二层收尾</span>
+          <span class="stat-pill">第 2 层 · 嵌入式核心</span>
+          <span class="stat-pill">教材：刘火良 第 38 章</span>
+          <span class="stat-pill">阅读约 <b>58</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-narrow">调试的本质：缩小可能性</a>
+          <a class="toc-link is-sub" href="#sub-probe">调试器与接口：SWD 为什么赢了 JTAG</a>
+          <a class="toc-link is-sub" href="#sub-breakpoints">断点的四个类别</a>
+          <a class="toc-link is-sub" href="#sub-step">单步、调用栈与优化等级</a>
+          <a class="toc-link is-sub" href="#sub-watch">变量的三种观察方式</a>
+          <a class="toc-link is-sub" href="#sub-printf">从 printf 到 ITM 再到 RTT</a>
+          <a class="toc-link is-sub" href="#sub-log">日志分级、断言与错误码</a>
+          <a class="toc-link is-sub" href="#sub-bench">放下调试器，去拿表笔</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-code-log">黑匣子：环形日志缓冲与内存 dump</a>
+          <a class="toc-link is-sub" href="#sub-code-assert">断言与错误码：能直接抄的三级宏</a>
+          <a class="toc-link is-sub" href="#sub-code-print">串口分级日志与 SWO/ITM 重定向</a>
+          <a class="toc-link is-sub" href="#sub-code-reset">复位源与备份寄存器：复位前留下遗言</a>
+          <a class="toc-link is-sub" href="#sub-code-load">CPU 占用率、栈水位与堆水位</a>
+          <a class="toc-link is-sub" href="#sub-code-wdt">断点导致看门狗复位：复现与解决</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-narrow">调试的本质：缩小可能性</a>
+            <a class="toc-link is-sub" href="#sub-probe">调试器与接口：SWD 为什么赢了 JTAG</a>
+            <a class="toc-link is-sub" href="#sub-breakpoints">断点的四个类别</a>
+            <a class="toc-link is-sub" href="#sub-step">单步、调用栈与优化等级</a>
+            <a class="toc-link is-sub" href="#sub-watch">变量的三种观察方式</a>
+            <a class="toc-link is-sub" href="#sub-printf">从 printf 到 ITM 再到 RTT</a>
+            <a class="toc-link is-sub" href="#sub-log">日志分级、断言与错误码</a>
+            <a class="toc-link is-sub" href="#sub-bench">放下调试器，去拿表笔</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-code-log">黑匣子：环形日志缓冲与内存 dump</a>
+            <a class="toc-link is-sub" href="#sub-code-assert">断言与错误码：能直接抄的三级宏</a>
+            <a class="toc-link is-sub" href="#sub-code-print">串口分级日志与 SWO/ITM 重定向</a>
+            <a class="toc-link is-sub" href="#sub-code-reset">复位源与备份寄存器：复位前留下遗言</a>
+            <a class="toc-link is-sub" href="#sub-code-load">CPU 占用率、栈水位与堆水位</a>
+            <a class="toc-link is-sub" href="#sub-code-wdt">断点导致看门狗复位：复现与解决</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先讲一个真实到有点残酷的场景，它几乎发生在每一个做完毕设的人身上。</p>
+
+          <p class="mt-3">你的板子已经能跑三天了：OLED 显示正常、按键响应正常、串口上报正常。第四天早上你来看，它死了——屏幕停在半路，串口一句不发，按复位又活过来，然后过几个小时再死一次。于是你开始「调试」：先怀疑 OLED 刷屏太慢，把刷新率砍一半；还是死。再怀疑栈不够，把几个大数组改成全局；还是死。又怀疑是中断优先级，把串口的优先级调高；还是死。三天过去，你把七八个地方都改了一遍，故障频率从「一天一次」变成「两天一次」——<b class="font-semibold text-ink">你甚至说不清到底是哪一处改动起了作用，因为你是同时怀疑一切、又同时改了一堆东西。</b></p>
+
+          <p class="mt-3">这不是能力问题，是<b class="font-semibold text-ink">方法问题</b>。上面这段过程里，没有一个动作是「能得出确定结论的实验」：每次改动都同时动了多个变量，每次观察都靠肉眼等，结论只能靠感觉。真正会调试的人做的是完全不同的另一件事：他先问「这个故障大概在哪一层」，再设计一个<b class="font-semibold text-ink">能把一整类原因排除掉的实验</b>，然后才动手。同样的三天，他能把故障钉到某一行。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">三种最贵的「调试」方式</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>凭感觉改代码。</b>不知道原因，但觉得「这里可能有问题」，改完烧进去看看。改对了也不知道为什么对，改错了还多了一个变量。</li>
+              <li><b>到处加 printf，然后肉眼找。</b>日志本身会改变时序（后文 3.5 会算给你看：一条 32 字符的日志在 115200 波特率下要 2.78 ms），于是你既在看现象，又在制造现象。</li>
+              <li><b>把「改完没再出现过」当成修好了。</b>偶发故障的「没再出现」很可能只是概率没到。见 3.4：观测频率每小时 0.125 次时，蹲两小时能碰上的概率只有 22%。</li>
+            </ul>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">这一篇在讲什么：不是某个工具，而是「用工具的顺序」</h3>
+
+          <p class="mt-3">市面上的调试教程大多按工具分章：这一章讲 Keil 的断点怎么设，下一章讲串口怎么打印，再下一章讲示波器怎么用。你照着一路学下来，工具箱是满了，可面对一块死掉的板子时依然不知道先动哪个。<b class="font-semibold text-ink">这篇的组织方式是反过来的：先讲「缩小的顺序」，再讲每种工具只能回答哪一类问题。</b></p>
+
+          <p class="mt-3">因为调试器、串口打印、示波器、逻辑分析仪这四件东西，<b class="font-semibold text-ink">它们的视野完全不重叠</b>：调试器只看得见 CPU 内部的数字世界（寄存器、内存、PC），它对你板子上的 3.3 V 到底是不是 3.3 V 一无所知；示波器看得见引脚上的电压，但不知道你的状态机走到了第几个状态；逻辑分析仪能告诉你 I²C 从机到底应没应答，但它看不见你的变量。用错工具的典型症状是：拿着一把只量电压的表笔，反复读代码。<b class="font-semibold text-ink">这一篇的核心内容之一，就是那条「什么时候该放下调试器去拿表笔」的分界线。</b></p>
+
+          <p class="mt-3">下面是本篇的地图。你不需要记住，只要在卡住的时候回来查这张表——它把「现象」直接映射到「先动哪件工具」。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>你看到的现象</th><th>第一件该动的东西</th><th>为什么不是先上调试器</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>上电完全没反应，板子发烫或电流异常</td>
+                  <td><b>万用表</b>（电压档 + 电流档）</td>
+                  <td>芯片可能压根没跑起来，调试器也连不上；先确认电对不对</td>
+                </tr>
+                <tr>
+                  <td>调试器报「检不到芯片」</td>
+                  <td><b>万用表</b>量 3.3 V，再查 SWD 四线</td>
+                  <td>九成是 VREF 没接、目标没供电或线接错（见 2.2）</td>
+                </tr>
+                <tr>
+                  <td>一上电就跑飞，调试器抓不住</td>
+                  <td>调试器的 <b>Connect under reset</b> + 量 NRST</td>
+                  <td>正常连接要先让芯片跑起来才能连，可它跑飞了</td>
+                </tr>
+                <tr>
+                  <td>程序卡在某个 <code class="icode">while</code> 里等标志位</td>
+                  <td><b>断点</b> + 外设寄存器窗口看状态位</td>
+                  <td>这是调试器的主场：停下内核，直接看标志位到底有没有被硬件置起来</td>
+                </tr>
+                <tr>
+                  <td>I²C 读不到数据 / SPI 全是 0xFF</td>
+                  <td><b>逻辑分析仪</b> + 协议解码</td>
+                  <td>读一百遍代码也不如看一眼波形：有没有上拉、从机有没有应答，波形上一目了然</td>
+                </tr>
+                <tr>
+                  <td>串口偶发乱码、偶尔丢一帧</td>
+                  <td><b>逻辑分析仪</b>量位宽</td>
+                  <td>波特率误差、采样点偏移只能在波形上量出来</td>
+                </tr>
+                <tr>
+                  <td>跑一会儿就重启</td>
+                  <td>读<b>复位源寄存器</b> + 复位计数（见 4.4）</td>
+                  <td>不先弄清「谁把它复位的」，后面所有分析都是猜</td>
+                </tr>
+                <tr>
+                  <td>某个变量莫名其妙被改了</td>
+                  <td><b>数据观察点</b>（watchpoint）</td>
+                  <td>这是「谁改的」唯一的确定性答案（见 2.3 第四类）</td>
+                </tr>
+                <tr>
+                  <td>中断进不来、或进得太频繁</td>
+                  <td><b>计数器</b>全局变量 + 实时变量刷新</td>
+                  <td>先量化「几次」，比在中断里下断点（会改变时序）安全得多</td>
+                </tr>
+                <tr>
+                  <td>功耗比设计值高十倍，电池撑不住</td>
+                  <td><b>电流表</b>（µA 级要专用方案）</td>
+                  <td>调试器只会告诉你 CPU 在睡觉，不会告诉你板子上别的东西在漏电</td>
+                </tr>
+                <tr>
+                  <td>只有开 <code class="icode">-O2</code> 才出错，<code class="icode">-O0</code> 一切正常</td>
+                  <td><b>代码审查 + 逻辑分析仪</b>，别指望调试器</td>
+                  <td>调试器在 <code class="icode">-O0</code> 下会「掩盖」这类问题（见 2.4 与 5.6）</td>
+                </tr>
+                <tr>
+                  <td>加一句日志就好了，删掉又坏</td>
+                  <td><b>GPIO 翻转 + 示波器</b>看真实时序</td>
+                  <td>这是竞态问题的典型指纹，而日志本身就在改变时序（见 4.6 的确认方法）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">这一篇的定位：它是前面九篇的「使用说明书」</h3>
+
+          <p class="mt-3">回头看这一层的前面几篇，你会发现它们各自都埋了一个「调试接口」：中断那一篇讲了怎么数中断次数、怎么看 NVIC 寄存器；定时器那一篇讲了怎么用输出比较在引脚上产生一个精确的脉冲（这就是最轻量的「打印」）；串口那一篇讲了怎么从错误标志位看出 ORE 溢出。温度计一样的寄存器窗口、<code class="icode">__BKPT</code> 内建函数、栈帧的读法——<b class="font-semibold text-ink">这些都是零件，这一篇把它们组装成一套工作流程。</b></p>
+
+          <p class="mt-3">需要说明的是：<b class="font-semibold text-ink">汇编层面「怎么看现场」不在这篇的范围里。</b>怎么从 <code class="icode">.lst</code> 里读出出错的那条指令、HardFault 压栈的那 8 个字（xPSR / PC / LR / R12 / R3~R0）分别是什么、怎么用 naked 函数把栈帧取出来——那是第 25 篇《CPU 架构与指令执行》已经讲透的内容，本篇凡是涉及这一层的地方都会直接指过去，不重复。<b class="font-semibold text-ink">这一篇关心的是：怎么让「需要读现场」这件事本身变得尽量少发生，以及真发生时用什么手段把现场留住。</b></p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">一句话概括本篇要建立的习惯</div>
+            <p>每次动手之前，先能说出这句话：<b>「我这次要排除的是哪一类原因，如果结果是 A 就说明……，如果是 B 就说明……」</b>。说不出来，就先别改代码——先想清楚这个实验能证明什么。</p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节有八个子节，它们的关系是「一条主线 + 七件工具」：<b>2.1 讲方法论（主线）</b>，2.2 到 2.8 讲每类工具各自能回答什么问题、以及它在哪里会骗你。如果你只有十分钟，读 2.1 和 2.3 就够了——那两节是本篇最值钱的部分。</p>
+
+          <h3 id="sub-narrow" class="mt-7 text-base font-semibold">调试的本质：把「哪里可能错」收敛到「就是这一行」</h3>
+
+          <p class="mt-3">先给调试下一个能指导行动的定义：<b class="font-semibold text-ink">调试是一个不断缩小候选集的过程。</b>故障刚出现时，可能出错的地方有几千处——每个函数、每个寄存器配置、每根线、每个电源轨都算一个候选。调试的每一步动作，都应该是一次<b class="font-semibold text-ink">能把候选集显著切小的实验</b>，直到候选集里只剩一个元素，那就是原因。</p>
+
+          <p class="mt-3">这个定义能立刻判掉一大批「看起来在调试」的行为。把 <code class="icode">while(1)</code> 里的某个延时从 10 ms 改成 5 ms、再烧进去看看——这不是实验，因为如果故障消失了，你不知道是因为延时常数、还是因为重新编译、还是因为刚才拔插了一次电源线。<b class="font-semibold text-ink">它没有排除任何东西，只是引入了一个新变量。</b></p>
+
+          <p class="mt-3">判断一个动作是不是好实验，只有一条标准：<b class="font-semibold text-ink">做完之后，我能明确地说出「哪一大类原因被排除了」。</b>比如「我在 ADC 中断入口翻转一个 GPIO，示波器上看到 1 kHz 的方波」——这个实验一次性排除了「定时器没配好」「中断没使能」「NVIC 优先级被屏蔽」三大类原因，候选集直接砍掉三分之一。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">先分层，再二分：一张五层漏斗</h4>
+
+          <p class="mt-3">候选集不能乱切，因为单片机系统是<b class="font-semibold text-ink">分层依赖</b>的：电源不对，时钟必然不对；时钟不对，外设配置再正确也不工作；外设不工作，驱动层的所有逻辑都是空谈。<b class="font-semibold text-ink">下层坏了，上层一定表现异常；所以从上往下查，你永远在查「症状」；从下往上查，每确认一层就能永久排除一层。</b>这就是「先分层」的含义。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="五层排查漏斗：从现象到那一行">
+<pre><code>                     故障现象：「板子跑一会儿就死一次，复位就好」
+                                    │
+    ┌───────────────────────────────┴───────────────────────────────┐
+    │ 第 1 层 · 电源与硬件                                           │ ← 万用表 / 示波器
+    │   3.3V 稳不稳？纹波多大？上电时序对不对？复位脚有没有毛刺？     │   先排除「信号根本没到」
+    │   判据：这一层没量过，后面所有结论都不成立                      │
+    └───────────────────────────────┬───────────────────────────────┘
+                                    ▼
+    ┌───────────────────────────────────────────────────────────────┐
+    │ 第 2 层 · 时钟与复位                                           │ ← 示波器 / RCC 寄存器
+    │   HSE 起振了吗？跑的是 HSI 还是 PLL？总线频率是多少？          │
+    │   上次复位是谁干的？（RCC_CSR 的复位源位）                      │
+    └───────────────────────────────┬───────────────────────────────┘
+                                    ▼
+    ┌───────────────────────────────────────────────────────────────┐
+    │ 第 3 层 · 外设配置                                             │ ← 寄存器窗口 / 逻辑分析仪
+    │   引脚复用对了吗？外设时钟使能了吗？分频与波特率算对了吗？      │
+    │   硬件到底有没有动静？（波形是这一层唯一的裁判）                │
+    └───────────────────────────────┬───────────────────────────────┘
+                                    ▼
+    ┌───────────────────────────────────────────────────────────────┐
+    │ 第 4 层 · 驱动与中断                                           │ ← 断点 / 计数器 / ITM 日志
+    │   中断进没进？进了几次？标志清了没有？DMA 计数走到哪了？        │
+    │   同一个变量有没有两个地方在写？                                │
+    └───────────────────────────────┬───────────────────────────────┘
+                                    ▼
+    ┌───────────────────────────────────────────────────────────────┐
+    │ 第 5 层 · 应用逻辑                                             │ ← 断点 / 变量观察 / 断言
+    │   状态机走到哪个状态？数组越界没有？边界条件处理了吗？          │
+    └───────────────────────────────┬───────────────────────────────┘
+                                    ▼
+                        「就是这一行」——改它，然后验证
+</code></pre>
+          </div>
+
+          <p class="mt-3">漏斗的形状本身也在说明一件事：<b class="font-semibold text-ink">越靠下的层，候选越多、越难查。</b>所以真正省时间的做法是「用最便宜的实验，砍掉最大的嫌疑块」——量一次电压只要三十秒，却能把第一层整个盖棺；而如果你跳过这一步直接在第五层下断点，可能要查两天才发现 3.3 V 在电机启动瞬间掉到 2.6 V。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">「盖棺」这个词值得记住</div>
+            <p>每一层确认正常之后，要在心里（或本子上）明确地说一句「这一层盖棺了，后面不再怀疑它」。这样做的收益是：当故障第二次、第三次出现时，你不会又回到「会不会是电源问题」的循环里去。<b>不做盖棺的人会在同一层反复挖。</b></p>
+          </div>
+
+          <h4 class="mt-5 text-[15px] font-semibold">二分法：把「一个点」变成「一半」</h4>
+
+          <p class="mt-3">分层解决的是「切哪一块」，二分解决的是「切得多快」。最直接的二分是<b class="font-semibold text-ink">注释掉一半功能，看故障还在不在</b>：在则凶手在剩下的那一半里，不在则凶手在被注释掉的那一半里。</p>
+
+          <p class="mt-3">有三种好用的二分变体，全都比「注释代码」更精细：</p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>边界打点。</b>在两个模块的交界处（函数入口、DMA 完成回调、中断入口）翻转一个空闲 GPIO 或给一个全局计数器加一，看这个边界有没有被跨过。一个 GPIO 只有开和关两种状态，却能回答「这里到底执行了没有」这个最根本的问题。</li>
+            <li><b>时间二分。</b>用时间戳（第 4 节的环形日志就是为这个设计的）记录事件序列，把故障发生前最后几个事件按时间排出来。事件序列一旦排出来，凶手通常自己就跳出来了。</li>
+            <li><b>版本二分。</b>如果故障是「某天开始有的」，用版本控制每退一个提交跑一次（提交少就手工看 <code class="icode">git log -p</code>，提交多就让 <code class="icode">git bisect</code> 自动做二分）。这是唯一能保证「只改了一个变量」的二分方式。</li>
+          </ul>
+
+          <h4 class="mt-5 text-[15px] font-semibold">最小可复现工程：剥离的过程本身就是排查</h4>
+
+          <p class="mt-3">偶发故障最大的敌人是「工程太大，谁也说不清哪里有关」。这时候要做的不是接着查，而是<b class="font-semibold text-ink">先把问题从大工程里剥出来</b>：新建一个只包含复现所需最小功能的工程，每次搬过来一块，看故障是否跟着过来。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="最小可复现工程的剥离过程（左边每剥一块，右边跑一次）">
+<pre><code>   原始工程（8000 行，12 个模块）                最小可复现工程（约 120 行，2 个文件）
+   ┌──────────────────────────────┐              ┌───────────────────────────────┐
+   │ main.c          调度 + 业务   │              │ main.c                        │
+   │ bsp_uart.c      3 路串口      │              │   init();        /* 只留必要项 */│
+   │ bsp_spi.c       OLED + Flash  │   ──剥离──►  │   while (1) {                 │
+   │ bsp_adc.c       8 通道采样    │              │       loop_body(); /* 复现点 */│
+   │ pid.c           控制算法      │              │   }                           │
+   │ modbus.c        从机协议      │              └───────────────────────────────┘
+   │ app_fsm.c       状态机        │
+   │ rtos 任务 × 6                │              每剥掉一块，立刻重跑一次，只问一个问题：
+   └──────────────────────────────┘              ① 还复现 → 这块与故障无关，继续剥下一块
+                                                 ② 不复现 → 凶手就在刚剥掉的那一块里
+                                                 ③ 剥到不能再剥时，原因通常已经很明显了
+</code></pre>
+          </div>
+
+          <p class="mt-3">为什么说「剥的过程本身就是排查」？因为剥离强迫你回答一连串平时从不问的问题：这段初始化到底是必要的吗？这个中断是谁使能的？这个全局变量究竟被谁写？<b class="font-semibold text-ink">很多人剥到一半就找到了原因——不是因为剥掉了什么，而是因为第一次真正看清了依赖关系。</b>另外，最小工程还有一个附带价值：它能拿去论坛提问，也能作为回归测试留在仓库里。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">版本回退、对照实验与统计证据</h4>
+
+          <p class="mt-3"><b>「昨天还好好的」这句话必须被拆成三个问题：</b>代码变了吗、环境变了吗、硬件动过吗。凭记忆回答这三问的准确率很低，正确做法是拿证据：<code class="icode">git diff</code> 与 <code class="icode">git status</code> 看代码；看工具链版本与优化等级有没有被动过（有时候是 IDE 自动升级了编译器，或你不小心把构建配置从 Debug 切到 Release）；想一想板子是不是被换了供电方式、换了杜邦线、插拔过模块。<b class="font-semibold text-ink">经验上，「昨天还好好的」里相当一部分根本不是代码问题，而是供电、接线或编译配置变了。</b></p>
+
+          <p class="mt-3"><b>对照实验的原则是一次只动一个变量。</b>手上最好有两块板：如果 A 板和 B 板都能复现，说明是共性设计问题（软件或原理图）；只有 A 板能复现，就先怀疑焊接、器件个体、接线——把 A 板的问题件换到 B 板上，看故障会不会「跟着元件走」。这就是「换一块板/换一个电源」的价值：它能一刀切开「设计错」和「这一块坏」。</p>
+
+          <p class="mt-3"><b>统计证据是偶发故障的前提。</b>「跑了一晚上死了一次」和「每十分钟死一次」是两个完全不同量级的故障，排查策略也完全不同：前者需要的是「留住现场」（第 4 节的环形日志、复位源记录），后者需要的是「复现并观察」。所以在动手之前，先花半小时把频率量出来：让固件自己记录<b class="font-semibold text-ink">开机时长、复位次数、复位源</b>，跑上十几个小时，算出「每小时多少次」。这个数字后面还有两个用途：设计复现实验的时长（3.4 会算），以及验证修复效果（同样的公式反过来用）。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">「感觉变少了」不是证据</div>
+            <p>偶发故障的频率本来就带随机性：真实概率每小时 0.5 次，你观测三小时也可能一次都不出现。所以在没有量化频率之前，「改完以后一晚上没死」这个观察的信息量几乎为零。<b>先量化，再修复，再量化</b>——这三步缺一步，你都只是在赌。</p>
+          </div>
+
+          <h4 class="mt-5 text-[15px] font-semibold">把每一次实验写下来</h4>
+
+          <p class="mt-3">最后给一个看起来最笨、实际收益最高的习惯：<b class="font-semibold text-ink">开一个调试日志本</b>（纸本或纯文本文件都行），每次实验写四行：假设是什么、改了什么、观察到什么、结论是什么。原因是人的记忆会自动「修补」因果：三天后你会确信「当时是改了栈大小才好一点的」，而本子上写着那次改动其实没有任何效果。<b class="font-semibold text-ink">调试的敌人不是难题，是「你以为你已经排除过了」。</b></p>
+
+          <h3 id="sub-probe" class="mt-7 text-base font-semibold">调试器与接口：SWD 为什么赢了 JTAG</h3>
+
+          <p class="mt-3">先把一个概念摆正：<b class="font-semibold text-ink">调试器不是一段运行在单片机里的软件，而是另一台小计算机加一条旁路总线。</b>ST-Link、J-Link、DAPLink 这些盒子里有自己的处理器和固件，它通过 SWD 接口接到芯片内部的 <b>AHB-AP</b>（总线访问端口）上，从而能<b class="font-semibold text-ink">绕过 CPU 直接读写内存和外设寄存器</b>。这个事实能解释很多现象：</p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>为什么 CPU 都跑飞了、甚至停在 HardFault 里，调试器还能读出内存？因为它不需要 CPU 配合。</li>
+            <li>为什么 CPU 停住（halt）时你还能看变量、改寄存器？因为访问是另一条通路。</li>
+            <li>为什么芯片没供电、时钟没起来时，调试器什么也读不到、还报「检不到芯片」？因为这条通路本身也要靠目标供电与调试时钟。</li>
+          </ul>
+
+          <p class="mt-3">明白了这一点，「检不到芯片」这类问题就有了明确的排查方向：<b class="font-semibold text-ink">先查这条旁路通道的物理条件（供电、参考电压、接线），再查软件（引脚被复用、低功耗把调试关了、复位循环）。</b></p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">JTAG 与 SWD：从五线到两线</h4>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>JTAG</th><th>SWD</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>信号线</td>
+                  <td>TCK、TMS、TDI、TDO、nTRST（5 根）+ GND + VREF</td>
+                  <td>SWCLK、SWDIO（2 根）+ GND + VREF，可选 NRST</td>
+                </tr>
+                <tr>
+                  <td>协议</td>
+                  <td>16 状态的 TAP 状态机，每步都要在时钟沿上移进移出</td>
+                  <td>半双工双向的包协议：一个请求包 + 一个应答包，空闲时线保持高</td>
+                </tr>
+                <tr>
+                  <td>引脚占用</td>
+                  <td>PA13/PA14/PA15/PB3/PB4 全部占掉</td>
+                  <td>只占 PA13（SWDIO）与 PA14（SWCLK），PB3 可留给 SWO 追踪，PA15/PB4 可还给用户</td>
+                </tr>
+                <tr>
+                  <td>常见速率</td>
+                  <td>通常几 MHz，受状态机与线长限制</td>
+                  <td>教学常用 1~2 MHz；短线可到 4~10 MHz，高端调试器支持更高</td>
+                </tr>
+                <tr>
+                  <td>多器件</td>
+                  <td>支持菊花链，一条链上串多个芯片（板级测试常用）</td>
+                  <td>一对一（多点 SWD 是厂家扩展，不通用）</td>
+                </tr>
+                <tr>
+                  <td>独有能力</td>
+                  <td>边界扫描（测焊接与连线）、4 位并行 ETM 指令追踪</td>
+                  <td>SWO 单引脚追踪（够用且省线）</td>
+                </tr>
+                <tr>
+                  <td>今天的默认选择</td>
+                  <td>只在「多芯片菊花链、板级边界扫描、需要 ETM」时还用它</td>
+                  <td><b>默认就是它</b>：线少、快、够用，几乎所有 Cortex-M 开发板都只引 SWD</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">SWD 赢在「够用 + 省引脚」这两件事上。它少占三根线，对一个 48 脚的芯片来说等于多出三个可用 IO；而 JTAG 换来的能力（边界扫描、ETM）在学生的日常开发里几乎用不到。所以你在 CubeMX 或参考手册里看到的默认配置永远是 SWD。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">四线必须接什么：VREF 为什么不能省</h4>
+
+          <div class="code-block mt-3" data-lang="text" data-title="SWD 接线图：四根必接 + 两根建议">
+<pre><code>      调试器（ST-Link / J-Link / DAPLink）              目标板（以 STM32F103 为例）
+      ┌────────────────────────────────────┐         ┌──────────────────────────────┐
+      │                                    │         │                              │
+      │  VTref / VREF  ●───────────────────┼─────────┼──● 3.3V        ← 必接！       │
+      │  SWDIO         ●───────────────────┼─────────┼──● PA13 (SWDIO)  ← 必接       │
+      │  SWCLK         ●───────────────────┼─────────┼──● PA14 (SWCLK)  ← 必接       │
+      │  GND           ●───────────────────┼─────────┼──● GND           ← 必接（共地）│
+      │                                    │         │                              │
+      │  NRST          ●───────────────────┼─────────┼──● NRST   ← 建议接（可复位）  │
+      │  SWO / TDO     ●───────────────────┼─────────┼──● PB3    ← 可选（ITM 打印）  │
+      └────────────────────────────────────┘         └──────────────────────────────┘
+                  ▲                                                    ▲
+                  │                                                    │
+        内部有电平转换器，参考电压就是 VTref              芯片的调试口默认就是 SWD 功能
+        它决定 SWDIO/SWCLK 的高电平和判决阈值             （复位期间也保持，这点很关键）
+</code></pre>
+          </div>
+
+          <p class="mt-3">四根必接线的作用分别是：<b>SWDIO</b> 是双向数据线（空闲时上拉为高），<b>SWCLK</b> 是调试器提供的时钟（注意：<b class="font-semibold text-ink">SWD 的时钟完全由调试器产生，与芯片的主时钟无关</b>，所以哪怕芯片的 HSE 没起振，只要供电正常、内核时钟有（HSI 也能顶），SWD 通信就能建立），<b>GND</b> 提供共地回路（长线或高噪声环境建议多接一根 GND，降低回流阻抗），<b>VREF（也称 VTref）</b>是目标板的参考电压。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">VREF 这根线不传数据，但它是「检不到芯片」这个故障的头号原因。</b>它在做两件事：</p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>当作「目标是否上电」的探测器。</b>调试器固件会先量 VTref 上的电压，如果低于门限，它就直接判定「目标未供电」，连尝试都不尝试，于是报 <code class="icode">No target connected</code> 或 <code class="icode">Cannot connect to target</code>。你这边看到的现象是：板子明明亮着灯、程序跑得好好的，调试器却说找不到芯片。</li>
+            <li><b>当作电平转换的参考。</b>调试器内部对 SWDIO/SWCLK 有电平转换电路，它需要知道目标的高电平是 1.8 V、3.3 V 还是 5 V，才能把输出摆幅和输入判决阈值调对。参考电压接错（比如接的是 5 V 而目标是 3.3 V 芯片），可能长期灌电流；完全不接，则输出要么过高要么过低，通信时好时坏。</li>
+          </ul>
+
+          <p class="mt-3">反过来也要注意一个常见误区：<b class="font-semibold text-ink">不要把 VREF 当成「调试器给目标板供电的电源」。</b>它本质是检测/参考脚，能提供的电流通常只有几十毫安量级，带不动带屏幕、带无线模块的板子。用调试器给目标供电（供电不足）会导致一类特别隐蔽的故障：调试器一接上，板子就复位或行为异常，因为供电被拉低了。</p>
+
+          <p class="mt-3">还有两个工程细节：<b>线长与上拉</b>。SWD 不是差分总线，长杜邦线（超过 15~20 cm）配合高速率会出现「读内存偶尔校验失败」的现象——表现为 Watch 窗口里的值偶尔乱跳、断点命中有时候不灵。F103 内部对 PA13/PA14 有弱上拉，但线一长就不够，可以在板上各加一个 10 kΩ 上拉到 3.3 V。<b class="font-semibold text-ink">怀疑接线质量时，第一招是把 SWCLK 降下来</b>（从 4 MHz 降到 1 MHz 再试），这招几乎零成本且立刻能验证。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">Connect under reset：芯片一上电就跑飞时怎么抓住它</h4>
+
+          <p class="mt-3">正常情况下，调试器是这样连接的：给目标供电 → 芯片从 Flash 跑起来 → 调试器通过 SWD 与内核握手（<code class="icode">attach</code>）。问题出在中间那一步——<b class="font-semibold text-ink">如果芯片跑起来的程序立刻把 PA13/PA14 配成了普通 GPIO，或者一上电就进了低功耗模式、或者陷入看门狗复位循环，那么调试器永远等不到一个「安静的、还保留着 SWD 功能的内核」。</b>你看到的现象是：调试器报连接失败，或连上又立刻掉线。</p>
+
+          <p class="mt-3">解法是把时序倒过来：<b class="font-semibold text-ink">在复位还没释放的时候先连上内核，再让程序跑。</b>这就叫 Connect under reset（复位期间连接）。它需要把调试器的 NRST 线接到板子的复位脚上，并在 IDE 里把连接方式改成 under Reset。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="Connect under reset 的时序：先连上，再放手">
+<pre><code>   NRST  ────┐                                          ┌────────────────────
+             └──────────────────────────────────────────┘
+             ▲                                          ▲
+             │ 调试器拉开复位脚（保持低电平）           │ 调试器释放复位 → 你的程序开始跑
+
+   调试器     │◄──── 在这段时间里完成握手与内核识别 ────►│
+             此时内核停在复位状态，PA13/PA14 还是 SWD 功能，
+             任何用户代码都还没来得及改引脚
+
+   用户程序   ■■■■■■■■■■■■■■■ 不存在（内核未运行）■■■■■■■■■■■│▓▓▓▓ 开始执行你的 main
+
+   实测要点：这段「复位保持」时间通常只有几十毫秒，
+             所以 under reset 必须是调试器主动控制的，
+             手动按着复位键再点下载是来不及的（而手动按住只在部分工具上有效）
+</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>连接方式</th><th>调试器怎么做</th><th>什么时候用它</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>Normal（普通）</b></td>
+                  <td>目标自由运行，调试器直接 attach，然后按需复位</td>
+                  <td>程序正常、只想下断点调试的日常情况</td>
+                </tr>
+                <tr>
+                  <td><b>Connect under reset</b></td>
+                  <td>先把 NRST 拉低，在复位保持期间 attach，再释放复位</td>
+                  <td>一上电就跑飞、引脚被复用成 GPIO、看门狗复位循环、程序把 SWD 关了</td>
+                </tr>
+                <tr>
+                  <td><b>Attach（附加）</b></td>
+                  <td>不复位、不下载，直接连上正在运行的程序</td>
+                  <td>想观察一个已经跑起来的系统（复位会破坏现场），例如抓偶发故障</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">如果板子上没把 NRST 引出来（有些最小系统板确实只引了 SWD 四针），还有一条后路：<b class="font-semibold text-ink">把 BOOT0 拉高再上电，让芯片从系统存储器里的出厂 Bootloader 启动</b>。此时用户程序根本不会运行，引脚保持默认状态，调试器能稳稳连上，然后用 IDE 的「擦除芯片」功能把 Flash 清掉，再把 BOOT0 放回去。<b>这一招建议现在就记在实验本上——它是「芯片被自己写的程序锁死」时的通用解药。</b></p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">低功耗模式会顺手关掉调试口</div>
+            <p>进入 Stop / Standby 模式后，调试口的时钟可能被停掉，调试器随之掉线。STM32 的做法是在 <code class="icode">DBGMCU_CR</code> 里把 <code class="icode">DBG_SLEEP</code> / <code class="icode">DBG_STOP</code> / <code class="icode">DBG_STANDBY</code> 置位，让内核在这些模式下仍然保持调试连接（代价是功耗会比真实情况高，<b>所以「调试时的低功耗数字」不能当作产品指标</b>）。另外，调试器连着的状态下量出来的电流本身就偏高，测功耗一定要拔掉调试器。</p>
+          </div>
+
+          <h3 id="sub-breakpoints" class="mt-7 text-base font-semibold">断点的四个类别：它们根本不是同一种东西</h3>
+
+          <p class="mt-3">大多数人以为「断点」就是「让程序停在我想要的地方」，四种断点随便用。事实上它们是四套完全不同的机制，<b class="font-semibold text-ink">有各自的数量上限、各自的代价、各自唯一适用的场景</b>。搞混的直接后果是：下了八个断点只有五个生效、条件断点一开系统就瘫痪、想抓「谁改了这个变量」时怎么都抓不到。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="四类断点的机制示意（对照着看差别在哪里）">
+<pre><code>① 硬件断点：比地址，不改任何字节
+   ┌──────────────┐     每个周期把 CPU 取指地址送进比较器
+   │  FPB 单元    │     0x08001234  ==  COMP0 ?  ──► 命中，产生调试事件
+   │ COMP0..COMP5 │     命中开销：0 条额外指令（硬件并行比较）
+   └──────────────┘     上限：M3/M4 一般 6 个（M0/M0+ 一般 4 个）
+   Flash: 0x08001234   0xBF00 NOP   ← 内存里一个字节都没动
+
+② 软件断点：改指令，把目标指令换成 BKPT
+   改写前  0x20001234:  0x2001   (MOVS R0,#1)
+   改写后  0x20001234:  0xBE00   (BKPT 0)   ← 真的把这条指令换掉了
+   RAM 里：一次内存写即可（不限数量，但会破坏时序）
+   Flash 里：要靠调试器在线擦写那一页，或靠 FPB 把该地址重映射到含 BKPT 的补丁区
+
+③ 条件断点：慢在「每次命中都要停下来问一遍」
+   PC 命中 ──► halt 内核 ──► 通过 SWD 读变量 ──► 主机算条件 ──► 条件成立？
+                                                          ├─ 是 → 保持停止
+                                                          └─ 否 → 恢复运行，等下次命中
+   代价 ≈ 一次 halt + 一次后台内存读 + 一次 resume（几十 µs 到几 ms）
+
+④ 数据观察点（watchpoint）：监视「数据地址 + 读/写」，抓凶手专用
+   DWT_COMP0 = &amp;g_state;   DWT_FUNCTION0 = 监视「写」
+   谁写了 g_state？ ──► 命中后停在写它的那条指令上，调用栈直接告诉你凶手是谁
+   上限：M3/M4 一般 4 个数据比较器（M0/M0+ 一般 2 个）
+   前提：这个变量必须真的有一个内存地址（不能被优化进寄存器）
+</code></pre>
+          </div>
+
+          <p class="mt-3">把四者的差别汇总成一张表，这张表建议直接抄进实验本：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>类别</th><th>依赖什么硬件</th><th>数量上限</th><th>命中开销</th><th>能不能用在 Flash 里</th><th>典型用途</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>硬件断点</b></td>
+                  <td>FPB 单元（地址比较器）</td>
+                  <td>M3/M4 约 6 个，M0/M0+ 约 4 个</td>
+                  <td>几乎为零（不改代码）</td>
+                  <td>能，而且这是首选方式</td>
+                  <td>日常单步调试；中断与时序敏感代码</td>
+                </tr>
+                <tr>
+                  <td><b>软件断点</b></td>
+                  <td>可写内存 + 调试器改写能力</td>
+                  <td>不受比较器限制（受内存页限制）</td>
+                  <td>小（一条 BKPT 指令）</td>
+                  <td>勉强能（要在线擦写或 FPB 重映射，慢且有磨损）</td>
+                  <td>RAM 里运行的代码；需要大量断点的开发期</td>
+                </tr>
+                <tr>
+                  <td><b>条件断点</b></td>
+                  <td>上面两者之一 + 主机端表达式求值</td>
+                  <td>占用一个普通断点的名额</td>
+                  <td><b>很大</b>：每次命中都要 halt + 读 + 判断</td>
+                  <td>能，但高频位置会让你误以为系统死了</td>
+                  <td>低频事件（每秒几次以下）的精确筛选</td>
+                </tr>
+                <tr>
+                  <td><b>数据观察点</b></td>
+                  <td>DWT 单元（数据地址比较器）</td>
+                  <td>M3/M4 约 4 个，M0/M0+ 约 2 个</td>
+                  <td>几乎为零</td>
+                  <td>与代码位置无关（它盯数据）</td>
+                  <td>「谁改了这个变量」的唯一确定性答案</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4 class="mt-5 text-[15px] font-semibold">硬件断点：为什么只有六个</h4>
+
+          <p class="mt-3">硬件断点靠的是 Cortex-M 内核里的 <b>FPB（Flash Patch and Breakpoint）单元</b>。它内部有一组地址比较器，每个周期把 CPU 正在取指的地址与比较器里存的值并行比较，相等就产生一个调试事件、让内核停下。整个过程<b class="font-semibold text-ink">不修改任何指令字节，也不插入任何额外指令</b>——所以它的命中开销接近于零，这也是它在中断和时序敏感代码里唯一可用的原因。</p>
+
+          <p class="mt-3">至于「为什么只有六个」：每个比较器都是一块独立的并行硬件（还得支持地址掩码、范围匹配、以及 Flash 补丁功能），要占硅片面积、要耗静态功耗，而调试功能对芯片厂来说是纯粹的「非功能性需求」——用户不会因为多两个断点而多买你的芯片。<b class="font-semibold text-ink">ARM 定义了上限（M3/M4 是 6 个指令比较器 + 4 个数据比较器，M0/M0+ 是 4 + 2），芯片厂可以少做、不能多做。</b>所以确切数字要以你手上那颗芯片的参考手册为准；当你看到 IDE 提示 <code class="icode">too many breakpoints</code>，或者更糟——第八个断点静默地不生效——就是撞到这个上限了。</p>
+
+          <p class="mt-3">什么时候<b>只能</b>用硬件断点？① 目标代码在 Flash 里，而你不能接受调试器去擦写它（绝大多数生产调试场景）；② 断点要落在中断服务函数或时序敏感的通信代码里（软件断点的改写与更高开销都不可接受）；③ 你在做「带调试口但不改代码」的现场分析。第 3.1 节会算一个「六个别够不够用」的真实账。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">软件断点：为什么在 Flash 里也能用，又为什么会破坏时序</h4>
+
+          <p class="mt-3">软件断点的原理简单粗暴：把目标地址上的那条指令<b class="font-semibold text-ink">换成一条 <code class="icode">BKPT</code> 指令</b>（Thumb 编码是 <code class="icode">0xBE00</code>），CPU 执行到它就会进入调试异常，于是停下来。恢复运行时，调试器再把原来的指令写回去。</p>
+
+          <p class="mt-3">在 RAM 里这只是一次普通的内存写，毫无难度。麻烦的是 Flash：Flash 不能像 RAM 那样按字节改写，要改就得擦一整页、再写回去。<b class="font-semibold text-ink">「Flash 里也能下软件断点」是调试器与内核协力做到的</b>，常见两条路径：</p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>调试器在线擦写（J-Link 的 flash breakpoint 就是这么干的）。</b>代价是一次页擦写要几十毫秒，断点越多越慢，而且反复擦写会消耗 Flash 寿命。你会发现「在 Flash 里下了十几个软件断点之后，程序运行速度明显变慢」——那不是错觉。</li>
+            <li><b>用 FPB 的补丁能力重映射。</b>Cortex-M3/M4 的 FPB 本来就是给 Flash 打补丁用的：它可以让某个 Flash 地址的取指被重定向到一块（通常位于 RAM 的）补丁区，而补丁区里放的正是我们想要的 <code class="icode">BKPT</code>。这条路径不需要写 Flash，但会占用硬件比较器名额——也就是说「看起来无限的软件断点」实际上还是借了硬件的额度。</li>
+          </ul>
+
+          <p class="mt-3">「破坏时序」有两层含义，第二层经常被忽略：<b>第一层是所有断点共有的</b>——内核停住了，可你的外设、看门狗、通信对端都还在动，所以停下来本身就改变了系统的时间关系（2.7 与 4.6 讲的「断点导致看门狗复位」「加日志就好了」都是这个原因）。<b>第二层是软件断点独有的</b>——它真的修改了内存里的指令字节。如果这段代码同时还会被别的东西读取（DMA 从同一块 RAM 搬数据、CRC 自校验、双核共享代码区），那么它们看到的字节和你以为的不一样，可能出现校验失败、或执行到一半发现自己被改了。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">条件断点：为什么它其实很慢</h4>
+
+          <p class="mt-3">条件断点看起来很美好：「我只想在 <code class="icode">i == 137</code> 的时候停下来」。但它的实现决定了它的代价：<b class="font-semibold text-ink">调试器没有办法让芯片自己判断条件</b>（除非你把它写进代码）。它只能：命中 → 停下内核 → 通过 SWD 读回变量 → 在主机上求值 → 不满足就恢复运行 → 等下一次命中。整个过程是一次完整的 halt + 后台读 + resume 往返，耗时从几十微秒到几毫秒不等（取决于调试器、SWCLK 速率、以及要读多少内存）。</p>
+
+          <p class="mt-3">把条件断点放在一个 10 kHz 的中断里，等于每秒要做一万次这样的往返：按每次 100 µs 保守估计，就是 10000 × 100 µs = 1 s 的调试开销，堆在 1 s 的墙钟时间里——<b class="font-semibold text-ink">CPU 的每一纳秒都在为调试服务，系统等于停摆。</b>你会看到的现象是：程序慢得像死机、通信全部超时、看门狗复位。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">把条件写进代码：最快的一招</div>
+            <p>正确做法是让 CPU 自己判断，只在真命中时才触发一次「廉价的硬件断点」。CMSIS 提供了内建函数 <code class="icode">__BKPT(0)</code>，你可以这样写：</p>
+            <p class="mt-2"><code class="icode">if (cond) { __BKPT(0); }</code></p>
+            <p class="mt-2">条件满足才执行 BKPT，命中时停止；条件不满足时只是一次普通的比较与跳转，开销只有几个时钟周期。这比调试器的条件断点快上几个数量级，代价只是几字节代码空间。<b>唯一要记住的是：没有调试器连接时，<code class="icode">BKPT</code> 会升级为 HardFault</b>——所以在发布固件里要么删掉，要么用 <code class="icode">#if</code> 包起来。</p>
+          </div>
+
+          <p class="mt-3">那什么时候条件断点才值得用？<b>事件频率低、条件复杂</b>的时候：比如「每 5 分钟才进一次的校准流程里，只有温度偏差大于 3 度才停」、「指针链 <code class="icode">p-&gt;next-&gt;state == 5</code> 时才停」。这类条件用代码写会很啰嗦，而事件频率低到每小时几次，调试器往返的开销完全可以忽略。判断公式很简单：<b class="font-semibold text-ink">命中频率 × 单次往返时间 &lt; 系统可接受的额外开销（经验上取 1% 以下）</b>。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">数据观察点：抓「谁改了这个变量」的唯一答案</h4>
+
+          <p class="mt-3">有一类 bug 特别折磨人：某个全局变量明明只在两三个地方赋值，可实际运行中它变成了一个不该出现的值。传统的办法是在每个赋值点都下断点，然后一次次运行碰运气。<b class="font-semibold text-ink">数据观察点（watchpoint）把这个问题从「猜」变成「确定」</b>：你把变量地址交给内核的 DWT 单元，让硬件替你盯着所有对该地址的写（或读）访问，谁写谁就被抓个正着。</p>
+
+          <p class="mt-3">它的工作方式与指令断点完全不同：硬件比较的不是「取指地址」而是<b class="font-semibold text-ink">总线上出现的数据地址</b>，并且可以区分读、写、读写。所以它不需要知道你代码在哪里，也不需要改任何指令，甚至能抓到「DMA 写的」「另一个中断写的」「数组越界踩过来的」这类你根本没在代码里搜到的访问。<b>命中后停下，看一眼调用栈，凶手就写在屏幕上。</b></p>
+
+          <p class="mt-3">用它的三个前提条件必须背下来：</p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>变量必须真的有一个内存地址。</b>局部变量在 <code class="icode">-O2</code> 下很可能被放进寄存器甚至完全消失，那样你连地址都没有，观察点根本设不下去。要长期观察一个变量，把它提成全局或静态变量。</li>
+            <li><b>最好加 <code class="icode">volatile</code>。</b>这保证每次访问都真的产生一次内存访问（不被缓存到寄存器里、不被删除、顺序不被打乱），否则会出现「变量确实被改了，但观察点一次都没命中」的怪事。</li>
+            <li><b>给它加 <code class="icode">__attribute__((used))</code>（GCC 系）或 <code class="icode">__attribute__((used))</code> 的等价写法。</b>这解决的是另一类问题：如果一个变量写了却从来没人读，或者根本没被任何代码引用，编译器和链接器（开了 <code class="icode">-ffunction-sections -Wl,--gc-sections</code> 时）会理直气壮地把它删掉——你精心准备用来「留现场」的变量，在最终的 <code class="icode">.map</code> 文件里根本不存在。<code class="icode">used</code> 属性就是在告诉工具链：「这个符号我另有用处，别动它。」</li>
+          </ul>
+
+          <p class="mt-3">它也有明确的能力边界：<b class="font-semibold text-ink">观察点盯的是地址，不是表达式。</b>所以你不能观察「结构体里的某个位域」（硬件没法区分同一个字里的不同位，只能盯整个字，于是其他位的访问也会命中）、不能观察「数组的越界写入」（它只知道地址，不知道这个地址越界了——但正因为如此，它恰好能抓到越界踩到邻居变量的场景）、也不能观察「某个函数被调用了」。<b>数量上限同样只有 4 个（M3/M4）</b>，所以要留给最可疑的那一两个变量。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">断点数量不是你说了算</div>
+            <p>教学里最常见的一幕：同学在代码里下了七八个断点，抱怨「有几个断点根本不停」。这不是 IDE 的 bug，而是硬件比较器用完了。习惯做法是：<b>一次只保留一两个真正需要的硬件断点</b>，其余位置改用「代码内判断 + <code class="icode">__BKPT</code>」或计数器/日志；同时把观察点留给「谁改了这个变量」这种非它不可的场合。</p>
+          </div>
+
+          <h3 id="sub-step" class="mt-7 text-base font-semibold">单步、调用栈与优化等级</h3>
+
+          <p class="mt-3">断点回答「停在哪里」，单步回答「接下来它怎么走」。这三兄弟（step into / over / out）名字很直白，但每一个都有明确的实现机制，而机制决定了它们在什么地方会骗你。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>操作</th><th>它到底做了什么</th><th>该用它的时候</th><th>会骗你的地方</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>Step into<br>（单步进入）</b></td>
+                  <td>执行一条 C 语句；如果这条语句调用了函数，就进入函数内部再停</td>
+                  <td>你想知道「这个函数内部是怎么算出这个结果的」</td>
+                  <td>一不小心进了 <code class="icode">HAL_Delay</code> 或 <code class="icode">printf</code>，在里面迷路几百行，还得靠 Step out 爬出来</td>
+                </tr>
+                <tr>
+                  <td><b>Step over<br>（单步跳过）</b></td>
+                  <td>把整条语句（含它调用的所有函数）执行完才停。<br>实现方式：在函数的返回地址处临时放一个断点，然后全速跑到那里</td>
+                  <td>你只关心「调用完它之后变量变成了什么」</td>
+                  <td>跳过 <code class="icode">while (flag);</code> 等于全速死等（看起来像卡死）；跳过 <code class="icode">HAL_Delay(1000)</code> 会让你以为程序挂了；中间发生的故障你也看不见</td>
+                </tr>
+                <tr>
+                  <td><b>Step out<br>（单步跳出）</b></td>
+                  <td>继续运行，直到当前函数返回为止。<br>实现方式：在函数返回地址（LR 指向的地方）放临时断点</td>
+                  <td>已经进来了，不想一步步爬出去</td>
+                  <td>函数被内联（<code class="icode">-O2</code>）时不存在「返回」这件事；在中断服务函数里 Step out 会跑进被中断的主程序（因为 LR 里放的是 <code class="icode">EXC_RETURN</code> 特殊值，不是一个普通地址）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">注意 <b>Step over 与 Step out 都依赖「临时断点」</b>——也就是说它们要消耗一个硬件断点名额。这解释了一个细节现象：当你已经把硬件断点用完时，单步跳过可能会失败或者变得很慢，因为调试器没有资源去放那个临时断点。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">为什么在中断里单步会跑飞</h4>
+
+          <p class="mt-3">这是新手最容易被吓到的一幕：在某个中断服务函数里单步，按了两下之后程序莫名其妙进了另一个中断，或者 PC 直接跳到了一个完全不相干的地方，再按几下就 HardFault 了。「跑飞」的原因有三条，全都不是 bug：</p>
+
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li><b>单步的时间窗里 CPU 是自由的。</b>「单步」的本质是：释放内核执行一条指令，然后再停下来。在这个极其短暂但真实存在的窗口里，所有比当前中断优先级更高的中断随时可以闯入。于是你按下「下一步」，落点却在别人的 ISR 里——仔细看调用栈，其实栈是对的，只是你没意识到自己已经换了一个上下文。</li>
+            <li><b>单步跨过了「清中断标志」那一条。</b>很多 ISR 的关键动作是清标志位。如果你单步时跳过了它（比如被 Step over 吞掉，或者在标志清除前就停住），中断会被反复重入，PC 看起来在乱跳、栈一层层变长。<b class="font-semibold text-ink">看到「同一个中断连续进很多次」，第一件事就是去查标志位清了没有。</b></li>
+            <li><b>单步一个「等中断喂数据」的循环。</b><code class="icode">while (!rx_done);</code> 这类代码依赖中断把标志置起来，而你在中断上下文里单步，等于把系统的时间推进权攥在自己手里：中断进不来、数据永远不来、循环永远不退出。表现就是「卡在这里不动了」。</li>
+          </ol>
+
+          <p class="mt-3">正确的做法是：<b class="font-semibold text-ink">中断服务函数里只下断点、不单步。</b>要看 ISR 内部的逻辑，用「只读信息」的手段替代单步——把关键状态记到全局计数器或环形日志里（第 4 节的代码就是为这个准备的），停下来之后一次性看个够。如果你的 ISR 复杂到需要单步才能理解，那它本身就该拆开：让 ISR 只做「取数据 + 置标志」，把处理逻辑放到主循环/任务里（这正是第 32 篇《嵌入式软件架构》讲的结构），单步那个部分就完全安全了。</p>
+
+          <p class="mt-3">真要在 ISR 里单步，唯一的办法是在调试器里把它「孤立」出来：进入断点后临时屏蔽其他中断（多数调试器提供「Mask interrupts on step」之类选项），再单步。但要清楚这已经改变了系统的时间关系——<b>你验证的是「这段代码单独运行时的逻辑」，不是「它在真实时序下的行为」</b>，不要把两种结论混用。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">调用栈窗口：从下往上读，看到问号就是线索</h4>
+
+          <p class="mt-3">调用栈（Call Stack）窗口把「我是怎么走到这里的」摊开给你看：<b class="font-semibold text-ink">最底下是 <code class="icode">main</code>，越往上越靠近当前停下的位置</b>，每一行通常给出函数名、文件与行号、以及参数值。它的价值在于：当断点命中在某个底层函数（比如 <code class="icode">memcpy</code> 或某个驱动函数）里时，你不需要猜是谁调用的——栈上写得清清楚楚。双击任意一层，Watch 窗口会切换到那一层的上下文，你能看到当时的局部变量。</p>
+
+          <p class="mt-3">而当栈窗口显示出一串 <code class="icode">????</code>、或者链条在某一层断掉时，<b class="font-semibold text-ink">这本身就是一条重要结论，而不是工具的故障</b>。它通常意味着三件事之一：① 栈被破坏了（最常见的原因是栈溢出，或者野指针写坏了栈上的返回地址）；② 栈上没有可用的调试信息（汇编写的启动代码、没有 CFI 信息的库）；③ 优化太激进，栈帧被重排/省略。前两种都指向「你的程序已经出问题了」，<b>所以看到问号时不要抱怨 IDE，先去量栈水位（4.5）。</b></p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">优化等级：调试时它帮你，发布时它坑你</h4>
+
+          <p class="mt-3">编译器优化对调试的破坏是「结构性」的，不是偶发的：它按语义等价的原则重排、合并、删除、内联，而调试信息里的行号与变量位置是按「源码结构」记录的。两者一对不上，单步就会看起来错乱。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>优化等级</th><th>单步与断点</th><th>变量观察</th><th>它会掩盖什么</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">-O0 -g3</code></td>
+                  <td>行号与源码一一对应，单步非常听话</td>
+                  <td>局部变量都在栈上有地址，Watch 基本都能用</td>
+                  <td><b>会掩盖只在优化后才出现的 bug</b>：缺少 <code class="icode">volatile</code>、非原子的读-改-写、编译器重排导致的竞态</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">-O2</code></td>
+                  <td>语句被合并/重排、函数被内联，单步可能一次跨几行甚至回跳；断点可能落不到你以为的地址</td>
+                  <td>局部变量常常显示 <code class="icode">optimized out</code>，或用的是过期值</td>
+                  <td>它自己会「制造」一类现象：<b>只在 Release 构建里出的错</b>，让你误以为是编译器有 bug</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">-Os</code></td>
+                  <td>与 <code class="icode">-O2</code> 类似，循环可能被展开/向量化</td>
+                  <td>同上，且小变量更容易被塞进寄存器</td>
+                  <td>同上；此外还会删掉「没被引用」的变量与函数（配合 <code class="icode">--gc-sections</code>），让你准备好的黑匣子变量消失</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">于是有一条实用的工作纪律：<b class="font-semibold text-ink">调试构建用 <code class="icode">-O0 -g3</code>，发布构建用 <code class="icode">-O2</code> 或 <code class="icode">-Os</code>，而且两类构建都要定期运行。</b>只在 <code class="icode">-O0</code> 下测试，你测的是一个「比真实产品慢好几倍、而且不会暴露竞态」的变体；只在 <code class="icode">-O2</code> 下开发，你会被单步的错乱折磨到怀疑工具。合理的节奏是：日常开发用 <code class="icode">-O0</code> 快速定位逻辑问题；每次提交前用 <code class="icode">-O2</code> 跑一遍完整功能测试，专门盯「只在优化后出现」的故障。</p>
+
+          <p class="mt-3">这里要澄清两个新手最容易混用的关键字，它们与调试器的关系非常直接：</p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b><code class="icode">volatile</code> 的作用范围。</b>它保证「每一次访问都真的发生一次内存访问」：不缓存进寄存器、不删除、不越过它重排。它<b>不保证原子性</b>——<code class="icode">g_cnt++</code> 在 <code class="icode">-O2</code> 下依然是「读、加、写」三步，如果中间被中断打断，计数就会丢。所以 <code class="icode">volatile</code> 让变量「对调试可见」，但共享计数仍必须进临界区。<b>把 <code class="icode">volatile</code> 当成「线程安全」是嵌入式里最常见的一处误解。</b></li>
+            <li><b><code class="icode">static</code> 的副作用。</b>把局部变量改成 <code class="icode">static</code>（或全局）会让它有一个固定地址，于是 Watch、Live Watch、观察点都能长期盯着它，这是很实用的调试技巧；但要注意它同时改变了语义（不再是每次调用重新初始化）。另外，如果这个变量没有被任何代码引用，优化加 <code class="icode">--gc-sections</code> 会把它删掉，这时要用 <code class="icode">__attribute__((used))</code> 把它钉住。</li>
+          </ul>
+
+          <p class="mt-3">最后补一句衔接：<b class="font-semibold text-ink">如果你已经怀疑问题在汇编层面（比如奇怪的中断返回、HardFault 里的压栈现场），那属于第 25 篇的内容。</b>那里讲了怎么从 <code class="icode">.lst</code> 反汇编文件里读出「编辑器显示的这一行到底编译成了什么」，以及怎么把 HardFault 的 8 字栈帧读出来。<b>本篇的立场是：优先用能缩小可能性范围的手段，把「需要读汇编」当成最后一步而不是第一步。</b></p>
+
+        <h3 id="sub-watch" class="mt-7 text-base font-semibold">变量的三种观察方式：从「停下来看」到「事后看」</h3>
+
+          <p class="mt-3">断点解决「停在哪里」，但停下来之后你要看什么？观察变量有三种手段，它们的成本、能看到的东西、适用的场合完全不同。很多人只会用第一种，于是在「偶发」和「需要看趋势」这两类场景里束手无策。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">第一种：Watch 窗口——精确，但必须停下来</h4>
+
+          <p class="mt-3">Watch 窗口是我们最熟悉的：把变量拖进去，停下时看它的值。它的<b class="font-semibold text-ink">根本前提是「内核必须停住」</b>，原因有两层：其一，局部变量可能根本不在内存里，而在某个寄存器（比如 R3）里，只有 halt 之后调试器才能安全地读到内核寄存器组；其二，调试信息里记录的是「在源码这个位置，这个变量位于哪个寄存器或栈偏移」，把这条信息还原成值需要一份静止的上下文。<b class="font-semibold text-ink">所以「普通 Watch 为什么要求程序停下来」不是工具的任性，而是它只能这么工作。</b></p>
+
+          <p class="mt-3">由此可以解释一个常见困惑：<b>为什么局部变量离开作用域以后，Watch 窗口显示的东西就不对了？</b>它通常表现为三种情况之一：显示 <code class="icode">not in scope</code>（找不到这个符号）、显示 <code class="icode">cannot evaluate</code>（无法求值）、或者更迷惑人的——<b>显示一个看起来合理的、但完全错误的值</b>。最后这种情况的原因是：那块栈空间已经被别的函数复用了，调试器按老偏移读出来的其实是别人的数据。<b class="font-semibold text-ink">要长期观察一个值，把它提升为静态变量或全局变量</b>，这样它才有一个稳定的地址可供随时读取。</p>
+
+          <p class="mt-3">两个使用细节值得记下来：<b>Watch 里可以写表达式</b>（如 <code class="icode">buf[i]</code>、<code class="icode">p-&gt;next-&gt;state</code>），但不要在 Watch 里写带副作用的表达式（<code class="icode">i++</code>、<code class="icode">cnt = cnt + 1</code>）——表达式是在目标上求值的，某些调试器会真的把结果写回内存，于是你「看一眼」就改变了程序状态，这属于调试引入的新 bug。另外，<b>展开大数组或长链表会让界面卡住</b>：每展开一层都要通过 SWD 读一次内存，几千个元素读下来要好几秒，而这个过程中内核是停着的。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">第二种：Live Watch——实时刷新是怎么做到的</h4>
+
+          <p class="mt-3">普通 Watch 有一个致命局限：看一次就要停一次。可你真正关心的往往是<b class="font-semibold text-ink">趋势</b>——计数器有没有在涨、标志位多久翻转一次、这个中断到底有没有进。这就需要「不停下 CPU 也能看变量」的能力，也就是 Live Watch（不同 IDE 里叫法不同：Keil 的 Periodic Window Update、STM32CubeIDE 的 Live Expressions、J-Link 的 Live Watch）。</p>
+
+          <p class="mt-3">它的原理其实在 2.2 已经埋好了：调试器有<b class="font-semibold text-ink">一条绕过 CPU 的旁路总线</b>。既然能绕过 CPU 读内存，那么「每隔 200 ms 读一次 0x200000A4 这个地址」就不需要任何 halt。所以实时刷新的本质是<b class="font-semibold text-ink">调试器在后台周期性地做内存读</b>，CPU 全程自由运行。</p>
+
+          <p class="mt-3">机制决定了它的三条限制：</p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>只能看「有固定地址的东西」。</b>全局变量、静态变量、外设寄存器都没问题；局部变量、寄存器变量、复杂表达式（需要栈帧分析）看不了——那必须停下来才行。这也是为什么「调试时把可疑变量提成全局」是个好习惯。</li>
+            <li><b>刷新率由调试器决定，典型是 100 ms 到 1 s。</b>不同的 IDE 可调范围不同，但规律是一样的：间隔越短，后台读越频繁，占用的 SWD 带宽与总线时间越多。</li>
+            <li><b>它不是零成本的。</b>每一次后台读都要与 CPU 争一次总线（虽然每次只有几百纳秒），在高频采样或实时控制环路里会引入可测量的抖动。所以「打开实时刷新之后电机声音变了」这种事是真的会发生，而不是心理作用。</li>
+          </ul>
+
+          <p class="mt-3">一个非常实用的组合技：<b class="font-semibold text-ink">让 Live Watch 盯「计数器 + 时间戳」。</b>在中断里给一个全局计数器加一，再让它和 <code class="icode">uwTick</code> 一起实时显示：只要计数器在涨，就证明中断在进；观察它每秒涨多少，就知道中断频率对不对；观察它突然停住的那一刻，你就抓到了故障发生的时间点——整个过程一纳秒都没有打扰系统。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">第三种：全局变量做黑匣子——为「跑一晚上才死一次」准备</h4>
+
+          <p class="mt-3">前两种方式都有一个共同前提：<b class="font-semibold text-ink">你要在场，而且系统还活着。</b>可最难缠的故障恰恰相反：它一晚上只发生一次，发生时调试器不在场（产品在现场、设备在电池供电、或者你根本不知道它什么时候死）。这时候唯一能救你的手段是<b class="font-semibold text-ink">让固件自己记录现场，事后你来读</b>。</p>
+
+          <p class="mt-3">做法就是一块「环形日志缓冲」：在 RAM 里开一个固定长度的数组，每条记录包含<b>时间戳、事件码、少量参数</b>；写满之后覆盖最老的一条。它有几个设计要点，每一条都是踩过坑才总结出来的：</p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>放的事件码而不是字符串。</b>一个事件码一个字节，字符串要几十字节；环形缓冲的空间很宝贵，而且事件码可以在事后用一张表翻译成人话。记录「值」而不是「描述」也能避免在中断里做格式化（格式化要几百微秒，事件码只要几纳秒）。</li>
+            <li><b>把它放到不初始化的段里（<code class="icode">__attribute__((section(".noinit")))</code>）。</b>这是整个方案最关键的一步：默认的启动代码会在进 <code class="icode">main</code> 之前把 <code class="icode">.bss</code> 段清零，你辛苦记录的现场会被抹掉。放到 <code class="icode">.noinit</code> 段，编译器不会给它初始值、启动代码也不会清零它，<b class="font-semibold text-ink">于是系统复位之后，RAM 里的历史记录还在</b>——复位后的第一件事就是把它们读出来。注意：掉电重启（冷启动）时 SRAM 内容不保证保留，所以要用一个魔数来判断「这段数据是上一轮留下的，还是随机的」。</li>
+            <li><b>写它要够快，且不能在多写者之间撕裂。</b>一次记录就是三四条存储指令（几十纳秒），在中断里用完全安全。但如果有多个中断都往同一个环形缓冲写，就必须用一小段临界区保护「写数据 + 更新指针」这几条指令，否则会出现「指针更新了但数据只写了一半」的残缺记录。</li>
+            <li><b>两条读出的路：调试器内存窗口，或者固件自己 dump。</b>前者在 <code class="icode">.map</code> 文件里找到数组的地址，直接在 IDE 的 Memory 窗口里按 32 位查看（连格式都不用写），适合「现场就在手边」；后者是写一段 <code class="icode">log_ring_dump()</code>，把历史按时间顺序翻译成文本通过串口/ITM 打出来（第 4.1 节给完整实现）。</li>
+          </ul>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>观察方式</th><th>CPU 要停吗</th><th>能看什么</th><th>时间开销</th><th>能事后查吗</th><th>最适合的场景</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>Watch 窗口</b></td>
+                  <td>必须停</td>
+                  <td>局部变量、全局变量、结构体、表达式、外设寄存器</td>
+                  <td>停下期间系统完全不前进（秒级）</td>
+                  <td>不能</td>
+                  <td>逻辑错误：能稳定复现、需要精确看某一刻的完整现场</td>
+                </tr>
+                <tr>
+                  <td><b>Live Watch</b></td>
+                  <td>不停</td>
+                  <td>有固定地址的全局/静态变量、外设寄存器</td>
+                  <td>每次后台读几百纳秒，100 ms~1 s 一次</td>
+                  <td>不能（只能看当前）</td>
+                  <td>趋势与时序：计数器涨不涨、中断频率对不对、标志位多久翻一次</td>
+                </tr>
+                <tr>
+                  <td><b>环形缓冲黑匣子</b></td>
+                  <td>不停</td>
+                  <td>你预先决定要记的事件码与数值</td>
+                  <td>每条几十纳秒（中断里安全）</td>
+                  <td><b>能</b>（复位后仍在）</td>
+                  <td>偶发与现场故障：跑一晚上死一次、调试器不在场、需要事件序列</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-printf" class="mt-7 text-base font-semibold">从 printf 到 ITM 再到 RTT：打印调试的三条路</h3>
+
+          <p class="mt-3"><code class="icode">printf</code> 在嵌入式圈子里名声不太好，常被说成「业余手段」。但问题从来不在 <code class="icode">printf</code> 本身，而在<b class="font-semibold text-ink">它背后的那条输出通道</b>：如果你把日志塞进一个 115200 波特率的阻塞串口里，它当然会毁掉实时性；可如果你换一条通道，同样的日志可以几乎不花时间。<b>这一节讲的就是这三条通道的区别，以及各自在那张「能不能用在中断里」的表上占哪一格。</b></p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">第一条：串口重定向——最慢，但最通用</h4>
+
+          <p class="mt-3">做法你已经熟悉：实现 <code class="icode">fputc</code>（Keil / newlib）或 <code class="icode">__io_putchar</code>（HAL 风格），把字符交给 UART 发出去，然后 <code class="icode">printf</code> 就自动走串口了。它的机制决定了代价：<b class="font-semibold text-ink">如果用的是 <code class="icode">HAL_UART_Transmit</code> 这类轮询函数，CPU 会站在原地等每一个字节发完</b>——发一个字节要 87 µs（115200、8N1），40 个字符要 3.47 ms，这段时间 CPU 什么也干不了。</p>
+
+          <p class="mt-3">于是「能不能在中断里用」的答案很明确：<b class="font-semibold text-ink">不能。</b>一个几百微秒的中断服务函数已经算长了，几毫秒的阻塞会把整个系统的时间预算吃光（3.5 会算一个具体例子）。除了慢，还有两个更隐蔽的问题：① <code class="icode">HAL_UART_Transmit</code> 内部有超时与状态检查，如果主循环正在用同一个串口发送，你的中断里调用它会立刻返回 <code class="icode">HAL_BUSY</code> 或干脆丢掉数据；② 日志格式化用的那个共享缓冲区是不可重入的，主循环和中断同时用会打出一堆乱码。</p>
+
+          <p class="mt-3">那它为什么还是最重要的一条路？因为<b class="font-semibold text-ink">只有串口日志不依赖调试器</b>：设备在现场、在客户手里、在你师兄的电脑上，插一根 USB-TTL 就能看到输出。它也能被完整地保存成文件、被脚本处理、被当作产品的一个功能（售后诊断口）。所以工程上的正确姿势是：<b>串口日志必须有，但要用非阻塞的方式发</b>（DMA 或中断 + 环形发送队列，把 <code class="icode">printf</code> 变成「往队列里放数据」），并且把它当成「给你自己看的历史记录」，而不是「实时调试的探针」。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">第二条：SWO / ITM——一根线，几乎不花时间</h4>
+
+          <p class="mt-3">Cortex-M 内核里除了 CPU 还有一堆「仪器」模块，ITM（Instrumentation Trace Macrocell）就是其中之一。它的用法简单到令人意外：<b class="font-semibold text-ink">你往一个特殊的地址写一个字节，这个字节就进入 ITM 的 FIFO，再由 TPIU 串行化后从 SWO 引脚移出去，PC 端的调试器把它收下来显示。</b>CPU 侧的开销只是一次寄存器写（几个时钟周期），不占用任何外设、不占用 UART、不需要 <code class="icode">while</code> 等发送完成。</p>
+
+          <p class="mt-3">要用起来需要满足四个条件，缺一个都看不到输出：</p>
+
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li><b>芯片要把 SWO 引出来。</b>STM32F103 的 TRACESWO 复用在 <b>PB3</b> 上，而 PB3 默认是 JTAG 的 JTDO——所以必须把 JTAG 关掉（保留 SWD）才能把它当追踪脚用。这也是 SWD 相对 JTAG 的一个实际好处：SWD 模式下 PB3/PB4/PA15 都能还给你。</li>
+            <li><b>固件里要打开追踪输出。</b>在 <code class="icode">DBGMCU_CR</code> 里置 <code class="icode">TRACE_IOEN</code>，并把追踪模式设成异步（只有 SWO 一根线）。</li>
+            <li><b>调试器要支持并接上 SWO 线。</b>J-Link、ST-Link/V2 及以上都有 SWO 引脚，但一些廉价的克隆调试器没有引出，或者引出了也没实现。</li>
+            <li><b>上位机要配对时钟。</b>IDE 里要填对内核时钟（比如 72 MHz）和 SWO 分频（常见 1~4 MHz）；填错的表现是满屏乱码或什么都没有。<b>这个「填时钟」的步骤是把 SWO 用起来最大的门槛。</b></li>
+          </ol>
+
+          <p class="mt-3">速度上，SWO 与串口是同一种编码方式（每个字节 10 位：起始 + 8 数据 + 停止），所以线上时间可以直接类比：<b>2 MHz 的 SWO 传 40 个字符只要 200 µs</b>，而 115200 的串口要 3.47 ms——快约 17 倍。但真正的差别不在线上速度，而在 CPU 侧：串口是「CPU 陪着等 3.47 ms」，SWO 是「CPU 花几个周期把字节丢进 FIFO 就走」。<b class="font-semibold text-ink">这个差别决定了 SWO 可以用在中断里，而阻塞串口不行。</b>第 3.3 节会把两者的时间账完整算一遍。</p>
+
+          <p class="mt-3">标准实现（CMSIS 已提供的 <code class="icode">ITM_SendChar</code>）有这么两个要点，第 4.3 节给出的<b>自写版本 <code class="icode">itm_putc</code></b> 遵循同样两条（改名是为了不与 CMSIS 的同名函数撞车）：<b>先判断 <code class="icode">ITM-&gt;TCR</code> 里的 <code class="icode">ITMENA</code> 位</b>——没有调试器连接时这一位是 0，此时写入被硬件丢弃，程序什么也不会发生（这非常重要，否则一个忘记注释掉的日志会让产品在现场死等）；<b>再判断 FIFO 有没有空位</b>（<code class="icode">ITM-&gt;PORT[0].u32 == 0</code> 表示还有空间）。另外提醒一句：把 <code class="icode">printf</code> 重定向到 ITM 以后，<b>格式化本身的开销一点都没变</b>——打印一个 <code class="icode">%f</code> 要几百微秒的纯 CPU 运算，与输出通道无关。所以「SWO 很快」只意味着「输出很快」。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">第三条：RTT 之类——内存环形缓冲，最快，且能双向</h4>
+
+          <p class="mt-3">SEGGER 的 RTT（Real Time Transfer）换了一个思路：<b class="font-semibold text-ink">根本不用外设，也不走 SWO。</b>目标端代码把日志写进 RAM 里一个环形缓冲（由一个控制块描述缓冲区地址、读写指针、状态），PC 端调试器则通过 SWD 的后台内存读，周期性地把数据拉走显示。目标侧的开销就是一次 <code class="icode">memcpy</code> 加指针更新——<b>微秒级，三条路里最快</b>，而且完全不占用任何引脚与串口资源（连 SWO 都不需要）。</p>
+
+          <p class="mt-3">它还有一个别人没有的能力：<b>双向。</b>PC 端可以往另一个缓冲区里写数据，目标端读出来——等于给你的固件开了一个「命令行」，可以在运行时改参数、触发自检、dump 内存，而不少平台（ESP-IDF、一些 RTOS 示例）把它做成了主要的调试通道。</p>
+
+          <p class="mt-3">限制也要说清楚：<b>数据是被 PC 端主动拉走的，所以必须保持调试器连接。</b>一旦拔掉调试器，数据只会把缓冲区填满然后被覆盖或丢弃（这反而比阻塞式串口安全）。另外它需要上位机/调试器支持 RTT（J-Link 原生支持，OpenOCD 与 pyOCD 也有实现）。最后，它和你在 4.1 节要写的「黑匣子环形日志」本质上是同一个思路，区别只在于<b>谁来读</b>：调试器来读，它就是 RTT；固件自己读出来打印，它就是黑匣子。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>串口重定向 printf</th><th>SWO / ITM</th><th>RTT（内存环形缓冲）</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>占用引脚与外设</td>
+                  <td>一个 UART + TX 引脚（有时还要 RX）</td>
+                  <td>只占 SWO 一根（F103 上是 PB3）</td>
+                  <td><b>零</b>（只用 RAM）</td>
+                </tr>
+                <tr>
+                  <td>线上速度（40 字符）</td>
+                  <td>115200 下 3.47 ms（阻塞式：CPU 全程陪着）</td>
+                  <td>2 MHz 下 200 µs（CPU 只花几个周期）</td>
+                  <td>取决于调试器后台读速度，CPU 侧只有拷贝时间</td>
+                </tr>
+                <tr>
+                  <td>CPU 时间开销（一条 32 字符）</td>
+                  <td>约 2.78 ms（阻塞）</td>
+                  <td>约几十纳秒 + 格式化开销</td>
+                  <td>约 2~3 µs（含格式化则另算）</td>
+                </tr>
+                <tr>
+                  <td>对时序的影响</td>
+                  <td><b>很大</b>：主循环与中断都会被拖慢，会改变系统行为</td>
+                  <td>小（只是往 FIFO 写）；但刷新太快会占带宽</td>
+                  <td>极小（一次内存拷贝）</td>
+                </tr>
+                <tr>
+                  <td>中断里能用吗</td>
+                  <td><b>不能</b>（除非改成「只入队不发送」的异步版本）</td>
+                  <td>能（前提是格式化不用 <code class="icode">%f</code>、单条别太长）</td>
+                  <td>能，且是高频中断的首选</td>
+                </tr>
+                <tr>
+                  <td>需要什么条件</td>
+                  <td>一个空闲串口 + USB-TTL（几乎总是有）</td>
+                  <td>SWO 引脚可用 + 调试器支持 + 时钟配对正确</td>
+                  <td>支持 RTT 的调试器/上位机 + 保持连接</td>
+                </tr>
+                <tr>
+                  <td>没接调试器时</td>
+                  <td>照常工作（这正是它的价值）</td>
+                  <td>数据静静丢弃，不会拖慢程序</td>
+                  <td>数据只在 RAM 里打转，程序照常跑</td>
+                </tr>
+                <tr>
+                  <td>最适合</td>
+                  <td>产品现场、交付调试、需要留档的长日志</td>
+                  <td>时序敏感场景的实时观察（如中断频率、控制环）</td>
+                  <td>高频中断、需要双向交互、不想占用任何外设</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">怎么选：按「这条日志会打断谁」来定</div>
+            <p>问自己一个问题是够的：<b>这条日志如果花掉 3 毫秒，会打断什么？</b>如果答案里有「控制环」「通信超时」「看门狗」，那它就不能走阻塞串口——要么改成异步串口（DMA 队列），要么走 ITM/RTT，要么改成「只记事件码进环形缓冲」。反过来，如果这条日志只在开机时打一次、或者一秒钟打一条，那走串口完全没问题，还最省事。</p>
+          </div>
+
+          <h3 id="sub-log" class="mt-7 text-base font-semibold">日志分级、断言与错误码：让「打印」变成工程语言</h3>
+
+          <p class="mt-3">会打日志和会设计日志是两件事。前者是插一句 <code class="icode">printf</code>，后者是让日志在发布固件里自动消失、在现场能被临时打开、在事后能被脚本解析。<b class="font-semibold text-ink">这一节讲的是后面那种。</b></p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">五级日志与两种裁剪强度</h4>
+
+          <p class="mt-3">分级的意义是<b>让接收方按重要性过滤</b>，而不是让打印方自娱自乐。一套够用的分级是：<b>E</b>（错误：功能已经不正常了，必须处理）、<b>W</b>（警告：还能跑，但出现了不该出现的情况，比如重试成功、参数被限幅）、<b>I</b>（信息：正常的关键里程碑，开机参数、状态切换、连接建立）、<b>D</b>（调试：开发期才关心的细节）、<b>V</b>（冗长：逐帧、逐字节级别，通常只在解决某个具体问题时临时打开）。</p>
+
+          <p class="mt-3">裁剪有两种强度，区别很实际：<b>用常量条件判断</b>（<code class="icode">if (LOG_LEVEL &gt;= LOG_LEVEL_DEBUG) ...</code>）在 <code class="icode">-O2</code> 下会把整段代码连同格式字符串一起删掉，但在 <code class="icode">-O0</code> 下格式字符串可能仍然留在 Flash 里；<b>用预处理指令包起来</b>（<code class="icode">#if LOG_LEVEL &gt;= LOG_LEVEL_DEBUG</code>）则是彻底不进 Flash。<b class="font-semibold text-ink">发布固件里那些「永远不会执行」的日志字符串，也是要占 Flash 的</b>——一个 64 KB Flash 的工程里塞进几百条调试字符串，几 KB 就没了。所以 D/V 两级建议用 <code class="icode">#if</code> 处理，E/W/I 用常量条件即可（它们本来就要保留）。</p>
+
+          <p class="mt-3">除了编译期开关，还值得留一个<b>运行时开关</b>：用一个全局的位掩码或一个「诊断模式」标志，让现场可以在不重新烧录的情况下打开某个模块的详细日志（比如通过串口收到一个特定命令）。<b class="font-semibold text-ink">这个能力在产品现场的价值极高</b>：客户说「偶尔连不上」，你可以让他敲一条命令打开详细日志，等下次出问题再看——而不是把设备寄回来。</p>
+
+          <p class="mt-3">内容规范上，有三条经验：<b>① 每条日志带时间戳与模块标签</b>（<code class="icode">[I][NET] ...</code>），事后才能排出事件顺序；<b>② 记录「值」而不是「描述」</b>（<code class="icode">rssi=-73 retry=2</code> 比「信号有点弱，重试了」有用一万倍）；<b>③ 不要在日志里做浮点运算。</b>格式化一个 <code class="icode">%f</code> 要几百微秒，是普通整数格式化的几十倍——在中断或高频路径里，这个开销足以改变系统行为。<b>要用浮点就先转成整数（把电压放大一千倍当毫伏打）。</b></p>
+
+          <p class="mt-3">最后一个判断题，也许多数人从没认真想过：<b>什么时候该用日志，什么时候该用断点？</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>判据</th><th>用断点</th><th>用日志</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>故障能稳定复现吗</td>
+                  <td>能，而且你想看某一刻的完整现场（寄存器、栈、全部变量）</td>
+                  <td>偶发，或者根本不知道什么时候发生</td>
+                </tr>
+                <tr>
+                  <td>你要的是「某一刻」还是「一段历史」</td>
+                  <td>某一刻的精确快照</td>
+                  <td>事件序列与时间关系（谁先谁后，隔了多久）</td>
+                </tr>
+                <tr>
+                  <td>你在场吗</td>
+                  <td>你在电脑前，板子就在手边</td>
+                  <td>设备在现场、在别人手里、在电池供电跑通宵</td>
+                </tr>
+                <tr>
+                  <td>停下来会破坏现象吗</td>
+                  <td>不会（比如纯计算逻辑）</td>
+                  <td>会（通信超时、看门狗、控制环）——必须用非阻塞方式</td>
+                </tr>
+                <tr>
+                  <td>还要回答「多频繁」</td>
+                  <td>不适合（断点本身会改变频率）</td>
+                  <td>适合（统计次数、算频率，为 3.4 的复现实验提供依据）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4 class="mt-5 text-[15px] font-semibold">断言：把「设计假设」写进代码</h4>
+
+          <p class="mt-3">断言的定位需要说清楚：<b class="font-semibold text-ink">它不是错误处理，而是「如果这里不成立，说明我的设计假设已经错了」的自我检查。</b>错误处理应对的是「可能发生的事」（通信可能失败、传感器可能不响应）；断言应对的是「按设计绝不该发生的事」（指针不会是空、状态机的状态一定是枚举里的某一个、缓冲区长度一定够）。<b>把这两件事混起来，是嵌入式代码里最常见的设计错误之一。</b></p>
+
+          <p class="mt-3">HAL 库里的 <code class="icode">assert_param</code> 是一个具体的例子：它只在定义了 <code class="icode">USE_FULL_ASSERT</code> 时才展开成真正的检查，展开后做的事情是调用 <code class="icode">assert_failed(file, line)</code>；而 ST 给的默认实现是<b>一个死循环</b>——开发时很方便（停下来看现场），产品里是灾难（现场设备直接卡死，看门狗还得再过一会儿才复位它）。<b class="font-semibold text-ink">所以只要你打算在产品里保留断言，就必须自己实现那个失败处理函数</b>，第 4.2 节给出一套三级策略。</p>
+
+          <p class="mt-3">断言里<b>可以</b>放什么：指针非空、数组下标在范围内、状态机状态合法、临界区进出配对、缓冲区长度足够、互斥量确实被持有、硬件初始化完成标志为真。<b>断言里绝对不能放什么</b>，有五类：</p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>带副作用的表达式。</b><code class="icode">ASSERT(p++ != NULL)</code> 是经典反面教材：开发构建里它自增了，发布构建里断言被裁掉、自增也没了，于是同一个程序在两种构建下行为不同。<b>这条规则的本质是「断言必须可以随时被删掉而不改变任何行为」。</b></li>
+            <li><b>可能瞬时违反的硬件状态。</b>比如断言「UART 一定空闲」「ADC 转换一定完成」——硬件状态本来就是异步的，这类检查属于状态等待，不属于断言。</li>
+            <li><b>阻塞操作。</b>断言失败时去 <code class="icode">printf</code>、去写 Flash、去延时：断言函数本身必须是可重入、无阻塞、不用堆的，否则你会在中断里触发断言，然后在断言里再死一次。</li>
+            <li><b>外部输入的合法性检查。</b>按键值、串口收到的字节、传感器读数都属于「可能非法」的输入，它们应该被校验并返回错误码，而不是让断言炸掉——否则一个干扰脉冲就能让你的设备复位。</li>
+            <li><b>可变的业务条件。</b>「温度一定小于 50 度」「电池电压一定高于 3.0 V」这类是运行期监控，它们会正常地发生；把它们写成断言，等于把正常工况当成了设计错误。</li>
+          </ul>
+
+          <p class="mt-3">还有一件事必须在设计阶段决定，而不是在写断言的那一刻随手决定：<b class="font-semibold text-ink">断言失败之后系统该怎么办？</b>常见三种策略，选择取决于设备形态：<b>① 保留现场并停机</b>——适合实验室与开发阶段，也适合「停比乱跑安全」的设备；<b>② 记录后复位</b>——适合无人值守的设备（把失败的文件/行号/次数写进备份寄存器或非初始化 RAM，然后 <code class="icode">NVIC_SystemReset()</code>，复位后由日志报出来）；<b>③ 降级运行</b>——适合不能停的设备（关闭相关功能、上报错误、继续跑主业务）。<b>三种都合理，但「什么都不做、让它带着错误的状态继续跑」几乎永远不合理。</b></p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">错误码：一层层往上抛，还是就地处理</h4>
+
+          <p class="mt-3">最后讲一个与调试直接相关的设计问题：<b>错误怎么表达。</b>两种极端都常见：一种是用 <code class="icode">0/1</code> 表示一切（于是你永远不知道到底哪里错了），另一种是每一层都写一堆 <code class="icode">if (ret != 0) return ret;</code> 却从来没有人真正处理过错误（等于没有错误处理，只是把代码变长）。</p>
+
+          <p class="mt-3">比较实用的规则是<b class="font-semibold text-ink">按「上层能不能做出不同的决定」来分流</b>：</p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>上层能做出有用的决定 → 往上抛。</b>例如「读传感器失败」这件事，上层可以选择重试、可以用上一次的值、可以切到备用传感器、也可以上报错误——这几种决定是真正不同的，所以底层应该只返回一个明确的错误码，不要自己决定策略。</li>
+            <li><b>上层只能做同一件事 → 就地处理。</b>例如「Flash 校验失败」「断言被违反」这类不可恢复的错误，从驱动层一路返回到 <code class="icode">main</code>，中间每一层都只能原样传递，那么层层返回只会污染所有函数签名。<b>就地记录（备份寄存器 + 环形日志）并复位，是更诚实的做法。</b></li>
+          </ul>
+
+          <p class="mt-3">具体形式上，用<b>枚举而不是布尔值</b>，并且配一张 <code class="icode">err_str()</code> 字符串表（这样日志里能打出人话，而不用去翻头文件）。表本身会占 Flash，所以可以只在调试构建里编译进去，或者把它放在一个单独的 <code class="icode">.c</code> 里、让链接器的段回收机制（<code class="icode">-ffunction-sections -Wl,--gc-sections</code>）把用不到的部分丢掉。<b>一个具体的收益是：当串口里打出 <code class="icode">ERR_TIMEOUT at sensor_read</code> 时，你不需要再猜「读失败」是超时还是校验错。</b></p>
+
+          <h3 id="sub-bench" class="mt-7 text-base font-semibold">放下调试器，去拿表笔：四条判据与四件工具</h3>
+
+          <p class="mt-3">这一节回答本篇最实际的一个问题：<b class="font-semibold text-ink">什么时候该停止读代码，去动硬件工具？</b>判据可以用两句话概括——当你的问题能被表述为下面任意一句时，调试器就帮不上忙了：</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">换工具的判据</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>「这个引脚上到底有没有这个信号？」</b>——调试器能告诉你寄存器里已经把发送位置 1 了，但它永远无法告诉你引脚上真的有波形。<b>寄存器只是「意图」，引脚才是「事实」。</b></li>
+              <li><b>「电源本身对不对？」</b>——纹波、跌落、上电时序、共地。调试器看到的芯片内部世界是「电正常」的世界，它没有能力报告电压不够。</li>
+            </ul>
+            <p class="mt-2">还有一条补充判据：<b>当你发现代码逻辑怎么看都对、而现象依然存在时，就应该怀疑「代码之外的物理世界」。</b>这时候读第一百遍代码的收益是零。</p>
+          </div>
+
+          <h4 class="mt-5 text-[15px] font-semibold">万用表：只回答静态问题</h4>
+
+          <p class="mt-3">万用表是所有工具里最快、最便宜、也最常被跳过的一件。它的正确用法是回答三类静态问题：<b>供电对不对</b>（3.3 V 是不是 3.3 V，5 V 是不是 5 V）、<b>静态电平对不对</b>（复位脚是高还是低、某个配置引脚有没有被拉错、通信线空闲时是不是高）、<b>通断对不对</b>（虚焊、断线、短路——尤其是自己焊的板子）。</p>
+
+          <p class="mt-3">有一个陷阱必须提醒：<b>用电流档测电流时，表本身是串在回路里的一个电阻。</b>普通万用表 mA 档的分流电阻在 1~10 Ω 量级，100 mA 的电流经过它就会掉 0.1~1 V 的电压。对一个 3.3 V 系统来说，这可能直接把它拉到复位门限以下——于是你观察到的现象是「一接上电流表，板子就重启/行为异常」，而你会误以为是板子的问题。<b class="font-semibold text-ink">正确的做法是：量电流用尽量小的分流电阻（或专用 µCurrent 类方案）配合示波器/高位表看电压差，不要在 3.3 V 轨上串一只普通万用表去测几十毫安以上的电流。</b>另外，测 µA 级睡眠电流时普通万用表的精度与内阻都力不从心，那属于专门的功耗分析工具。</p>
+
+          <h4 class="mt-5 text-[15px] font-semibold">示波器：看「好不好」，不只看「有没有」</h4>
+
+          <p class="mt-3">示波器回答的是「信号的质量与时间关系」。四类最常用的观察：</p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>电源纹波。</b>LDO 输出上几十毫伏的纹波是常见的，DC-DC 更大。<b>关键是要用对方法</b>：探头必须用最短的地线（弹簧地针），因为长地线本身就是一个天线，会把你自己的开关噪声引进来——很多「我量到 500 mV 的噪声」的报告，最后发现是探头地线太长造成的假象。</li>
+            <li><b>上电时序。</b>VDD 上升时间、复位脚释放的时刻、BOOT 引脚的电平、以及各个电源轨之间的先后关系（比如 3.3 V 与 5 V 谁先起来）。时序错误会造成一类非常隐蔽的故障：板子十次上电有两次起不来，但按复位键总能起来——因为手动复位时电源早就稳定了。</li>
+            <li><b>晶振是否起振。</b>用探头搭在晶振引脚上（注意探头电容会影响它），能看到几伏峰峰值的正弦波。起振慢、幅度小、或者干脆不起振，会让芯片退回内部 RC 时钟运行——此时程序还在跑，但所有定时与波特率都偏了，表现为「串口乱码」「定时不准」。</li>
+            <li><b>用 GPIO 翻转测执行时间。</b>这是本篇最推荐的技巧之一：在你怀疑耗时的代码段两头各翻转一个空闲 GPIO，用示波器量脉冲宽度，就能得到这段代码的真实执行时间——<b class="font-semibold text-ink">精度是纳秒级，而开销只有两条指令</b>，比任何日志都轻。</li>
+          </ul>
+
+          <h4 class="mt-5 text-[15px] font-semibold">逻辑分析仪：抓协议，比读代码快十倍</h4>
+
+          <p class="mt-3">如果说示波器看的是「模拟质量」，逻辑分析仪看的就是「数字事实」：它把 I²C、SPI、UART 这类协议按通道录下来，再用解码器翻译成字节。为什么说它比读代码快十倍？因为<b class="font-semibold text-ink">通信类问题的一大半根本不在你的代码里</b>：从机地址写错了、上拉电阻没焊、时钟极性配反、从机在忙没应答、时序参数不满足芯片手册——这些问题在波形上一目了然，在代码里却要盯着 <code class="icode">HAL_I2C_Master_Transmit</code> 的返回值猜半天。第 29 篇《串行通信原理》讲过每一个信号的含义，逻辑分析仪就是把那些知识变成「看得见的证据」的工具。</p>
+
+          <p class="mt-3">三个使用要点：<b>① 采样率要够</b>——经验值是被测信号最高频率的 4 倍以上（想看清边沿细节取 10 倍）；速率不够时抓到的波形会「缺齿」，让你误判。<b>② 深度换时长</b>——采样点是有限的，采样率越高、能录的时间越短（3.6 会算）。<b>③ 用触发条件抓偶发</b>：大部分逻辑分析仪支持「在某个字节/某个地址出现时才触发」，这是抓偶发通信错误的关键——否则你要盯着一屏屏正常的波形找那一帧错的。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>工具</th><th>它能回答的问题</th><th>它回答不了的问题</th><th>什么时候该换它上场</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>万用表</b></td>
+                  <td>供电电压对不对？引脚静态电平对不对？有没有虚焊短路？</td>
+                  <td>任何动态过程、任何快速变化的信号</td>
+                  <td>板子没反应、上电异常、怀疑接线时——三十秒就能排除一整层</td>
+                </tr>
+                <tr>
+                  <td><b>示波器</b></td>
+                  <td>纹波多大？上电时序对不对？晶振起振吗？这段代码跑了多久？</td>
+                  <td>协议的字节含义、长时间的事件序列</td>
+                  <td>怀疑电源质量、时序、时钟，或者需要量一段代码的真实耗时</td>
+                </tr>
+                <tr>
+                  <td><b>逻辑分析仪</b></td>
+                  <td>从机应答了吗？时钟极性对吗？这一帧到底发了什么？</td>
+                  <td>模拟质量（上升沿的圆滑程度、过冲）</td>
+                  <td>通信不通、偶发丢帧、协议对不上——先抓波形再读代码</td>
+                </tr>
+                <tr>
+                  <td><b>电流表 / 功耗分析</b></td>
+                  <td>平均电流多少？睡眠电流达标吗？哪一刻出现了电流尖峰？</td>
+                  <td>电流异常的原因（它只告诉你异常存在）</td>
+                  <td>电池撑不住、发烫、复位与负载相关时（比如电机一转就重启）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">最便宜的探针是「一根 GPIO」</div>
+            <p>无论用哪件工具，先把一根空闲 GPIO 当成示波器的「软件信号线」用起来：在进入中断时置高、退出时置低，你能立刻看到中断的频率与执行时长；在发送前后各翻转一次，你能看到通信的真实节奏。<b>两条指令的开销，换来的是「把软件事件变成可测量的时间」——这个换算关系是本篇最值钱的一个技巧。</b>用它的唯一前提是记得：它测的是「你放它的那个位置」，如果编译器的优化把翻转挪了位置（在 <code class="icode">-O2</code> 下有可能），结论就会偏；把翻转写在依赖关系明确的地方（比如紧跟在外设寄存器操作前后）可以避免。</p>
+          </div>
+
+        </section>
+
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="mt-7 text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">这一节的六道题，全部是调试时真实会遇到的「先算一算再决定」的问题。<b>它们的共同价值是：把「感觉应该差不多」换成一个可以写下来的数字。</b>你会发现，很多调试方案在算之前看起来完全可行，算完就再也不会去用了。</p>
+
+          <h3 class="mt-7 text-base font-semibold">例 1：六个硬件断点到底够不够用</h3>
+
+          <p class="mt-3">场景：一块 STM32F103（Cortex-M3，按数据手册是 <b>6 个指令比较器 + 4 个数据比较器</b>）跑电机控制加通信。你在排查一个「偶尔算错」的问题，于是在 IDE 里一口气下了八个断点：主循环入口、TIM1 更新中断、USART1 接收中断、PID 计算函数、I²C 读传感器失败分支、状态机非法状态分支，外加两个数据观察点——「谁改了 <code class="icode">g_pid_out</code>」和「谁改了 <code class="icode">g_rx_cnt</code>」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 1：断点预算的收支表">
+<pre><code>【需求清单】                                        【硬件额度】M3/M4
+  指令断点类需求                                        指令比较器  6 个
+    ① main 循环入口            1                       数据比较器  4 个
+    ② TIM1 更新中断入口        1
+    ③ USART1 接收中断入口      1                     【开销规则】
+    ④ PID 计算函数             1                       · Step over / Step out 各要临时借 1 个指令比较器
+    ⑤ I²C 失败分支             1                       · 条件断点占用 1 个普通断点名额
+    ⑥ 状态机非法分支           1                       · 观察点必须用数据比较器（不能用指令的）
+  指令断点小计                 6  ← 正好等于上限
+
+  数据观察点需求                                       【结论】
+    ⑦ 谁写 g_pid_out           1                        表面看：6 用 6、2 用 2，一个不剩
+    ⑧ 谁写 g_rx_cnt            1                      实际后果：
+  观察点小计                   2                          · 单步「跳过/跳出」时会没有名额可用，
+                                                          表现为卡顿或直接失败
+【账怎么算】                                             · 条件断点只要再加一个就超额
+  指令：6 需求 / 6 上限 = 100%（用光）                   · 一旦超额，某些 IDE 会静默忽略后面的断点，
+  数据：2 需求 / 4 上限 = 50%（剩 2）                      于是你以为在观察，其实没在看
+
+【改用「代码内断点」把需求压下来】
+  ① main 循环入口   → 改成计数器 g_loop_cnt++（Live Watch 看，不用断点）
+  ⑤ I²C 失败分支    → 改成 if (ret != ERR_OK) { __BKPT(0); }（只在失败时触发）
+  ⑥ 状态机非法分支  → 改成 if (st &gt;= ST_MAX) { __BKPT(0); } 或错误码 + 日志
+  结果：指令断点需求 6 → 3，留出 3 个名额给临时断点，观察点 2 个照旧保留
+        代价：几字节代码空间，开销从「硬件比较」变成「一次比较 + 跳转」
+
+【如果换成 Cortex-M0+（4 指令 + 2 数据）】
+  指令断点需求 6 &gt; 上限 4    → 必须砍掉 2 个
+  观察点需求   2 = 上限 2    → 刚好用光，一个都不能再加
+  分配原则（按「不可替代性」排序）：
+    第 1 优先：数据观察点（没有别的办法能回答「谁改了这个变量」）
+    第 2 优先：时序敏感位置（中断入口、通信收发）——必须用零开销的硬件断点
+    第 3 优先：需要单步的代码段（要留临时断点名额）
+    第 4 优先：普通逻辑位置 → 一律改用计数器 / 日志 / 代码内 __BKPT
+</code></pre>
+          </div>
+
+          <p class="mt-3"><b>这道题的结论不是「六个够」或「六个不够」，而是「断点是稀缺资源，要按不可替代性分配」。</b>数据观察点之所以排第一，是因为没有任何别的软件手段能替你回答「谁写了这个变量」——你可以到处加日志，但你永远不知道有没有漏掉一处写点；而硬件是逐次访问比较的，不会漏。反过来，最不值钱的就是「普通逻辑位置的断点」，因为它们几乎总能用一行 <code class="icode">__BKPT</code> 或一个计数器替代。</p>
+
+          <h3 class="mt-7 text-base font-semibold">例 2：一条 40 字符的 printf 要多久，能不能放进 1 ms 中断</h3>
+
+          <p class="mt-3">场景：你在 1 kHz 的定时器中断里加了一句日志，想把每拍的控制量打出来看看。日志长 40 个字符，串口配置是 115200、8 数据位、1 停止位、无校验（也就是常说的 8N1），发送方式是 <code class="icode">HAL_UART_Transmit</code> 轮询阻塞。这件事能不能干？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 2：串口日志的时间账">
+<pre><code>【第一步：一个字符在线上是多少位】
+  8N1 的帧结构：1 起始位 + 8 数据位 + 1 停止位 = 10 位/字符
+  （无校验位；如果有校验就是 11 位，下面的结果要再乘 1.1）
+
+【第二步：40 个字符的总位数】
+  40 字符 × 10 位/字符 = 400 位
+
+【第三步：除以波特率】
+  t = 400 位 ÷ 115200 位/s = 0.0034722 s = 3.472 ms
+
+【第四步：它落在 1 ms 的中断里意味着什么】
+  中断周期 T = 1 ms（1 kHz）
+  占用率 = 3.472 ms ÷ 1 ms = 347%（!!）
+  → 一次日志要花掉 3.47 个中断周期的时间。
+     中断还没执行完，下一次中断早就该来了；
+     结果是中断嵌套、SysTick 丢弃、控制环彻底失序。
+  【判定：绝对不可行，不是「勉强能跑」】
+
+【换更快的波特率有没有救】
+  921600：400 ÷ 921600 = 434 µs  → 434 µs ÷ 1000 µs = 43.4%
+    仍然不可接受：单条日志吃掉近一半 CPU，控制环的时序余量被压缩到几乎为零。
+  2000000（2 M，部分 UART 可达）：400 ÷ 2e6 = 200 µs → 20%，还是太高。
+
+【什么频率下才安全】
+  每 1 秒打一条：3.472 ms ÷ 1000 ms = 0.347%  → 完全可以
+  每 100 ms 打一条：3.472 ms ÷ 100 ms = 3.47%  → 偏高但可接受（视系统而定）
+  经验判据：单条日志的耗时 ≤ 该系统时间预算的 1%
+
+【如果非要打多条：1 KB 日志的代价】
+  1024 字符 × 10 位 = 10240 位 ÷ 115200 = 88.9 ms
+  → 一个 100 ms 的控制周期直接被吃掉 89%，
+    而且这 89% 里 CPU 是「站着等字节发出去」，什么也做不了。
+</code></pre>
+          </div>
+
+          <p class="mt-3"><b>这道题的正确结局不是「那就不打日志了」，而是「换成不阻塞的方式」。</b>三条替代路线的时间账在第 3.3 与 3.5 题里算。这里先记住一个数量级：<b class="font-semibold text-ink">在 115200 的串口上，一条 40 字符日志的 3.47 ms 是一个「以毫秒计」的开销；而任何以毫秒计的阻塞操作，都不可能放进微秒或毫秒级的实时回路。</b>判断一个位置能不能加阻塞日志，只要问一句「这个位置的周期是多少」，然后比大小就够了。</p>
+
+          <h3 class="mt-7 text-base font-semibold">例 3：SWO 与串口日志差多少</h3>
+
+          <p class="mt-3">接着例 2 的场景，但换成 SWO/ITM 输出。这里要算<b>两个不同的时间</b>，很多人把它们混为一谈：<b>① 数据在线上走完要多久</b>（这决定日志会不会积压），<b>② CPU 为了发这条日志要花多久</b>（这决定实时性会不会被破坏）。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 3：线上时间与 CPU 时间是两笔账">
+<pre><code>【账目 A：数据在线上走完要多久】（与串口同一种编码，10 位/字符）
+  串口 115200：  400 位 ÷ 115200  = 3.472 ms
+  SWO  2000000： 400 位 ÷ 2e6     = 0.0002 s = 200 µs
+  倍率：3.472 ms ÷ 200 µs = 17.4 倍
+
+【账目 B：CPU 为了「送出去」要花多久】（这才是实时性的关键）
+  串口轮询：CPU 要一直等到最后一个停止位发完 → 3.472 ms 全程占用
+            （245000 个时钟周期 @72 MHz）
+  SWO/ITM ：CPU 只做一件事——把字节写进 ITM 的 FIFO：
+              for (i = 0; i &lt; 40; i++) itm_putc(buf[i]);
+            每次写入约 3~10 个时钟周期（一次 APB 写 + FIFO 入队）
+            40 × 3 ~ 40 × 10 = 120 ~ 400 个时钟周期
+            @72 MHz：1 周期 = 1/72e6 = 13.9 ns
+            120 × 13.9 ns = 1.67 µs；400 × 13.9 ns = 5.56 µs
+  CPU 时间对比：3472 µs（串口） ÷ 1.67 µs（SWO） ≈ 2080 倍
+  【也就是说：SWO 的 CPU 开销比串口小三个数量级】
+
+【账目 C：别忘了格式化本身的开销】（与通道无关）
+  printf 重定向到 ITM 时，真正花时间的往往不是输出，而是 vsnprintf：
+    · 一个整数 + 固定文本的格式化：约 2 ~ 10 µs（@72 MHz，视库实现）
+    · 一个 %f 浮点：约 200 ~ 600 µs（是整数格式化的几十倍）
+  → 结论：SWO 让你省掉了 3.47 ms 的传输，但省不掉格式化。
+     要打高频日志，就不要用 printf，直接压事件码或手写整数转字符串。
+
+【什么时候 FIFO 会把你卡住】
+  itm_putc 里有一句 while (ITM-&gt;PORT[0].u32 == 0);，它在等 FIFO 空位。
+  如果 PC 端读得慢（上位机卡顿、SWCLK 太低、日志量太大），FIFO 会满，
+  此时这个 while 就变成了阻塞等待——退化回「串口那种」行为。
+  判据：SWO 位速率必须大于日志的平均产生速率。
+    例：2 MHz 的 SWO ≈ 200 KB/s 的字符吞吐（10 位/字符）
+        若你每秒打 100 条 × 40 字符 = 4000 字符/s = 40 kbit/s，
+        只占 2 Mbit/s 的 2% —— 非常安全
+        若你在中断里每拍打 40 字符（1 kHz × 40 = 40000 字符/s = 400 kbit/s），
+        占 20%，仍然可行，但要注意上位机不能卡。
+</code></pre>
+          </div>
+
+          <p class="mt-3"><b>这道题最实用的收获是「把两笔账分开算」。</b>很多人以为「SWO 快 17 倍」就是它的全部优点，于是照样在中断里用 <code class="icode">printf</code> 打浮点数，结果还是几百微秒的卡顿——因为瓶颈从来不在线上，而在格式化。反过来，一旦你改用「只压字节」的方式，SWO 的 CPU 开销会降到微秒级，这就是它能进中断的真正原因。</p>
+
+          <h3 class="mt-7 text-base font-semibold">例 4：偶发故障，要跑多久才算有把握复现</h3>
+
+          <p class="mt-3">场景：设备每跑一段时间就会死一次，你在实验室蹲了 24 小时，抓到 3 次。现在你想设计一个「能稳定复现」的测试，应该跑多久？修好之后又要跑多久才能说「确实好了」？这两个问题都可以用一个泊松模型回答（把随机到达的故障近似为泊松过程，这是工程上足够好的近似）。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 4：复现与验证的时长估算">
+<pre><code>【第一步：先量化频率（这是所有工作的前提）】
+  观测：24 小时内发生 3 次
+  平均间隔 = 24 h ÷ 3 = 8 h
+  故障率 λ = 3 ÷ 24 = 0.125 次/小时
+
+【第二步：t 小时内至少复现一次的概率】
+  泊松过程：P(至少一次) = 1 - e^(-λt)
+
+【第三步：解出「95% 把握」需要多久】
+  要求 1 - e^(-λt) ≥ 0.95
+       e^(-λt) ≤ 0.05
+       λt ≥ ln(20) = 2.9957
+       t ≥ 2.9957 ÷ 0.125 = 23.97 小时 ≈ 24 小时
+  【结论：按这个故障率，要跑满约 24 小时才有 95% 的把握看到它一次】
+
+【第四步：几个常用倍率（记这三个数就够）】
+  63% 的把握：t = 1/λ    = 8 小时   （正好等于平均间隔，直觉上也说得通）
+  95% 的把握：t = 3/λ    = 24 小时
+  99% 的把握：t = 4.6/λ  = 36.8 小时
+
+【第五步：蹲短了会怎样】（别用「跑了 2 小时没出现」当证据）
+  蹲 2 小时：P = 1 - e^(-0.125 × 2) = 1 - e^(-0.25) = 22.1%
+  蹲 4 小时：P = 1 - e^(-0.5)  = 39.3%
+  蹲 8 小时：P = 1 - e^(-1)    = 63.2%
+  → 蹲 2 小时看不到故障是「完全正常」的，它什么也没有证明。
+
+【第六步：修复之后，跑多久才能宣称修好了】
+  这是一个更容易犯错的问法。设修复后跑了 T 小时、一次都没复现。
+  观测到 0 次时的 95% 置信上界（工程上常用的「3 倍法则」）：
+      λ_new ≤ 3 / T
+  跑 24 h：λ_new ≤ 3/24 = 0.125 次/h
+     —— 和修复前的 0.125 次/h 一模一样！
+        也就是说「跑了一天没死」在统计上等于什么都没说。
+  想证明故障率下降了 10 倍（λ_new ≤ 0.0125）：
+      T ≥ 3 / 0.0125 = 240 小时 ≈ 10 天
+  【结论：宣称修复有效的时长要求，通常是「复现所需时长的 10 倍量级」】
+
+【第七步：怎么把 10 天缩成 1 天】（工程上真正该做的事）
+  · 加速应力：提高温度、加大负载、缩短通信周期、插入干扰 —— 把 λ 提上去
+  · 让设备「自己记录」：复位源 + 环形日志（4.1 / 4.4 节），
+    这样即使没人在场，故障发生时也有现场可查，不必守着它复现
+  · 并行跑多台：N 台设备同时跑，等效于把观测时间乘以 N
+    （10 台跑 1 天 = 单台跑 10 天）
+</code></pre>
+          </div>
+
+          <p class="mt-3"><b>这道题想纠正的是两种最常见的自欺：</b>一种是「我蹲了一晚上没复现，说明这个 bug 很罕见」（其实只是样本不够）；另一种是「我改了一行，跑了一天没死，修好了」（统计上等于没证据）。<b class="font-semibold text-ink">正确的姿势是：先把 λ 量出来，用 3/λ 设计复现实验，用 3/T 描述修复后的上界，并且在跑不动的时候改用「让它自己留现场」的思路。</b></p>
+
+          <h3 class="mt-7 text-base font-semibold">例 5：加一条日志，会不会把时序余量吃光</h3>
+
+          <p class="mt-3">场景：一个 1 kHz 的控制环，周期预算 1000 µs，你用 GPIO 翻转量出最坏执行时间是 640 µs——余量 360 µs（36%）。现在你想在这个环里加一条 32 字符的状态日志。四种输出方式，各会吃掉多少余量？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 5：一条 32 字符日志对 360 µs 余量的四种吃法">
+<pre><code>【基准账】
+  周期预算 T = 1000 µs（1 kHz）
+  实测最坏执行时间 = 640 µs
+  余量 = 1000 - 640 = 360 µs（36%）
+
+【方案 a：阻塞串口 @115200】
+  32 字符 × 10 位 = 320 位 ÷ 115200 = 2778 µs
+  余量 360 - 2778 = -2418 µs  →  超预算 3.8 倍，环直接崩
+  【判定：不可行。哪怕「一秒才打一条」也不行——
+     因为对控制环来说，偶发的单拍超时比持续变慢更糟：
+     它会造成拍与拍之间的抖动，而抖动正是控制环最怕的东西。】
+
+【方案 b：阻塞串口 @921600】
+  320 位 ÷ 921600 = 347 µs
+  余量 360 - 347 = 13 µs（剩余 3.6%）
+  【判定：数学上「塞得进去」，工程上不可接受。
+     13 µs 只够几十条指令；任何一次稍微长一点的路径（缓存未命中、
+     除零补偿、中断嵌套）都会立刻爆掉。这叫「余量被吃光」。】
+
+【方案 c：SWO / ITM @2 MHz】
+  线上时间：320 位 ÷ 2e6 = 160 µs
+  但 CPU 侧只花「写 FIFO」的时间：32 × 3 ~ 32 × 10 周期
+      = 96 ~ 320 周期 @72 MHz = 1.3 ~ 4.4 µs
+  余量 360 - 4 = 356 µs（剩余 99%）
+  【判定：可行。注意区分「线上 160 µs」与「CPU 占 4 µs」——
+     前者是数据在 SWO 引脚上排队走完的时间，不影响 CPU 继续干活。】
+
+【方案 d：RTT / RAM 环形缓冲】
+  32 字节的拷贝：约 32 × 2 ~ 4 周期 = 64 ~ 128 周期 @72 MHz
+      = 0.9 ~ 1.8 µs
+  余量 360 - 2 = 358 µs（剩余 99.4%）
+  【判定：可行，且是高频环境的首选。数据留在 RAM 里等调试器来取。】
+
+【方案 e：只记一个事件码（最省）】
+  ring_push(code, arg)：约 5 ~ 10 条指令 = 0.1 ~ 0.2 µs
+  余量 ≈ 359.8 µs
+  【判定：可行。这是「高频中断里唯一应该做的事」：
+     中断里只压事件码，翻译成人话留给事后。】
+
+【汇总表】
+  方案                          单条 CPU 开销      剩余余量      能不能用
+  a 串口 115200（阻塞）          2778 µs           -2418 µs     不能
+  b 串口 921600（阻塞）           347 µs              13 µs      不推荐
+  c SWO / ITM @2 MHz              1.3 ~ 4.4 µs       356 µs     可以
+  d RTT / RAM 环形缓冲            0.9 ~ 1.8 µs       358 µs     可以（首选）
+  e 只记事件码                    0.1 ~ 0.2 µs       359.8 µs   最佳
+
+【还要考虑的事】
+  · 上表算的是「一条日志」。如果一次要打 10 条，c/d/e 依然可以用，
+    而 a/b 早已不能用。
+  · 余量不是「还剩多少就行」，而是「最坏情况下够不够」。
+    日志的开销是偶发的，但控制环看的是每一拍的最坏值。
+  · 记得把日志本身也要算进「最坏执行时间」的测量里——
+    用 GPIO 翻转重新量一次 640 µs 是不是还在。
+</code></pre>
+          </div>
+
+          <p class="mt-3"><b>这张表的用法很直接：先算「这条日志在你的时间预算里占多少」，再决定走哪条路。</b>一个实用的经验线是：<b class="font-semibold text-ink">日志开销超过预算的 1%，就不该用阻塞方式；超过 10%，连「偶发」都不能接受</b>——因为偶发超时在实时系统里的破坏力，往往比稳定的慢更大。</p>
+
+          <h3 class="mt-7 text-base font-semibold">例 6：逻辑分析仪的采样率与深度换算出「能录多久」</h3>
+
+          <p class="mt-3">场景：你要抓一个 I²C 偶发通信错误，手上是一台 8 通道、最大 1 M 采样点（1 M 点 = 1,000,000 个采样）、支持 24 MHz 采样率的廉价逻辑分析仪。问题是：<b>该把采样率设成多少，才能录到足够长的时间，等到那个偶发的错误出现？</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 6：采样率 × 深度 = 能录多久">
+<pre><code>【基本关系】
+  捕获时长 = 采样点数 ÷ 采样率
+  （深度是固定的 1 M 点，所以采样率越低，能录的时间越长）
+
+【第一步：采样率至少要多少】
+  经验规则：采样率 ≥ 被测信号最高频率的 4 倍；
+            想看清边沿细节、做可靠解码，取 10 倍。
+  I²C 100 kHz（最窄的高/低电平 = 半周期 = 5 µs）
+    · 4 倍  = 400 kHz（最低限度）
+    · 10 倍 = 1 MHz（推荐，保证解码不出错）
+  SPI 10 MHz（半周期 = 50 ns）
+    · 4 倍  = 40 MHz（已超过这台 24 MHz 的最大值 → 需要换设备）
+
+【第二步：I²C 场景下能录多久】
+  采样率 24 MHz（最大值）：1e6 ÷ 24e6 = 0.0417 s = 41.7 ms
+  采样率 1 MHz（10 倍，够用）：1e6 ÷ 1e6 = 1.0 s
+  采样率 400 kHz（4 倍，勉强）：1e6 ÷ 0.4e6 = 2.5 s
+
+【第三步：这点时间够抓多少通信量】
+  一个 I²C 字节 = 8 数据位 + 1 应答位 = 9 个时钟
+    在 100 kHz 下 = 9 × 10 µs = 90 µs
+    加上起始/停止/间隔，一个「读一个寄存器」的事务约 100 ~ 200 µs
+  24 MHz 采样（41.7 ms）→ 约 41.7 ms ÷ 100 µs ≈ 417 个字节
+  1 MHz 采样（1.0 s）  → 约 10000 个字节
+  【结论：用最大采样率只能看到约 400 字节的通信，
+     对「几分钟才错一次」的故障来说，抓到的概率几乎为零；
+     把采样率降到 1 MHz，能录的时间直接提升 24 倍。】
+
+【第四步：如果换成 SPI 10 MHz 会怎样】
+  按 4 倍规则需要 ≥ 40 MHz 采样 → 这台 24 MHz 的机器不够，
+  必须上 100 MHz 级别的设备。
+  若用 100 MHz 采样、1 M 点：1e6 ÷ 100e6 = 10 ms  → 只能看 10 毫秒
+  【结论：信号越快，同样的深度能录的时间越短，这就是「深度换时长」】
+
+【第五步：那怎么还能抓到偶发】
+  ① 用触发：大多数分析仪支持「在特定字节/地址/错误条件出现时才触发」，
+     让它安静地等几个小时，触发一次就录一次。
+     —— 这是抓偶发最有效的功能，比加大深度有用得多。
+  ② 用压缩（RLE）：空闲期不存采样点，等效深度提升几十倍。
+  ③ 用流式采集：USB 边采边传，深度不再受限（受带宽限制）。
+  ④ 如果协议本身能自诊断，也可以让固件记录错误计数器（更省事）。
+</code></pre>
+          </div>
+
+          <p class="mt-3"><b>这道题最容易被忽略的一点是「采样率不要开满」。</b>新手拿到逻辑分析仪的第一反应是把采样率拉到最大，然后发现只能录几十毫秒，什么也抓不到。正确的做法是先算出「解码所需的最低采样率」（4~10 倍），再往下取整到设备支持的一档，把剩下的全部换成时间。<b class="font-semibold text-ink">深度是固定的，采样率是牺牲深度换精度的旋钮；抓偶发故障时，时间比精度值钱。</b></p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">六道题的共同句式</div>
+            <p>回头看，这六道题其实都是同一句话的不同说法：<b>「先算一个数，再决定要不要做。」</b>断点够不够、日志能不能放、要跑多久、余量够不够、能录多长——每一个决定背后都有一个可以算出来的数。养成「先算再动手」的习惯，是这一篇最想留给你的东西：<b>算一次只要三十秒，而算错一次的代价可能是三天。</b></p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="mt-7 text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4">这一节的六段代码都是可以直接抄进工程的，全部按 STM32F103 + 标准外设库/CMSIS 的写法给出（换系列时主要改寄存器名，思路不变）。<b>它们的共同目标只有一个：让调试手段本身的开销尽量小，小到可以放在中断里、放在产品里、放在跑一晚上都不出问题的系统里。</b></p>
+
+          <p class="mt-3">建议的阅读方式：先看 4.1 与 4.4（黑匣子：记录现场），再看 4.2 与 4.3（断言与日志：主动报告），最后看 4.5 与 4.6（系统级观察：余量与陷阱）。<b class="font-semibold text-ink">这六段合起来，就是一套「无人值守也能查故障」的最小工具集。</b></p>
+
+          <h3 id="sub-code-log" class="mt-7 text-base font-semibold">4.1 黑匣子：环形日志缓冲与内存 dump</h3>
+
+          <p class="mt-3">这是整篇最值得抄的一段代码。<b>它解决的是「故障发生时你不在场」这个根本问题</b>：把事件记录在 RAM 里，系统复位之后记录还在，你复位后第一件事就是把它们读出来。设计上有四个要点，代码里逐条标了出来。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="log_ring.h：事件码、记录结构、接口">
+<pre><code>#ifndef LOG_RING_H
+#define LOG_RING_H
+
+#include &lt;stdint.h&gt;
+
+/* ① 长度必须是 2 的幂：这样可以用来代替取模，省掉除法 */
+#define LOG_RING_SIZE   1024u
+#define LOG_RING_MASK   (LOG_RING_SIZE - 1u)
+
+/* 魔数：用来判断「RAM 里这段数据是上一轮留下的，还是随机的」 */
+#define LOG_MAGIC       0x4C4F4731u   /* "LOG1" */
+
+/* 事件码表：全部集中在一个枚举里，事后翻译成人话 */
+typedef enum {
+    EV_BOOT        = 1,   /* 上电/复位启动 */
+    EV_ASSERT      = 2,   /* 断言失败 */
+    EV_WDT_RESET   = 3,   /* 由看门狗复位（复位后补记） */
+    EV_ADC_TIMEOUT = 4,   /* ADC 转换超时 */
+    EV_I2C_ERR     = 5,   /* I2C 通信失败 */
+    EV_COMM_LOST   = 6,   /* 通信中断 */
+    EV_STATE_JUMP  = 7,   /* 状态机非法跳转 */
+    EV_HEAP_LOW    = 8,   /* 堆余量不足 */
+    EV_STACK_LOW   = 9,   /* 栈水位告警 */
+    EV_MAX         = 10
+} log_code_t;
+
+/* ② 记录结构：8 字节对齐，一条记录正好 8 字节 */
+typedef struct {
+    uint32_t tick_ms;     /* 时间戳（HAL_GetTick，毫秒） */
+    uint16_t code;        /* 事件码（见上面的枚举） */
+    int16_t  arg;         /* 附带数值：错误码、计数、行号等 */
+} log_rec_t;
+
+void log_ring_init(void);
+void log_ring_push(uint16_t code, int16_t arg);
+void log_ring_dump(void (*put)(const char *line));
+const char *log_code_str(uint16_t code);
+
+#endif /* LOG_RING_H */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="log_ring.c：实现（注意 .noinit 段与极短临界区）">
+<pre><code>#include "log_ring.h"
+#include "stm32f10x.h"
+#include &lt;stdio.h&gt;
+
+typedef struct {
+    uint32_t  magic;
+    uint32_t  head;              /* 下一条要写的下标 */
+    uint32_t  seq;               /* 累计写入条数（用来判断是否发生过覆盖） */
+    log_rec_t rec[LOG_RING_SIZE];
+} log_ring_t;
+
+/* ③ 关键一行：放进 .noinit 段。
+ *    默认启动代码会把 .bss 清零，那样每次复位现场都没了；
+ *    放进 .noinit 段后，启动代码不会碰它，复位后 RAM 内容保留。
+ *    （Keil/ARMCC 下这个属性可能不生效，需改用 __attribute__((zero_init))
+ *      或在分散加载文件里给该段加 UNINIT 标记。） */
+static log_ring_t s_ring __attribute__((section(".noinit")));
+
+void log_ring_init(void)
+{
+    if (s_ring.magic != LOG_MAGIC) {
+        /* 魔数不对 → 冷启动（掉电重启，RAM 内容是随机的），从零开始 */
+        s_ring.magic = LOG_MAGIC;
+        s_ring.head  = 0u;
+        s_ring.seq   = 0u;
+    }
+    /* 魔数正确 → 热复位（看门狗/软复位/复位键），保留旧记录继续追加 */
+}
+
+void log_ring_push(uint16_t code, int16_t arg)
+{
+    uint32_t idx;
+    uint32_t primask = __get_PRIMASK();
+
+    /* ④ 临界区只包住「写记录 + 更新指针」这几条指令（几十纳秒）。
+     *    多个中断都可能记录事件，如果不保护，
+     *    会出现「指针更新了但记录只写了一半」的残缺数据。 */
+    __disable_irq();
+
+    idx = s_ring.head &amp; LOG_RING_MASK;
+    s_ring.rec[idx].tick_ms = HAL_GetTick();
+    s_ring.rec[idx].code    = code;
+    s_ring.rec[idx].arg     = arg;
+    s_ring.head = (s_ring.head + 1u) &amp; LOG_RING_MASK;
+    s_ring.seq++;
+
+    if (primask == 0u) {
+        __enable_irq();
+    }
+}
+
+const char *log_code_str(uint16_t code)
+{
+    switch (code) {
+    case EV_BOOT:        return "BOOT";
+    case EV_ASSERT:      return "ASSERT";
+    case EV_WDT_RESET:   return "WDT_RESET";
+    case EV_ADC_TIMEOUT: return "ADC_TIMEOUT";
+    case EV_I2C_ERR:     return "I2C_ERR";
+    case EV_COMM_LOST:   return "COMM_LOST";
+    case EV_STATE_JUMP:  return "STATE_JUMP";
+    case EV_HEAP_LOW:    return "HEAP_LOW";
+    case EV_STACK_LOW:   return "STACK_LOW";
+    default:             return "?";
+    }
+}
+
+/* 按时间顺序导出：从最老的一条开始，一直到最后写入的一条 */
+void log_ring_dump(void (*put)(const char *line))
+{
+    char line[64];
+    uint32_t n     = (s_ring.seq &lt; LOG_RING_SIZE) ? s_ring.seq : LOG_RING_SIZE;
+    uint32_t start = (s_ring.head + LOG_RING_SIZE - n) &amp; LOG_RING_MASK;
+
+    snprintf(line, sizeof(line), "-- log ring: %lu records --\r\n",
+             (unsigned long)n);
+    put(line);
+
+    for (uint32_t i = 0u; i &lt; n; i++) {
+        const log_rec_t *r = &amp;s_ring.rec[(start + i) &amp; LOG_RING_MASK];
+        snprintf(line, sizeof(line), "[%8lu ms] %-12s arg=%d\r\n",
+                 (unsigned long)r-&gt;tick_ms, log_code_str(r-&gt;code), (int)r-&gt;arg);
+        put(line);
+    }
+}
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="配套：.noinit 段怎么写进链接脚本（GCC）">
+<pre><code>/* 在 .ld 文件里，放在 .bss 之后、堆栈之前 */
+  .noinit (NOLOAD) :
+  {
+    . = ALIGN(4);
+    __noinit_start = .;
+    *(.noinit)
+    *(.noinit.*)
+    . = ALIGN(4);
+    __noinit_end = .;
+  } &gt;RAM
+
+/* 说明：
+ *   NOLOAD 告诉链接器「这一段不放进 Flash 映像，也不要在启动时初始化」。
+ *   于是启动代码不会清零它，复位之后里面的数据还在。
+ *   注意：NOLOAD 段在 .map 文件里仍会有确定地址，这是后面读它的依据。 */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="怎么用：开机时补记复位原因，复位后把历史打出来">
+<pre><code>int main(void)
+{
+    /* 第一件事：初始化黑匣子（它会判断是冷启动还是热复位） */
+    log_ring_init();
+
+    /* 如果上一轮是被看门狗复位掉的，这一轮开机就补记一条，
+     * 这样 dump 出来的时间线里能看到「死亡原因」 */
+    if (reset_source_read() &amp; RS_IWDG) {
+        log_ring_push(EV_WDT_RESET, 0);
+    }
+
+    hal_init();
+
+    /* 用串口把历史打出来（也可以走 ITM，见 4.3） */
+    log_ring_dump(uart_puts);
+    log_ring_push(EV_BOOT, (int16_t)reset_source_last());
+
+    while (1) {
+        /* ... */
+    }
+}
+</code></pre>
+          </div>
+
+          <p class="mt-3">如果不想写 <code class="icode">log_ring_dump</code>，还有一条更省事的路：<b>直接用调试器的内存窗口读</b>。在 <code class="icode">.map</code> 文件里搜索 <code class="icode">s_ring</code>，拿到它的地址（比如 <code class="icode">0x20000100</code>），然后在 IDE 的 Memory 窗口里按 32 位查看：<b>前三个字是 magic/head/seq，之后每两个字就是一条记录（第一个字是 tick_ms，第二个字的低 16 位是事件码、高 16 位是 arg）。</b>这种读法的好处是完全不需要在固件里加导出代码，也不会因为打印而破坏现场；坏处是要自己心算时间戳的差值。<b class="font-semibold text-ink">跑通一次之后，你会把它当成标配。</b></p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">.noinit 的三个前提</div>
+            <p>① <b>只有热复位能保留</b>：按复位键、看门狗复位、软复位都不会丢 RAM 内容；但掉电重启（冷启动）时 SRAM 内容不保证保留，所以必须靠魔数判断，不要假设数据一定有效。② <b>低功耗模式下 SRAM 可能掉电</b>：进入某些深度低功耗模式后（或某些系列的 SRAM 会被关闭），内容会丢，这时的记录等于没有。③ <b>别把重要数据全压在 .noinit 里</b>：它的内容在冷启动时是随机的，任何直接使用它的代码都必须先做有效性校验。</p>
+          </div>
+
+          <h3 id="sub-code-assert" class="mt-7 text-base font-semibold">4.2 断言与错误码：能直接抄的三级宏</h3>
+
+          <p class="mt-3">这段代码解决两个问题：<b>错误怎么表达（枚举而不是布尔值）</b>，以及<b>断言失败之后到底怎么办（三级策略，由你在调用处显式选择）</b>。注意三级策略是分开的三个宏，而不是一个宏加参数——<b>因为「用什么策略」是调用点的决定，写清楚了以后读代码的人一眼就能看出严重程度。</b></p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="err.h：错误码枚举与字符串表">
+<pre><code>#ifndef ERR_H
+#define ERR_H
+
+typedef enum {
+    ERR_OK = 0,        /* 成功 */
+    ERR_PARAM,         /* 参数非法（调用者用错了接口） */
+    ERR_TIMEOUT,       /* 超时（外设/对端没有按时响应） */
+    ERR_BUSY,          /* 忙（资源被占用，可以重试） */
+    ERR_IO,            /* 硬件读写失败（总线错误、无应答） */
+    ERR_NOMEM,         /* 内存不足（堆/缓冲池耗尽） */
+    ERR_STATE,         /* 状态非法（当前状态不允许这个操作） */
+    ERR_CHECKSUM,      /* 校验失败（数据在传输中损坏） */
+    ERR_HW,            /* 硬件故障（初始化失败、器件无响应） */
+    ERR_MAX
+} err_t;
+
+const char *err_str(err_t e);
+
+#endif /* ERR_H */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="err.c：一张表让日志打得出人话">
+<pre><code>#include "err.h"
+
+const char *err_str(err_t e)
+{
+    static const char *const tbl[ERR_MAX] = {
+        "OK", "PARAM", "TIMEOUT", "BUSY", "IO",
+        "NOMEM", "STATE", "CHECKSUM", "HW"
+    };
+    if ((unsigned)e &gt;= (unsigned)ERR_MAX) {
+        return "UNKNOWN";
+    }
+    return tbl[e];
+}
+
+/* 发布固件如果嫌这张表占 Flash，可以整体用 #ifdef DEBUG_BUILD 包起来，
+ * 或者把它单独放在一个 .c 里，让 -ffunction-sections + --gc-sections 回收。 */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="assert_mcu.h：三级断言宏 + 现场记录">
+<pre><code>#ifndef ASSERT_MCU_H
+#define ASSERT_MCU_H
+
+#include &lt;stdint.h&gt;
+#include "err.h"
+
+/* 备份寄存器里的魔数（16 位，因为 F103 的 BKP_DRx 只有低 16 位可用） */
+#define ASSERT_MAGIC16   0x4153u    /* "AS" */
+
+/* 三级策略，按「严重程度」排列，在调用处显式选择：
+ *   ASSERT_RET   最轻：记录后返回错误码，交给上层决定
+ *   ASSERT_BREAK 中等：记录后触发断点（开发期用；无调试器时会变成 HardFault）
+ *   ASSERT_RESET 最重：记录后立刻复位（无人值守设备的产品级选择）
+ * 共同点：失败时都会把「行号 + 次数」存进备份寄存器，复位后还能查。 */
+
+#define ASSERT_RET(cond, e)                                          \
+    do {                                                             \
+        if (!(cond)) {                                               \
+            assert_record((uint16_t)__LINE__);                       \
+            return (e);                                              \
+        }                                                            \
+    } while (0)
+
+#define ASSERT_BREAK(cond)                                           \
+    do {                                                             \
+        if (!(cond)) {                                               \
+            assert_record((uint16_t)__LINE__);                       \
+            __BKPT(0);                                               \
+        }                                                            \
+    } while (0)
+
+#define ASSERT_RESET(cond)                                           \
+    do {                                                             \
+        if (!(cond)) {                                               \
+            assert_record((uint16_t)__LINE__);                       \
+            assert_reset_now();                                      \
+        }                                                            \
+    } while (0)
+
+void assert_record(uint16_t line);
+void assert_reset_now(void);
+uint16_t assert_last_line(void);      /* 复位后取回上一次的断言行号 */
+uint32_t assert_count(void);          /* 累计断言次数（存于备份寄存器） */
+
+#endif /* ASSERT_MCU_H */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="assert_mcu.c：把遗言写进备份寄存器">
+<pre><code>#include "assert_mcu.h"
+#include "stm32f10x.h"
+
+/* 备份寄存器 DR1~DR3 的使用约定：
+ *   DR1 = 断言行号（16 位）
+ *   DR2 = 断言累计次数（16 位，溢出后回绕）
+ *   DR3 = 魔数（用于判断「这里面到底有没有有效内容」）
+ * 注意：F103 的备份寄存器在 VBAT 域，主电源掉电后若有纽扣电池仍会保留；
+ *       没有电池时，掉电后内容也会丢——所以魔数校验不能省。 */
+
+static void bkp_enable(void)
+{
+    /* 备份域要两个条件：APB1 上的 PWR/BKP 时钟，以及解除写保护 DBP */
+    RCC-&gt;APB1ENR |= RCC_APB1ENR_PWREN | RCC_APB1ENR_BKPEN;
+    PWR-&gt;CR |= PWR_CR_DBP;
+}
+
+void assert_record(uint16_t line)
+{
+    uint16_t cnt;
+
+    bkp_enable();
+
+    cnt = (uint16_t)(BKP_ReadBackupRegister(BKP_DR2) + 1u);
+    BKP_WriteBackupRegister(BKP_DR1, line);
+    BKP_WriteBackupRegister(BKP_DR2, cnt);
+    BKP_WriteBackupRegister(BKP_DR3, ASSERT_MAGIC16);
+}
+
+uint16_t assert_last_line(void)
+{
+    bkp_enable();
+    if (BKP_ReadBackupRegister(BKP_DR3) != ASSERT_MAGIC16) {
+        return 0u;                 /* 没有有效记录 */
+    }
+    return (uint16_t)BKP_ReadBackupRegister(BKP_DR1);
+}
+
+uint32_t assert_count(void)
+{
+    bkp_enable();
+    if (BKP_ReadBackupRegister(BKP_DR3) != ASSERT_MAGIC16) {
+        return 0u;
+    }
+    return (uint32_t)BKP_ReadBackupRegister(BKP_DR2);
+}
+
+void assert_reset_now(void)
+{
+    /* 复位前把现场固化：关中断 → 同步 → 内核级软复位。
+     * 复位后 RCC_CSR 的 SFTRSTF 位会置起来，配合 4.4 的复位源记录，
+     * 就能区分「是断言让我复位的」还是「是看门狗」还是「掉电」。 */
+    __disable_irq();
+    __DSB();
+    NVIC_SystemReset();
+
+    for (;;) {
+        /* 兜底：正常情况下执行不到这里 */
+    }
+}
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="三个宏各自用在哪里（这段不是代码，是判断标准）">
+<pre><code>/* 【ASSERT_RET：可以恢复的、属于「调用者用错」的情况】
+ *   典型场景：参数校验、状态前检查。
+ *   为什么用 RET 而不是停机：调用者可能确实能做出不同的决定。
+ *     ASSERT_RET(buf != NULL, ERR_PARAM);
+ *     ASSERT_RET(len &lt;= sizeof(s_tx_buf), ERR_PARAM);
+ *     ASSERT_RET(st &lt; ST_MAX, ERR_STATE);
+ *   要点：断言条件必须是「按设计永远成立」的，不是「外部输入校验」。
+ *         上面 len 的上限是内部约定，属于断言；
+ *         而串口收到的字节数上限属于输入校验，应该返回错误码而不炸。 */
+
+/* 【ASSERT_BREAK：开发期专用，最想让它「当场停下来让我看」的地方】
+ *     ASSERT_BREAK(p != NULL);
+ *     ASSERT_BREAK(irq_nesting &gt;= 0);
+ *   注意：没有调试器连接时 __BKPT(0) 会升级成 HardFault，
+ *         所以发布构建里要么删掉、要么改成 ASSERT_RESET。 */
+
+/* 【ASSERT_RESET：无人值守设备的产品级选择】
+ *     ASSERT_RESET(spi_handle != NULL);
+ *   为什么可以接受「复位」：对现场设备来说，
+ *     带着错误状态继续跑（可能乱发指令、可能写坏 Flash）比复位危险得多。
+ *     复位后靠备份寄存器里的行号 + 环形日志定位，代价只是一次重启。 */
+
+/* 【绝对不要写成这样】
+ *     ASSERT_BREAK(cnt++ &lt; 10);        // 副作用！断言被裁掉后语义就变了
+ *     ASSERT_BREAK(uart_is_idle());     // 瞬时硬件状态，会正常地不成立
+ *     ASSERT_RESET(printf("bad"));      // 阻塞 + 副作用，断言函数必须无阻塞
+ *     ASSERT_RET(temp &lt; 50, ERR_HW);    // 可变业务条件，这是运行期监控不是断言
+ */
+</code></pre>
+          </div>
+
+          <h3 id="sub-code-print" class="mt-7 text-base font-semibold">4.3 串口分级日志与 SWO/ITM 重定向</h3>
+
+          <p class="mt-3">这段代码把前面讲的「分级 + 编译期裁剪 + 非阻塞输出」三件事拼成一个能用的日志模块。核心设计只有一句：<b class="font-semibold text-ink">格式化在主循环里做（可以慢），发送变成「往队列里放数据」（几十纳秒），真正推字节交给中断或 DMA。</b>这样主循环里的日志不会阻塞，而中断里则一律只用 4.1 的事件码——因为格式化用的缓冲区不可重入。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="log.h：五级日志与编译期裁剪">
+<pre><code>#ifndef LOG_H
+#define LOG_H
+
+#include &lt;stdint.h&gt;
+
+/* 五个等级，数字越大越啰嗦 */
+#define LOG_LEVEL_NONE   0
+#define LOG_LEVEL_ERR    1
+#define LOG_LEVEL_WARN   2
+#define LOG_LEVEL_INFO   3
+#define LOG_LEVEL_DEBUG  4
+#define LOG_LEVEL_VERB   5
+
+/* 默认等级：发布构建建议 INFO 或 WARN；
+ * 调试构建在编译命令里加 -DLOG_LEVEL=LOG_LEVEL_DEBUG 覆盖 */
+#ifndef LOG_LEVEL
+#define LOG_LEVEL   LOG_LEVEL_INFO
+#endif
+
+void log_write(int level, const char *tag, const char *fmt, ...);
+
+/* 运行时开关：按位控制哪些等级允许输出（现场临时打开详细日志用） */
+extern volatile uint32_t g_log_mask;     /* bit0=E, bit1=W, bit2=I, bit3=D, bit4=V */
+#define LOG_ENABLED(level)   ((g_log_mask &amp; (1u &lt;&lt; (level))) != 0u)
+
+/* E/W/I：用常量条件判断即可（-O2 下整段会被优化掉） */
+#define LOG_E(tag, ...)                                                     \
+    do { if (LOG_LEVEL &gt;= LOG_LEVEL_ERR)  log_write(LOG_LEVEL_ERR,  tag, __VA_ARGS__); } while (0)
+#define LOG_W(tag, ...)                                                     \
+    do { if (LOG_LEVEL &gt;= LOG_LEVEL_WARN) log_write(LOG_LEVEL_WARN, tag, __VA_ARGS__); } while (0)
+#define LOG_I(tag, ...)                                                     \
+    do { if (LOG_LEVEL &gt;= LOG_LEVEL_INFO) log_write(LOG_LEVEL_INFO, tag, __VA_ARGS__); } while (0)
+
+/* D/V：用预处理指令包起来，连格式字符串都不进 Flash。
+ * 这一条很重要：常量条件在 -O0 下裁不掉字符串常量，Flash 会被吃掉几 KB。 */
+#if LOG_LEVEL &gt;= LOG_LEVEL_DEBUG
+#define LOG_D(tag, ...)   log_write(LOG_LEVEL_DEBUG, tag, __VA_ARGS__)
+#else
+#define LOG_D(tag, ...)   ((void)0)
+#endif
+
+#if LOG_LEVEL &gt;= LOG_LEVEL_VERB
+#define LOG_V(tag, ...)   log_write(LOG_LEVEL_VERB, tag, __VA_ARGS__)
+#else
+#define LOG_V(tag, ...)   ((void)0)
+#endif
+
+/* 用法示例（注意：不要在中断里用这四个宏，中断里请用 log_ring_push）：
+ *     LOG_I("NET", "link up, rssi=%d", rssi);
+ *     LOG_E("ADC", "timeout, ch=%u ret=%s", ch, err_str(ret));
+ *     LOG_D("PID", "sp=%d pv=%d out=%d", sp, pv, out);
+ */
+#endif /* LOG_H */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="log.c：格式化在主循环，发送靠环形队列（非阻塞）">
+<pre><code>#include "log.h"
+#include "stm32f10x.h"
+#include &lt;stdio.h&gt;
+#include &lt;stdarg.h&gt;
+
+volatile uint32_t g_log_mask = 0x1Fu;    /* 默认五级全开；发布前改成 0x03 */
+
+/* ---------------- 非阻塞发送队列 ---------------- */
+#define UART_TX_SIZE   512u                     /* 必须是 2 的幂 */
+#define UART_TX_MASK   (UART_TX_SIZE - 1u)
+
+static volatile uint8_t  s_tx[UART_TX_SIZE];
+static volatile uint16_t s_tx_head;             /* 生产者（主循环/日志）写 */
+static volatile uint16_t s_tx_tail;             /* 消费者（USART1 中断）读 */
+
+static void uart_tx_kick(void)
+{
+    USART1-&gt;CR1 |= USART_CR1_TXEIE;             /* 打开 TXE 中断，开始推 */
+}
+
+int uart_tx_async(const uint8_t *p, uint16_t len)
+{
+    uint16_t i;
+    uint32_t primask = __get_PRIMASK();
+
+    for (i = 0u; i &lt; len; i++) {
+        uint16_t next = (uint16_t)((s_tx_head + 1u) &amp; UART_TX_MASK);
+        if (next == s_tx_tail) {
+            /* 队列满：丢弃而不是阻塞。
+             * 「少打几条日志」永远好过「主循环卡住」。 */
+            if (primask == 0u) { __enable_irq(); }
+            return -1;
+        }
+        s_tx[s_tx_head] = p[i];
+        s_tx_head = next;
+    }
+    if (primask == 0u) { __enable_irq(); }
+    uart_tx_kick();
+    return (int)len;
+}
+
+/* 放在 USART1_IRQHandler 里调用：每发完一个字节取下一个 */
+void uart_tx_isr(void)
+{
+    if ((USART1-&gt;SR &amp; USART_SR_TXE) != 0u) {
+        if (s_tx_tail != s_tx_head) {
+            USART1-&gt;DR = s_tx[s_tx_tail];
+            s_tx_tail = (uint16_t)((s_tx_tail + 1u) &amp; UART_TX_MASK);
+        } else {
+            USART1-&gt;CR1 &amp;= ~USART_CR1_TXEIE;    /* 队列空了，关中断 */
+        }
+    }
+}
+
+/* 给 log_ring_dump / 直接打印用的同步出口 */
+void uart_puts(const char *s)
+{
+    uart_tx_async((const uint8_t *)s, (uint16_t)strlen(s));
+}
+
+/* ---------------- 日志本体 ---------------- */
+static const char lv_char[6] = { '-', 'E', 'W', 'I', 'D', 'V' };
+
+void log_write(int level, const char *tag, const char *fmt, ...)
+{
+    char buf[96];                                /* 栈上缓冲：不占堆，可重入性由调用者保证 */
+    va_list ap;
+
+    if (!LOG_ENABLED((uint32_t)level)) {
+        return;
+    }
+
+    va_start(ap, fmt);
+    /* 注意：vsnprintf 会取一部分栈与库的锁，
+     * 所以本函数只能在主循环/任务上下文里用，不要在中断里用。
+     * 另外：这里刻意不用 %f —— 浮点格式化是几百微秒级的开销。 */
+    (void)vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+
+    uart_tx_async((const uint8_t *)buf, (uint16_t)strlen(buf));
+    uart_tx_async((const uint8_t *)"\r\n", 2u);
+}
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="SWO / ITM：重定向与使能序列（含 F103 的 PB3 处理）">
+<pre><code>#include "stm32f10x.h"
+
+/* ---------- 1) 字符输出：先判断「有没有人在看」，再等 FIFO 空位 ---------- */
+int itm_putc(int ch)
+{
+    /* ITMENA=0 表示没有调试器使能 ITM（比如脱机运行）：
+     * 直接丢弃并返回，绝不能在这里死等 —— 否则产品现场会因为一句
+     * 忘在代码里的日志而卡死。 */
+    if ((ITM-&gt;TCR &amp; ITM_TCR_ITMENA_Msk) == 0u) {
+        return ch;
+    }
+    if ((ITM-&gt;TER &amp; 1u) == 0u) {        /* 通道 0 未使能 */
+        return ch;
+    }
+    while (ITM-&gt;PORT[0].u32 == 0u) {
+        /* 等 FIFO 出现空位。正常情况下一两个周期就能写进去；
+         * 如果这里长时间出不来，说明上位机读得比目标写得慢，见 3.3 的判据。 */
+    }
+    ITM-&gt;PORT[0].u8 = (uint8_t)ch;
+    return ch;
+}
+
+/* ---------- 2) 把 printf 接到 ITM（或接到串口队列） ---------- */
+#if defined(LOG_SINK_ITM)
+int fputc(int ch, FILE *f)
+{
+    (void)f;
+    return itm_putc(ch);
+}
+#else
+int fputc(int ch, FILE *f)
+{
+    uint8_t c = (uint8_t)ch;
+    (void)f;
+    return uart_tx_async(&amp;c, 1u);
+}
+#endif
+
+/* ---------- 3) 使能 SWO 追踪输出（F103 专用细节） ---------- */
+void trace_enable(uint32_t swo_hz)
+{
+    /* ① 释放 PB3：F103 的 TRACESWO 复用在 PB3 上，
+     *    而 PB3 默认是 JTAG 的 JTDO。必须把 JTAG 关掉、只留 SWD，
+     *    PB3 才能当追踪脚用（顺带把 PA15、PB4 也还给用户）。 */
+    RCC-&gt;APB2ENR |= RCC_APB2ENR_AFIOEN;
+    AFIO-&gt;MAPR = (AFIO-&gt;MAPR &amp; ~AFIO_MAPR_SWJ_CFG)
+               | AFIO_MAPR_SWJ_CFG_JTAGDISABLE;
+
+    /* PB3 配成复用推挽输出 */
+    RCC-&gt;APB2ENR |= RCC_APB2ENR_IOPBEN;
+    GPIOB-&gt;CRL = (GPIOB-&gt;CRL &amp; ~(0xFu &lt;&lt; 12)) | (0xBu &lt;&lt; 12);
+
+    /* ② 打开调试模块的 TRACE 输出，并选异步模式（只有 SWO 一根线，
+     *    不使用 TRACECLK，这是教学板上唯一可行的接法）。 */
+    DBGMCU-&gt;CR |= DBGMCU_CR_TRACE_IOEN;
+    DBGMCU-&gt;CR &amp;= ~DBGMCU_CR_TRACE_MODE;      /* TRACE_MODE = 00：异步 */
+
+    /* ③ 设 SWO 波特率：TPIU 的异步预分频。
+     *    具体寄存器名随系列不同（F1 上是 TPIU-&gt;ACPR），
+     *    关系式：SWO 速率 = TRACECLK / (ACPR + 1)，
+     *    通常还要除以 2（因为内部按 2 倍采样）。 */
+    TPIU-&gt;ACPR = (uint32_t)(SystemCoreClock / (2u * swo_hz)) - 1u;
+
+    /* ④ ITM 侧：使能 ITM 本体与通道 0 */
+    ITM-&gt;TER  |= 1u;                          /* 使能 Stimulus Port 0 */
+    ITM-&gt;TCR  |= ITM_TCR_ITMENA_Msk;          /* 使能 ITM */
+}
+
+/* 调用示例：
+ *     trace_enable(2000000u);     // SWO = 2 MHz
+ *     printf("swo works, tick=%lu\r\n", (unsigned long)HAL_GetTick());
+ */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="上位机侧要配对的三项设置（漏一项就是满屏乱码）">
+<pre><code>【Keil MDK】
+  ① Debug → Settings → Trace 页
+       Core Clock : 填目标实际内核频率（例如 72 MHz）
+       Trace Port : 选 SWO / Serial Wire Output
+  ② 同一页下方的 ITM Stimulus Ports：勾上 Port 0（否则 printf 的输出不显示）
+  ③ SWO 的时钟频率（Prescaler）要与固件里 trace_enable() 传的值一致（例如 2 MHz）
+
+【STM32CubeIDE / OpenOCD】
+  · 在调试配置里启用 SWV / ITM，填 Core Clock 与 SWO 频率
+  · OpenOCD 侧常见写法：tpiu config internal - uart on 等（版本差异较大，照官方示例抄）
+
+【J-Link + JLinkRTTViewer / JLinkSWOViewer】
+  · SWO Viewer 里选 CPU 频率与 SWO 速度，其它默认即可
+  · 如果只想看 RTT，用 RTT Viewer，不需要配 SWO
+
+【三项配对检查（乱码时按顺序查）】
+  1. Core Clock 与目标实际频率是否一致？（改过时钟树就要改这里）
+  2. SWO 频率是否与固件里的 TPIU 分频一致？
+  3. ITM 通道 0 是否被勾选/使能（固件侧 ITM->TER 与上位机侧都要）？
+  若三项都对仍无输出：检查 SWO 线是否真的接了（很多排线只引了四根）
+  以及 PB3 是否被其它功能占用。
+</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">中断里到底该打什么</div>
+            <p>把三种做法按「能不能在中断里用」排一下：<b>① <code class="icode">log_ring_push(EV_COMM_LOST, arg)</code> —— 几十纳秒，可以在中断里用，这也是中断里唯一推荐的做法</b>；② <code class="icode">itm_putc</code> 逐字节写 FIFO —— 几微秒，可以用，但要用手写的整数转字符串，不要用 <code class="icode">printf</code>；③ <code class="icode">LOG_I(...)</code> / <code class="icode">printf</code> —— <b>不可以在中断里用</b>，因为 <code class="icode">vsnprintf</code> 用的是共享缓冲与库内部状态，主循环和中断同时调用会打出乱码甚至崩溃。<b class="font-semibold text-ink">判断标准很简单：这个函数里有没有一块「大家共用的可变内存」。有，就必须只在单一上下文里用。</b></p>
+          </div>
+
+          <h3 id="sub-code-reset" class="mt-7 text-base font-semibold">4.4 复位源与备份寄存器：复位前留下遗言</h3>
+
+          <p class="mt-3">在 4.1 已经提到过一句：复位之后第一件事应该是<b>搞清楚「上一次是谁把我弄死的」</b>。STM32 的 <code class="icode">RCC_CSR</code> 寄存器把这件事做成了硬件功能——它会记住最近一次复位的原因，直到你手动清除。<b class="font-semibold text-ink">这段代码的价值在于：它把「死因」从一个靠回忆的问题，变成了一个开机就能打印出来的字段。</b></p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="reset_info.h：复位源位图与跨复位信息">
+<pre><code>#ifndef RESET_INFO_H
+#define RESET_INFO_H
+
+#include &lt;stdint.h&gt;
+
+/* 复位源位图（一个位对应一种原因，可能多个位同时置起来） */
+#define RS_PIN      (1u &lt;&lt; 0)   /* NRST 引脚复位：复位键、外部复位芯片、调试器 under reset */
+#define RS_POR      (1u &lt;&lt; 1)   /* 上电/掉电复位：真正的冷启动 */
+#define RS_SOFT     (1u &lt;&lt; 2)   /* 软件复位：NVIC_SystemReset()、断言策略、bootloader 跳转 */
+#define RS_IWDG     (1u &lt;&lt; 3)   /* 独立看门狗超时：程序卡死，或调试时被断点停太久 */
+#define RS_WWDG     (1u &lt;&lt; 4)   /* 窗口看门狗：喂狗太早或太晚 */
+#define RS_LPWR     (1u &lt;&lt; 5)   /* 低功耗模式异常 */
+
+/* 跨复位保留的信息（放在 .noinit 段） */
+typedef struct {
+    uint32_t magic;          /* 有效性标记 */
+    uint32_t boot_cnt;       /* 开机次数（热复位累加） */
+    uint32_t assert_cnt;     /* 累计断言次数（来自备份寄存器） */
+    uint16_t last_rs;        /* 上一次的复位源位图 */
+    uint16_t last_line;      /* 上一次断言的行号 */
+} reset_info_t;
+
+#define RESET_MAGIC   0x52535431u    /* "RST1" */
+
+uint16_t reset_source_read(void);        /* 读并清除 RCC_CSR 的标志 */
+void     reset_info_capture(void);       /* 开机第一件事调用 */
+const reset_info_t *reset_info_get(void);
+void     reset_info_print(void (*put)(const char *));
+
+#endif /* RESET_INFO_H */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="reset_info.c：完整实现">
+<pre><code>#include "reset_info.h"
+#include "assert_mcu.h"
+#include "stm32f10x.h"
+#include &lt;stdio.h&gt;
+
+static reset_info_t s_ri __attribute__((section(".noinit")));
+
+uint16_t reset_source_read(void)
+{
+    uint32_t csr = RCC-&gt;CSR;
+    uint16_t flags = 0u;
+
+    if (csr &amp; RCC_CSR_PINRSTF)  { flags |= RS_PIN;  }
+    if (csr &amp; RCC_CSR_PORRSTF)  { flags |= RS_POR;  }
+    if (csr &amp; RCC_CSR_SFTRSTF)  { flags |= RS_SOFT; }
+    if (csr &amp; RCC_CSR_IWDGRSTF) { flags |= RS_IWDG; }
+    if (csr &amp; RCC_CSR_WWDGRSTF) { flags |= RS_WWDG; }
+    if (csr &amp; RCC_CSR_LPWRRSTF) { flags |= RS_LPWR; }
+
+    /* 关键一步：清掉标志，否则下一次复位读到的还是这一批旧标志，
+     * 于是你会永远以为「每次都是看门狗复位的」。 */
+    RCC-&gt;CSR |= RCC_CSR_RMVF;
+
+    return flags;
+}
+
+void reset_info_capture(void)
+{
+    uint16_t bkp_magic;
+
+    /* 读复位源必须放在最前面：任何一次其它操作都不该影响它 */
+    s_ri.last_rs = reset_source_read();
+
+    if (s_ri.magic != RESET_MAGIC) {
+        /* 冷启动：RAM 里是随机值，全部从零开始 */
+        s_ri.magic     = RESET_MAGIC;
+        s_ri.boot_cnt  = 0u;
+        s_ri.last_line = 0u;
+        s_ri.assert_cnt = 0u;
+    }
+    s_ri.boot_cnt++;
+
+    /* 从备份寄存器取回「断言的遗言」：行号 + 累计次数。
+     * 注意这与复位源是两条独立的信息：
+     *   last_rs = RS_SOFT 说明「是主动复位的」，
+     *   last_line 则告诉我「是哪一行断言触发的」。 */
+    bkp_magic = (uint16_t)BKP_ReadBackupRegister(BKP_DR3);
+    if (bkp_magic == ASSERT_MAGIC16) {
+        s_ri.last_line  = assert_last_line();
+        s_ri.assert_cnt = assert_count();
+    }
+}
+
+const reset_info_t *reset_info_get(void)
+{
+    return &amp;s_ri;
+}
+
+void reset_info_print(void (*put)(const char *))
+{
+    char line[128];
+
+    snprintf(line, sizeof(line),
+             "[RST] boot=%lu rs=0x%04X asserts=%lu last_line=%u\r\n",
+             (unsigned long)s_ri.boot_cnt, (unsigned)s_ri.last_rs,
+             (unsigned long)s_ri.assert_cnt, (unsigned)s_ri.last_line);
+    put(line);
+}
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="复位源怎么读成一个故事（先看这个表，再去看代码）">
+<pre><code>【单个标志的含义】
+
+  标志                含义                              通常意味着
+  ────────────────────────────────────────────────────────────────────────────────
+  PORRSTF             上电/掉电复位                      真·冷启动。正常运行
+  PINRSTF             NRST 引脚被拉低                    复位键 / 外部复位芯片 /
+                                                         调试器 under reset 连接的副产物
+  SFTRSTF             软件复位                            NVIC_SystemReset()，
+                                                         断言策略、bootloader 跳转
+  IWDGRSTF            独立看门狗超时                      程序卡死；或调试时断点停太久
+  WWDRSTF             窗口看门狗超时                      喂狗太早（在窗口外）或太晚
+  LPWRRSTF            低功耗模式异常                      进入了不该进的低功耗状态
+
+【多个标志的组合怎么读】（这是最容易读错的地方）
+
+  情形 A：PORRSTF + 其它位
+     说明这次是上电，其它位是「上一次复位留下的陈迹」——
+     因为 POR 会把所有标志一起置起来。
+     → 结论：以 PORRSTF 为准，这是一次冷启动。
+
+  情形 B：只有 IWDGRSTF
+     → 结论：典型的看门狗复位（程序卡死，或者你正在被断点折磨，见 4.6）。
+
+  情形 C：SFTRSTF + 备份寄存器里的行号非 0
+     → 结论：断言主动复位，行号指给你看。
+
+  情形 D：PINRSTF 反复出现，但没人按复位键
+     → 结论：检查电源质量（掉电瞬间会有毛刺）、复位脚上的电容是否合适、
+       或者调试器是不是一直挂在 under reset 模式上。
+
+【配合 boot_cnt 使用】
+  boot_cnt 每次热复位加一。如果一晚上从 1 涨到 300，
+  说明设备在反复复位——这本身就是最重要的结论，
+  比任何单次现场都有用。 */
+</code></pre>
+          </div>
+
+          <h3 id="sub-code-load" class="mt-7 text-base font-semibold">4.5 CPU 占用率、栈水位与堆水位</h3>
+
+          <p class="mt-3">这三个指标回答的是同一类问题：<b>「系统的余量还剩多少」</b>。它们全部是可以在运行时持续统计、并且几乎不花钱的——<b class="font-semibold text-ink">CPU 占用率告诉你时间的余量，栈水位与堆水位告诉你空间的余量。</b>偶发故障中相当一部分（尤其是「跑一会儿就死」）就是这三样中的某一样被吃光了。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="load_stat.c：用空闲计数测 CPU 占用率">
+<pre><code>#include "stm32f10x.h"
+
+static volatile uint32_t s_idle_cnt;     /* 空闲循环跑过的圈数 */
+static volatile uint32_t s_idle_last;
+static volatile uint32_t s_idle_max = 1u;/* 历史最大空闲圈数（= 空载时的值） */
+static volatile uint32_t s_load_pct;     /* 0 ~ 100 */
+
+/* 在 SysTick 的 1 ms 中断里调用 */
+void load_tick_1ms(void)
+{
+    uint32_t now = s_idle_cnt;
+    uint32_t d   = now - s_idle_last;
+    s_idle_last  = now;
+
+    /* 空闲圈数的最大值就是「CPU 完全没事干」时的值。
+     * 第一次跑到最大值需要一个空载窗口；也可以用空载固件先标定一次。 */
+    if (d &gt; s_idle_max) {
+        s_idle_max = d;
+    }
+
+    /* 空闲比例 = d / s_idle_max；占用率 = 1 - 空闲比例 */
+    s_load_pct = 100u - (d * 100u) / s_idle_max;
+}
+
+/* 主循环的最后一行调用：什么也不做，只是把「我又闲了一圈」记下来 */
+void load_idle_hook(void)
+{
+    s_idle_cnt++;
+}
+
+uint32_t load_get_pct(void)
+{
+    return s_load_pct;
+}
+
+/* 【用法与要点】
+ *   while (1) {
+ *       app_task();
+ *       load_idle_hook();       // ← 主循环最后一行
+ *   }
+ *
+ *   要点 1：分辨率 = 1 / s_idle_max。
+ *           若主循环 1 ms 能跑 20000 圈，分辨率就是 0.005%，足够用；
+ *           若只能跑 100 圈，分辨率 1%，那就该把统计窗口拉长到 10 ms。
+ *   要点 2：s_idle_max 会被「曾经出现过的最空闲时刻」不断刷新，
+ *           所以统计值会随时间越来越准（但也意味着上电初期偏高）。
+ *   要点 3：占用率突然从 35% 跳到 90%，这本身就是一个重大线索——
+ *           说明有任务变慢了、有中断变频繁了、或者有 while 在空转。 */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="stack_stat.c：用魔数填充测栈水位">
+<pre><code>#include "stm32f10x.h"
+
+/* 链接脚本里的栈底符号（栈向下增长，这是最低地址） */
+extern uint32_t _stack_limit;
+
+#define STACK_PAINT   0xA5A5A5A5u
+
+/* 在 main 的最开始调用一次：把「当前还没用到的栈空间」全部涂上魔数。
+ * 注意方向：栈从高地址往低地址增长，
+ *   已被使用的区域在 [当前 SP, 栈顶)；
+ *   我们要涂的是 [_stack_limit, 当前 SP) 这一段「未来会用到的空间」。 */
+void stack_paint(void)
+{
+    uint32_t sp;
+    uint32_t *lo = &amp;_stack_limit;
+    uint32_t *hi;
+
+    __asm volatile ("mov %0, sp" : "=r"(sp));
+    hi = (uint32_t *)(sp &amp; ~3u);
+
+    for (uint32_t *p = lo; p &lt; hi; p++) {
+        *p = STACK_PAINT;
+    }
+}
+
+/* 任何时候都可以调用（比如每分钟一次、或复位前）：
+ * 从栈底往上找第一个「不再是魔数」的字，它的位置就是历史最深水位。 */
+uint32_t stack_used_max(void)
+{
+    uint32_t sp;
+    uint32_t *lo = &amp;_stack_limit;
+    uint32_t *hi;
+    uint32_t *p;
+
+    __asm volatile ("mov %0, sp" : "=r"(sp));
+    hi = (uint32_t *)(sp &amp; ~3u);
+
+    p = lo;
+    while ((p &lt; hi) &amp;&amp; (*p == STACK_PAINT)) {
+        p++;
+    }
+    /* 从 p 到 hi 就是曾经被用过的部分 */
+    return (uint32_t)(hi - p) * 4u;
+}
+
+/* 【怎么用这些数字】
+ *   总栈大小 = 初始 SP - _stack_limit（在 .map 里能看到）
+ *   余量百分比 = (总栈 - stack_used_max) / 总栈
+ *   经验线：余量小于 25% 就该加栈；小于 10% 属于随时会炸。
+ *
+ * 【三个必须知道的干扰】
+ *   ① 如果某个变量恰好等于 0xA5A5A5A5，会把水位算浅（概率极低但存在）。
+ *   ② -O2 会让局部变量消失（进寄存器），测出来的水位比 -O0 浅；
+ *      要评估产品的最坏水位，就得在发布构建里测。
+ *   ③ 中断嵌套会额外加深栈。跑到最深的那次很可能发生在中断里，
+ *      所以测量时机要覆盖长时间运行，而不是开机测一次。
+ *
+ * 【用了 FreeRTOS 的话】
+ *   每个任务用 uxTaskGetStackHighWaterMark(NULL) 直接拿余量（单位是字），
+ *   它内部用的就是这个魔数填充原理（configCHECK_FOR_STACK_OVERFLOW）。 */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="heap_stat.c：在 _sbrk 里盯住堆水位">
+<pre><code>#include &lt;errno.h&gt;
+#include &lt;stddef.h&gt;
+#include &lt;stdint.h&gt;
+
+extern uint32_t _end;            /* 堆起点：.bss 之后（链接脚本符号） */
+extern uint32_t _stack_limit;    /* 栈底：堆绝不能长到这里 */
+
+static uint32_t s_heap_peak;     /* 历史最高水位（字节） */
+
+/* newlib 的 malloc 最终会调用 _sbrk 向系统要内存。
+ * 自己实现它，就能在每一次分配时顺便记录水位 —— 零额外开销。 */
+void *_sbrk(ptrdiff_t incr)
+{
+    static uint8_t *brk = NULL;
+    uint8_t *prev;
+
+    if (brk == NULL) {
+        brk = (uint8_t *)&amp;_end;
+    }
+    prev = brk;
+
+    /* 越界检查：堆一旦长到栈底，接下来就是「堆踩栈」的经典死法 */
+    if ((uint32_t)(brk + incr) &gt;= (uint32_t)&amp;_stack_limit) {
+        errno = ENOMEM;
+        return (void *)-1;
+    }
+
+    brk += incr;
+
+    if ((uint32_t)(brk - (uint8_t *)&amp;_end) &gt; s_heap_peak) {
+        s_heap_peak = (uint32_t)(brk - (uint8_t *)&amp;_end);
+    }
+    return prev;
+}
+
+uint32_t heap_peak(void)
+{
+    return s_heap_peak;
+}
+
+/* 【怎么读】
+ *   堆总大小 ≈ &amp;_stack_limit - &amp;_end
+ *   水位长期在涨 → 有内存泄漏（每次分配都没释放），
+ *                   或者在中断/异常路径里发生了分配但没回收。
+ *   水位突然贴近上限 → 大概率马上要 HardFault，而且现场会很难看
+ *                       （堆把栈盖了，返回地址变成垃圾）。
+ *
+ * 【用了 FreeRTOS 的话】
+ *   xPortGetFreeHeapSize()         当前剩余
+ *   xPortGetMinimumEverFreeHeapSize()  历史最小剩余（= 最高水位）
+ *   后者才是判断余量的依据，前者只反映当下。 */
+</code></pre>
+          </div>
+
+          <h3 id="sub-code-wdt" class="mt-7 text-base font-semibold">4.6 断点导致看门狗复位：复现与解决</h3>
+
+          <p class="mt-3">这是「调试本身引入的问题」里最经典的一个，也是很多人第一次遇到时的心理阴影：<b>程序跑得好好的，一下断点就重启；同学告诉你是「程序有病」，你也开始怀疑自己的代码。</b>真相是：<b class="font-semibold text-ink">独立看门狗由自己的 LSI 时钟驱动，内核被调试器停住（halt）时它照样在数数。</b>它超时了就复位，跟你的代码一点关系都没有。这段代码先把现象复现出来，再给三种解法。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="第一步：复现（IWDG 使能 + 一行下断点）">
+<pre><code>#include "stm32f10x.h"
+#include "reset_info.h"
+#include "log_ring.h"
+
+/* LSI ≈ 40 kHz（F103 典型值，实际 30~60 kHz 波动）
+ * 超时 = RLR × 预分频 / f_LSI = 625 × 64 / 40000 = 1.0 s */
+void iwdg_init(void)
+{
+    IWDG-&gt;KR = 0x5555u;              /* 解除写保护 */
+    IWDG-&gt;PR = IWDG_PR_PR_2;         /* 预分频 64（PR=100b） */
+    IWDG-&gt;RLR = 625u;                /* 重装值 → 约 1 s */
+    IWDG-&gt;KR = 0xCCCCu;              /* 启动。注意：一旦启动，无法关闭 */
+}
+
+void iwdg_feed(void)
+{
+    IWDG-&gt;KR = 0xAAAAu;              /* 喂狗 */
+}
+
+int main(void)
+{
+    reset_info_capture();            /* 先记录上次的死因 */
+    log_ring_init();
+
+    iwdg_init();
+
+    while (1) {
+        GPIO_ToggleBits(GPIOC, GPIO_Pin_13);   /* ← 在这一行下断点，停 2 秒 */
+        iwdg_feed();
+    }
+}
+
+/* 【观察结果】
+ *   断点停下 → 等 2 秒 → 调试器显示目标丢失/复位
+ *   复位后读 log_ring 与 reset_info：
+ *     [RST] boot=2 rs=0x0008 asserts=0 last_line=0
+ *     rs 里的 0x0008 就是 RS_IWDG —— 独立看门狗复位。
+ *   boot_cnt 从 1 变成 2，说明确实复位了一次。
+ *
+ * 【为什么这是「正常现象」】
+ *   IWDG 的时钟来自独立的 LSI 振荡器（内部 RC），
+ *   不依赖内核时钟、不依赖你停在哪条指令上。
+ *   调试器 halt 只停 CPU，不会停外设 —— 看门狗、定时器、DMA、
+ *   通信对端全都还在动。这就是「停下来本身改变了系统」的具体含义。 */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="解法一：让调试器在 halt 时冻结看门狗（推荐）">
+<pre><code>/* 在 main 的开头、iwdg_init() 之前调用 */
+void debug_freeze_watchdog(void)
+{
+    /* STM32F1 系列：DBGMCU_CR 里有专门的控制位 ——
+     * 内核在调试停止时，IWDG/WWDG 是否继续计数。 */
+    DBGMCU-&gt;CR |= DBGMCU_CR_DBG_IWDG_STOP | DBGMCU_CR_DBG_WWDG_STOP;
+
+    /* 【换系列要注意】
+     *   STM32F4 把这两个位挪到了 DBGMCU_APB1_FZ 寄存器：
+     *     · DBG_IWDG_STOP 在第 12 位
+     *     · DBG_WWDG_STOP 在第 11 位
+     *   F0/F3/F7/L4 等系列也在 DBGMCU_APB1_FZ（或 APB1FZR）里，
+     *   位名与位置不完全相同 —— 请以工程里的 CMSIS 头文件为准，
+     *   不要照抄这里的宏名。
+     *
+     *   还有一类产品根本不提供这个功能：看门狗一旦启动就绝不冻结
+     *   （安全设计使然），这时只能用解法二或三。 */
+}
+
+/* 为什么推荐它：它是「只在调试时生效」的解法 ——
+ * 调试器连着时看门狗冻结（你可以安心下断点、单步、蹲着看），
+ * 调试器拔掉后看门狗照常工作（真实的产品行为被保留）。 */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="解法二与解法三：把看门狗关掉，或者干脆不停 CPU">
+<pre><code>/* ---------- 解法二：调试构建里不启动看门狗 ---------- */
+void app_watchdog_start(void)
+{
+#ifndef DEBUG_BUILD
+    iwdg_init();
+#else
+    /* 调试构建：什么都不做，让断点、单步、长时观察都不受干扰 */
+#endif
+}
+
+/* 【代价与纪律】
+ *   这个解法会把「喂狗太慢」这类真实缺陷一起掩盖掉：
+ *   你在调试构建里跑得好好的，发布构建一上电就复位。
+ *   所以它的使用纪律是：
+ *     · 只在「专门追一个需要长时间断点/单步的问题」时临时用；
+ *     · 追完之后立刻切回带看门狗的构建跑一遍完整测试；
+ *     · 绝不把它当成长期配置留在工程里。 */
+
+/* ---------- 解法三：改用不停 CPU 的手段观察 ---------- */
+/*  把「停下来看」换成下面这些，看门狗就永远不会被踩到：
+
+ *   ① Live Watch / 实时变量刷新（不 halt，后台读内存）
+        —— 看计数器、标志位、状态机变量，见 2.5 节
+ *   ② ITM / SWO 日志（CPU 只花几个周期把字节丢进 FIFO，见 4.3 节）
+ *   ③ log_ring_push() 环形日志（几十纳秒，见 4.1 节）
+        —— 事后 dump，跑一晚上也不影响系统
+ *   ④ GPIO 翻转 + 示波器（两条指令，量时间最准）
+ *   ⑤ 数据观察点（watchpoint）设为「命中即记录不停机」的场合很少，
+        多数调试器一命中就停 —— 所以它仍然要配合解法一使用。
+
+ * 【选择顺序建议】
+    先试解法一（冻结看门狗）→ 不行再解法三（改成不停机观察）
+    → 万不得已才用解法二（但必须记得切回来）。 */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="顺带解决另一个经典问题：「一加日志就好了」">
+<pre><code>/* 【现象】
+ *   故障是偶发的：通信偶尔超时、偶尔丢一包、偶尔状态错。
+ *   你为了查它加了几行日志 —— 故障消失了。
+ *   把日志删掉 —— 故障又回来了。
+ *   你会开始怀疑「编译器有 bug」或者「板子有灵性」。
+ *
+ * 【真相】
+ *   加日志改变了「时间」：打印语句本身要花时间，
+ *   于是两个事件之间的相对顺序、中断响应的时机、超时的边界全都变了。
+ *   这是典型的**时序相关缺陷**（竞态、中断优先级、共享变量未保护），
+ *   不是玄学。
+ *
+ * 【确认方法：只加时间，不加数据】
+ *   把 printf 换成一段什么也不做的空循环，只消耗时间： */
+for (volatile uint32_t i = 0; i &lt; 200u; i++) {
+    __NOP();
+}
+/*   · 如果故障也跟着消失了 → 100% 是时序问题，与日志内容无关。
+ *   · 如果只有加「打印变量」才消失 → 也可能是时序（打印变量的开销更大）。
+ *
+ * 【接下来按这四步查】
+ *   ① 看中断优先级：是不是有两个外设抢同一份数据，
+ *      而优先级设置让「该先跑完的没跑完就被打断了」？（NVIC_SetPriority）
+ *   ② 看共享变量：主循环与中断同时读写的那几个变量，
+ *      有没有加 volatile？有没有进临界区？（volatile 不保证原子性，见 2.4）
+ *   ③ 看通信超时：对端等你的时间是不是刚好卡在边界上？
+ *      把超时放宽 20% 试试 —— 如果故障消失，就是余量不足，不是逻辑错。
+ *   ④ 换成不停机的手段（ITM / 环形日志）复测：
+ *      如果换成零开销的日志之后故障回归，就彻底证明了是「时间」在起作用。
+ *
+ * 【为什么第 ④ 步很重要】
+ *   它把「加日志就好了」这个模糊现象，变成了一个可复现的实验：
+ *   同一份逻辑，只改输出通道（阻塞 → 非阻塞），
+ *   故障出现与否就成了一个干净的对照结论。
+ */
+</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这六段代码怎么落地</div>
+            <p>不要一次全抄进工程。建议的顺序是：<b>先加 4.1（环形日志）+ 4.4（复位源）</b>——这两段让你在任何时候都能回答「它上次是怎么死的」，收益最大、风险最小；<b>再补 4.2（断言三级宏）</b>，把关键假设变成会主动报错的检查；<b>最后按需要加上 4.3 / 4.5 / 4.6</b>。整个过程加起来大约半天工作量，但它换来的是「下次出问题不用再靠猜」。<b>这也正是第 33 篇想要的结果：调试能力的提升，往往不来自学会某个工具，而来自把「留现场」变成工程的默认配置。</b></p>
+          </div>
+
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见误区 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误区：十个「听起来很对」的错误认知</h2>
+
+          <p class="mt-4">这一节列的十条，全部是<b>真实项目里能见到、而且会造成实际损失</b>的误解——其中大半会让学生把自己的代码改坏、或者把已经修好的问题又改回去。每条都按「错误认知 → 为什么错 → 正确做法」三段写。</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">误区 1：遇到问题，先连上调试器下个断点</div>
+            <p><b>为什么错：</b>断点只能回答「程序有没有走到这里」，而绝大多数问题的答案在<b>走到这里之前</b>就已经写好了——电源不稳、时钟没起来、引脚被复用成了别的功能。在一个「根本没跑起来」的系统上设断点，你会看到程序停在启动文件里，然后开始怀疑启动文件。这正是「先分层再二分」要避免的：<b>你还不知道故障在哪一层，就已经把自己锁死在最里面那一层了。</b></p>
+            <p class="mt-2"><b>正确做法：</b>动手前先说一句「我认为问题在<b>第几层</b>」——电源硬件 / 时钟复位 / 外设配置 / 驱动中断 / 应用逻辑。分层之后选工具：<b>下面两层用表笔，中间一层看寄存器，上面两层才用调试器。</b>如果你说不出在哪一层，那就先做一件最便宜的判定：量一次供电、确认一次时钟、点一盏灯。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">误区 2：一加断点就重启，说明程序有毛病</div>
+            <p><b>为什么错：</b>独立看门狗（IWDG）的时钟来自<b>独立的 LSI 振荡器</b>，它不依赖内核时钟、也不受调试器 halt 的影响。<b>你停住的是 CPU，不是整颗芯片</b>——看门狗、定时器、DMA、通信对端全都还在跑。所以「下断点 → 停 2 秒 → 复位」是<b>必然现象</b>，和你的代码质量毫无关系。真正有毛病的是「把这个现象当成代码缺陷，然后开始乱改代码」。</p>
+            <p class="mt-2"><b>正确做法：</b>三条路，按顺序试。<b>①</b> 在 <code class="icode">main</code> 开头调用本页 4.6 的 <code class="icode">debug_freeze_watchdog()</code>，让调试器 halt 时冻结看门狗（F1 在 <code class="icode">DBGMCU-&gt;CR</code>，F4 在 <code class="icode">DBGMCU_APB1_FZ</code>）；<b>②</b> 把「停下来看」换成不停机的手段（Live Watch / ITM / 环形日志）；<b>③</b> 万不得已才在调试构建里不启动看门狗，并且记得追完问题切回来。<b>顺带一个收获</b>：复位日志里出现 <code class="icode">rs=0x0008</code>（RS_IWDG）时，先想想自己刚才是不是在断点上停了很久，再去怀疑程序。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">误区 3：条件断点就是「带条件的普通断点」，代价差不多</div>
+            <p><b>为什么错：</b>条件断点不是硬件替你筛的。它的机制是：<b>每次执行到这一行，都真的把 CPU 停下来</b>，调试器读回条件里涉及的变量（走 SWD 传输）、判断、不满足再继续。也就是说，命中 100 万次的循环里放一个条件断点，等于让程序停下 100 万次、让调试器搬 100 万次数据。<b>在 1 kHz 的中断里放条件断点，基本等于让系统停止工作。</b></p>
+            <p class="mt-2"><b>正确做法：</b>条件很挑（几乎不命中）→ 可以用，但优先改成<b>代码里自带判断</b>：<code class="icode">if (cond) { __BKPT(0); }</code>——条件由 CPU 自己用一条比较指令判断，只有真的满足时才触发硬件断点，速度快几个数量级。条件很常见（命中率高）→ 说明这不是「异常」，别用断点，用<b>日志或计数器</b>统计它出现的频率与上下文。另外记住：这两个方案各消耗一个硬件断点名额，而名额只有 6 个（见例 1）。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">误区 4：数据观察点能盯着任何变量——包括局部变量和结构体成员</div>
+            <p><b>为什么错：</b>数据观察点（watchpoint）靠硬件比较器工作，它<b>只认「地址」</b>，不认「名字」。所以它有三个硬前提：变量的地址必须<b>固定</b>（全局变量或 <code class="icode">static</code> 变量；局部变量在栈上、地址随调用层次变化，普通局部变量甚至可能只在寄存器里，根本没有地址）；变量必须是 <code class="icode">volatile</code>（否则编译器可能把它缓存在寄存器里，内存根本不会被写，观察点自然不触发）；编译器不能把这个变量优化掉（<code class="icode">__attribute__((used))</code> 可以强制保留）。<b>另外，观察点看的是「内存被改了」，看不到「谁改的」这个身份</b>——它能给你精确的调用栈，但栈顶那行就是答案。</p>
+            <p class="mt-2"><b>正确做法：</b>要盯的变量满足三前提就直接用观察点——它是回答「<b>谁改了这个变量</b>」的唯一可靠手段，比在任何可疑代码上加断点都快。不满足三前提时：把变量<b>提升为文件级全局变量</b>并加 <code class="icode">volatile</code> 与 <code class="icode">used</code>，再观察；或者用「读-改-写」包装：<code class="icode">static inline void set_state(uint8_t v){ g_state = v; }</code>，在 <code class="icode">set_state</code> 里下断点，顺便还能看到全部调用者。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">误区 5：printf 是最简单的调试手段，想加就加</div>
+            <p><b>为什么错：</b>串口 <code class="icode">printf</code> 是<b>阻塞</b>的，而且是所有调试手段里最慢的一种。按 8N1 算，一个字符要 10 个位：115200 波特率下 40 个字符要 <b>3.47 ms</b>；放在 1 kHz 的控制中断里，占用率是 <b>347%</b>——不是「有点慢」，是根本不可能。更隐蔽的伤害是：它改变了时序，于是<b>偶发的时序问题会被掩盖</b>（就是那个著名的「一加日志就好了」）。</p>
+            <p class="mt-2"><b>正确做法：</b>按场合选通道。<b>慢速、人在旁边看、不在中断里</b> → 串口日志没问题（用 4.3 的非阻塞环形队列版本，别用阻塞版）。<b>中断里或实时回路里</b> → 用 ITM/SWO 或 RAM 环形缓冲：ITM 每次写只花几个周期，RTT 类方案几乎零开销。有一个简单的判据：<b>日志开销超过时间预算的 1% 就要谨慎，超过 10% 就连「偶发」都不能接受</b>（见例 5）。还有一条纪律：<b>发布固件里不要把 DEBUG/VERBOSE 级日志和格式化字符串一起编进去</b>——用 <code class="icode">#if</code> 裁掉，而不是把等级常量设成 none。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">误区 6：-O0 下跑得好好的，说明代码没问题</div>
+            <p><b>为什么错：</b><code class="icode">-O0</code> 会保留所有变量在内存里、不做重排、不做内联、不删无用代码。于是两类真实缺陷被它<b>藏起来了</b>：<b>①</b> 该加 <code class="icode">volatile</code> 而没加的变量（<code class="icode">-O0</code> 每次都读内存，看起来正常；<code class="icode">-O2</code> 缓存进寄存器，主循环永远看不到中断里的修改）；<b>②</b> 竞态与重排（<code class="icode">-O0</code> 的执行顺序恰好不会踩雷）。现象就是那句经典的「Debug 版能跑，Release 版不行」。</p>
+            <p class="mt-2"><b>正确做法：</b>用 <code class="icode">-O0</code> 调试、用 <code class="icode">-O2</code>（或与发布一致的优化等级）做<b>验证</b>，两者都要跑。定位这类问题时，<b>不要盯着源码猜，要去看反汇编</b>——你会直接看到「这条读内存的指令消失了」。相关的一点：解除这类故障的关键词是「编译器不知道的事」——中断里改了主循环会读的变量、DMA 写了 CPU 会读的缓冲、寄存器读一次就清标志的硬件行为，这三类都必须 <code class="icode">volatile</code>。<b>注意 <code class="icode">volatile</code> 不保证原子性</b>，多位标志位仍要进临界区。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">误区 7：改了几处之后没再出现过，就是修好了</div>
+            <p><b>为什么错：</b>偶发故障的「没再出现」几乎没有证明力。如果它平均 8 小时出现一次，你蹲 2 小时没看到，只说明「有 22% 的概率本该看到」；蹲 8 小时也只有 63% 的概率能看到。<b>更糟的是：如果你同时改了三处，那么即使真的修好了，你也不知道是哪一处起了作用</b>——下次遇到同类问题你依然没有可复用的经验。</p>
+            <p class="mt-2"><b>正确做法：</b>先<b>量化频率</b>，再谈修复。① 用第 4 节的黑匣子/复位日志把故障次数自动记下来（别靠回忆「感觉变少了」）；② 记录基准频率 λ（次/小时），用 <code class="icode">T = 3/λ</code> 估算「需要观察多久才能说它有显著下降」——平均 8 小时一次的问题，至少要观察 24 小时（见例 4）；③ <b>一次只改一处</b>，改完回到同一个场景跑够时间，对比次数；④ 说不清是根因时，就诚实地说「这是规避，不是根治」，并在代码里写下注释说明原因。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">误区 8：HardFault 必须读汇编、看栈帧才能定位</div>
+            <p><b>为什么错：</b>反过来说了。读栈帧是<b>最后一步</b>，不是第一步。在你还没弄清「是谁把程序弄到这个状态」之前就去读 xPSR 和 PC，很容易陷在一条无辜的指令上。而且现在绝大多数 HardFault 的真正入口是<b>另外两条更便宜的信息</b>：复位源（<code class="icode">RCC-&gt;CSR</code>：是看门狗、是断言软件复位、还是掉电）与故障状态寄存器（<code class="icode">SCB-&gt;CFSR</code> + <code class="icode">BFAR</code>：是访问了非法地址、除零、还是未对齐）。</p>
+            <p class="mt-2"><b>正确做法：</b>按这个顺序：<b>①</b> 读复位源与「上一次的死因」（本页 4.4，通常到这一步就结束了）；<b>②</b> 读 <code class="icode">CFSR</code>，如果 <code class="icode">BFARVALID</code> 置位再读 <code class="icode">BFAR</code>——它直接给出非法访问的地址（<code class="icode">0x00000004</code> 就是空指针 + 偏移 4，答案已经呼之欲出）；<b>③</b> 用 <code class="icode">addr2line</code> 把 PC 翻成源码行号；<b>④</b> 只有前面都问不出来时，才去读压栈帧与汇编现场。栈帧怎么读、naked 函数怎么写、xPSR/PC/LR 各自是什么，<b>第 25 篇《CPU 架构与指令执行》已经完整讲过一遍</b>，这里不重复——需要时回去看 <a class="text-brand-600 dark:text-brand-300" href="core-cpu.html">core-cpu.html</a> 的「打开反汇编，读一次 HardFault」。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">误区 9：调试器插上了，就说明我正在调试</div>
+            <p><b>为什么错：</b>「连上」和「能调试」之间还有好几道门：<b>① VREF 没接</b>——调试器不知道目标的电平，可能连芯片都检测不到；<b>② 引脚被复用</b>——PA13/PA14 被配成了普通 GPIO，或者 <code class="icode">SWJ_CFG</code> 关掉了 SWD；<b>③ 芯片进了低功耗</b>——Sleep/Stop 状态下调试口会被关闭，表现是「跑到一半就掉线」；<b>④ 程序一上电就跑飞</b>——常规连接抓不住它，必须用 connect under reset；<b>⑤ 程序主动关了调试时钟</b>（为了省电）。</p>
+            <p class="mt-2"><b>正确做法：</b>逐条排查，形成固定动作：先确认四线（<b>SWDIO / SWCLK / GND / VREF</b>）都在，再确认调试器设置里的「Connect under reset」打开、复位方式选对；如果怀疑程序关了调试口，就在 <code class="icode">main</code> 最开头、任何初始化之前先连（或者用 BOOT0 拉高从系统存储器启动，此时用户程序根本没运行）；确认低功耗场景时在 <code class="icode">DBGMCU_CR</code> 里把 <code class="icode">DBG_SLEEP / DBG_STOP / DBG_STANDBY</code> 打开。<b>记住一个判据：如果「昨天还能连、今天就检不到」，先看代码里有没有新增 GPIO 初始化动到了 PA13/PA14/PA15/PB3/PB4。</b></p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">误区 10：日志当然越多越好；断言里写什么表达式都行</div>
+            <p><b>为什么错：</b>两件事都是「当下舒服、以后难受」。日志方面：全量日志会占满 RAM 环形缓冲（把真正重要的早期记录挤掉）、占满串口带宽（拖慢实时回路）、暴露内部信息，还会让编译产物变大。<b>断言方面更危险</b>：断言是<b>定位工具</b>，不是错误处理机制，写在里面的表达式如果带副作用（<code class="icode">ASSERT_RET(buf[i++] != 0, ERR_PARAM)</code>），在 <code class="icode">NDEBUG</code> 构建里被裁掉之后，程序行为就变了——这类 bug 极难查，因为它只在发布版出现。</p>
+            <p class="mt-2"><b>正确做法：</b>日志按等级与场合分级：<b>故障与状态变化用事件码进环形缓冲</b>（几十纳秒、始终开着），<b>调试信息用 ITM</b>（按需打开），<b>串口只留人看的少量 INFO 及以上</b>。断言里只放<b>无副作用、可重复求值</b>的检查（指针非空、范围、状态合法性、句柄有效），并且要能回答一个标准问题：<b>「这个断言如果成立，我该去改哪一段代码？」</b>答不出来就删掉它——那不是断言，是噪声。另外，断言失败后的动作要事先定好：<b>停机（调试）/ 记录后复位（现场）/ 降级继续（不允许停机的场合）</b>，三者选一，不要每次现想。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与自测 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自测</h2>
+
+          <p class="mt-4">回到开头那个场景：<b>课设的程序不工作，你查了三天，同时改了十几个地方，最后也不知道是哪一处起了作用。</b>现在你应该能说清楚它错在哪了——<b>不是工具不够，是过程不对</b>。调试的全部功夫，可以压缩成一句话：<b>用最便宜的手段，把「哪里可能错」的集合，一次砍掉一半；并且在这个过程中，让系统始终替你留着证据。</b>这一页的所有工具、所有算式、所有代码，都是为这句话服务的。</p>
+
+          <h3 class="mt-6 text-base font-semibold">要点清单</h3>
+
+          <div class="mt-3 grid gap-3 sm:grid-cols-2">
+            <div class="card card-pad">
+              <div class="text-2xs font-semibold uppercase tracking-wide text-faint">一 · 思路：先分层，再二分</div>
+              <ul class="mt-2 list-disc space-y-1 pl-5 text-[13.5px] leading-relaxed">
+                <li>五层漏斗：<b>电源硬件 → 时钟复位 → 外设配置 → 驱动中断 → 应用逻辑</b>。先说是哪一层，再选工具。</li>
+                <li><b>下面两层用表笔，中间一层看寄存器，上面两层才用调试器。</b></li>
+                <li>二分三种切法：<b>边界打点</b>（两头打点看谁先错）、<b>时间二分</b>（跑 1 分钟会不会错）、<b>版本二分</b>（昨天还好好的）。</li>
+                <li><b>最小可复现工程</b>是最强的一招——把问题剥出来的过程本身，常常就把原因剥出来了。</li>
+                <li>对照实验：换一块板、换一个电源、换一个对端，一次只换一个变量。</li>
+                <li>偶发故障先<b>量化频率</b>，别用「感觉变少了」当结论。</li>
+              </ul>
+            </div>
+
+            <div class="card card-pad">
+              <div class="text-2xs font-semibold uppercase tracking-wide text-faint">二 · 接口：为什么是 SWD</div>
+              <ul class="mt-2 list-disc space-y-1 pl-5 text-[13.5px] leading-relaxed">
+                <li>SWD 两线（SWDIO/SWCLK）vs JTAG 五线，引脚少、速率高、布线容易——所以它是默认选择。</li>
+                <li>接线四件套必须全：<b>SWDIO / SWCLK / GND / VREF</b>。</li>
+                <li><b>VREF 的作用</b>：① 让调试器知道目标电平（1.8V 还是 3.3V）；② 作为输入缓冲的参考，并据此判断目标是否上电。<b>不接 VREF 的典型现象就是「检测不到芯片」。</b>它只做参考，<b>不要用它给目标板供电</b>。</li>
+                <li>建议同时接 NRST 与 SWO：前者用于 <b>connect under reset</b>（抓一上电就跑飞的程序），后者用于 ITM 日志。</li>
+                <li>线长、上拉、降速：SWCLK 拉长到 20 cm 以上就该降到 1 MHz 试试。</li>
+              </ul>
+            </div>
+
+            <div class="card card-pad">
+              <div class="text-2xs font-semibold uppercase tracking-wide text-faint">三 · 四种断点，四种场合</div>
+              <ul class="mt-2 list-disc space-y-1 pl-5 text-[13.5px] leading-relaxed">
+                <li><b>硬件断点</b>：比较器实现，数量受限（M3/M4 一般 6 个指令 + 4 个数据），但能在 Flash 与 RAM 里随便用。</li>
+                <li><b>软件断点</b>：把指令换成 <code class="icode">BKPT</code>（编码 0xBE00），数量不限，但<b>会改指令、可能破坏时序</b>，不适合实时回路与自修改代码。</li>
+                <li><b>条件断点</b>：命中即停、由调试器判断，<b>很慢</b>；改写成 <code class="icode">if (cond) __BKPT(0);</code> 快得多。</li>
+                <li><b>数据观察点</b>：回答「谁改了这个变量」的唯一手段；前提是<b>地址固定 + volatile + 没被优化掉</b>。</li>
+                <li>超了名额怎么办：改用计数器、事件码日志、代码内 <code class="icode">__BKPT</code>，并给断点排优先级（观察点 &gt; 时序敏感 &gt; 需单步 &gt; 普通逻辑）。</li>
+              </ul>
+            </div>
+
+            <div class="card card-pad">
+              <div class="text-2xs font-semibold uppercase tracking-wide text-faint">四 · 停下来看，还是不停下看</div>
+              <ul class="mt-2 list-disc space-y-1 pl-5 text-[13.5px] leading-relaxed">
+                <li><b>Watch 窗口</b>依赖 halt；局部变量出作用域后显示 <code class="icode">&lt;not in scope&gt;</code> 或地址错乱、值变成垃圾。</li>
+                <li><b>Live Watch</b> 靠后台读内存，不停 CPU；只能看固定地址，刷新约 100 ms ~ 1 s，会与 CPU 争总线。</li>
+                <li><b>环形黑匣子</b>：把关键事件压成事件码存进 <code class="icode">.noinit</code> 段，复位后 dump——「跑一晚上才死一次」的正确答案。</li>
+                <li>printf 三条路：<b>串口</b>（慢、阻塞、唯一不依赖调试器）、<b>SWO/ITM</b>（不占串口、CPU 几个周期）、<b>RTT</b>（内存缓冲、最快、最适合中断里）。</li>
+                <li>判据：<b>这条日志会打断谁？</b>如果它出现在中断或实时回路里，就不许用阻塞通道。</li>
+              </ul>
+            </div>
+
+            <div class="card card-pad">
+              <div class="text-2xs font-semibold uppercase tracking-wide text-faint">五 · 留证据：日志、断言、复位源</div>
+              <ul class="mt-2 list-disc space-y-1 pl-5 text-[13.5px] leading-relaxed">
+                <li>日志五级 <code class="icode">E/W/I/D/V</code>；<b>D/V 要用 <code class="icode">#if</code> 裁</b>，常量条件裁不掉字符串。</li>
+                <li>日志记<b>值与事件码</b>，不记大段描述；别用 <code class="icode">%f</code>（格式化比传输更贵）。</li>
+                <li>断言是<b>定位工具</b>，不是错误处理；只放无副作用、可重复求值的检查。</li>
+                <li>断言失败三策略：<b>停机 / 记录后复位 / 降级继续</b>，事先选定。</li>
+                <li><b>复位源 <code class="icode">RCC-&gt;CSR</code> + 备份寄存器遗言</b>：复位前把行号与次数写进 <code class="icode">BKP-&gt;DRx</code>，复位后第一件事读出来并清除标志。</li>
+                <li>余量三指标：<b>CPU 占用率、栈水位魔数 0xA5A5A5A5、堆水位</b>。</li>
+              </ul>
+            </div>
+
+            <div class="card card-pad">
+              <div class="text-2xs font-semibold uppercase tracking-wide text-faint">六 · 调试本身会引入问题</div>
+              <ul class="mt-2 list-disc space-y-1 pl-5 text-[13.5px] leading-relaxed">
+                <li><b>断点会让看门狗复位</b>：IWDG 由 LSI 驱动，halt 不影响它 → 冻结看门狗或改用不停机手段。</li>
+                <li><b>单步会让通信超时</b>：对端不知道你在单步，它的超时照样在走。</li>
+                <li><b>调试器占用引脚</b>：PA13/PA14 被复用、SWO 要占 PB3（F1 需关 JTAG 才能释放）。</li>
+                <li><b><code class="icode">-O0</code> 会掩盖 <code class="icode">-O2</code> 才出现的缺陷</b>（缺 volatile、竞态、重排）。</li>
+                <li><b>加日志改变时序</b>：故障消失往往不是被修好，而是被掩盖——它是时序问题的证据，不是解法。</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">必须记住的十个数字</div>
+            <div class="table-scroll mt-2">
+              <table class="table-mcu">
+                <thead><tr><th>数字</th><th>含义</th></tr></thead>
+                <tbody>
+                  <tr><td class="font-mono text-xs">4 线</td><td>SWD 必接：SWDIO、SWCLK、GND、<b>VREF</b>（少了 VREF 常表现为检不到芯片）</td></tr>
+                  <tr><td class="font-mono text-xs">6 + 4</td><td>Cortex-M3/M4 的硬件断点名额（6 个指令 + 4 个数据）；M0/M0+ 只有 4 + 2</td></tr>
+                  <tr><td class="font-mono text-xs">0xBE00</td><td>Thumb 的 <code class="icode">BKPT</code> 指令编码——软件断点就是把原指令换成它</td></tr>
+                  <tr><td class="font-mono text-xs">10 bit</td><td>串口 8N1 下每传一个字符实际要发 10 个位（1 起始 + 8 数据 + 1 停止）</td></tr>
+                  <tr><td class="font-mono text-xs">3.47 ms</td><td>40 字符日志在 115200 波特率下的阻塞时间；放进 1 kHz 中断 = 347% 占用</td></tr>
+                  <tr><td class="font-mono text-xs">17.4 倍</td><td>2 MHz 的 SWO 相对 115200 串口的线上时间优势（200 µs vs 3.47 ms）</td></tr>
+                  <tr><td class="font-mono text-xs">3 / λ</td><td>偶发故障的「三倍法则」：平均间隔 1/λ，至少要观察 3/λ 才能说它有显著下降</td></tr>
+                  <tr><td class="font-mono text-xs">1%</td><td>单条日志允许占用的时间预算上限（经验线）；超过 10% 连偶发都不能接受</td></tr>
+                  <tr><td class="font-mono text-xs">25%</td><td>栈余量的安全线；低于 10% 属于随时会炸（用魔数扫描测出来）</td></tr>
+                  <tr><td class="font-mono text-xs">0xA5A5A5A5</td><td>栈水位与内存完整性的魔数填充值；也用于判断「这块内存有没有被写过」</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">自测题（先自己答，再看答案）</h3>
+
+          <ol class="mt-3 list-decimal space-y-4 pl-5">
+            <li>
+              <p class="font-semibold text-ink">板子上的程序完全不工作。请按顺序说出你的前三步，并说明每一步在排除哪一层。</p>
+              <p class="mt-1 text-muted"><b>答案：</b>关键在于<b>从便宜到贵、从下往上</b>。<b>① 量供电与电平</b>（万用表量 VDD 是否为 3.3V、复位脚是否为高、晶振是否起振）——排除「电源硬件层」。<b>② 确认程序真的在跑</b>（点一盏灯、翻转一个 GPIO，用示波器看）——排除「时钟复位层」：如果灯不亮，问题在系统启动而不是你的业务代码。<b>③ 确认外设配置生效</b>（读一眼寄存器，比如串口的 <code class="icode">BRR</code>、GPIO 的 <code class="icode">MODER</code>）——排除「外设配置层」。<b>这三步都做完再去连调试器</b>，因为此时你已经知道故障在哪一层，断点才有明确的目标。<b>反例</b>：一上来就下断点，停在启动文件里，然后开始怀疑启动文件。</p>
+            </li>
+            <li>
+              <p class="font-semibold text-ink">调试器四根线都接了，但 IDE 里显示「No target connected」。列出至少三种可能原因和验证方法。</p>
+              <p class="mt-1 text-muted"><b>答案：</b>① <b>VREF 接错或没接</b>——调试器无法判定目标电平，也判不出目标是否上电；验证：量 VREF 引脚上是否有 3.3V，且与调试器的 VREF 脚导通。② <b>程序把 PA13/PA14 复用成了 GPIO 或关掉了 SWD</b>（<code class="icode">AFIO-&gt;MAPR</code> 的 <code class="icode">SWJ_CFG</code>、或者 <code class="icode">__HAL_AFIO_REMAP_SWJ_DISABLE</code>）；验证：把 BOOT0 拉高、从系统存储器启动（用户程序不运行）再连——能连上就说明是程序关的。③ <b>芯片在低功耗或程序一上电就跑飞</b>；验证：打开调试器的「Connect under reset」并接上 NRST，如果能连上就是这个问题。④（补充）复位方式选错（选了「硬件复位」但 NRST 没接）、SWCLK 速率过高或线太长、GND 没共地。⑤（补充）目标板由调试器供电但电流不足。</p>
+            </li>
+            <li>
+              <p class="font-semibold text-ink">一个 6 个硬件断点名额的工程里，要同时盯 5 个可疑位置、2 个变量、并且还想单步。名额够吗？如果不够，给出两种不花钱的替代方案。</p>
+              <p class="mt-1 text-muted"><b>答案：</b>不够。计算是：<b>5（指令）+ 2（数据）= 7 个名额</b>，而 M3/M4 只有 6 + 4。虽然指令与数据是分开的两组、单看都不超，但<b>单步本身也要占用一个硬件断点名额</b>（step over 需要临时断点），而 IDE 还会为「断点列表」占位，所以实际上 5 个指令断点已经偏多。<b>替代方案一：代码内 <code class="icode">__BKPT(0)</code></b>——把 5 个可疑位置改成「计数器 + 条件判断 + <code class="icode">__BKPT</code>」，只在真正异常时才触发，几乎不占名额，而且仍然能停在你想要的地方。<b>替代方案二：观测点 + 事件码日志</b>——2 个变量用数据观察点（真需要「谁改的」时才用），其余的可疑位置改成 <code class="icode">log_ring_push(EV_STATE_JUMP, 值)</code> 记录事件码，跑一段时间后 dump 出来看顺序。这两招合起来，可以把 7 个名额压到 1~2 个，剩下的留给单步。</p>
+            </li>
+            <li>
+              <p class="font-semibold text-ink">1 kHz 的控制中断里想打一条 40 字符的日志。用 115200 串口、921600 串口、2 MHz SWO 各是什么代价？哪个能用？</p>
+              <p class="mt-1 text-muted"><b>答案：</b>8N1 下每个字符 10 位，40 字符 = 400 位。<b>115200</b>：400 ÷ 115200 = <b>3.47 ms</b>，而中断周期只有 1 ms，占用率 347%——<b>不可能</b>，程序会完全失控。<b>921600</b>：400 ÷ 921600 = <b>434 µs</b>，占 1 ms 的 <b>43.4%</b>——技术上能跑，但中断里干别的就没什么时间了，属于「能用但危险」，而且串口发送仍是阻塞的，会直接破坏控制环的时序。<b>2 MHz SWO</b>：线上 400 位 ÷ 2 MHz = <b>200 µs</b>（占 20%），但 CPU 侧只花 <b>几个周期把字节写进 ITM FIFO</b>（约 1~5 µs），不阻塞——<b>这个能用</b>，前提是 FIFO 不满（满了就会退化阻塞）。<b>结论</b>：中断里用 SWO 或 RAM 环形缓冲（RTT 级别，约 1~2 µs），不要用串口；如果只是想记「发生过什么」，用事件码而不是字符串，代价可以降到 0.1 µs 量级。</p>
+            </li>
+            <li>
+              <p class="font-semibold text-ink">某个偶发复位平均 8 小时出现一次。你改了代码，想证明「它真的好了」。至少需要观察多久？如果你只能连续跑 8 小时，能得出什么结论？</p>
+              <p class="mt-1 text-muted"><b>答案：</b>λ = 1/8 = 0.125 次/小时。用「三倍法则」<code class="icode">T ≥ 3/λ</code>：<b>T ≥ 24 小时</b>。所以至少要连续跑一整天没复现，才能说「有显著下降」。如果只跑了 8 小时（T = 1/λ），根据泊松分布，没复现的概率是 <code class="icode">e^(-λT) = e^(-1) ≈ 36.8%</code>——<b>有多达 63% 的概率本该复现一次却没被你看到</b>，所以「跑了 8 小时没事」几乎没有证明力。更严格的表述是：跑 T 小时无复现，只能给出上界 <code class="icode">λ_new ≤ 3/T</code>；跑 8 小时只能说 λ ≤ 0.375 次/h，比修复前的 0.125 次/h 还大——<b>等于什么都没证明</b>。想证明「下降 10 倍」，需要 T ≥ 3/(0.0125) = 240 小时，约 10 天，所以工程上会改用<b>多台并行</b>（10 台跑 1 天 = 单台 10 天）或<b>加速应力</b>（高温、电压边角、频繁上下电）。</p>
+            </li>
+            <li>
+              <p class="font-semibold text-ink">「这个故障一加日志就好了，所以肯定是代码有 bug。」这句话哪里对、哪里不对？你会怎么确认？</p>
+              <p class="mt-1 text-muted"><b>答案：</b>对的一半是：<b>它确实是真实缺陷，不是玄学，也不是编译器的问题</b>。不对的一半是：<b>它不代表「日志修好了它」</b>——日志只是改变了时序，把原本会踩雷的窗口错开了。<b>确认步骤：①</b> 把 <code class="icode">printf</code> 换成一段什么都不做的空循环（只花时间、不改数据）：如果故障同样消失，就证明<b>起作用的只是时间，不是日志内容</b>。<b>②</b> 换成零开销的输出通道（ITM 或 RAM 环形缓冲）复测：如果故障回归，就彻底证明是时序问题。<b>③</b> 然后按四条线索查根因：中断优先级配置是否让「该先跑完的」被打断（<code class="icode">NVIC_SetPriority</code>）、共享变量是否缺 <code class="icode">volatile</code> 或临界区保护、对端超时余量是否不足（把超时放宽 20% 试试）、以及有没有依赖「某段代码必须在一个时间窗内跑完」的隐含假设。<b>④</b> 最后一点纪律：在没有找到根因之前，不要把「加了一条日志」当成修复提交上去——那是把 bug 藏起来。</p>
+            </li>
+            <li>
+              <p class="font-semibold text-ink">为什么「跑一晚上才死一次」的问题，最适合用环形日志缓冲 + 内存 dump 来解决，而不是断点或实时日志？</p>
+              <p class="mt-1 text-muted"><b>答案：</b>因为这类故障有三个特征：<b>偶发</b>（无法靠蹲守等到）、<b>可能发生在中断里</b>（不能用阻塞输出）、<b>一旦复位现场就没了</b>（RAM 被清零、调试器早已掉线）。环形日志同时解决这三点：<b>① 始终开着、开销极小</b>（写一条记录几十纳秒，不影响时序，因此不会像 printf 那样掩盖问题）；<b>② 放在 <code class="icode">.noinit</code> 段，复位不清零</b>，配合复位源与 <code class="icode">boot_cnt</code>，复位后第一件事就能把「死之前的最后若干条事件」按时间顺序 dump 出来；<b>③ 只记事件码与值</b>，所以 RAM 占用固定且可控（1 KB 能存上百条记录），不会像字符串日志那样把缓冲挤爆。<b>对比</b>：断点需要人在场且怕看门狗；实时日志依赖连接且中断里不能用；Live Watch 只在连着调试器时有效，而故障往往发生在深夜无人值守时。<b>一句话：它把「现场」从 RAM 里搬到了复位之后。</b></p>
+            </li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">练习（建议动手做，每项 20~45 分钟）</h3>
+
+          <div class="mt-3 space-y-3">
+            <div class="card card-pad">
+              <div class="flex items-start gap-3">
+                <span class="step-num">1</span>
+                <div>
+                  <p class="font-semibold text-ink">给自己的工程装上「黑匣子 + 遗言」</p>
+                  <p class="mt-1 text-[13.5px] leading-relaxed text-muted">把本页 4.1（环形日志）和 4.4（复位源与备份寄存器）移植进你正在做的工程：加 <code class="icode">.noinit</code> 段、在 <code class="icode">main</code> 第一行调用 <code class="icode">reset_info_capture()</code>、在几个关键位置（进入初始化、收到一帧数据、进入错误分支）调用 <code class="icode">log_ring_push()</code>。<b>然后人为触发一次 <code class="icode">ASSERT_RESET</code></b>，复位后读串口打印出的 <code class="icode">[RST] boot=… rs=… asserts=… last_line=…</code>，确认行号正是你写的那一行；再把 <code class="icode">s_ring</code> 的地址从 map 文件里找出来，用调试器的内存窗口手工 dump 一遍，对照代码验证事件顺序。<b>做完这一题，你就拥有了「事后复盘」的能力。</b></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="card card-pad">
+              <div class="flex items-start gap-3">
+                <span class="step-num">2</span>
+                <div>
+                  <p class="font-semibold text-ink">亲手复现一次「断点导致看门狗复位」，再修好它</p>
+                  <p class="mt-1 text-[13.5px] leading-relaxed text-muted">按 4.6 的代码：使能 IWDG（约 1 s 超时）、主循环里翻转 LED + 喂狗，在翻转那一行下断点停 2 秒，观察复位与 <code class="icode">rs=0x0008</code>。然后加上 <code class="icode">debug_freeze_watchdog()</code>，同样停 2 秒，确认不再复位。<b>再做一个对照实验</b>：把断点移到 <code class="icode">iwdg_feed()</code> 之后、并且只在调试构建里关闭 IWDG，观察两次现象是否一致。<b>思考并用一句话写下来：为什么「调试器 halt 不影响外设」这件事，既是一个坑，也是一个有用的特性？</b></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="card card-pad">
+              <div class="flex items-start gap-3">
+                <span class="step-num">3</span>
+                <div>
+                  <p class="font-semibold text-ink">量一次自己工程的「时间预算」，然后决定日志怎么写</p>
+                  <p class="mt-1 text-[13.5px] leading-relaxed text-muted">选一个最紧的实时环节（定时中断、通信帧处理、控制环），用本页 2.8 节的 GPIO 翻转法 + 示波器测出<b>最坏情况的执行时间</b>，算出剩余余量；然后按例 5 的方法，分别计算「一条 32 字符串口日志 / 一条 ITM 日志 / 一条事件码记录」各占余量的百分之几。<b>把结论写成工程里的一行注释</b>（例如「本中断预算 1 ms，禁止串口日志；调试用 ITM，事件记录用 log_ring」），并且真的按它去改现有的日志语句。<b>这一题的价值在于：把「日志会不会影响实时性」从争论变成一个数字。</b></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="card card-pad">
+              <div class="flex items-start gap-3">
+                <span class="step-num">4</span>
+                <div>
+                  <p class="font-semibold text-ink">用逻辑分析仪抓一次「代码看起来对、通信就是不通」</p>
+                  <p class="mt-1 text-[13.5px] leading-relaxed text-muted">找一个通信不稳的场景（I²C 读传感器偶发失败、SPI 偶发错位、UART 偶发丢字节），把逻辑分析仪接到 SCL/SDA（或 SCK/MOSI/MISO）上，采样率按「信号频率的 10 倍」设置，用协议解码器解出报文。<b>重点看四件事</b>：从机的 ACK 位有没有按时拉低、有没有时钟拉伸（SCL 被从机拉低）、建立/保持时间是否满足、以及失败的帧里数据是否明显错位。<b>写下你的发现，并说明这个问题「读代码」能不能看出来、为什么。</b></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="card card-pad">
+              <div class="flex items-start gap-3">
+                <span class="step-num">5</span>
+                <div>
+                  <p class="font-semibold text-ink">做一次「最小可复现工程」的剥离</p>
+                  <p class="mt-1 text-[13.5px] leading-relaxed text-muted">从你手上（或网上找）的一个有偶发问题的工程出发，目标：把它剥成一个<b>100 行以内、能独立编译运行、并且仍然会复现问题</b>的工程。规则有两条：<b>每删掉一部分代码之前先想「它为什么可能有关」</b>；<b>每删一次都跑一遍确认问题还在</b>。过程中记录两样东西：① 剥离过程中发现的每一条「原来这里还依赖 X」（这类隐性依赖往往就是根因所在的线索）；② 最终的最小工程里，问题是被哪一行触发的。<b>经验之谈：剥离的过程本身，十有八九就把原因剥出来了——因为剥离强迫你为每一行代码回答「它为什么必须在这儿」。</b></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">下一步去哪</div>
+            <p>到这里，第二层「<b>嵌入式核心</b>」就全部走完了：从<a class="underline decoration-dotted underline-offset-2 hover:text-brand-500" href="core-intro.html">嵌入式系统概论</a>、<a class="underline decoration-dotted underline-offset-2 hover:text-brand-500" href="core-cpu.html">CPU 架构与指令执行</a>、<a class="underline decoration-dotted underline-offset-2 hover:text-brand-500" href="core-memory-map.html">存储器映射与地址空间</a>，一路到<a class="underline decoration-dotted underline-offset-2 hover:text-brand-500" href="core-architecture.html">嵌入式软件架构</a>，最后是这一篇调试方法。<b>这一层给你的是「看得见底层」的能力：知道每一行 C 代码变成了什么、数据住在哪里、程序怎么组织、出问题怎么查。</b></p>
+            <p class="mt-2">接下来进入第三层「<b>高级应用</b>」，第一篇是 <a class="text-brand-600 dark:text-brand-300" href="adv-stm32-clock.html">STM32 时钟树与 RCC 配置</a>——从系统时钟源（HSI/HSE/PLL）到各条总线的分频、再到每个外设的时钟门控，把「时钟没开、外设就是不动」这类问题彻底讲清楚。<b>它和这一篇是一对好搭子：调试告诉你「哪里可能错」，时钟树告诉你「最常错的那一层到底长什么样」。</b></p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="core-architecture.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">嵌入式软件架构</p>
+          </a>
+          <a href="adv-stm32-clock.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：进入第三层「高级应用」 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">STM32 时钟树与 RCC 配置</p>
+          </a>
+        </nav>
+
+      </article>
+
+    </div>
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

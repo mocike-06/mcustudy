@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keil MDK 环境搭建与芯片包安装 - McuStudy</title>
+  <meta name="description" content="STM32F103C8T6 零基础第一步：Keil MDK5 安装与注册、Device Family Pack 芯片包为什么必须装、STM32CubeMX 生成 HAL 工程并选 MDK-ARM 工具链、时钟树 HSE 8MHz 倍频到 72MHz 的读法、ST-Link 的 SWD 接线与 Debug 选项卡配置，以及 GPIO 时钟使能与 USER CODE 区块这两大新手坑。">
+  <meta name="keywords" content="Keil MDK5安装,STM32芯片包,Device Family Pack,STM32CubeMX,HAL库工程,STM32F103C8T6,ST-Link接线,时钟树72MHz,USER CODE BEGIN">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="stm32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../stm32.html" class="hover:text-brand-600 dark:hover:text-brand-300">STM32</a>
+          <span>/</span>
+          <span class="text-muted">教程正文</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          Keil MDK 环境搭建与芯片包安装
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          从零把 STM32F103C8T6（蓝药丸）的开发环境搭起来：装 Keil MDK5、装为什么必须装的 Device Family Pack、
+          用 STM32CubeMX 点出一份 HAL 工程、看懂把 8MHz 晶振倍频到 72MHz 的时钟树、接好 ST-Link 的四根线，
+          最后用一个 LED 闪烁程序验证整条链路是通的。凡是「不装芯片包找不到 STM32F103C8」「灯不亮但代码没错」这类问题，这一篇一次性讲清。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">芯片：<b>STM32F103C8T6</b></span>
+          <span class="stat-pill">工具：<b>Keil MDK5 + CubeMX</b></span>
+          <span class="stat-pill">阅读约 <b>14</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>STM32 和 51 最大的区别是「上电之后什么都没配」。光是配环境这一步，就会撞上时钟与 HAL 的概念。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-arm.html">ARM 架构与存储器映射</a> —— 芯片包里那些启动文件、链接脚本分别是干什么的</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-clock.html">时钟系统：为什么第一件事是配时钟</a> —— 新建工程时会看到一个「外部晶振频率」要你填，填错就全错</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-hal.html">寄存器、标准库与 HAL</a> —— 后面所有代码都用 HAL 函数写，先知道它是什么、怎么来的</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-level.html">3.3V 电平与硬件安全</a> —— 下载器怎么接、为什么不能把 5V 直接灌进引脚</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-chain">从源码到芯片的链路</a>
+          <a class="toc-link is-sub" href="#sub-dfp">芯片包里装了什么</a>
+          <a class="toc-link is-sub" href="#sub-clock">时钟树怎么看</a>
+          <a class="toc-link is-sub" href="#sub-rcc">为什么先使能外设时钟</a>
+          <a class="toc-link is-sub" href="#sub-usercode">USER CODE 区块</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link is-sub" href="#sub-swd">ST-Link 的 SWD 接线</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-chain">从源码到芯片的链路</a>
+            <a class="toc-link is-sub" href="#sub-dfp">芯片包里装了什么</a>
+            <a class="toc-link is-sub" href="#sub-clock">时钟树怎么看</a>
+            <a class="toc-link is-sub" href="#sub-rcc">为什么先使能外设时钟</a>
+            <a class="toc-link is-sub" href="#sub-usercode">USER CODE 区块</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link is-sub" href="#sub-swd">ST-Link 的 SWD 接线</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            很多人以为「装个 Keil 就能开发 STM32」，于是卡在第一天：器件列表里翻不到 STM32F103C8，或者代码编译通过却下载不进去。
+            原因不是操作错了，而是 STM32 的开发环境本来就是
+            <b class="font-semibold text-ink">三个软件分工协作</b>，少一个都会在某个环节断掉：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">Keil MDK（µVision）</b>——编辑器 + 编译器 + 调试器前端。它负责把你的 C 代码翻译成机器码，并驱动 ST-Link 把机器码写进芯片。</li>
+            <li><b class="font-semibold text-ink">Device Family Pack（DFP，芯片包）</b>——ST 官方提供的「芯片说明书」：启动文件、寄存器定义头文件、Flash 烧写算法。Keil 本体不含任何具体芯片的信息。</li>
+            <li><b class="font-semibold text-ink">STM32CubeMX</b>——图形化配置工具。点几下把引脚、时钟、外设配好，一键生成 HAL 库初始化代码和可以直接打开的 Keil 工程。</li>
+          </ul>
+
+          <h3 id="sub-chain" class="mt-7 text-base font-semibold">从源码到芯片的链路</h3>
+          <p class="mt-3">
+            理解这条链路，你就能明白每一类报错发生在哪一环，也就知道该改哪个设置，而不是乱点。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="STM32 程序的完整生成与下载链路">
+            <pre><code>  main.c / stm32f1xx_hal_gpio.c / startup_stm32f103xb.s
+        │
+        │  ① 编译（armclang，Keil 自带）      需要：头文件路径 Include Paths
+        ▼
+   main.o 等目标文件
+        │
+        │  ② 链接（armlink）                  需要：HAL 驱动 .c 全部加入工程
+        ▼
+   Project.axf   （含机器码 + 调试信息）
+        │
+        │  ③ 转换（fromelf）                  需要：勾选 Create HEX File（可选）
+        ▼
+   Project.hex / Project.bin
+        │
+        │  ④ 下载（ST-Link + Flash 算法）     需要：芯片包里的 STM32F10x_128.FLM
+        ▼
+   芯片内部 Flash 0x08000000 起
+        │
+        │  ⑤ 复位后 CPU 从 0x08000000 取中断向量表 → 执行 Reset_Handler → main()
+        ▼
+   程序开始运行
+
+  结论：③④ 两步依赖芯片包，① 依赖头文件路径，② 依赖 HAL 源文件。
+        搞清这三点，Keil 里的报错基本都能自己对号入座。</code></pre>
+          </div>
+
+          <h3 id="sub-dfp" class="mt-7 text-base font-semibold">芯片包里装了什么（为什么必须装）</h3>
+          <p class="mt-3">
+            Keil MDK 安装完之后，它的 Device 列表是<b class="font-semibold text-ink">空的一大半</b>——
+            它只认识 ARM 内核，不认识 ST 的具体型号。点击
+            <code class="icode">Pack Installer</code> 图标安装 <code class="icode">Keil::STM32F1xx_DFP</code> 之后，
+            下面这些东西才会出现在你的电脑上：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>芯片包提供的内容</th>
+                  <th>典型文件</th>
+                  <th>缺了它会怎样</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>启动文件</td>
+                  <td class="font-mono text-xs">startup_stm32f103xb.s</td>
+                  <td>链接报 <code class="icode">Undefined symbol Reset_Handler</code></td>
+                </tr>
+                <tr>
+                  <td>寄存器与外设定义</td>
+                  <td class="font-mono text-xs">stm32f103xb.h</td>
+                  <td>编译报 <code class="icode">identifier "GPIOC" is undefined</code></td>
+                </tr>
+                <tr>
+                  <td>CMSIS 内核头文件</td>
+                  <td class="font-mono text-xs">core_cm3.h</td>
+                  <td>报 <code class="icode">cannot open source input file "core_cm3.h"</code></td>
+                </tr>
+                <tr>
+                  <td>Flash 烧写算法</td>
+                  <td class="font-mono text-xs">STM32F10x_128.FLM</td>
+                  <td>下载报 <code class="icode">No Algorithm found for: 08000000H</code></td>
+                </tr>
+                <tr>
+                  <td>器件数据库（型号/内存/外设）</td>
+                  <td>Pack 内的 <code class="icode">.pdsc</code> 描述文件</td>
+                  <td>Device 列表里根本找不到 <b>STM32F103C8</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">安装芯片包的两种方式</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><b class="font-semibold">联网安装</b>——Keil 菜单 <code class="icode">Pack Installer</code>，左侧展开 <code class="icode">STMicroelectronics</code>，右侧 Devices 里选 <code class="icode">STM32F1 Series</code>，点 <code class="icode">Keil::STM32F1xx_DFP</code> 的 Install。</li>
+              <li><b class="font-semibold">离线安装</b>——下载 <code class="icode">Keil.STM32F1xx_DFP.2.x.x.pack</code> 文件，双击它会自动用 Pack Installer 打开并安装。校园网环境推荐这种方式。</li>
+            </ul>
+            <p class="mt-2">
+              验证有没有装好：<code class="icode">Project → Options for Target → Device</code>，
+              在搜索框输入 <code class="icode">STM32F103C8</code>，能选中并看到 Flash 容量 <b>64KB</b>、RAM <b>20KB</b> 就对了。
+            </p>
+          </div>
+
+          <h3 id="sub-clock" class="mt-7 text-base font-semibold">时钟树怎么看：8MHz 是怎么变成 72MHz 的</h3>
+          <p class="mt-3">
+            时钟是 STM32 的「心跳」。芯片内部几乎所有东西（内核、总线、外设、SysTick）都是从同一个时钟源分频/倍频出来的，
+            CubeMX 里那个像树一样的图就是干这件事的。蓝药丸的默认路线是：
+            <b class="font-semibold text-ink">板载 8MHz 无源晶振 → PLL 九倍频 → 72MHz</b>。逐节点读一遍：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>时钟树节点</th>
+                  <th>值</th>
+                  <th>它喂给谁 / 为什么是这个值</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>HSE 外部高速时钟</td>
+                  <td class="font-mono text-xs">8 MHz</td>
+                  <td>板载无源晶振，接在 OSC_IN / OSC_OUT（LQFP48 封装上是 PD0 / PD1）。不用内部 HSI 是因为 HSI 精度差，串口容易乱码</td>
+                </tr>
+                <tr>
+                  <td>PLL Source</td>
+                  <td class="font-mono text-xs">HSE</td>
+                  <td>倍频器的输入源必须选 HSE，否则等于白装晶振</td>
+                </tr>
+                <tr>
+                  <td>PLL Mul 倍频系数</td>
+                  <td class="font-mono text-xs">×9</td>
+                  <td>8MHz × 9 = 72MHz，这是 F103 允许的最高主频</td>
+                </tr>
+                <tr>
+                  <td>SYSCLK 系统时钟</td>
+                  <td class="font-mono text-xs">72 MHz</td>
+                  <td>整棵树的输出，也是工程里 <code class="icode">SystemCoreClock</code> 的值</td>
+                </tr>
+                <tr>
+                  <td>AHB Prescaler /1</td>
+                  <td class="font-mono text-xs">HCLK = 72 MHz</td>
+                  <td>内核、SysTick、DMA、SRAM 都跑这个频率（<code class="icode">HAL_Delay</code> 的 1ms 就来自它）</td>
+                </tr>
+                <tr>
+                  <td>APB1 Prescaler /2</td>
+                  <td class="font-mono text-xs">PCLK1 = 36 MHz</td>
+                  <td>USART2/3、I2C、TIM2~TIM7 挂在这里。注意：APB1 分频不为 1 时，定时器时钟会自动 ×2 变回 72MHz</td>
+                </tr>
+                <tr>
+                  <td>APB2 Prescaler /1</td>
+                  <td class="font-mono text-xs">PCLK2 = 72 MHz</td>
+                  <td>GPIO、USART1、SPI1、ADC 挂在这里，所以我们用 USART1 时波特率算得特别准</td>
+                </tr>
+                <tr>
+                  <td>Flash Latency</td>
+                  <td class="font-mono text-xs">2 WS</td>
+                  <td>72MHz 下 Flash 取指来不及，必须插 2 个等待周期；CubeMX 会自动填，不用手改</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么偏偏选 72MHz 这条路线</div>
+            <p>
+              因为 72MHz 是 8MHz 的整数倍，而且所有「标准波特率」在 72MHz 下都能整除：
+              <code class="icode">72000000 / (16 × 115200) = 39.0625</code>，
+              小数部分刚好能用 4 位分数寄存器表示，误差为 0。
+              换成别的时钟，串口就会出现千分之几的累积误差，长帧通信就会偶发乱码。
+              这就是「8MHz 晶振 + 9 倍频」成为 STM32F1 默认配置的原因。
+            </p>
+          </div>
+
+          <h3 id="sub-rcc" class="mt-7 text-base font-semibold">为什么必须先使能外设时钟</h3>
+          <p class="mt-3">
+            这是新手第一大坑，而且它的表现非常「像硬件坏了」：
+            <b class="font-semibold text-ink">代码一行没错、编译零报错、下载成功，引脚却纹丝不动。</b>
+            原因在 STM32 的省电设计里——
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>芯片复位后，<b class="font-semibold text-ink">所有外设的时钟默认是关闭的</b>（<code class="icode">RCC-&gt;APB2ENR</code> 里对应位是 0）。</li>
+            <li>时钟就是数字电路的「节拍」，没有时钟，外设内部的寄存器<b class="font-semibold text-ink">根本不会响应写入</b>：你写进去的值被丢掉了。</li>
+            <li>这个丢弃是<b class="font-semibold text-ink">静默</b>的。不会报错、不会产生异常，程序照样往下跑，只是引脚永远不动。</li>
+            <li>HAL 库的哲学是「时钟由你负责开」——<code class="icode">HAL_GPIO_Init()</code> 只写 GPIO 自己的寄存器，不会替你去开 RCC 的时钟门。</li>
+          </ul>
+
+          <p class="mt-3">
+            所以 CubeMX 生成的每一个 <code class="icode">MX_xxx_Init()</code> 里，第一句永远是这个：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="MX_GPIO_Init 的固定开头 —— 时钟使能永远是第一步">
+            <pre><code>static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  /* 开时钟：宏内部展开成 SET_BIT(RCC-&gt;APB2ENR, RCC_APB2ENR_IOPCEN);
+     IOPCEN 就是 "IO Port C ENable"，置 1 后 GPIOC 的寄存器才可写 */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();     /* 用哪个端口就开哪个，多开一个没坏处，漏开一定出问题 */
+
+  /* 下面这些配置只有在时钟已经打开的前提下才写得进去 */
+  GPIO_InitStruct.Pin   = GPIO_PIN_13;
+  GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull  = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOC, &amp;GPIO_InitStruct);
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">灯不亮时的第一条自查</div>
+            <p>
+              打开你的 <code class="icode">MX_GPIO_Init()</code>，看第一行有没有
+              <code class="icode">__HAL_RCC_GPIOx_CLK_ENABLE()</code>。
+              每条外设总线对应不同的宏，别开错：
+              <code class="icode">GPIOA/B/C</code>、<code class="icode">AFIO</code> 在 APB2；
+              <code class="icode">USART2/3</code>、<code class="icode">TIM2~TIM7</code>、<code class="icode">I2C1</code> 在 APB1；
+              <code class="icode">USART1</code>、<code class="icode">SPI1</code>、<code class="icode">ADC1</code> 在 APB2。
+              拿不准就在 CubeMX 里点一下该外设，它会自动生成对应的使能语句。
+            </p>
+          </div>
+
+          <h3 id="sub-usercode" class="mt-7 text-base font-semibold">USER CODE BEGIN / END 区块的意义</h3>
+          <p class="mt-3">
+            CubeMX 生成的代码只是「骨架」，你写的逻辑要往里填。但 CubeMX 有个特点：
+            <b class="font-semibold text-ink">每次点 GENERATE CODE 都会按模板重新输出整个文件</b>。
+            如果它无脑覆盖，你辛苦写的代码就没了。所以它用注释把文件切成两类地盘：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="main.c 里属于你的地盘">
+            <pre><code>/* USER CODE BEGIN Includes */              /* ← 自己 include 的头文件写这里 */
+#include &lt;stdio.h&gt;
+/* USER CODE END Includes */
+
+/* USER CODE BEGIN PV */                    /* ← 自己定义的全局变量写这里 */
+uint8_t rx_byte;
+/* USER CODE END PV */
+
+int main(void)
+{
+  HAL_Init();
+  SystemClock_Config();
+  MX_GPIO_Init();
+
+  /* USER CODE BEGIN 2 */                  /* ← 上电只执行一次的初始化写这里 */
+  /* USER CODE END 2 */
+
+  while (1)
+  {
+    /* USER CODE BEGIN 3 */                /* ← 主循环逻辑写这里 */
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    HAL_Delay(500);
+    /* USER CODE END 3 */
+  }
+}
+
+/* USER CODE BEGIN 4 */                    /* ← 自己的回调函数、工具函数写这里 */
+/* USER CODE END 4 */</code></pre>
+          </div>
+
+          <p class="mt-3">
+            规则只有一句：<b class="font-semibold text-ink">BEGIN 与 END 之间的内容会被原样保留，块外的任何修改都会在下次生成时被覆盖。</b>
+            所以别去改 <code class="icode">MX_GPIO_Init()</code> 函数体——你改了，下次生成就白改；
+            要加引脚，回 CubeMX 里点，或者把代码写进 USER CODE 块，用 HAL 调用补配置。
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一个好习惯</div>
+            <p>
+              建好工程后，<b class="font-semibold">先什么都不改，直接点一次 GENERATE CODE</b>，
+              这样你能分清哪些内容是 CubeMX 生成的、哪些是你自己加的。
+              以后遇到「我明明写了却不见了」，多半就是写在块外面了。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            环境搭建阶段只需要一片蓝药丸和一个 ST-Link V2（十几块钱那种 USB 棒就行），
+            接线只有四根，但接错的后果很典型：接反电源可能烧板，漏接地线会出现「能识别但下载失败」。
+          </p>
+
+          <h3 id="sub-swd" class="mt-7 text-base font-semibold">ST-Link 与蓝药丸接线表</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>ST-Link 引脚</th>
+                  <th>蓝药丸引脚</th>
+                  <th>是否必须</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">SWDIO</td>
+                  <td class="font-mono text-xs">PA13（板上标 SWDIO）</td>
+                  <td>必须</td>
+                  <td>SWD 双向数据线，Keil 靠它读写芯片内部寄存器</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">SWCLK</td>
+                  <td class="font-mono text-xs">PA14（板上标 SWCLK）</td>
+                  <td>必须</td>
+                  <td>SWD 时钟线，由调试器驱动，频率在 Debug 设置里改</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">GND</td>
+                  <td class="font-mono text-xs">GND</td>
+                  <td>必须</td>
+                  <td>给两边提供公共参考电位，少了它 SWD 会时通时断</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">3.3V</td>
+                  <td class="font-mono text-xs">3V3</td>
+                  <td>建议</td>
+                  <td>给目标板供电。若蓝药丸已插 USB 供电，这一根可以不接，避免两路电源互相倒灌</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">RST</td>
+                  <td class="font-mono text-xs">R（NRST）</td>
+                  <td>可选</td>
+                  <td>调试器可复位目标。当 PA13/PA14 被程序改写导致连不上时，靠它救回来</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">5V</td>
+                  <td class="font-mono text-xs">5V</td>
+                  <td>不用接</td>
+                  <td>蓝药丸板载稳压器会把 5V 降到 3.3V，但调试阶段不需要你从 ST-Link 供 5V</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意图</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="接线示意（ST-Link V2 ↔ STM32F103C8T6 蓝药丸）">
+            <pre><code>        ST-Link V2                              STM32F103C8T6 蓝药丸
+      ┌─────────────┐                          ┌────────────────────────┐
+      │        SWDIO├──────────────────────────┤ PA13  (板上标 SWDIO)   │
+      │        SWCLK├──────────────────────────┤ PA14  (板上标 SWCLK)   │
+      │          GND├──────────────────────────┤ GND                    │
+      │          3V3├──────────────────────────┤ 3V3                    │
+      │          RST├──────────────────────────┤ R   (NRST，可选的第五根)│
+      │           5V├── ─ ─ 不接 ─ ─ ─ ─ ─ ─ ─ ┤ 5V                     │
+      └─────────────┘                          │                        │
+                                               │ PC13 ──[R]── LED ── 3V3│  ← 板载 LED，低电平点亮
+                                               │ BOOT0 跳线帽接 0 侧     │  ← 从 Flash 启动
+                                               └────────────────────────┘
+
+  最小可用接法：SWDIO + SWCLK + GND 三根（目标板用 USB 供电）
+  连不上的时候再加：3V3 和 RST
+  杜邦线尽量短（15cm 以内），排线过长是「有时能连、有时连不上」的常见原因</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">上电前的检查清单</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>先用万用表确认 ST-Link 的 <code class="icode">3V3</code> 和 <code class="icode">GND</code> 没有接反——反接一次就可能把芯片的电源脚打坏。</li>
+            <li>确认 <code class="icode">BOOT0</code> 的跳线帽接在 <b class="font-semibold">0</b> 一侧（靠 0 的那两个针）。跳错到 1 会进系统存储器，你的程序不会运行。</li>
+            <li>只保留一路供电：要么 USB 供，要么 ST-Link 的 3V3 供，别两个同时接。</li>
+            <li>接好后先不插电脑，目视复查一遍四根线的顺序，再插 USB。</li>
+          </ol>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">别把 PA13 / PA14 当普通 IO 用掉</div>
+            <p>
+              PA13 和 PA14 出厂默认就是 SWD 调试口，你不需要任何配置就能用它们下载程序。
+              但如果程序里把这两个脚配成了普通输出（比如做 LED 流水灯时图方便），
+              芯片一上电就执行那段代码，SWD 口随即失效，
+              <b class="font-semibold">下次就下载不进去了</b>。
+              救回来的两个办法：① Debug 设置里把连接方式改成 <code class="icode">Connect under Reset</code>；
+              ② 按住板上复位键点下载，出现下载进度时再松手。
+              这也是给足 SWD 引脚存在感的唯一理由——它们不是「空着的两个 IO」。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            下面这份 <code class="icode">main.c</code> 是<b class="font-semibold text-ink">环境验证程序</b>：
+            它让板载 LED（PC13）以 1Hz 闪烁。代码是自包含的——
+            把 CubeMX 通常生成在 main.c 里的
+            <code class="icode">SystemClock_Config()</code>、<code class="icode">MX_GPIO_Init()</code>、<code class="icode">Error_Handler()</code>
+            都写全了，只用 GPIO，不引用其他文件的变量，
+            <b class="font-semibold text-ink">整份替换掉工程里的 main.c 就能编译</b>。
+            它的作用不是「点灯」，而是同时验证三件事：编译链路通、下载链路通、时钟树配对了。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— 环境验证：板载 LED 1Hz 闪烁">
+            <pre><code>/* ============================================================================
+ * main.c —— STM32F103C8T6 环境验证程序
+ * 功能：蓝药丸板载 LED（PC13）以 1Hz 频率闪烁
+ * 用途：验证 ①Keil 能编译 HAL 工程 ②ST-Link 能下载 ③时钟树确实跑在 72MHz
+ * 说明：本文件自包含，可直接整份替换 CubeMX 生成的 main.c
+ * ============================================================================ */
+
+#include "stm32f1xx_hal.h"        /* HAL 库总头文件：把全部外设驱动声明都包含进来 */
+
+/* ------------------------------ 私有函数声明 ------------------------------ */
+void SystemClock_Config(void);    /* 时钟配置：HSE 8MHz 经 PLL 倍频到 72MHz */
+static void MX_GPIO_Init(void);   /* GPIO 初始化：把 PC13 配成推挽输出 */
+void Error_Handler(void);         /* 出错时停在这里，方便调试器断点观察 */
+
+/* ============================================================================
+ * main()：程序入口
+ * 上电复位后 CPU 从 0x08000000 取中断向量表，跳到 Reset_Handler，
+ * 最终调用 main()。单片机程序永不退出，所以结尾必须是死循环。
+ * ============================================================================ */
+int main(void)
+{
+  /* 第一步：初始化 HAL 库。它做两件重要的事——
+   *   ① 按 SystemCoreClock 设置 Flash 等待周期，保证 72MHz 下取指不出错；
+   *   ② 把 SysTick 配成每 1ms 中断一次并累加 uwTick，HAL_Delay() 全靠它计时 */
+  HAL_Init();
+
+  /* 第二步：配置时钟。必须在配置外设之前做，因为外设参数（比如波特率）
+   *         都是按最终频率算出来的 */
+  SystemClock_Config();
+
+  /* 第三步：初始化 GPIO。函数内部第一句就是开 GPIOC 时钟，漏了就白配 */
+  MX_GPIO_Init();
+
+  /* 第四步：进主循环。这里就是「你的程序」真正的地盘 */
+  while (1)
+  {
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);  /* 翻转 PC13：亮变灭、灭变亮 */
+    HAL_Delay(500);                          /* 阻塞延时 500ms → 亮 0.5s + 灭 0.5s = 1Hz */
+  }
+}
+
+/* ============================================================================
+ * 时钟配置：HSE(8MHz) → PLL ×9 → SYSCLK = 72MHz
+ *   AHB = /1  → HCLK  = 72MHz（内核、SysTick）
+ *   APB1 = /2 → PCLK1 = 36MHz（TIM2 等，定时器时钟自动 ×2 回到 72MHz）
+ *   APB2 = /1 → PCLK2 = 72MHz（GPIO、USART1）
+ * ============================================================================ */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};   /* 振荡器配置结构体，先清零避免随机值 */
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};   /* 总线时钟配置结构体 */
+
+  /* ---------- 1. 打开外部晶振，并把 PLL 配成 HSE × 9 ---------- */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;  /* 操作对象：外部高速时钟 */
+  RCC_OscInitStruct.HSEState       = RCC_HSE_ON;              /* 使能 8MHz 晶振 */
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;     /* 预分频 /1，进 PLL 前不降频 */
+  RCC_OscInitStruct.HSIState       = RCC_HSI_ON;              /* 内部 8MHz 也留着：HSE 起振失败时 HAL 会回退到它 */
+  RCC_OscInitStruct.PLL.PLLState   = RCC_PLL_ON;              /* 打开 PLL */
+  RCC_OscInitStruct.PLL.PLLSource  = RCC_PLLSOURCE_HSE;       /* PLL 输入源选 HSE */
+  RCC_OscInitStruct.PLL.PLLMUL     = RCC_PLL_MUL9;            /* 倍频 ×9 → 8MHz × 9 = 72MHz */
+
+  if (HAL_RCC_OscConfig(&amp;RCC_OscInitStruct) != HAL_OK)
+  {
+    /* 返回不是 HAL_OK，说明晶振没起振或 PLL 没锁相。
+     * 先量 OSC_IN/OSC_OUT 有没有振荡波形，再查两个 20pF 电容有没有虚焊 */
+    Error_Handler();
+  }
+
+  /* ---------- 2. 把系统时钟切到 PLL 输出，并设置各总线分频 ---------- */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+                              | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK; /* 系统时钟源 = PLL */
+  RCC_ClkInitStruct.AHBCLKDivider  = RCC_SYSCLK_DIV1;         /* HCLK  = 72MHz */
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;           /* PCLK1 = 36MHz */
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;           /* PCLK2 = 72MHz */
+
+  /* 第三个参数是 Flash 等待周期：72MHz 必须用 FLASH_LATENCY_2（2 个等待周期），
+   * 少了它 CPU 取指快过 Flash 输出，程序会跑飞或进 HardFault */
+  if (HAL_RCC_ClockConfig(&amp;RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/* ============================================================================
+ * GPIO 初始化：只配一个 PC13 推挽输出
+ * 蓝药丸的板载 LED 接法是 3V3 → 电阻 → LED → PC13，
+ * 所以输出低电平（RESET）点亮、输出高电平（SET）熄灭。
+ * ============================================================================ */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  /* ★ 时钟使能永远放在第一条。
+   * 宏展开后是 SET_BIT(RCC-&gt;APB2ENR, RCC_APB2ENR_IOPCEN)，即打开 GPIOC 的门控时钟；
+   * 不开时钟，下面所有寄存器写入都会被硬件丢弃，而且不会有任何报错 */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();     /* GPIOA 后面接按键、串口都要用，顺手开掉 */
+
+  /* 先输出高电平，让 LED 一开始是灭的，避免上电瞬间闪一下 */
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+
+  GPIO_InitStruct.Pin   = GPIO_PIN_13;                 /* 操作 PC13 */
+  GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;         /* 推挽输出：既能输出高也能输出低 */
+  GPIO_InitStruct.Pull  = GPIO_NOPULL;                 /* 输出模式不需要内部上下拉 */
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;        /* 输出翻转速度 50MHz；点灯用 LOW 也够，这里留默认高档 */
+  HAL_GPIO_Init(GPIOC, &amp;GPIO_InitStruct);              /* 把上面的配置真正写进 GPIOC 寄存器 */
+}
+
+/* ============================================================================
+ * 出错处理：关中断后死循环
+ * 调试时在 while(1) 上打个断点，停下来看调用栈就知道是哪一步失败的
+ * ============================================================================ */
+void Error_Handler(void)
+{
+  __disable_irq();                  /* 关总中断，防止 SysTick 继续打断 */
+  while (1)
+  {
+  }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">HAL_Init()</code>——它必须第一个执行。
+              内部会调用 <code class="icode">HAL_InitTick(TICK_INT_PRIORITY)</code>，
+              把 SysTick 配成 1ms 中断并开始累加 <code class="icode">uwTick</code>。
+              后面所有 <code class="icode">HAL_Delay()</code> 都是读这个计数在空转等待，所以没调 <code class="icode">HAL_Init()</code> 的工程里
+              <code class="icode">HAL_Delay()</code> 会立刻返回、延时完全失效。
+            </li>
+            <li>
+              <code class="icode">HAL_RCC_OscConfig()</code> 与 <code class="icode">HAL_RCC_ClockConfig()</code>——一个管「产生时钟」，一个管「分配时钟」。
+              注意第二个的 <code class="icode">FLASH_LATENCY_2</code> 是位置参数，不是结构体成员，手写时最容易漏。
+            </li>
+            <li>
+              <code class="icode">__HAL_RCC_GPIOC_CLK_ENABLE()</code>——一个纯宏，编译后就是一条对
+              <code class="icode">RCC-&gt;APB2ENR</code> 的置位指令，没有任何函数调用开销。
+              记住它的命名规律：<code class="icode">__HAL_RCC_</code> + 「外设名」 + <code class="icode">_CLK_ENABLE()</code>。
+            </li>
+            <li>
+              <code class="icode">HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13)</code>——HAL 里没有「翻转」硬件操作，
+              它是先读 <code class="icode">ODR</code> 寄存器再取反写回。优点是直白，缺点是读改写不是原子操作，
+              多任务/中断并发操作同一个引脚时要用 <code class="icode">HAL_GPIO_WritePin()</code> 明确写电平。
+            </li>
+            <li>
+              <code class="icode">Error_Handler()</code>——HAL 的通用兜底。
+              它不做任何「修复」，只是把程序停下来。调试阶段这是好事：你能立刻看到失败点，
+              量产代码里则应该改成复位或报警逻辑。
+            </li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">Keil Options for Target 需要核对的几项</h3>
+          <p class="mt-3">
+            用 CubeMX 生成的工程这些设置基本都是自动填好的，但如果你接手了别人的工程（或者抄了网上的例程），
+            照下面这份清单核对一遍，能省掉大半「玄学报错」。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="Options for Target（快捷键 Alt+F7）核对清单">
+            <pre><code>Project → Options for Target
+┌─ Target ───────────────────────────────────────────────────────────────
+│  ✔ Use MicroLIB                     后面要用 printf 重定向到串口就得勾
+│  Xtal (MHz): 8.0                    仅软件仿真用的标称值，不影响实际下载
+├─ Output ───────────────────────────────────────────────────────────────
+│  ✔ Create HEX File                  要用 STC-ISP / 串口下载工具时才需要
+├─ C/C++ ────────────────────────────────────────────────────────────────
+│  Define:       USE_HAL_DRIVER, STM32F103xB      ← 少一个都会编译报错
+│  Include Paths:
+│      ..\Core\Inc
+│      ..\Drivers\STM32F1xx_HAL_Driver\Inc
+│      ..\Drivers\STM32F1xx_HAL_Driver\Inc\Legacy
+│      ..\Drivers\CMSIS\Device\ST\STM32F1xx\Include
+│      ..\Drivers\CMSIS\Include
+├─ Debug ────────────────────────────────────────────────────────────────
+│  右上角下拉框选「ST-Link Debugger」→ 点右侧 Settings
+│    ├ Debug 页   Port = SW（不是 JTAG）
+│    │            Max Clock 先降到 1MHz，连稳了再往上调
+│    └ Flash Download 页
+│            ✔ Reset and Run          下载完自动复位运行，省得手动按复位
+│            Programming Algorithm 里必须有 STM32F10x_128.FLM
+│            （没有就点 Add，从芯片包目录里添加）
+├─ Utilities ────────────────────────────────────────────────────────────
+│  ✔ Use Debug Driver                 让下载也走 ST-Link，而不是外部工具
+└────────────────────────────────────────────────────────────────────────</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第一次下载建议这样做</div>
+            <p>
+              先点 <code class="icode">Build</code>（F7）确认 0 Error；
+              再点 <code class="icode">Download</code>（F8）确认出现 <code class="icode">Programming Done. Verify OK.</code>；
+              最后点 <code class="icode">Start/Stop Debug Session</code>（Ctrl+F5）进调试，
+              单步走一遍 <code class="icode">SystemClock_Config()</code>。
+              这三步依次通过，说明编译、下载、调试三条链路全通，环境就算彻底搭好了。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            环境搭建是「全有或全无」的活儿：现象对了，说明每一步都对；现象不对，下面这张对照表能帮你把范围缩到一环。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>编译输出末尾是 <code class="icode">0 Error(s), 0 Warning(s).</code>，并显示 <code class="icode">Program Size: Code=... RO-data=... RW-data=... ZI-data=...</code>。</li>
+            <li>点下载后 Build Output 出现 <code class="icode">Programming Done. Verify OK.</code>，蓝药丸上的 PWR 电源灯常亮。</li>
+            <li>板载 LED（PC13，靠近排针的那颗）以<b class="font-semibold text-ink">大约 1 秒一个完整周期</b>闪烁：亮 0.5s、灭 0.5s，节奏均匀。</li>
+            <li>按 Ctrl+F5 进调试，程序停在 <code class="icode">main()</code> 第一行；按 F5 全速运行，LED 继续闪，说明调试器接管后程序照常跑。</li>
+            <li>在 Watch 窗口加入 <code class="icode">HAL_GetTick()</code>，每按一次 F10 单步，数值大约增加 1——这直接证明 SysTick 的 1ms 中断在正常工作。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>编译 0 错误，下载时报 <code class="icode">No Algorithm found for: 08000000H - 08000FFF</code></td>
+                  <td>芯片包没装好，或 Flash 算法没被选进工程</td>
+                  <td>确认已装 STM32F1xx_DFP；到 Debug → Settings → Flash Download 里 Add 上 STM32F10x_128.FLM</td>
+                </tr>
+                <tr>
+                  <td>下载报 <code class="icode">No target connected</code> / <code class="icode">Flash Download failed</code></td>
+                  <td>SWD 通信没建立起来</td>
+                  <td>依次查：SWDIO/SWCLK/GND 三根线、BOOT0 是否在 0 侧、Debug 里选的是不是 ST-Link、把 Max Clock 降到 1MHz</td>
+                </tr>
+                <tr>
+                  <td>调试器能连上，但代码单步跑不进 <code class="icode">while(1)</code></td>
+                  <td>程序卡在 <code class="icode">Error_Handler()</code> 里了</td>
+                  <td>看是不是停在 <code class="icode">HAL_RCC_OscConfig()</code> 之后——多半是 HSE 没起振（晶振虚焊 / 电容没装）</td>
+                </tr>
+                <tr>
+                  <td>LED 在闪，但节奏明显不是 1 秒（大约慢 9 倍）</td>
+                  <td>时钟回退到了内部 HSI 8MHz，没跑在 72MHz</td>
+                  <td>把 <code class="icode">SystemCoreClock</code> 加入 Watch，正常应是 <b>72000000</b>；再量 OSC_IN 脚有没有 8MHz 波形</td>
+                </tr>
+                <tr>
+                  <td>下载成功，LED 完全不动</td>
+                  <td>程序没在跑新代码，或 GPIO 时钟没使能</td>
+                  <td>先按一次板上复位键；仍不动就检查 <code class="icode">MX_GPIO_Init()</code> 第一行的 <code class="icode">__HAL_RCC_GPIOC_CLK_ENABLE()</code></td>
+                </tr>
+                <tr>
+                  <td>LED 一直亮着不闪</td>
+                  <td>卡在 <code class="icode">Error_Handler()</code>，或程序根本没下进去</td>
+                  <td>进 Debug 按一下暂停，看 PC 指针停在哪个函数里</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">顺手记录实验数据</div>
+            <p>
+              用秒表量 20 个闪烁周期、除以 20，得到实测周期，和理论值 1.000s 对比。
+              误差在 1% 以内说明晶振精度没问题；如果差到 10% 以上，
+              把 <code class="icode">SystemCoreClock</code> 加入 Watch 看是不是 72000000。
+              这种「理论 vs 实测」的记录写进实训报告，比只贴一张截图专业得多。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            下面五条是环境搭建阶段出现率最高的故障，按「报错原文 → 原因 → 解决」写，方便你直接搜索比对。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">Device 列表里找不到 STM32F103C8（或提示 Error: Device not found）</div>
+            <p><b class="font-semibold">原因：</b>Keil 本体不含任何具体芯片的器件数据库，必须装 Device Family Pack 才会出现 STM32F1 系列。装的是别的系列包（比如只装了 STM32F4xx_DFP）同样找不到。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>打开 <code class="icode">Pack Installer</code>，在 Devices 里展开 STMicroelectronics → STM32F1 Series，安装 <code class="icode">Keil::STM32F1xx_DFP</code>；离线环境就双击 <code class="icode">Keil.STM32F1xx_DFP.2.x.x.pack</code>。装完重启 Keil，再在 Options for Target → Device 里搜 STM32F103C8。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">编译报错：error: #5: cannot open source input file "stm32f1xx_hal.h": No such file or directory</div>
+            <p><b class="font-semibold">原因：</b>头文件搜索路径没配。编译器只会去 Include Paths 列出的目录里找头文件，而 HAL 库的头文件在 <code class="icode">Drivers</code> 目录下，不在 <code class="icode">Core</code> 目录里。</p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>Options for Target → C/C++ → Include Paths，把这四个目录都加进去：
+              <code class="icode">Core\Inc</code>、
+              <code class="icode">Drivers\STM32F1xx_HAL_Driver\Inc</code>、
+              <code class="icode">Drivers\CMSIS\Device\ST\STM32F1xx\Include</code>、
+              <code class="icode">Drivers\CMSIS\Include</code>。
+              另外确认 C/C++ 的 Define 里有 <code class="icode">USE_HAL_DRIVER</code> 和 <code class="icode">STM32F103xB</code>，缺了会报另一串「未定义」的错误。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">下载报错：Error: Flash Download failed - "Cortex-M3"</div>
+            <p><b class="font-semibold">原因：</b>按可能性从高到低排——① Debug 选项卡里选的调试器不是 ST-Link（比如还是默认的 ULINK/J-LINK）；② SWD 时钟频率太高，杜邦线太长导致信号质量差；③ 目标板没供电；④ 程序把 PA13/PA14 改成了普通 GPIO，SWD 口被占用。</p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>先确认 Debug 下拉框选的是 <code class="icode">ST-Link Debugger</code>，Settings → Debug → Port 选 <code class="icode">SW</code>、Max Clock 降到 1MHz；
+              再确认 3V3/GND 已接好；仍然失败就把 Connect 方式改成 <code class="icode">Connect under Reset</code>，
+              或者按住板上复位键点下载、出现进度条再松手——这一步专门对付「SWD 引脚被程序占用」。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">No ST-LINK detected / ST-LINK USB communication error</div>
+            <p><b class="font-semibold">原因：</b>USB 侧的问题，与目标板无关：① ST-Link 驱动没装（Windows 设备管理器里显示黄色感叹号）；② 用的 USB 线只能充电、没有数据线芯；③ ST-Link 被其他软件占用（STM32CubeProgrammer、串口助手、另一个 Keil 实例）。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>装官方 ST-Link 驱动后重新插拔；换一根能传数据的 USB 线（拿它连手机能传文件就说明可以）；关掉所有可能占用调试器的软件再试。若设备管理器里出现的是 <code class="icode">STM32 STLink</code> 而不是 <code class="icode">ST-Link Debug</code>，说明装的是新版独立驱动，Keil 5.3x 需要在 Debug 设置里手动指定 DLL。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">下载成功、Verify OK，但板载 LED 纹丝不动</div>
+            <p><b class="font-semibold">原因：</b>最典型的是 <b>GPIO 时钟没有使能</b>——代码全对、编译零错、下载成功，但对 GPIOC 寄存器的写入被硬件静默丢弃了。其次是程序卡在 <code class="icode">Error_Handler()</code>，或者 BOOT0 跳线在 1 侧导致芯片从系统存储器启动。</p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>按这个顺序查：① <code class="icode">MX_GPIO_Init()</code> 第一行有没有 <code class="icode">__HAL_RCC_GPIOC_CLK_ENABLE()</code>；
+              ② 进 Debug 暂停，看 PC 指针是不是停在 <code class="icode">Error_Handler()</code> 的 <code class="icode">while(1)</code> 上；
+              ③ 确认 BOOT0 跳线帽在 <b>0</b> 侧；
+              ④ 用万用表量 PC13 对地电压，应该在 0V 与 3.3V 之间来回跳——如果一直 3.3V，说明程序确实没跑到那一行。
+            </p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">另外一类：重新生成代码后，自己写的代码消失了</div>
+            <p>
+              这不是报错，但同样常见。原因是代码写在了 <code class="icode">USER CODE BEGIN/END</code> 块<b>外面</b>，
+              CubeMX 重新生成时按模板覆盖了。
+              解决：把逻辑挪进对应的 USER CODE 块，或者干脆不在 CubeMX 里重复生成——
+              改引脚时只改 <code class="icode">MX_GPIO_Init()</code> 之外的部分就行。
+              养成「生成完先扫一眼 USER CODE 块在哪」的习惯，这类事故可以完全避免。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇把 STM32 的开发环境从「三个软件怎么分工」讲到「线怎么接、设置怎么点、报错怎么查」。
+            真正需要记住的只有三点：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">Keil 只认识内核，芯片信息来自芯片包（DFP）</b>——找不到型号、算法缺失、头文件缺失，先怀疑包。</li>
+            <li><b class="font-semibold text-ink">时钟树是 8MHz → PLL ×9 → 72MHz</b>——它决定了延时、波特率、PWM 频率等一切时间相关参数的基准。</li>
+            <li><b class="font-semibold text-ink">外设时钟不使能，一切配置等于没写</b>——这是唯一一个「没有报错却完全不动」的坑，必须形成条件反射。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b>改闪烁节奏：</b>把 <code class="icode">HAL_Delay(500)</code> 改成 100ms，观察 LED 的变化；
+                再把 500 改成 50，想一想为什么看起来像是「变暗了」而不是「闪得更快」——这正好是下一篇 PWM 调光的引子。
+              </li>
+              <li>
+                <b>故意制造第一大坑：</b>把 <code class="icode">MX_GPIO_Init()</code> 里的
+                <code class="icode">__HAL_RCC_GPIOC_CLK_ENABLE()</code> 注释掉，重新编译下载，观察 LED 是否完全不动、有没有任何报错。
+                亲手复现一次，比读十遍文字记得都牢。做完记得改回来。
+              </li>
+              <li>
+                <b>证明 SysTick 在工作：</b>把 <code class="icode">HAL_GetTick()</code> 的值赋给一个全局变量
+                <code class="icode">uint32_t tick_now;</code>，在 Debug 的 Watch 窗口里观察它。
+                解释一下：为什么这个变量每秒增加约 1000？如果 <code class="icode">SystemCoreClock</code> 显示 8000000，它会变成多少？
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-gpio.html">STM32 GPIO 输入输出</a>——把这一篇的「点灯」讲透：推挽/开漏/上拉/下拉怎么选，按键为什么要消抖。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-usart.html">USART 串口通信</a>——让板子会说话：帧格式、波特率、printf 重定向。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-timer-pwm.html">定时器与 PWM 输出</a>——用上面提到的那条 72MHz 时钟，做出呼吸灯。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="../stm32.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 返回目录</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">STM32 全部教程</p>
+          </a>
+          <a href="stm32-gpio.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">STM32 GPIO 输入输出</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

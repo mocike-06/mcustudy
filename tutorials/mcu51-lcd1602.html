@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LCD1602 液晶驱动 - McuStudy</title>
+  <meta name="description" content="51 单片机驱动 LCD1602 完整教程：HD44780 控制器与指令集、8 位与 4 位数据总线的取舍、RS/RW/EN 三根控制线的锁存时序与延时要求、忙标志 BF 判忙与固定延时两种做法、完整初始化指令序列、光标定位 0x80+地址，以及用 CGRAM 做自定义字符。附 8 位总线完整可编译驱动代码。">
+  <meta name="keywords" content="51单片机,LCD1602,HD44780,4位总线,RS RW EN时序,忙标志BF,0x38初始化,0x80地址,CGRAM自定义字符">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="mcu51" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../mcu51.html" class="hover:text-brand-600 dark:hover:text-brand-300">51单片机</a>
+          <span>/</span>
+          <span class="text-muted">教程正文</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          LCD1602 液晶驱动
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          用 P2 口做数据总线、P3.5 / P3.6 / P3.7 做控制线，把 HD44780 的指令集和
+          RS / RW / EN 三根线的锁存时序讲清楚。看完你会明白：为什么 EN 要“拉高再拉低”、
+          为什么每条指令后面都要等一会儿、以及当屏幕上出现一排黑方块时到底发生了什么。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="stat-pill">芯片：<b>STC89C52RC</b></span>
+          <span class="stat-pill">外设：<b>LCD1602（HD44780）</b></span>
+          <span class="stat-pill">占用 IO：<b>11 个</b></span>
+          <span class="stat-pill">阅读约 <b>14</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>LCD1602 是典型的「时序器件」——每个操作都要求控制脚按固定顺序、固定时间变化。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-digital.html">数字电路与电平</a> —— RS / RW / EN 三个控制脚为什么这么用、什么是建立时间</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-number.html">数制与位运算</a> —— 指令码、地址码，以及 <code class="icode">0x80 + addr</code> 的来由</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-register.html">单片机内部结构与寄存器</a> —— 用 P0 口送数据、P2 口送控制信号，这种分工怎么看懂</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-components.html">常用元件：从色环电阻到三极管</a> —— 对比度调节电位器该怎么接</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-pins">引脚与三根控制线</a>
+          <a class="toc-link is-sub" href="#sub-timing">RS / RW / EN 的时序</a>
+          <a class="toc-link is-sub" href="#sub-bus">8 位与 4 位总线的取舍</a>
+          <a class="toc-link is-sub" href="#sub-init">初始化指令序列</a>
+          <a class="toc-link is-sub" href="#sub-cgram">用 CGRAM 做自定义字符</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-pins">引脚与三根控制线</a>
+            <a class="toc-link is-sub" href="#sub-timing">RS / RW / EN 的时序</a>
+            <a class="toc-link is-sub" href="#sub-bus">8 位与 4 位总线的取舍</a>
+            <a class="toc-link is-sub" href="#sub-init">初始化指令序列</a>
+            <a class="toc-link is-sub" href="#sub-cgram">用 CGRAM 做自定义字符</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            前面几篇教程里，单片机的“输出”要么是几个 LED，要么得靠电脑上的串口助手。
+            LCD1602 的意义在于：<b class="font-semibold text-ink">让设备自己把数据说出来</b>。
+            它的名字就是规格——<b class="font-semibold">16 个字符 × 2 行</b>，
+            每个字符由 <b class="font-semibold">5×8 点阵</b>组成，工作电压 5V，一共 16 个引脚。
+          </p>
+
+          <p class="mt-3">
+            关键点在于：LCD1602 不是一块“傻屏”，它板上焊着一片
+            <b class="font-semibold text-ink">HD44780 控制器</b>（以及 KS0066、SPLC780D、ST7066 等兼容芯片）。
+            你不需要自己画点阵，只要把 <b class="font-semibold">ASCII 字符码</b>丢给它，
+            它自己会去内部的字符库（CGROM）里取出字模显示出来。
+            这就像给打印机发文字，而不是发像素——这正是它比点阵屏好用的地方。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>内部资源</th>
+                  <th>容量</th>
+                  <th>作用</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>DDRAM</td>
+                  <td>80 字节</td>
+                  <td>显示数据存储器，存“这一格显示哪个字符码”；可见的只有前 16×2 格</td>
+                </tr>
+                <tr>
+                  <td>CGROM</td>
+                  <td>固定字库</td>
+                  <td>字符发生 ROM，存了数字、字母、日文假名等固化字模，ASCII 码直接能用</td>
+                </tr>
+                <tr>
+                  <td>CGRAM</td>
+                  <td>64 字节</td>
+                  <td>字符发生 RAM，可以自定义 <b class="font-semibold">8 个</b> 5×8 点阵字符（每个占 8 字节）</td>
+                </tr>
+                <tr>
+                  <td>IR / DR</td>
+                  <td>两个寄存器</td>
+                  <td>指令寄存器与数据寄存器；写指令还是写数据，靠 RS 引脚区分</td>
+                </tr>
+                <tr>
+                  <td>BF / AC</td>
+                  <td>状态位与地址计数器</td>
+                  <td>BF 是忙标志，AC 记录当前 DDRAM/CGRAM 地址；光标位置就是 AC 决定的</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            理解了“<b class="font-semibold text-ink">写进去的是字符码、由控制器去查字模</b>”这一点，
+            后面所有的指令（清屏、开显示、光标定位）就都好理解了：
+            它们本质上都是在操作 DDRAM 里的地址计数器 AC。
+          </p>
+
+          <h3 id="sub-pins" class="mt-7 text-base font-semibold">引脚与三根控制线</h3>
+          <p class="mt-3">16 个引脚分成三组：电源与背光、控制线、数据线。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>脚号</th>
+                  <th>名称</th>
+                  <th>作用</th>
+                  <th>接法</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>1</td><td class="font-mono text-xs">VSS</td><td>电源地</td><td>接 GND</td></tr>
+                <tr><td>2</td><td class="font-mono text-xs">VDD</td><td>电源正</td><td>接 +5V（<b class="font-semibold">接反会烧模块</b>）</td></tr>
+                <tr><td>3</td><td class="font-mono text-xs">V0</td><td>对比度调节</td><td>接 10kΩ 电位器中点，<b class="font-semibold">不接就是一片空白</b></td></tr>
+                <tr><td>4</td><td class="font-mono text-xs">RS</td><td>寄存器选择：<b class="font-semibold">0 = 指令，1 = 数据</b></td><td>接 P3.5</td></tr>
+                <tr><td>5</td><td class="font-mono text-xs">RW</td><td>读写选择：<b class="font-semibold">0 = 写，1 = 读</b></td><td>接 P3.6</td></tr>
+                <tr><td>6</td><td class="font-mono text-xs">E</td><td>使能：<b class="font-semibold">下降沿锁存数据</b></td><td>接 P3.7</td></tr>
+                <tr><td>7~14</td><td class="font-mono text-xs">D0~D7</td><td>8 位数据总线（双向）</td><td>接 P2.0~P2.7</td></tr>
+                <tr><td>15</td><td class="font-mono text-xs">A</td><td>背光正极</td><td>经 100Ω 接 +5V</td></tr>
+                <tr><td>16</td><td class="font-mono text-xs">K</td><td>背光负极</td><td>接 GND</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">三根控制线记法：先选对象，再定方向，最后按一下</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><b class="font-semibold">RS 选对象</b>：这次要写的是“指令”（0）还是“要显示的字符”（1）。</li>
+              <li><b class="font-semibold">RW 定方向</b>：是单片机写给屏幕（0），还是单片机读屏幕的状态（1）。</li>
+              <li><b class="font-semibold">E 按一下</b>：前面两根线选好、数据放到总线上稳定之后，给 E 一个脉冲，屏幕在下降沿把数据收走。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-timing" class="mt-7 text-base font-semibold">RS / RW / EN 的时序</h3>
+          <p class="mt-3">
+            这是整篇教程的核心。写一个字节的完整动作只有四步，但每一步都有理由：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="写操作时序（数据在 EN 下降沿被锁存）">
+            <pre><code>            ┌──── 数据必须在这一段已经稳定 ────┐
+   RS/RW ───┘                                   └───   （先设好，不能和数据同时变）
+                                                        tAS ≥ 40ns
+   D0~D7  ═══════ 有效数据 ═══════════════════════       （放上总线并稳定）
+                                          tDSW ≥ 80ns
+                    ┌──────────────────┐
+   E      ──────────┘                  └──────────       （高电平脉宽 tPW ≥ 450ns）
+                    ▲                  ▲
+                 上升沿              下降沿 ← 就在这一刻，数据被锁存进控制器
+
+   写完之后还有一件事：控制器要花时间去“执行”这条指令
+     · 写数据 / 大多数指令：约 40us
+     · 清屏（0x01）、光标复位（0x02）：1.64ms
+   这段时间里它不接受新指令 —— 这就是“延时”或“判忙”存在的理由</code></pre>
+          </div>
+
+          <p class="mt-4">
+            三个时间常数要记住：<b class="font-semibold text-ink">地址建立 ≥40ns、数据建立 ≥80ns、EN 高电平 ≥450ns</b>。
+            这些数字都很小，12MHz 的 51 执行一条指令就要 1µs，所以“随手写”通常也能满足。
+            真正会坑人的不是这三个纳秒级的参数，而是<b class="font-semibold text-ink">指令的执行时间</b>。
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">为什么写完指令必须等一会儿</div>
+            <p>
+              控制器收到指令后要真的去干活：清屏指令要遍历 80 字节 DDRAM 把它们写成空格，
+              需要 <b class="font-semibold">1.64ms</b>；其它指令大约 <b class="font-semibold">40µs</b>。
+              在这期间它处于“忙”状态，你再送指令就会被丢弃——表现就是
+              “初始化写了但屏幕没反应”“清屏清不干净”“字符位置错乱”。
+              解决办法有两个，下面立刻讲。
+            </p>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">方案 A：固定延时（简单可靠）</h4>
+          <p class="mt-3">
+            每条指令后一律延时 2ms，清屏后延时 10ms。优点是代码短、绝对不会因为读时序出错而卡死；
+            缺点是慢：写满一屏 32 个字符要 <code class="icode">32 × 40µs ≈ 1.3ms</code>，
+            但按固定延时算要 30ms 以上，刷新率被压到 30Hz 以下。本篇完整代码用这个方案。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">方案 B：读忙标志 BF 判忙（更快）</h4>
+          <p class="mt-3">
+            控制器有一个状态字：<b class="font-semibold text-ink">读操作时 D7 就是忙标志 BF</b>，
+            BF = 1 表示它还在忙，这时候等它变 0 就行，比无脑延时精确得多，速度也能快十倍以上。
+            代价是要把 RW 拉高、把数据总线当输入来读——所以数据线必须选一个“能读”的口，
+            这也是本篇把数据线放在 P2 而不是 P0 的原因之一（P0 是开漏口，没有上拉就既写不出高电平、也读不到高电平）。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="方案 B：读忙标志判忙（可选替换，8 位总线）">
+            <pre><code>/* 读状态字判忙：读操作时 D7 = BF，BF = 1 表示控制器还在执行上一条指令
+ * 注：8 位模式读一次就是完整的 8 位状态；
+ *     4 位模式要读两次（先读到的高 4 位里含 BF，随后还要补一次低 4 位）
+ */
+void LCD_WaitBusy(void)
+{
+    LCD_DATA = 0xFF;              /* 准双向口作输入前先写 1，内部弱上拉才生效 */
+    LCD_RS = 0;                   /* 读的是指令寄存器（也就是状态字） */
+    LCD_RW = 1;                   /* 方向：读 */
+
+    do
+    {
+        LCD_EN = 1;               /* 读操作同样靠 E 的下降沿把状态送到总线上 */
+        LCD_Delay_short();
+        LCD_EN = 0;
+    } while (LCD_DATA &amp; 0x80);    /* 只关心最高位 D7：还是 1 就继续等 */
+
+    LCD_RW = 0;                   /* 读完恢复成写模式，否则后面的写指令会被当成读 */
+}</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">判忙方案的唯一风险：万一没人应答，程序会卡死在循环里</div>
+            <p>
+              如果 LCD 没接好、BF 一直是 1，<code class="icode">while (LCD_DATA &amp; 0x80);</code>
+              就会永远转下去，程序表面上“死机”了。
+              工程上要在循环里加一个超时计数（比如等不到就跳出并返回错误），
+              新手阶段可以先只用方案 A 的固定延时，等系统跑通了再换成判忙。
+            </p>
+          </div>
+
+          <h3 id="sub-bus" class="mt-7 text-base font-semibold">8 位与 4 位总线的取舍</h3>
+          <p class="mt-3">
+            LCD1602 支持两种接法，区别就在于“一个字节是分一次送还是分两次送”：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th>8 位总线（本篇示例）</th>
+                  <th>4 位总线</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>占用 IO</td>
+                  <td>8 根数据 + 3 根控制 = <b class="font-semibold">11 个</b></td>
+                  <td>4 根数据（只用 D4~D7）+ 3 根控制 = <b class="font-semibold">7 个</b></td>
+                </tr>
+                <tr>
+                  <td>一个字节怎么送</td>
+                  <td>一次送完</td>
+                  <td>分两次：先送高 4 位，再送低 4 位</td>
+                </tr>
+                <tr>
+                  <td>代码复杂度</td>
+                  <td>直观，时序一眼看懂</td>
+                  <td>要写半字节函数；初始化有专门的“唤醒”序列</td>
+                </tr>
+                <tr>
+                  <td>速度</td>
+                  <td>快一倍</td>
+                  <td>慢一倍（数据量不变，但每次多一轮 E 脉冲）</td>
+                </tr>
+                <tr>
+                  <td>适不适合你的项目</td>
+                  <td>IO 富余、初学阶段</td>
+                  <td>还要接按键、传感器、串口时，这 4 个 IO 很值钱</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            51 一共只有 32 个 IO。用 8 位总线接完 LCD 就只剩 21 个，再挂个 DHT11、几个按键、
+            串口（还要占 2 个），很快就会紧张。所以<b class="font-semibold text-ink">真实产品里 4 位模式更常见</b>；
+            但对初学者来说，先用 8 位模式把 RS/RW/EN 的时序彻底搞清楚，再改成 4 位，学习效率最高。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="4 位模式的写法示意（数据线只接 P2.4~P2.7）">
+            <pre><code>/* 送半个字节（4 位）：只改 P2 的高 4 位，低 4 位留给别的用途 */
+void LCD_WriteNibble(unsigned char nib)
+{
+    P2 = (P2 &amp; 0x0F) | (nib &lt;&lt; 4);     /* 高 4 位 = 数据，低 4 位保持不变 */
+    LCD_EN = 1;
+    LCD_Delay_short();
+    LCD_EN = 0;                          /* 下降沿锁存这半个字节 */
+    LCD_Delay_short();
+}
+
+/* 4 位模式下写一条指令：先高 4 位，再低 4 位 */
+void LCD_WriteCmd4(unsigned char cmd)
+{
+    LCD_RS = 0;
+    LCD_RW = 0;
+    LCD_WriteNibble(cmd &gt;&gt; 4);           /* 高 4 位先送 */
+    LCD_WriteNibble(cmd &amp; 0x0F);         /* 低 4 位后送 */
+    Delay_ms(2);                         /* 留出指令执行时间 */
+}
+
+/* 4 位模式的“唤醒”序列（上电后必须先做这一步，否则进不了 4 位模式）：
+ *   Delay_ms(50) → 写 0x33 → 写 0x32 → 再按 8 位模式的方式写 0x28 / 0x0C / 0x06 / 0x01
+ *   其中 0x28 表示：4 位总线(DL=0)、2 行(N=1)、5×8 点阵(F=0)
+ */</code></pre>
+          </div>
+
+          <h3 id="sub-init" class="mt-7 text-base font-semibold">初始化指令序列</h3>
+          <p class="mt-3">
+            上电后必须按固定顺序写一串指令，LCD 才知道该怎么工作。<b class="font-semibold text-ink">顺序不能换，时间不能省。</b>
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>顺序</th>
+                  <th>指令</th>
+                  <th>二进制</th>
+                  <th>含义</th>
+                  <th>执行时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>0</td>
+                  <td class="font-mono text-xs">等待</td>
+                  <td>—</td>
+                  <td>上电后控制器内部复位需要 &gt;15ms，先等 50ms</td>
+                  <td>≥15ms</td>
+                </tr>
+                <tr>
+                  <td>1</td>
+                  <td class="font-mono text-xs">0x38</td>
+                  <td class="font-mono text-xs">0011 1000</td>
+                  <td>功能设置：DL=1（8 位总线）、N=1（两行）、F=0（5×8 点阵）</td>
+                  <td class="font-mono text-xs">40µs</td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td class="font-mono text-xs">0x0C</td>
+                  <td class="font-mono text-xs">0000 1100</td>
+                  <td>显示开关：D=1 开显示、C=0 关光标、B=0 不闪烁</td>
+                  <td class="font-mono text-xs">40µs</td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td class="font-mono text-xs">0x06</td>
+                  <td class="font-mono text-xs">0000 0110</td>
+                  <td>输入模式：I/D=1 地址自动 +1、S=0 整屏不移动</td>
+                  <td class="font-mono text-xs">40µs</td>
+                </tr>
+                <tr>
+                  <td>4</td>
+                  <td class="font-mono text-xs">0x01</td>
+                  <td class="font-mono text-xs">0000 0001</td>
+                  <td>清屏：DDRAM 全部写空格，光标回左上角</td>
+                  <td class="font-mono text-xs">1.64ms</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            几个容易写错的点：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>
+              <b class="font-semibold text-ink">0x38 建议连写三次。</b> 上电瞬间总线电平可能不确定，
+              控制器有可能误判成 4 位模式。HD44780 手册明确要求在初始化阶段重复写功能设置指令，
+              用 8 位模式时写三次是最省心的做法。少了这一步，典型现象是一排黑方块或者只有一半字符正常。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">0x38 不要写成 0x30。</b> 0x30 是“8 位、单行”，
+              写错的直接后果是第二行怎么都显示不出来——这个坑每年都要坑一批人。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">0x0C 和 0x0E 的区别。</b> 0x0C 是开显示、关光标；
+              0x0E 是开显示、开光标（屏幕上会有一条下划线）；0x0F 再加上闪烁。
+              调试阶段可以临时用 0x0F，能直观看到光标停在哪里，对排查“字符为什么写到别处去了”特别有用。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">0x06 里的 S 位。</b> S=1 时每写一个字符整屏会跟着移动，
+              做“滚动字幕”才用它；正常显示要写 0，否则字符会自己跑。
+            </li>
+          </ul>
+
+          <h4 class="mt-6 text-sm font-semibold">光标定位：0x80 + 地址</h4>
+          <p class="mt-3">
+            要在指定位置显示，先写一条“设置 DDRAM 地址”的指令，格式是
+            <code class="icode">1 + 7 位地址</code>，也就是 <code class="icode">0x80 | 地址</code>。
+            两行的地址是分开排的：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>显示位置</th>
+                  <th>DDRAM 地址</th>
+                  <th>写入的指令</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>第一行第 1 格</td>
+                  <td class="font-mono text-xs">0x00</td>
+                  <td class="font-mono text-xs">0x80</td>
+                  <td>清屏后光标默认就在这里</td>
+                </tr>
+                <tr>
+                  <td>第一行第 16 格</td>
+                  <td class="font-mono text-xs">0x0F</td>
+                  <td class="font-mono text-xs">0x8F</td>
+                  <td>第一行地址范围 0x00 ~ 0x0F</td>
+                </tr>
+                <tr>
+                  <td>第二行第 1 格</td>
+                  <td class="font-mono text-xs">0x40</td>
+                  <td class="font-mono text-xs">0xC0</td>
+                  <td><b class="font-semibold">不是 0x10</b>，第二行从 0x40 开始</td>
+                </tr>
+                <tr>
+                  <td>第二行第 16 格</td>
+                  <td class="font-mono text-xs">0x4F</td>
+                  <td class="font-mono text-xs">0xCF</td>
+                  <td>第二行地址范围 0x40 ~ 0x4F</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">超出 0x0F / 0x4F 会怎样</div>
+            <p>
+              DDRAM 实际有 80 字节，第一行写到第 17 个字符时不会自动换行到第二行，
+              而是继续往后写（跑到 0x10），那部分不属于可见区域，屏幕上什么都看不到。
+              所以显示字符串时要么自己控制长度，要么在函数里加边界判断
+              （<code class="icode">col + 字符串长度 ≤ 16</code>），否则会莫名其妙“丢字”。
+            </p>
+          </div>
+
+          <h3 id="sub-cgram" class="mt-7 text-base font-semibold">用 CGRAM 做自定义字符</h3>
+          <p class="mt-3">
+            内置字库只有标准字符。想在屏幕上显示“℃”“电池图标”“箭头”怎么办？
+            用 CGRAM 自己画：<b class="font-semibold text-ink">每个自定义字符占 8 个字节，每个字节代表一行点阵，
+            只有低 5 位有效</b>（因为字符是 5 列宽），一共能放 8 个。
+          </p>
+
+          <p class="mt-3">
+            写入的地址有个固定算法：<code class="icode">CGRAM 地址 = 0x40 + 字符码 × 8</code>。
+            例如字符码 0x00 的点阵从 0x40 开始，字符码 0x01 的从 0x48 开始，依此类推。
+            定义完之后，显示时直接写字符码 <code class="icode">0x00 ~ 0x07</code> 就行。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="自定义一个心形字符（附点阵画法）">
+            <pre><code>/* 5×8 点阵：每一行用 5 个二进制位表示，1 = 点亮，0 = 熄灭
+ *
+ *      列:  4 3 2 1 0
+ *   第0行    0 0 0 0 0     0x00
+ *   第1行    0 1 0 1 0     0x0A   ← 两个凹口
+ *   第2行    1 1 1 1 1     0x1F
+ *   第3行    1 1 1 1 1     0x1F
+ *   第4行    0 1 1 1 0     0x0E
+ *   第5行    0 0 1 0 0     0x04   ← 尖尖的底
+ *   第6行    0 0 0 0 0     0x00
+ *   第7行    0 0 0 0 0     0x00
+ */
+unsigned char code HeartChar[8] = {
+    0x00, 0x0A, 0x1F, 0x1F, 0x0E, 0x04, 0x00, 0x00
+};
+
+/* 把点阵写进 CGRAM 的 0 号位置（以后用字符码 0x00 显示它） */
+void LCD_LoadCustomChar(void)
+{
+    unsigned char i;
+
+    LCD_WriteCmd(0x40);                  /* CGRAM 地址 0x00 = 0x40 + 0×8 */
+    for (i = 0; i &lt; 8; i++)
+        LCD_WriteData(HeartChar[i]);     /* 依次写 8 行点阵 */
+
+    LCD_WriteCmd(0x80);                  /* 关键：把地址指针切回 DDRAM！
+                                          * 忘记这一句，后面显示的字符会被写进 CGRAM 里，
+                                          * 屏幕上什么都不出来，而且自定义字符也被改坏 */
+}</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">显示自定义字符时必须直接写字符码，不能放进字符串</div>
+            <p>
+              自定义字符的字符码是 <code class="icode">0x00</code>，而 C 语言里
+              <code class="icode">0x00</code> 正是字符串的结束符 <code class="icode">'\0'</code>。
+              所以 <code class="icode">LCD_ShowString(1, 15, "\0");</code> 会显示空白——
+              必须用 <code class="icode">LCD_WriteData(0x00);</code> 单独写这一格。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            LCD1602 是“线多但每根都明确”的典型外设：11 根信号线 + 2 根电源 + 2 根背光。
+            接线的难点不在数量，而在<b class="font-semibold text-ink">对比度引脚 V0</b>——
+            它是初学者第一大坑，症状是“背光亮着，但屏幕上什么都没有”。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">元件与接线表</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>LCD1602 引脚</th>
+                  <th>连接到</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">1 VSS</td>
+                  <td>GND</td>
+                  <td>接反会烧模块，接线时最后再插电源</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">2 VDD</td>
+                  <td>+5V</td>
+                  <td>不要接 3.3V，模块对比度会异常</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">3 V0</td>
+                  <td>10kΩ 电位器的中间脚（另两脚接 +5V 与 GND）</td>
+                  <td><b class="font-semibold">必须接</b>；没电位器时可串 1kΩ 到地应急</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">4 RS</td>
+                  <td class="font-mono text-xs">P3.5</td>
+                  <td>0 = 指令，1 = 数据</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">5 RW</td>
+                  <td class="font-mono text-xs">P3.6</td>
+                  <td>0 = 写，1 = 读（判忙时才拉高）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">6 E</td>
+                  <td class="font-mono text-xs">P3.7</td>
+                  <td>下降沿锁存数据</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">7~14 D0~D7</td>
+                  <td class="font-mono text-xs">P2.0 ~ P2.7</td>
+                  <td>用 P2 而不是 P0：P2 内部有弱上拉，可以直接读写</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">15 A</td>
+                  <td>经 100Ω 接 +5V</td>
+                  <td>背光正极；有些模块内置限流电阻，串一个更保险</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">16 K</td>
+                  <td>GND</td>
+                  <td>背光负极</td>
+                </tr>
+                <tr>
+                  <td>单片机其它</td>
+                  <td class="font-mono text-xs">P1.0 一个 LED</td>
+                  <td>留一个灯做“程序还活着”的指示，排错时非常有用</td>
+                </tr>
+                <tr>
+                  <td>晶振 / 复位 / 电源</td>
+                  <td>11.0592MHz + 30pF×2、10µF + 10kΩ、5V</td>
+                  <td>常规最小系统，本篇不涉及波特率，12MHz 也可以</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意图</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="接线示意（8 位总线 + P3 高三位做控制）">
+            <pre><code>        +5V                                        +5V
+         │                                          │
+      ┌──┴──┐                                    [10kΩ 电位器]
+      │     │                                       │  │  │
+      │    [100Ω] 背光限流                        (两端接 +5V / GND)
+      │     │                                         │ 中点
+      │   ┌─┴──────────────────────────────┐         │
+      │   │            LCD1602             │         │
+      │   │                                │         │
+      │   │  1 VSS ──── GND                │         │
+      │   │  2 VDD ──── +5V ───────────────┼─────────┤
+      │   │  3 V0  ──── 电位器中点 ─────────┼─────────┘
+      │   │  4 RS  ──── P3.5               │
+      │   │  5 RW  ──── P3.6               │
+      │   │  6 E   ──── P3.7               │
+      │   │  7~14   ─── P2.0 ~ P2.7        │   （D0 接 P2.0，D7 接 P2.7，别接反顺序）
+      │   │ 15 A   ──── 经 100Ω 到 +5V ────┘
+      │   │ 16 K   ──── GND
+      │   └────────────────────────────────┘
+      │
+   ┌──┴────────┐
+   │ STC89C52  │   P1.0 ── LED ──[220Ω] ── +5V   （心跳灯）
+   └───────────┘
+
+  接线顺序建议：先接电源与 V0（调出对比度），再接三根控制线，最后接 8 根数据线。
+  数据线顺序接反（D0 接到 P2.7）的典型现象：字符全部显示成别的符号，但屏幕本身是正常的。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线顺序建议</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>先接 VSS / VDD / 背光，上电确认背光亮起来（这一步能排除模块本身的供电问题）。</li>
+            <li>接 V0 电位器，先不用管程序，直接上电调一下，让屏幕出现“一排黑方块”——这说明对比度通路是好的。</li>
+            <li>接三根控制线 RS / RW / EN 到 P3.5 / P3.6 / P3.7。</li>
+            <li>接数据线：<b class="font-semibold">D0 对 P2.0、D1 对 P2.1……D7 对 P2.7</b>，一根一根核对，别图快。</li>
+            <li>全部接完复检一遍，最后上电。</li>
+          </ol>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">上电前必查</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>VDD 与 VSS 有没有接反——这是唯一会立刻损坏模块的错误。</li>
+              <li>V0 有没有接。悬空时对比度电压不确定，屏幕通常是“背光亮、无字符”。</li>
+              <li>8 根数据线的顺序有没有错位。错一位的现象是“字符能显示但读起来不对”。</li>
+              <li>RW 有没有可靠接地或接到 P3.6。悬空的 RW 可能被干扰成高电平，控制器会进入读模式，写指令全部失效。</li>
+              <li>背光有没有串限流电阻。大尺寸模块背光电流可达 100mA 以上，直接接 5V 会让整机电流吃紧。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            这是一份可以直接编译下载的 8 位总线驱动：初始化、写指令、写数据、光标定位、
+            显示字符串、显示定长数字、自定义字符，一共七个函数。
+            主程序在第一行显示固定标题，第二行做一个每秒递增的计数器——
+            注意它<b class="font-semibold text-ink">只刷新变化的那几个字符，不清屏</b>，
+            这是“显示不闪”的关键。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— LCD1602 8 位总线驱动（P2 数据 / P3.5 RS / P3.6 RW / P3.7 EN）">
+            <pre><code>#include &lt;reg52.h&gt;
+#include &lt;intrins.h&gt;                 /* 为了用 _nop_()，防止空循环被优化掉 */
+
+/* ---------------- 引脚定义 ----------------
+ * 数据总线选 P2 而不是 P0：P2 是准双向口，内部有弱上拉，可以直接写也可以直接读；
+ * P0 是开漏输出，不加上拉电阻既写不出高电平，也读不到高电平（判忙会失效）。
+ */
+#define LCD_DATA   P2               /* D0~D7 → P2.0~P2.7 */
+
+sbit LCD_RS = P3^5;                 /* RS：0 = 指令寄存器，1 = 数据寄存器 */
+sbit LCD_RW = P3^6;                 /* RW：0 = 写，1 = 读 */
+sbit LCD_EN = P3^7;                 /* EN：下降沿把总线上的数据锁存进控制器 */
+
+sbit LED_RUN = P1^0;                /* 心跳灯：程序还活着就能看见 */
+
+/* ------------------------------------------------------------------
+ * 毫秒延时：只给主循环和指令等待用，不要放进中断服务函数
+ * 12MHz 晶振下内层循环约 1ms
+ * ------------------------------------------------------------------ */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;
+    for (i = ms; i &gt; 0; i--)
+        for (j = 110; j &gt; 0; j--);
+}
+
+/* ------------------------------------------------------------------
+ * 极短延时：满足两个时间要求
+ *   1. EN 高电平脉宽 tPW ≥ 450ns
+ *   2. 大多数指令 / 写数据的执行时间约 40us
+ * 12MHz 下这个循环约 60~80us，比上面两个要求都大，属于“够用且省事”的写法。
+ * 想提速就换成 LCD_WaitBusy() 判忙方案。
+ * ------------------------------------------------------------------ */
+void LCD_Delay_short(void)
+{
+    unsigned char i;
+    for (i = 0; i &lt; 15; i++)
+        _nop_();
+}
+
+/* ------------------------------------------------------------------
+ * 给 EN 一个完整的使能脉冲：拉高 → 保持 → 拉低
+ * 数据在这条脉冲的下降沿被控制器锁存
+ * ------------------------------------------------------------------ */
+void LCD_EN_Pulse(void)
+{
+    LCD_EN = 1;                     /* 拉高使能，控制器开始读总线 */
+    LCD_Delay_short();              /* 保持高电平（要求 ≥450ns，这里余量极大） */
+    LCD_EN = 0;                     /* 下降沿：数据被锁存 */
+}
+
+/* ------------------------------------------------------------------
+ * 写一条指令：RS = 0
+ * ------------------------------------------------------------------ */
+void LCD_WriteCmd(unsigned char cmd)
+{
+    LCD_RS   = 0;                   /* 目标是“指令寄存器” */
+    LCD_RW   = 0;                   /* 方向是“写” */
+    LCD_DATA = cmd;                 /* 数据放上总线并稳定下来 */
+    LCD_EN_Pulse();                 /* 打一个使能脉冲，下降沿锁存 */
+
+    if (cmd &lt; 0x03)                 /* 0x01 清屏、0x02 光标复位：要 1.64ms */
+        Delay_ms(2);
+    else                            /* 其它指令约 40us，短延时已经覆盖 */
+        LCD_Delay_short();
+}
+
+/* ------------------------------------------------------------------
+ * 写一个数据（字符码）：RS = 1
+ * ------------------------------------------------------------------ */
+void LCD_WriteData(unsigned char dat)
+{
+    LCD_RS   = 1;                   /* 目标是“数据寄存器” */
+    LCD_RW   = 0;                   /* 方向是“写” */
+    LCD_DATA = dat;
+    LCD_EN_Pulse();
+    LCD_Delay_short();              /* 写数据的执行时间是 40us，已覆盖 */
+}
+
+/* ------------------------------------------------------------------
+ * 初始化：顺序不能换，等待时间不能省
+ * ------------------------------------------------------------------ */
+void LCD_Init(void)
+{
+    Delay_ms(50);                   /* 上电后控制器内部复位需要 &gt;15ms，等 50ms 更稳 */
+
+    /* 8 位总线、2 行显示、5×8 点阵；连写三次保证同步（手册要求） */
+    LCD_WriteCmd(0x38);
+    Delay_ms(5);
+    LCD_WriteCmd(0x38);
+    LCD_WriteCmd(0x38);
+
+    LCD_WriteCmd(0x0C);             /* 开显示(D=1)、关光标(C=0)、不闪烁(B=0) */
+    LCD_WriteCmd(0x06);             /* 写入后地址自动 +1(I/D=1)，整屏不移动(S=0) */
+    LCD_WriteCmd(0x01);             /* 清屏，光标回左上角（函数内已等 2ms） */
+
+    LCD_RUN = 1;                    /* 初始化完成，心跳灯灭一下表示走到这里了 */
+}
+
+/* ------------------------------------------------------------------
+ * 光标定位：第一行 DDRAM 0x00~0x0F，第二行 0x40~0x4F
+ * 指令格式 = 0x80 | 地址
+ * ------------------------------------------------------------------ */
+void LCD_SetCursor(unsigned char row, unsigned char col)
+{
+    unsigned char addr;
+
+    addr = (row == 0) ? 0x00 : 0x40;    /* 第 0 行从 0x00 起，第 1 行从 0x40 起 */
+
+    if (col &gt; 15) col = 15;             /* 简单边界保护：最多 16 列 */
+    LCD_WriteCmd(0x80 | (addr + col));  /* 第二行第 1 格 = 0x80|0x40 = 0xC0 */
+}
+
+/* 在指定位置显示一个字符 */
+void LCD_ShowChar(unsigned char row, unsigned char col, char c)
+{
+    LCD_SetCursor(row, col);
+    LCD_WriteData((unsigned char)c);
+}
+
+/* 在指定位置显示一个以 '\0' 结尾的字符串
+ * 注意：本函数不做“超出 16 列就截断”的处理，调用时要自己保证不写超
+ */
+void LCD_ShowString(unsigned char row, unsigned char col, char *s)
+{
+    LCD_SetCursor(row, col);
+    while (*s != '\0')
+        LCD_WriteData((unsigned char)(*s++));
+}
+
+/* 显示一个定长十进制数：num = 25、len = 3 → 显示 “025”
+ * 定长显示的好处是数字变化时不会因为位数变化而残留旧字符
+ */
+void LCD_ShowNum(unsigned char row, unsigned char col, unsigned int num, unsigned char len)
+{
+    unsigned char buf[5];
+    unsigned char i;
+
+    if (len &gt; 5) len = 5;                       /* 最多 5 位 */
+
+    for (i = 0; i &lt; len; i++)
+    {
+        buf[len - 1 - i] = (unsigned char)('0' + num % 10);   /* 从最低位往前填 */
+        num /= 10;
+    }
+
+    LCD_SetCursor(row, col);
+    for (i = 0; i &lt; len; i++)
+        LCD_WriteData(buf[i]);
+}
+
+/* ------------------------------------------------------------------
+ * 可选：读忙标志判忙（比固定延时快得多）
+ * 读操作时 D7 = BF，1 表示控制器还在忙
+ * 用之前请确认数据总线所在的口可以读（P2 可以，P0 必须加上拉电阻）
+ * ------------------------------------------------------------------ */
+void LCD_WaitBusy(void)
+{
+    LCD_DATA = 0xFF;                /* 作输入前先写 1，让内部弱上拉生效 */
+    LCD_RS   = 0;                   /* 读状态字 */
+    LCD_RW   = 1;                   /* 读模式 */
+
+    do
+    {
+        LCD_EN = 1;
+        LCD_Delay_short();
+        LCD_EN = 0;
+    } while (LCD_DATA &amp; 0x80);      /* D7 还是 1 → 继续等 */
+
+    LCD_RW = 0;                     /* 恢复成写模式 */
+}
+
+void main(void)
+{
+    unsigned int sec = 0;
+
+    LED_RUN = 0;                    /* 心跳灯先点亮，表示程序开始跑 */
+
+    LCD_Init();                     /* 初始化必须在显示之前 */
+
+    /* 第一行：固定标题，只写一次，之后不再动它 */
+    LCD_ShowString(0, 0, "McuStudy LCD1602");
+
+    /* 第二行：做一个每秒 +1 的秒表
+     * 关键：只覆盖变化的那几个字符，绝不重新清屏
+     */
+    LCD_ShowString(1, 0, "Run ");
+    LCD_ShowString(1, 9, " s");
+
+    while (1)
+    {
+        LCD_ShowNum(1, 5, sec, 3);  /* 只刷新第 6~8 这三格 */
+        sec++;
+
+        LED_RUN = ~LED_RUN;         /* 心跳灯跟着翻转，一眼看出程序没卡住 */
+        Delay_ms(1000);
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">#define LCD_DATA P2</code>——<b class="font-semibold">宏定义末尾绝对不能加分号</b>。
+              写成 <code class="icode">#define LCD_DATA P2;</code>，展开后就变成
+              <code class="icode">P2; = cmd;</code>，编译器会报一句让人摸不着头脑的
+              <code class="icode">error C129: missing ';' before ...</code>。
+            </li>
+            <li>
+              <code class="icode">LCD_EN_Pulse()</code>——把“拉高 → 延时 → 拉低”封成一个函数，
+              是因为写指令和写数据都要用，而且将来改成 4 位模式时只需要改这一处。
+              顺序永远是：<b class="font-semibold">先设 RS/RW → 再放数据 → 最后给 EN 脉冲</b>。
+              把 EN 拉高之后再改数据，数据就没有“稳定时间”，会锁存到错误的值。
+            </li>
+            <li>
+              <code class="icode">if (cmd &lt; 0x03) Delay_ms(2);</code>——两条慢指令（0x01 清屏、0x02 光标复位）
+              单独照顾。用数值比较来区分，比每条指令都等 2ms 快，也比每条都只等 60µs 安全。
+            </li>
+            <li>
+              <code class="icode">LCD_WriteCmd(0x80 | (addr + col));</code>——位或运算构造地址指令。
+              因为地址只占低 7 位，最高位固定是 1，所以用或运算最自然。
+              注意 <code class="icode">0x80 | 0x00 = 0x80</code>（第一行首格），
+              <code class="icode">0x80 | 0x40 = 0xC0</code>（第二行首格）。
+            </li>
+            <li>
+              <code class="icode">LCD_ShowNum(1, 5, sec, 3)</code>——<b class="font-semibold">定长显示</b>是关键技巧。
+              如果只写变化的位数，秒数从 9 变到 10 时会多出一位、从 10 变到 9 时又会残留一个字符
+              （屏幕上出现“9 0”这种鬼影）。定长补零就没有这个问题，而且不需要清屏。
+            </li>
+            <li>
+              <code class="icode">LCD_DATA = 0xFF;</code>——判忙函数里的第一句。
+              51 的准双向口在作输入前要先写 1，否则内部下拉会把引脚钳在低电平，
+              读回来永远是 0，判忙就会误判成“一直不忙”。
+            </li>
+            <li>
+              <code class="icode">_nop_()</code> 来自 <code class="icode">intrins.h</code>——它的作用有两个：
+              一是提供确定的延时，二是让编译器知道这段循环“有副作用”，
+              否则某些优化等级下空循环可能被整段删掉，延时直接变成 0。
+            </li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">调试小技巧：把光标打开</div>
+            <p>
+              把 <code class="icode">LCD_WriteCmd(0x0C)</code> 临时改成
+              <code class="icode">LCD_WriteCmd(0x0F)</code>，屏幕上会出现一个闪烁的光标。
+              光标停在哪里，就说明控制器认为“当前地址”在哪里——
+              排查“字符怎么写到别的地方去了”“字符串是不是写超了”时，这一招比读代码快得多。
+              调试完记得改回 0x0C。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>上电后背光亮起；大约 50ms 之后第一行出现 <code class="icode">McuStudy LCD1602</code>（16 个字符刚好占满一行）。</li>
+            <li>第二行显示 <code class="icode">Run 000 s</code>，其中数字每秒递增一次：001、002、003……</li>
+            <li>数字变化时<b class="font-semibold text-ink">只有数字那三个格子变，屏幕其余部分完全不动、不闪</b>。</li>
+            <li>旋转 10kΩ 电位器，字符会从“看不清”到“清晰”再到“出现黑块”，能找到一个对比度最舒服的位置。</li>
+            <li>接在 P1.0 的心跳灯每秒翻转一次，说明主循环在正常转，屏幕不刷新时程序也没卡住。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>背光亮着，但屏幕上一个字符都没有</td>
+                  <td>对比度没调好，或初始化没执行</td>
+                  <td>先调 V0 电位器；确认 V0 确实接了；再确认程序里有 <code class="icode">Delay_ms(50)</code> 的上电等待</td>
+                </tr>
+                <tr>
+                  <td>显示一排 16 个黑方块（调对比度只能变浓变淡）</td>
+                  <td>控制器上电了，但功能设置指令没写进去</td>
+                  <td>检查 EN 脉冲后有没有延时；<code class="icode">0x38</code> 是否连写了三次；RS / RW 有没有接反</td>
+                </tr>
+                <tr>
+                  <td>字符能显示，但有些字不对、缺笔画</td>
+                  <td>数据总线某一位虚接或顺序错位</td>
+                  <td>显示一行 <code class="icode">0123456789ABCDEF</code> 逐位对照，量 D0~D7 每根线的通断</td>
+                </tr>
+                <tr>
+                  <td>第一行正常，第二行怎么都不显示</td>
+                  <td>功能设置写成了单行模式，或第二行地址算错</td>
+                  <td>确认写的是 <code class="icode">0x38</code> 而不是 <code class="icode">0x30</code>；第二行地址是 0x40，不是 0x10</td>
+                </tr>
+                <tr>
+                  <td>字符显示位置整体偏掉、写到看不见的地方</td>
+                  <td>列号超了 15，或者字符串长度超出一行</td>
+                  <td>临时把指令改成 <code class="icode">0x0F</code> 打开光标，看它停在哪里</td>
+                </tr>
+                <tr>
+                  <td>整屏每秒闪一下</td>
+                  <td>主循环里重复调用了 <code class="icode">LCD_Init()</code> 或 <code class="icode">0x01</code> 清屏</td>
+                  <td>把清屏移到初始化里只做一次，刷新改成覆盖式写字符</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">顺手量一下刷新速度</div>
+            <p>
+              把 <code class="icode">LCD_ShowNum</code> 那一行放进一个循环跑 100 次，
+              用秒表量总耗时，就能算出“写 3 个字符需要多久”，再乘以 32 就是刷满一屏的时间。
+              这套数据（固定延时方案的实测刷新率）写进实验报告，正好能引出下一篇的判忙优化。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">编译报错：error C129: missing ';' before 'LCD_DATA'</div>
+            <p><b class="font-semibold">原因：</b>宏定义末尾多写了一个分号——<code class="icode">#define LCD_DATA P2;</code>。预处理会把分号一起替换进去，代码就变成 <code class="icode">P2; = cmd;</code>，语法自然不成立。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>去掉宏定义末尾的分号，写成 <code class="icode">#define LCD_DATA P2</code>。这个坑同样适用于 <code class="icode">#define FOSC 11059200UL;</code> 之类的写法，凡是宏定义都以“不加分号”为准。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：背光亮着，但屏幕上没有任何字符</div>
+            <p><b class="font-semibold">原因：</b>按可能性从高到低：① V0 对比度引脚悬空或电位器没调；② 上电延时不够（控制器内部复位需要 &gt;15ms，程序还没等够就开始写指令）；③ RS / RW / EN 接错位置，指令根本没进去；④ 数据线与 P2 的顺序整体接反。</p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>先只做一件事——上电后慢慢旋转电位器，
+              从一端转到另一端，看屏幕有没有出现黑方块或隐约的字。出现了就说明硬件通路是好的，问题在初始化；
+              全程毫无变化，就用量万用表确认 V0 的电压确实在 0~5V 之间可调（正常清晰显示时 V0 大约在 0.5~1.5V）。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：屏幕显示一排 16 个黑方块，怎么调对比度都不消失</div>
+            <p><b class="font-semibold">原因：</b>控制器已经上电并完成了内部复位（所以有方块），但初始化指令没有被正确接收。常见原因：EN 脉冲太短（拉高后立刻拉低，不满足 450ns）、<code class="icode">0x38</code> 只写了一次导致控制器停在 4 位模式、RW 悬空被当成读模式。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>在 EN 拉低之后补一个短延时；把 <code class="icode">0x38</code> 连写三次；确认 RW 稳定接在 P3.6 且接地良好。另外把初始化里的三条功能设置指令之间的间隔拉长到 5ms 试试，能通过就说明是时序太急。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：字符能显示，但有些字缺笔画、或者显示成别的字符</div>
+            <p><b class="font-semibold">原因：</b>数据总线上某一位虚接或接错顺序。数据线少一位，字符码就变了——例如 <code class="icode">'A'</code>（0x41）可能显示成 <code class="icode">'I'</code>；某位虚接则表现为“有时对有时错”。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>用 <code class="icode">LCD_ShowString(0, 0, "0123456789ABCDEF");</code> 显示一整行，逐个字符对照正常字模，能快速定位是哪一位出错。然后用万用表通断档量 D0~D7 每一根线：<b class="font-semibold">LCD 的 D0 必须接 P2.0</b>，接反顺序是最常见的低级错误。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：屏幕整屏一闪一闪，或者文字每秒重刷一次看得出跳动</div>
+            <p><b class="font-semibold">原因：</b>把 <code class="icode">LCD_Init()</code>（里面含 <code class="icode">0x01</code> 清屏）放进了主循环。清屏会把 80 字节 DDRAM 全部重写，屏幕必然黑一下再重画，人眼就能看到闪烁。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>初始化只在 <code class="icode">main</code> 开头调用一次；刷新数据时用“定位 + 覆盖写”的方式，只改动变化的那几格。如果必须整屏更新，也可以先把整行拼进一个 16 字节缓冲数组，再一次性写出去，减少中间状态。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">还有两个高频小坑</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold">用 P0 口做数据线的，屏幕上全是乱码或黑块。</b>
+                P0 是开漏输出，没有内部上拉，写 1 时引脚处于高阻态，LCD 根本读不到高电平。
+                解决办法是换到 P2，或者给 P0 加一片 10kΩ 排阻上拉到 +5V。
+              </li>
+              <li>
+                <b class="font-semibold">链接警告 WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS。</b>
+                这是因为本文把 <code class="icode">LCD_WaitBusy()</code> 写好了却没有调用它。
+                它不是错误，只是提醒你有个函数没被使用；真正想用判忙时，把它插到写指令 / 写数据之后替换固定延时即可。
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            LCD1602 是学“总线时序”最好的教具：它同时具备“多根控制线 + 一个数据总线 + 明确的时序要求”，
+            又不像高速总线那样难以观测。把下面五句话记住，绝大多数屏幕问题都能自己定位：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold">RS 选对象、RW 定方向、EN 下降沿锁存</b>——三根线的分工。</li>
+            <li><b class="font-semibold">写完必须等</b>——普通指令 40µs，清屏和光标复位 1.64ms。</li>
+            <li><b class="font-semibold">初始化顺序不能换</b>——等 50ms → 0x38 连写三次 → 0x0C → 0x06 → 0x01。</li>
+            <li><b class="font-semibold">地址靠 0x80 + 偏移</b>——第一行 0x00 起，第二行 0x40 起，写成 0xC0 才是第二行第一格。</li>
+            <li><b class="font-semibold">刷新用覆盖、不要清屏</b>——这是屏幕不闪的唯一诀窍。</li>
+          </ul>
+
+          <p class="mt-3">
+            另外记住那条最实用的排错经验：<b class="font-semibold text-ink">背光亮但没字符先查对比度，出现黑方块一定是初始化没进去。</b>
+            这两句话能省掉你一半的排查时间。
+          </p>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold text-ink">改成 4 位总线。</b>
+                只接 D4~D7 到 P2.4~P2.7，写出分两次送半字节的 <code class="icode">LCD_WriteCmd4</code> /
+                <code class="icode">LCD_WriteData4</code>，并补上 4 位模式专属的唤醒序列（0x33 → 0x32 → 0x28）。
+                改完后回答：省下来的 4 个 IO 你打算接什么？
+              </li>
+              <li>
+                <b class="font-semibold text-ink">用判忙替换固定延时。</b>
+                把 <code class="icode">LCD_WaitBusy()</code> 插到 <code class="icode">LCD_EN_Pulse()</code> 之后，
+                删掉那些 <code class="icode">LCD_Delay_short()</code> 与 <code class="icode">Delay_ms(2)</code>，
+                然后测一下写满一屏 32 个字符的耗时。提示：用定时器 0 计时，或者干脆用秒表量 100 次的总时间。
+              </li>
+              <li>
+                <b class="font-semibold text-ink">做几个自定义字符。</b>
+                用 CGRAM 画出“℃”“电池”“向上的箭头”三个图标并显示在第二行。
+                画出点阵的关键是先想清楚每一行哪几列点亮，再把 5 位二进制写成十六进制。
+              </li>
+              <li>
+                <b class="font-semibold text-ink">把上一课的串口接进来。</b>
+                让电脑发过来的字符直接显示在 LCD 上（收到一个显示一个、自动换行），
+                做成一块最简单的“串口屏”。想一想：显示和接收哪个放在中断里更合理？为什么？
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-dht11.html">综合项目：温湿度采集（DHT11 + LCD1602）</a>——直接复用本篇的驱动函数，把传感器数据实时显示出来。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-uart.html">UART 串口通信</a>——把屏幕上的数据同步打到电脑上，做数据记录。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-exti.html">外部中断触发</a>——加个按键，做多级菜单式的显示切换。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="mcu51-uart.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">UART 串口通信</p>
+          </a>
+          <a href="mcu51-dht11.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">综合项目：温湿度采集（DHT11 + LCD1602）</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

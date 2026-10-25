@@ -1,0 +1,3422 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>组合逻辑电路 - McuStudy</title>
+  <meta name="description" content="知识体系第 16 篇数字电子：编码器、译码器、数据选择器与加法器——地址译码和片选就是它们。从「输出只取决于当前输入、没有记忆」这条分界讲起，把分析方法（逻辑图 → 表达式 → 真值表 → 功能）和设计方法（需求 → 真值表 → 表达式 → 化简 → 逻辑图）各用一道完整例题走完，再逐个讲透 74LS148 优先编码器、74LS138 译码器与地址译码、BCD-七段显示译码器、译码器当数据分配器、74LS151 数据选择器与「用 MUX 实现任意逻辑函数」、半加器/全加器与串行进位和超前进位的延迟对比、74LS283、74LS85 数值比较器的级联，最后讲竞争与冒险（毛刺）的成因、代数法与卡诺图法判别、加冗余项等三种消除办法，组合逻辑的传输延迟 tpd 如何决定系统最高工作频率、建立时间与保持时间，以及用硬件描述语言描述组合逻辑最容易犯的两个错（该用阻塞赋值、if/case 分支不完备会意外生成锁存器）。含 6 道数值例题与单片机上的真实场景：地址译码与片选为什么会出现地址重叠、用 74HC138 把 3 根 IO 扩成 8 路片选或 8 位数码管位选、CD4051/74HC4051 多路模拟开关进单个 ADC 为什么必须留建立时间、加法器与 ALU 的关系、矩阵键盘扫描、组合逻辑直接接中断引脚导致毛刺误触发、传输延迟如何决定能不能超频。">
+  <meta name="keywords" content="组合逻辑电路,组合逻辑与时序逻辑的区别,组合逻辑分析方法,组合逻辑设计方法,真值表,卡诺图,编码器,优先编码器,74LS148,级联,译码器,74LS138,使能端,地址译码,片选,地址重叠,BCD七段显示译码器,74LS48,CD4511,数据分配器,数据选择器,MUX,74LS151,用MUX实现逻辑函数,加法器,半加器,全加器,串行进位,超前进位,74LS283,数值比较器,74LS85,竞争与冒险,毛刺,险象判别,冗余项,传输延迟,tpd,建立时间,保持时间,最高工作频率,超频,阻塞赋值,锁存器,always,case,default,74HC4051,CD4051,模拟多路开关,建立时间,矩阵键盘,EXTI毛刺误触发">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">组合逻辑电路</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          组合逻辑电路
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          前面三篇里你已经攒够了零件：布尔代数的化简功夫、门电路的电气特性、卡诺图的画法。这一篇要把这些零件<b class="font-semibold text-ink">装成真正能干活的电路</b>。你会发现自己手上那块最小系统板里，藏着大量「不需要程序参与、通电就在工作」的逻辑：CPU 把地址线上的电平丢给一片 74HC138，<b class="font-semibold text-ink">你的 OLED、Flash、LCD 就各自「听到自己的名字」而醒来</b>——这就是片选；8 位数码管只用了 3 根 IO 就能一位一位地点亮——这也是片选；多路模拟量挤进一个 ADC 靠的是一片 CD4051——这还是一片「按地址开门」的电路。<b class="font-semibold text-ink">这一篇要把两条方法论（怎么分析一个现成电路、怎么从一个需求设计出电路）各走一遍完整流程，再把编码器、译码器、数据选择器、数据分配器、加法器、数值比较器逐个讲透</b>，然后处理两个课堂上常被跳过、但一上手就一定会撞上的问题：<b class="font-semibold text-ink">毛刺（竞争与冒险）从哪来、怎么治</b>，以及<b class="font-semibold text-ink">传输延迟 tpd 如何决定你的系统能跑多快、能不能超频</b>。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="stat-pill">层级：<b>第 1 层 · 学科基础</b></span>
+          <span class="stat-pill">第 <b>16</b> 篇</span>
+          <span class="stat-pill">教材：<b>阎石《数字电子技术基础》第 6 版 第 4 章</b></span>
+          <span class="stat-pill">阅读约 <b>48</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-definition">定义与分界：输出只看当下</a>
+          <a class="toc-link is-sub" href="#sub-analysis">分析方法：从逻辑图倒推功能</a>
+          <a class="toc-link is-sub" href="#sub-design">设计方法：从需求正向推到图</a>
+          <a class="toc-link is-sub" href="#sub-encoder">编码器与 74LS148 优先编码</a>
+          <a class="toc-link is-sub" href="#sub-decoder">译码器 74LS138 与地址译码</a>
+          <a class="toc-link is-sub" href="#sub-mux">数据选择器：用 MUX 实现任意函数</a>
+          <a class="toc-link is-sub" href="#sub-adder-comparator">加法器与数值比较器：半加、全加与进位延迟</a>
+          <a class="toc-link is-sub" href="#sub-hazard-timing">竞争冒险与时序约束：毛刺与速度</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-mcu-cs">地址译码与片选：空间怎么分出去</a>
+          <a class="toc-link is-sub" href="#sub-mcu-138">3 根 IO 变 8 路片选与位选</a>
+          <a class="toc-link is-sub" href="#sub-mcu-mux">模拟多路开关进单个 ADC</a>
+          <a class="toc-link is-sub" href="#sub-mcu-alu">加法器与 ALU：为什么先造加法器</a>
+          <a class="toc-link is-sub" href="#sub-mcu-matrix">矩阵键盘扫描里的组合逻辑</a>
+          <a class="toc-link is-sub" href="#sub-mcu-irq">组合逻辑接中断脚：毛刺误触发</a>
+          <a class="toc-link is-sub" href="#sub-mcu-overclock">传输延迟与超频</a>
+          <a class="toc-link is-sub" href="#sub-mcu-hdl">用 HDL 描述组合逻辑的两个坑</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-definition">定义与分界：输出只看当下</a>
+            <a class="toc-link is-sub" href="#sub-analysis">分析方法：从逻辑图倒推功能</a>
+            <a class="toc-link is-sub" href="#sub-design">设计方法：从需求正向推到图</a>
+            <a class="toc-link is-sub" href="#sub-encoder">编码器与 74LS148 优先编码</a>
+            <a class="toc-link is-sub" href="#sub-decoder">译码器 74LS138 与地址译码</a>
+            <a class="toc-link is-sub" href="#sub-mux">数据选择器：用 MUX 实现任意函数</a>
+            <a class="toc-link is-sub" href="#sub-adder-comparator">加法器与数值比较器：半加、全加与进位延迟</a>
+            <a class="toc-link is-sub" href="#sub-hazard-timing">竞争冒险与时序约束：毛刺与速度</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-mcu-cs">地址译码与片选：空间怎么分出去</a>
+            <a class="toc-link is-sub" href="#sub-mcu-138">3 根 IO 变 8 路片选与位选</a>
+            <a class="toc-link is-sub" href="#sub-mcu-mux">模拟多路开关进单个 ADC</a>
+            <a class="toc-link is-sub" href="#sub-mcu-alu">加法器与 ALU：为什么先造加法器</a>
+            <a class="toc-link is-sub" href="#sub-mcu-matrix">矩阵键盘扫描里的组合逻辑</a>
+            <a class="toc-link is-sub" href="#sub-mcu-irq">组合逻辑接中断脚：毛刺误触发</a>
+            <a class="toc-link is-sub" href="#sub-mcu-overclock">传输延迟与超频</a>
+            <a class="toc-link is-sub" href="#sub-mcu-hdl">用 HDL 描述组合逻辑的两个坑</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先看三个真实发生过的现场。只要你的板子上出现过「地址线」「片选」「数码管」「中断引脚」这几样东西，就至少会撞上其中一个。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三个现场：程序没写错，错在逻辑">
+            <pre><code>【现场 A】读 Flash 的时候 OLED 也跟着乱了
+
+    板子：STM32 + 一片 SPI Flash（片选 CS1）+ 一块 OLED（片选 CS2）
+    片选不是用 IO 直接给的，而是用一片 74HC138 从 3 根地址线译出来的。
+
+    现象：单独访问任何一个器件都正常；
+          一旦程序里连续访问两个器件，OLED 就花屏，
+          而且读 Flash 的 ID 会在 0xEF / 0x40 之间随机跳。
+
+    → 真相：译码器把两个器件分配到了【同一个地址段】——
+      写 OLED 的时候，Flash 的片选也有效，两个器件的输出
+      同时挂在 MISO 这根线上「打架」。这就是【地址重叠】。
+
+【现场 B】8 位数码管，右边第一位永远比别的位亮一点
+
+    电路：3 根 IO 经 74HC138 译出 8 路位选，段码由 8 个 IO 直接输出。
+    现象：动态扫描时，某一位会「串」到上一位的笔画上，
+          表现为上一位有一点淡淡的残影。
+
+    → 真相：换位选的那一刻，段码还没来得及改变（或者反过来），
+      上一个位的段码被短暂地打到了新的位上。
+      这是【组合逻辑的传输延迟】+【没有消隐】造成的。
+
+【现场 C】按键只按了一下，中断进了 3 次
+
+    电路：矩阵键盘的 4 根列线经过一片与非门「与」起来，
+          输出直接接 MCU 的 EXTI 外部中断引脚。
+    现象：中断次数比实际按键次数多，有时候多好几次；
+          中断服务程序里查状态位，却发现「什么也没发生」。
+
+    → 真相：行线切换（扫描时电平翻转）的瞬间，
+      与非门的几路输入到达时间不同，输出上冒出一个
+      【几纳秒宽的毛刺】，而边沿触发的中断引脚把这个毛刺
+      当成了真实事件。这是【竞争与冒险】。</code></pre>
+          </div>
+
+          <p class="mt-3">这三个现场的代码都是对的，示波器上的波形「看起来」也是对的——如果你不把时基放大到 10ns/格，根本看不到那个毛刺。问题全部出在<b class="font-semibold text-ink">电路本身的逻辑关系与时序</b>上。而这一类问题，恰好就是「组合逻辑电路」这一章要处理的东西。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">但绝大多数人学这一章时，学到的只是一套考试技巧。</b>背下卡诺图的画法、记住 74LS138 的使能端是哪个高有效哪个低有效、会填 74LS151 的接线表——考完就忘。原因也很简单：你在做单片机开发时，好像从来不需要「设计一个组合逻辑电路」，需要什么功能写两行 C 代码就完了。</p>
+
+          <p class="mt-3">这个印象对了一半。真实情况是这样的：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>你以为的</th><th>实际发生的</th><th>不懂会卡在哪</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>「组合逻辑是课本上的东西，实际都用单片机做」</td>
+                  <td>单片机<b>内部</b>全是组合逻辑：ALU 的加法器、指令译码器、地址译码器、MUX。它们每一个都是这一章的模块。</td>
+                  <td>看不懂参考手册里的时序图；不知道为什么「多加一个门」会让最高频率掉下来</td>
+                </tr>
+                <tr>
+                  <td>「片选用 IO 直接给就行，何必用译码器」</td>
+                  <td>用 IO 要给一根线一个引脚；用 74HC138 是 3 根 IO 换 8 路片选，省下的引脚还能多接两个外设</td>
+                  <td>引脚不够用的时候，想不出「用译码器扩展」这条路</td>
+                </tr>
+                <tr>
+                  <td>「地址是 CPU 的事，跟电路无关」</td>
+                  <td>地址总线的<b>高位</b>要经过译码器才能变成片选，低位用来在器件内部寻址。这套「分地址」的动作完全是组合逻辑</td>
+                  <td>出现地址重叠（一个地址选中两个器件）时，只会怀疑代码，查不出电路上的原因</td>
+                </tr>
+                <tr>
+                  <td>「毛刺是玄学，遇到了就加个电容」</td>
+                  <td>毛刺有确定的成因（同一信号经不同路径到达同一个门，延迟不同）和确定的判别方法（代数法、卡诺图法）</td>
+                  <td>只能靠猜：加电容可能让边沿变慢、反而引出新问题；换个芯片也一样</td>
+                </tr>
+                <tr>
+                  <td>「延迟是纳秒级的，几纳秒怎么可能影响我」</td>
+                  <td>纳秒级延迟乘上「路径级数」再和时钟周期比：74HC138 的 12ns 延迟，在 72MHz（周期 13.9ns）的系统里就是一条完整的时钟周期</td>
+                  <td>超频时「偶尔出错、降频就好」这类间歇性故障，永远找不到根因</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一篇在整个知识体系里的位置</div>
+            <p>上一篇《门电路与数字接口电平》解决的是「<b>一个门能不能可靠地把 0 和 1 传下去</b>」——V<sub>IH</sub>、V<sub>IL</sub>、噪声容限、开漏推挽。这一篇解决的是「<b>一堆门连起来之后，这个电路干什么、干得多快、会不会冒毛刺</b>」。再下一篇《时序逻辑与存储》才会引入「记忆」这件事：触发器、寄存器、计数器。</p>
+            <p class="mt-2">所以这一篇的边界很清楚：<b>整篇里没有一个器件能记住过去</b>。任何时刻的输出，都是那一刻输入的直接函数。把这个前提守住，后面的所有分析就都成立了。</p>
+          </div>
+
+          <p class="mt-3">下面这张图是这一篇的路线图。第 2 节先把「组合逻辑到底是什么」这件事的边界划清楚，然后把两条方法论走完，再逐个讲透六类常用模块、最后处理毛刺和时序约束；第 3 节用 6 道例题把这些方法算一遍；第 4 节看它们在单片机板子上的真实样子。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="本篇路线图">
+            <pre><code>   ┌──────────────────────────────────────────────────────────┐
+   │ 第 2 节 核心概念                                          │
+   │                                                          │
+   │  ① 定义与分界 ── 输出只取决于当前输入，没有记忆           │
+   │        │                                                 │
+   │        ├──► ② 分析方法：图 → 表达式 → 真值表 → 功能       │
+   │        │                                                 │
+   │        └──► ③ 设计方法：需求 → 真值表 → 表达式 →          │
+   │                          化简 → 逻辑图                   │
+   │                                                          │
+   │  ④ 常用模块（考场与工程都考）                             │
+   │       编码器 → 译码器 → 数据选择器 → 加法器 → 比较器      │
+   │                                                          │
+   │  ⑤ 两个「课本一笔带过、上手必踩」的问题                    │
+   │       竞争与冒险（毛刺） / 时序约束（tpd 与最高频率）      │
+   └──────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+   ┌──────────────────────────────────────────────────────────┐
+   │ 第 3 节 动手算一遍（6 道，全部带数值）                     │
+   │   1. 分析：三取二表决器                                   │
+   │   2. 设计：8421 非法码检测器                              │
+   │   3. 用 8 选 1 / 4 选 1 MUX 实现同一个函数                 │
+   │   4. 险象判别与冗余项消除 + 卡诺图验证                     │
+   │   5. 一条组合路径的总 tpd 与最高工作频率                   │
+   │   6. 74HC138 地址译码的地址范围与重叠判断                  │
+   └──────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+   ┌──────────────────────────────────────────────────────────┐
+   │ 第 4 节 在单片机上的样子                                  │
+   │   片选与地址重叠 / 3 根 IO 扩 8 路 / 模拟多路开关 /        │
+   │   加法器与 ALU / 矩阵键盘 / 中断毛刺 / 超频 / HDL 描述     │
+   └──────────────────────────────────────────────────────────┘</code></pre>
+          </div>
+        </section>
+
+<!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section class="mt-12">
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节按「先立规矩、再教两套方法、然后逐个讲模块、最后补两个工程问题」的顺序走。前三个小节是方法论，看懂了后面所有模块都能自己推；中间五个小节是必须认脸的常用器件；最后两个小节是课本讲得最浅、上手踩得最狠的地方。</p>
+
+          <h3 id="sub-definition" class="mt-7 text-base font-semibold">定义与分界：输出只看当下，没有记忆</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">组合逻辑电路的定义</b>（阎石教材第 4 章的说法）：任意时刻的输出信号，只取决于该时刻各个输入信号的组合，而与电路原来的状态无关。</p>
+
+          <p class="mt-3">这句话里有三个信息量很大的词，逐个拆开看：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">「只取决于」</b>——没有第二个影响源。不是「主要取决于」，是「只」。这意味着：你只要知道此刻所有输入是什么，就一定知道输出是什么，不需要知道任何历史。</li>
+            <li><b class="font-semibold text-ink">「该时刻各个输入的组合」</b>——输入是一组信号（可能 2 个、3 个、16 个），它们的每一种取值搭配都对应一个确定的输出。这就是<b>真值表</b>能完整描述一个组合逻辑电路的根本原因。</li>
+            <li><b class="font-semibold text-ink">「与电路原来的状态无关」</b>——这是最容易被含糊过去的一句。「原来的状态」指的是电路内部有没有存着什么。组合逻辑<b>没有任何存储能力</b>：输入一撤，输出立刻跟着变回去，它不会「记得刚才你说过什么」。</li>
+          </ul>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两种电路的「黑盒」对比">
+            <pre><code>【组合逻辑电路】
+
+        A ──┐
+        B ──┼──►┌──────────┐
+        C ──┘   │  组合逻辑 │──► F
+                └──────────┘
+                     │
+        F = f(A, B, C)   ← 输出是输入的函数，式子里没有「时间」
+
+    特点：同样的输入，不管来多少次、也不管上一次输入是什么，
+          输出永远是同一个值 —— 因为它没有任何东西可记。
+
+【时序逻辑电路】
+
+        A ──┐
+        B ──┼──►┌──────────┐
+        C ──┘   │  时序逻辑 │──► F
+                └────┬─────┘
+                     │
+                  ┌──┴──┐
+                  │ 记忆 │  ← 内部藏着触发器/寄存器
+                  └──┬──┘
+                     │
+                     └────────► 内部状态也被送回逻辑里参与运算
+
+        F = f(A, B, C, Q)     Q = 电路内部存着的「过去的影子」
+        Q 的下一拍值又由 A、B、C 和当前的 Q 决定 → 这叫次态方程
+
+    特点：同样的输入，输出可能不一样 —— 取决于它「记得」什么。
+          这就是为什么时序逻辑必须用状态表/状态图来描述，
+          而组合逻辑用一张真值表就够了。</code></pre>
+          </div>
+
+          <p class="mt-3">「时序逻辑内部有记忆」这件事，在电路结构上有一个非常直观的标志：<b class="font-semibold text-ink">反馈回路</b>。如果某个门的输出，经过若干级之后又绕回来接到了自己的输入端，那么这个电路就有记忆了。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">判定「这是不是组合逻辑」，最快的一刀就是找反馈</div>
+            <p><b>结构判据：</b>从任何一个输出出发往输入方向走，如果能走回自己的输入（形成环路），或者电路里出现了触发器、锁存器这类存储元件，那它就不是组合逻辑。</p>
+            <p class="mt-2"><b>典型反例：</b>两个与非门交叉耦合——与非门 1 的输出接与非门 2 的输入，与非门 2 的输出又接回与非门 1 的输入。看起来只有两个门，但它已经<b>不是组合逻辑了</b>，而是基本 RS 锁存器（下一篇的主角）。它能「记住」你曾经拉低过哪个输入，而组合逻辑永远做不到这一点。</p>
+            <p class="mt-2"><b>反过来也要小心：</b>「有没有时钟」不能当判据。组合逻辑完全可以有时钟信号参与——时钟只是它众多输入中的一个而已（比如「时钟和使能都为高时才输出」）。判断标准始终只有一条：<b>有没有记忆</b>。</p>
+          </div>
+
+          <p class="mt-3">把两者的区别整理成一张对照表，这张表建议直接记住——后面看任何电路图、写任何一行 Verilog，第一件事都是先判断自己面对的是哪一类：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>组合逻辑电路</th><th>时序逻辑电路</th></tr></thead>
+              <tbody>
+                <tr><td>输出取决于</td><td><b>仅当前输入</b></td><td>当前输入 + 电路原有状态</td></tr>
+                <tr><td>有没有记忆</td><td><b>没有</b>（输入撤走，输出立刻回去）</td><td><b>有</b>（靠触发器 / 锁存器存住）</td></tr>
+                <tr><td>电路结构特征</td><td>只有门电路，<b>无反馈环路</b></td><td>含反馈环路或存储元件</td></tr>
+                <tr><td>需不需要时钟</td><td>不需要（有时钟也只是其中一个输入）</td><td>通常需要，输出在时钟沿统一更新</td></tr>
+                <tr><td>描述工具</td><td><b>真值表</b>、逻辑表达式、卡诺图</td><td>状态表、状态图、时序图、特征方程</td></tr>
+                <tr><td>表达式形式</td><td class="font-mono text-xs">F = f(A, B, C)</td><td class="font-mono text-xs">Q* = f(A, B, C, Q)</td></tr>
+                <tr><td>输出什么时候变</td><td>输入变化后，经过 <b>t<sub>pd</sub></b> 传输延迟就变</td><td>时钟有效沿到来时（或异步置位端有效时）</td></tr>
+                <tr><td>典型器件</td><td>编码器、译码器、数据选择器、加法器、比较器</td><td>触发器、寄存器、计数器、移位寄存器、存储器</td></tr>
+                <tr><td>能不能「保持」输出</td><td><b>不能</b>——输入一变，输出必须跟着变</td><td>能，时钟不来就一直保持</td></tr>
+                <tr><td>Verilog 里的写法</td><td class="font-mono text-xs">always @(*) + 阻塞赋值 =</td><td class="font-mono text-xs">always @(posedge clk) + 非阻塞赋值 &lt;=</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">最后一行值得单独强调一次</b>：你在 C 语言里写的每一行 <code class="icode">if</code>、每一个 <code class="icode">switch</code>，编译之后大概率会变成一段组合逻辑（比较器 + 数据选择器）；而你在 C 语言里声明的每一个变量，编译之后大概率会变成一段时序逻辑（寄存器）。<b>「组合逻辑 = 纯计算」「时序逻辑 = 存状态」这条分界线，正是硬件描述语言里最容易写错的地方</b>——第 4 节的最后一小节会专门讲这个坑。</p>
+
+          <h3 id="sub-analysis" class="mt-7 text-base font-semibold">分析方法：从一张逻辑图倒推出它到底在干什么</h3>
+
+          <p class="mt-3">分析（Analysis）是「给你电路图，你说它干什么」；设计（Design）是「给你需求，你画出电路图」。这两件事是互逆的，考试里各占一半分数，工程里也各占一半用途：<b class="font-semibold text-ink">分析用于看懂别人的板子、看懂芯片内部框图、排查「这段逻辑到底想干什么」；设计用于自己想加一个小功能时，判断需要几片什么芯片。</b></p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">分析的四个标准步骤</b>（顺序不要换，每一步都有它存在的理由）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="分析四步法：每一步在干什么">
+            <pre><code>【第 1 步】逐级写出逻辑表达式
+    从输入端开始，给每一级门的输出起一个中间变量名
+    （X、Y、Z 或者 N1、N2 都行），一层一层往输出推。
+
+    为什么要起名字：一个电路可能有 20 个门，
+    无名地一路展开成一个大式子，你几乎一定会抄错。
+    起了名字，第 2 步化简时可以「分块处理」。
+
+【第 2 步】化简
+    用布尔代数（摩根定律、吸收律、并项法）或者卡诺图，
+    把表达式化成最简的与-或式。
+
+    为什么这一步不能省：不化简，第 3 步的真值表要算到天亮，
+    而且看不出规律 —— 功能往往藏在最简式里。
+
+【第 3 步】列真值表
+    n 个输入 → 2^n 行。把所有输入组合逐行代入最简式，算输出。
+
+    为什么要列：真值表是「功能的证据」。
+    你可以从真值表一眼看出「哦，这是三取二」，
+    但从 F = AB + BC + AC 这个式子看不出来。
+
+【第 4 步】判断功能，并用文字说清楚
+    把真值表的规律翻译成人话，最好再说出它的工程含义
+    （「这是多数表决」「这是不等比较器」「这是非法码检测」）。
+
+    ⚠ 这一步才是真正的答案。前三步是手段，这一步是目的。
+      考试里只写表达式不写功能，是要扣分的；
+      工程上只说「有一堆与或门」，等于什么都没说。</code></pre>
+          </div>
+
+          <p class="mt-3">下面用一道完整的小例题把四步走一遍。这道例题只用了 4 个与非门，但推导过程会逼你用一次摩根定律——这正是分析题最常见的考点。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">例题（正文演示）：这个 4 个与非门组成的电路干什么？</div>
+            <p><b>已知电路连线：</b>一片 74LS00 里有 4 个 2 输入与非门，按下面的方式连接：</p>
+
+            <div class="code-block mt-2" data-lang="text" data-title="待分析的电路：4 个与非门的连线关系">
+              <pre><code>  器件的连接（每题必先读成这张表）：
+
+     与非 1 ：  输入 A、B       输出 X
+     与非 2 ：  输入 A、X       输出 Y
+     与非 3 ：  输入 B、X       输出 Z
+     与非 4 ：  输入 Y、Z       输出 F（这就是整个电路的输出）
+
+  画成信号流（同样的信息，画成图更直观）：
+
+     A ──┬──────────────► 与非 1 的输入 1
+         ├──────────────► 与非 2 的输入 1
+         │
+     B ──┼──────────────► 与非 1 的输入 2
+         └──────────────► 与非 3 的输入 1
+
+     与非 1 的输出 X ──┬──► 与非 2 的输入 2
+                       └──► 与非 3 的输入 2
+
+     与非 2 的输出 Y ───► 与非 4 的输入 1
+     与非 3 的输出 Z ───► 与非 4 的输入 2
+
+     与非 4 的输出 F ───► 电路的输出</code></pre>
+            </div>
+
+            <p class="mt-3"><b>第 1 步：逐级写表达式。</b></p>
+            <p class="mt-2">记「与非」为「先与后非」，一撇表示取反：</p>
+            <p class="mt-2"><code class="icode">X = (A·B)′</code></p>
+            <p class="mt-2"><code class="icode">Y = (A·X)′</code></p>
+            <p class="mt-2"><code class="icode">Z = (B·X)′</code></p>
+            <p class="mt-2"><code class="icode">F = (Y·Z)′</code></p>
+
+            <p class="mt-3"><b>第 2 步：化简。</b>先算 Y 和 Z：</p>
+            <p class="mt-2"><code class="icode">Y = (A·X)′ = A′ + X′</code>（摩根定律）</p>
+            <p class="mt-2"><code class="icode">X′ = (A·B)″ = A·B</code>（两次取反抵消）</p>
+            <p class="mt-2">所以 <code class="icode">Y = A′ + A·B = A′ + B</code>（吸收律：<code class="icode">A′ + A·B = A′ + B</code>）</p>
+            <p class="mt-2">同理 <code class="icode">Z = B′ + A·B = B′ + A</code></p>
+            <p class="mt-2">代回输出级：</p>
+            <p class="mt-2"><code class="icode">F = (Y·Z)′ = Y′ + Z′ = (A′ + B)′ + (B′ + A)′ = A·B′ + B·A′ = A·B′ + A′·B</code></p>
+            <p class="mt-2">这正是<b>异或</b>：<code class="icode">F = A ⊕ B</code>。</p>
+
+            <p class="mt-3"><b>第 3 步：真值表。</b></p>
+
+            <div class="table-scroll mt-2">
+              <table class="table-mcu">
+                <thead><tr><th>A</th><th>B</th><th>X = (A·B)′</th><th>Y = A′ + B</th><th>Z = B′ + A</th><th>F = A ⊕ B</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>0</td><td>1</td><td>1</td><td>1</td><td><b>0</b></td></tr>
+                  <tr><td>0</td><td>1</td><td>1</td><td>1</td><td>0</td><td><b>1</b></td></tr>
+                  <tr><td>1</td><td>0</td><td>1</td><td>0</td><td>1</td><td><b>1</b></td></tr>
+                  <tr><td>1</td><td>1</td><td>0</td><td>1</td><td>1</td><td><b>0</b></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p class="mt-3"><b>第 4 步：判断功能。</b>输出为 1 的条件是「两个输入<b>不相同</b>」——这是一个<b>不等比较器（异或）</b>。它在工程上有三个高频用途：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>不等判断</b>：两个信号是否一致。比如两路冗余传感器的输出对比，不一致就置报警位。</li>
+              <li><b>可控反相器</b>：B 接控制端。B = 0 时 F = A（原样通过）；B = 1 时 F = A′（反相）。这就是「可编程反相」的最简实现。</li>
+              <li><b>半加器的「和」位</b>：一位二进制加法的和输出恰好就是 A ⊕ B，而进位输出是 A·B。这就是下一小节加法器的起点。</li>
+            </ul>
+            <p class="mt-2"><b>顺便说一句器件层面的事：</b>用 4 个与非门（74LS00）拼一个异或，需要 3 级门、约 30ns 延迟；而市售的 74LS86 是专门的「四 2 输入异或门」，内部已经优化过，延迟约 14ns 典型值。<b>「能用通用门搭出来」和「应该用专用芯片」是两件事</b>——这是这一章里反复出现的主题。</p>
+          </div>
+
+          <p class="mt-3">分析题还有两个实用技巧，考场上能省不少时间：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>技巧</th><th>怎么做</th><th>什么时候用</th></tr></thead>
+              <tbody>
+                <tr><td><b>从输出往输入推</b></td><td>先把最终输出的表达式写成一个「待填的洞」，再一级一级把中间变量代进去</td><td>电路级数多（≥4 级）、中间变量多的时候。<b>比从输入推更快</b></td></tr>
+                <tr><td><b>先数级数，估计延迟</b></td><td>从任一输入到输出经过的最多门数 × 单级 t<sub>pd</sub>，就是这条路径的延迟</td><td>题目问「最高工作频率」或「哪个输入到输出最慢」时必须做</td></tr>
+                <tr><td><b>找「总线」与「重复结构」</b></td><td>如果看到同一组输入反复出现在多个门里，先怀疑它是「译码」或「表决」结构</td><td>一眼看不出功能时，靠结构模式猜，再用真值表验证</td></tr>
+                <tr><td><b>用卡诺图反向读功能</b></td><td>把真值表填进卡诺图，看 1 的分布形状：连成一片 → 与/或；棋盘状 → 异或；对角线 → 比较</td><td>功能像「异或」「比较」这类不好用语言描述的，用图形特征一眼认出</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-design" class="mt-7 text-base font-semibold">设计方法：从一句需求正向推到一张逻辑图</h3>
+
+          <p class="mt-3">设计比分析难，因为分析题里电路已经在那儿了——你只需要读懂它；而设计题给你的只有一句话，剩下的全靠你自己定。所以设计方法的第一步不是画图，而是<b class="font-semibold text-ink">把需求翻译成变量</b>。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">设计的五个标准步骤：</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="设计五步法">
+            <pre><code>【第 1 步】定变量：输入有哪些、输出有哪些、1 代表什么含义
+
+    ⚠ 这是全流程里最值钱的一步，也是最容易潦草的一步。
+      必须把每一项写成一句无歧义的话，例如：
+        「输入 A：水位高于上限时为 1，否则为 0」
+        「输出 F：需要启动排水泵时为 1」
+
+      为什么这么较真：只要有一项的含义定反了，
+      后面真值表、化简、画图全白做，而且做完了看不出来。
+
+【第 2 步】列真值表：穷举所有输入组合，逐行填输出
+
+    n 个输入 → 2^n 行，一行都不能漏。
+    凡是「在实际系统里不会出现」的组合，
+    可以填 ×（无关项 / 任意项），后面化简时能派大用场。
+
+【第 3 步】写表达式：输出为 1 的每一行写成一个最小项，全部或起来
+
+    这叫「最小项之和」的标准与-或式。
+    它是「一定能写出来」的形式 —— 就算你一点都不会化简，
+    照着这步做出来的电路也一定能工作，只是门多一点。
+
+【第 4 步】化简：卡诺图圈圈 / 代数法
+
+    目标：门的数量最少、门的级数最少（级数决定延迟，见第 4 节）。
+    有无关项（×）时，把它当 1 用可以圈出更大的圈 —— 
+    因为「不会出现的输入，输出是什么都无所谓」。
+
+【第 5 步】画逻辑图：落到具体的门和芯片
+
+    到这里才第一次画图。注意事项：
+      · 门的扇入（输入个数）够不够？3 输入与门有 74LS11，
+        4 输入与非门有 74LS20，5 输入以上就要分级。
+      · 最终选什么器件实现：通用门？译码器？数据选择器？
+        这三条路的结果差别很大，下一小节会专门对比。</code></pre>
+          </div>
+
+          <p class="mt-3">同样用一道小例题走完五步。这道例题特别有价值，因为它会纠正一个几乎人人都有的错觉。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">例题（正文演示）：楼梯灯——两个开关控制同一盏灯</div>
+            <p><b>需求：</b>楼梯的上下两端各有一个开关，要求「在楼下可以开灯，走到楼上可以关灯」，两个开关都能独立控制这盏灯。请你用组合逻辑实现它。</p>
+
+            <p class="mt-3"><b>第 1 步：定变量。</b></p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li>输入 A：楼下开关的状态。约定「开关扳到上位置 = 1，扳到下位置 = 0」。</li>
+              <li>输入 B：楼上开关的状态。同样约定「上 = 1，下 = 0」。</li>
+              <li>输出 F：灯亮 = 1，灯灭 = 0。</li>
+              <li><b>关键的一句需求翻译：</b>「灯亮」=「两个开关的位置<b>不相同</b>」。因为楼梯灯的两个开关是「单刀双掷」的，它们之间是两条导线连着的，灯接在两条导线的<b>中点</b>上——两个开关同时向上或同时向下时，两条导线电位相同，灯不亮；一上一下时，灯两端才有电位差。</li>
+            </ul>
+
+            <p class="mt-3"><b>第 2 步：真值表。</b></p>
+
+            <div class="table-scroll mt-2">
+              <table class="table-mcu">
+                <thead><tr><th>楼下开关 A</th><th>楼上开关 B</th><th>灯 F</th><th>说明</th></tr></thead>
+                <tbody>
+                  <tr><td>0（下）</td><td>0（下）</td><td><b>0</b></td><td>两端位置相同 → 灯灭</td></tr>
+                  <tr><td>0（下）</td><td>1（上）</td><td><b>1</b></td><td>位置不同 → 灯亮</td></tr>
+                  <tr><td>1（上）</td><td>0（下）</td><td><b>1</b></td><td>位置不同 → 灯亮</td></tr>
+                  <tr><td>1（上）</td><td>1（上）</td><td><b>0</b></td><td>两端位置相同 → 灯灭</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p class="mt-3"><b>第 3 步：写表达式（最小项之和）。</b>输出为 1 的有两行：A = 0、B = 1（即 <code class="icode">A′B</code>），和 A = 1、B = 0（即 <code class="icode">AB′</code>）：</p>
+            <p class="mt-2"><code class="icode">F = A′B + AB′</code></p>
+
+            <p class="mt-3"><b>第 4 步：化简。</b>这个式子<b>已经是最简的与-或式</b>了——两项都只有一个变量取反，没有公因子可以提，也没有相邻项可以并。<b>能不能再简化成更少的门？可以换形式：</b></p>
+            <p class="mt-2">用摩根定律改写：<code class="icode">F = A′B + AB′ = (A′B + AB′)″ = ((A′B)′ · (AB′)′)′</code></p>
+            <p class="mt-2">这个形式叫「<b>与非-与非式</b>」：只需要 4 个与非门就能实现（A′B 用「A 取反后与 B」再取反？ 具体做法是把 A 和 B 各自取反接到两个与非门，再把两个与非门的输出接第三个…… 更简单的做法是直接用上一小节例题里那个 4 与非门结构，它实现的就是异或）。</p>
+            <p class="mt-2"><b>第 4 步的真正结论是：</b><code class="icode">F = A ⊕ B</code>。<b>这就是一把硬件异或门（74LS86）能干完的活。</b></p>
+
+            <p class="mt-3"><b>第 5 步：画逻辑图并选器件。</b>三条实现路线：</p>
+
+            <div class="table-scroll mt-2">
+              <table class="table-mcu">
+                <thead><tr><th>实现方式</th><th>需要什么</th><th>门数 / 级数</th><th>评价</th></tr></thead>
+                <tbody>
+                  <tr><td>通用门（74LS00 与非）</td><td>4 个 2 输入与非门</td><td>4 门 / 3 级</td><td>一片 74LS00（内含 4 个门）正好够，零浪费</td></tr>
+                  <tr><td>专用异或门（74LS86）</td><td>1 个异或门</td><td>1 门 / 2 级（内部）</td><td><b>最优</b>：延迟约 14ns，且一片里有 4 个可以备用</td></tr>
+                  <tr><td>单片机 + 两个 IO</td><td>2 个输入引脚 + 1 个输出引脚</td><td>—</td><td>软件一行 <code class="icode">F = A ^ B;</code> 就完了，但要多占 3 个引脚</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p class="mt-3"><b>这道例题真正想纠正的错觉：</b>很多人第一反应是「按一下开关灯就翻转，所以电路必须记住灯现在是亮还是灭的，这是时序逻辑」。<b>错。</b>楼梯灯里没有任何「记忆」——<b>灯的亮灭完全由两个开关的当前位置决定</b>，你把两个开关摆到任何位置，灯的亮灭都是确定的一个值，与「刚才是什么位置」无关。之所以感觉像「翻转」，是因为你每次只手动了其中一个开关，而两个开关的组合状态恰好被改变了。</p>
+            <p class="mt-2"><b>这条经验可以推广成一句判断口诀：</b>当你觉得「这里需要记忆」时，先问一句——<b>我把所有输入摆好之后，输出是不是唯一确定的？</b>如果是，那就是组合逻辑，不需要任何触发器。</p>
+          </div>
+
+          <p class="mt-3">最后补一张「设计时手边该有哪些器件」的清单。这些型号在实验室里几乎都能找到，认脸比背参数重要：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>功能</th><th>常用型号（LS = TTL，HC = CMOS）</th><th>一片里有什么</th><th>本篇会在哪用到</th></tr></thead>
+              <tbody>
+                <tr><td>与非门</td><td class="font-mono text-xs">74LS00 / 74HC00</td><td>4 个 2 输入与非门</td><td>通用逻辑、与非-与非式实现</td></tr>
+                <tr><td>非门（反相器）</td><td class="font-mono text-xs">74LS04 / 74HC04、74HC14（施密特）</td><td>6 个反相器</td><td>产生反变量、整形带毛刺的信号</td></tr>
+                <tr><td>与门 / 或门</td><td class="font-mono text-xs">74LS08 / 74LS32</td><td>4 个 2 输入门</td><td>最简式直接落地</td></tr>
+                <tr><td>异或门</td><td class="font-mono text-xs">74LS86</td><td>4 个 2 输入异或门</td><td>不等比较、可控反相、半加器</td></tr>
+                <tr><td>3-8 线译码器</td><td class="font-mono text-xs">74LS138 / 74HC138</td><td>1 片，8 路低有效输出</td><td>地址译码、片选、数码管位选</td></tr>
+                <tr><td>8-3 线优先编码器</td><td class="font-mono text-xs">74LS148 / 74HC148</td><td>1 片，带级联端</td><td>键盘、中断优先级仲裁</td></tr>
+                <tr><td>8 选 1 数据选择器</td><td class="font-mono text-xs">74LS151 / 74HC151</td><td>1 片，含互补输出</td><td>用 MUX 实现任意逻辑函数</td></tr>
+                <tr><td>双 4 选 1 数据选择器</td><td class="font-mono text-xs">74LS153 / 74HC153</td><td>2 组独立的 4 选 1</td><td>变量更多的函数、数据切换</td></tr>
+                <tr><td>4 位加法器</td><td class="font-mono text-xs">74LS283 / 74HC283</td><td>1 片，4 位二进制全加</td><td>ALU 的原型、地址偏移计算</td></tr>
+                <tr><td>4 位数值比较器</td><td class="font-mono text-xs">74LS85 / 74HC85</td><td>1 片，含级联输入</td><td>地址窗口比较、阈值判断</td></tr>
+                <tr><td>BCD-七段译码器</td><td class="font-mono text-xs">74LS48（共阴）/ 74LS47（共阳）</td><td>1 片，可直接驱动数码管</td><td>数码管显示，省下 MCU 的 IO</td></tr>
+                <tr><td>模拟多路开关</td><td class="font-mono text-xs">CD4051 / 74HC4051</td><td>8 通道双向模拟开关</td><td>多路模拟量进一个 ADC</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">「LS」和「HC」怎么选？</div>
+            <p><b>LS（TTL 工艺）：</b>供电固定 5V，输入高电平门限低（V<sub>IH</sub> ≈ 2.0V），所以 3.3V 的信号可以直接驱动它的输入；但输出高电平只有 3.4V 左右，且静态功耗大、扇出小（通常 8 个 LS 输入）。</p>
+            <p class="mt-2"><b>HC（CMOS 工艺）：</b>供电 2V~6V，功耗极低、扇出极大（输入几乎不取电流）；但 V<sub>IH</sub> ≈ 0.7 × V<sub>CC</sub>，5V 供电时约 3.5V——<b>3.3V 的 MCU 引脚直接驱动 5V 供电的 HC 输入，会「高电平不够高」而识别不到</b>。这就是上一篇《门电路与数字接口电平》里讲过的那个坑。</p>
+            <p class="mt-2"><b>结论：</b>在 3.3V 的单片机系统里，如果一定要用 5V 供电的逻辑芯片做接口，优先选 <b>74HCT</b> 系列（T 表示 TTL 兼容输入门限，V<sub>IH</sub> ≈ 2.0V），它和 HC 引脚兼容但门限是 TTL 的。或者干脆让这些逻辑芯片也用 3.3V 供电（HC 系列在 3.3V 下工作正常，只是速度略降）。</p>
+          </div>
+
+<h3 id="sub-encoder" class="mt-7 text-base font-semibold">编码器：普通编码器的死穴，与 74LS148 优先编码</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">编码</b>这个词在数字电路里有确定的含义：把「一个具体的对象或事件」翻译成一串二进制代码。按键按下了 → 它是第几个键？中断来了 → 它是第几号中断源？这两个问题的答案都是一个编号，而编号在数字系统里必须表示成二进制。</p>
+
+          <p class="mt-3">所以<b class="font-semibold text-ink">编码器（Encoder）</b>的工作是：输入告诉你「哪一根线现在是有效的」，输出给出这根线的编号。8 个输入、3 位输出，就叫 <b>8 线-3 线编码器</b>（因为 3 位二进制正好能表示 0~7 共 8 个编号）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">先看最朴素的普通编码器长什么样。</b>假设输入 I0~I7 都是高有效（哪一根是 1，就表示哪个事件发生），输出 A2A1A0 是编号的二进制码。真值表如下——注意每一行里<b>只有一个输入是 1</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>I7</th><th>I6</th><th>I5</th><th>I4</th><th>I3</th><th>I2</th><th>I1</th><th>I0</th><th>A2</th><th>A1</th><th>A0</th><th>含义</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td><b>1</b></td><td>0</td><td>0</td><td>0</td><td>0 号事件</td></tr>
+                <tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td><b>1</b></td><td>0</td><td>0</td><td>0</td><td>1</td><td>1 号事件</td></tr>
+                <tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td><b>1</b></td><td>0</td><td>0</td><td>0</td><td>1</td><td>0</td><td>2 号事件</td></tr>
+                <tr><td>0</td><td>0</td><td>0</td><td>0</td><td><b>1</b></td><td>0</td><td>0</td><td>0</td><td>0</td><td>1</td><td>1</td><td>3 号事件</td></tr>
+                <tr><td>0</td><td>0</td><td>0</td><td><b>1</b></td><td>0</td><td>0</td><td>0</td><td>0</td><td>1</td><td>0</td><td>0</td><td>4 号事件</td></tr>
+                <tr><td>0</td><td>0</td><td><b>1</b></td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>1</td><td>0</td><td>1</td><td>5 号事件</td></tr>
+                <tr><td>0</td><td><b>1</b></td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>1</td><td>1</td><td>0</td><td>6 号事件</td></tr>
+                <tr><td><b>1</b></td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>1</td><td>1</td><td>1</td><td>7 号事件</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">从这张表直接写出表达式（每一位输出都是「所有该位为 1 的那些输入」的或）：</p>
+
+          <p class="mt-3"><code class="icode">A2 = I4 + I5 + I6 + I7</code></p>
+          <p class="mt-2"><code class="icode">A1 = I2 + I3 + I6 + I7</code></p>
+          <p class="mt-2"><code class="icode">A0 = I1 + I3 + I5 + I7</code></p>
+
+          <p class="mt-3">看表达式就知道：<b class="font-semibold text-ink">普通编码器就是三个或门</b>，简单到不能再简单。</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">普通编码器的死穴：它默认「输入互斥」，而这个默认经常不成立</div>
+            <p>上面的真值表<b>只列出了 8 种输入组合，而 8 个输入一共有 256 种组合</b>。剩下的 248 种里，绝大多数是「两根或更多线同时有效」。这时会发生什么？</p>
+            <p class="mt-2">举一个具体的例子：<b>I1 和 I2 同时有效</b>（两根线都是 1）。代入表达式：</p>
+            <p class="mt-2"><code class="icode">A2 = 0，A1 = I2 = 1，A0 = I1 = 1</code> → 输出 <code class="icode">A2A1A0 = 011</code> = <b>3</b>。</p>
+            <p class="mt-2">系统读到的编号是「3 号事件」，可实际上 3 号事件根本没发生，发生的是 1 号和 2 号。<b>输出是两个编号的「按位或」结果（001 或 010 = 011），这是一个物理上不存在的编号。</b></p>
+            <p class="mt-2">在矩阵键盘上，这个问题的后果就是「<b>幽灵按键</b>」：你同时按下两个键，MCU 读到一个从来没有被按下的第三个键值，程序据此执行了错误的动作。这就是普通编码器在实际系统里几乎从不单独使用的原因。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">优先编码器（Priority Encoder）</b>解决的就是这件事：它允许任意多个输入同时有效，但只对<b>优先级最高</b>的那一个编码。优先级在芯片设计时就定死了，你只能接受它，不能配置。</p>
+
+          <p class="mt-3">74LS148 / 74HC148 是标准的 8 线-3 线优先编码器，优先级顺序是 <b>I7 最高，I0 最低</b>。它的引脚有几个和普通编码器不一样的地方，第一次用很容易懵：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>引脚</th><th>名称与有效电平</th><th>作用</th><th>不接会怎样</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">I0 ~ I7</td><td>编码输入，<b>低电平有效</b>（0 表示「我有效」）</td><td>8 路待编码的请求信号，I7 优先级最高</td><td>悬空会被当成高电平，等于「无请求」（CMOS 器件悬空危险，必须接确定电平）</td></tr>
+                <tr><td class="font-mono text-xs">A2 A1 A0</td><td>编码输出，<b>反码输出</b></td><td>输出最高优先级输入的编号，但输出的是编号的<b>反码</b></td><td>必须接 MCU 的输入引脚，软件里要取反</td></tr>
+                <tr><td class="font-mono text-xs">EI（或 ST）</td><td>使能输入，<b>低有效</b></td><td>EI = 1 时芯片完全不工作（所有输出置为无效状态）</td><td>悬空会被当成 1 → 芯片永远不工作，<b>这是「接好了却没反应」的头号原因</b></td></tr>
+                <tr><td class="font-mono text-xs">GS</td><td>选通输出（Group Signal），<b>低有效</b></td><td>GS = 0 表示「本片有有效编码输出」</td><td>不用可以不接；级联时用来生成高位地址</td></tr>
+                <tr><td class="font-mono text-xs">EO（或 Y<sub>EX</sub>）</td><td>扩展输出，<b>低有效</b></td><td>EO = 0 表示「本片有使能、但没有任何输入有效」</td><td>单片使用时可以不接；级联时必须接到下一片的 EI</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">把它的功能表列出来。注意两个「陷阱行」——<b>无输入有效</b>和 <b>I0 有效</b>这两种情况下，A2A1A0 都是 111，只有 GS 不一样，这是 74LS148 最容易看错的地方：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>EI</th><th>输入状态</th><th>A2</th><th>A1</th><th>A0</th><th>GS</th><th>EO</th><th>怎么读这个结果</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>任意</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>芯片被禁止，输出全部无效。什么都不用管</td></tr>
+                <tr><td>0</td><td>全部无效（I0~I7 全为 1）</td><td>1</td><td>1</td><td>1</td><td><b>1</b></td><td><b>0</b></td><td>「没有请求」：A 是 111，但 <b>GS = 1 出卖了它</b></td></tr>
+                <tr><td>0</td><td>I7 = 0（其余任意）</td><td>0</td><td>0</td><td>0</td><td>0</td><td>1</td><td>编号 7 的反码 = 000 → 取反得 <b>111 = 7</b> ✓</td></tr>
+                <tr><td>0</td><td>I7 = 1、I6 = 0</td><td>0</td><td>0</td><td>1</td><td>0</td><td>1</td><td>6 的反码 001 → 取反 <b>110 = 6</b> ✓</td></tr>
+                <tr><td>0</td><td>I7~I5 = 1、I4 = 0</td><td>0</td><td>1</td><td>0</td><td>0</td><td>1</td><td>4 的反码 010 → 取反 <b>100 = 4</b> ✓</td></tr>
+                <tr><td>0</td><td>I7~I3 = 1、I2 = 0</td><td>1</td><td>0</td><td>1</td><td>0</td><td>1</td><td>2 的反码 101 → 取反 <b>010 = 2</b> ✓</td></tr>
+                <tr><td>0</td><td>I7~I1 = 1、I0 = 0</td><td>1</td><td>1</td><td>1</td><td><b>0</b></td><td>1</td><td>0 的反码 111 → 取反 <b>000 = 0</b> ✓（靠 GS = 0 与「无请求」区分开）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="74LS148 的三条实用结论">
+            <pre><code>【结论一】输出是反码，软件里必须取反
+
+    硬件给你的是 A2A1A0 = 编号的反码。
+    如果你直接把这三根线读进 MCU 当成编号用，会得到完全错的值：
+        实际按的是 7 号 → 读到 0
+        实际按的是 0 号 → 读到 7
+    正确做法（C 语言）：
+        uint8_t code = (GPIOB-&gt;IDR &gt;&gt; 5) &amp; 0x07;   // 读 A2A1A0
+        uint8_t index = (~code) &amp; 0x07;             // 取反并只留低 3 位
+
+【结论二】「有没有请求」必须看 GS，不能看 A2A1A0
+
+    没有请求时 A2A1A0 = 111，和「0 号有效」时的输出一模一样。
+    软件如果只读 A2A1A0 就判断「有请求」，会把「什么都没发生」
+    误判成「0 号被按下了」。
+    正确做法：GS 也接一根 MCU 引脚，GS = 0 才去读编号。
+
+【结论三】级联靠的是 EO 和 EI 的「接力」
+
+    多片级联时，优先级高的那一片如果「没有请求」，
+    它会把自己的 EO 拉低，去使能下一片。
+    于是「谁在干活」这件事，由硬件一层层传下去，
+    不需要 MCU 参与仲裁 —— 这是纯组合逻辑的典型价值。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">级联成 16 线-4 线优先编码器。</b>两片 74LS148 一起用，就能处理 16 路请求（编号 0~15）。接线原则只有两条：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="用两片 74LS148 级联成 16-4 线优先编码器">
+            <pre><code>【接线】
+
+   高位片（负责编号 8~15）：  I7~I0 接外部请求 15~8
+   低位片（负责编号 0~7 ）：  I7~I0 接外部请求 7~0
+
+   高位片的 EO  ──────►  低位片的 EI      ← 这是「接力棒」
+   两片的 EI 由系统统一控制（或者高位片 EI 接系统的总使能）
+
+【为什么这么接】
+
+   当 15~8 里任何一路有效时：
+      高位片有输出 → 它的 EO = 1 → 低位片被禁止（EI = 1）
+      → 低位片的 A2A1A0 = 111，GS = 1
+      → 结果完全由高位片说了算。优先级更高的 8~15 自然胜出。
+
+   当 15~8 全都无效时：
+      高位片没有输出 → EO = 0 → 低位片被使能
+      → 这次由低位片编码 0~7。
+
+【输出怎么拼成 4 位】
+
+   4 位编号 Z3 Z2 Z1 Z0 里：
+      Z3  = 「是不是高位片在干活」= 高位片 GS 取反
+      Z2Z1Z0 = 两片 A2A1A0 的「按位与」
+
+   为什么要「与」而不是「或」：
+      两片的输出都是反码，没在干活的那一片输出恒为 111。
+      111 和任何值按位与，结果就是那个值 —— 
+      于是「与」自动挑出了正在干活的那一片。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">优先编码器在单片机系统里的两个真实岗位</div>
+            <p><b>① 中断优先级仲裁。</b>一颗 MCU 有几十个中断源，同一时刻可能有好几个外设同时拉高中断请求线。CPU 的内核里就有一个优先编码器（配合中断优先级表），它负责在硬件层面挑出「当前该响应哪一个」。你在 NVIC 里配置的抢占优先级，最终落地成的就是这个编码器的比较逻辑。</p>
+            <p class="mt-2"><b>② 多键同时按下的取舍。</b>键盘控制器（包括你写的中断式键盘驱动）遇到多键同按时，只能选一个上报。硬件上如果用了 74LS148，选的是编号大的那个；如果用的是软件扫描，选的是你代码里先扫到的那一个。<b>两种做法都叫「优先编码」，区别只是优先级由谁定。</b></p>
+          </div>
+
+          <h3 id="sub-decoder" class="mt-7 text-base font-semibold">译码器：74LS138、地址译码、数据分配与七段显示</h3>
+
+          <p class="mt-3">译码（Decoding）是编码的逆过程：<b class="font-semibold text-ink">给一串二进制码，翻译成「2<sup>n</sup> 路输出里唯一有效的那一路」</b>。在单片机里，这个动作有一个你天天在用、但未必意识到它是组合逻辑的名字——<b>地址译码</b>。</p>
+
+          <p class="mt-3">译码器按用途分三类，考试和工程里的出场率都很高：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>类别</th><th>输入 → 输出</th><th>典型型号</th><th>典型用途</th></tr></thead>
+              <tbody>
+                <tr><td><b>二进制译码器</b>（变量译码器）</td><td>n 位二进制码 → 2<sup>n</sup> 路中一路有效</td><td class="font-mono text-xs">74LS138（3-8）、74LS139（双 2-4）、74LS154（4-16）</td><td><b>地址译码、片选</b>、译码器扩展、数据分配</td></tr>
+                <tr><td><b>码制译码器</b></td><td>一种编码 → 另一种编码</td><td class="font-mono text-xs">74LS42（8421 BCD → 十进制 10 路）</td><td>BCD 码的十进制指示、非法码检测</td></tr>
+                <tr><td><b>显示译码器</b></td><td>8421 BCD 码 → 七段笔画信号</td><td class="font-mono text-xs">74LS48（共阴）、74LS47（共阳）、CD4511</td><td>数码管显示，省 IO、省 CPU</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">74LS138 / 74HC138 是这一章出镜率最高的芯片</b>，值得把它的每一根引脚都记住：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="74LS138 引脚与内部结构">
+            <pre><code>                     ┌──────────────────┐
+        A0  ────────►│ A0            Y0 ├──────►  0 号输出（低有效）
+        A1  ────────►│ A1            Y1 ├──────►  1 号输出
+        A2  ────────►│ A2            Y2 ├──────►  2 号输出
+                     │               Y3 ├──────►  3 号输出
+   G2A（低有效）───►│ E1            Y4 ├──────►  4 号输出
+   G2B（低有效）───►│ E2            Y5 ├──────►  5 号输出
+    G1（高有效）───►│ E3            Y6 ├──────►  6 号输出
+                     │               Y7 ├──────►  7 号输出
+                     └──────────────────┘
+
+   内部逻辑（一句话）：每一路输出都是一个 3 输入与非门的结果
+       Y0 = ( A2′ · A1′ · A0′ · 使能条件 ) 的反  → 只有 A2A1A0 = 000 时 Y0 才低
+       Y1 = 只有 A2A1A0 = 001 时 Y1 才低
+       ……
+       Y7 = 只有 A2A1A0 = 111 时 Y7 才低
+
+   所以本质上是「8 个三变量最小项的译码器」——
+   每一个输出恰好对应一个最小项，而且输出的是最小项的反。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>G1</th><th>G2A</th><th>G2B</th><th>A2 A1 A0</th><th>输出情况</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>×</td><td>×</td><td>1</td><td>×</td><td>Y0~Y7 全为 <b>1</b>（全不选中）</td><td>低有效的使能端有一个不满足，芯片整体关断</td></tr>
+                <tr><td>×</td><td>1</td><td>×</td><td>×</td><td>Y0~Y7 全为 <b>1</b></td><td>同上</td></tr>
+                <tr><td>0</td><td>×</td><td>×</td><td>×</td><td>Y0~Y7 全为 <b>1</b></td><td>高有效的 G1 没满足</td></tr>
+                <tr><td>1</td><td>0</td><td>0</td><td>0 0 0</td><td><b>只有 Y0 = 0</b>，其余为 1</td><td>选中 0 号</td></tr>
+                <tr><td>1</td><td>0</td><td>0</td><td>0 0 1</td><td><b>只有 Y1 = 0</b>，其余为 1</td><td>选中 1 号</td></tr>
+                <tr><td>1</td><td>0</td><td>0</td><td>…</td><td>…</td><td>依此类推</td></tr>
+                <tr><td>1</td><td>0</td><td>0</td><td>1 1 1</td><td><b>只有 Y7 = 0</b>，其余为 1</td><td>选中 7 号</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张表里有三个细节，是「会用」和「用对」的分界：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">输出是低有效。</b>「选中」意味着那一根线是 <b>0</b>，不是 1。所以它天然适合直接驱动「低有效片选」（CS）和「低有效使能」的器件——绝大多数存储器和外设芯片的片选都是低有效的。</li>
+            <li><b class="font-semibold text-ink">三个使能端是「与」的关系，而且电平方向不同</b>（G1 高有效，G2A、G2B 低有效）。这个设计不是故意刁难你：<b>它让你可以把「地址范围」和「读写方向」同时编进使能条件里</b>，下一小节讲地址译码时会用到。</li>
+            <li><b class="font-semibold text-ink">使能端还可以用来级联扩展。</b>两片 74LS138 加一个反相器，就是 4 线-16 线译码器：高位地址 A3 直接接第一片的 G1（高有效）、取反后接第二片的 G1；两片的 G2A、G2B 并在一起当总使能。A3 = 0 时第一片工作（选中 0~7），A3 = 1 时第二片工作（选中 8~15）。</li>
+          </ul>
+
+          <p class="mt-3"><b class="font-semibold text-ink">重点：译码器怎么做地址译码。</b>这是「组合逻辑」和「单片机」之间最重要的一座桥，值得画清楚。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="CPU 的地址空间是怎么被「分给」不同器件的">
+            <pre><code>【CPU 眼里的世界】它只知道一件事：我要访问某个地址。
+
+       地址总线（16 位）  A15 A14 A13 A12 ……………… A2 A1 A0
+                            │  │  │   │                │  │  │
+                            │  │  │   │                └──┴──┴──► 直接送到
+                            │  │  │   │                            器件的地址脚
+                            │  │  │   │                            （片内寻址）
+                            │  │  │   │
+                            └──┴──┴───┴──────► 74HC138 的 A2 A1 A0
+                                                 （高位用来「选谁」）
+
+【分工】
+
+   高位地址（这里是 A13 A14 A15 三根）= 「选哪个器件」→ 译码器 → 片选
+   低位地址（A0 ~ A12 共 13 根）      = 「器件内部的哪个单元」→ 直接接器件
+
+   于是每一个片选对应的地址范围就出来了：
+       Y0 有效 ⟺ A15A14A13 = 000 ⟺ 地址落在 0x0000 ~ 0x1FFF  （8KB）
+       Y1 有效 ⟺ A15A14A13 = 001 ⟺ 地址落在 0x2000 ~ 0x3FFF  （8KB）
+       Y2 有效 ⟺ A15A14A13 = 010 ⟺ 地址落在 0x4000 ~ 0x5FFF  （8KB）
+       ……
+       Y7 有效 ⟺ A15A14A13 = 111 ⟺ 地址落在 0xE000 ~ 0xFFFF  （8KB）
+
+   8 路片选 × 每路 8KB = 64KB，正好把 16 位地址空间分完 —— 这就是
+   「用 3 根地址线 + 一片 138，把整个 64KB 空间切成 8 块」的完整含义。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">那「地址重叠」是怎么来的？</b>答案只有一句话：<b>有地址线没有参与译码</b>。上面这个例子里，16 根地址线全部派了用场（13 根给器件、3 根给译码器），所以每个地址对应唯一的器件，没有重叠。</p>
+
+          <p class="mt-3">但如果译码器只接了两根线（比如 A14、A15），那 A13 就「没人管」了——它在 0 和 1 之间怎么变，译码器都无动于衷。于是：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="地址重叠（地址镜像）是怎么产生的">
+            <pre><code>【只接 A14、A15 时，每个片选覆盖多大】
+
+   片选 ⟺ A15A14 的值，A13 完全不参与。
+   而 A0~A12 共 13 根也不参与片选（它们管片内寻址）。
+
+   于是同一个片选会覆盖：
+       A15A14 = 00 → 地址 0x0000 ~ 0x3FFF，共 16KB
+       其中 0x0000 ~ 0x1FFF 是 A13 = 0
+            0x2000 ~ 0x3FFF 是 A13 = 1
+       → 器件在 x 和 x + 0x2000 两个地址上「同时存在」
+
+【这就是地址镜像 / 地址别名】
+
+   0x0000 和 0x2000 访问的是同一个器件的同一个单元，
+   因为它们除了 A13 不同，其他地址位完全一样，
+   而 A13 恰好没被译码。
+
+【后果有两面】
+
+   ☑ 有时候是好事：省下译码器、省下地址线，
+      甚至被故意用来做「同一外设的多个访问入口」。
+
+   ☒ 更多时候是坑：
+      ① 两个器件被分到了「同一个地址」（译码逻辑重叠）→
+         同时被选中 → 两个输出在数据线上打架 → 数据错乱甚至损坏；
+      ② 你按数据手册算出的地址范围，和实际电路对不上；
+      ③ 用「地址是否重叠」来判断硬件有没有问题的调试手段失效。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">「两个器件同时被选中」比「读到错数据」更危险</div>
+            <p>如果两个器件的输出同时挂在一根线上，而它们的输出电平相反（一个输出高、一个输出低），那么从高电平那个器件的输出脚到低电平那个器件的输出脚之间，会形成一条<b>几乎短路的通路</b>。电流受两个输出级的内阻限制，74 系列大约能到 <b>30~60mA</b>——这个电流不会立刻烧掉芯片，但会让电源电压跌落、发热，长期运行可靠性极差。</p>
+            <p class="mt-2">所以「片选有没有撞车」这件事，在画板子时就要用<b>地址范围表</b>核对一遍（第 3 节例题 6 会算一次），不要等到板子回来了靠运气。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">译码器的第二个身份：数据分配器（Demultiplexer）。</b>译码器本来就是「按地址把某一路拉低」，如果把<b>数据</b>接到使能端上，那么被选中的那一路输出就会<b>跟着数据一起变化</b>——数据被「分配」到了指定的那一路上。这就是「1 路数据 → 2<sup>n</sup> 路输出」的数据分配器。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="74LS138 当数据分配器：数据接使能端">
+            <pre><code>【接法】
+
+   数据输入 D ──►  接 74LS138 的 G2A（一个低有效的使能端）
+   G1 接 VCC（或接总使能）
+   G2B 接 GND
+   地址 A2A1A0 ──► 决定「分配到哪一路」
+   Y0 ~ Y7     ──► 8 路输出
+
+【工作过程】
+
+   A2A1A0 = 101（选中 Y5）时：
+       D = 0  →  使能条件满足  →  Y5 = 0（有效），其余全 1
+       D = 1  →  使能条件不满足 →  所有输出全 1（Y5 也回到 1）
+
+   于是 Y5 上出现的波形 = D 的【反相】版本，
+   而其他 7 路始终是高电平不变。
+
+【两个必须记住的细节】
+
+   ① 输出是反相的。
+      因为 74LS138 是「低有效输出」，D 为低才让它输出低。
+      要得到同相的分配结果，后面加一级反相器，
+      或者直接用专门的 74LS155 / 74LS156
+      （双 2-4 线译码器/数据分配器）。
+
+   ② 「数据分配」和「地址译码」是同一个器件、同一个电路，
+      区别只在于「你把变化的信号接在地址端，还是接在使能端」。
+      这两件事指的是同一片芯片 —— 这也是译码器最漂亮的地方。
+
+【工程上的用处】
+
+   · 串行数据分配到多条通道（分时复用）；
+   · 一个 CPU 的数据总线分时写给多个器件（配合片选，本质相同）；
+   · 波形发生器：把 8 个不同频率的信号按地址选一路送出去。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">译码器的第三个身份：BCD-七段显示译码器。</b>这一类译码器的输出不是「哪一路有效」，而是「哪几段该亮」——它把「输入是一个数字几」直接翻译成人眼能看的笔画。</p>
+
+          <p class="mt-3">七段数码管的 7 个笔画有标准命名：<b>a</b>（上）、<b>b</b>（右上）、<b>c</b>（右下）、<b>d</b>（下）、<b>e</b>（左下）、<b>f</b>（左上）、<b>g</b>（中）。约定笔画编号顺序为 g f e d c b a（从高位到低位），共阴极数码管「1 = 亮」：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>数字</th><th>a</th><th>b</th><th>c</th><th>d</th><th>e</th><th>f</th><th>g</th><th>段码（g f e d c b a）</th><th>十六进制</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td><td class="font-mono text-xs">0 1 1 1 1 1 1</td><td class="font-mono text-xs">0x3F</td></tr>
+                <tr><td>1</td><td>0</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td class="font-mono text-xs">0 0 0 0 1 1 0</td><td class="font-mono text-xs">0x06</td></tr>
+                <tr><td>2</td><td>1</td><td>1</td><td>0</td><td>1</td><td>1</td><td>0</td><td>1</td><td class="font-mono text-xs">1 0 1 1 0 1 1</td><td class="font-mono text-xs">0x5B</td></tr>
+                <tr><td>3</td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td><td>1</td><td class="font-mono text-xs">1 0 0 1 1 1 1</td><td class="font-mono text-xs">0x4F</td></tr>
+                <tr><td>4</td><td>0</td><td>1</td><td>1</td><td>0</td><td>0</td><td>1</td><td>1</td><td class="font-mono text-xs">1 1 0 0 1 1 0</td><td class="font-mono text-xs">0x66</td></tr>
+                <tr><td>5</td><td>1</td><td>0</td><td>1</td><td>1</td><td>0</td><td>1</td><td>1</td><td class="font-mono text-xs">1 1 0 1 1 0 1</td><td class="font-mono text-xs">0x6D</td></tr>
+                <tr><td>6</td><td>1</td><td>0</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td class="font-mono text-xs">1 1 1 1 1 0 1</td><td class="font-mono text-xs">0x7D</td></tr>
+                <tr><td>7</td><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td class="font-mono text-xs">0 0 0 0 1 1 1</td><td class="font-mono text-xs">0x07</td></tr>
+                <tr><td>8</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td class="font-mono text-xs">1 1 1 1 1 1 1</td><td class="font-mono text-xs">0x7F</td></tr>
+                <tr><td>9</td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td><td>1</td><td>1</td><td class="font-mono text-xs">1 1 0 1 1 1 1</td><td class="font-mono text-xs">0x6F</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张表在后面写数码管驱动代码时会反复用到。注意它是<b>共阴极</b>（段信号高电平点亮）的编码；共阳极数码管的段码是它的按位取反（0 对应 0x3F 的反码 0xC0）。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>型号</th><th>输出有效电平</th><th>配什么数码管</th><th>额外功能</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">74LS48 / 74HC48</td><td>高有效</td><td>共阴极</td><td>LT（灯测试）、RBI / BI-RBO（灭零与消隐），用于多位显示的「前导零熄灭」</td></tr>
+                <tr><td class="font-mono text-xs">74LS47 / 74LS247</td><td>低有效（开集输出）</td><td>共阳极</td><td>开集输出可以直接灌电流驱动数码管，但**只能显示 0~9 和 6 个符号**</td></tr>
+                <tr><td class="font-mono text-xs">CD4511</td><td>高有效</td><td>共阴极</td><td>CMOS 工艺，带<b>锁存使能 LE</b>，可以直接挂在数据总线上，做多位显示最省 IO</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">用译码器驱动数码管 vs 用 MCU 的 IO 直接驱动，怎么选？</div>
+            <p><b>用译码器（74LS48 这类）：</b>只占 MCU 的 <b>4 根 IO</b>（BCD 码），段码由硬件生成，MCU 不需要刷段码；代价是只能显示 0~9 和极少数字符，而且多一片芯片、多一份延迟和功耗。</p>
+            <p class="mt-2"><b>用 MCU 的 IO 直接驱动：</b>占 <b>7~8 根 IO</b>，但可以显示任意字符（字母、符号、自定义图形），而且能软件调亮度（PWM）。这就是为什么现在绝大多数开发板都直接用 IO 驱动段码——<b>引脚换灵活性，这笔账在单片机系统里通常是划算的</b>。</p>
+            <p class="mt-2"><b>但位选不一样。</b>8 位数码管需要 8 路位选，用 8 根 IO 太奢侈；用 3 根 IO + 一片 74HC138 就够（第 4 节会给出完整电路）。<b>「段码用软件、位选用译码器」是现在的主流做法</b>，也是本篇「组合逻辑还有没有用」这个问题最直接的答案：有用，而且就在你的板子上。</p>
+          </div>
+
+          <h3 id="sub-mux" class="mt-7 text-base font-semibold">数据选择器 MUX：用一片芯片实现任意逻辑函数</h3>
+
+          <p class="mt-3">数据选择器（Data Selector / Multiplexer，简称 <b>MUX</b>）在结构上就是一组「受地址控制的多路开关」：有 2<sup>n</sup> 个数据输入端、n 个地址端、1 个输出端。地址端给出一个编号，<b>对应的那一路数据就被接到输出上</b>，其余各路与输出断开。</p>
+
+          <p class="mt-3">74LS151 / 74HC151 是 8 选 1 的标准型号：8 个数据端 D0~D7，3 个地址端 A2A1A0（手册里常写成 C、B、A，<b>C 是最高位</b>），1 个低有效的使能端 S（也写成 <span class="font-mono text-xs">Ḡ</span> 或 <span class="font-mono text-xs">Ē</span>），以及一对互补输出 <b>Y</b> 和 <b>W</b>（W = Y 的反）。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="74LS151 的功能与表达式">
+            <pre><code>【功能】使能有效（S = 0）时，输出等于「地址所指的那一路数据」
+
+        Y = D0 · m0 + D1 · m1 + D2 · m2 + … + D7 · m7
+
+    其中 m0 ~ m7 是地址变量 A2A1A0 的八个最小项：
+        m0 = A2′A1′A0′   （地址 = 000）
+        m1 = A2′A1′A0    （地址 = 001）
+        ……
+        m7 = A2 A1 A0    （地址 = 111）
+
+    这个式子的读法：地址等于 k 时，只有 mk = 1，
+    其他七项全是 0 —— 于是 Y 就等于 Dk。
+
+【把这句话反过来念，就得到了 MUX 最常考的用法】
+
+    如果我把「逻辑函数的输入变量」接到地址端，
+    那么每一行真值表就对应一个数据端；
+    数据端接 1，表示「这个最小项在函数里」；
+    数据端接 0，表示「这个最小项不在函数里」。
+
+    → 于是 Y 就等于这个逻辑函数本身！
+      一个 MUX = 一个「可编程的真值表」。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">这就是「用数据选择器实现任意逻辑函数」的全部原理。</b>它之所以在考试里年年出现，是因为它把「设计组合逻辑」这件事从「画卡诺图、化简、选门、连线」变成了「<b>照抄真值表、接 0 或 1</b>」——不需要任何化简技巧，而且一片芯片就够了。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>函数的变量数 n</th><th>方案一：地址接全部 n 个变量</th><th>方案二：地址接 n-1 个变量，剩下一个接数据端</th></tr></thead>
+              <tbody>
+                <tr><td>n = 3</td><td>8 选 1，数据端接 0 / 1（常量）</td><td>4 选 1，数据端接 <b>C、C′、0、1</b> 四者之一</td></tr>
+                <tr><td>n = 4</td><td>16 选 1（需要 74LS150 或用两片 74LS151 扩展）</td><td>8 选 1，数据端接 <b>D、D′、0、1</b></td></tr>
+                <tr><td>n = 5</td><td>32 选 1（要 4 片 74LS151 + 译码器，不划算）</td><td>16 选 1（两块 74LS151 扩展），数据端接 <b>E、E′、0、1</b></td></tr>
+                <tr><td>代价</td><td>不用化简，接线最直白，<b>但需要更大的 MUX</b></td><td>省一半地址，<b>但要先做一步「按地址分组」的化简</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">方案二里那一步「按地址分组」怎么做？规则只有一张四行的表。假设地址端接的是变量 A、B，数据端要接的是第三个变量 C 的各种形式：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对该地址组合，C = 0 时 F 的值</th><th>C = 1 时 F 的值</th><th>数据端应该接什么</th><th>含义</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>0</td><td><b>接 GND（常量 0）</b></td><td>这一组地址下，无论 C 是什么，输出都是 0</td></tr>
+                <tr><td>1</td><td>1</td><td><b>接 VCC（常量 1）</b></td><td>无论 C 是什么，输出都是 1</td></tr>
+                <tr><td>0</td><td>1</td><td><b>接变量 C</b></td><td>输出跟着 C 走：C = 0 输出 0，C = 1 输出 1</td></tr>
+                <tr><td>1</td><td>0</td><td><b>接 C 的反（C′）</b></td><td>输出与 C 相反</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张四行表就是方案二的全部内容。<b>把「地址端接哪些变量、数据端接什么」写清楚，一道设计题就做完了</b>——第 3 节的例题 3 会用同一道题把方案一和方案二都做一遍，你可以看到两者差多少。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">三条实现路线：门电路、译码器、MUX，该怎么选</div>
+            <p>同一个逻辑函数，至少有三种硬件实现方式。它们在成本、延迟、可读性上差别很大：</p>
+            <div class="table-scroll mt-2">
+              <table class="table-mcu">
+                <thead><tr><th>实现方式</th><th>怎么做</th><th>优点</th><th>缺点</th></tr></thead>
+                <tbody>
+                  <tr><td>通用门电路</td><td>化简后直接用与/或/非门搭</td><td>器件便宜、灵活、门级延迟可优化</td><td>级数多（延迟大）、改一个条件就要重新化简、函数变量一多门数爆炸</td></tr>
+                  <tr><td>译码器 + 或门</td><td>n 变量接译码器，把函数包含的最小项对应的输出「或」起来</td><td>不用化简；函数<b>要改时只改或门的接线</b></td><td>需要译码器 + 或门两片；只适合「最小项个数少」的函数</td></tr>
+                  <tr><td>数据选择器</td><td>变量接地址端，数据端接 0 / 1（或接变量）</td><td><b>一片搞定，不用化简</b>；改函数只需改数据端的接线</td><td>芯片本身较贵；输出只有一路（要多路输出就得配译码器）</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-2"><b>怎么选？</b>看三件事：① 函数有几个变量（≤3 个用门，3~4 个用 MUX 最舒服）；② 会不会经常改需求（会改就用 MUX 或译码器——<b>它们是「靠接线编程」的，改起来只要重焊几根线</b>，不用重新设计电路）；③ 要不要复制很多路（要复制就用门，MUX 一片才一路）。</p>
+          </div>
+
+<h3 id="sub-adder-comparator" class="mt-7 text-base font-semibold">加法器与数值比较器：算术模块的两块基石</h3>
+
+          <p class="mt-3">加法器是组合逻辑里唯一一个「输出不是 0/1 的单根线，而是一组二进制数」的模块——它把「算术运算」这件人类的事，第一次变成了纯逻辑门的事。<b class="font-semibold text-ink">CPU 里第一个被造出来的运算单元就是加法器</b>，原因在最后一段会讲清楚。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">先从最小的加法问题开始：两个 1 位二进制数相加。</b>可能的组合只有四种：0+0=00、0+1=01、1+0=01、1+1=10。注意 1+1 的结果是「10」——两位。所以一位加法必须有两个输出：本位的<b>和 S</b>（Sum）和向高位的<b>进位 C</b>（Carry）。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>A</th><th>B</th><th>本位和 S</th><th>进位 C</th><th>算术含义</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0 + 0 = 00</td></tr>
+                <tr><td>0</td><td>1</td><td>1</td><td>0</td><td>0 + 1 = 01</td></tr>
+                <tr><td>1</td><td>0</td><td>1</td><td>0</td><td>1 + 0 = 01</td></tr>
+                <tr><td>1</td><td>1</td><td>0</td><td>1</td><td>1 + 1 = 10</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张表你已经见过两次了——S 的那一列正是<b>异或</b>，C 的那一列正是<b>与</b>：</p>
+
+          <p class="mt-3"><code class="icode">S = A ⊕ B</code>　　<code class="icode">C = A · B</code></p>
+
+          <p class="mt-3">这个电路叫<b>半加器（Half Adder）</b>。名字里的「半」不是「一半的功能」，而是「<b>只完成了一半的加法</b>」：它<b>只处理本位的两个数，无法接收低位送来的进位</b>。所以半加器只能用在最低位——而最低位本来就没有进位输入，看起来好像正好？<b>不对</b>：在多位数加法里，除了最低位以外每一位都要接收低位进位；如果少了这一位输入，加法器就退化成「只对最低位有效」的电路了。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">全加器（Full Adder）</b>是补上这一块的版本：三个输入 A、B、C<sub>i</sub>（来自低位的进位），两个输出 S（本位和）和 C<sub>o</sub>（向高位的进位）。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>A</th><th>B</th><th>C<sub>i</sub>（低位进位）</th><th>S（本位和）</th><th>C<sub>o</sub>（向高位进位）</th><th>算术含义</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0 + 0 + 0 = 00</td></tr>
+                <tr><td>0</td><td>0</td><td>1</td><td>1</td><td>0</td><td>0 + 0 + 1 = 01</td></tr>
+                <tr><td>0</td><td>1</td><td>0</td><td>1</td><td>0</td><td>0 + 1 + 0 = 01</td></tr>
+                <tr><td>0</td><td>1</td><td>1</td><td>0</td><td>1</td><td>0 + 1 + 1 = 10</td></tr>
+                <tr><td>1</td><td>0</td><td>0</td><td>1</td><td>0</td><td>1 + 0 + 0 = 01</td></tr>
+                <tr><td>1</td><td>0</td><td>1</td><td>0</td><td>1</td><td>1 + 0 + 1 = 10</td></tr>
+                <tr><td>1</td><td>1</td><td>0</td><td>0</td><td>1</td><td>1 + 1 + 0 = 10</td></tr>
+                <tr><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1 + 1 + 1 = 11</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">从真值表读出两个输出的表达式（每个输出就是若干最小项之和）：</p>
+
+          <p class="mt-3"><code class="icode">S = A′B′C<sub>i</sub> + A′BC<sub>i</sub>′ + AB′C<sub>i</sub>′ + ABC<sub>i</sub> = A ⊕ B ⊕ C<sub>i</sub></code></p>
+          <p class="mt-2"><code class="icode">C<sub>o</sub> = A′BC<sub>i</sub> + AB′C<sub>i</sub> + ABC<sub>i</sub>′ + ABC<sub>i</sub> = AB + (A ⊕ B)C<sub>i</sub></code></p>
+
+          <p class="mt-3">C<sub>o</sub> 还有第三种写法，值得单独看一眼：<code class="icode">C<sub>o</sub> = AB + AC<sub>i</sub> + BC<sub>i</sub></code>。<b>这是「三取二多数函数」</b>——三个输入里有两个或以上是 1，就进位。从算术上想也很自然：三个 1 位相加，和达到 2 或 3 就要进位，而「达到 2」恰恰意味着「至少两个输入是 1」。<b>加法器的进位逻辑和表决器是同一个函数</b>，这个巧合在超前进位那一节会变成有用的直觉。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="全加器 = 两个半加器 + 一个或门">
+            <pre><code>        ┌───────────┐
+   A ──►│           ├──► S1 = A ⊕ B ──┬────────────────┐
+        │  半加器 1  │                  │                │
+   B ──►│           ├──► C1 = A · B ─┐ │                ▼
+        └───────────┘                │ │        ┌───────────┐
+                                     │ │        │           │
+   Ci ───────────────────────────────┼─┼───────►│  半加器 2  ├──► S = S1 ⊕ Ci
+                                     │ │        │           │
+                                     │ │        └─────┬─────┘
+                                     │ │              │
+                                     │ │              ▼
+                                     │ │       C2 = S1 · Ci
+                                     │ │              │
+                                     │ │              │
+                                     │ └──────┐       │
+                                     └────────┼───────┼───►┌────────┐
+                                              │       └───►│  或门   ├──► Co
+                                              └───────────►└────────┘
+
+   为什么这么做：S1 = A ⊕ B 是「本位的和，还没考虑低位进位」；
+   Ci 再和 S1 做一次半加，就得到了最终的 S。
+   两次半加产生的两个进位（C1 和 C2）不会同时为 1
+   （第一次进位说明 A、B 都是 1，第二次进位需要 S1 = 1，而 A、B 都是 1 时 S1 = 0），
+   所以 Co 就是它们的【或】—— 这里用或门而不是加法，是有道理在里面的。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">把 4 个全加器串起来，就是 4 位加法器。</b>最低位的进位输入 C0 接 0，第一位的进位输出接到第二位的进位输入，如此接力——这种结构叫<b>串行进位加法器</b>（也叫行波进位，Ripple Carry Adder）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="4 位串行进位加法器：进位的「波浪」">
+            <pre><code>      A3 B3          A2 B2          A1 B1          A0 B0
+       │  │           │  │           │  │           │  │
+       ▼  ▼           ▼  ▼           ▼  ▼           ▼  ▼
+     ┌──────┐  C3  ┌──────┐  C2  ┌──────┐  C1  ┌──────┐
+     │全加器│◄─────┤全加器│◄─────┤全加器│◄─────┤全加器│◄── C0 = 0
+     │  3   │      │  2   │      │  1   │      │  0   │
+     └──┬───┘      └──┬───┘      └──┬───┘      └──┬───┘
+        │             │             │             │
+        ▼             ▼             ▼             ▼
+       S3            S2            S1            S0
+
+        └────────────────────────────────────────────► C4（第 5 位，溢出/进位标志）
+
+   ⚠ 关键问题：C4 什么时候才能算对？
+
+      C1 要等全加器 0 算完 → C2 要等 C1 稳定 → C3 要等 C2 稳定
+      → C4 要等 C3 稳定。
+
+      4 位就是 4 级进位延迟【串联】。位数越多，最后一位的进位
+      越晚稳定，最高位的和 S 也越晚稳定 —— 而 S 又依赖它自己的进位。
+      8 位串行加法器的总延迟是 4 位的两倍，32 位是 4 位的八倍。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">超前进位（Carry Look-ahead）就是用来砍掉这个串联延迟的。</b>它的思路一句话：<b>与其等进位传过来，不如把所有进位提前算出来。</b></p>
+
+          <p class="mt-3">为此，超前进位逻辑为每一位定义两个信号（第 i 位）：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">进位生成 G<sub>i</sub> = A<sub>i</sub> · B<sub>i</sub></b>：这一位自己就会产生进位，不需要低位帮忙（两个都是 1）。</li>
+            <li><b class="font-semibold text-ink">进位传递 P<sub>i</sub> = A<sub>i</sub> ⊕ B<sub>i</sub></b>：这一位自己不产生进位，但如果低位送来一个进位，它会把这个进位「原样传下去」（因为其中一个加数是 1，1 + 1 = 10）。</li>
+          </ul>
+
+          <p class="mt-3">有了这两个信号，第 i+1 位的进位可以写成极其简洁的形式：</p>
+
+          <p class="mt-3"><code class="icode">C<sub>i+1</sub> = G<sub>i</sub> + P<sub>i</sub> · C<sub>i</sub></code></p>
+
+          <p class="mt-3">意思是：<b>「要么这一位自己就生成进位，要么这一位把低位的进位传到高位去」</b>。把这个式子逐层展开，就把所有进位都变成了「<b>只与加数和最初那个 C0 有关</b>」的表达式：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="超前进位的展开：每一级进位都直接由 A、B、C0 算出">
+            <pre><code>   C1 = G0 + P0·C0
+
+   C2 = G1 + P1·C1
+      = G1 + P1·G0 + P1·P0·C0
+
+   C3 = G2 + P2·C2
+      = G2 + P2·G1 + P2·P1·G0 + P2·P1·P0·C0
+
+   C4 = G3 + P3·C3
+      = G3 + P3·G2 + P3·P2·G1 + P3·P2·P1·G0 + P3·P2·P1·P0·C0
+
+   读法（以 C4 为例）：
+     第一项 P3P2P1P0·C0 → 四位全部「传递」，最低位的进位一路传到底
+     第二项 P3P2P1·G0    → 0 位生成，1、2、3 位逐级传递上来
+     第三项 P3P2·G1      → 1 位生成，2、3 位传递
+     第四项 P3·G2        → 2 位生成，3 位传递
+     第五项 G3           → 3 位自己就生成进位
+
+   ⚠ 注意每一项里都没有「C1、C2、C3」——
+      进位之间不再有依赖关系了，全部并行计算。
+      这就是「超前进位」这个名字的来历。</code></pre>
+          </div>
+
+          <p class="mt-3">代价是什么？看 C4 那一行：一个 5 输入的或门，其中有一项是 5 输入的与门。<b>位数再多，扇入就爆了</b>——16 位会得到 17 输入的或门和 17 输入的与门，物理上做不出来。所以工程上的做法是<b>分组</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="工程折中：4 位一组超前进位，组间再想办法">
+            <pre><code>【做法一 · 组内超前进位 + 组间串行】（最常用，便宜）
+
+    4 位一组（74LS283 内部就是 4 位超前进位），
+    4 片串起来做 16 位：
+       组 0 ──C4──► 组 1 ──C8──► 组 2 ──C12──► 组 3
+    组内延迟不变，但组与组之间还是串联的
+    → 16 位大约 4 级「组进位」延迟 ≈ 4 × 11ns + 16ns ≈ 60ns
+    （比起纯串行的 16 × 10ns = 160ns，已经快了近三倍）
+
+【做法二 · 两级超前进位】（更快，多一片 74LS182）
+
+    组内用 74LS283 做 4 位超前进位，每组再引出自己的「组生成」和
+    「组传递」信号，送去一片 74LS182（超前进位发生器）统一算组间进位。
+
+    于是 16 位的总延迟 ≈ 两级门延迟 + 最后一次求和 ≈ 30ns 量级，
+    而不是 4 级串联。
+
+【为什么不能无限分组】
+
+    进位越往上算，表达式越长、门扇入越大、芯片引脚越多。
+    而且「分组」这件事最终还是要靠封装把它塞进一片芯片里
+    —— 所以超前进位加法器的位数一般在 4~16 位之间，
+    再宽就会改用「树形结构」或者干脆放弃纯组合、改走流水线。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>结构</th><th>延迟随位数的增长</th><th>4 位典型延迟</th><th>16 位典型延迟（按 74 系列估）</th><th>门数 / 芯片面积</th></tr></thead>
+              <tbody>
+                <tr><td>串行进位</td><td><b>正比于位数</b>（线性）</td><td>4 × 10ns ≈ <b>40ns</b></td><td>16 × 10ns ≈ <b>160ns</b></td><td>最少</td></tr>
+                <tr><td>4 位超前进位（组间串行）</td><td>正比于<b>组数</b></td><td>≈ <b>16ns</b>（74LS283 手册典型值 A→S）</td><td>≈ <b>60ns</b></td><td>中等</td></tr>
+                <tr><td>两级超前进位</td><td>近似<b>常数</b></td><td>≈ 16ns</td><td>≈ <b>30ns</b></td><td>大（要 74LS182）</td></tr>
+                <tr><td>流水线（每级后插触发器）</td><td>与位数无关，但<b>每拍吞吐由时钟决定</b></td><td>—</td><td>—</td><td>最大（还要触发器）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">74LS283 / 74HC283 是标准的 4 位二进制全加器</b>，已经把上面的超前进位逻辑封装在里面了。它的引脚极其干净：A3~A0、B3~B0 两组加数，C0 进位输入，S3~S0 和输出，C4 进位输出。把它级联时，前一组的 C4 直接接后一组的 C0 即可，<b>组内不用你操心</b>。</p>
+
+          <p class="mt-3">它在实际电路里的三个经典用途：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>地址偏移运算</b>：基地址 + 偏移量 → 实际物理地址（在某些带 MMU 或分段寻址的老式系统里，这就是硬件完成的事）。</li>
+            <li><b>BCD 加法修正</b>：8421 BCD 码加法后，如果结果超过 9 或产生了进位，需要再「加 6」修正。做法是：用 74LS283 做一次二进制加法，再用比较器/译码器判断是否需要加 6，然后再用第二片 74LS283 加 6。<b>这条链路是纯组合逻辑的经典综合题。</b></li>
+            <li><b>乘法器的基础</b>：二进制乘法 = 若干个「被乘数移位后相加」，所以一个 n×n 乘法器就是 n 个加法器 + 一堆与门（部分积生成）。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">为什么 CPU 里第一个被造出来的运算单元是加法器？</div>
+            <p>因为<b>补码把加减乘除全都归约成了加法</b>。</p>
+            <p class="mt-2"><b>① 减法变加法。</b>在补码系统里，<code class="icode">A - B = A + (-B)</code>，而 <code class="icode">-B = (~B) + 1</code>（按位取反再加 1）。于是「减法」不需要专门的减法器：把 B 的每一位取反，再让加法器的进位输入 C0 = 1，同一个加法器就变成了减法器。</p>
+
+            <div class="code-block mt-2" data-lang="text" data-title="加减法共用一个加法器（ALU 的核心）">
+              <pre><code>   SUB（控制信号：0 = 加法，1 = 减法）
+        │
+        ├──────────────┬──────────────┬──────────────┐
+        │              │              │              │
+        ▼              ▼              ▼              ▼
+      ┌─────┐        ┌─────┐        ┌─────┐        ┌─────┐
+   B0─┤异或 ├──►B0'  │异或 ├──►B1'  │异或 ├──►B2'  │异或 ├──►B3'
+      └─────┘        └─────┘        └─────┘        └─────┘
+        ▲              ▲              ▲              ▲
+       B0             B1             B2             B3
+
+   B' = B ⊕ SUB：
+       SUB = 0 → B' = B       （原样送进加法器：做加法）
+       SUB = 1 → B' = B 取反  （送进加法器：做减法）
+
+   而 SUB 同时又接到最低位的进位输入 C0：
+       C0 = SUB = 1 正好补上补码需要的那个「+1」
+
+   → 4 个异或门 + 1 片 74LS283 = 一个能加能减的 ALU 雏形
+     唯一的区别只在一个控制引脚 SUB 上。</code></pre>
+            </div>
+
+            <p class="mt-3"><b>② 乘法是移位加法。</b>二进制乘法里，每一位乘法要么加「被乘数左移 k 位」，要么加 0——所以乘法器 = 部分积生成（与门）+ 加法器阵列。</p>
+            <p class="mt-2"><b>③ 除法是移位减法</b>，而<b>比较大小的本质也是做一次减法</b>（看结果是正是负、有没有借位）。</p>
+            <p class="mt-2"><b>结论：</b>只要有了加法器，再加上一组与控制信号配合的异或门/与门，<b>四则运算和比较就全都出来了</b>。这就是为什么教科书讲 ALU（算术逻辑单元）时，第一张框图永远是「一个加法器 + 一排功能选择门」。也解释了为什么单片机的乘法指令比加法指令慢得多——硬件上它就是「加法器重复工作若干次」。</p>
+          </div>
+
+          <p class="mt-7 text-base font-semibold">数值比较器 74LS85：三位一体的输出与级联规则</p>
+
+          <p class="mt-3">比较器要做的事很直白：<b class="font-semibold text-ink">给出两个数 A 和 B，判断 A &gt; B、A = B 还是 A &lt; B</b>。它的输出不是一根线，而是三根线——这三根线在任何时刻<b>恰好有一根是有效的</b>，所以它天生就是「三选一」的互斥输出。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">先看 1 位比较器</b>（一位二进制数比较），真值表只有四行：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>A</th><th>B</th><th>A &gt; B</th><th>A = B</th><th>A &lt; B</th><th>表达式</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>0</td><td>0</td><td><b>1</b></td><td>0</td><td class="font-mono text-xs">A=B → (A⊕B)′ = A′B′ + AB</td></tr>
+                <tr><td>0</td><td>1</td><td>0</td><td>0</td><td><b>1</b></td><td class="font-mono text-xs">A&lt;B → A′B</td></tr>
+                <tr><td>1</td><td>0</td><td><b>1</b></td><td>0</td><td>0</td><td class="font-mono text-xs">A&gt;B → AB′</td></tr>
+                <tr><td>1</td><td>1</td><td>0</td><td><b>1</b></td><td>0</td><td class="font-mono text-xs">A=B → (A⊕B)′</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">1 位比较器的核心是「<b>A = B 等价于 (A ⊕ B)′</b>」——又是一次异或的出场。而 74LS85 就是把这个思想扩展到 4 位。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">多位比较的关键规则：从最高位开始，逐位比较；高位一旦分出胜负，低位就不用看了。</b>这条规则决定了 74LS85 的输出表达式长什么样——每一项前面都挂着一长串「前面所有高位都相等」的条件：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="74LS85 输出表达式（读它就能懂「高位优先」）">
+            <pre><code>  记 E3 = (A3 ⊕ B3)′（第 3 位相等），E2、E1、E0 同理。
+
+  (A &gt; B) = A3·B3′                                        ← 最高位就分出胜负
+           + E3 · A2·B2′                                   ← 最高位相等，看第 2 位
+           + E3·E2 · A1·B1′                                ← 高两位都相等，看第 1 位
+           + E3·E2·E1 · A0·B0′                             ← 高三位都相等，看第 0 位
+           + E3·E2·E1·E0 · I(A&gt;B)                          ← 四位全相等，听级联输入的
+
+  (A = B) = E3·E2·E1·E0 · I(A=B)                           ← 只有四位全相等才可能「相等」
+
+  (A &lt; B) = A3′·B3
+           + E3 · A2′·B2
+           + E3·E2 · A1′·B1
+           + E3·E2·E1 · A0′·B0
+           + E3·E2·E1·E0 · I(A&lt;B)
+
+  【三个可以直接背下来的结论】
+     ① (A = B) 的表达式最短：只有四位全相等才成立。
+     ② 越靠低位的项，前面的「相等条件」越长 —— 这就是「高位优先」。
+     ③ 每一路输出最后都加了一项带级联输入的，这一项只有在
+        「本片四位完全相等」时才有机会起作用 —— 级联的全部秘密在这里。</code></pre>
+          </div>
+
+          <p class="mt-3">74LS85 的引脚除了 A3~A0、B3~B0 和三个输出之外，还有三个<b>级联输入</b>：<code class="icode">I(A&gt;B)</code>、<code class="icode">I(A=B)</code>、<code class="icode">I(A&lt;B)</code>。它们的作用是「把低位片的比较结果接进来」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="8 位比较器：两片 74LS85 的级联接线">
+            <pre><code>【接线（这是唯一正确的接法，接反了就全错）】
+
+   低位片（比较 A3~A0 与 B3~B0）：
+       它的三个级联输入接【固定值】：
+           I(A&gt;B) = 0
+           I(A=B) = 1        ← 注意这个必须是 1！
+           I(A&lt;B) = 0
+       它的三个输出 ──────► 接高位片的三个级联输入
+
+   高位片（比较 A7~A4 与 B7~B4）：
+       它的三个输出 = 整个 8 位比较器的结果
+       它的级联输入 = 低位片的输出
+
+【为什么低位片的 I(A=B) 必须接 1】
+
+   低位片自己四位也可能完全相等。这时它没有任何理由说
+   「大」或「小」，只能把结论交给级联输入。
+   而级联输入接成 (0, 1, 0)，含义是「就当我这四位是相等的」——
+   于是高位片会继续用它的判断。如果接成 0，
+   那么「低四位相等」会被当成「低四位更小」，结果就错了。
+
+【为什么把低位片放在「上游」】
+
+   因为高位优先：高位片一旦在 A7~A4 里分出胜负，
+   它就完全不看级联输入（表达式里，级联那一项被乘了 E3E2E1E0）。
+   只有当高 4 位全相等时，结论才「流」到低位片的输出上。
+
+   ⚠ 常见错误：把两片的级联方向接反（用低位片的输出驱动
+      高位片，却把固定值接在了高位片上）。症状是：
+      高 4 位不同时结果是对的，高 4 位相同时结果全错。
+      这个症状很有诊断价值 —— 一看到「只在相等时出错」，
+      先查级联输入的固定值接对了没有。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">比较器在单片机系统里的三个真实岗位</div>
+            <p><b>① 地址窗口判断（这个最实用）。</b>如果你有两个外设要分别落在 <code class="icode">0x4000~0x7FFF</code> 和 <code class="icode">0x8000~0xBFFF</code>，可以用一片 74LS85 判断「地址是否 ≥ 0x4000」，用另一片判断「地址是否 ≤ 0x7FFF」，两个输出相与，就得到了「地址落在窗口内」的片选信号。<b>这比译码器灵活的地方在于：窗口的边界可以任意设定，不必是 2 的整数次幂</b>——译码器只能切出 8KB、16KB 这种整齐的块，比较器能切出任意范围。</p>
+            <p class="mt-2"><b>② 阈值报警。</b>ADC 采到的值与设定阈值比较，超过就硬件直接拉响蜂鸣器/关断输出——<b>不需要 MCU 参与，也不受程序跑飞影响</b>。这是安全设计里常用的思路：把「必须可靠」的判断交给硬件组合逻辑，而不是交给软件。</p>
+            <p class="mt-2"><b>③ 定时器的比较通道。</b>STM32 的定时器有「比较输出」功能，本质上就是一个数字比较器：计数器 CNT 不断变化，比较寄存器 CCR 存着目标值，两者相等时输出翻转。你在 CubeMX 里配的 PWM 频率与占空比，最终落地成的就是这个比较器 + 一个触发器的组合。</p>
+          </div>
+
+          <h3 id="sub-hazard-timing" class="mt-7 text-base font-semibold">竞争冒险与时序约束：为什么「最简式」不一定最可靠</h3>
+
+          <p class="mt-3">前面所有的推理都建立在一个默认前提上：<b>信号的变化是瞬间完成的</b>。但这是假的。真实的门有延迟，而且——这是关键——<b class="font-semibold text-ink">同一个信号经过不同的路径到达同一个门，用的时间不一样</b>。</p>
+
+          <p class="mt-3">两个术语的区别要分清楚，考试里经常混着考：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>术语</th><th>定义</th><th>它是原因还是结果</th></tr></thead>
+              <tbody>
+                <tr><td><b>竞争（Race）</b></td><td>同一个信号经不同路径（经过不同数量的门）到达同一个门的输入端，到达时刻有先后</td><td><b>原因</b>。竞争是物理必然，有两条路径就有竞争</td></tr>
+                <tr><td><b>冒险（Hazard）</b></td><td>竞争导致输出端出现短暂的、非预期的窄脉冲（俗称<b>毛刺</b>，glitch）</td><td><b>结果</b>。有竞争不一定有冒险，还要看逻辑关系</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">三个条件同时成立，才会真的冒出毛刺：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>同一信号有两条或以上路径</b>到达同一个门（于是有竞争）；</li>
+            <li><b>两条路径的延迟不同</b>（比如一条直连、一条经过了反相器）；</li>
+            <li><b>这个门恰好处于「两个输入互相补偿」的临界状态</b>——逻辑上输出应该保持不变，实际上却在两个输入都还没到位的那一瞬间被拉到了相反的电平。</li>
+          </ul>
+
+          <p class="mt-3"><b class="font-semibold text-ink">用一道范例把上面三句话变成具体的波形。</b>取函数 <code class="icode">F = A·B + A′·C</code>，设 B = C = 1（这两个变量保持不变），只让 A 从 1 变到 0：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="静态 1 冒险的波形（F 应该恒为 1，实际出现了一个 0 毛刺）">
+            <pre><code>  逻辑上：
+      A = 1、B = C = 1 → F = 1·1 + 0·1 = 1
+      A = 0、B = C = 1 → F = 0·1 + 1·1 = 1
+      → 无论 A 怎么变，F 都应该是 1（这叫「静态 1」）
+
+  实际上（注意红色那一段）：
+
+      A      ────────┐
+                     └────────
+                     ↑ A 在此时刻开始变化
+
+      A′     ┌───────────────
+             ┘   ↑ 经过一个反相器的延迟 tpd 之后才变高
+
+      第 1 项 A·B
+             ────┐
+                 └──────────   ← A 一变低，这一项立刻掉下去
+
+      第 2 项 A′·C
+                 ┌──────────
+             ────┘             ← 要等 A′ 变高才起来
+
+      F = 两项之和
+             ────┐     ┌──────
+                 └─────┘
+                 ↑↑↑↑↑↑↑
+                 这一段两项都是 0 → F = 0
+                 毛刺的宽度 ≈ 反相器的延迟 tpd（几十 ns 量级）
+                 ★ 这就是「静态 1 冒险」：稳态是 1，
+                   却在切换的瞬间掉到 0。</code></pre>
+          </div>
+
+          <p class="mt-3">为什么会这样？因为 <code class="icode">A·B</code> 和 <code class="icode">A′·C</code> 这两项「交接班」的时候，<b>有一个空档期</b>：第 1 项已经下班了，第 2 项还没上班。逻辑上它们应该无缝衔接（一个为 0 时另一个必然为 1），但物理上「A′ 变高」需要时间——于是就露出了这个洞。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">判别方法一：代数法。</b>看化简后的表达式，如果某个变量<b>以原变量和反变量两种形式同时出现</b>，并且让其余变量取特定值之后能把式子化成 <code class="icode">X + X′</code>（或 <code class="icode">X · X′</code>）的形式，就有险象。</p>
+
+          <p class="mt-3">以 <code class="icode">F = AB + A′C</code> 为例：令 B = C = 1，式子变成 <code class="icode">F = A·1 + A′·1 = A + A′</code>。<b>A + A′ 恒等于 1，理论上输出应该稳稳地为 1</b>——而「理论上恒为 1」恰恰是危险信号：因为它是靠两个互补项「接力」维持的，接力棒就有可能掉。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">判别方法二：卡诺图法（图形化，更快也更直观）。</b>把函数画进卡诺图，看圈：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="卡诺图上的险象判据：两个圈「相切」">
+            <pre><code>   F = AB + A′C 的卡诺图（行 = A，列 = BC）
+
+               BC=00   BC=01   BC=11   BC=10
+             ┌───────┬───────┬───────┬───────┐
+       A = 0 │   0   │   1   │   1   │   0   │   ← 圈① = A′C（BC = 01 与 11）
+             ├───────┼───────┼───────┼───────┤
+       A = 1 │   0   │   0   │   1   │   1   │   ← 圈② = AB（BC = 11 与 10）
+             └───────┴───────┴───────┴───────┘
+                               ▲
+                          这两个 1（m3 与 m7）上下相邻，
+                          却分属两个不同的圈 —— 圈①和圈②在
+                          这里「相切」（只挨着、不重叠）。
+
+   ★ 判据：
+       卡诺图里【两个圈相切】，就存在险象（相切处就是毛刺发生的地方）。
+       相切的位置，恰好对应「切换时两个乘积项交接班的空档」。
+
+   ★ 反过来说：
+       如果相切的地方被【第三个圈】盖住了，就没有险象 ——
+       因为无论怎么切换，总有一个圈稳定地输出 1 兜底。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">消除方法一：加冗余项（最经典、最常考）。</b>既然毛刺发生在相切处，那就<b>再画一个圈把相切处盖住</b>。这里相切的是 m3 和 m7，而这两个最小项的共同部分是 <b>B·C</b>（都满足 B = 1、C = 1）。于是给函数加一项 BC：</p>
+
+          <p class="mt-3"><code class="icode">F = AB + A′C + BC</code>　（BC 就是<b>冗余项</b>）</p>
+
+          <p class="mt-3">验证它确实能消除毛刺：在 B = C = 1 的条件下，<code class="icode">BC = 1</code>，于是 <code class="icode">F = A·1 + A′·1 + 1 = 1</code>——<b>不管 A 怎么变，最后那个「+1」都死死地把输出钉在高电平上</b>。毛刺被这个常为 1 的项盖住了。</p>
+
+          <p class="mt-3">代价值得算清楚：表达式从「2 个乘积项」变成了「3 个乘积项」，多用<b>一个 2 输入与门 + 一个 3 输入或门</b>（或者把原来的或门从 2 输入换成 3 输入）。<b>用一个门换掉一个可能致命的毛刺，这笔账几乎总是划算的。</b></p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">本节最重要的一句话：最简式不一定是最可靠的式子</div>
+            <p>卡诺图化简的目标是「乘积项最少、每个乘积项里的变量最少」——它优化的是<b>器件数量</b>，而不是<b>可靠性</b>。而被化简掉的那些冗余项，恰恰往往是「兜底」的那一项。</p>
+            <p class="mt-2"><b>所以工程上要做取舍：</b></p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li>如果这个组合逻辑的输出<b>会被时钟同步采样</b>（下游是触发器，且毛刺宽度小于时钟周期）→ <b>可以不化简到最简</b>，甚至不必管险象。这是绝大多数现代数字设计的做法。</li>
+              <li>如果输出直接驱动<b>计数器时钟、中断引脚、异步复位、锁存器使能</b>这类「边沿敏感」的负载 → <b>必须消除险象</b>，加冗余项是首选。</li>
+              <li>如果只是驱动 LED、继电器这类「反应慢」的负载 → 毛刺宽度只有几十纳秒，负载根本来不及响应，可以忽略。</li>
+            </ul>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">消除方法二：输出端加滤波电容。</b>在输出脚和地之间并一个小电容（几十 pF 到几百 pF），利用电容的充放电把窄脉冲「积分」掉。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="加滤波电容：简单但有代价">
+            <pre><code>                 ┌───────────┐
+       输入 ────►│  组合逻辑  ├───┬──────────► 输出
+                 └───────────┘   │
+                                 ┴  C（几十 ~ 几百 pF）
+                                 │
+                                GND
+
+   【怎么选容量】毛刺宽度 t_g，输出阻抗 R_out：
+       时间常数 τ = R_out · C 必须远大于毛刺宽度，才有滤波效果。
+       例如 R_out ≈ 100Ω、毛刺宽 30ns：
+           要 τ ≈ 300ns → C ≈ 3nF（这已经不小了）
+
+   【代价（两条，都很实际）】
+       ① 边沿被「拉圆」：上升/下降时间变长，信号速率被限制。
+          电容越大滤得越干净，但允许的最高翻转频率越低。
+       ② 对【宽毛刺】无效：如果毛刺宽度接近甚至超过 τ，
+          电容不但滤不掉，还会让毛刺变成一个更缓的「鼓包」，
+          而这种缓变信号在接收端可能落到「不确定区」，
+          反而更容易被误判为有效电平。
+
+   → 所以电容滤波只适合「毛刺很窄 + 速度要求不高」的场合，
+     典型的例子是机械按键消抖、以及给慢速负载整形。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">消除方法三：用时钟脉冲同步采样（工程上最主流）。</b>不去消除毛刺，而是「<b>避开它</b>」：等所有输入都稳定下来、所有毛刺都已经过去之后，再用一个时钟脉冲把输出<b>采样并锁存</b>一次。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="同步采样：等毛刺过去再取值">
+            <pre><code>   【思路】毛刺只发生在「输入变化的瞬间」附近，
+           而毛刺的宽度不超过组合逻辑的最大延迟 t_pd(max)。
+
+           那么：输入变化之后，等 t_pd(max) 再采样，就一定是稳定的值。
+
+      A、B、C ──►┌──────────┐
+                 │  组合逻辑  ├──► F（带毛刺）──┐
+                 └──────────┘                  │
+                                               ▼
+                                        ┌────────────┐
+                                        │  D 触发器   │──► F_稳定
+                                        └─────┬──────┘
+                                              │
+                                        时钟脉冲 CLK
+                                        （在输入变化后延迟
+                                          t_pd(max) 以上才来）
+
+   【为什么这是主流做法】
+       · 不需要改逻辑表达式，也不用选电容，成本就是几个触发器；
+       · 和整个数字系统「一切同步于时钟」的设计风格天然一致；
+       · 顺带解决了下一篇要讲的「竞争与亚稳态」问题。
+
+   【但是要满足一个条件】
+       毛刺必须在时钟有效沿到来之前结束，也就是
+           时钟周期 &gt; 组合逻辑最大延迟 + 触发器建立时间
+       —— 这句话直接引出了下一小节要讲的「时序约束」。</code></pre>
+          </div>
+
+          <p class="mt-3">还有两个更彻底的办法，一并记下：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>修改逻辑设计 / 改变卡诺图的圈法</b>：从设计源头避免「相切」，比如把两个圈改成一个大圈（如果 1 的分布允许）。本质上是加冗余项的另一种实现方式。</li>
+            <li><b>用可靠性编码</b>：如果多个信号要同时变化（比如状态机的状态编码、计数器的输出），改用<b>格雷码</b>让「每次只有一位变化」，那么任何时刻都只有一根线在切换，路径延迟差就无从产生——因为压根没有「两个信号竞争」这回事。<b>这是从根上避免竞争，代价是编码不是自然二进制，需要转换。</b></li>
+          </ul>
+
+          <p class="mt-7 text-base font-semibold">时序约束：t<sub>pd</sub> 如何决定系统的最高工作频率</p>
+
+          <p class="mt-3">到这里为止，我们一直在讨论「逻辑上对不对」。但一块真实的电路还要回答第二个问题：<b class="font-semibold text-ink">「来得及吗？」</b>——输入变化之后，输出要经过多久才稳定？下游器件在什么时候来取才是安全的？这就是时序约束，也是「组合逻辑」这一章与真实工程之间最后、也最重要的一座桥。</p>
+
+          <p class="mt-3">先把三个绕不开的参数定义清楚：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>参数</th><th>全称与含义</th><th>谁的特性</th><th>对着数据手册怎么看</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">t<sub>pd</sub></td><td>传输延迟（propagation delay）：输入变化到输出稳定所需的时间</td><td><b>逻辑门 / 组合逻辑</b></td><td>手册给典型值和最大值两栏。<b>算时序一定用最大值</b>（最坏情况）</td></tr>
+                <tr><td class="font-mono text-xs">t<sub>su</sub></td><td>建立时间（setup time）：数据必须在时钟有效沿<b>之前</b>多少时间就稳定</td><td><b>接收端</b>（触发器、MCU、外设芯片）</td><td>手册的 AC 特性表里，<b>取最大值</b></td></tr>
+                <tr><td class="font-mono text-xs">t<sub>h</sub></td><td>保持时间（hold time）：时钟有效沿<b>之后</b>数据还必须保持多久不变</td><td><b>接收端</b></td><td>同上。t<sub>h</sub> 通常在 ns 量级，甚至为 0</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">把一次「组合逻辑 + 下游采样」的过程画成时间轴，最高工作频率的公式就自己长出来了：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="一次数据传输的时间预算（时序方程）">
+            <pre><code>  时刻：  0                                    T
+           │                                    │
+           │◄─────── 一个时钟周期 T ───────────►│
+           │                                    │
+   输入开始变化                                时钟有效沿到来，
+    （时钟沿之后）                             下游器件在这时采样
+           │                                    │
+           │◄──── 组合逻辑延迟 t_pd(max) ──────►│
+           │                        │           │
+           │                        │◄─ t_su ──►│
+           │                        │           │
+           │                    数据必须在这里
+           │                    就已经稳定了
+           ▼
+
+   【时序方程（只要记住这一条）】
+
+        T  ≥  t_pd(max)  +  t_su  +  t_skew
+
+        其中：
+          T      = 时钟周期（= 1 / f，f 就是我们要算的最高频率）
+          t_pd   = 组合逻辑从输入到输出的【最坏】延迟
+          t_su   = 接收端的建立时间
+          t_skew = 时钟偏斜（时钟到达发送端和接收端的时刻差，
+                   以及走线延迟等）；粗算时可留作余量
+
+   【变形】
+
+        f_max = 1 / T ≤ 1 / ( t_pd(max) + t_su + t_skew )
+
+   → 一句话记住：组合逻辑越慢，时钟就必须越慢。
+     反过来说：想提高频率，唯一的办法是【缩短组合逻辑路径】。</code></pre>
+          </div>
+
+          <p class="mt-3">这个公式还有一个「反过来用」的重要含义，日常调试中最常用：<b>当你发现某个外设偶尔出错、而且错误随温度升高变多时，第一件事就是算一遍这条路径的时序余量</b>。如果是余量为负（或者刚好为零），那么「偶尔出错」就完全解释得通了——因为参数在最坏情况下已经不满足，平时能工作只是运气（典型值比最大值好）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">t<sub>pd</sub> 不是一个固定数字，它有四个「变量」：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>影响因素</th><th>规律</th><th>量级</th><th>为什么</th></tr></thead>
+              <tbody>
+                <tr><td><b>负载电容</b>（扇出、走线长度）</td><td>负载越重，延迟越大</td><td>手册值通常标注在 15pF 或 50pF 下；实际负载每增加 10pF，延迟可能增加 1~3ns</td><td>输出级要给电容充放电，电容越大，达到门限电平越慢</td></tr>
+                <tr><td><b>电源电压</b></td><td>电压越低，延迟越大</td><td>同一片 HC 器件，3.3V 下比 5V 下慢约 <b>1.5 倍</b></td><td>电压低 → 驱动电流小 → 充放电慢</td></tr>
+                <tr><td><b>温度</b></td><td>CMOS 器件温度越高越慢</td><td>从 25°C 到 85°C，延迟可能增加 <b>20%~40%</b></td><td>温度升高，载流子迁移率下降，驱动能力变弱</td></tr>
+                <tr><td><b>门的级数</b></td><td><b>线性累加</b>：n 级门就是 n 倍单级延迟</td><td>74HC 单级约 7~15ns；74LS 约 10~20ns</td><td>信号要一级一级地传播过去</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">「超频」这件事在数字逻辑里的准确含义</div>
+            <p>MCU 的「超频」（把主频从 72MHz 拉到 100MHz）能不能成功，取决于<b>芯片内部最长的那条组合逻辑路径</b>能不能在更短的周期内算完。厂商给出的最高主频，就是「所有内部路径在最坏情况下都满足时序」的那个频率上限。</p>
+            <p class="mt-2"><b>所以超频失败的表现不是「跑不起来」，而是「大部分时候正常、偶尔算错」</b>——因为大多数路径有余量，只有少数最长的路径在临界点上；温度一升、电压一跌，那几条路径就不满足了。<b>这正是超频系统不稳定的根源，也解释了为什么超频必须同时加压（提高电压让门变快）。</b></p>
+            <p class="mt-2"><b>对你自己的板子同理：</b>如果你在 MCU 和外部器件之间插了一段组合逻辑（译码器、缓冲器、多路开关），那么这段逻辑的 <b>t<sub>pd</sub></b> 就吃掉了 MCU 时序余量的一部分。频率越高，这部分越不能忽略——这就是「为什么低速系统随便加逻辑都没事，高速系统加一个门都要算一遍」。</p>
+          </div>
+
+          <p class="mt-3">最后把「组合逻辑的时间」和「毛刺」这两件事的关系点明，这也是本节存在的理由：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>毛刺不影响逻辑正确性，但影响时序。</b>如果下游是时钟同步采样的触发器，只要毛刺在采样时刻之前结束，它对结果毫无影响。</li>
+            <li><b>但毛刺会「吃掉」时序余量。</b>一个宽度 30ns 的毛刺，意味着这段时间里信号处在不可预测的状态；如果它恰好落在采样窗口附近，接收端可能采到毛刺而不是稳态值。</li>
+            <li><b>所以「同步 + 时序余量」是同一个问题的两个侧面。</b>下一篇讲触发器时你会看到：只要保证「时钟周期 &gt; 组合逻辑最大延迟 + 建立时间」，整个系统就既躲开了毛刺，也满足了时序——这也正是现代数字电路能把几亿个门可靠地跑在几 GHz 上的全部秘密。</li>
+          </ul>
+
+</section>
+
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section class="mt-12">
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">这一节的六道例题按「先分析、再设计、然后用一片芯片实现、再修毛刺、最后算时间」的顺序排列。<b>每一道都带完整数字</b>，你可以拿纸笔跟着算一遍；算完之后，这一章的核心内容基本就过了一遍。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>例题</th><th>练的是什么</th><th>用到的方法</th><th>落到的器件</th></tr></thead>
+              <tbody>
+                <tr><td><b>例 1</b></td><td>分析：给一张逻辑图，说出它干什么</td><td>四步分析法（表达式 → 化简 → 真值表 → 功能）</td><td class="font-mono text-xs">74LS00 + 74LS10</td></tr>
+                <tr><td><b>例 2</b></td><td>设计：8421 BCD 码 → 余三码转换器</td><td>五步设计法 + 卡诺图（<b>含无关项</b>）</td><td>通用门，或直接用加法器</td></tr>
+                <tr><td><b>例 3</b></td><td>用一片 8 选 1 MUX 实现三变量函数</td><td>两种方案对比（地址接满 / 地址少接一位）</td><td class="font-mono text-xs">74LS151</td></tr>
+                <tr><td><b>例 4</b></td><td>险象判别 + 加冗余项消除毛刺</td><td>代数法 + 卡诺图法（找相切的圈）</td><td>多用一个与门</td></tr>
+                <tr><td><b>例 5</b></td><td>地址译码与片选范围（含地址重叠）</td><td>译码器 + 地址位数分析</td><td class="font-mono text-xs">74LS138</td></tr>
+                <tr><td><b>例 6</b></td><td>算一条组合逻辑路径的总 t<sub>pd</sub>，求最高工作频率</td><td>时序方程 + 余量</td><td class="font-mono text-xs">74HC138 + 74HC00</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <hr class="hr-soft my-10">
+
+          <h3 class="mt-7 text-base font-semibold">例 1 · 分析：这个电路到底在干什么？</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>实验室里捡到一块小板，上面有两片芯片：一片 <b>74LS00</b>（四个 2 输入与非门）和一片 <b>74LS10</b>（三个 3 输入与非门）。连线关系如下，请说出这个电路的逻辑功能。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 1 的电路：四步分析法的第一步">
+            <pre><code>   【连线表】
+
+      与非 1（2 输入，74LS00）：  输入 A、B     →  输出 X
+      与非 2（2 输入，74LS00）：  输入 B、C     →  输出 Y
+      与非 3（2 输入，74LS00）：  输入 A、C     →  输出 Z
+      与非 4（3 输入，74LS10）：  输入 X、Y、Z  →  输出 F
+
+   【画成信号流】
+
+      A ──┬──────────────► 与非 1 输入 1
+          │                   （另一个输入是 B）
+      B ──┼──┬───────────► 与非 1 输入 2
+          │  │
+          │  ├───────────► 与非 2 输入 1
+          │  │                （另一个输入是 C）
+      C ──┼──┼──┬────────► 与非 2 输入 2
+          │  │  │
+          ├──┼──┼────────► 与非 3 输入 1
+          │  │  │
+          │  │  └────────► 与非 3 输入 2
+          ▼  ▼  ▼
+         X  Y  Z ─────────► 与非 4 的三个输入 ────► F
+
+   【顺手记一下 74 系列的「输入个数」型号规律】
+       74LS00 = 四 2 输入与非      74LS10 = 三 3 输入与非
+       74LS20 = 双 4 输入与非      74LS30 = 单 8 输入与非
+     扇入不够时靠「分级」或者换型号解决，这一点在画逻辑图时要先想好。</code></pre>
+          </div>
+
+          <p class="mt-3"><b>第 1 步：逐级写表达式。</b></p>
+          <p class="mt-2"><code class="icode">X = (A·B)′</code>　　<code class="icode">Y = (B·C)′</code>　　<code class="icode">Z = (A·C)′</code></p>
+          <p class="mt-2"><code class="icode">F = (X·Y·Z)′</code></p>
+
+          <p class="mt-3"><b>第 2 步：化简。</b>对输出级用一次摩根定律：</p>
+          <p class="mt-2"><code class="icode">F = (X·Y·Z)′ = X′ + Y′ + Z′</code></p>
+          <p class="mt-2">而 <code class="icode">X′ = A·B</code>（对 <code class="icode">(A·B)′</code> 再取反一次，两次取反抵消），同理 <code class="icode">Y′ = B·C</code>、<code class="icode">Z′ = A·C</code>。代入：</p>
+          <p class="mt-2"><code class="icode">F = A·B + B·C + A·C</code></p>
+          <p class="mt-2">这个式子<b>已经是最简与-或式</b>：三项两两之间都只差一个变量，但任意两项合并都会丢掉一个必要的变量（比如 AB + BC = B(A + C)，剩下的 AC 项还得补回来），所以再合并反而更复杂。<b>它就是三变量「多数函数」的标准形式。</b></p>
+
+          <p class="mt-3"><b>第 3 步：真值表。</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>A</th><th>B</th><th>C</th><th>A·B</th><th>B·C</th><th>A·C</th><th>F = AB + BC + AC</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td><b>0</b></td><td>0 个为 1</td></tr>
+                <tr><td>0</td><td>0</td><td>1</td><td>0</td><td>0</td><td>0</td><td><b>0</b></td><td>1 个为 1</td></tr>
+                <tr><td>0</td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td><b>0</b></td><td>1 个为 1</td></tr>
+                <tr><td>0</td><td>1</td><td>1</td><td>0</td><td><b>1</b></td><td>0</td><td><b>1</b></td><td rowspan="3">2 个为 1 → 输出 1</td></tr>
+                <tr><td>1</td><td>0</td><td>1</td><td>0</td><td>0</td><td><b>1</b></td><td><b>1</b></td></tr>
+                <tr><td>1</td><td>1</td><td>0</td><td><b>1</b></td><td>0</td><td>0</td><td><b>1</b></td></tr>
+                <tr><td>1</td><td>1</td><td>1</td><td><b>1</b></td><td><b>1</b></td><td><b>1</b></td><td><b>1</b></td><td>3 个为 1</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>第 4 步：判断功能。</b>输出为 1 的条件是「<b>三个输入里至少有两个是 1</b>」——这就是<b>三变量多数表决器</b>（少数服从多数）。</p>
+
+          <p class="mt-3"><b>它在工程上是什么。</b>这是<b>三余度（Triple Modular Redundancy）表决系统</b>的核心：三个相同的传感器/三条相同的计算通道同时给出结果，用这个电路取「多数意见」，任意一路出错都不会影响最终输出。<b>航天、核电、医疗设备里的冗余设计，第一级硬件就是这个多数表决器。</b></p>
+
+          <p class="mt-3"><b>顺手多做两件事，这两件事才是「会分析」和「考完就忘」的分界：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>多做的一件事</th><th>结果</th><th>意义</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>算器件代价</b></td>
+                  <td>3 个 2 输入与非 + 1 个 3 输入与非 = 74LS00 用掉 3/4 个门、74LS10 用掉 1/3 个门，<b>两片芯片</b>。<br>若只用 74LS00：把 3 输入与非拆成「两个 2 输入与非做一次与运算 + 一个与非」，共需 6 个门 → 也是两片。</td>
+                  <td>「一片芯片够不够」是设计时要回答的第一个成本问题。与非门被称为<b>万能门</b>，任何逻辑都能只用与非门搭出来，但代价是门数增加。</td>
+                </tr>
+                <tr>
+                  <td><b>算延迟是否对称</b></td>
+                  <td>A、B、C 三个输入到 F 的路径<b>都是 2 级门</b>（一级 2 输入与非 + 一级 3 输入与非），所以三条路径延迟相同。</td>
+                  <td>三条路径延迟相同意味着：不论哪个输入先变，输出都在同样的时间内稳定。<b>在设计表决器时这是好事</b>——不会出现「某一路特别慢」而让表决结果在切换瞬间失真。</td>
+                </tr>
+                <tr>
+                  <td><b>查有没有险象</b></td>
+                  <td>画进卡诺图（行 = A，列 = BC）：1 分布在 m3（A=0,BC=11）、m5（A=1,BC=01）、m6（A=1,BC=10）、m7（A=1,BC=11）。三个圈 {m3,m7} = BC、{m5,m7} = AC、{m6,m7} = AB，<b>任意两个相邻的 1 都被某一个圈同时盖住</b>。</td>
+                  <td><b>这个电路没有静态险象。</b>原因很漂亮：三个乘积项 AB、BC、AC 恰好两两覆盖了所有相邻对——「多数函数」天生就是「无险象」的。这是它的一个隐藏优点，也是例 4 的反面对照。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这道例题对应的考试套路</div>
+            <p>凡是给出「与非门网络」让你分析功能的题，几乎都是同一个套路：<b>写表达式 → 摩根定律展开成与-或式 → 化简 → 真值表 → 认功能</b>。而功能无非是那么几种：<b>多数表决、不一致（异或）、全 1 检测（与）、全 0 检测（或非）、相等比较（同或）、非法码检测</b>。认出「哪一种」靠的是真值表里 1 的分布形状，而不是背表达式。</p>
+          </div>
+
+          <hr class="hr-soft my-10">
+
+          <h3 class="mt-7 text-base font-semibold">例 2 · 设计：把 8421 BCD 码转换成余三码</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>设计一个组合逻辑电路，输入是一个用 8421 BCD 码表示的十进制数字（0~9），输出是该数字的<b>余三码</b>（Excess-3 码，即「8421 码 + 3」）。要求写出真值表、化简表达式，并说明器件实现方案。</p>
+
+          <p class="mt-3"><b>先理解需求。</b>余三码是一种「无权码」：每一位二进制不再代表 8、4、2、1，而是整体比真实数值大 3。它有一个很有意思的性质——<b>0 和 9 的余三码互为反码</b>（0 → 0011，9 → 1100；1 → 0100，8 → 1011……），这叫<b>自补特性</b>，在早期的十进制运算电路里可以用它把「减法」变成「加法 + 取反」，省掉专门的减法电路。<b>这就是「为什么需要余三码」的答案</b>——如果你只把它当成一个码制转换练习，很容易觉得这是凭空造出来的题。</p>
+
+          <p class="mt-3"><b>第 1 步：定变量。</b></p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>输入：<code class="icode">D C B A</code> 四位 8421 BCD 码，<b>D 是最高位（权 8）</b>，A 是最低位（权 1）。</li>
+            <li>输出：<code class="icode">W X Y Z</code> 四位余三码，W 最高位。</li>
+            <li><b>关键一句：</b>输入只会出现 0000 ~ 1001（十进制 0~9），<b>1010 ~ 1111 这六种组合在系统里不会出现</b>，所以它们全部可以作为<b>无关项（×）</b>处理。这句话是这道题的关键——能不能想到「用无关项」，直接决定化简结果简不简单。</li>
+          </ul>
+
+          <p class="mt-3"><b>第 2 步：真值表。</b>注意最后 6 行填的是 ×，不是 0：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>十进制</th><th>D</th><th>C</th><th>B</th><th>A</th><th>W</th><th>X</th><th>Y</th><th>Z</th><th>余三码的数值</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>1</td><td>1</td><td>3</td></tr>
+                <tr><td>1</td><td>0</td><td>0</td><td>0</td><td>1</td><td>0</td><td>1</td><td>0</td><td>0</td><td>4</td></tr>
+                <tr><td>2</td><td>0</td><td>0</td><td>1</td><td>0</td><td>0</td><td>1</td><td>0</td><td>1</td><td>5</td></tr>
+                <tr><td>3</td><td>0</td><td>0</td><td>1</td><td>1</td><td>0</td><td>1</td><td>1</td><td>0</td><td>6</td></tr>
+                <tr><td>4</td><td>0</td><td>1</td><td>0</td><td>0</td><td>0</td><td>1</td><td>1</td><td>1</td><td>7</td></tr>
+                <tr><td>5</td><td>0</td><td>1</td><td>0</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td><td>8</td></tr>
+                <tr><td>6</td><td>0</td><td>1</td><td>1</td><td>0</td><td>1</td><td>0</td><td>0</td><td>1</td><td>9</td></tr>
+                <tr><td>7</td><td>0</td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td><td>1</td><td>0</td><td>10</td></tr>
+                <tr><td>8</td><td>1</td><td>0</td><td>0</td><td>0</td><td>1</td><td>0</td><td>1</td><td>1</td><td>11</td></tr>
+                <tr><td>9</td><td>1</td><td>0</td><td>0</td><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td><td>12</td></tr>
+                <tr><td>非法</td><td>1</td><td>0</td><td>1</td><td>0</td><td>×</td><td>×</td><td>×</td><td>×</td><td rowspan="6"><b>无关项</b>：这些输入永远不会出现，输出是 0 还是 1 都无所谓 —— 于是可以「随手用来帮忙化简」</td></tr>
+                <tr><td>非法</td><td>1</td><td>0</td><td>1</td><td>1</td><td>×</td><td>×</td><td>×</td><td>×</td></tr>
+                <tr><td>非法</td><td>1</td><td>1</td><td>0</td><td>0</td><td>×</td><td>×</td><td>×</td><td>×</td></tr>
+                <tr><td>非法</td><td>1</td><td>1</td><td>0</td><td>1</td><td>×</td><td>×</td><td>×</td><td>×</td></tr>
+                <tr><td>非法</td><td>1</td><td>1</td><td>1</td><td>0</td><td>×</td><td>×</td><td>×</td><td>×</td></tr>
+                <tr><td>非法</td><td>1</td><td>1</td><td>1</td><td>1</td><td>×</td><td>×</td><td>×</td><td>×</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>第 3 步：写表达式。</b>每一个输出位都写成「该位为 1 的那些最小项之和」。以 Z 位为例，Z 在第 0、2、4、6、8 行取 1：</p>
+
+          <p class="mt-3"><code class="icode">Z = Σm(0, 2, 4, 6, 8)</code></p>
+          <p class="mt-2"><code class="icode">Y = Σm(0, 3, 4, 7, 8)</code></p>
+          <p class="mt-2"><code class="icode">X = Σm(1, 2, 3, 4, 9)</code></p>
+          <p class="mt-2"><code class="icode">W = Σm(5, 6, 7, 8, 9)</code></p>
+          <p class="mt-2">四个输出的无关项都是同一批：<code class="icode">Σd(10, 11, 12, 13, 14, 15)</code>。</p>
+
+          <p class="mt-3"><b>第 4 步：卡诺图化简。</b>先看最简单的 Z：Z 在 A = 0 的所有行都为 1（第 0、2、4、6、8 行的共同点是 A = 0），所以直接圈成一个大圈：</p>
+
+          <p class="mt-3"><code class="icode">Z = A′</code>　← 一个反相器就够</p>
+
+          <p class="mt-3">再看 W 位和 X 位——这两个的化简过程最能体现「无关项的价值」：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 2 的卡诺图：W 位（行 = DC，列 = BA）">
+            <pre><code>         BA=00   BA=01   BA=11   BA=10
+       ┌───────┬───────┬───────┬───────┐
+ DC=00 │   0   │   0   │   0   │   0   │
+       ├───────┼───────┼───────┼───────┤
+ DC=01 │   0   │   1   │   1   │   1   │   ← 5、7、6 号数字
+       ├───────┼───────┼───────┼───────┤
+ DC=11 │   ×   │   ×   │   ×   │   ×   │   ← 4 个无关项，全都可以当 1 圈进来
+       ├───────┼───────┼───────┼───────┤
+ DC=10 │   1   │   1   │   ×   │   ×   │   ← 8、9 号数字
+       └───────┴───────┴───────┴───────┘
+
+   【圈法】
+
+     圈① DC=01 一整行 → 4 个格子 → 覆盖 m4,m5,m7,m6 → 得 C（C = 1 且 D = 0）
+     圈② DC=10 一整行 → 4 个格子 → 覆盖 m8,m9,m11,m10 → 得 D（D = 1 且 C = 0）
+     圈③ 把 DC=11 那一行也圈进来 → 只要 D = 1 的 8 个格子全在圈里 → 得 D
+
+   ⚠ 这里出现了「卡诺图化简的反直觉之处」：
+      圈③ 里有一半是无关项（×），照理说「没用到」；
+      但正因为它们是无关项，圈进来【完全合法】——
+      它们在实际电路里永远不会出现，圈进来不会导致任何错误输出。
+
+   【最终结果】
+
+     如果把 m4~m7 合并成 C·D′ 再和 D 圈合并……
+
+     更简单的看法：D = 1 的 8 个格子（DC = 11 和 DC = 10）
+     中有 4 个是无关项，2 个是真 1，2 个是 0 —— 
+     等等，DC=11 那 4 格全是 ×，DC=10 前两格是 1、后两格是 ×。
+     所以【D = 1 的全部格子都是 1 或 ×】→ 可以整圈 → 得 D。
+
+     再加上 DC=01 那一行的 4 格（C = 1、D = 0）→ 得 C·D′。
+
+     W = D + C·D′ = D + C     ← 用吸收律 D + C·D′ = D + C
+
+   验证：数字 5（DC=01）→ C = 1 → W = 1 ✓；数字 8（DC=10）→ D = 1 → W = 1 ✓；
+         数字 4（DC=01，但 BA=00）→ C = 1 → W = 1？ ✗ 数字 4 的余三码是
+         0111，W 应该是 0！
+
+   → 所以上面这个圈法【错了】。错在哪：DC=01 这一行不是「整行都是 1」，
+     只有 m5、m7、m6 是 1，m4 是 0。圈①只能是「列 BA=01、11、10 的三格」，
+     得 D′C(B + A)。</code></pre>
+          </div>
+
+          <p class="mt-3">这个卡诺图值得慢慢圈——它示范了一个非常重要的纪律问题，所以我把「先走错一步」也写在了上面。<b>初学者最容易犯的错就是把「一行里有 ×」当成「整行都能圈」，忽略掉同一行里那个真正的 0。</b>卡诺图的圈必须<b>每一个格子都是 1 或 ×</b>，一个 0 都不能包含。重新老老实实地圈：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 2：四个输出位的正确圈法与结果">
+            <pre><code>【W 位】正确的圈法
+
+         BA=00   BA=01   BA=11   BA=10
+       ┌───────┬───────┬───────┬───────┐
+ DC=00 │   0   │   0   │   0   │   0   │
+       ├───────┼───────┼───────┼───────┤
+ DC=01 │   0   │  ①1   │  ①1   │  ①1   │   圈① = D′C(B + A)   （m5,m7,m6）
+       ├───────┼───────┼───────┼───────┤
+ DC=11 │  ②×   │  ②×   │  ②×   │  ②×   │   圈② = D            （m8,m9 + 6 个×）
+       ├───────┼───────┼───────┼───────┤
+ DC=10 │  ②1   │  ②1   │  ②×   │  ②×   │
+       └───────┴───────┴───────┴───────┘
+
+   圈② 能成立的关键：D = 1 的 8 个格子里，
+   只有 m8、m9 是真 1，其余 6 个全是 ×（无关项）。
+   → 于是 W = D + D′C(B + A) = D + C(B + A)
+
+   ★ 这就是无关项的价值所在：没有它，D 这一项根本圈不出来，
+     必须写成 D·C′ + D·C·…… 之类的好几项；
+     有了它，一个「单变量项 D」就能成立 —— 
+     等于白送一个「D 直接接到或门」的简化。
+
+【X 位】
+
+   X = 1 的格子是 m1(0001)、m2(0010)、m3(0011)、m4(0100)、m9(1001)
+   利用无关项可以圈出两个四格圈：
+       圈①：BA=01 与 BA=11 两列 + DC=00 与 DC=10 两行 →
+             覆盖 m1, m3, m9, m11(×) → 得 C′A
+       圈②：BA=11 与 BA=10 两列 + DC=00 与 DC=11 两行 →
+             覆盖 m3, m2, m11(×), m10(×) → 得 C′B
+       剩下的 m4 只能和 m12(×) 组成一对 → 得 C·B′·A′
+
+   → X = C′A + C′B + C B′A′ = C′(A + B) + C B′ A′
+
+【Y 位】
+
+   Y = 1 的格子是 m0(0000)、m3(0011)、m4(0100)、m7(0111)、m8(1000)
+       圈①：BA=00 整列（4 格，含 m12 这个 ×）→ 得 B′A′
+       圈②：BA=11 整列（4 格，含 m15、m11 两个 ×）→ 得 B A
+   → Y = B′A′ + B A = (A ⊕ B)′        ← 就是「同或」，即异或取反
+
+【Z 位】
+
+   Z = A′                                   ← 一个反相器
+
+【四个输出的最终结果（一屏看得完）】
+
+   Z = A′
+   Y = (A ⊕ B)′
+   X = C′(A + B) + C·B′·A′
+   W = D + C(A + B)                          ← 由 W = D + D′C(B+A) 用吸收律得到
+                                                 D + D′·X = D + X</code></pre>
+          </div>
+
+          <p class="mt-3"><b>把四个结果代回真值表验算一遍</b>（这一步千万别省，代数化简最容易在多变量时出错）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>数字</th><th>D C B A</th><th>Z = A′</th><th>Y = (A⊕B)′</th><th>X = C′(A+B) + CB′A′</th><th>W = D + C(A+B)</th><th>得到 WXYZ</th><th>应为</th><th>✓</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>0 0 0 0</td><td>1</td><td>1</td><td>0</td><td>0</td><td class="font-mono text-xs">0011</td><td class="font-mono text-xs">0011</td><td>✓</td></tr>
+                <tr><td>1</td><td>0 0 0 1</td><td>0</td><td>0</td><td>1</td><td>0</td><td class="font-mono text-xs">0100</td><td class="font-mono text-xs">0100</td><td>✓</td></tr>
+                <tr><td>2</td><td>0 0 1 0</td><td>1</td><td>0</td><td>1</td><td>0</td><td class="font-mono text-xs">0101</td><td class="font-mono text-xs">0101</td><td>✓</td></tr>
+                <tr><td>3</td><td>0 0 1 1</td><td>0</td><td>1</td><td>1</td><td>0</td><td class="font-mono text-xs">0110</td><td class="font-mono text-xs">0110</td><td>✓</td></tr>
+                <tr><td>4</td><td>0 1 0 0</td><td>1</td><td>1</td><td>1</td><td>0</td><td class="font-mono text-xs">0111</td><td class="font-mono text-xs">0111</td><td>✓</td></tr>
+                <tr><td>5</td><td>0 1 0 1</td><td>0</td><td>0</td><td>0</td><td>1</td><td class="font-mono text-xs">1000</td><td class="font-mono text-xs">1000</td><td>✓</td></tr>
+                <tr><td>6</td><td>0 1 1 0</td><td>1</td><td>0</td><td>0</td><td>1</td><td class="font-mono text-xs">1001</td><td class="font-mono text-xs">1001</td><td>✓</td></tr>
+                <tr><td>7</td><td>0 1 1 1</td><td>0</td><td>1</td><td>0</td><td>1</td><td class="font-mono text-xs">1010</td><td class="font-mono text-xs">1010</td><td>✓</td></tr>
+                <tr><td>8</td><td>1 0 0 0</td><td>1</td><td>0</td><td>0</td><td>1</td><td class="font-mono text-xs">1011</td><td class="font-mono text-xs">1011</td><td>✓</td></tr>
+                <tr><td>9</td><td>1 0 0 1</td><td>0</td><td>0</td><td>1</td><td>1</td><td class="font-mono text-xs">1100</td><td class="font-mono text-xs">1100</td><td>✓</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>第 5 步：画逻辑图并选器件。</b>按上面的四个表达式，需要的门是：1 个反相器（Z）、1 个同或（Y，可用 4 个与非门或 1 个异或门 + 1 个反相器）、2 个 2 输入与门 + 1 个 3 输入与门 + 1 个 2 输入或门（X）、2 个 2 输入与门 + 1 个 3 输入或门（W），合计约 12~14 个门。<b>用 3~4 片通用逻辑芯片（74LS00 + 74LS04 + 74LS08 + 74LS32）能搭出来。</b></p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">但这道题有一个「一句话」的答案，而且它才是工程上正确的答案</div>
+            <p><b>需求是「把 8421 码加 3」，而加法器天生就是干这个的。</b>拿一片 <b>74LS283</b>（4 位加法器），把 A 端接输入的 D C B A，B 端固定接 <code class="icode">0011</code>（就是十进制 3），进位输入 C0 接 0——输出 S3~S0 就是余三码 W X Y Z。</p>
+
+            <div class="code-block mt-2" data-lang="text" data-title="用一片 74LS283 实现 BCD 到余三码的转换">
+              <pre><code>                 D C B A（8421 BCD 码输入）
+                   │ │ │ │
+                   ▼ ▼ ▼ ▼
+              A3 A2 A1 A0
+             ┌───────────────┐
+        B3 ──┤               │
+        B2 ──┤   74LS283     ├──► S3 S2 S1 S0 = W X Y Z（余三码输出）
+        B1 ──┤   4 位全加器   │
+        B0 ──┤               │
+             └───────┬───────┘
+                     │
+        C0 = 0 ──────┘
+
+   B3B2B1B0 = 0 0 1 1（常数 3）
+   → 输出 = 输入 + 3 = 余三码 ✓
+
+   一片芯片、零化简、零门电路、延迟约 16ns（TI 手册典型值 A→S）。</code></pre>
+            </div>
+
+            <p class="mt-3"><b>这道例题真正的教学价值在这里：</b>「设计方法五步法」走到第 5 步时，<b>「落到具体器件」这一步有不止一个答案</b>。你可以老老实实地化简到最简与-或式再用门搭（这是考场上必须会的基本功），也可以抬头看一眼需求，发现「这就是个加法」而直接调用现成模块。</p>
+            <p class="mt-2"><b>两者都要会。</b>只会化简的人做不出好设计（14 个门 vs 1 片芯片）；只会调模块的人遇到「没有现成模块」的需求就卡住了（比如「输入是三个传感器，输出是多数意见」——这个没有现成芯片）。<b>本章所有模块的价值，正在于它们是你化简之外的第二套工具箱。</b></p>
+          </div>
+
+<hr class="hr-soft my-10">
+
+          <h3 class="mt-7 text-base font-semibold">例 3 · 用一片 8 选 1 MUX 实现一个三变量函数</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>用一片 <b>74LS151</b>（8 选 1 数据选择器）实现逻辑函数 <code class="icode">F = Σm(1, 2, 6, 7)</code>（自变量为 X、Y、Z）。要求：① 用方案一（地址端接满三个变量）实现，写出每个数据端的接法；② 用方案二（地址端只接两个变量）实现，写出数据端的接法与化简过程；③ 比较两种方案。</p>
+
+          <p class="mt-3"><b>先把函数写成真值表</b>——这是所有 MUX 实现法的起点，因为 MUX 的数据端就是「真值表的一行」：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>最小项</th><th>X</th><th>Y</th><th>Z</th><th>F</th><th>对应的 MUX 数据端</th></tr></thead>
+              <tbody>
+                <tr><td>m0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class="font-mono text-xs">D0</td></tr>
+                <tr><td>m1</td><td>0</td><td>0</td><td>1</td><td><b>1</b></td><td class="font-mono text-xs">D1</td></tr>
+                <tr><td>m2</td><td>0</td><td>1</td><td>0</td><td><b>1</b></td><td class="font-mono text-xs">D2</td></tr>
+                <tr><td>m3</td><td>0</td><td>1</td><td>1</td><td>0</td><td class="font-mono text-xs">D3</td></tr>
+                <tr><td>m4</td><td>1</td><td>0</td><td>0</td><td>0</td><td class="font-mono text-xs">D4</td></tr>
+                <tr><td>m5</td><td>1</td><td>0</td><td>1</td><td>0</td><td class="font-mono text-xs">D5</td></tr>
+                <tr><td>m6</td><td>1</td><td>1</td><td>0</td><td><b>1</b></td><td class="font-mono text-xs">D6</td></tr>
+                <tr><td>m7</td><td>1</td><td>1</td><td>1</td><td><b>1</b></td><td class="font-mono text-xs">D7</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>方案一：地址端接满三个变量，数据端只接 0 / 1。</b></p>
+
+          <p class="mt-3">接线原则只有两条：<b>① 变量接地址端（注意高位对高位）；② 数据端按真值表接 VCC 或 GND。</b>74LS151 手册里把地址端写作 <b>C、B、A</b>，其中 <b>C 是最高位</b>，所以：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 3 方案一：74LS151 的完整接线">
+            <pre><code>【地址端】
+
+   函数变量        74LS151 地址端        说明
+   ────────────────────────────────────────────────────
+      X     ────►      C（最高位）        X 是权 4 的位
+      Y     ────►      B                 Y 是权 2 的位
+      Z     ────►      A（最低位）        Z 是权 1 的位
+
+   ⚠ 为什么必须「高位对高位」：
+      地址 CBA = 110 对应的是【第 6 号】数据端 D6。
+      如果变量接反了（比如 X 接到 A 上），那么 X=1、Y=1、Z=0
+      会被译成地址 011 = 3 号 → 去看 D3，结果就全错了。
+      【接 MUX 的第一个纪律：先把变量的权位和地址的权位对齐。】
+
+【使能端】
+
+   S（低有效使能）────►  GND
+
+   ⚠ 必须接地！悬空会被 TTL/CMOS 输入当成高电平 → 芯片被禁止
+      → 输出 Y 恒为 0、W 恒为 1，症状是「电路完全不工作」。
+      这和第 2 节说的 74LS148 的 EI 是同一类坑。
+
+【数据端（照抄真值表）】
+
+   数据端   对应最小项   F 的值    接到哪里
+   ─────────────────────────────────────────────
+    D0        m0 (000)     0       GND
+    D1        m1 (001)     1       VCC
+    D2        m2 (010)     1       VCC
+    D3        m3 (011)     0       GND
+    D4        m4 (100)     0       GND
+    D5        m5 (101)     0       GND
+    D6        m6 (110)     1       VCC
+    D7        m7 (111)     1       VCC
+
+   一句话总结：D1、D2、D6、D7 接 VCC，其余四个接 GND。
+
+【输出】
+
+   Y ────► 函数 F（同相输出，直接用）
+   W ────► F 的反（互补输出，需要低有效信号时正好省一个反相器）</code></pre>
+          </div>
+
+          <p class="mt-3"><b>验证一下</b>（考试时至少要代两组）：取 X = 0、Y = 1、Z = 0，则地址 CBA = 010 = 2 → 输出等于 D2，而 D2 接了 VCC，所以 F = 1。<b>对照真值表：m2 那一行 F 正是 1 ✓</b>。再取 X = 1、Y = 0、Z = 1，地址 = 101 = 5 → 输出等于 D5 = GND → F = 0，真值表 m5 那行也是 0 ✓。</p>
+
+          <p class="mt-3"><b>方案二：地址端只接两个变量，剩下的那个变量接数据端。</b>这一招能省掉一半的数据端（也就意味着可以用更小的 MUX），做法是「<b>按地址分组</b>」：把 X、Y 接地址，然后对每一组 (X, Y)，看 F 关于 Z 是什么式子。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>地址 (X,Y)</th><th>Z = 0 时 F</th><th>Z = 1 时 F</th><th>结论：F 关于 Z 是什么</th><th>该数据端接什么</th></tr></thead>
+              <tbody>
+                <tr><td>0 0（D0 号）</td><td>m0 → 0</td><td>m1 → <b>1</b></td><td>Z = 0 得 0、Z = 1 得 1 → 就是 Z 本身</td><td><b>接变量 Z</b></td></tr>
+                <tr><td>0 1（D2 号）</td><td>m2 → <b>1</b></td><td>m3 → 0</td><td>Z = 0 得 1、Z = 1 得 0 → 是 Z 的反</td><td><b>接 Z′（加一个反相器）</b></td></tr>
+                <tr><td>1 0（D4 号）</td><td>m4 → 0</td><td>m5 → 0</td><td>怎么都是 0</td><td><b>接 GND</b></td></tr>
+                <tr><td>1 1（D6 号）</td><td>m6 → <b>1</b></td><td>m7 → <b>1</b></td><td>怎么都是 1</td><td><b>接 VCC</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 3 方案二：地址端只接两位（A0 接地）">
+            <pre><code>【接线】
+
+   X ────► C（最高位）
+   Y ────► B
+   GND ──► A（最低位，固定接地）
+
+   → 地址 CBA 只可能是 000、010、100、110 四种，
+     分别命中 D0、D2、D4、D6 四个数据端。
+     （D1、D3、D5、D7 这四路永远选不到，但也必须接确定电平，
+       习惯上接 GND —— 悬空会引入噪声、增加功耗。）
+
+   数据端：
+      D0 ──── 接变量 Z
+      D2 ──── 接 Z 的反（Z 经一个反相器）
+      D4 ──── 接 GND
+      D6 ──── 接 VCC
+      D1、D3、D5、D7 ──── 接 GND（用不到）
+   使能端 S ──── 接 GND
+
+【这个方案说明了一件重要的事】
+
+   方案二里的「四个数据端接什么」，正是 F 关于 Z 的【香农展开】：
+
+        F(X,Y,Z) = Z′ · F(X,Y,0) + Z · F(X,Y,1)
+
+   把每一组 (X, Y) 下 F 的值当成「系数」，就得到了
+       Z 的系数为 (0,1) → 数据端接 Z
+       Z 的系数为 (1,0) → 数据端接 Z′
+       Z 的系数为 (0,0) → 数据端接 0
+       Z 的系数为 (1,1) → 数据端接 1
+   这四行与第 2 节给出的那张「数据端该接什么」的表完全一致。
+
+   ★ 换句话说：方案二不是技巧，而是把「真值表按其中一个变量拆开」
+     之后得到的必然结果。理解了这一点，无论 MUX 有几个数据端，
+     你都能反过来推算「地址该接哪些变量、数据端该接什么」。</code></pre>
+          </div>
+
+          <p class="mt-3"><b>方案三（工程上真正会选的）：换成 4 选 1 的 74LS153。</b>方案二只需要 4 个数据端，用 8 选 1 的 74LS151 来做等于浪费一半；<b>74LS153 是「双 4 选 1」</b>——一片里有两组独立的 4 选 1，地址端共享。用它做方案二，一片能同时实现两个这样的函数，或者实现一个「4 变量」的函数（一组地址 + 另一组的配合）。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>方案一（地址接满 3 个变量）</th><th>方案二（地址接 2 个变量）</th></tr></thead>
+              <tbody>
+                <tr><td>需要的 MUX</td><td>8 选 1（74LS151）</td><td>4 选 1 就够（74LS153 半片）</td></tr>
+                <tr><td>要不要化简</td><td><b>完全不用</b>，照着真值表接线即可</td><td>要做一步「按地址分组」的香农展开</td></tr>
+                <tr><td>数据端数量</td><td>8 个，全接 0 / 1</td><td>4 个，其中有一两个要接变量或其反</td></tr>
+                <tr><td>额外器件</td><td>无（只需两根线接 VCC / GND）</td><td>可能需要一个反相器产生 Z′</td></tr>
+                <tr><td>出错风险</td><td><b>低</b>——只要地址对齐、数据端照抄真值表</td><td>中等——分组时容易看错哪一行属于哪一组</td></tr>
+                <tr><td>什么时候用</td><td>考场首选；手头只有 8 选 1 时；函数变量数正好等于地址位数</td><td>变量比地址多一位时；要省芯片 / 省成本时</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">用 MUX 实现逻辑，也有它的「脾气」</div>
+            <p><b>① 地址端内部有反相器，所以地址变化时同样可能有毛刺。</b>74LS151 内部要先对地址译码（需要 C、C′、B、B′、A、A′ 六个信号），信号路径不同，地址翻转时输出可能出现窄脉冲。不过实际系统里 MUX 的输出几乎总是被 MCU 或触发器采样，所以一般不做专门处理——<b>但你得知道它存在，别以为「用了集成块就没有毛刺」。</b></p>
+            <p class="mt-2"><b>② 未用的数据端必须接确定电平。</b>悬空的输入在 CMOS 器件上会让输入级长时间停在阈值附近，导致<b>贯穿电流（两个管子同时导通）</b>、功耗增大、误触发。习惯做法是统一接 GND。</p>
+            <p class="mt-2"><b>③ 延迟不小。</b>74LS151 从地址到输出约 20~30ns（HC 系列更快，约 15ns），比「两三级门」要慢。<b>如果这条路径是时序关键的，用 MUX 换来的「不用化简」可能并不划算</b>——这也正是例 6 要算的东西。</p>
+          </div>
+
+          <hr class="hr-soft my-10">
+
+          <h3 class="mt-7 text-base font-semibold">例 4 · 险象判别与消除：加一个「多余」的与门</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>已知逻辑函数 <code class="icode">F = A·B + A′·C</code>。① 判断它是否存在险象，并指出在什么条件下出现；② 用加冗余项的方法消除险象；③ 用卡诺图验证消除前后的差别；④ 算一下代价。</p>
+
+          <p class="mt-3"><b>第 ① 问：判别。</b>两种方法都要会，因为考试可能指定其中一种。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="方法一：代数法（看能不能化成 X + X′）">
+            <pre><code>   F = A·B + A′·C
+
+   令 B = 1、C = 1（把这两个变量固定住，只看 A 变化时的行为）：
+
+       F = A·1 + A′·1 = A + A′
+
+   ⚠ A + A′ 恒等于 1 —— 理论上，无论 A 怎么变化，
+      输出都应该稳定地保持 1。
+
+   ★ 而「理论上恒为 1」恰恰是危险信号：
+      这个「1」是靠【两个互补项接力】维持的 ——
+      A 变低时，第一项 A·B 立刻垮掉；
+      A′ 变高需要经过一个反相器的延迟。
+      在这段空档里两项都是 0，输出掉到 0 → 出现【负向毛刺】。
+
+   → 结论：存在【静态 1 冒险】（稳态为 1，切换瞬间出现 0 毛刺），
+     触发条件是 B = C = 1 时 A 发生变化。
+
+   【为什么叫「静态」】因为输出在稳态下应该保持不变（不动）；
+     如果输出本来就要翻转，那中间经过什么都是正常的，
+     就不叫冒险了 —— 冒险特指「稳态不该变、却变了一下」。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="方法二：卡诺图法（看两个圈有没有「相切」）">
+            <pre><code>   行 = A，列 = BC（按 00、01、11、10 的格雷码顺序排列）
+
+             BC=00   BC=01   BC=11   BC=10
+           ┌───────┬───────┬───────┬───────┐
+     A = 0 │   0   │  ①1   │  ①1   │   0   │   圈① = A′C
+           ├───────┼───────┼───────┼───────┤
+     A = 1 │   0   │   0   │  ②1   │  ②1   │   圈② = A·B
+           └───────┴───────┴───────┴───────┘
+                             ▲   ▲
+                          m3 与 m7 上下相邻，
+                          却【分属两个不同的圈】
+
+   ★ 判据：卡诺图里【两个圈相切】（只挨着、没有重叠），
+           就存在险象；相切的位置就是毛刺发生的地方。
+
+      这里相切在 BC = 11 这一列 —— 也就是 B = 1、C = 1。
+      这与代数法得到的结论（B = C = 1 时 A 变化）完全一致 ✓
+      两种方法互相验证，说明判别做对了。</code></pre>
+          </div>
+
+          <p class="mt-3"><b>第 ② 问：消除——加冗余项。</b>既然毛刺出在相切处，那就<b>再画一个圈把相切处盖住</b>。相切的两个最小项是 m3（A=0,B=1,C=1）和 m7（A=1,B=1,C=1），它们的共同部分是 <b>B·C</b>。于是：</p>
+
+          <p class="mt-3"><code class="icode">F = A·B + A′·C + B·C</code></p>
+
+          <p class="mt-3">新加的 <b>B·C 就是冗余项</b>——它<b>在逻辑上完全多余</b>（把它去掉，真值表一字不变），但在物理上必不可少。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 ③ 问：加冗余项之后的卡诺图">
+            <pre><code>             BC=00   BC=01   BC=11   BC=10
+           ┌───────┬───────┬───────┬───────┐
+     A = 0 │   0   │  ①1   │ ①③1  │   0   │   圈① = A′C
+           ├───────┼───────┼───────┼───────┤
+     A = 1 │   0   │   0   │ ②③1  │  ②1   │   圈② = A·B
+           └───────┴───────┴───────┴───────┘   圈③ = B·C  ← 冗余项
+                             ▲   ▲
+                      相切处现在被圈③【同时覆盖】
+
+   ★ 判据的反面：相切处被第三个圈盖住 → 没有险象。
+
+   直观理解：圈③ 在 B = C = 1 时恒等于 1，
+   它像一个「兜底的门」——A 怎么变都撼动不了它，
+   于是输出被死死钉在 1 上，毛刺根本冒不出来。
+
+   代数验证：B = C = 1 时
+       F = A·1 + A′·1 + 1·1 = A + A′ + 1 = 1   ← 恒为 1，与 A 无关 ✓
+
+   再验证一遍逻辑没被改变（冗余项真的不改变功能）：
+       当 B = C = 1 时，原式 F = A + A′ = 1，新式 F = 1 —— 一样；
+       当 B、C 至少有一个为 0 时，BC = 0，新式退化成原式。
+       → 所以加冗余项【不会改变任何一行的输出】✓</code></pre>
+          </div>
+
+          <p class="mt-3"><b>第 ④ 问：代价。</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>项目</th><th>消除前</th><th>消除后</th><th>差别</th></tr></thead>
+              <tbody>
+                <tr><td>乘积项数</td><td>2（AB、A′C）</td><td>3（AB、A′C、BC）</td><td>多一项</td></tr>
+                <tr><td>与门</td><td>2 个 2 输入与门</td><td>3 个 2 输入与门</td><td><b>多 1 个与门</b>（74LS08 一片里有 4 个，够用）</td></tr>
+                <tr><td>或门</td><td>1 个 2 输入或门</td><td>把两个 2 输入或门<b>串联</b>：<code class="icode">(AB + A′C) + BC</code></td><td><b>多 1 个或门</b>，用 74LS32 即可，不需要专门的 3 输入或门</td></tr>
+                <tr><td>反相器</td><td>1 个（产生 A′）</td><td>1 个（不变）</td><td>无变化</td></tr>
+                <tr><td>延迟</td><td>2 级门</td><td>或门这一级变成 2 级 → 路径最长 <b>3 级门</b></td><td>多约 10ns（74LS 单级）</td></tr>
+                <tr><td>芯片</td><td>74LS08 + 74LS32 + 74LS04</td><td>同样的三片，门还有富余</td><td><b>芯片数量不变</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>结论：多用一个与门、一个或门（芯片数量都不增加），换掉一个可能致命的毛刺。</b>这笔账在绝大多数场合都是划算的。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">对偶情况：按「或-与式」实现的电路会出现「静态 0 冒险」</div>
+            <p>上面讲的险象出现在<b>与-或式</b>（先与后或）的电路里，输出稳态为 1，毛刺是负向的。如果把同一个函数实现成 <b>或-与式</b>（先或后与），险象就换了个方向：</p>
+            <p class="mt-2"><b>例子：</b><code class="icode">F = (A + B)(A′ + C)</code>。令 B = C = 0，则 <code class="icode">F = A · A′ = 0</code>——理论上输出应该稳定为 0（<b>静态 0</b>），但 A 变化时可能出现正向毛刺。</p>
+            <p class="mt-2"><b>消除方法（与上面完全对偶）：</b>加一个冗余的<b>和项</b>：<code class="icode">F = (A + B)(A′ + C)(B + C)</code>。验证：B = C = 0 时，<code class="icode">(B + C) = 0</code>，把输出死死压在 0 上，无论 A 怎么变 ✓。</p>
+            <p class="mt-2"><b>记忆规律：</b>与-或式加冗余<b>乘积项</b>，或-与式加冗余<b>和项</b>；哪一级是「最后一级」（或门 / 与门），冗余项就以那一级的形式出现。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">三个必须记住的判断题（考试很爱考）</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>「有竞争就一定有冒险」——错。</b>竞争是物理必然（两条路径就有延迟差），但只有当逻辑上处于「两个输入互相补偿」的临界状态时，竞争才会变成冒险。</li>
+              <li><b>「最简式就是最好的式子」——错。</b>最简式优化的是门数，不是可靠性。例 4 里那个被化简掉的 BC 项，恰恰是消除毛刺的那一项。</li>
+              <li><b>「毛刺一定会导致系统出错」——错。</b>如果负载是时钟同步采样的触发器，只要毛刺在采样时刻前结束，它就无害。危险的是「边沿敏感」的负载：计数器时钟、中断引脚、异步复位、锁存器使能。</li>
+            </ul>
+          </div>
+
+<h3 class="mt-7 text-base font-semibold">例 5 · 地址译码：8 路片选各占多大空间，重叠又是怎么来的</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>一个 16 位地址总线的单片机系统（可寻址 64KB），用一片 <b>74HC138</b> 做地址译码，输出 8 路低有效片选。接线方式：<code class="icode">A15 A14 A13</code> 接译码器的 <code class="icode">C B A</code>，各器件的片内地址端接 <code class="icode">A12 ~ A0</code>。① 求每一路片选对应的地址范围；② 如果把 <code class="icode">A13</code> 甩掉不接（译码器 A 端接地），会发生什么；③ 说明「地址重叠」是怎么造成的；④ 给出完整的地址分配表。</p>
+
+          <p class="mt-3"><b>第 ① 问：算范围。</b>先看清楚地址线的分工，这是所有地址译码问题的第一步。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第一步：看懂地址线的分工">
+            <pre><code>   【系统的地址线分工】
+
+      A15 A14 A13 │ A12 A11 A10 ... A2 A1 A0
+      └─────┬─────┘ └──────────┬──────────┘
+            │                  │
+            │                  └─► 接到每个器件的片内地址端（13 根）
+            │                      决定「访问器件内部的哪一个单元」
+            │
+            └─► 接到 74HC138 的 C B A（3 根）
+                 决定「这一次访问的是哪一个器件」
+
+   ★ 一句话概括：高位地址选器件，低位地址选单元。
+     这一句话能解释后面所有的地址范围计算，也能解释地址重叠。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第二步：算范围的三步口诀">
+            <pre><code>   【第 1 步】算每块多大
+        片内地址线有几根 → 块大小 = 2 的（根数）次方
+        这里 13 根 → 2^13 = 8192 字节 = 8KB = 0x2000
+
+   【第 2 步】算块序号
+        参与译码的高位地址线拼成一个二进制数，就是序号
+        A15A14A13 = 000 → 0 号
+                    001 → 1 号
+                    ...
+                    111 → 7 号
+
+   【第 3 步】算起始地址
+        起始地址 = 序号 × 块大小
+        结束地址 = 起始地址 + 块大小 - 1
+
+   例：Y5 → 5 × 0x2000 = 0xA000
+               → 范围 0xA000 ~ 0xBFFF    （0xA000 + 0x1FFF = 0xBFFF）
+
+   ★ 检验：8 块 × 8KB = 64KB，正好铺满 0x0000 ~ 0xFFFF，没有空隙。
+     如果算出来有缝隙或者有重叠，一定是哪里错了。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>片选</th><th>A15A14A13</th><th>地址的二进制形态</th><th>十六进制范围</th><th>大小</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">Y0</code></td><td>000</td><td><code class="icode">000x xxxx xxxx xxxx</code></td><td>0x0000 ~ 0x1FFF</td><td>8KB</td></tr>
+                <tr><td><code class="icode">Y1</code></td><td>001</td><td><code class="icode">001x xxxx xxxx xxxx</code></td><td>0x2000 ~ 0x3FFF</td><td>8KB</td></tr>
+                <tr><td><code class="icode">Y2</code></td><td>010</td><td><code class="icode">010x xxxx xxxx xxxx</code></td><td>0x4000 ~ 0x5FFF</td><td>8KB</td></tr>
+                <tr><td><code class="icode">Y3</code></td><td>011</td><td><code class="icode">011x xxxx xxxx xxxx</code></td><td>0x6000 ~ 0x7FFF</td><td>8KB</td></tr>
+                <tr><td><code class="icode">Y4</code></td><td>100</td><td><code class="icode">100x xxxx xxxx xxxx</code></td><td>0x8000 ~ 0x9FFF</td><td>8KB</td></tr>
+                <tr><td><code class="icode">Y5</code></td><td>101</td><td><code class="icode">101x xxxx xxxx xxxx</code></td><td>0xA000 ~ 0xBFFF</td><td>8KB</td></tr>
+                <tr><td><code class="icode">Y6</code></td><td>110</td><td><code class="icode">110x xxxx xxxx xxxx</code></td><td>0xC000 ~ 0xDFFF</td><td>8KB</td></tr>
+                <tr><td><code class="icode">Y7</code></td><td>111</td><td><code class="icode">111x xxxx xxxx xxxx</code></td><td>0xE000 ~ 0xFFFF</td><td>8KB</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">考场速算法：把「二进制形态」写出来，范围一眼可见</div>
+            <p>不要背表。做题时先写 <code class="icode">A15A14A13</code> 的值，再把后面 13 位都写成 <code class="icode">x</code>，然后<b>只看高 4 位十六进制</b>：</p>
+            <div class="code-block mt-2" data-lang="text" data-title="以 Y1 为例">
+              <pre><code>   Y1：A15A14A13 = 001
+       地址 = 001x xxxx xxxx xxxx
+              └┬─┘└┬─┘└┬─┘└┬─┘
+               3    7    F    F      ← 每 4 位二进制正好一位十六进制
+       起始 = 0x2 0 0 0   →  0x2000
+       结束 = 0x3 F F F   →  0x3FFF
+
+   ★ 高 3 位决定块序号，剩下的位从全 0 到全 F 就是范围。
+     所以范围一定是「起始 0xN000、结束 0x(N+1)FFF - 1 的形态」。</code></pre>
+            </div>
+          </div>
+
+          <p class="mt-3"><b>第 ② 问：A13 不接会怎样。</b>这是实际画板子时最容易犯的错 —— 觉得「反正用不了那么多地址，少接一根无所谓」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="部分译码的后果：块被撑大，地址出现镜像">
+            <pre><code>   若只把 A15、A14 接到译码器的 C、B，把 A 端接 GND：
+
+      · 每块大小变成 2^14 = 16KB = 0x4000
+      · 译码器的地址输入只会是 000、010、100、110
+        → 只有 Y0、Y2、Y4、Y6 这四路会有效
+        → 另外四路（Y1、Y3、Y5、Y7）永远不会被选中
+
+      片选     A15A14     地址范围              大小
+      ─────────────────────────────────────────────────
+      Y0       00         0x0000 ~ 0x3FFF       16KB
+      Y2       01         0x4000 ~ 0x7FFF       16KB
+      Y4       10         0x8000 ~ 0xBFFF       16KB
+      Y6       11         0xC000 ~ 0xFFFF       16KB
+
+   ⚠ 注意 Y0 这一块：它现在覆盖 0x0000 ~ 0x3FFF，
+     但挂在它上面的器件片内只有 13 根地址线（只有 8KB 容量）。
+
+     后果就是【地址镜像】：
+        0x0123 和 0x2123 —— 这两个地址只差 A13 这一位，
+        而 A13 根本没参与译码，器件压根看不到它。
+        → 器件眼里它们是完全相同的地址，访问的是同一个单元！</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">地址镜像的三个实际危害</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>地址空间被白白浪费。</b>8KB 的器件占了 16KB 的窗口，本来能挂 8 个器件，现在只能挂 4 个。</li>
+              <li><b>地址不再唯一。</b>同一个单元有多个地址，做地址分配表时极易和别的器件撞车，而且撞了也不报错。</li>
+              <li><b>出现「改了 A 也改了 B」的诡异 bug。</b>程序里两个指针 <code class="icode">0x0123</code> 与 <code class="icode">0x2123</code> 指向同一块内存，改一个另一个跟着变 —— 查起来非常费劲，因为它看起来完全不像 bug。</li>
+            </ul>
+            <p class="mt-2"><b>正确做法：</b>要么把地址线接全（用第 4 根线去控译码器的使能端，做成 16 路），要么在文档里明确写下「本设计采用部分译码，地址镜像区间为 XX」，别让它变成暗坑。</p>
+          </div>
+
+          <p class="mt-3"><b>第 ③ 问：地址重叠是怎么来的。</b>镜像还只是「一个器件占了两份地址」，重叠则是「两个器件抢同一份地址」，后果严重得多。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种典型的地址重叠成因">
+            <pre><code>   ① 部分译码（地址线没接全）
+        每块被撑大 2^k 倍，相邻块之间的边界糊掉了。
+        上面第 ② 问就是这种，只是那边还只有一个器件；
+        如果 Y0 和 Y2 上各挂一个器件，而 A13 又不参与译码，
+        那么 0x0000~0x1FFF 与 0x2000~0x3FFF 在各器件内部
+        都指向「自己那 8KB 的前一半」—— 逻辑上一片混乱。
+
+   ② 两路片选的逻辑互相包含（最常见的事故）
+        例：一片 74HC138 的 Y4 在 A15A14A13 = 100 时有效，
+            而系统里另一路片选图省事，直接把 A15 取反后送出去。
+            → 在 0x8000 ~ 0x9FFF 这段，两路片选同时有效！
+            → 两个器件同时被选中，同时往数据总线上吐数据。
+
+   ③ 忘了把方向信号编进使能端（读写不分）
+        如果把译码器的 G2B 接地以「常使能」，
+        读写两个操作就都落在同一个地址上；
+        对某些器件这没问题，对另一些（尤其是需要读写分离时序的）
+        就是典型的时序冲突来源。
+
+   【重叠的后果 —— 一定要讲清楚，这是硬件事故】
+        · 两个器件同时驱动数据总线：一个想输出高、一个想输出低，
+          等于把两个输出脚直接短路。
+        · 灌电流可达几十 mA，远超普通 CMOS 输出的承受能力，
+          轻则读数错乱（读到的常是两个值的「与」—— 低电平赢），
+          重则芯片发热、长期老化甚至当场损坏。
+        · 最麻烦的是【它不总是错】：如果两个器件碰巧输出相同，
+          读出来是对的；跑起来才会偶发错误。
+
+   【诊断特征】
+        读一个地址，得到的值总是「两个器件输出按位与」的结果；
+        或者读某个外设时另一个外设跟着动作。
+        用示波器同时看两路片选，就能看到它们在同一时刻都是低。</code></pre>
+          </div>
+
+          <p class="mt-3"><b>第 ④ 问：地址分配表。</b>一个真实的系统，通常是「几个大器件 + 几个只占一个地址的小器件」混在一起。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>片选</th><th>挂什么器件</th><th>地址范围</th><th>块大小</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">Y0</code></td><td>SRAM 8KB（数据缓冲）</td><td>0x0000 ~ 0x1FFF</td><td>8KB</td><td>片内 13 根地址线，用满整块</td></tr>
+                <tr><td><code class="icode">Y1</code></td><td>SRAM 8KB（第二片）</td><td>0x2000 ~ 0x3FFF</td><td>8KB</td><td>与 Y0 拼成连续 16KB</td></tr>
+                <tr><td><code class="icode">Y2</code></td><td>74HC595 显示驱动</td><td>0x4000 ~ 0x5FFF</td><td>8KB</td><td><b>实际只用到 0x4000 一个地址</b></td></tr>
+                <tr><td><code class="icode">Y3</code></td><td>LCD12864 液晶</td><td>0x6000 ~ 0x7FFF</td><td>8KB</td><td>用 A0 区分命令/数据两个地址</td></tr>
+                <tr><td><code class="icode">Y4</code></td><td>未接（预留）</td><td>0x8000 ~ 0x9FFF</td><td>8KB</td><td>输出悬空，按下面建议处理</td></tr>
+                <tr><td><code class="icode">Y5</code></td><td>未接（预留）</td><td>0xA000 ~ 0xBFFF</td><td>8KB</td><td>—</td></tr>
+                <tr><td><code class="icode">Y6</code></td><td>未接（预留）</td><td>0xC000 ~ 0xDFFF</td><td>8KB</td><td>—</td></tr>
+                <tr><td><code class="icode">Y7</code></td><td>未接（预留）</td><td>0xE000 ~ 0xFFFF</td><td>8KB</td><td>留作以后扩展</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">从这张表能看出一个「制度性浪费」</div>
+            <p>74HC595 只需要一个地址就能写数据，但它独占了一整块 <b>8KB</b>。这不是设计失误，而是<b>用译码器分地址的固有代价</b>：译码器一次只能切出「2 的整数次幂」大小的块，块内地址由器件自己解释 —— 器件不解释，这块空间就浪费了。</p>
+            <p class="mt-2"><b>三种解决办法（按代价从小到大）：</b></p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>把更多地址线送进译码。</b>让 A12 也参与译码（配合第二片 74HC138 做 16 路，每块 4KB），块变小，浪费变少 —— 代价是多一片芯片、多一片译码延迟。</li>
+              <li><b>让器件自己多解释几位地址。</b>比如给 74HC595 再引两根地址线做片内选通，一块 8KB 里就能塞 4 个这样的器件。</li>
+              <li><b>干脆不用分立译码。</b>让 MCU 内部的地址控制器（如 FSMC/EXMC）去管，它的地址空间可以按字节甚至按位细分，浪费几乎为零 —— 这也是现在的主流做法，见第 4 节。</li>
+            </ul>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">画板子前必须做的三件小事</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>先画地址分配表，再画原理图。</b>把每个片选的起止地址写下来，逐行核对它们互不重叠、并且拼起来没有缝。这张表将来要写进代码注释里。</li>
+              <li><b>未用的译码输出不要悬空。</b>悬空的 CMOS 输入会因漏电和干扰自己乱跳，可能意外选中某个没焊的器件。稳妥做法是每一位接一个 10kΩ 上拉到 VCC（低有效输出，平时为高）。</li>
+              <li><b>把读写方向编进使能端。</b>如果某个器件需要读写分离的片选，就把 MCU 的 <code class="icode">RD</code> 或 <code class="icode">WR</code> 接到译码器的 G2A/G2B 上 —— 这样一路片选就自动带了方向信息，省掉一片逻辑。</li>
+            </ul>
+          </div>
+
+<h3 class="mt-7 text-base font-semibold">例 6 · 算一条组合逻辑路径的 t<sub>pd</sub>，求系统最高工作频率</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>一个系统里有一条真实的片选路径：<b>MCU 的地址引脚输出地址 → 74HC138 译码 → 74HC00 与非门合成片选 → 外部器件的片选输入</b>。已知数据如下（均为手册上的<b>最大值</b>，5V 供电、25°C）：74HC138 的 <code class="icode">t_pd</code>（A → Y）= 12ns，74HC00 的 <code class="icode">t_pd</code> = 7ns，MCU 地址输出到稳定约 2ns，两段 PCB 走线加负载各约 3ns，接收端要求数据在采样前稳定 5ns（建立时间）。① 算这条路径的总延迟；② 求理论最高工作频率；③ 考虑 85°C 高温和 30% 设计余量后，实际能跑多快；④ 如果 MCU 要跑 72MHz，这条路径能不能用；⑤ 列出提速手段并排序。</p>
+
+          <p class="mt-3"><b>第 ① 问：把延迟一项项列出来。</b>做时序预算的第一步永远是「列表」，凭感觉估必然出错。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>序号</th><th>环节</th><th>数值依据</th><th>延迟</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>1</td><td>MCU 地址引脚输出到稳定</td><td>手册 <code class="icode">t_AV</code>（取最大）</td><td>2ns</td></tr>
+                <tr><td>2</td><td>PCB 走线 + 3 个门输入电容（约 15pF）</td><td>经验值约 1ns / 10pF</td><td>3ns</td></tr>
+                <tr><td>3</td><td>74HC138 译码（A → Y）</td><td>手册 <code class="icode">t_pd</code> 最大</td><td>12ns</td></tr>
+                <tr><td>4</td><td>74HC00 合成片选</td><td>手册 <code class="icode">t_pd</code> 最大</td><td>7ns</td></tr>
+                <tr><td>5</td><td>走线到接收端</td><td>估</td><td>3ns</td></tr>
+                <tr><td>6</td><td>接收端建立时间 <code class="icode">t_su</code></td><td>器件手册要求</td><td>5ns</td></tr>
+                <tr><td colspan="3"><b>逻辑链路延迟小计（第 1~5 项）</b></td><td><b>27ns</b></td></tr>
+                <tr><td colspan="3"><b>一个时钟周期必须容纳的总时间（第 1~6 项）</b></td><td><b>32ns</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两个数要分清：链路延迟 与 周期需求">
+            <pre><code>   【别把两个数混了】
+
+     逻辑链路延迟 = 27ns
+        定义：从地址变化，到片选真正有效，中间经过的时间。
+        这个数用来回答「信号什么时候到」。
+
+     时钟周期需求 = 32ns
+        定义：链路延迟 + 接收端建立时间。
+        这个数用来回答「时钟最慢要有多慢」。
+
+   为什么要加建立时间？因为片选到了不代表就能用：
+   接收器件还需要一小段稳定的时间，才能可靠地把数据认下来。
+   时钟周期的预算，必须把这一小段也算进去。
+
+   ★ 口诀：算速度用「链路 + 建立」，算信号到达用「链路」。</code></pre>
+          </div>
+
+          <p class="mt-3"><b>第 ② 问：理论最高频率。</b>直接把周期需求取倒数。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 ② 问：理论值">
+            <pre><code>   T_min = 32ns
+   f_max = 1 / T_min = 1 / 32ns ≈ 31.25MHz
+
+   ★ 这是【纸面值】：25°C、5V、器件都恰好取到手册的典型条件下的乐观结果。
+     实际设计绝不能按 31MHz 去用 —— 下面两笔账必须接着算。</code></pre>
+          </div>
+
+          <p class="mt-3"><b>第 ③ 问：把温度和余量算进去。</b>这一步是把「纸面值」变成「敢量产值」的关键，也是最容易被跳过的一步。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 ③ 问：温度补偿 + 设计余量">
+            <pre><code>   【第一笔账：温度】
+     CMOS 门的延迟随温度升高而变长，从 25°C 到 85°C 大约增加 20%~40%，
+     这里按 +25% 算。注意：只有【门】的延迟随温度变，走线延迟不随温度变。
+
+       第 3、4 项（门）= 12 + 7 = 19ns  →  19 × 1.25 = 23.75ns
+       第 1、2、5 项（输出 + 走线）= 2 + 3 + 3 = 8ns  →  不变
+       第 6 项（建立时间）= 5ns        →  不变
+
+       链路延迟 = 8 + 23.75 = 31.75ns
+       周期需求 = 31.75 + 5 = 36.75ns  ≈ 37ns
+
+       f_max = 1 / 37ns ≈ 27.0MHz
+
+   【第二笔账：设计余量】
+     留 30% 的余量，是为了兜住手册没写全的东西：
+     器件批次差异、电压波动、PCB 电容估算误差、负载比预想的重。
+
+       T_设计 = 37ns × 1.3 = 48.1ns  ≈ 48ns
+       f_可用 = 1 / 48ns ≈ 20.8MHz
+
+   ★ 结论：纸面 31MHz → 高温 27MHz → 实际敢用 20MHz。
+     从 31 掉到 20，掉的是「你以为的性能」和「你能拿到的性能」之间的差。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">为什么必须用「最大值」而不是「典型值」</div>
+            <p>手册上每个 <code class="icode">t_pd</code> 通常给两个数：<b>典型值（typ）</b>和<b>最大值（max）</b>。典型值好看，最大值难看。做时序预算只能用最大值，理由很硬：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li>典型值是「常温、标称电压、中等工艺」的统计中位数，<b>意味着有一半的芯片比它慢</b>。</li>
+              <li>用典型值算出来的设计，只要碰到一颗偏慢的芯片、或者夏天机箱里 60°C 的环境，时序就破了。</li>
+              <li>批量生产时你不会知道手头这一颗是快是慢 —— 唯一能保证全都过的算法，就是按最大值算。</li>
+            </ul>
+            <p class="mt-2"><b>唯一例外：</b>做「保持时间」检查时要用<b>最小值</b>（最短路径），因为太快反而会违反保持时间。这一点在本节前面已经讲过。</p>
+          </div>
+
+          <p class="mt-3"><b>第 ④ 问：72MHz 能不能用。</b>把频率换成周期，直接对比。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 ④ 问：72MHz 的预算还剩多少">
+            <pre><code>   72MHz 的时钟周期 = 1 / 72MHz ≈ 13.9ns
+
+   这条路径需要多少时间？
+       链路延时（高温）= 31.75ns
+       加上建立时间 5ns → 需要 36.75ns
+
+       13.9ns  vs  36.75ns    →   差 2.6 倍，远远不够。
+
+   【换个角度：还剩多少时间给组合逻辑？】
+       T = 13.9ns
+       扣掉 MCU 输出到稳定    2ns
+       扣掉接收端建立时间     5ns
+       扣掉走线（两段）       6ns
+       ─────────────────────────
+       留给译码逻辑的只有     0.9ns ！
+
+       0.9ns 是什么概念？
+       最快的 74LVC 门，一级也要 2~4ns。
+       → 结论：这个方案在 72MHz 下【根本不可能成立】。
+
+   【三条出路】
+     ① 用 MCU 内部的总线控制器（如 FSMC/EXMC）
+        它有一整套独立的时序寄存器，可以插入等待周期，
+        把一次外部访问主动拉长到几十 ns —— 慢，但可靠、且不用改硬件。
+     ② 把外部器件做成【同步接口】
+        让器件跟着 MCU 输出的时钟走，用「一个时钟沿 + 若干个周期」
+        完成一次访问，而不是靠组合逻辑在一个周期内冲出来。
+     ③ 用 CPLD / 小 FPGA 承接这段译码
+        延迟依然存在（通常几 ns），但可预测、可约束，也便于改版。</code></pre>
+          </div>
+
+          <p class="mt-3"><b>第 ⑤ 问：提速手段排序。</b>如果非要用分立逻辑，下面这些手段按「性价比」从高到低排。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>手段</th><th>能省多少</th><th>代价</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><b>换更快的逻辑家族</b>（74HC → 74AHC → 74LVC）</td><td>12ns → 5.5ns → 4ns；7ns → 3.5ns → 2.5ns，两级门共省约 12ns</td><td>料号要换；74LVC 输入不能接 5V；老设计要复核电平</td></tr>
+                <tr><td><b>减少门级数</b>（把译码与合成并为一级，用 3 输入译码直接出片选）</td><td>省掉整整一级，约 7ns</td><td>要重新设计译码逻辑，可能需要一片 74AHC138 变体或可编程逻辑</td></tr>
+                <tr><td><b>缩短走线、减少负载</b></td><td>每减 10pF 约省 1ns；走线减半约省 1.5ns</td><td>受 PCB 布局限制，效果有限</td></tr>
+                <tr><td><b>不用分立逻辑，让 MCU 内部控制器管</b></td><td>片内延迟通常只占 1~2 个时钟周期</td><td>选型时就要确认 MCU 有对应外设</td></tr>
+                <tr><td><b>不改硬件，改时序：插入等待周期</b></td><td>立刻可用，不改板</td><td>访问变慢，带宽下降；软件上要配寄存器</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>74 系列家族</th><th>供电</th><th>单门 t<sub>pd</sub> 量级</th><th>选型提醒</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>74LS</td><td>5V</td><td>9 ~ 10ns</td><td>老器件，静态功耗大；输入高电平门限 2V</td></tr>
+                <tr><td>74HC</td><td>2 ~ 6V</td><td>7 ~ 12ns</td><td>CMOS；3.3V 系统里输出高电平只有 3.3V，接 5V 器件要看门限</td></tr>
+                <tr><td>74HCT</td><td>5V</td><td>与 HC 相近</td><td>TTL 电平兼容，3.3V 驱动 5V 器件的首选</td></tr>
+                <tr><td>74AHC</td><td>2 ~ 5.5V</td><td>3.5 ~ 5.5ns</td><td>比 HC 快一档，常用来直接替换</td></tr>
+                <tr><td>74LVC</td><td>1.65 ~ 3.6V</td><td>2 ~ 4ns</td><td>3.3V 系统主流；<b>输入端绝不能接 5V</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">反过来说：为什么超频的故障总是「偶尔算错」</div>
+            <p>把上面这套算法反过来用，就能彻底理解超频：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li>一颗标称 72MHz 的 MCU，意味着它<b>内部最长的那条组合路径</b>能在 13.9ns 内走完 —— 而且是在最坏条件（最高温度、最低电压、最差工艺角）下验证过、还留了余量的。</li>
+              <li>超频到 100MHz（周期 10ns），原来 13.9ns 的路径就不够了。<b>但它不一定每次都错</b>：只有走到那条最长路径、又碰上温度偏高或电压偏低时，才会算错一位。</li>
+              <li>于是故障表现为「刚开机没事，跑一会儿出错，凉下来又好」—— 这不是玄学，是延迟随温度升高变长，把原本刚好的时序挤破了。</li>
+            </ul>
+            <p class="mt-2"><b>可操作的判据：</b>把这条路径的 t<sub>pd</sub> 预算算一遍，看余量还剩多少。<b>余量小于 10% 的设计，温度一变就会翻车</b>；余量 30% 以上才算稳。这也是本节例 6 一直按 30% 留余量的原因。</p>
+          </div>
+
+        </section>
+
+<!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section class="mt-12">
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-3">前面讲的都是芯片级的东西：门、表达式、模块、毛刺。这一节换个视角，看它们在<b>一块真实的单片机板子</b>上长什么样。</p>
+
+          <p class="mt-3">组合逻辑在单片机项目里几乎无处不在 —— 片选、位选、模拟通道切换、键盘扫描、地址计算、中断合成 —— 但它们大多藏在「外设初始化那几行代码」的后面，看不见。看不见的东西最容易被当成理所当然，也最容易在设计里留下坑。</p>
+
+          <p class="mt-3">这一节把 8 个真实场景拆开：<b>地址译码怎么把存储空间分出去、3 根 IO 怎么变成 8 路片选、多路模拟量怎么进一个 ADC、ALU 为什么从加法器开始、矩阵键盘里的组合逻辑、组合逻辑接中断脚为什么会误触发、传输延迟如何决定「能不能超频」，以及用 HDL 写组合逻辑最容易踩的两个坑。</b></p>
+
+          <h3 id="sub-mcu-cs" class="mt-7 text-base font-semibold">地址译码与片选：CPU 的存储空间是怎么被「分出去」的</h3>
+
+          <p class="mt-3">单片机的地址空间看起来是个抽象概念，其实是<b>芯片内部一张写死的地址地图</b>。以 STM32F103（Cortex-M3）为例：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>地址区间</th><th>区域名</th><th>挂什么</th><th>谁来「译码」</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>0x0000 0000 ~ 0x1FFF FFFF</td><td>Code 区</td><td>Flash、系统存储器、选项字节</td><td>片内总线矩阵</td></tr>
+                <tr><td>0x2000 0000 ~ 0x2000 FFFF</td><td>SRAM 区</td><td>20KB 片内 SRAM</td><td>片内总线矩阵</td></tr>
+                <tr><td>0x4000 0000 ~ 0x5FFF FFFF</td><td>外设区</td><td>GPIO、USART、TIM、ADC…全部片上外设</td><td>片内地址译码器</td></tr>
+                <tr><td>0x6000 0000 ~ 0x9FFF FFFF</td><td>外部 RAM/NOR 区</td><td>FSMC 挂的 SRAM、NOR Flash</td><td><b>FSMC + 片外译码</b></td></tr>
+                <tr><td>0xA000 0000 ~ 0xDFFF FFFF</td><td>外部设备区</td><td>LCD、NAND</td><td><b>FSMC + 片外译码</b></td></tr>
+                <tr><td>0xE000 0000 ~ 0xFFFF FFFF</td><td>内核私有区</td><td>NVIC、SysTick、调试组件</td><td>内核私有总线</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b>这张地图就是「地址译码」的成品。</b>芯片设计者把 32 位地址的高几位切出来，每一段分给一类资源 —— 和你在第 3 节例 5 里用 74HC138 切 8 块 8KB，本质上是同一件事，只是规模不同、而且做在硅片里面。所以你写 <code class="icode">*(volatile uint32_t *)0x4001080C = 0x01;</code> 时，片内译码器认出了 <code class="icode">0x4001080C</code> 落在「外设区」的 GPIOA_ODR 上，就把这次写操作送过去，别的外设完全不理会。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么「地址重叠」在单片机上更隐蔽</div>
+            <p>在分立电路里，两个器件同时被选中会立刻表现为读数错乱、芯片发热 —— 症状很响。</p>
+            <p class="mt-2">但在单片机上，地址重叠往往是<b>安静的</b>：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li>片内保留区大多是「读返回 0 或随机值、写被忽略」，不报错、不异常，程序照跑。</li>
+              <li>外设区是部分译码的：比如某些位在译码时被忽略，于是同一个寄存器会出现在多个地址上（<b>别名</b>）。位带（bit-band）别名区就是<b>故意</b>做出来的地址重叠 —— 0x2200 0000 起的每一位都对应 0x2000 0000 区的一个字，这是设计特性，不是 bug。</li>
+              <li>片外扩展时（例 5 那种情况），重叠不会报错，只是数据总线上两个器件打架，症状是「偶发读到错误值」。</li>
+            </ul>
+            <p class="mt-2"><b>结论：</b>单片机项目里的地址分配，必须自己画表核对，别指望工具替你查。片内的部分放心用（那是厂家设计好的），<b>片外的部分自己负责</b>。</p>
+          </div>
+
+          <p class="mt-3"><b>片选信号有三种来源，代价差别很大。</b>选错了，后面要么性能不够，要么 IO 不够。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>方式</th><th>怎么产生</th><th>延迟</th><th>灵活性</th><th>典型用途</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><b>专用片选引脚</b></td><td>MCU 内部的 FSMC/EXMC 控制器自动产生（如 <code class="icode">FSMC_NE1</code>）</td><td>片内，一两个时钟周期</td><td>低，地址范围由控制器寄存器划分</td><td>外部 SRAM、LCD、NOR Flash</td></tr>
+                <tr><td><b>GPIO 软件片选</b></td><td>代码里手动拉低/拉高某个 IO</td><td>慢（几条指令，几十 ns 到 µs）</td><td><b>最高</b>，任何引脚都行，时序随便调</td><td>SPI 从机、单个传感器、调试用</td></tr>
+                <tr><td><b>地址译码器自动产生</b></td><td>74HC138 等器件对地址线译码</td><td>快（十几 ns）</td><td>中等，硬件定死</td><td>IO 不够时的多路片选/位选</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">注意最后一行：<b>「用译码器产生片选」不是老掉牙的做法，它在今天的单片机项目里依然常用</b> —— 只要你的 MCU 没有专用片选引脚（大量中低端型号都没有），而你又需要接好几个同类外设（比如 8 片 SPI 从机、8 位数码管），译码器就是最省 IO 的答案。</p>
+
+          <h3 id="sub-mcu-138" class="mt-7 text-base font-semibold">3 根 IO 变 8 路片选，也变 8 位数码管的位选</h3>
+
+          <p class="mt-3">这是 74HC138 在单片机项目里最高频的两个用法，一个管「选谁说话」，一个管「让谁亮」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="用法一：3 根 IO → 8 路低有效片选（以 8 片 SPI 从机为例）">
+            <pre><code>          ┌──────────────────────────────────────────────┐
+          │                 74HC138                      │
+   PB0 ───┤ A（最低位）                      Y0 ├─── CS#1（SPI 从机 1）
+   PB1 ───┤ B                                Y1 ├─── CS#2（SPI 从机 2）
+   PB2 ───┤ C（最高位）                      Y2 ├─── CS#3
+          │                                  Y3 ├─── CS#4
+   GND ───┤ G2A（低有效使能）                Y4 ├─── CS#5
+   GND ───┤ G2B（低有效使能）                Y5 ├─── CS#6
+   VCC ───┤ G1 （高有效使能）                Y6 ├─── CS#7
+          │                                  Y7 ├─── CS#8
+          └──────────────────────────────────────────────┘
+
+   【软件里怎么用】
+     选 1 号从机：PB2 PB1 PB0 = 0 0 0，再把 SPI 的 NSS 拉低（如果从机认硬件片选）
+     选 5 号从机：PB2 PB1 PB0 = 1 0 0
+     → 一次只能选中一路，因为译码器天然保证「输出只有一个有效」
+
+   ★ 为什么用译码器而不用 8 根 IO 直接连？
+     省下 5 根 IO，而且「一次只选一个」是硬件保证的 ——
+     软件写错也不可能同时选中两片（而 8 根 IO 直接连，
+     代码里少写一句拉高，就会两片同时在总线上说话）。
+
+   ⚠ 代价：片选切换需要时间。
+     从改 PB0~PB2，到 Y 输出真正变化，要经过 t_pd（74HC 约 12ns，
+     还要加上 IO 翻转时间、走线延迟）。
+     对一个 SPI 事务来说这点时间不算什么，但如果
+     在中断里频繁切换片选、又跑在几十 MHz 上，就要算进时序预算。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="用法二：8 位数码管的位选（一位一位轮流点亮）">
+            <pre><code>   【动态扫描的位选需求】
+     8 位数码管共用一套段选线（a~g + dp），位选线各自独立。
+     要点亮第 3 位，就把第 3 位的位选有效，其余全部无效。
+     —— 这正好是译码器的天然行为：一次只有一根输出有效。
+
+           ┌─────────── 段选（8 根，共用）───────────┐
+           │                                          │
+         ┌─┴─┐  ┌───┐  ┌───┐  ┌───┐        ┌───┐
+         │ 1 │  │ 2 │  │ 3 │  │ 4 │  ...   │ 8 │      数码管
+         └─┬─┘  └─┬─┘  └─┬─┘  └─┬─┘        └─┬─┘
+           │      │      │      │            │
+          Y0     Y1     Y2     Y3           Y7      ← 74HC138 的 8 路输出
+           │      │      │      │            │
+           └──────┴──────┴──────┴────────────┘
+                          │
+                    （共阴数码管：位选低有效直接接，
+                      电流大的话中间加三极管或 ULN2003）
+
+   【扫描节奏】
+     PB2~PB0 = 000 → 亮第 1 位 → 延时 1~2ms
+     PB2~PB0 = 001 → 亮第 2 位 → 延时 1~2ms
+     ...
+     PB2~PB0 = 111 → 亮第 8 位 → 延时 1~2ms
+     一轮 8~16ms，每秒刷新 60~120 轮 → 人眼看到「8 位同时亮」
+
+   ★ 关键点：位选是【组合逻辑】——它的输出只取决于当前 PB2~PB0，
+     没有任何记忆。所谓「动态扫描」的记忆，全部在软件里：
+     是程序记得现在该轮到第几位。硬件这边一次只认一个地址。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">三个容易翻车的细节</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>低有效还是高有效，先看数码管是共阴还是共阳。</b>共阴数码管的位选需要被拉低才能点亮，用 74HC138（低有效输出）正合适；共阳数码管需要位选为高，得用 74HC238（高有效）或加一级反相器。<b>买错型号是最常见的返工原因。</b></li>
+              <li><b>位选电流可能超出译码器的承受能力。</b>一位数码管 8 段全亮，每段 5mA，合计 40mA —— 74HC138 单脚连续输出电流的上限通常只有 ±25mA 左右（不同厂家不同，务必查手册）。稳妥做法是位选经三极管或 ULN2003 驱动，让译码器只管「逻辑」不管「电流」。</li>
+              <li><b>译码器的使能端不要悬空。</b>接成常使能（G1 接 VCC、G2A/G2B 接地）最省事；若想用使能端做「整个显示模块的总开关」或「消隐」，则必须把三个使能端的电平都接死，别让 CMOS 输入悬空乱跳。</li>
+            </ul>
+          </div>
+
+<h3 id="sub-mcu-mux" class="mt-7 text-base font-semibold">模拟多路开关：8 路传感器怎么进一个 ADC</h3>
+
+          <p class="mt-3">单片机常常只有一个 ADC（甚至只有几个通道），但板子上有 8 路模拟量要测：NTC 热敏电阻、光敏电阻、电池电压、电流采样、电位器……<b>用一片 CD4051 / 74HC4051 就能解决</b>：它是「8 选 1 的模拟开关」，用 3 根 IO 选通道，输出接到 ADC 的一个引脚上。</p>
+
+          <p class="mt-3">注意这里出现了本页第一个<b>不是数字逻辑</b>的组合器件。它的结构不是门电路，而是一对对并联的 MOS 管 —— 但它依然满足组合逻辑的定义：<b>输出只取决于当前的地址输入，没有记忆。</b>这也是为什么它被放在这一篇里讲。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>对比项</th><th>数字 MUX（74HC151）</th><th>模拟开关（CD4051 / 74HC4051）</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>传输的是什么</td><td>逻辑电平（0 或 1）</td><td><b>任意模拟电压</b>（在电源范围内）</td></tr>
+                <tr><td>导通时像什么</td><td>理想开关 + 驱动器</td><td>一个几十到几百 Ω 的<b>电阻 R<sub>on</sub></b></td></tr>
+                <tr><td>方向</td><td>单向（输入 → 输出）</td><td><b>双向</b>（可以当 1 分 8 用）</td></tr>
+                <tr><td>关断时的隔离</td><td>输出为确定电平</td><td>只是「断开」，有漏电流和寄生电容，通道间有轻微串扰</td></tr>
+                <tr><td>关键参数</td><td>t<sub>pd</sub></td><td>R<sub>on</sub>、漏电流、<b>建立时间</b>、通道间串扰</td></tr>
+                <tr><td>要注意的坑</td><td>使能端别悬空</td><td><b>输入电压绝不能超出电源范围</b>（否则内部二极管导通、灌电流、甚至闭锁）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="接线与「通道切换后必须留建立时间」">
+            <pre><code>   【接线：8 路传感器 → 1 个 ADC 引脚】
+
+     传感器 1 ──┬─ R1 ─┐
+     传感器 2 ──┼─ R2 ─┤
+       ...     │      ├──► CH0 ~ CH7 ──┐
+     传感器 8 ──┴─ R8 ─┘                │
+                                        │      ┌──────────────┐
+   PA0 ─── A（地址最低位）──────────────┼──► A │              │
+   PA1 ─── B                            └──► B │  CD4051 /    │  ┌──► ADC 输入
+   PA2 ─── C                                 C │  74HC4051    ├──┤   （PA4）
+   GND ─── INH（低有效使能）                    │              │  └──► （必要时加
+                                              └──────────────┘        电压跟随器）
+   【软件流程 —— 注意第 3 步，它是这篇文章最实用的一句话】
+     ① 把 PA2 PA1 PA0 写成目标通道号（比如 101 = 第 5 路）
+     ② （可选）等一小会儿，等地址线稳定、开关彻底导通
+     ③ ★ 等到【信号真正建立】—— 等多久要按 RC 算，不能拍脑袋
+     ④ 启动 ADC 转换
+     ⑤ 读结果，必要时再切下一路
+
+   ⚠ 如果跳过第 ③ 步会怎样？
+     读到的是【上一个通道的残留电压】——数据看起来"偏了"，而且
+     总是偏向上一路的值。这种现象叫通道间串扰（crosstalk），
+     症状非常像"ADC 不准"，其实和 ADC 一点关系没有。</code></pre>
+          </div>
+
+          <p class="mt-3"><b>建立时间到底要等多久？算一遍就明白了。</b>把开关和后面的电路看成一个 RC 充电回路，时间常数 τ = R × C，工程上取 5τ 达到 0.7% 误差（对 12 位 ADC 够用）、7τ 达到 0.1%。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两种典型配置的对比：差三个数量级">
+            <pre><code>   【配置 A：节点上挂了 100nF 硬件滤波电容（很常见）】
+       等效源阻抗 R = 传感器分压电阻 1kΩ + 开关 Ron 约 160Ω ≈ 1.16kΩ
+       电容 C = 100nF
+       τ = 1.16kΩ × 100nF = 116µs
+       t_建立 = 5τ ≈ 580µs
+
+       → 通道切换后必须等约 0.6ms 才能启动 ADC！
+         8 个通道轮一遍 = 4.8ms，采样率上限只有 200Hz 左右。
+         如果代码里"切完就读"，读到的必然是上一路的残留。
+
+   【配置 B：不加滤波电容，只有走线电容十几 pF】
+       电容 C ≈ 30pF（走线 + ADC 引脚 + 采样保持电容）
+       τ = 1.16kΩ × 30pF ≈ 35ns
+       t_建立 = 5τ ≈ 175ns
+
+       → 等不到 1µs 就够了，500kHz 的轮询速率都没问题。
+
+   【结论】「通道切换后要不要等」不是一个是非题，而是一个【算出来的数】：
+           等你这个电路的 5τ。滤波电容每加大 10 倍，等待时间也加大 10 倍。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">四条工程解法（按推荐顺序）</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>在开关前加一级运放电压跟随器。</b>把源阻抗从 kΩ 级降到毫欧级，τ 直接小 4~5 个数量级 —— 100nF 的滤波电容可以保留，等待时间却从毫秒降到微秒。<b>这是最优雅的解法，代价是一个运放和几毛钱。</b></li>
+              <li><b>软件里按 RC 算出等待时间，写在注释里。</b>不要在代码里写 <code class="icode">delay(1)</code> 然后忘了为什么。写 <code class="icode">// 等 0.6ms：R=1.16k, C=100nF, 5τ</code> —— 将来改电路的人才知道这个数从哪来。</li>
+              <li><b>按需切换，不要每轮都全扫。</b>温度、电池电压这种慢变量 1 秒采一次就够，电流采样才需要高速。把快慢通道分开调度，能省掉大量等待。</li>
+              <li><b>顺手检查输入电压范围。</b>单电源供电的模拟开关，输入不能低于 GND、也不能高于 VCC。传感器若可能输出负压或高于 VCC 的电压，先分压/钳位，否则内部寄生二极管导通，会灌电流、发热，严重时闭锁（latch-up）烧片。</li>
+            </ul>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">其实你的单片机 ADC 内部也有一个多路开关</div>
+            <p>STM32 的 <code class="icode">ADC1_IN0 ~ IN15</code> 就是片内的 16 选 1 模拟开关。片内开关的 R<sub>on</sub> 和寄生电容都很小，但<b>建立时间依然存在</b> —— 这就是为什么手册里要你先算「外部源阻抗」，再去配置采样时间寄存器（Sampling Time）。</p>
+            <p class="mt-2"><b>源阻抗越大，必须配的采样时间越长</b>，否则同样会出现「读到上一通道残留」的现象。手册里那张「R<sub>AIN</sub> 与最小采样周期」的表格，本质就是本小节的 5τ 公式，只是厂家替你算好了。</p>
+            <p class="mt-2">所以：<b>看到「ADC 采样时间」这个配置项，就该想起组合逻辑的建立时间。</b>它们是一回事。</p>
+          </div>
+
+          <h3 id="sub-mcu-alu" class="mt-7 text-base font-semibold">加法器与 ALU：CPU 里第一个被造出来的运算单元</h3>
+
+          <p class="mt-3">如果你去看任何一颗 CPU 的 ALU（算术逻辑单元）框图，会发现它的核心就是第 2 节讲的那个东西：<b>一个加法器，加一圈选择器。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="ALU 的组成：加法器 + 逻辑单元 + 移位器 + 一个 MUX">
+            <pre><code>        A（32 位）            B（32 位）
+            │                     │
+            ├──────────┬──────────┤
+            │          │          │
+            ▼          ▼          ▼
+      ┌──────────┐ ┌────────┐ ┌──────────┐
+      │ 加法器    │ │ 逻辑单元│ │ 移位器    │
+      │ A + B    │ │ AND ORR │ │ 左移/右移 │
+      │ A - B    │ │ EOR BIC │ │ 循环/算术 │
+      │（带进位） │ │  （位运算）│ │（桶形移位）│
+      └────┬─────┘ └───┬────┘ └────┬─────┘
+           │           │           │
+           └───────────┼───────────┘
+                       ▼
+                 ┌───────────┐
+                 │  结果 MUX  │ ←── 由指令译码器控制
+                 └─────┬─────┘
+                       ▼
+                  运算结果 + 标志位（Z 零、C 进位、N 负、V 溢出）
+
+   ★ 注意最后那个 MUX：CPU 里最忙的模块之一就是数据选择器。
+     选运算结果、选寄存器、选地址来源 —— 到处都在「地址端选一路」。</code></pre>
+          </div>
+
+          <p class="mt-3"><b>为什么是加法器，而不是乘法器或者比较器？</b>因为只要有了加法器，其他运算都能「借」出来：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>运算</th><th>怎么用加法器实现</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><b>减法</b> A − B</td><td>A + (B 取反) + 1</td><td>补码的功劳：把减法变成加法，硬件只需一套</td></tr>
+                <tr><td><b>比较</b> A 与 B 的大小</td><td>做一次减法，<b>不保存结果</b>，只看标志位</td><td>和上一小节的数值比较器是同一件事</td></tr>
+                <tr><td><b>乘法</b> A × B</td><td>移位 + 累加（B 的每一位决定加不加）</td><td>软件循环里就是这样写的</td></tr>
+                <tr><td><b>地址计算</b></td><td>基址 + 偏移</td><td>每次访问数组元素、每个函数调用的栈操作都要用</td></tr>
+                <tr><td><b>计数</b></td><td>加 1</td><td>定时器、循环变量、程序计数器 PC 本身就是一个加法器</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>运算</th><th>Cortex-M3（32 位，72MHz）</th><th>8051（8 位，12MHz）</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>32 位加法</td><td>1 个周期</td><td>4 条 8 位加法指令 + 进位传递</td></tr>
+                <tr><td>硬件乘法</td><td>1 个周期（单周期乘法器）</td><td><code class="icode">MUL AB</code> 4 个周期</td></tr>
+                <tr><td>硬件除法</td><td>2 ~ 12 个周期（迭代式）</td><td><code class="icode">DIV AB</code> 4 个周期</td></tr>
+                <tr><td>移位</td><td>1 个周期（桶形移位器，任意位数）</td><td>循环移位，只能一位一位来</td></tr>
+                <tr><td>与/或/异或</td><td>1 个周期</td><td>1 个周期</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">从「1 个周期」和「12 个周期」里读出的信息</div>
+            <p><b>加法、位运算、移位是 1 个周期</b>：因为它们是<b>纯组合逻辑</b>，一个时钟周期内信号走完全程就有结果。进位链再长也只是一个组合路径问题（用超前进位压缩它）。</p>
+            <p class="mt-2"><b>除法要 2~12 个周期</b>：因为除法没法用一张纯组合网络优雅地实现（试商是逐位迭代的），只能做成<b>时序逻辑</b> —— 每个时钟周期算一位商。12 个周期就是 12 步迭代。</p>
+            <p class="mt-2"><b>这就是本篇和下一篇的分界线在 CPU 内部的一次现场演示：</b>能在一个周期里算完的，是组合逻辑；需要「一步一步来」的，本质上是时序逻辑。同一条除法指令，在不同型号上的周期数不同，差的就是迭代的步数。</p>
+            <p class="mt-2"><b>为什么不能把加法器无限加宽？</b>因为进位要一级一级传。32 位串行进位链的延迟是 32 级门的和，主频会被它拖死。解决办法就是第 2 节讲的超前进位（4 位一组、组间再超前进位），代价是面积和扇入急剧增加 —— 所以 64 位加法器不会做成「一次超前进位到底」，而是分层分组。<b>分层，是硬件和软件共同的生存智慧。</b></p>
+          </div>
+
+          <h3 id="sub-mcu-matrix" class="mt-7 text-base font-semibold">矩阵键盘扫描：组合逻辑与「鬼键」</h3>
+
+          <p class="mt-3">16 个按键，如果每键一根 IO，要用掉 16 根；接成 <b>4 × 4 矩阵</b>，只要 8 根。扫描原理是：<b>一次把一行拉低，读 4 根列线，看哪一列被按键拉低。</b></p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>步骤</th><th>硬件动作</th><th>组合逻辑在这里的角色</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>① 行扫描</td><td>把第 1 行拉低，其余 3 行拉高（或高阻）</td><td>行驱动可以是 IO，也可以是 <b>74HC138 的 8 路输出</b>（3 根 IO 扫 8 行）</td></tr>
+                <tr><td>② 等建立</td><td>等几微秒，让列线电平稳定</td><td>上拉电阻（10kΩ）给线间电容（约 100pF）充电：τ = 1µs，等 5~10µs</td></tr>
+                <tr><td>③ 读列</td><td>读 4 根列线，为低的那一列就是按下的键</td><td>按键把行和列「线与」起来 —— 这是一个<b>由机械开关构成的组合网络</b></td></tr>
+                <tr><td>④ 下一行</td><td>换下一行，重复 ②③</td><td>4 行扫完约 20~40µs，一轮 5~10ms</td></tr>
+                <tr><td>⑤ 软件去抖</td><td>连续两三轮读到同一个键才确认</td><td>机械触点抖动 5~20ms，必须靠时间过滤</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">鬼键（ghost key）：矩阵键盘绕不过去的电气真相</div>
+            <p>当<b>同一行的两个键 + 另一行的一个键</b>同时按下时（比如 (R1,C1)、(R1,C2)、(R2,C1)），扫描到第 2 行时会发现 <b>C2 也是低</b> —— 于是程序认为 (R2,C2) 也被按下了，可它明明没被碰过。</p>
+            <p class="mt-2"><b>机理：</b>R2 被拉低 → 经 (R2,C1) 到 C1 → 经 (R1,C1) 回到 R1 → 再经 (R1,C2) 到 C2。R2 的低电平就这样「绕了一圈」跑到了 C2 上。<b>这是纯粹的电气通路，软件怎么判都会判错。</b></p>
+            <p class="mt-2"><b>三种解法：</b></p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>每个键串一只二极管（1N4148）。</b>把电流通路变成单向，鬼键从物理上消失。代价是 16 只二极管（贴片件不贵，但布线变密）。</li>
+              <li><b>固件里限制组合键。</b>只承认「单键」和少量白名单组合，其余一律丢弃。这是最省事的做法，多数产品够用。</li>
+              <li><b>改用一对一扩展芯片。</b>比如 PCF8574 之类 I²C 扩展，每个键独占一位，没有线与，也就没有鬼键 —— 代价是多了芯片和总线开销。</li>
+            </ul>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">键盘上的「建立时间」：为什么读太快会串行</div>
+            <p>步骤 ② 那个「等几微秒」不是形式主义。上拉电阻 10kΩ 对着列线上百 pF 的电容充电，时间常数 τ ≈ 1µs，要等到电平稳定至少 5τ。</p>
+            <p class="mt-2">如果行切换后立刻读列，读到的可能是<b>上一行的残留电平</b> —— 现象是「按键串位」：按第 1 行的键，程序却报第 2 行的键；或者一次报出好几个键。<b>这和模拟开关的通道串扰是同一类错误，只是发生在数字侧。</b></p>
+            <p class="mt-2">反过来说，如果你用 74HC138 扫 8 行、上拉电阻又选得偏大（比如 100kΩ），τ 变成 10µs，问题会明显得多。上拉电阻别盲目选大：<b>它是省电和速度之间的一个折中</b>。</p>
+          </div>
+
+<h3 id="sub-mcu-irq" class="mt-7 text-base font-semibold">组合逻辑直接接中断脚：一个毛刺就是一次误触发</h3>
+
+          <p class="mt-3">这是一个非常典型的设计：板子上有几个故障检测点（过流、过温、门磁、水位），你想「任何一个出问题就立刻报警」，于是用几个门把它们或起来，接到 MCU 的中断引脚上，配置成<b>下降沿触发</b>。</p>
+
+          <p class="mt-3">逻辑上完全正确，电路也简单。但上电跑一段时间后你会发现：<b>系统偶尔会进中断，可进中断一查，什么故障都没有。</b></p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>时刻</th><th>某个输入的变化</th><th>组合逻辑输出的真实波形</th><th>MCU 看到什么</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>t = 0</td><td>输入 A 开始变化</td><td>输出仍是有效电平</td><td>—</td></tr>
+                <tr><td>t = 3ns 左右</td><td>A 经快速路径已到达，另一条经反相器的路径还没到</td><td><b>输出抖回无效电平（毛刺）</b></td><td><b>捕获到一个下降沿 → 中断标志置位</b></td></tr>
+                <tr><td>t = 8ns</td><td>两条路径都到达</td><td>输出恢复有效电平</td><td>中断标志<b>已经置位，不会被撤销</b></td></tr>
+                <tr><td>t = 数 µs 后</td><td>—</td><td>电平正常</td><td>中断服务程序执行，一查没有任何故障源</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">关键认识：毛刺不需要「持续」，只要「出现过」</div>
+            <p>很多人会想：「毛刺只有几个 ns，MCU 根本来不及反应吧？」</p>
+            <p class="mt-2"><b>不对。</b>中断引脚是<b>边沿敏感</b>的：它内部有一个边沿检测电路，一旦捕捉到符合条件的跳变，就把中断标志位置起来。此后即使引脚早已恢复平静，<b>标志位依然在那里</b>，中断照进不误。</p>
+            <p class="mt-2">所以结论是硬的：<b>不要用未经同步的组合逻辑输出，去驱动任何边沿敏感的输入</b> —— 中断脚、时钟脚、复位脚、锁存器使能脚，全都属于这一类。组合逻辑的毛刺在「电平敏感」的负载上可能无害（比如驱动一个 LED），但在「边沿敏感」的负载上就是一颗定时炸弹。</p>
+          </div>
+
+          <p class="mt-3"><b>为什么在实验室常常测不出来？</b>因为毛刺出现的条件是「多个输入在极短时间内同时变化」并「恰好落在险象区」，而这件事的概率与温度、电压、信号边沿速度都有关。所以它的典型症状是：<b>实验室好好的，装机后偶发；电机一启动就复现；天热了更容易出。</b>看到这种描述，第一反应就该是毛刺和干扰，而不是「MCU 坏了」。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>解法</th><th>消除什么</th><th>代价</th><th>适用场合</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><b>加冗余项</b>（第 2 节的代数法/卡诺图法）</td><td>从源头消除逻辑险象</td><td>多一两个门；需要先定位险象</td><td>逻辑规模小、能清楚找到相切的圈</td></tr>
+                <tr><td><b>时钟同步</b>：组合输出先进一级 D 触发器（74HC74），用稳定时钟采样后再送中断脚</td><td>所有窄于一个时钟周期的毛刺</td><td>需要一个时钟源；多一片芯片；信号延迟一个周期</td><td><b>最彻底</b>，推荐用于任何「组合逻辑 → 边沿输入」的场合</td></tr>
+                <tr><td><b>RC 低通 + 施密特触发器</b>（74HC14）</td><td>窄脉冲、慢边沿、振铃</td><td>响应被拖慢（ms 级）；占板面积</td><td>机械触点、慢速信号</td></tr>
+                <tr><td><b>软件延时确认</b>：中断里先延时 100µs，再读一次引脚，两次都有效才处理</td><td>大部分误触发（治标）</td><td>占用中断执行时间；极短的干扰仍可能骗过</td><td>不改板的紧急补救</td></tr>
+                <tr><td><b>改用轮询</b>：在定时器里周期性读电平，而不是靠中断触发</td><td>从根本上不怕毛刺（只认持续存在的电平）</td><td>响应变慢；占用 CPU 时间</td><td>慢变量、故障统计类需求</td></tr>
+                <tr><td><b>改善布线与电源</b>：走线串 33Ω 阻尼、缩短长度、远离功率回路、完整地平面</td><td>振铃、串扰、地弹</td><td>需要改板</td><td>确认存在 EMI 耦合时</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">「延时确认」在代码里长什么样（治标但立刻能用）</div>
+            <p>中断服务程序里不要立刻处理，先<b>复核</b>一次：</p>
+            <p class="mt-2"><code class="icode">void EXTI_IRQHandler(void) {</code> → 先 <code class="icode">delay_us(100);</code> → 再 <code class="icode">if (ReadPin() == ACTIVE) { 真正处理; }</code> → 最后 <code class="icode">ClearITPendingBit();</code></p>
+            <p class="mt-2"><b>两点提醒：</b>① 延时不要太长，中断里长时间阻塞会拖垮系统实时性；② 必须清中断标志，否则会反复进中断。这个办法能把绝大多数 ns 级毛刺挡在门外，但它只是<b>软件补丁</b> —— 只要板子还有机会改，就应该上「时钟同步」或「加冗余项」。</p>
+          </div>
+
+          <h3 id="sub-mcu-overclock" class="mt-7 text-base font-semibold">传输延迟如何决定「能不能超频」</h3>
+
+          <p class="mt-3">第 3 节例 6 算的是一条外部路径。把同样的算法用到 MCU 内部，就得到了「主频」这个概念的本质：<b>主频不是一个可以随便调的旋钮，而是「芯片里最长的那条组合路径能在多长时间内走完」的倒数。</b></p>
+
+          <p class="mt-3">芯片厂家在最坏条件（最高工作温度、最低工作电压、最慢的工艺角）下验证过这条最长路径，还留了余量，然后才敢标一个主频。所以你拿到的 72MHz 是「<b>保证能工作</b>」的频率，不是「极限」。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>超频后的典型现象</th><th>背后的延迟原因</th><th>怎么验证</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>跑一会儿、热了就死机；凉下来又能跑</td><td>CMOS 门延迟随温度升高而变长（+20%~40%），原本刚好的余量被吃光</td><td>用热风枪/温箱加热到 60~85°C，看是否稳定复现</td></tr>
+                <tr><td>同一份固件，换一批芯片有的能跑有的不能</td><td>工艺角差异：同一型号不同批次、甚至同一片晶圆不同位置的芯片，速度都有快慢</td><td>多测几片统计，别用「我手上这片能跑」下结论</td></tr>
+                <tr><td>一降低内核电压，立刻跑不上去</td><td>电压越低，门延迟越大（驱动能力下降）</td><td>配合调压测试，观察出错电压门限</td></tr>
+                <tr><td>主循环看着没问题，但 Flash 取指出错 / 直接 HardFault</td><td>Flash 有<b>独立的访问时间</b>，主频超过某档就必须增加等待周期（wait state）</td><td>查手册的 wait state 表；提高 wait state 后重测</td></tr>
+                <tr><td>USB / CAN 通信不稳，其他功能正常</td><td>这两个外设依赖精确的位时序，对时钟频率有硬性要求</td><td>降频验证；检查时钟树配置</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">为什么「软件优化」救不了超频，但能救性能</div>
+            <p>这两件事经常被混为一谈，其实层次不同：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>优化算法</b>减少的是「要做多少次运算」—— 属于软件层，收益可以很大（比如把 O(n²) 换成 O(n log n)）。</li>
+              <li><b>提高主频</b>缩短的是「每一次运算要多久」—— 属于硬件层，受组合逻辑延迟这个<b>物理地板</b>限制，软件技巧一点忙都帮不上。</li>
+            </ul>
+            <p class="mt-2">所以当你发现性能不够时，正确的顺序是：<b>先看算法能不能少算，再看能不能用硬件外设（DMA、硬件乘法、CRC 单元）替 CPU 干活，最后才考虑换更高主频的芯片。</b>超频排在这三件事之后，而且它换来的是「不稳定」，不是「性能」。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">工业产品的常规做法：降频使用</div>
+            <p>很多工业级、车规级设计会主动把主频<b>降到标称值的 70%~80%</b>，甚至更低，用性能换可靠性 —— 因为现场的温度范围、电源质量、电磁环境都比实验室恶劣得多。</p>
+            <p class="mt-2">这和例 6 里「留 30% 设计余量」是同一个思路，只是余量留在频率上而不是延迟上。<b>能不能超频，本质上就是在问：你还剩多少余量？</b></p>
+          </div>
+
+          <h3 id="sub-mcu-hdl" class="mt-7 text-base font-semibold">用 HDL 描述组合逻辑：最容易踩的两个坑</h3>
+
+          <p class="mt-3">如果你用 Verilog / VHDL 写 CPLD 或 FPGA（很多单片机项目会用一个 CPLD 来做片选和胶合逻辑），下面这两条几乎是每个人都会踩一次的坑。<b>它们共同的特点是：代码看起来对、仿真也许对，最后硬件行为不对。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="坑 1：组合逻辑该用阻塞赋值（= ），却用了非阻塞（&lt;= ）">
+            <pre><code>   // ─────── 正确写法：组合逻辑用阻塞赋值 ───────
+   always @(*) begin
+       t1 = a &amp; b;        // 立即生效，下一行就能用到新值
+       t2 = c | d;
+       y  = t1 ^ t2;
+   end
+
+   // ─────── 错误写法：组合逻辑里用了非阻塞赋值 ───────
+   always @(*) begin
+       t1 &lt;= a &amp; b;       // 要等到本次求值结束才统一更新
+       t2 &lt;= c | d;
+       y  &lt;= t1 ^ t2;     // ⚠ 这里读到的 t1、t2 是【旧值】！
+   end
+
+   【为什么会错】
+     · 阻塞赋值  =  ：像 C 语言一样顺序执行，赋值立刻生效。
+     · 非阻塞赋值 &lt;= ：本时间步内所有赋值一起"排队"，
+                      到末尾才统一更新，读到的都是旧值。
+     · 所以错误写法里，y 用的是上一轮的 t1、t2 ——
+       仿真结果与综合出来的电路【不一致】。
+       （不同工具、不同版本下表现还可能不一样，最难查。）
+
+   【怎么记】
+     组合逻辑（always @(*) / always_comb）：用  =
+     时序逻辑（always @(posedge clk)）  ：用  &lt;=
+     一句话：带时钟的用 &lt;=，不带时钟的用 =。
+
+   【附带一条】敏感列表一定要写全，或者干脆写 @(*)。
+   手写敏感列表漏了一个信号，仿真就不触发，
+   综合出来的电路却会正常工作 —— 又是一次"仿真和硬件不一致"。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="坑 2：if / case 分支不完备 —— 意外生成锁存器">
+            <pre><code>   // ─────── 错误写法 A：if 没有 else ───────
+   always @(*) begin
+       if (en) y = a;
+       // en = 0 时 y 该怎么办？没写。
+       // 综合工具的理解是："保持原值" —— 保持 = 记忆 = 锁存器！
+   end
+   → 综合报告里会出现 warning: inferred latch（推断出锁存器）
+
+   // ─────── 错误写法 B：case 没有 default ───────
+   always @(*) begin
+       case (sel)
+           2'b00: y = a;
+           2'b01: y = b;
+           // 2'b10、2'b11 没写 → 同样推断出锁存器
+       endcase
+   end
+
+   // ─────── 正确写法一：把分支补全 ───────
+   always @(*) begin
+       if (en) y = a;
+       else    y = 1'b0;      // 明确写出"其他情况怎么办"
+   end
+
+   // ─────── 正确写法二（推荐）：开头先给默认值 ───────
+   always @(*) begin
+       y = 1'b0;              // ★ 默认值，一行顶十行
+       case (sel)
+           2'b00: y = a;
+           2'b01: y = b;
+       endcase
+   end
+   → 因为一开始就赋过值，任何没覆盖到的分支都落到默认值上，
+     不再存在"保持原值"的语义，锁存器自然消失。
+
+   【为什么锁存器很危险】
+     ① 它是【电平敏感】的：使能有效期间是"透明"的，
+        输入上的任何毛刺都会直接传到输出 —— 比边沿触发的触发器脆弱得多。
+     ② 它没有时钟，静态时序分析（STA）没法正常约束和分析它。
+     ③ 不同综合工具对"保持"的处理可能不同，跨工具移植会变行为。
+     ④ 锁存器无法接入扫描链，量产后测试困难。
+     ⑤ 你以为写的是纯组合电路，实际面积和功耗都和预期不符。
+
+   【一句话总结】
+     组合逻辑的定义是"输出只取决于当前输入"。
+     只要有一条路径"没写清楚输出该是什么"，硬件就只能替你记住上一次的值
+     —— 那一刻，你写的就不再是组合逻辑了。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>写法</th><th>综合工具报什么</th><th>结果</th><th>怎么改</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">always @(*) t1 &lt;= a &amp; b;</code></td><td>通常不报错（甚至没有 warning）</td><td>仿真与硬件行为不一致</td><td>组合逻辑一律改回 <code class="icode">=</code></td></tr>
+                <tr><td><code class="icode">if (en) y = a;</code>（无 else）</td><td><code class="icode">warning: inferred latch</code></td><td>生成锁存器</td><td>补 <code class="icode">else</code>，或在块首给默认值</td></tr>
+                <tr><td><code class="icode">case</code> 无 <code class="icode">default</code></td><td>同上</td><td>生成锁存器</td><td>补 <code class="icode">default</code>，或用默认值法</td></tr>
+                <tr><td>敏感列表漏信号</td><td>一般无警告</td><td>仿真不触发、硬件却工作，掩盖真实 bug</td><td>用 <code class="icode">@(*)</code> 或 <code class="icode">always_comb</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">同样的坑，在 C 语言里有个对应的版本</div>
+            <p>「不小心写出了记忆」这件事不只发生在 HDL 里。写单片机 C 代码时，下面这些做法都会让你以为在写「纯计算」，实际上造出了状态：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>函数里用了 <code class="icode">static</code> 局部变量</b>：第一次调用和第二次调用的结果可能不同 —— 它有了记忆，不再是纯函数。</li>
+              <li><b>中断和主循环共享的全局变量没加 <code class="icode">volatile</code></b>：编译器认为它没变，把读操作优化掉，于是你读到的永远是「上一次的值」—— 一个由编译器替你造出来的锁存器。</li>
+              <li><b>用全局变量当状态机状态</b>：那你就写了一个时序逻辑，只不过时钟变成了「事件发生」。</li>
+            </ul>
+            <p class="mt-2"><b>本页的最后一句话：</b>组合逻辑 = 纯计算 = 输出只取决于当下、没有副作用。这是硬件设计里最重要的一条分界线，也是软件里「纯函数」这个概念的来源。<b>能分清「哪些是计算、哪些是状态」，是数字系统设计真正入门的地方。</b></p>
+          </div>
+
+        </section>
+
+<!-- ---------------------------- 5. 常见误解与坑 ---------------------------- -->
+        <section class="mt-12">
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误解与坑</h2>
+
+          <p class="mt-3">前面四节讲的是「应该怎么做」。这一节讲的是<b class="font-semibold text-ink">实际做的时候最容易怎么想错</b>——每一条都来自真实的翻车现场。它们的共同点是：当时的电路「在原理图上完全正确」。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 1 · 组合逻辑就是「没有时钟的电路」</div>
+            <p><b class="font-semibold text-ink">为什么错：</b>这句话把「表面特征」当成了定义。组合逻辑的定义是<b>输出只取决于当前输入</b>，跟有没有时钟没有一点关系。反过来，两个与非门交叉耦合成的锁存器<b>根本没有时钟</b>，它却是彻头彻尾的时序逻辑——因为它有反馈、有记忆。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>用可操作的判据。① <b>能不能写成一张真值表？</b>写不出来的（因为输出还要看历史）就不是组合逻辑；② <b>有没有输出反馈回输入？</b>有反馈就有记忆；③ 电路里的触发器是不是都老老实实接在时钟上、中间那坨是不是纯计算？是，那中间那坨就是组合逻辑。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 2 · 卡诺图化简到最简，实现就一定最好</div>
+            <p><b class="font-semibold text-ink">为什么错：</b>「最简」优化的是<b>门数和乘积项个数</b>，它不优化确定性。例 4 里被化简掉的那一项，恰好就是消除毛刺的冗余项；最简式还可能让某一路信号的扇出变大、路径级数变多，反而更容易出问题。更麻烦的是，化简后看不出「原设计里本来有保护」。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>分场合。<b>负载是边沿敏感的</b>（中断、时钟、复位、锁存使能、计数器）→ 保留冗余项，或者干脆在后面加同步；<b>负载是电平敏感的</b>（LED、继电器、ADC 输入、数码管段选）→ 放心用最简式。<b>用 CPLD/FPGA 实现时</b>，门数根本不值钱，可预测性更重要，所以工程上常常故意留冗余项、甚至直接写不化简的形式。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 3 · 无关项随便填，反正真值表上写的是 ×</div>
+            <p><b class="font-semibold text-ink">为什么错：</b>无关项<b>不影响功能的正确性</b>，但<b>决定化简的结果</b>：填得好可以消掉变量、让几个输出共用乘积项、顺手把险象盖掉；填得差会得到又长又容易出毛刺的式子。这就是为什么同一道题两个人都做对，一个人的电路比另一个少两个门。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>带着目标去填 ×：① <b>为化简</b>——让它进圈，圈越大越好；② <b>为消除险象</b>——用它在相切处补一个冗余圈；③ <b>为多输出共用</b>——让几个输出共享同一个乘积项，省器件。记住前提：那个输入组合<b>永远不会出现</b>，所以填 0 填 1 都合法，要挑对实现最有利的填法。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 4 · 有竞争就一定会出错</div>
+            <p><b class="font-semibold text-ink">为什么错：</b>把三件不同的事混成了一件。<b>竞争</b>是物理必然（同一个信号经不同路径到达，延迟必然不同）；<b>冒险</b>是逻辑条件（互补的信号在某个门互相抵消）；<b>出错</b>还要第三个条件——<b>负载对边沿敏感</b>。三者缺一不可。绝大多数组合逻辑都有竞争，绝大多数都不出错。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>先看负载再决定要不要治。负载是电平敏感的 → 毛刺无害，几纳秒的抖动既看不见也听不见，<b>不必处理</b>；负载是边沿敏感的 → 必须处理，而且优先选<b>同步采样</b>（打一拍），其次才是加冗余项、加滤波。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 5 · 数据选择器只是「选数据」，做不了逻辑</div>
+            <p><b class="font-semibold text-ink">为什么错：</b>MUX 是<b>通用性最强</b>的组合器件：地址端接满变量，它就是一张「用芯片实现」的真值表；少接一个变量，它就是一个二选一——这正是香农展开 <code class="icode">F = A′·F(A=0) + A·F(A=1)</code> 的硬件形态。例 3 已经证明，一片 74LS151 可以顶掉一堆门。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>把「逻辑实现」当成一道<b>选择题</b>而不是填空题。批量小、要改版灵活、变量少（≤4）→ 用 MUX 或器件化的方案，改一个数据端就改了逻辑；批量大、成本敏感 → 老老实实卡诺图化简 + 门电路，或者直接上 CPLD。会算最简式是本事，会挑实现方式也是本事。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 6 · 译码器的输出可以直接驱动负载</div>
+            <p><b class="font-semibold text-ink">为什么错：</b>译码器的输出是<b>逻辑电平</b>，不是<b>功率</b>。74HC138 单脚输出的电流能力只有毫安级，整片还有总电流上限；数码管位选要几十毫安、继电器要几十毫安、蜂鸣器更多。此外还有两个方向性问题：<b>低有效还是高有效</b>（共阴数码管配 74HC138 是低有效，共阳要 74HC238 或加反相器）、<b>电流是灌进去还是拉出来</b>。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>先算电流，再选驱动级：三极管、达林顿阵列 ULN2003/ULN2803、专用数码管驱动、MOS 管。同时查手册的 I<sub>OH</sub>/I<sub>OL</sub> 与整片总功耗，别只看「逻辑对不对」——一片逻辑正确但驱动不足的电路，表现是「亮度不均、偶尔乱码、用一会儿就热」。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 7 · 用 GPIO 做片选慢，所以一律用译码器</div>
+            <p><b class="font-semibold text-ink">为什么错：</b>译码器换来的是「省 IO + 硬件保证唯一性」，代价是<b>地址范围被硬件定死</b>，改一次要改板；GPIO 片选慢（软件写寄存器的几十纳秒到微秒级），但可以做到任意引脚、任意时序、软件里随时改，还能在两条语句之间插入等待。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>按需求选。需要高速、需要多个同类器件、地址空间要连续 → 用译码器，或者用 MCU 自带的专用片选（FSMC_NEx）；器件少、时序特殊、要灵活 → 用 GPIO 甚至软件模拟时序。很多真实板子<b>两种都用</b>：高速器件走片选，慢速器件走 GPIO。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 8 · 传播延迟只影响高频电路，慢系统不用管</div>
+            <p><b class="font-semibold text-ink">为什么错：</b>「慢系统」慢的是<b>时钟</b>，不是毛刺——毛刺还是几纳秒宽，建立时间还是微秒量级，两者都不会因为系统慢而消失。慢速系统照样有一长串翻车现场：中断被毛刺误触发（ns 级事件造成 ms 级后果）、ADC 通道切换没留建立时间、键盘扫描读太快导致「按键串位」、片选和读写信号的先后顺序不满足建立时间。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>把「延迟预算」变成习惯，而不是等到 MHz 级才开始算。看到「在 A 之后 B 必须晚至少多少」的场合就写一行注释：凭什么、差多少、余量多少。这也是例 6 那张表的用法。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 9 · 地址译码错了顶多读到错数据，无所谓</div>
+            <p><b class="font-semibold text-ink">为什么错：</b>地址重叠时<b>两个器件会同时驱动同一组数据线</b>——一个输出高、一个输出低，几十毫安的灌电流会流过两边的输出管，轻则数据为两值按位与、重则发热甚至损坏。<b>部分译码</b>造成的地址镜像更阴：同一个存储单元有多个地址，症状是「我明明改的是变量 A，怎么 B 也变了」，而且编译器、仿真器、万用表全都看不出问题。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>① 上电前先画一张<b>地址分配表</b>，逐行核对范围不重叠；② 未使用的译码输出接 10kΩ 上拉或明确接地，别悬空；③ 把 <code class="icode">RD</code>/<code class="icode">WR</code> 也编进译码器的使能端，让「选中」和「读写」两个条件同时满足才有效；④ 写一小段「地址扫描」测试代码，把每个目标地址写一个特征值再读回来，比盯原理图可靠得多。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一条通用判据：拿到电路先问三个问题</div>
+            <p>① <b>它有记忆吗？</b>——能不能写出真值表，决定它是组合逻辑还是时序逻辑；② <b>它的负载对边沿敏感吗？</b>——决定毛刺要不要治；③ <b>它最坏路径有多长？</b>——决定系统的最高工作频率。这三个问题问完，这一篇的内容就用上了大半。</p>
+          </div>
+        </section>
+<!-- ---------------------------- 6. 小结与自检 ---------------------------- -->
+        <section class="mt-12">
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自检</h2>
+
+          <p class="mt-3">这一篇从「组合逻辑到底是什么」一路走到「地址译码、ADC 通道切换、中断毛刺和超频」。如果只允许你带走一页纸，那就是下面这一页。</p>
+
+          <h3 class="mt-7 text-base font-semibold">要点清单</h3>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b>组合逻辑的定义只有一句：输出只取决于当前输入。</b>没有记忆、没有反馈、能写成一张真值表。与时序逻辑的分界是<b>记忆</b>，不是「有没有时钟」——交叉耦合的与非门没有时钟，却是时序逻辑。</li>
+            <li><b>分析方法四步：</b>逻辑图 → 逐级写表达式 → 化简或列真值表 → 说清功能。例 1 的 4 个与非门看似绕，化简后只是一个异或；真值表是「翻译」电路功能的通用手段。</li>
+            <li><b>设计方法五步：</b>需求 → 真值表（含无关项）→ 写最小项表达式 → 卡诺图化简 → 画逻辑图并<b>落到器件</b>。最后一步往往有多种答案（例 2 的 12 个门 vs 一片 74LS283）。</li>
+            <li><b>无关项要带着目标填：</b>为化简、为消除险象、为多输出共用。填法不影响正确性，却决定器件的代价和可靠性。</li>
+            <li><b>编码器：</b>普通编码器要求<b>一次只能有一个输入有效</b>，优先编码器 74LS148 用优先级解决同时有效，靠 EI/EO（和 GS）级联成 16 线-4 线。</li>
+            <li><b>译码器：</b>n 个输入 → 2<sup>n</sup> 个输出，每个输出对应一个最小项。74LS138 的三个使能端（G1 高有效、G2A/G2B 低有效）就是「片选」和「扩展」的入口，也是把地址线变成片选信号的现成工具。</li>
+            <li><b>用译码器实现逻辑函数：</b>输出低有效时 Y<sub>i</sub>′ = m<sub>i</sub>，把需要的几路输出送进一个与非门/或门即可；同一片译码器还能当<b>数据分配器</b>用（数据进使能端，地址选输出）。</li>
+            <li><b>数据选择器：</b>2<sup>n</sup> 选 1。用 MUX 实现逻辑函数有两种接法——<b>地址接满变量</b>＝查表；<b>地址少接一个变量</b>＝香农展开（数据端接 0、1、变量或反变量）。这是最常考也最实用的用法。</li>
+            <li><b>加法器：</b>半加 S = A⊕B、C = AB；全加 S = A⊕B⊕C<sub>i</sub>、C<sub>o</sub> = AB + (A⊕B)C<sub>i</sub>。<b>串行进位的延迟随位数线性增长</b>（每位 2 级门），<b>超前进位</b>用 P/G 并行算出各级进位，延迟几乎与位数无关（74LS283 的 A→S 最大约 24ns）。</li>
+            <li><b>数值比较器 74LS85：</b>三个输出（大、小、相等）+ 三个串联输入。级联时<b>低位片的输出接高位片的串联输入</b>；单片使用时 I(A=B) 接高、另外两个接低。比较本质上是一次减法加标志判断。</li>
+            <li><b>竞争与冒险：</b>竞争是物理必然，冒险是逻辑上互补抵消，出错还要负载边沿敏感。<b>判别</b>用代数法、卡诺图相切法、实验法；<b>消除</b>用加冗余项、输出滤波电容、时钟同步采样、换集成模块。冗余项不改变功能，只改变过渡过程。</li>
+            <li><b>时序约束：</b>T ≥ t<sub>CQ</sub> + t<sub>pd</sub>(最坏路径) + t<sub>su</sub> + t<sub>skew</sub>。建立时间查<b>最长路径</b>，保持时间查<b>最短路径</b>；手册必须用最大值，且要按最高温度和最低电压降额（CMOS 延迟可增加 20%~40%）。</li>
+            <li><b>延迟预算要写出来：</b>例 6 的 27ns 链路 → 32ns 周期（31.25MHz 理论）→ 温度降额后 37ns（27MHz）→ 留 30% 余量后 48ns（<b>实际可用 20.8MHz</b>）。提速手段依次是：换更快的系列、减一级门、缩短走线、改时序（插等待周期）、用片内控制器。</li>
+            <li><b>器件家族的速度差一个数量级：</b>74LS 约 9~10ns、74HC 约 7~12ns、74AHC 约 3.5~5.5ns、74LVC 约 2~4ns（3.3V，输入不耐 5V）。选型要看的不只是逻辑功能。</li>
+            <li><b>HDL 描述组合逻辑两个坑：</b>该用<b>阻塞赋值</b> <code class="icode">=</code>（带时钟才用 <code class="icode">&lt;=</code>）；<code class="icode">if</code>/<code class="icode">case</code> 分支不完备会<b>意外推断出锁存器</b>（块首给默认值或补全分支），敏感列表写 <code class="icode">@(*)</code>。</li>
+            <li><b>一句话总结：组合逻辑 = 纯计算。</b>输出只取决于当下，没有副作用。你在单片机项目里遇到的「地址重叠、ADC 不准、按键串位、中断误触发、超频偶尔算错」，根子都在这一页里。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">一页速查：本篇用到的全部公式</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>公式</th><th>它算什么</th><th>单位与注意事项</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">S = A⊕B, C = AB</td><td>半加器</td><td>无进位输入；一片 74LS86 + 一片 74LS08，或 5 个与非门</td></tr>
+                <tr><td class="font-mono text-xs">S = A⊕B⊕C<sub>i</sub><br>C<sub>o</sub> = AB + (A⊕B)C<sub>i</sub></td><td>全加器</td><td>可级联成任意位宽；进位链是延迟的来源</td></tr>
+                <tr><td class="font-mono text-xs">P<sub>i</sub> = A<sub>i</sub>⊕B<sub>i</sub>, G<sub>i</sub> = A<sub>i</sub>B<sub>i</sub><br>C<sub>i</sub> = G<sub>i</sub> + P<sub>i</sub>C<sub>i−1</sub></td><td>进位递推式（超前进位的基础）</td><td>P 叫进位传递、G 叫进位产生；展开后每级进位只与输入有关</td></tr>
+                <tr><td class="font-mono text-xs">F = A′·F(A=0) + A·F(A=1)</td><td>香农展开（MUX 实现逻辑的根据）</td><td>反复展开可把任意函数塞进 2<sup>n</sup> 选 1 的 MUX</td></tr>
+                <tr><td class="font-mono text-xs">Y<sub>i</sub>′ = m<sub>i</sub></td><td>低有效译码器的输出</td><td>每路输出就是一个最小项，凑函数时用与非门合并</td></tr>
+                <tr><td class="font-mono text-xs">F = AB + A′C + BC</td><td>加冗余项消除静态 1 冒险</td><td>冗余项 BC 不改变功能；卡诺图上它把两个相切的圈盖住</td></tr>
+                <tr><td class="font-mono text-xs">T ≥ t<sub>CQ</sub> + t<sub>pd</sub> + t<sub>su</sub> + t<sub>skew</sub></td><td>最小时钟周期（最高工作频率）</td><td>全部取最坏值；f<sub>max</sub> = 1/T，再留 30% 余量</td></tr>
+                <tr><td class="font-mono text-xs">t<sub>建立</sub> ≈ 5τ = 5RC</td><td>模拟开关切换后的建立时间</td><td>到 0.7% 误差；R 要算上开关的 R<sub>on</sub></td></tr>
+                <tr><td class="font-mono text-xs">块大小 = 2<sup>未参与译码的低位地址线数</sup></td><td>每路片选覆盖的地址空间</td><td>高 k 位进译码器时，每块 = 2<sup>n−k</sup> 字节，块序号 = 高 k 位的值</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">自测题</h3>
+
+          <p class="mt-3">先自己写答案，再对照下面的参考答案。<b class="font-semibold text-ink">能答对 5 道以上，这一篇就算真的读进去了。</b></p>
+
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>下面四个东西，哪些是组合逻辑？(a) 两个与非门交叉耦合；(b) 74LS138 的一路输出直接去点一个 LED；(c) 同步电路里「触发器 → 加法器 → 触发器」中间那坨加法器；(d) 一个 <code class="icode">always @(*)</code> 块，里面用 <code class="icode">if</code> 判断却没有 <code class="icode">else</code>。</li>
+            <li>用一片 74LS138 和门电路实现三变量函数 F(A,B,C) = Σm(0,2,3,7)。写出地址端接法、用到哪几路输出、门怎么接。</li>
+            <li>用一片 8 选 1 数据选择器 74LS151 实现 F(A,B,C) = Σm(1,4,6,7)。写出地址端与数据端的接法。</li>
+            <li>函数 F = AB + A′C 在什么条件下会出现静态 1 冒险？怎样消除？请用卡诺图解释为什么这样改是对的。</li>
+            <li>一个 4 位串行进位加法器用 74HC 系列实现（每级门约 9ns），最坏情况总延迟是多少？换成 74LS283（A→S 最大 24ns）后延迟降到多少？为什么超前进位能快这么多？</li>
+            <li>16 位地址总线中，A15~A13 接 74LS138 的 CBA，G1 接 A12、G2A 与 G2B 接地。Y5 有效时，被选中的地址范围是多少？它有多大？</li>
+            <li>某同步系统：t<sub>CQ</sub> = 8ns、组合逻辑最坏 t<sub>pd</sub> = 22ns、t<sub>su</sub> = 4ns、时钟偏斜 3ns。求最高时钟频率；如果温度升高使 t<sub>pd</sub> 增加 30%，还能跑原来的频率吗？</li>
+          </ol>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第 1 题答案</div>
+            <p><b>(a) 时序逻辑</b>——两个门互相把对方的输出当输入，形成了反馈，这是锁存器，有记忆。<b>(b) 组合逻辑</b>——瞬时输出只由地址输入决定，没有反馈，LED 只是它的负载。<b>(c) 组合逻辑</b>——中间那坨自己不带记忆（结果被触发器存住是触发器的事，不是它的事）。<b>(d) 名不副实</b>——写法上想说组合逻辑，但分支不完备会让综合工具<b>推断出锁存器</b>，电路里真的长出了记忆元件。这正是第 4 节最后一个坑。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第 2 题答案</div>
+            <p>地址端 <code class="icode">A2 A1 A0 = A B C</code>；使能端 <code class="icode">G1 = 1</code>、<code class="icode">G2A = G2B = 0</code>。74LS138 的输出低有效，所以 <code class="icode">Y<sub>i</sub>′ = m<sub>i</sub></code>，于是 <code class="icode">(Y0 · Y2 · Y3 · Y7)′ = m0 + m2 + m3 + m7 = F</code>。把 <b>Y0、Y2、Y3、Y7 四路输出接进一个 4 输入与非门</b>（74LS20 一片正好两个 4 输入与非门），它的输出就是 F；如果手边只有 74LS30（8 输入与非门），把其余四个输入接高电平即可。<b>关键点：用低有效输出实现「或」要用与非门，不是或门。</b></p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第 3 题答案</div>
+            <p>地址端 <code class="icode">A2 A1 A0 = A B C</code>，输出取 Y（不用反码输出 W），使能端接地常有效。<b>数据端就是真值表本身</b>：D0 = 0、D1 = 1、D2 = 0、D3 = 0、D4 = 1、D5 = 0、D6 = 1、D7 = 1。也就是说，8 个数据端按最小项编号依次接「该最小项在不在函数里」——在就接 1，不在就接 0。<b>如果变量多于三个</b>（例如四个变量的函数），就把其中三个接地址端，第四个变量按香农展开接到数据端，数据端就会出现 A、A′ 这类信号而不是常数。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第 4 题答案</div>
+            <p>当 <b>B = C = 1</b> 时，F = AB + A′C 变成 <code class="icode">A·1 + A′·1 = A + A′</code>——一个变量和它的反变量相或，逻辑上恒为 1，但物理上 A 到达两个门的时间不同，于是输出在 A 变化的瞬间可能出现一个<b>负向毛刺</b>（静态 1 冒险）。<b>消除方法：加冗余项 BC</b>，即 <code class="icode">F = AB + A′C + BC</code>。<b>卡诺图上</b>，AB 的圈和 A′C 的圈在 BC = 1 那一列<b>相切</b>（只挨着、不重叠），切换点正好落在相切处；补上的 BC 圈把相切的那两格盖进同一个圈里，切换时输出被这个圈「托住」不再掉下去。功能没变，因为 B = C = 1 时 BC = 1，而这个条件下 AB + A′C 本来就等于 1，或上 1 还是 1。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第 5 题答案</div>
+            <p><b>串行进位：</b>每一位的进位输出要等低位的进位稳定，最坏情况下信号要穿过 <b>4 级进位链、每级 2 级门</b>，所以 <code class="icode">4 × 2 × 9ns = 72ns</code>（如果实现方式要 3 级门，则是 108ns——所以看手册比背数字可靠）。<b>74LS283：A→S 最大 24ns</b>，快了 3 倍左右。<b>原因：</b>串行进位的每一位都在「等上一位」，延迟随位数<b>线性</b>增长；超前进位先用 <code class="icode">P<sub>i</sub> = A<sub>i</sub>⊕B<sub>i</sub></code>、<code class="icode">G<sub>i</sub> = A<sub>i</sub>B<sub>i</sub></code> 把每级的进位<b>直接从输入算出来</b>，所有进位几乎同时产生，延迟与位数近似无关——代价是门数和扇入迅速增加，所以位数多时还要分层（组内超前、组间再超前）。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第 6 题答案</div>
+            <p>译码器要有效，必须 <code class="icode">G1 = A12 = 1</code>，所以 A12 也被固定了。Y5 有效说明 <code class="icode">A15 A14 A13 = 101</code>。<b>高 4 位固定为 1011</b>，低 12 位（A11~A0）不参与译码、器件自己用，因此每块大小是 <code class="icode">2<sup>12</sup> = 4KB</code>，范围是 <code class="icode">0xB000 ~ 0xBFFF</code>。<b>要点：使能端参与译码时，它接的那根地址线也要算进「固定位」</b>——这就是为什么片选范围和使能端的接法必须一起看，例 5 的第②问（部分译码造成的地址镜像）也是同一个道理。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">第 7 题答案</div>
+            <p><b>第一步：</b><code class="icode">T ≥ 8 + 22 + 4 + 3 = 37ns</code>，所以 <code class="icode">f<sub>max</sub> = 1/37ns ≈ 27.0MHz</code>。<b>第二步：</b>温度升高后 t<sub>pd</sub> 变成 <code class="icode">22 × 1.3 = 28.6ns</code>，于是 <code class="icode">T ≥ 8 + 28.6 + 4 + 3 = 43.6ns</code>，<code class="icode">f<sub>max</sub> ≈ 22.9MHz</code>——<b>原来的 27MHz 已经跑不动了</b>。所以正确做法是<b>一开始就用最坏温度、最坏电压下的参数算，再留 30% 余量</b>：43.6ns 加余量后约 57ns，实际按 15~17MHz 设计才稳。这也是第 4 节里「热了就死机」的定量解释。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>
+              <b>用一片 74HC151 在面包板上实现一个三变量函数。</b>选一个自己感兴趣的函数（例如「三个开关中有奇数个闭合」），按第 2 节例 3 的方法接好地址端与数据端，然后<b>逐行核对真值表</b>：8 行输入全部走一遍，看输出是否与函数一致。<b>目标：把「MUX 就是查表」从公式变成手感。</b>顺便测一下地址变化到输出稳定的延迟，和手册的 t<sub>pd</sub> 对比。
+            </li>
+            <li>
+              <b>亲手抓一次毛刺。</b>用 74HC00 搭出 F = AB + A′C（B = C = 1，A 用信号发生器给 1MHz 方波），示波器接输出，用<b>正常触发</b>找不到毛刺就试<b>单次触发 + 窄脉冲触发</b>；然后把电路改成 F = AB + A′C + BC，再找一次。如果两次都看不到，请解释「没看到」是否等于「不存在」——这是这一节最值钱的一课。
+            </li>
+            <li>
+              <b>做一次真实的延迟预算。</b>用 74HC138 做 8 路片选（或者数码管位选），用示波器同时看地址输入和片选输出，量出实际延迟；再把这一级放进例 6 的账本里，算出对应的最高工作频率，并和你板子上的实际主频对照。<b>目标：知道自己的设计离极限还有多远。</b>
+            </li>
+            <li>
+              <b>复现一次 ADC 通道串扰。</b>用 CD4051 把两路直流电压（例如 0.5V 和 2.5V）接到同一个 ADC 输入，先按「切换后立刻采样」的方式读，观察读数被上一个通道「污染」；然后按第 4 节的办法插入建立时间（或把滤波电容从 100nF 降到 1nF），再读一次。<b>目标：把「建立时间」四个字变成示波器上看得见的差别。</b>
+            </li>
+            <li>
+              <b>在 FPGA/CPLD 上犯一次错、再看工具怎么警告你。</b>写一个 <code class="icode">always @(*)</code> 的组合逻辑，故意 ① 漏掉 <code class="icode">else</code>、② 用非阻塞赋值 <code class="icode">&lt;=</code>，分别综合一次，把工具给出的 <code class="icode">inferred latch</code> 警告和仿真波形截图保存下来，然后改成正确的写法再对比。<b>目标：让「分支不完备 = 长出锁存器」这条认识从此带上工具的警告声。</b>
+            </li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">延伸阅读</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>想继续深入的方向</th><th>去看</th><th>它接着讲什么</th></tr></thead>
+              <tbody>
+                <tr><td>给组合逻辑加上记忆（下一篇）</td><td><a class="text-brand-600 dark:text-brand-300" href="ee-sequential.html">时序逻辑电路：锁存器、触发器与寄存器</a></td><td>锁存器与触发器的区别、建立保持时间、寄存器与计数器</td></tr>
+                <tr><td>本篇的数学基础</td><td><a class="text-brand-600 dark:text-brand-300" href="ee-logic-algebra.html">逻辑代数与卡诺图化简</a></td><td>真值表、布尔代数、卡诺图化简、用门电路实现任意逻辑</td></tr>
+                <tr><td>组合逻辑加记忆之后的下一步</td><td><a class="text-brand-600 dark:text-brand-300" href="ee-fsm.html">有限状态机</a></td><td>状态图、状态编码、用 HDL 描述状态机</td></tr>
+                <tr><td>毛刺、地弹与走线的系统性治理</td><td><a class="text-brand-600 dark:text-brand-300" href="ee-emc.html">电磁兼容与信号完整性基础</a></td><td>干扰的来源与耦合路径、去耦、布线、屏蔽与滤波</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">最后留一句话给你：<b class="font-semibold text-ink">组合逻辑的世界里没有「过去」，只有「现在」——输出永远只回答「此刻的输入是什么」。</b>它是最诚实的一类电路：不撒谎、不记忆、可预测；也正因为如此，<b>它的全部麻烦都来自时间</b>——信号要花时间走完路径，不同的路径花的时间不一样，于是有了毛刺、有了建立时间、有了「能不能跑这么快」的问题。能算出这条路径有多长、能判断这个毛刺要不要治、能说清这块地址分给谁，你就真正把组合逻辑握在手里了。</p>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="ee-logic-gate.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">门电路与数字接口电平</p>
+          </a>
+          <a href="ee-sequential.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：数字电子 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">时序逻辑电路：锁存器、触发器与寄存器</p>
+          </a>
+        </nav>
+
+
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

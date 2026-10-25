@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>外部中断触发 - McuStudy</title>
+  <meta name="description" content="51 单片机外部中断完整教程：INT0/INT1 引脚与 TCON 的 IT0/IT1 触发方式选择、IE 寄存器里 EX0 与 EA 的两级使能、中断号 0 与 2 的写法、按键硬件 0.1uF 消抖与软件延时消抖，以及为什么中断服务函数里绝对不能做耗时操作。附按键翻转 LED 的完整可编译代码。">
+  <meta name="keywords" content="51单片机,外部中断,INT0,INT1,IT0,IT1,TCON,IE寄存器,中断号,按键消抖,中断服务函数">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="mcu51" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../mcu51.html" class="hover:text-brand-600 dark:hover:text-brand-300">51单片机</a>
+          <span>/</span>
+          <span class="text-muted">教程正文</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          外部中断触发
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          用 P3.2（INT0）接一个按键，按下就翻转 LED。这篇把 TCON 的触发方式位、IE 寄存器的两级使能、
+          中断号 0 与 2 的写法、按键消抖的两套方案讲透，最后说清楚为什么中断服务函数里写一行
+          <code class="icode">Delay_ms(10)</code> 就可能让数码管闪成一片。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="stat-pill">芯片：<b>STC89C52RC</b></span>
+          <span class="stat-pill">工具：<b>Keil C51</b></span>
+          <span class="stat-pill">前置：<b>IO 口与定时器</b></span>
+          <span class="stat-pill">阅读约 <b>12</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>外部中断要同时理解「硬件上信号怎么变」和「软件上中断怎么走」，两边缺一边都会卡住。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-register.html">单片机内部结构与寄存器</a> —— IE / IP / TCON 三个寄存器，以及中断号是从哪来的</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-digital.html">数字电路与电平</a> —— 下降沿与低电平触发的区别、按键为什么必须加上拉、消抖是什么</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-c.html">C 语言基础</a> —— <code class="icode">interrupt</code> 关键字与中断服务函数，以及 <code class="icode">volatile</code> 为什么必须加</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-what">中断到底解决了什么问题</a>
+          <a class="toc-link is-sub" href="#sub-pins">中断源与 INT0 / INT1 引脚</a>
+          <a class="toc-link is-sub" href="#sub-tcon">TCON 与触发方式 IT0 / IT1</a>
+          <a class="toc-link is-sub" href="#sub-ie">IE 寄存器与两级使能</a>
+          <a class="toc-link is-sub" href="#sub-isr">中断服务函数与标志位清除</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-what">中断到底解决了什么问题</a>
+            <a class="toc-link is-sub" href="#sub-pins">中断源与 INT0 / INT1 引脚</a>
+            <a class="toc-link is-sub" href="#sub-tcon">TCON 与触发方式 IT0 / IT1</a>
+            <a class="toc-link is-sub" href="#sub-ie">IE 寄存器与两级使能</a>
+            <a class="toc-link is-sub" href="#sub-isr">中断服务函数与标志位清除</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            前面几篇教程里，主程序一直是这个结构：<code class="icode">while (1)</code> 里干完一件事再干下一件。
+            这种写法叫<b class="font-semibold text-ink">查询方式（轮询）</b>——按键按没按，要 CPU 亲自去读引脚；
+            如果主循环里有 <code class="icode">Delay_ms(500)</code>，那这 500ms 里按键按下去多少次它都不知道。
+            外部中断解决的正是这个问题：<b class="font-semibold text-ink">让硬件替你盯着引脚，事件来了再叫 CPU 去处理。</b>
+          </p>
+
+          <h3 id="sub-what" class="mt-7 text-base font-semibold">中断到底解决了什么问题</h3>
+          <p class="mt-3">
+            打个比方：你在自习室做题（主程序），快递到了（外部事件）。轮询方式相当于每做一道题就跑到门口看一眼，
+            大部分时候白跑；中断方式相当于你留了手机号，快递员到了打你电话，你放下笔去拿，
+            拿完回来接着做刚才那道题——<b class="font-semibold text-ink">断点会被保存，回来还能继续</b>。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th>查询方式（轮询）</th>
+                  <th>中断方式</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>CPU 占用</td>
+                  <td>一直在读引脚，纯浪费</td>
+                  <td>事件发生前完全不占用</td>
+                </tr>
+                <tr>
+                  <td>响应速度</td>
+                  <td>最慢要等一整轮主循环</td>
+                  <td>几个机器周期内进中断（微秒级）</td>
+                </tr>
+                <tr>
+                  <td>会不会漏事件</td>
+                  <td>主循环里一延时就可能漏掉</td>
+                  <td>硬件锁存标志，不会漏（只要没被屏蔽）</td>
+                </tr>
+                <tr>
+                  <td>代价</td>
+                  <td>写起来简单</td>
+                  <td>要考虑优先级、重入、时序被打断</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            所以判断标准很直接：<b class="font-semibold text-ink">这个信号是“事件”还是“状态”？</b>
+            按键、光电门、编码器脉冲、串口来字节属于事件，错过就没了，必须用中断；
+            电位器电压、温度传感器读数属于状态，什么时候读都是当前值，轮询完全可以。
+          </p>
+
+          <h3 id="sub-pins" class="mt-7 text-base font-semibold">中断源与 INT0 / INT1 引脚</h3>
+          <p class="mt-3">
+            STC89C52RC（标准 8052 内核）一共有 5 个中断源，每个中断源有一个固定的<b class="font-semibold text-ink">中断号</b>。
+            Keil C51 里写 <code class="icode">interrupt n</code>，编译器就知道该把函数地址填到哪个向量上：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>中断源</th>
+                  <th>中断号</th>
+                  <th>中断向量地址</th>
+                  <th>触发引脚 / 条件</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>外部中断 0（INT0）</td>
+                  <td class="font-mono text-xs">0</td>
+                  <td class="font-mono text-xs">0x0003</td>
+                  <td class="font-mono text-xs">P3.2</td>
+                </tr>
+                <tr>
+                  <td>定时器 0（T0）</td>
+                  <td class="font-mono text-xs">1</td>
+                  <td class="font-mono text-xs">0x000B</td>
+                  <td>TF0 溢出</td>
+                </tr>
+                <tr>
+                  <td>外部中断 1（INT1）</td>
+                  <td class="font-mono text-xs">2</td>
+                  <td class="font-mono text-xs">0x0013</td>
+                  <td class="font-mono text-xs">P3.3</td>
+                </tr>
+                <tr>
+                  <td>定时器 1（T1）</td>
+                  <td class="font-mono text-xs">3</td>
+                  <td class="font-mono text-xs">0x001B</td>
+                  <td>TF1 溢出</td>
+                </tr>
+                <tr>
+                  <td>串口（UART）</td>
+                  <td class="font-mono text-xs">4</td>
+                  <td class="font-mono text-xs">0x0023</td>
+                  <td>TI 或 RI 置位</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">P3.2 / P3.3 是复用引脚，用了中断就不能再当普通 IO</div>
+            <p>
+              P3 口的每一个引脚都有第二功能，P3.2 既是普通 IO 又是 INT0，P3.3 既是普通 IO 又是 INT1。
+              你把按键接到 P3.2 之后，程序里就<b class="font-semibold">不要</b>再写
+              <code class="icode">P3 = 0x00;</code> 这种整口操作，也不要把别的输出器件挂到 P3.2 上——
+              否则中断会被你自己的输出电平反复触发。同理，P3.0 / P3.1 是串口下载口，
+              新手接按键时容易顺手接到 P3.0，结果下载程序和按键互相打架。
+            </p>
+          </div>
+
+          <h3 id="sub-tcon" class="mt-7 text-base font-semibold">TCON 与触发方式 IT0 / IT1</h3>
+          <p class="mt-3">
+            外部中断的“怎么触发”由 <code class="icode">TCON</code> 寄存器（字节地址 0x88，可位寻址）决定。
+            TCON 的 8 个位一半属于定时器、一半属于外部中断，这里只看和中断有关的那 4 位：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>位</th>
+                  <th>名称</th>
+                  <th>含义</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">TCON.0</td>
+                  <td class="font-mono text-xs">IT0</td>
+                  <td>INT0 触发方式：<b class="font-semibold">0 = 低电平触发，1 = 下降沿触发</b></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TCON.1</td>
+                  <td class="font-mono text-xs">IE0</td>
+                  <td>INT0 中断请求标志，硬件置位，响应后自动清除</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TCON.2</td>
+                  <td class="font-mono text-xs">IT1</td>
+                  <td>INT1 触发方式：0 = 低电平触发，1 = 下降沿触发</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TCON.3</td>
+                  <td class="font-mono text-xs">IE1</td>
+                  <td>INT1 中断请求标志</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            <b class="font-semibold text-ink">实际项目里为什么一律选下降沿？</b>
+            关键在“标志位是谁清的”。IT0 = 0（低电平触发）时，IE0 这个标志<b class="font-semibold">直接跟随引脚电平</b>：
+            引脚是低电平，IE0 就是 1。CPU 响应中断时会自动把 IE0 清掉，但只要你手指还按着按键、
+            引脚还是低电平，IE0 立刻又被硬件置成 1，于是中断服务函数一返回就马上再进去一次——
+            现象就是<b class="font-semibold">按一下、LED 翻转几十次</b>，或者主程序干脆再也跑不动。
+          </p>
+          <p class="mt-3">
+            改成 IT0 = 1（下降沿触发）之后，只有电平从高跳到低的那一瞬间才置一次 IE0，
+            跟你按多久完全无关，CPU 响应后标志自动清零，按键松手也不会再触发。
+            这就是所有按键、光电门、编码器的标准做法：<b class="font-semibold text-ink">一次边沿 = 一次事件</b>。
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">低电平触发还有用吗？</div>
+            <p>
+              有，但只适合“信号有效期间需要一直响应”的场合——例如某个模块的报警引脚会持续输出低电平，
+              你希望它低着的整段时间里 CPU 反复来处理，那才用低电平触发。
+              另外要注意：低电平触发时，中断服务函数返回前信号必须已经恢复高电平，
+              否则会立刻再进一次，形成事实上的死循环。
+            </p>
+          </div>
+
+          <h3 id="sub-ie" class="mt-7 text-base font-semibold">IE 寄存器与两级使能</h3>
+          <p class="mt-3">
+            中断允不允许，由 <code class="icode">IE</code> 寄存器（字节地址 0xA8，可位寻址）控制。
+            它设计成<b class="font-semibold text-ink">两级开关</b>：<code class="icode">EA</code> 是总闸，
+            <code class="icode">EX0 / EX1</code> 是分闸。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>位</th>
+                  <th>名称</th>
+                  <th>含义</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">IE.7</td><td class="font-mono text-xs">EA</td><td>总中断允许：<b class="font-semibold">1 = 打开总闸</b>，0 = 屏蔽所有中断</td></tr>
+                <tr><td class="font-mono text-xs">IE.4</td><td class="font-mono text-xs">ES</td><td>串口中断允许</td></tr>
+                <tr><td class="font-mono text-xs">IE.3</td><td class="font-mono text-xs">ET1</td><td>定时器 1 中断允许</td></tr>
+                <tr><td class="font-mono text-xs">IE.2</td><td class="font-mono text-xs">EX1</td><td>外部中断 1 允许</td></tr>
+                <tr><td class="font-mono text-xs">IE.1</td><td class="font-mono text-xs">ET0</td><td>定时器 0 中断允许</td></tr>
+                <tr><td class="font-mono text-xs">IE.0</td><td class="font-mono text-xs">EX0</td><td>外部中断 0 允许</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            两个开关必须<b class="font-semibold text-ink">同时</b>打开才进得了中断。只写
+            <code class="icode">EX0 = 1;</code> 而忘了 <code class="icode">EA = 1;</code>，
+            是新手最常见的“中断死活不进”的原因；反过来只写 <code class="icode">EA = 1;</code>
+            而忘了 <code class="icode">EX0 = 1;</code> 同样没用。也可以一次把整个字节写进去：
+            <code class="icode">IE = 0x81;</code>（EA = 1、EX0 = 1，其余位为 0）。
+          </p>
+
+          <p class="mt-3">
+            另外 51 有两个优先级，默认都是“低优先级”。<b class="font-semibold text-ink">同一个优先级的中断不能互相打断</b>，
+            也就是 INT0 的中断服务函数执行到一半时，再来一个 INT0 请求只能排队等着。
+            默认的自然优先级从高到低是：INT0 → T0 → INT1 → T1 → 串口。
+            需要改优先级时用 <code class="icode">IP</code> 寄存器（例如 <code class="icode">PX0 = 1;</code> 把 INT0 提到高优先级），
+            但零基础阶段先记住“中断服务函数要短”，比研究优先级更实用。
+          </p>
+
+          <h3 id="sub-isr" class="mt-7 text-base font-semibold">中断服务函数与标志位清除</h3>
+          <p class="mt-3">
+            中断服务函数（ISR）在 Keil C51 里靠关键字 <code class="icode">interrupt</code> 声明，
+            后面跟中断号。以 INT0 为例：
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="INT0 / INT1 中断服务函数的标准写法">
+            <pre><code>/* 外部中断 0：中断号 0，对应引脚 P3.2，向量地址 0x0003 */
+void ExInt0_ISR(void) interrupt 0
+{
+    /* 这里写“事件发生时要立刻做的事”，越短越好 */
+}
+
+/* 外部中断 1：中断号 2，对应引脚 P3.3，向量地址 0x0013 */
+void ExInt1_ISR(void) interrupt 2
+{
+}</code></pre>
+          </div>
+
+          <ul class="mt-4 list-disc space-y-2 pl-5">
+            <li>
+              关键字 <code class="icode">interrupt</code> 必须写在<b class="font-semibold">参数表之后</b>，
+              写成 <code class="icode">void interrupt 0 ExInt0_ISR(void)</code> 是编译不过的。
+            </li>
+            <li>
+              中断服务函数<b class="font-semibold">不能有返回值、不能有参数</b>。它的调用者是硬件，
+              没人给你传参、也没人接你的返回值。
+            </li>
+            <li>
+              加了 <code class="icode">interrupt 0</code> 之后，函数名可以随便起，编译器只认那个中断号；
+              真正决定“谁触发它”的是中断号，不是函数名。
+            </li>
+            <li>
+              还有可选的 <code class="icode">using n</code>（n = 0~3）指定寄存器组切换，
+              只有在中断和主程序同时大量使用局部变量、且对压栈开销敏感时才需要，初学阶段不要加。
+            </li>
+          </ul>
+
+          <h4 class="mt-6 text-sm font-semibold">标志位 IE0 为什么会自己清零</h4>
+          <p class="mt-3">
+            这是和定时器、串口最容易混淆的一点。8051 的中断标志清除分两类：
+          </p>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>标志位</th>
+                  <th>属于</th>
+                  <th>谁来清零</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">IE0 / IE1</td>
+                  <td>外部中断</td>
+                  <td><b class="font-semibold">下降沿触发时硬件自动清除</b>；低电平触发时跟随引脚电平</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TF0 / TF1</td>
+                  <td>定时器溢出</td>
+                  <td>硬件自动清除（进中断后不用管）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">TI / RI</td>
+                  <td>串口发送 / 接收</td>
+                  <td><b class="font-semibold">必须软件清零</b>，忘了就反复进中断</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            所以外部中断的服务函数里<b class="font-semibold text-ink">不需要写清标志的语句</b>，
+            这是它比串口中断省心的地方。但也别把“硬件帮我清”理解成“我可以乱来”：
+            如果 ISR 执行期间又来了一次下降沿，IE0 会被重新置 1，等 ISR 返回后会补执行一次。
+            按键抖动正好会制造这种“补执行”，所以消抖不能省。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">为什么中断服务函数里绝对不能做耗时操作</h4>
+          <p class="mt-3">
+            这是本篇最重要的一条纪律。假设你在 ISR 里写了 <code class="icode">Delay_ms(10)</code> 做消抖，
+            会同时踩到三个坑：
+          </p>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>
+              <b class="font-semibold text-ink">主循环停摆 10ms。</b>
+              动态数码管要求每 1~2ms 刷新一位，否则人眼就会看到闪烁；
+              ISR 里卡 10ms，等于让数码管断刷新 10ms 以上，现象是显示发暗、抖动、甚至只剩一位亮。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">同级中断被堵住。</b>
+              51 的同级中断不能嵌套，这 10ms 里如果又来了按键、或者定时器溢出，
+              全部只能排队，定时器计时会变慢，串口收到的下一个字节可能把上一个覆盖掉（丢数据）。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">抖动期间的事件会挤成一堆。</b>
+              触点抖动本来就在几毫秒内，你在 ISR 里等 10ms，等于把后面的抖动边沿又攒成了一次新的中断请求。
+            </li>
+          </ol>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">正确分工：ISR 只记事件，主循环干重活</div>
+            <p>
+              中断里只做“翻转一个引脚”或“置一个标志位”，耗时都在几个机器周期到几十微秒之间；
+              消抖、显示、计算、通信全部放回主循环。后文的关键代码解析给了一个现成的双写法对照。
+            </p>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">按键消抖：硬件与软件两套方案</h4>
+          <p class="mt-3">
+            机械按键在闭合和断开的一两毫秒内，金属触点会像皮球一样弹跳好几次，
+            在示波器上是一串毛刺。这串毛刺在下降沿触发下就是<b class="font-semibold">好几次独立的中断</b>，
+            所以必须消抖：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>
+              <b class="font-semibold text-ink">硬件消抖（推荐先做）。</b>
+              在按键两端并联一只 <code class="icode">0.1µF</code> 电容。它和上拉电阻组成 RC 低通，
+              时间常数约 10kΩ × 0.1µF = 1ms，把毛刺“抹平”，边沿变成一条干净的下坡。
+              好处是不占 CPU，也不需要在程序里加任何延时。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">软件消抖（硬件没加电容时的补救）。</b>
+              进中断后延时 10ms 再读一次引脚，仍然是低电平才算一次有效按下。
+              注意：这个 10ms 一定要放在<b class="font-semibold">主循环</b>里做，
+              而不是塞进 ISR——正确写法是 ISR 里只置标志，主循环看到标志后延时确认。
+            </li>
+          </ul>
+
+          <p class="mt-4">
+            两套方案可以叠加使用：硬件电容消掉大部分毛刺，软件再确认一次，
+            这种“双保险”在现场干扰大的设备（电机、继电器旁边）里是很常见的做法。
+          </p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            这一节的目标是让你<b class="font-semibold text-ink">闭着眼睛也能接对</b>。
+            外部中断的电路本身很简单（一个按键 + 一个上拉电阻 + 一个电容），
+            但“接到哪个引脚”和“上拉电阻有没有装”这两件事直接决定程序跑不跑得起来，
+            所以下面把每一根线都列清楚。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">元件与接线表</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>元件</th>
+                  <th>引脚 / 规格</th>
+                  <th>连接到</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>STC89C52RC</td>
+                  <td class="font-mono text-xs">P3.2（INT0）</td>
+                  <td>按键 K1 的一端</td>
+                  <td>INT0 的输入脚，第二功能，别接到 P3.0</td>
+                </tr>
+                <tr>
+                  <td>按键 K1</td>
+                  <td>轻触开关 4 脚</td>
+                  <td>另一端接 GND</td>
+                  <td>按下时把 P3.2 拉到低电平，产生下降沿</td>
+                </tr>
+                <tr>
+                  <td>上拉电阻 R1</td>
+                  <td class="font-mono text-xs">10kΩ</td>
+                  <td>P3.2 与 +5V 之间</td>
+                  <td>按键松开时把引脚稳定拉高；省掉它引脚会悬空乱触发</td>
+                </tr>
+                <tr>
+                  <td>消抖电容 C1</td>
+                  <td class="font-mono text-xs">0.1µF（104）</td>
+                  <td>并联在 K1 两端（P3.2 与 GND）</td>
+                  <td>硬件消抖，抹掉触点弹跳的毛刺</td>
+                </tr>
+                <tr>
+                  <td>LED_D0</td>
+                  <td>接 P1.0</td>
+                  <td>负极接引脚，正极经 220Ω 接 +5V</td>
+                  <td>被按键翻转的灯，灌电流接法，低电平点亮</td>
+                </tr>
+                <tr>
+                  <td>LED_D1</td>
+                  <td>接 P1.1</td>
+                  <td>负极接引脚，正极经 220Ω 接 +5V</td>
+                  <td>“心跳”灯，用来看主循环有没有被中断卡住</td>
+                </tr>
+                <tr>
+                  <td>晶振</td>
+                  <td class="font-mono text-xs">11.0592MHz 或 12MHz</td>
+                  <td>XTAL1 / XTAL2</td>
+                  <td>本篇不涉及波特率，两种都可以；两端各 30pF 到地</td>
+                </tr>
+                <tr>
+                  <td>复位电路</td>
+                  <td class="font-mono text-xs">10µF + 10kΩ</td>
+                  <td>RST（第 9 脚）</td>
+                  <td>上电复位，电容正极接电源</td>
+                </tr>
+                <tr>
+                  <td>电源</td>
+                  <td class="font-mono text-xs">5V</td>
+                  <td>第 40 脚 VCC、第 20 脚 GND</td>
+                  <td>51 的 VIH ≈ 0.7 × VCC = 3.5V，供电别低于 4.5V</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意图</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="接线示意（INT0 下降沿触发 + 硬件消抖）">
+            <pre><code>        +5V
+         │
+        [10kΩ]  R1 上拉电阻：按键松开时把 P3.2 稳定拉高
+         │
+         ├──────────────► P3.2 (INT0)  第 12 脚
+         │
+        ─┴─  C1  0.1µF 消抖电容（和按键并联）
+        ─┬─
+         │
+        [K1]  轻触按键：按下 → P3.2 = 0 → 产生下降沿
+         │
+        GND
+
+  STC89C52RC                          两路 LED（灌电流接法）
+   ┌───────────┐
+   │       P1.0├──── LED_D0 ──[220Ω] ──┐
+   │       P1.1├──── LED_D1 ──[220Ω] ──┼──── +5V
+   │       P3.2├──── R1/C1/K1 ─────────┘   （见上方细节）
+   │           │
+   │   XTAL1 ──┴── 11.0592MHz ──┴── XTAL2   （两端各 30pF 到地）
+   │           │
+   │       RST ├── 10µF ── +5V
+   │           └── 10kΩ ── GND             （上电复位）
+   └───────────┘
+
+  要点：P1.0 的灯由中断翻转，P1.1 的灯由主循环翻转
+        两盏灯同时工作，才能看出“中断不影响主程序继续运行”</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线顺序建议</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>先接电源和地，用万用表确认 VCC-GND 之间是 5V 且没有短路，再动别的线。</li>
+            <li>接晶振与两个 30pF 电容，再接复位电路。</li>
+            <li>
+              接按键回路：先把 R1 从 P3.2 拉到 +5V，再串按键到 GND，
+              最后把 C1 并联在按键两端（也就是 P3.2 与 GND 之间）。
+            </li>
+            <li>接两路 LED 和限流电阻，注意 LED 长脚是正极，正极朝 +5V 那一侧。</li>
+            <li>全部接完、复检一遍引脚编号，最后才上电。</li>
+          </ol>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">上电前必查</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>按键接的是不是 <b class="font-semibold">P3.2</b>——接成 P3.0 / P3.1 会和串口下载打架，接成 P1.x 则根本没有中断功能。</li>
+              <li>10kΩ 上拉电阻有没有装。省掉它的典型现象是“手一碰板子灯就乱翻”，因为引脚处于悬空状态。</li>
+              <li>0.1µF 电容是<b class="font-semibold">并联</b>在按键两端，不是串联在按键和引脚之间；串进去会变成低通滤波器，引脚永远读不到低电平。</li>
+              <li>按键是否可靠接地：用万用表通断档量一下按下时 P3.2 与 GND 是否导通（应导通，电阻接近 0）。</li>
+              <li>两路 LED 的限流电阻别漏，否则可能烧 LED 或烧引脚。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            下面这份代码可以直接在 Keil C51 里新建工程、编译、下载。
+            它做了两件互不干扰的事：主循环让 P1.1 的“心跳”灯每秒闪一次，
+            外部中断让 P1.0 的灯每按一次按键翻转一次。
+            这样你既能验证中断生效，也能一眼看出中断有没有拖慢主程序。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— INT0 下降沿触发，按键翻转 LED（STC89C52RC）">
+            <pre><code>#include &lt;reg52.h&gt;            /* 51 单片机寄存器定义：IT0、EX0、EA、P1、P3 都在里面 */
+
+/* ---------------- 引脚定义 ----------------
+ * 用 sbit 给寄存器的某一位起个名字，比记 P1^0 直观得多。
+ * 注意 sbit 的写法是“寄存器 ^ 位号”，不是位运算。
+ */
+sbit LED_TOGGLE = P1^0;       /* 被按键翻转的 LED（灌电流接法，低电平点亮） */
+sbit LED_HEART  = P1^1;       /* 主循环里的“心跳”灯，用来证明主程序没被卡住 */
+sbit KEY_INT0   = P3^2;       /* 外部中断 0 的输入引脚，按键接在这里 */
+
+/* ------------------------------------------------------------------
+ * 软件延时：12MHz 晶振、12T 模式下内层循环约 1ms
+ * 这个函数只允许在主循环里用，绝对不要放进中断服务函数
+ * ------------------------------------------------------------------ */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;
+    for (i = ms; i &gt; 0; i--)
+        for (j = 110; j &gt; 0; j--);
+}
+
+/* ------------------------------------------------------------------
+ * 外部中断 0 服务函数
+ * interrupt 0 ：中断号 0 → INT0，对应引脚 P3.2，向量地址 0x0003
+ * 要求：无返回值、无参数、执行时间越短越好
+ * ------------------------------------------------------------------ */
+void ExInt0_ISR(void) interrupt 0
+{
+    LED_TOGGLE = ~LED_TOGGLE;   /* 只做一件事：翻转 LED，几个机器周期就结束 */
+}
+
+void main(void)
+{
+    /* ---------- 1. 引脚初始状态 ---------- */
+    LED_TOGGLE = 1;             /* 低电平点亮，先写成 1 熄灭 */
+    LED_HEART  = 1;
+    KEY_INT0   = 1;             /* 51 的准双向口作输入前先写 1，这是标准习惯 */
+
+    /* ---------- 2. 设置 INT0 为下降沿触发 ---------- */
+    IT0 = 1;                    /* TCON.0 = 1 → 下降沿触发；写 0 则是低电平触发 */
+
+    /* ---------- 3. 打开中断：分开关 + 总开关，两个都要 ---------- */
+    EX0 = 1;                    /* IE.0 = 1，允许外部中断 0 */
+    EA  = 1;                    /* IE.7 = 1，打开总中断 */
+    /* 上面两行等价于一句话：IE = 0x81; */
+
+    /* ---------- 4. 主循环：和中断无关的常规工作照常进行 ---------- */
+    while (1)
+    {
+        LED_HEART = 0;          /* 心跳灯亮 */
+        Delay_ms(500);
+        LED_HEART = 1;          /* 心跳灯灭 */
+        Delay_ms(500);
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">sbit LED_TOGGLE = P1^0;</code>——<code class="icode">sbit</code> 是 Keil C51 的扩展关键字，
+              用来把一个可位寻址的寄存器位定义成变量名。这里的 <code class="icode">^</code> 是<b class="font-semibold">位号分隔符</b>，
+              不是异或运算，别写成 <code class="icode">P1 ^ 0</code>（多了空格虽然也能编译，但容易看错）。
+            </li>
+            <li>
+              <code class="icode">IT0 = 1;</code>——决定“怎么算一次事件”。写 1 是下降沿触发，
+              按住按键不放也只会触发一次；写成 0 就是低电平触发，按住会反复进中断。全篇最关键的一行。
+            </li>
+            <li>
+              <code class="icode">EX0 = 1; EA = 1;</code>——两级使能必须都开。
+              顺序无所谓，但两句都要有；<code class="icode">EA</code> 是全局总闸，
+              以后调试串口中断时如果发现外部中断也不响应了，第一个要查的就是它。
+            </li>
+            <li>
+              <code class="icode">void ExInt0_ISR(void) interrupt 0</code>——<code class="icode">interrupt 0</code>
+              告诉编译器把函数入口地址填到 0x0003 的中断向量里。函数名随便起，
+              但中断号必须和引脚对应：P3.2 用 0，P3.3 用 2。
+            </li>
+            <li>
+              <code class="icode">LED_TOGGLE = ~LED_TOGGLE;</code>——中断里唯一的动作。
+              为什么不用 <code class="icode">if (KEY_INT0 == 0)</code> 判断一下？
+              因为下降沿触发已经保证“只有真正出现边沿才进来”，不用再读引脚。
+            </li>
+            <li>
+              <code class="icode">KEY_INT0 = 1;</code>——51 的 P1/P2/P3 是准双向口，
+              作为输入前先写 1，让内部弱上拉生效，读引脚才能读到稳定的高电平。
+              漏掉这一句，遇到某些板子时会出现读取忽高忽低。
+            </li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">进阶写法：中断只置标志，主循环消抖</div>
+            <p>
+              如果手上没有 0.1µF 电容，或者按键特别差，可以用这个“中断置标志 + 主循环延时确认”的写法。
+              它把 10ms 的延时从 ISR 里挪到了主循环，是中断编程里最标准的分工方式。
+            </p>
+          </div>
+
+          <div class="code-block mt-4" data-lang="c" data-title="进阶写法片段 —— 中断只置标志，消抖在主循环做">
+            <pre><code>bit key_flag = 0;            /* 全局标志：中断只负责把它置 1 */
+
+/* 中断里只干一件几微秒就能完成的事 */
+void ExInt0_ISR(void) interrupt 0
+{
+    key_flag = 1;            /* 不要在这里延时，也不要在这里刷数码管 */
+}
+
+/* 主循环里的处理：延时确认 + 真正干活 */
+while (1)
+{
+    /* ... 数码管刷新、其它常规任务 ... */
+
+    if (key_flag)            /* 有按键事件了 */
+    {
+        key_flag = 0;        /* 先清标志，避免处理期间又被置位 */
+        Delay_ms(10);        /* 等触点抖动过去（这一步在主循环，安全） */
+
+        if (KEY_INT0 == 0)   /* 10ms 后引脚仍然是低电平 → 确认是一次有效按下 */
+        {
+            LED_TOGGLE = ~LED_TOGGLE;
+        }
+    }
+}</code></pre>
+          </div>
+
+          <p class="mt-4">
+            这个写法还有一个额外好处：如果按键被一直按住（引脚一直是低电平），
+            下降沿只会在按下那一刻出现一次，所以这里也只会执行一次，
+            不会像轮询那样被“按住不放”刷屏。
+          </p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            下载完之后按下面的清单逐条对照。<b class="font-semibold text-ink">两盏灯的分工</b>是这一节的观察核心：
+            心跳灯代表主程序，翻转灯代表中断，两者的节奏互不影响才说明程序结构是对的。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>上电后接 P1.1 的心跳灯以约 1 秒为周期亮灭闪烁，节奏非常均匀。</li>
+            <li>每按一次 K1，接 P1.0 的灯翻转一次：按下前是灭的，按一下变亮，再按一下变灭。</li>
+            <li><b class="font-semibold text-ink">按住 K1 不放，灯只翻转一次</b>——这是下降沿触发的直接证据。</li>
+            <li>按按键的过程中，心跳灯的亮灭间隔看不出任何变化（说明主循环没有被拖住）。</li>
+            <li>松开按键、什么都不做时，翻转灯保持原状态，不会自己乱跳。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>按一次，灯翻转好几次（跳 2、3 次）</td>
+                  <td>触点抖动被当成了多次下降沿，消抖没生效</td>
+                  <td>确认 0.1µF 电容是否真的并联在按键两端；或改用“中断置标志 + 主循环延时 10ms”的写法</td>
+                </tr>
+                <tr>
+                  <td>按住不放，灯疯狂翻转</td>
+                  <td>触发方式实际是低电平触发，IE0 被电平反复置位</td>
+                  <td>检查 <code class="icode">IT0 = 1;</code> 是否漏写或被后面的整字节写 TCON 覆盖了</td>
+                </tr>
+                <tr>
+                  <td>完全没反应，心跳灯正常闪</td>
+                  <td>主程序在跑，但中断没被允许或引脚接错</td>
+                  <td>按顺序查：<code class="icode">EA</code> / <code class="icode">EX0</code> 是否都置 1、按键是否真的接在 P3.2、上拉电阻是否装了</td>
+                </tr>
+                <tr>
+                  <td>两盏灯都不亮、板子像没上电</td>
+                  <td>程序没跑起来或供电有问题</td>
+                  <td>量 VCC 是否 5V；确认 HEX 下载成功；查晶振与复位电路</td>
+                </tr>
+                <tr>
+                  <td>按一下灯变亮但不会变灭</td>
+                  <td>ISR 里执行了两次以上，或者你把翻转写成了赋值</td>
+                  <td>检查是不是写成了 <code class="icode">LED_TOGGLE = 0;</code>，应写成取反</td>
+                </tr>
+                <tr>
+                  <td>一上电就不停翻转，按键没碰过</td>
+                  <td>引脚悬空或被干扰，也可能是低电平触发 + 引脚被拉低</td>
+                  <td>先确认上拉电阻与电容装好；再把 <code class="icode">IT0</code> 改成 1 观察是否恢复</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">顺手做一次定量测量</div>
+            <p>
+              用秒表量心跳灯 10 个周期的实际耗时，和理论值 10 × 1s = 10s 对比。
+              软件延时是估算出来的，误差 10% 以内都算正常；如果偏差特别大，
+              说明晶振频率和你以为的不一样（很多开发板出厂焊的是 12MHz 而不是 11.0592MHz）。
+              这个“理论 vs 实测”的对比写进课设报告里，比贴一张效果图专业得多。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            下面每一条都按「报错原文 / 现象 → 原因 → 解决」写。第一条和第三条是新手命中率最高的两个坑，
+            建议先看它们。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">编译报错：error C141: syntax error near 'interrupt'</div>
+            <p><b class="font-semibold">原因：</b>两个可能。一是你装的是 Keil MDK-ARM（ARM 编译器不认识 8051 的 <code class="icode">interrupt</code> 关键字）；二是把关键字位置写错了，比如写成 <code class="icode">void interrupt 0 ExInt0_ISR(void)</code>。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>确认装的是 Keil µVision <b>for C51</b>；关键字必须写在参数表<b class="font-semibold">之后</b>：<code class="icode">void ExInt0_ISR(void) interrupt 0</code>。另外注意函数声明（原型）里不能带 <code class="icode">interrupt 0</code>，只在函数定义处写。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">编译报错：error C202: 'IT0': undefined identifier</div>
+            <p><b class="font-semibold">原因：</b>漏了 <code class="icode">#include &lt;reg52.h&gt;</code>，或者用了 <code class="icode">&lt;reg51.h&gt;</code> 又在中途重复包含，导致位定义没进来。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>文件第一行补上 <code class="icode">#include &lt;reg52.h&gt;</code>。如果用的是很老的编译器（头文件里没有 IT0 的位定义），可以自己补一行：<code class="icode">sbit IT0 = TCON^0;</code>、<code class="icode">sbit EX0 = IE^0;</code>。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：按一下按键，LED 翻转好几次（有时连跳两下）</div>
+            <p><b class="font-semibold">原因：</b>按键触点的机械抖动。一次按下在硬件上是一串快速的高低跳变，下降沿触发会把每一个跳变都当成一次事件。没有硬件电容时这是必然现象，不是程序 bug。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>两条路，最好都做。硬件上在按键两端并联 <code class="icode">0.1µF</code> 电容；软件上改用本文「进阶写法」，中断里只置 <code class="icode">key_flag</code>，主循环里 <code class="icode">Delay_ms(10)</code> 后再读引脚确认。注意延时必须在主循环，不能塞进中断服务函数。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：按住按键不放，LED 一直翻转 / 主程序像卡住</div>
+            <p><b class="font-semibold">原因：</b><code class="icode">IT0</code> 实际是 0（低电平触发），引脚只要保持低电平，中断标志 <code class="icode">IE0</code> 就会被硬件反复置 1，中断服务函数一返回立刻又进去。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>确认 <code class="icode">IT0 = 1;</code> 存在，并且后面没有再用 <code class="icode">TCON = ...</code> 这样的整字节赋值把它覆盖掉（要改也用 <code class="icode">TCON |= 0x01;</code> 这种位操作）。排查时可以临时在 ISR 里翻转心跳灯，观察是否“一进就出不来”。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：按按键毫无反应，但心跳灯正常闪</div>
+            <p><b class="font-semibold">原因：</b>按可能性从高到低排：① <code class="icode">EA</code> 或 <code class="icode">EX0</code> 有一个没打开；② 按键接到了 P3.0 / P3.1 / P1.x 而不是 P3.2；③ 10kΩ 上拉电阻漏装，引脚悬空读不到干净的下降沿；④ 按键另一端没真正接到 GND；⑤ 中断号写错（P3.3 上却写了 <code class="icode">interrupt 0</code>）。</p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>按这个顺序三步定位：先用万用表量按下按键时 P3.2 对地是否导通（排除 ④）；
+              再临时把 <code class="icode">IT0 = 0;</code> 试一下——如果低电平触发能响应，说明中断通路是好的，问题在边沿信号质量（补上拉/电容）；
+              最后检查 <code class="icode">EA = 1;</code> 与 <code class="icode">EX0 = 1;</code> 是否都在初始化里，别被别的分支清掉了。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：加了中断之后数码管开始闪烁、串口开始丢数据</div>
+            <p><b class="font-semibold">原因：</b>中断服务函数里做了耗时操作（延时消抖、刷新数码管、发送字符串）。ISR 执行期间主循环完全停摆，同级中断也不能嵌套，动态扫描的刷新节奏和串口接收缓冲都会被破坏。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>把 ISR 精简到只剩“翻转引脚 / 置标志位”，所有延时、显示、通信搬回主循环。判断标准很简单：ISR 的执行时间应该远小于主循环一轮的耗时（一般控制在几百微秒以内）。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇从“为什么要中断”讲到“中断里只能写几行代码”，真正需要背下来的只有四句话：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><code class="icode">IT0 = 1;</code> —— 事件型信号一律用下降沿触发，一次边沿算一次事件。</li>
+            <li><code class="icode">EX0 = 1; EA = 1;</code> —— 分开关加总开关，少一个都进不去。</li>
+            <li><code class="icode">interrupt 0</code> 对应 P3.2，<code class="icode">interrupt 2</code> 对应 P3.3。</li>
+            <li>中断服务函数只记事件，消抖、显示、计算统统留给主循环。</li>
+          </ul>
+
+          <p class="mt-3">
+            外部中断是所有“事件驱动”程序的起点：后面学定时器中断是同一套框架（换中断号、换标志位规则），
+            学串口中断也是同一套框架（只是 TI/RI 要记得软件清零）。
+            把这四个知识点记牢，51 的中断体系基本就通了。
+          </p>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold text-ink">改用 INT1 实现同样功能。</b>
+                把按键挪到 P3.3，程序里要改三处：触发方式位、使能位、中断号。
+                写完后想一想：如果把 P3.2 和 P3.3 各接一个按键、分别翻转 P1.0 和 P1.1，需要注意什么？
+              </li>
+              <li>
+                <b class="font-semibold text-ink">做一个小型计数器。</b>
+                用「中断置标志」的写法统计按键次数，把次数（0~255）用二进制显示在 P2 口的 8 个 LED 上。
+                提示：主循环里 <code class="icode">P2 = ~count;</code> 就能显示计数值，因为 LED 是低电平点亮。
+              </li>
+              <li>
+                <b class="font-semibold text-ink">把中断用成测速仪。</b>
+                在 P3.2 上接一个光电门或霍尔传感器（信号是脉冲），中断里给变量加 1，
+                定时器每 1 秒把这个数清掉并显示出来，就得到了转速或频率。
+                想一想：为什么这类测量用轮询一定会丢脉冲？
+              </li>
+              <li>
+                <b class="font-semibold text-ink">故意制造 bug 并观察。</b>
+                临时在 <code class="icode">ExInt0_ISR</code> 里加一句 <code class="icode">Delay_ms(10);</code>，
+                观察心跳灯的节奏变化；再把 <code class="icode">IT0</code> 改成 0，按住按键观察现象。
+                亲手复现一次，比背十遍结论都管用。
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-uart.html">UART 串口通信</a>——同样是中断框架，但 TI / RI 必须软件清零，正好对比着学。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-lcd1602.html">LCD1602 液晶驱动</a>——把按键次数、状态显示到屏幕上，不用再靠数灯。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-dht11.html">综合项目：温湿度采集</a>——在微秒级时序里做实验，你会真正体会到“关中断”和“ISR 要短”的意义。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="mcu51-timer.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">定时器原理与定时</p>
+          </a>
+          <a href="mcu51-uart.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">UART 串口通信</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

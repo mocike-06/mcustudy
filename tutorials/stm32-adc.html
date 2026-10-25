@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADC 模拟采集 - McuStudy</title>
+  <meta name="description" content="STM32F103C8T6 ADC 模拟采集完整教程：逐次逼近型 ADC 原理、12 位分辨率与参考电压换算公式、ADC 时钟为什么不能超过 14MHz、采样时间与信号源内阻的关系、轮询/中断/DMA 三种方式的取舍，附可直接编译的 HAL 库完整代码与报错排查表。">
+  <meta name="keywords" content="STM32 ADC,STM32F103C8T6,HAL_ADC_GetValue,逐次逼近型ADC,12位分辨率,ADC时钟14MHz,采样时间,DMA多通道采集">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="stm32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../stm32.html" class="hover:text-brand-600 dark:hover:text-brand-300">STM32</a>
+          <span>/</span>
+          <span class="text-muted">ADC 模拟采集</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          ADC 模拟采集
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          单片机只认识 0 和 1，可现实世界里的温度、光照、电池电压全是连续变化的模拟量。
+          ADC 就是把“连续电压”翻译成“数字”的那道门。这一篇讲清楚逐次逼近型 ADC 内部到底在做什么、
+          12 位分辨率对应的 0.8mV 是怎么算出来的、为什么 ADC 时钟一旦超过 14MHz 读数就会失真、
+          以及轮询 / 中断 / DMA 三种读法分别在什么场合用。读完你能独立完成「采集 PA1 电压并换算成真实电压值」。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="stat-pill">芯片：<b>STM32F103C8T6</b></span>
+          <span class="stat-pill">工具：<b>CubeMX + Keil MDK</b></span>
+          <span class="stat-pill">阅读约 <b>14</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>ADC 是「模拟世界进入数字世界」的入口，先理解电压、参考电压和分辨率。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-level.html">3.3V 电平与硬件安全</a> —— ADC 引脚只能进 0~3.3V，超了会烧；分压怎么算</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-clock.html">时钟系统：为什么第一件事是配时钟</a> —— ADC 的时钟来自 APB2，还要单独配分频</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-hal.html">寄存器、标准库与 HAL</a> —— 轮询 / 中断 / DMA 三种读法的差别</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-sar">逐次逼近型 ADC 原理</a>
+          <a class="toc-link is-sub" href="#sub-res">12 位分辨率与参考电压</a>
+          <a class="toc-link is-sub" href="#sub-clock">ADC 时钟为什么不能超过 14MHz</a>
+          <a class="toc-link is-sub" href="#sub-sample">采样时间与信号源内阻</a>
+          <a class="toc-link is-sub" href="#sub-mode">轮询 / 中断 / DMA 怎么选</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link is-sub" href="#sub-code-dma">多通道扫描为什么要配 DMA</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-sar">逐次逼近型 ADC 原理</a>
+            <a class="toc-link is-sub" href="#sub-res">12 位分辨率与参考电压</a>
+            <a class="toc-link is-sub" href="#sub-clock">ADC 时钟为什么不能超过 14MHz</a>
+            <a class="toc-link is-sub" href="#sub-sample">采样时间与信号源内阻</a>
+            <a class="toc-link is-sub" href="#sub-mode">轮询 / 中断 / DMA 怎么选</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link is-sub" href="#sub-code-dma">多通道扫描为什么要配 DMA</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              拿到 ADC 原始值想手动对一遍二进制？
+              用<a class="text-brand-600 dark:text-brand-300" href="../tools.html#tool-base">进制转换工具</a>现场验证 4095 对应的位模式。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            先说结论：<b class="font-semibold text-ink">ADC 的本质是一台“用已知电压去猜未知电压”的天平。</b>
+            它手里有一个由内部参考电压 VREF+ 驱动的精密 DAC，还有一套比较电路。
+            每猜一次，就把 DAC 的输出和外部待测电压比一比，根据“大了还是小了”缩小猜测范围。
+            猜够次数以后，剩下的那个数字就是转换结果。
+          </p>
+
+          <p class="mt-3">
+            STM32F103C8T6 内部有 <b class="font-semibold text-ink">2 个 12 位逐次逼近型（SAR）ADC</b>，
+            一共 10 个外部通道加若干内部通道。10 个外部通道挂在 PA0~PA7 和 PB0~PB1 上，
+            所以你把电位器接到 PA1，就是在用 ADC1 的通道 1。理解这一点很重要：
+            <b class="font-semibold text-ink">ADC 的“通道号”和 GPIO 的脚位是固定绑定的，不是随便指定的</b>，
+            想换通道就得换引脚。
+          </p>
+
+          <div class="mt-6 grid gap-4 sm:grid-cols-3">
+            <div class="stat">
+              <div class="stat-k">分辨率</div>
+              <div class="stat-v">12 位 / 4096 级</div>
+            </div>
+            <div class="stat">
+              <div class="stat-k">最小可分辨电压（3.3V 参考）</div>
+              <div class="stat-v">约 0.8mV</div>
+            </div>
+            <div class="stat">
+              <div class="stat-k">ADC 时钟上限</div>
+              <div class="stat-v">14MHz</div>
+            </div>
+          </div>
+
+          <h3 id="sub-sar" class="mt-7 text-base font-semibold">逐次逼近型 ADC 原理</h3>
+          <p class="mt-3">
+            逐次逼近（Successive Approximation Register）用的是
+            <b class="font-semibold text-ink">二分查找</b>的思路。假设参考电压是 3.3V，要测一个 2.0V 的电压，
+            12 位转换过程可以简化成这样一个过程：
+          </p>
+
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>先把最高位（第 11 位）置 1，DAC 输出 3.3V 的一半 = 1.65V。比较：1.65V &lt; 2.0V，说明猜小了，这一位保留 1。</li>
+            <li>再把第 10 位置 1，输出变成 1.65 + 0.825 = 2.475V。比较：2.475V &gt; 2.0V，猜大了，这一位改回 0。</li>
+            <li>第 9 位：1.65 + 0.4125 = 2.0625V，还是比 2.0V 大，这位也是 0。</li>
+            <li>第 8 位：1.65 + 0.20625 = 1.856V，比 2.0V 小，这位留 1。</li>
+            <li>……如此一位一位往下试，试满 12 次，就得到了 12 位的转换结果。</li>
+          </ol>
+
+          <p class="mt-3">
+            这也解释了两件事：第一，<b class="font-semibold text-ink">12 位 ADC 一次转换至少要 12 个比较周期</b>，
+            STM32 的规则通道固定需要 12.5 个 ADC 时钟周期（多出来的 0.5 个是对齐开销），
+            这个 12.5 加上采样时间，就是后面算转换速度的公式；
+            第二，<b class="font-semibold text-ink">整个过程的精度完全依赖那个内部 DAC 的参考电压</b>——
+            参考电压不准，猜得再准也没意义。这是下一小节的伏笔。
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一句话记住 SAR 的工作方式</div>
+            <p>
+              “从最大的一位开始，一位一位地试，试完就定，不回头。”
+              因为每一位只需要一次比较，所以 12 位只要 12 次，而不是 4096 次——
+              这就是逐次逼近能做得又快又省电的原因。
+            </p>
+          </div>
+
+          <h3 id="sub-res" class="mt-7 text-base font-semibold">12 位分辨率与参考电压的关系</h3>
+          <p class="mt-3">
+            “12 位”指的是转换结果是 12 个二进制位，能表示
+            <code class="icode">2^12 = 4096</code> 个不同的档位，编号从 0 到 4095。
+            这 4096 个档位均匀地铺在 0V 到参考电压之间，所以每一档代表的电压（叫 1 个 LSB）是：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="分辨率与 LSB 的计算">
+            <pre><code>1 LSB = VREF+ / 4096
+
+以蓝药丸（VREF+ = 3.3V）为例：
+1 LSB = 3.3V / 4096 ≈ 0.000806V ≈ 0.8mV
+
+也就是说：电压每变化 0.8mV，ADC 结果才会动 1 个数
+反过来，ADC 结果每变化 1，代表电压变化了 0.8mV</code></pre>
+          </div>
+
+          <p class="mt-4">
+            换算公式就是这条，请抄在笔记本上：
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">核心换算公式</div>
+            <p class="font-mono text-[13px]">
+              实际电压 = ADC 原始值 × 3.3 / 4095
+            </p>
+            <p class="mt-2">
+              比如读到 <code class="icode">2048</code>，电压就是
+              <code class="icode">2048 × 3.3 / 4095 ≈ 1.6504V</code>；
+              读到 <code class="icode">4095</code>，就是 3.3V（满量程）。
+            </p>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>ADC 原始值</th>
+                  <th>二进制（12 位）</th>
+                  <th>占总量的比例</th>
+                  <th>对应电压（VREF = 3.3V）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">0</td><td class="font-mono text-xs">0000 0000 0000</td><td>0</td><td>0.000V</td></tr>
+                <tr><td class="font-mono text-xs">1</td><td class="font-mono text-xs">0000 0000 0001</td><td>1/4096</td><td>0.0008V</td></tr>
+                <tr><td class="font-mono text-xs">1024</td><td class="font-mono text-xs">0100 0000 0000</td><td>1/4</td><td>0.825V</td></tr>
+                <tr><td class="font-mono text-xs">2048</td><td class="font-mono text-xs">1000 0000 0000</td><td>1/2</td><td>1.650V</td></tr>
+                <tr><td class="font-mono text-xs">3072</td><td class="font-mono text-xs">1100 0000 0000</td><td>3/4</td><td>2.475V</td></tr>
+                <tr><td class="font-mono text-xs">4095</td><td class="font-mono text-xs">1111 1111 1111</td><td>4095/4096</td><td>3.299V</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">除以 4095 还是 4096？</div>
+            <p>
+              严格推导的话，1 LSB 等于 <code class="icode">VREF/4096</code>，
+              所以 <code class="icode">电压 = ADC值 × 3.3 / 4096</code> 在数学上更“正统”；
+              但工程上为了满量程恰好落到 3.3V，绝大多数代码都写 4095。
+              两者的差别只有约 0.024%，对 0.8mV 的分辨率来说完全可以忽略。
+              <b class="font-semibold">本页统一用 4095，你只要别在同一个工程里混用两套公式就行。</b>
+            </p>
+          </div>
+
+          <p class="mt-4">
+            还有个容易被忽略的点：<b class="font-semibold text-ink">参考电压从哪来？</b>
+            蓝药丸这种最小系统板没有独立的 VREF+ 引脚引出，VREF+ 在芯片内部直接连到 VDDA，
+            而 VDDA 又和 3.3V 供电轨并在一起。所以你代码里写的 3.3 其实是一个“假设值”——
+            USB 供电时实测经常是 3.26V 到 3.30V。这就是为什么很多人明明代码没错，
+            测出来的电压却总差 1%~2%。想更准有两个办法：用万用表量一下 VDDA 的真实值写进宏定义，
+            或者后面对照标准表做标定——标定的做法在
+            <a class="text-brand-600 dark:text-brand-300" href="stm32-voltmeter.html">数字电压表</a>那一篇里详细讲。
+          </p>
+
+          <h3 id="sub-clock" class="mt-7 text-base font-semibold">ADC 时钟为什么不能超过 14MHz</h3>
+          <p class="mt-3">
+            ADC 内部是逐次逼近的比较逻辑，每一拍都要完成
+            “设置 DAC → 等待稳定 → 比较 → 写入结果”这一整套动作。
+            这些动作靠开关电容电路实现，<b class="font-semibold text-ink">电容充放电是需要时间的</b>。
+            时钟给得太快，DAC 还没稳定下来比较器就采走了结果，
+            相当于用没写完的答案去判卷，误差会明显变大，甚至高几位直接乱跳。
+          </p>
+
+          <p class="mt-3">
+            数据手册给出的硬性上限是 <b class="font-semibold text-ink">ADCCLK ≤ 14MHz</b>。
+            而 STM32F103 的 ADC 挂在 APB2 总线上，APB2 在标准配置下是 72MHz，
+            所以必须经过一个专门的分频器降到 14MHz 以下。这个分频比只有四档可选，
+            没有 5 分频，所以能用的其实只有两档：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>CubeMX 里的选项</th>
+                  <th>分频后 ADCCLK</th>
+                  <th>是否合规</th>
+                  <th>换算一次要多久（采样 55.5 周期）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">PCLK2 / 2</td><td class="font-mono text-xs">36MHz</td><td>超限 2.5 倍，禁止</td><td>—</td></tr>
+                <tr><td class="font-mono text-xs">PCLK2 / 4</td><td class="font-mono text-xs">18MHz</td><td>仍然超限</td><td>—</td></tr>
+                <tr><td class="font-mono text-xs">PCLK2 / 6</td><td class="font-mono text-xs">12MHz</td><td><b class="font-semibold text-ink">合规，推荐</b></td><td>约 5.7µs</td></tr>
+                <tr><td class="font-mono text-xs">PCLK2 / 8</td><td class="font-mono text-xs">9MHz</td><td>合规，最保守</td><td>约 7.6µs</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            转换时间的公式也要记住：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="转换时间 = 采样时间 + 12.5 个 ADC 周期">
+            <pre><code>T_转换 = (采样周期数 + 12.5) / ADCCLK
+
+例：ADCCLK = 12MHz，采样时间选 55.5 周期
+T = (55.5 + 12.5) / 12MHz = 68 / 12MHz ≈ 5.67µs
+
+→ 一轮最多约 17.6 万次采样，对绝大多数项目绰绰有余</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">CubeMX 里最容易踩的一脚</div>
+            <p>
+              CubeMX 默认的分频比往往不是你想要的。在
+              <b class="font-semibold">Clock Configuration</b> 页里，找到 ADC 那一栏的 Prescaler 下拉框，
+              必须手动改成 <code class="icode">/6</code> 或 <code class="icode">/8</code>。
+              改完顺手看一眼旁边显示的 ADCCLK 数值是不是 12 或 9——这是唯一可信的确认方式。
+            </p>
+          </div>
+
+          <h3 id="sub-sample" class="mt-7 text-base font-semibold">采样时间与信号源内阻的关系</h3>
+          <p class="mt-3">
+            这是新手最难自己悟出来的一条，也是“读数总比万用表低”的头号原因。
+          </p>
+
+          <p class="mt-3">
+            ADC 的输入端内部有一个采样保持电容，STM32F1 的典型值是
+            <b class="font-semibold text-ink">C_ADC ≈ 8pF</b>。
+            采样阶段，这个电容通过你的信号源和它自己的内阻 R_ADC（约 1kΩ）充电；
+            采样结束时电容上的电压就是被转换的电压。问题在于：
+            <b class="font-semibold text-ink">充电是需要时间的，而 RC 充电是一条指数曲线，永远不会“充满”。</b>
+          </p>
+
+          <p class="mt-3">
+            充电时间常数 <code class="icode">τ = (R_源 + R_ADC) × C_ADC</code>。
+            要让误差小于 0.5 个 LSB，需要大约 8~9 个 τ 的充电时间。
+            如果信号源内阻是 10kΩ，τ = (10k + 1k) × 8pF ≈ 88ns，
+            8.5τ ≈ 750ns；而采样时间如果只给 1.5 个周期（12MHz 下只有 125ns），
+            电容根本来不及充到真实电压，<b class="font-semibold text-ink">读出来必然偏低</b>。
+          </p>
+
+          <p class="mt-3">
+            STM32F103 的采样时间一共 8 档，CubeMX 的 ADC 配置页里每个通道都能单独选：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>采样周期数</th>
+                  <th>12MHz 下实际采样时长</th>
+                  <th>适合的信号源内阻</th>
+                  <th>典型用途</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">1.5</td><td>125ns</td><td>&lt; 1kΩ</td><td>运放输出的低阻信号，追求速度</td></tr>
+                <tr><td class="font-mono text-xs">7.5</td><td>625ns</td><td>&lt; 5kΩ</td><td>一般传感器输出</td></tr>
+                <tr><td class="font-mono text-xs">13.5</td><td>1.13µs</td><td>&lt; 10kΩ</td><td>较通用的折中值</td></tr>
+                <tr><td class="font-mono text-xs">28.5</td><td>2.38µs</td><td>&lt; 20kΩ</td><td>带 RC 滤波的信号</td></tr>
+                <tr><td class="font-mono text-xs">55.5</td><td>4.63µs</td><td>&lt; 40kΩ</td><td><b class="font-semibold text-ink">电位器分压推荐</b></td></tr>
+                <tr><td class="font-mono text-xs">71.5</td><td>5.96µs</td><td>&lt; 50kΩ</td><td>高阻信号、要求最稳</td></tr>
+                <tr><td class="font-mono text-xs">239.5</td><td>20µs</td><td>&lt; 160kΩ</td><td>慢速高阻场合，牺牲速度换精度</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">拿不准就选大一点</div>
+            <p>
+              采样时间选长了，唯一代价是转换变慢——而 5.7µs 和 20µs 对“读个电压显示出来”这种应用毫无区别。
+              所以新手可以直接选 <code class="icode">55.5</code> 或 <code class="icode">71.5</code> 周期，
+              等以后真做高速采样（比如音频）再回来优化。
+              <b class="font-semibold">宁慢勿偏，这是 ADC 调参的第一原则。</b>
+            </p>
+          </div>
+
+          <h3 id="sub-mode" class="mt-7 text-base font-semibold">轮询 / 中断 / DMA 怎么选</h3>
+          <p class="mt-3">
+            结果都放在 ADC 的数据寄存器里，区别只在于“谁来把结果搬走”。三种方式各有明确的使用边界：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>方式</th>
+                  <th>关键函数</th>
+                  <th>CPU 占用</th>
+                  <th>适合的场合</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>轮询</td>
+                  <td class="font-mono text-xs">HAL_ADC_Start<br>HAL_ADC_PollForConversion<br>HAL_ADC_GetValue</td>
+                  <td>高，全程死等</td>
+                  <td>单通道、低速、主循环里读一下就用。代码最简单，最适合入门</td>
+                </tr>
+                <tr>
+                  <td>中断</td>
+                  <td class="font-mono text-xs">HAL_ADC_Start_IT<br>HAL_ADC_ConvCpltCallback</td>
+                  <td>中，只在转换完成时进一次中断</td>
+                  <td>单通道、需要定时自动采一批数据，又不想让主循环空等</td>
+                </tr>
+                <tr>
+                  <td>DMA</td>
+                  <td class="font-mono text-xs">HAL_ADC_Start_DMA</td>
+                  <td>低，硬件自动搬运，几乎不打扰 CPU</td>
+                  <td><b class="font-semibold text-ink">多通道扫描的必选项</b>；也用于高速连续采样</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            为什么多通道一定要用 DMA？因为规则通道组里所有通道
+            <b class="font-semibold text-ink">共用同一个数据寄存器 ADC_DR</b>。
+            扫描模式下 ADC 会按顺序自动采完所有通道，每采完一个就覆盖一次 DR。
+            如果靠 CPU 去读，你必须在这个通道被覆盖之前把值取走——
+            12MHz 下两个通道之间只有几微秒，稍微被别的事情耽误一下，数据就串位了。
+            而 DMA 是硬件直接把每次结果搬运到内存数组的不同位置，
+            一次搬运只消耗一个总线周期，CPU 完全不用管。
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">注入通道是什么</div>
+            <p>
+              规则通道（Regular）就是上面说的“排成一队按顺序采”，一队最多 16 个。
+              注入通道（Injected）只有 4 个，但它是
+              <b class="font-semibold">可以打断规则通道的“插队通道”</b>：
+              注入组一触发，ADC 会暂停规则组的转换，先把自己的 4 个通道采完，
+              结果放进独立的 JDR1~JDR4 寄存器，然后规则组从断点继续。
+              它适合“平时慢慢采温度，一旦出现过流就立刻插进来采电流”这类需要优先响应的场合。
+              入门阶段先把规则组用熟，注入组知道有这么回事就够了。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            这一节的目标是“闭着眼睛也能接对”。核心只有一句话：
+            <b class="font-semibold text-ink">把待测电压送进 PA1，并且保证两者的地是连在一起的。</b>
+            新手 80% 的 ADC 问题都出在地没共或者引脚配错了模式，而不是代码。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">元件与接线表</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>元件</th>
+                  <th>引脚 / 规格</th>
+                  <th>连接到</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>蓝药丸最小系统板</td>
+                  <td class="font-mono text-xs">PA1</td>
+                  <td>电位器中间脚（滑臂）</td>
+                  <td>PA1 = ADC1_IN1，通道 1，本页的采集对象</td>
+                </tr>
+                <tr>
+                  <td>10kΩ 电位器</td>
+                  <td>两端引脚</td>
+                  <td>一端接 3.3V，另一端接 GND</td>
+                  <td>构成分压，滑臂电压可在 0~3.3V 之间连续变化</td>
+                </tr>
+                <tr>
+                  <td>蓝药丸最小系统板</td>
+                  <td class="font-mono text-xs">GND</td>
+                  <td>电位器 GND 端、以及所有外部信号源的地</td>
+                  <td><b class="font-semibold text-ink">必须共地</b>，否则读数在 0 和 4095 之间乱跳</td>
+                </tr>
+                <tr>
+                  <td>去耦电容（可选但强烈建议）</td>
+                  <td class="font-mono text-xs">100nF 陶瓷电容</td>
+                  <td>PA1 与 GND 之间，尽量靠近引脚</td>
+                  <td>滤掉高频干扰，读数稳定性肉眼可见地提升</td>
+                </tr>
+                <tr>
+                  <td>USB 转串口模块</td>
+                  <td class="font-mono text-xs">TX → PA10（RX）<br>RX → PA9（TX）</td>
+                  <td>电脑 USB</td>
+                  <td>串口线要交叉接：模块的 TX 接单片机的 RX</td>
+                </tr>
+                <tr>
+                  <td>供电</td>
+                  <td class="font-mono text-xs">3.3V / 5V</td>
+                  <td>蓝药丸的 3.3V 与 GND 排针</td>
+                  <td>用 ST-Link 或 USB 供电均可，两种方式参考电压略有差别</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意图</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="接线示意（电位器分压 + 串口打印）">
+            <pre><code>        3.3V
+          │
+          ├───────────┬──────────────┐
+          │           │              │
+        ┌─┴─┐         │         ┌────┴────┐
+        │   │         │         │ 蓝药丸   │
+        │ 10k 电位器  │         │ STM32F1 │
+        │   │         │         │ 03C8T6  │
+        └─┬─┘         │         │         │
+          │           │    PA1 ─┤ ADC1_IN1│
+          ├───────────┘         │         │
+          │  ← 滑臂输出          │         │
+          │   0 ~ 3.3V          │         │
+          │                     │         │
+          ├──── 100nF ──── GND ─┤ GND     │
+          │                     │         │
+         GND ───────────────────┤ GND     │
+                                │         │
+                       PA9  ────┤ TX      │
+                       PA10 ────┤ RX      │
+                                └─────────┘
+                                    │
+                          ┌─────────┴─────────┐
+                          │ USB 转串口模块     │
+                          │ RX ← PA9  TX → PA10│
+                          └───────────────────┘
+
+  要点：
+  1. 电位器两端必须一端接 3.3V、一端接 GND，接成“分压”而不是“变阻”
+  2. 滑臂（中间脚）接 PA1，PA1 上绝不能出现超过 3.3V 的电压
+  3. 电位器的 GND 和单片机的 GND 必须连在一起，这是共地</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线顺序建议</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>先只接电源，万用表确认蓝药丸的 3.3V 排针对 GND 是 3.3V，再往下做。</li>
+            <li>接电位器：两端分别接 3.3V 和 GND，用万用表量滑臂对 GND 的电压，转动手柄应该在 0~3.3V 平滑变化。这一步验证了信号源本身没问题。</li>
+            <li>把滑臂接到 PA1。接之前先断电，避免手抖把线碰到 5V 上。</li>
+            <li>最后接串口模块，注意 TX/RX 交叉，GND 一定要连。</li>
+          </ol>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">上电前必查：ADC 引脚不能超过 3.3V</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>数据手册规定任意引脚电压不得超过 <code class="icode">VDD + 0.3V</code>，对 3.3V 系统就是 3.6V。直接把 5V 信号接进 PA1，轻则读数永远是 4095，重则烧掉这个引脚甚至整片芯片。</li>
+              <li>测 5V 及以上的电压时，<b class="font-semibold">必须先分压再接进来</b>，具体做法见<a class="text-brand-600 dark:text-brand-300" href="stm32-voltmeter.html">数字电压表</a>那一篇。</li>
+              <li>确认电位器接的是 3.3V 而不是 5V 排针。蓝药丸上 3.3V 和 5V 排针挨得很近，插错一排很常见。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            下面这份代码是完整的、能直接编译下载的：CubeMX 只负责生成初始化框架，
+            我们自己在 <code class="icode">main.c</code> 里补上读取、换算和打印三部分。
+            先按注释里的清单把 CubeMX 配好，再 Generate Code。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="CubeMX 配置清单（照这个勾）">
+            <pre><code>1. System Core → RCC
+     High Speed Clock (HSE) = Crystal/Ceramic Resonator   （用板载 8MHz 晶振）
+
+2. Clock Configuration
+     HCLK 输入 72 后回车，让 CubeMX 自动算好分频
+     ★ 找到 ADC 那一行的 Prescaler，手动改成 /6
+       改完确认右边的 ADCCLK 显示 12MHz（不能超过 14MHz）
+
+3. Analog → ADC1
+     IN1 勾选（对应 PA1）
+     Resolution                = 12 bits
+     Scan Conversion Mode      = Disabled   （单通道不需要扫描）
+     Continuous Conversion Mode= Disabled   （每次手动启动一次）
+     Data Alignment            = Right
+     End Of Conversion Selection = EOC flag at the end of single conversion
+     Number Of Conversion      = 1
+     Rank 1 → Channel = ADC_IN1，Sampling Time = 71.5 Cycles
+     ★ 别忘了：NVIC 里不用勾任何 ADC 中断（轮询方式不需要）
+
+4. Connectivity → USART1
+     Mode = Asynchronous
+     Baud Rate = 115200，Word Length = 8 Bits，Parity = None，Stop Bits = 1
+
+5. Project Manager
+     Toolchain = MDK-ARM V5
+     Code Generator → 勾上 "Generate peripheral initialization as a pair of .c/.h files"</code></pre>
+          </div>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— ADC1 采集 PA1 电压并串口打印">
+            <pre><code>/* =====================================================================
+ * main.c —— ADC1 轮询采集 PA1 电压，换算后从串口打印
+ * 芯片：STM32F103C8T6（蓝药丸）
+ * 库  ：STM32F1 HAL 库
+ * 工具：STM32CubeMX 生成工程 + Keil MDK 5 编译
+ * ---------------------------------------------------------------------
+ * 关键配置回顾（都在 CubeMX 里点好，代码里不用再改）：
+ *   HCLK     = 72MHz，APB2 = 72MHz
+ *   ADCCLK   = PCLK2 / 6 = 12MHz     ← 必须 ≤ 14MHz
+ *   ADC1_IN1 = PA1，采样时间 71.5 周期
+ *   USART1   = 115200 8N1（PA9 = TX，PA10 = RX）
+ * ===================================================================== */
+#include "main.h"
+#include "adc.h"
+#include "usart.h"
+#include "gpio.h"
+#include &lt;stdio.h&gt;
+
+/* ---------------------------------------------------------------------
+ * 换算用的两个常量
+ *
+ * VREF_V  ：参考电压。蓝药丸没有独立引出 VREF+，它在芯片内部与 VDDA
+ *           相连，而 VDDA 就是 3.3V 供电轨。USB 供电时实测常为 3.26~3.30V，
+ *           想让读数更准就用万用表量一下 VDDA，把真实值填在这里。
+ *
+ * ADC_FULL：12 位 ADC 的满量程码值 = 2^12 - 1 = 4095
+ *           配合公式 电压 = 码值 × VREF / 4095 使用
+ * ------------------------------------------------------------------- */
+#define VREF_V        3.3f
+#define ADC_FULL      4095.0f
+
+/* 串口发送用的单字节缓冲，放全局是为了不占用栈 */
+static uint8_t g_tx_byte;
+
+/* ---------------------------------------------------------------------
+ * 函数：ADC1_ReadRaw
+ * 功能：启动一次 ADC1 规则通道转换，用轮询方式取回结果
+ * 返回：0 ~ 4095 的原始码值
+ *       读取失败时返回 0xFFFF，调用者据此判断这次数据不可信
+ * ------------------------------------------------------------------- */
+static uint16_t ADC1_ReadRaw(void)
+{
+    uint16_t raw = 0xFFFF;      /* 先填一个明显不可能的值作为失败标志 */
+
+    /* 1) 启动转换。
+     *    CubeMX 没勾 Continuous，所以每调用一次只转换一次，
+     *    转换完 ADC 会自动停下，不需要我们再关它。 */
+    HAL_ADC_Start(&amp;hadc1);
+
+    /* 2) 等待转换完成，第二个参数是超时时间（单位 ms）。
+     *    这里绝对不能写 HAL_MAX_DELAY：万一 ADC 没配好，
+     *    程序会永远卡死在这一行，连串口都来不及打印任何信息。 */
+    if (HAL_ADC_PollForConversion(&amp;hadc1, 10U) == HAL_OK)
+    {
+        /* 3) 转换结束标志 EOC 已置位，把数据寄存器读走。
+         *    读取动作本身会清掉 EOC 标志，为下一轮做准备。 */
+        raw = (uint16_t)HAL_ADC_GetValue(&amp;hadc1);
+    }
+
+    /* 4) 关闭 ADC。单次模式下不关也不影响功能，
+     *    但关掉更省电，也让下次启动的行为更干净。 */
+    HAL_ADC_Stop(&amp;hadc1);
+
+    return raw;
+}
+
+/* ---------------------------------------------------------------------
+ * 函数：ADC_ToMilliVolt
+ * 功能：把 ADC 原始码值换算成毫伏（定点整数，避免用浮点）
+ *
+ * 为什么要用毫伏而不是伏特？
+ *   用整数毫伏表示电压，显示时只需一次除法和取余就能拆出整数位和小数位，
+ *   全程不碰浮点，速度快、也没有浮点舍入误差。
+ *
+ * ★ 溢出提醒：
+ *   raw 最大 4095，4095 × 3300 = 13,513,500，
+ *   这个数远远超过 16 位无符号整数的上限 65535，
+ *   所以中间结果必须先转成 uint32_t 再乘，否则结果会被截断成乱七八糟的值。
+ * ------------------------------------------------------------------- */
+static uint16_t ADC_ToMilliVolt(uint16_t raw)
+{
+    uint32_t mv;
+
+    /* 电压(mV) = raw × 3300 / 4095
+     * 先乘后除，保证整除精度；用 32 位中间变量防止溢出 */
+    mv = ((uint32_t)raw * 3300U) / 4095U;
+
+    return (uint16_t)mv;
+}
+
+/* ---------------------------------------------------------------------
+ * 函数：main
+ * ------------------------------------------------------------------- */
+int main(void)
+{
+    uint16_t raw;       /* ADC 原始码值 0 ~ 4095 */
+    uint16_t mv;        /* 换算后的电压，单位毫伏 */
+
+    /* HAL 库初始化：把 SysTick 配成 1ms 心跳，HAL_Delay 依赖它 */
+    HAL_Init();
+
+    /* 配置系统时钟到 72MHz。必须在任何外设初始化之前调用 */
+    SystemClock_Config();
+
+    /* CubeMX 生成的外设初始化，顺序不重要，但都要在 HAL_Init 之后 */
+    MX_GPIO_Init();
+    MX_ADC1_Init();
+    MX_USART1_UART_Init();
+
+    /* ★ ADC 自校准：F1 系列强烈建议做，而且必须在启动转换之前做。
+     *   芯片内部有一个自校准电容网络，上电后要做一次校准把偏差写进
+     *   ADC 的校准寄存器，不做的话第一次转换的结果会明显偏大。
+     *   这一步耗时约 几微秒，正常情况下都是立刻返回。 */
+    HAL_ADCEx_Calibration_Start(&amp;hadc1);
+
+    /* 开机先打个招呼，方便确认串口通路是通的 */
+    printf("STM32F103 ADC1 demo start, VREF = %.2fV\r\n", (double)VREF_V);
+
+    while (1)
+    {
+        raw = ADC1_ReadRaw();
+
+        if (raw == 0xFFFF)
+        {
+            /* 超过 10ms 都没转换完，说明 ADC 没配好，直接报错 */
+            printf("ADC read timeout!\r\n");
+        }
+        else
+        {
+            mv = ADC_ToMilliVolt(raw);
+
+            /* 分开打印：先给原始码值（调试用），再给人看的电压值。
+             * %u.%03u 的写法把毫伏拆成“整伏”和“毫伏余数”，
+             * 例如 1650mV → 1.650，不需要任何浮点运算。 */
+            printf("RAW = %4u    V = %u.%03u V\r\n",
+                   raw, (unsigned)(mv / 1000U), (unsigned)(mv % 1000U));
+        }
+
+        /* 每 500ms 打印一次。太快了串口助手会刷屏看不清，
+         * 而且 printf 是阻塞发送，太频繁会拖慢主循环 */
+        HAL_Delay(500);
+    }
+}
+</code></pre>
+          </div>
+
+          <p class="mt-4">
+            上面用到了 <code class="icode">printf</code>。Keil 的 <code class="icode">printf</code>
+            默认走“半主机”模式，会把字符往调试器里送而不是串口，
+            必须自己做一次重定向。把下面这段单独存成
+            <code class="icode">usart_retarget.c</code> 并加入工程即可。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="usart_retarget.c —— 把 printf 重定向到 USART1">
+            <pre><code>/* =====================================================================
+ * usart_retarget.c —— printf 重定向到 USART1
+ * ---------------------------------------------------------------------
+ * Keil 使用前提（两个都要做，缺一不可）：
+ *   1. Options for Target → Target 选项卡 → 勾选 Use MicroLIB
+ *      不勾的话会链接半主机库，程序可能卡在启动阶段跑不起来
+ *   2. 本文件必须加入工程参与编译
+ * ===================================================================== */
+#include "main.h"
+#include "usart.h"
+#include &lt;stdio.h&gt;
+
+/* ---------------------------------------------------------------------
+ * fputc 是 C 标准库里 printf 的底层输出函数：
+ * printf 每拼好一个字符，就回调一次 fputc 把该字符送出去。
+ * 我们只要在这个函数里把字符丢给串口，printf 就变成“串口打印”了。
+ * ------------------------------------------------------------------- */
+int fputc(int ch, FILE *f)
+{
+    uint8_t byte = (uint8_t)ch;
+
+    /* (void)f 是为了消掉“未使用参数”的编译警告 */
+    (void)f;
+
+    /* 用阻塞方式发一个字节，超时 100ms。
+     * 这里绝对不能用 HAL_MAX_DELAY：串口线没接好时会让程序永久卡住。 */
+    HAL_UART_Transmit(&amp;huart1, &amp;byte, 1U, 100U);
+
+    /* 按标准库约定，返回写入的字符；返回 EOF 表示出错 */
+    return ch;
+}
+</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">HAL_ADCEx_Calibration_Start(&amp;hadc1)</code>——
+              F1 系列 ADC 独有的自校准。它的作用是让芯片测量自己内部电容网络的偏差并补偿掉。
+              <b class="font-semibold">漏掉这一句的典型现象是：第一次读到的值明显偏大，之后就正常了</b>，
+              或者整体恒偏几十个码值。写代码时养成“ADC 初始化之后立刻校准”的习惯。
+            </li>
+            <li>
+              <code class="icode">HAL_ADC_Start</code> + <code class="icode">HAL_ADC_PollForConversion</code> +
+              <code class="icode">HAL_ADC_GetValue</code>——轮询三件套，顺序不能乱。
+              <code class="icode">Start</code> 写 CR2 的 ADON 位启动转换；
+              <code class="icode">PollForConversion</code> 循环查 SR 寄存器的 EOC 位；
+              <code class="icode">GetValue</code> 读 DR 寄存器并顺带清标志。
+            </li>
+            <li>
+              <code class="icode">((uint32_t)raw * 3300U) / 4095U</code>——
+              这个强制类型转换不是可选项。如果不写 <code class="icode">(uint32_t)</code>，
+              C 语言会按 16 位做乘法，4095 × 3300 的结果被截断成低 16 位，
+              算出来的电压会是一个毫无规律的数。这是新手最常见的“算出来完全不对”的原因。
+            </li>
+            <li>
+              <code class="icode">mv / 1000U</code> 与 <code class="icode">mv % 1000U</code>——
+              整数拆小数位的标准技巧。1650mV 拆成 1 和 650，
+              配合 <code class="icode">%03u</code> 补前导零打印成 <code class="icode">1.650</code>。
+              全程整数运算，比 <code class="icode">printf("%.3f", v)</code> 快得多，
+              在中断或高速循环里差别很明显。
+            </li>
+            <li>
+              <code class="icode">HAL_ADC_PollForConversion(&amp;hadc1, 10U)</code> 里的
+              <code class="icode">10U</code>——超时时间。它的意义不在于“等 10ms”，
+              而在于“万一硬件有问题，程序还能活着走出去打印错误”。
+              所有 HAL 的阻塞调用都应该给一个有限超时，这是嵌入式代码的基本素养。
+            </li>
+            <li>
+              <code class="icode">#define VREF_V 3.3f</code>——把参考电压写成宏而不是散落在各处的
+              <code class="icode">3.3</code>，是为了以后标定时只改一个地方。
+              当你发现读数系统性偏低 1.5% 时，把这里改成实测的 VDDA 值就全部修正了。
+            </li>
+          </ul>
+
+          <h3 id="sub-code-dma" class="mt-7 text-base font-semibold">多通道扫描为什么要配 DMA</h3>
+          <p class="mt-3">
+            下面这段代码演示了“同时采集 PA0 和 PA1 两个通道”的写法。注意看
+            <code class="icode">HAL_ADC_Start_DMA</code> 的第三个参数：
+            它是<b class="font-semibold text-ink">要搬运的数据个数</b>，
+            这里等于通道数，DMA 就会把每个通道的结果依次写进数组的不同元素里。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="ADC 多通道扫描 + DMA（配置要点与核心代码）">
+            <pre><code>/* ---------------------------------------------------------------------
+ * CubeMX 相对单通道要额外改三处：
+ *   ADC1 → Scan Conversion Mode       = Enabled
+ *          Number Of Conversion       = 2
+ *          Rank 1: Channel = ADC_IN0（PA0），Sampling Time = 71.5 Cycles
+ *          Rank 2: Channel = ADC_IN1（PA1），Sampling Time = 71.5 Cycles
+ *          Continuous Conversion Mode = Enabled   （让 DMA 连续搬，不用反复启动）
+ *   ADC1 → DMA Settings → Add → ADC1
+ *          Mode      = Circular      （循环模式，缓冲区满了自动从头再来）
+ *          Data Width= Half Word / Half Word（ADC 是 12 位，用 16 位刚好）
+ *   DMA1 Channel1 的 NVIC 中断可以不开，纯搬运不需要 CPU 介入
+ * ------------------------------------------------------------------- */
+
+/* 缓冲区：每个通道一个 uint16_t，必须和通道数一样大 */
+uint16_t g_adc_dma_buf[2] = { 0 };   /* [0] = PA0，[1] = PA1 */
+
+/* 启动：第三个参数是“要搬运多少个数据”，单位是数据个数而不是字节数。
+ * 传 2 表示搬 2 个 uint16_t，正好把两个通道各搬一次。
+ * 传错了（比如传成 4）会导致 DMA 越界写到数组外面，把别的变量踩坏。 */
+HAL_ADC_Start_DMA(&amp;hadc1, (uint32_t *)g_adc_dma_buf, 2U);
+
+/* 之后主循环里随时读数组即可，DMA 会在后台不断刷新它。
+ * 因为是 Circular 模式，不需要重新调用 Start。 */
+while (1)
+{
+    /* volatile 提醒：这两个变量是被 DMA 硬件改写的，
+     * 编译器不能把它们缓存进寄存器。
+     * 严谨的写法是在定义时加 volatile，这里为了简短只在注释里说明。 */
+    printf("PA0 = %4u, PA1 = %4u\r\n",
+           g_adc_dma_buf[0], g_adc_dma_buf[1]);
+    HAL_Delay(200);
+}
+
+/* ---------------------------------------------------------------------
+ * 停止采集用 HAL_ADC_Stop_DMA(&amp;hadc1);
+ * ------------------------------------------------------------------- */
+</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">DMA 缓冲区一定要加 volatile</div>
+            <p>
+              在被 DMA 或中断改写的变量上加 <code class="icode">volatile</code> 不是可选的。
+              编译器看到主循环里没有代码修改 <code class="icode">g_adc_dma_buf</code>，
+              可能会“聪明地”把它优化成只读一次内存，于是你永远看到同一个旧值。
+              正确写法：
+              <code class="icode">volatile uint16_t g_adc_dma_buf[2];</code>
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            烧录完成后打开串口助手（波特率 115200），
+            应该立刻看到开机信息，随后每 500ms 冒出一行数据。
+            下面这张表把“你看到的”和“它说明什么”对应起来，用来做自查。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>上电后第一行是 <code class="icode">STM32F103 ADC1 demo start, VREF = 3.30V</code>，说明串口通了。</li>
+            <li>之后每 500ms 出现一行 <code class="icode">RAW = xxxx    V = x.xxx V</code>。</li>
+            <li>电位器拧到最小（滑臂到 GND）时，RAW 接近 0，电压显示 0.000V 附近。</li>
+            <li>电位器拧到最大（滑臂到 3.3V）时，RAW 接近 4095，电压显示约 3.29V。</li>
+            <li>缓慢旋转电位器，RAW 和电压值应该<b class="font-semibold text-ink">单调、平滑地跟着变</b>，中间任何位置都不跳变。</li>
+            <li>把手离开电位器不动时，RAW 的波动应该在 ±3 个数以内（约 ±2.4mV）。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>RAW 始终是 0，电压也是 0</td>
+                  <td>PA1 没有真正接到信号，或引脚没被配成模拟输入</td>
+                  <td>万用表量 PA1 对 GND 的电压；CubeMX 里确认 PA1 显示为 ADC1_IN1 且是绿色</td>
+                </tr>
+                <tr>
+                  <td>RAW 一直接近 4095 且不随电位器变化</td>
+                  <td>PA1 上有个高于 3.3V 的电压，或引脚悬空被拉高</td>
+                  <td>立刻断电量 PA1 电压；检查电位器两端是不是接到了 5V 排针上</td>
+                </tr>
+                <tr>
+                  <td>RAW 在 0 和 4095 之间乱跳</td>
+                  <td>典型的地没共，或信号线太长拾取了干扰</td>
+                  <td>把电位器 GND 与单片机 GND 直接连一根短粗线；在 PA1 对地并一个 100nF 电容</td>
+                </tr>
+                <tr>
+                  <td>读数规律地比万用表低 5%~15%</td>
+                  <td>采样时间太短，采样电容没充满</td>
+                  <td>把 Rank 1 的 Sampling Time 从 1.5 改到 71.5 周期，重新生成代码</td>
+                </tr>
+                <tr>
+                  <td>读数整体偏低 1%~2% 且非常稳定</td>
+                  <td>不是噪声问题，是参考电压假设值不准</td>
+                  <td>万用表量 VDDA 真实值，改 <code class="icode">VREF_V</code> 宏；或做标定</td>
+                </tr>
+                <tr>
+                  <td>最大只能到 3.29V，到不了 3.30V</td>
+                  <td><b class="font-semibold text-ink">这是正常的</b>，4095 对应的是 4095/4096 倍参考电压</td>
+                  <td>无需处理，这 0.8mV 的差就是 1 个 LSB</td>
+                </tr>
+                <tr>
+                  <td>串口全是乱码</td>
+                  <td>波特率不一致，或晶振没起振导致主频不是 72MHz</td>
+                  <td>串口助手改成 115200；确认 RCC 选了外部晶振而不是内部 RC</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">顺手记录实验数据</div>
+            <p>
+              做课设或报告时，建议做一个“三点标定”记录：
+              分别把电位器拧到低、中、高三个位置，记录
+              <b>万用表读数</b>、<b>ADC 原始值</b>、<b>程序换算值</b>三列。
+              然后算一下相对误差 <code class="icode">(程序值 − 万用表值) / 万用表值</code>。
+              如果三个点的误差方向一致、大小接近，就说明是系统误差（参考电压不准），
+              可以乘一个修正系数修掉；如果误差忽正忽负，那才是噪声，要靠滤波解决。
+              能分清这两类误差，是从“会抄代码”到“会做测量”的分水岭。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            下面五条按“报错原文 / 现象 → 原因 → 解决”来写，方便你直接搜索比对。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">现象：程序卡死在 HAL_ADC_PollForConversion，串口一行字都不打印</div>
+            <p><b class="font-semibold">原因：</b>ADC 根本没在转换，EOC 永远不会置位。最常见的三种情形是——忘了调用 <code class="icode">HAL_ADC_Start</code> 就直接轮询；<code class="icode">MX_ADC1_Init()</code> 没被调用（CubeMX 里勾了但 main 里没生成）；或者超时参数写成了 <code class="icode">HAL_MAX_DELAY</code>，把“卡住”变成了“永久卡住”。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>先检查 <code class="icode">main()</code> 里三个 <code class="icode">MX_xxx_Init()</code> 的顺序和拼写；再把超时改成 <code class="icode">10U</code>，让函数能返回错误；在 <code class="icode">HAL_ADC_Start</code> 之后加一句 <code class="icode">if (HAL_ADC_Start(&amp;hadc1) != HAL_OK) { printf("start fail\r\n"); }</code> 把问题暴露出来。另外确认 ADC 的时钟预分频已经设过——ADCCLK 没配置时 ADC 不会工作。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：读数永远是 0 或者永远接近 4095，转动电位器毫无反应</div>
+            <p><b class="font-semibold">原因：</b>引脚模式不对。用 CubeMX 配置 ADC 通道时，对应引脚会自动变成模拟模式；但如果你是手动改代码、或者在 GPIO 页里把 PA1 又配成了输入/输出，两种配置会打架——GPIO 配置后执行会覆盖掉 ADC 的模拟模式。另一个常见原因是电位器接成了“变阻”而不是“分压”，滑臂悬空或直接落在电源上。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>CubeMX 里 <code class="icode">Pinout view</code> 中确认 PA1 显示的是 <code class="icode">ADC1_IN1</code> 而不是 <code class="icode">GPIO_Input</code>；生成代码后检查 <code class="icode">MX_GPIO_Init()</code> 里没有出现 <code class="icode">GPIO_PIN_1</code> 的重复配置。硬件上把电位器两端分别接 3.3V 和 GND，量一下滑臂对 GND 是不是 0~3.3V 平滑变化。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：编译通过，但算出来的电压是 200 多伏这种离谱值</div>
+            <p><b class="font-semibold">原因：</b>16 位整数溢出。<code class="icode">raw * 3300</code> 里 raw 是 <code class="icode">uint16_t</code>，C 语言会按 16 位运算，4095 × 3300 = 13,513,500 超出 65535，高位被丢掉，剩下的余数再除以 4095 就得到一个随机数。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>把中间变量强制提升到 32 位：
+            <code class="icode">mv = ((uint32_t)raw * 3300U) / 4095U;</code>。
+            记忆口诀：<b class="font-semibold">先转类型，再相乘；先乘后除，精度不丢。</b></p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：读数在小范围内持续抖动，末位一直闪，稳定不了</div>
+            <p><b class="font-semibold">原因：</b>三类噪声叠加——电源纹波（USB 供电尤其明显）、信号源内阻偏高导致采样不足、以及 ADC 本身的量化噪声（±1 LSB 是物理上无法消除的）。注意最后一位本来就会跳，这是 12 位 ADC 的正常表现，不是故障。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>按性价比排序做三件事：① 在 PA1 与 GND 之间并一个 100nF 陶瓷电容，尽量靠近引脚；② 把采样时间从 1.5/7.5 改到 71.5 周期；③ 连续采 16 次求和再右移 4 位（相当于除以 16），噪声会按 √16 = 4 倍下降。做完这三步，抖动通常能压到 ±2 个码值以内。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：多通道扫描时，两个通道读出来几乎一样，或者只有第一个通道对</div>
+            <p><b class="font-semibold">原因：</b>没开 DMA。扫描模式下所有规则通道共用同一个数据寄存器 DR，ADC 按顺序采完通道 1 就覆盖 DR，接着采通道 2 又覆盖一次。CPU 只读一次的话，读到的永远是最后那个通道的值；如果开的是中断而中断响应不及时，就会读到串位的值。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>在 CubeMX 的 <code class="icode">ADC1 → DMA Settings</code> 里 Add 一条 DMA 请求，Mode 选 <code class="icode">Circular</code>，数据宽度选 Half Word；然后用 <code class="icode">HAL_ADC_Start_DMA(&amp;hadc1, (uint32_t *)buf, 通道数)</code> 启动。<b class="font-semibold">记得给缓冲区加 volatile</b>，否则编译器优化后你看到的还是旧值。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇把 ADC 从里到外走了一遍。真正需要带走的结论只有四条：
+            <b class="font-semibold text-ink">逐次逼近靠 12 次二分查找完成转换</b>；
+            <b class="font-semibold text-ink">电压 = 码值 × 3.3 / 4095，1 LSB 约 0.8mV</b>；
+            <b class="font-semibold text-ink">ADCCLK 必须 ≤ 14MHz，72MHz 的 APB2 只能选 /6 或 /8</b>；
+            以及<b class="font-semibold text-ink">采样时间要跟信号源内阻匹配，宁慢勿偏</b>。
+          </p>
+
+          <p class="mt-3">
+            再补一句工程判断：什么时候用轮询、什么时候必须上 DMA？
+            判断标准不是“哪个高级”，而是
+            <b class="font-semibold text-ink">“转换结果会不会在 CPU 取走之前被覆盖”</b>。
+            单通道单次转换，中间隔了 500ms，怎么都不会被覆盖，轮询最省事；
+            多通道扫描或连续高速采样，两个结果之间只隔几微秒，就必须交给 DMA。
+          </p>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold">加一个自己算出来的阈值判断。</b>
+                让程序在电压超过 2.0V 时打印 <code class="icode">OVER</code>，低于 1.0V 时打印 <code class="icode">LOW</code>。
+                注意比较要用毫伏整数（2000 / 1000），别引入浮点。
+                想一想：如果阈值是 2.05V，用毫伏表示是多少？（答案：2050）
+              </li>
+              <li>
+                <b class="font-semibold">做一次三点标定实验。</b>
+                用万用表量电位器滑臂的真实电压，同时记录程序打印的值，
+                分别在低、中、高三个位置各记一组。
+                算出三组的相对误差，判断它属于系统误差还是随机误差，
+                然后试着把误差修掉（提示：改 <code class="icode">VREF_V</code> 宏，或者乘一个修正系数）。
+                这个实验做一遍，比读十页 ADC 原理都有用。
+              </li>
+              <li>
+                <b class="font-semibold">把轮询改成 DMA。</b>
+                按 <a class="text-brand-600 dark:text-brand-300" href="#sub-code-dma">多通道扫描</a>那一节的清单，
+                在 CubeMX 里加上 PA0 通道并开启 DMA，让两个通道同时采集并打印。
+                观察点：改成 DMA 之后，两个通道的值是不是都不串位了？
+                如果你把 CubeMX 里的 DMA Mode 从 Circular 改成 Normal，
+                会看到什么现象？（提示：只搬一轮，数组不再更新）
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-i2c-oled.html">I2C 通信与 OLED 屏幕</a>——把采到的电压显示到屏幕上，不再依赖电脑串口。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-exti.html">外部中断</a>——加一个按键，手动切换显示内容。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-voltmeter.html">综合项目：STM32 数字电压表</a>——把 ADC、分压电路、软件滤波、OLED 显示串成一个完整系统。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="stm32-timer-pwm.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">定时器与 PWM 输出</p>
+          </a>
+          <a href="stm32-i2c-oled.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">I2C 通信与 OLED 屏幕</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

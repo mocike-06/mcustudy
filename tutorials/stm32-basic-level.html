@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3.3V 电平与硬件安全 - McuStudy</title>
+  <meta name="description" content="STM32 基础地基第五篇：接线之前必看。STM32 是 3.3V 器件，和 5V 的 51 怎么对接？哪些引脚是 5V 容忍（FT）、接错了会怎样、电阻分压/电平转换模块/开漏上拉三种转换做法、GPIO 八种模式怎么选、IO 电流上限、供电与去耦电容、静电防护、ADC 输入范围，含一张「能不能接」对照表。">
+  <meta name="keywords" content="STM32 5V容忍,FT引脚,3.3V电平,电平转换,电阻分压,开漏输出,推挽输出,GPIO八种模式,上拉下拉,IO电流,20mA,去耦电容,0.1uF,静电防护,ADC输入范围,STM32烧板子">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="stm32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../stm32.html" class="hover:text-brand-600 dark:hover:text-brand-300">STM32</a>
+          <span>/</span>
+          <span class="text-muted">3.3V 电平与硬件安全</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          3.3V 电平与硬件安全
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你在 51 上习惯了「5V 接上去就能用」：传感器是 5V 的、继电器模块是 5V 的、连电源都是 5V。换成 STM32 之后，<b class="font-semibold text-ink">这一切的前提变了</b>——它是一颗 3.3V 的芯片，引脚能承受的电压有硬上限，而 51 那一侧的 5V 信号正好越过了这条线。<b class="font-semibold text-ink">这一篇是「接线之前必看」的一篇</b>：哪些引脚能直接接 5V、哪些接上去就烧、拿不准时怎么量、驱动负载为什么必须加三极管，以及那些「程序忽然重启」「ADC 读数一直是满格」背后的硬件原因。看完它，你能省下至少一块板子的钱。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">平台：<b>STM32F103C8T6</b></span>
+          <span class="stat-pill">接线前必读</span>
+          <span class="stat-pill">阅读约 <b>26</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-33v">STM32 是一颗 3.3V 器件</a>
+          <a class="toc-link is-sub" href="#sub-5v-tolerant">5V 容忍（FT）引脚</a>
+          <a class="toc-link is-sub" href="#sub-level-shift">电平转换的三种做法</a>
+          <a class="toc-link is-sub" href="#sub-gpio-mode">GPIO 的八种模式</a>
+          <a class="toc-link is-sub" href="#sub-current">引脚电流限制</a>
+          <a class="toc-link is-sub" href="#sub-power">供电：3.3V 从哪来</a>
+          <a class="toc-link is-sub" href="#sub-decoupling">去耦电容</a>
+          <a class="toc-link is-sub" href="#sub-esd">静电与操作规范</a>
+          <a class="toc-link is-sub" href="#sub-adc-range">ADC 的输入范围</a>
+          <a class="toc-link" href="#sec-hardware">硬件资源说明</a>
+          <a class="toc-link is-sub" href="#sub-wiring-table">能不能接：对照表</a>
+          <a class="toc-link is-sub" href="#sub-level-circuit">电平转换电路图</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-cubemx-gpio">CubeMX 里选 GPIO 模式</a>
+          <a class="toc-link is-sub" href="#sub-read-5v">读取 5V 信号（经分压）</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-33v">STM32 是一颗 3.3V 器件</a>
+            <a class="toc-link is-sub" href="#sub-5v-tolerant">5V 容忍（FT）引脚</a>
+            <a class="toc-link is-sub" href="#sub-level-shift">电平转换的三种做法</a>
+            <a class="toc-link is-sub" href="#sub-gpio-mode">GPIO 的八种模式</a>
+            <a class="toc-link is-sub" href="#sub-current">引脚电流限制</a>
+            <a class="toc-link is-sub" href="#sub-power">供电：3.3V 从哪来</a>
+            <a class="toc-link is-sub" href="#sub-decoupling">去耦电容</a>
+            <a class="toc-link is-sub" href="#sub-esd">静电与操作规范</a>
+            <a class="toc-link is-sub" href="#sub-adc-range">ADC 的输入范围</a>
+            <a class="toc-link" href="#sec-hardware">硬件资源说明</a>
+            <a class="toc-link is-sub" href="#sub-wiring-table">能不能接：对照表</a>
+            <a class="toc-link is-sub" href="#sub-level-circuit">电平转换电路图</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-cubemx-gpio">CubeMX 里选 GPIO 模式</a>
+            <a class="toc-link is-sub" href="#sub-read-5v">读取 5V 信号（经分压）</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">先说清这一篇要解决什么问题。你从 51 转过来，脑子里有一套默认假设：<b class="font-semibold text-ink">「高电平就是 5V，低电平就是 0V，任何引脚接任何信号都能用」</b>。这套假设在 51 上基本成立，因为 51 的 IO 是 5V 的，而市面上的模块也大多是 5V 的。</p>
+          <p class="mt-3">到了 STM32，这三条假设全部需要修正：</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">高电平不再是 5V，而是 3.3V</b>——芯片的供电和引脚电压上限都降到了 3.3V 这个量级。</li>
+            <li><b class="font-semibold text-ink">引脚不是「都能接」，而是分等级的</b>——有些引脚能扛 5V，有些接上去就烧。而这在引脚排布上<b>完全看不出来</b>，只有查数据手册才知道。</li>
+            <li><b class="font-semibold text-ink">引脚不是「想给多少电流就给多少」</b>——每个引脚有 20mA 的硬上限，整片芯片也有总上限。超了不会「工作不正常」，而是直接损坏或者把整片芯片拖到复位。</li>
+          </ul>
+          <p class="mt-3">这一节先把这三件事各自的原理讲清楚，最后一节给你一张<b class="font-semibold text-ink">「能不能接」对照表</b>——遇到具体接线时直接查表即可。</p>
+
+          <h3 id="sub-33v" class="mt-7 text-base font-semibold">STM32 是一颗 3.3V 器件：电压是条模拟量，不是「高低」两个字</h3>
+          <p class="mt-3">在 51 的世界里，你习惯把电压想成两种状态：5V 和 0V。但真实世界里电压是一条连续的曲线，芯片内部判断「这算高还是算低」，靠的是两条<b class="font-semibold text-ink">门限</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电压不是二值的：门限之间是「不确定区」">
+            <pre><code>STM32F103（3.3V 供电）对输入电压的判定：
+
+   3.3V ┤━━━━━━━━━━━━━━━━━━━━━━━  ← VDD（芯片供电电压）
+        │
+   2.0V ┤─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  ← VIH：高于这条线，芯片【保证】读成 1
+        │
+        │      不 确 定 区
+        │   （读成 0 还是 1 没有保证，
+        │     随温度、批次、电压波动而变）
+        │
+   0.8V ┤─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  ← VIL：低于这条线，芯片【保证】读成 0
+        │
+   0.0V ┤━━━━━━━━━━━━━━━━━━━━━━━  ← VSS（地）
+
+【关键结论】落在 0.8V ~ 2.0V 之间的电压，芯片读出来什么都可能。
+           工程上的规矩：送进引脚的电平，要么低于 0.8V，要么高于 2.0V，
+           并且要留出足够余量（一般要求高电平 ≥ 2.4V，低电平 ≤ 0.4V）。</code></pre>
+          </div>
+
+          <p class="mt-3">再看输出侧。STM32 引脚输出高电平时，电压<b class="font-semibold text-ink">接不接近 3.3V 取决于它带了多少电流</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>ST 数据手册里的参数</th><th>含义</th><th>工程上的实际值</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">VDD</td><td>芯片主供电电压范围</td><td><b>2.0V ~ 3.6V</b>，标准用 <b>3.3V</b></td></tr>
+                <tr><td class="font-mono text-xs">VDDA</td><td>模拟部分（ADC）供电</td><td>同样 2.0V ~ 3.6V，板上一般和 VDD 接在一起</td></tr>
+                <tr><td class="font-mono text-xs">VOH</td><td>输出高电平电压</td><td>空载时接近 <b>3.3V</b>；输出 8mA 时不低于 VDD−0.4V，即约 <b>2.9V</b></td></tr>
+                <tr><td class="font-mono text-xs">VOL</td><td>输出低电平电压</td><td>带载时不超过 <b>0.4V</b>，空载接近 0V</td></tr>
+                <tr><td class="font-mono text-xs">VIH</td><td>输入判为「高」的最低电压</td><td>3.3V 供电时约 <b>2.0V</b></td></tr>
+                <tr><td class="font-mono text-xs">VIL</td><td>输入判为「低」的最高电压</td><td>3.3V 供电时约 <b>0.8V</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">把这些数字和 51 摆在一起，两个方向的麻烦就都浮现出来了——<b class="font-semibold text-ink">注意是两个方向，新手通常只想到第一个</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="51（5V）与 STM32（3.3V）对接的两个方向">
+            <pre><code>【方向一】5V 器件输出 → STM32 输入   （51 的输出接 STM32 的引脚）
+
+   51 输出高 = 5.0V ──────────────►  STM32 引脚
+                                      ↑
+                        引脚耐压上限约 3.6V（VDD+0.3V，非 FT 引脚）
+                        5.0V 远超上限 → 引脚内部的保护二极管导通
+                        → 电流倒灌进 3.3V 电源网络 → 发烫 / 损坏
+
+   ⚠ 这是最危险、也最常见的错误。
+     只有标着 FT 的引脚能安全接下这个 5V。
+
+【方向二】STM32 输出 → 5V 器件输入   （STM32 的输出接 51 的引脚）
+
+   STM32 输出高 = 3.3V ──────────►  51 输入引脚
+                                      ↑
+                        51 的普通 IO 是 TTL 门限：VIH ≈ 2.0V、VIL ≈ 0.8V
+                        3.3V &gt; 2.0V → 51 读得对，这个方向基本不用管 ✔
+
+   ⚠ 但「5V 器件」不等于「VIH 一定低」：同厂的 CMOS 器件 VIH ≈ 0.7 × VCC = 3.5V，
+     3.3V 喂进去它就认不出高电平，那种情况才会「莫名其妙不工作」。
+     51 手册里 0.7 × VCC 那一档门限是给 XTAL1 / RST / EA 这几个脚用的（VIH1），
+     不是普通 IO 口——拿它当 IO 门限，就会得出「3.3V 读不到」的错误结论。
+
+【结论】
+   · 5V → 3.3V：51 输出高就是 5V，不能直连 STM32 的普通输入（非 FT 引脚）——
+     先查引脚是不是 FT，不是 FT 就得做电平转换（或分压）
+   · 3.3V → 5V：看对方器件的 VIH。51 的普通 IO 是 TTL 门限 VIH≈2.0V，接得进去；
+                 CMOS/74HC 系列 VIH≈3.5V，接不了；TTL/74LS 系列 VIH≈2.0V，可以直接接。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么 51 那边反而更「宽容」</div>
+            <p>因为 51（STC89C52RC）是 5V 器件，它的引脚耐压天然就覆盖了 0~5V，所以 3.3V 的信号接进去<b>不会损坏它</b>，普通 IO 口还能把 3.3V 正常读成高电平（TTL 门限 VIH = 2.0V），通常不用做电平转换。而 STM32 是 3.3V 器件，5V 信号接进去是<b>物理上超出耐压</b>，会真真切切地损坏芯片。<b>所以「能不能接」这件事是不对称的</b>：3.3V 进 5V 器件通常能读对（最坏也只是不工作），5V 进 3.3V 器件是会烧。而 STM32 作为 3.3V 器件，恰好处于「怕别人、不怕自己」的位置——你只需要重点防住「外面进来的 5V」。</p>
+          </div>
+
+          <h3 id="sub-5v-tolerant" class="mt-7 text-base font-semibold">5V 容忍（FT）引脚：STM32 身上唯一能直接接 5V 的地方</h3>
+          <p class="mt-3">ST 知道世界上遍地是 5V 器件，所以刻意给一部分引脚加了「5V 容忍」的能力。在数据手册里，这个能力标记为 <b class="font-semibold text-ink">FT</b>（Five-volt Tolerant）。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">怎么查一个引脚是不是 FT？</b>去 ST 官网下载 <b>STM32F103C8</b> 的数据手册（Datasheet，文件名类似 <code class="icode">stm32f103c8.pdf</code>），翻到 <b>Table 4. Pinouts and pin description</b>（引脚定义表）。这张表有一列叫 <b>I/O structure</b>（I/O 结构），里面的字母就是答案：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>标记</th><th>全称 / 含义</th><th>能不能接 5V</th><th>典型引脚</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">FT</td><td>Five-volt Tolerant，5V 容忍</td><td><b>能</b>（数字输入时）</td><td>PA8~PA15、PB2~PB15</td></tr>
+                <tr><td class="font-mono text-xs">TTa</td><td>3.3V 模拟输入，带模拟功能</td><td><b>不能</b>，绝对上限 VDD+0.3V ≈ 3.6V</td><td>PA0~PA7、PB0、PB1（这些也是 ADC 通道）</td></tr>
+                <tr><td class="font-mono text-xs">TC</td><td>标准 3.3V IO，标了标准输入保护</td><td><b>不能</b></td><td>PC13 / PC14 / PC15（还额外限制 ≤ 3mA）</td></tr>
+                <tr><td class="font-mono text-xs">B</td><td>BOOT 相关引脚，内部有特殊上下拉</td><td><b>不能</b>当普通 IO 用</td><td>BOOT0</td></tr>
+                <tr><td class="font-mono text-xs">RST</td><td>复位引脚，内部带上拉</td><td>不能接 5V，接 GND 会复位</td><td>NRST</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">一条能救命的速记规则：ADC 引脚都不是 FT</div>
+            <p>在 STM32F103 上，<b>凡是能当 ADC 输入用的引脚（PA0~PA7、PB0、PB1），都不是 5V 容忍的</b>。原因很直接：ADC 要精确测量引脚上的模拟电压，就不能让保护二极管在 3.6V 以上导通去「钳位」电压，否则测出来的值全错。所以 ST 把这些引脚做成了纯 3.3V 的 TTa 结构。</p>
+            <p class="mt-2">反过来记也成立：<b>看到 PA0 到 PA7 或 PB0/PB1，就当它绝对不能接 5V。</b>而 <b>PA8 以上的引脚基本都是 FT</b>（PA8~PA15 全部是 FT）。这条规则不需要查手册就能用，是你接线时最实用的一条直觉。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">把 5V 接进非 FT 引脚，芯片内部发生了什么？</b>每个引脚内部都有两个 ESD 保护二极管：一个从引脚指向 VDD，一个从 VSS 指向引脚。正常工作时输入电压在 0~3.3V 之间，两个二极管都反向截止，不导通。一旦引脚电压超过 VDD+0.3V（约 3.6V）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="超压时引脚内部发生了什么">
+            <pre><code>【正常情况】输入 3.3V，两个保护二极管都截止
+
+              3.3V (VDD)
+                 │
+                 ▼  ← 二极管①（引脚→VDD），反向截止，不导通
+   引脚 ─────────┴──────── 内部电路（栅极输入）
+                 ▲  ← 二极管②（VSS→引脚），反向截止，不导通
+                 │
+                GND
+
+【超压情况】输入 5V，二极管①正向导通
+
+              3.3V (VDD)
+                 │
+                 ▼  ← 二极管①导通！电流从这里灌进 VDD 网络
+   引脚 ──5V─────┴──────── 内部电路
+                 ▲
+                 │
+                GND
+
+   后果链条：
+   ① 导通电流从引脚流进 VDD 网络，把整片的电源电压「抬」起来；
+   ② VDD 被抬高，其他本来就正常的引脚反而超压了（连锁反应）；
+   ③ 电流带来的功率在芯片内部变成热 → 芯片发烫；
+   ④ 电流超过二极管承受能力（数据手册规定引脚注入电流 ±5mA）
+      → 二极管烧毁 → 引脚永久损坏，或者整片芯片报废。
+
+   ⚠ 最坑的一点：这个过程【没有任何征兆】。
+     程序可能还在跑，只是某个引脚忽然不响应了 ——
+     很多人以为是代码问题，在那里查寄存器配置。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">FT 的三个重要前提，少一个都会出事</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>只在「数字输入」模式下才成立。</b>引脚配置成<b>模拟模式</b>（ADC 采样）时，5V 容忍能力失效；配置成<b>推挽输出</b>时，如果外部还硬灌 5V 进来，同样出事。所以「FT 引脚」这个概念只在「我把它当输入用」时才有意义。</li>
+              <li><b>它只保护输入，不产生 5V 输出。</b>FT 是「我能接受 5V 进来」，不是「我能输出 5V 出去」。FT 引脚输出高电平依然是 3.3V。</li>
+              <li><b>5V 也有上限，一般按 5.5V 以内使用。</b>「5V 容忍」是给标准 5V 逻辑电平用的余量，不是让你接 9V、12V。接 12V 一样会烧。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-level-shift" class="mt-7 text-base font-semibold">电平转换的三种实用做法</h3>
+          <p class="mt-3">如果你要接的 5V 信号没法接到 FT 引脚上（比如信号恰好是 PA0 的 ADC 通道，或者引脚已经用满了），就需要做「电平转换」。下面三种做法从简单到可靠排列，各有适用范围。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">做法一：电阻分压（最简单，只适合「5V → 3.3V」单向、低速信号）</b></p>
+          <p class="mt-3">用两个电阻把 5V 按比例降下来。公式就是初中物理的分压公式：</p>
+          <p class="mt-3"><code class="icode">Vout = Vin × R2 / (R1 + R2)</code></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电阻分压：算例与阻值选择">
+            <pre><code>【电路】 5V 信号源 ── R1 ──┬──► 接到 STM32 引脚
+                            │
+                            R2
+                            │
+                           GND
+
+【算例一】按 3.3V 的 0.909 倍设计（刚好 3.0V，留 0.3V 余量）
+
+   取 R1 = 10kΩ（上），R2 = 15kΩ（下）：
+
+        Vout = 5V × 15 / (10 + 15)
+             = 5V × 15 / 25
+             = 5V × 0.6
+             = 3.0V            ✅ 低于 3.3V，安全，且高于 VIH(2.0V)，能读成高
+
+   反过来把引脚上量到的电压换算回原电压：
+
+        Vin = Vout × (R1 + R2) / R2
+            = Vout × 25 / 15
+            = Vout × 1.667
+
+   也就是说，如果 ADC 读到 1.800V，那么信号源那边其实是 1.800 × 1.667 = 3.000V。
+
+【算例二】常见配法对照
+
+   R1（上）  R2（下）   分压后(输入5V)   反推系数     评价
+   ──────── ───────── ─────────────── ─────────── ──────────────────
+    2 kΩ     3.3 kΩ       3.11V          1.606     可用，但接近 3.3V 上限
+    3 kΩ     6.8 kΩ       3.45V ✗        1.441     太高了，超上限，别用
+   10 kΩ    15 kΩ         3.00V          1.667     ★ 推荐，余量合适
+   10 kΩ    20 kΩ         3.33V ✗        1.500     贴上限，不建议
+   20 kΩ    20 kΩ         2.50V          2.000     余量大，但抗干扰稍差
+
+   原则：分压后的电压落在 2.4V ~ 3.0V 之间最理想 —— 
+         既明显高于 VIH(2.0V)，又离 3.3V 上限有距离。
+
+【阻值怎么选？两个约束同时满足】
+
+   ① 不能太小：5V / (R1+R2) 就是常态耗电。
+      取 25kΩ 时电流 = 5V / 25kΩ = 0.2mA，可以接受。
+      取 250Ω 时电流 = 20mA，白白烧掉，还发热。
+
+   ② 不能太大：STM32 的 ADC 采样时，内部采样电容需要被外部充电。
+      如果源阻抗太大，电容来不及充满，读数就会偏低且不稳定。
+      经验值：分压电阻总阻值控制在 10kΩ ~ 30kΩ 之间。
+
+【做法一的三个致命限制，务必记住】
+
+   ❌ 只能单向：只解决「5V 进 STM32」，不能反过来做「3.3V 出到 5V」。
+   ❌ 只能低速：电阻 + 引脚电容构成 RC 电路，会拖慢边沿。
+      信号频率超过约 100kHz 就开始明显变形，串口 115200 都可能出错。
+   ❌ 只能点对点：不能用在 I2C 这种「一根线上挂多个器件」的总线上。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">做法二：电平转换模块（最省心，双向，推荐给新手）</b></p>
+          <p class="mt-3">市面上几块钱的「4 路双向电平转换模块」是性价比最高的方案。它的核心是 MOS 管加两个上拉电阻，能在 3.3V 和 5V 两侧之间双向翻译信号。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>常见型号</th><th>通道数</th><th>适合的信号</th><th>注意点</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">4 路双向电平转换模块</td><td>4</td><td>I2C、UART、SPI、普通 IO</td><td>两侧都要供电：LV 接 3.3V，HV 接 5V，GND 必须共地</td></tr>
+                <tr><td class="font-mono text-xs">TXS0108E</td><td>8</td><td>I2C、SPI、UART</td><td>芯片级方案，适合自己画板；注意它带自动方向检测，不适合强驱动</td></tr>
+                <tr><td class="font-mono text-xs">TXB0104</td><td>4</td><td>推挽信号</td><td>不能用于开漏总线（I2C），容易自激振荡</td></tr>
+                <tr><td class="font-mono text-xs">74LVC245</td><td>8</td><td>单向信号</td><td>方向由 DIR 引脚决定，需要额外一个控制脚</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">用模块时最容易漏的两件事</div>
+            <p><b>① 两侧都要供电。</b>模块上的 <code class="icode">LV</code> 侧要接 3.3V、<code class="icode">HV</code> 侧要接 5V，两侧的 <code class="icode">GND</code> 还要连在一起。<b>只接了信号线没接 5V，模块完全不工作</b>——这是最常见的「模块是坏的」误判。</p>
+            <p class="mt-2"><b>② 别把电源接反。</b>LV 侧接到 5V、HV 侧接到 3.3V，模块会反向翻译，结果和没接一样甚至更糟。接线前先看清模块丝印上哪一侧是 LV。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">做法三：开漏 + 上拉到 3.3V（最优雅，I2C 的标准解法）</b></p>
+          <p class="mt-3">这一种值得重点理解，因为它同时解决了「5V 器件 ↔ 3.3V 器件」的双向问题，而且成本只有两个电阻。</p>
+          <p class="mt-3">核心思想是：<b class="font-semibold text-ink">开漏输出的引脚只能「拉低」，不能「拉高」</b>。高电平完全由外部上拉电阻决定——那么把上拉电阻接到 3.3V 而不是 5V，线上的高电平就变成了 3.3V，无论信号的「主人」是谁。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="开漏上拉方案的原理">
+            <pre><code>【电路】 3.3V ──[ 4.7kΩ ]──┬──────────── 信号线（同时也是 STM32 的引脚）
+                            │
+                            接 5V 器件的开漏输出脚 / 双向数据脚
+
+【工作过程】
+
+  ① 谁都不拉低时：
+       3.3V ──[4.7kΩ]──┬── 线上电压 = 3.3V（由上拉电阻决定）
+                        │
+                        （两端引脚都是开漏，内部 NMOS 关断，相当于断路）
+       → 两端都读到「高电平」。
+       → STM32 读到 3.3V ✅ 不超压
+       → 5V 器件读到 3.3V —— 只要它的 VIH ≤ 3.3V 就能认（多数 I2C 器件可以，
+          因为 I2C 规范里 VIH = 0.7×VDD，5V 器件要求 3.5V，这一点要确认！）
+
+  ② 任意一端拉低时：
+       3.3V ──[4.7kΩ]──┬── 线上电压 ≈ 0V
+                        │
+                       ═╧═ 内部 NMOS 导通，直接接到 GND
+       → 电流从上拉电阻流过这个 NMOS 到地（约 3.3V/4.7kΩ = 0.7mA）
+       → 两端都读到「低电平」。
+       → 关键：拉低是「短路到地」，所以不管哪一端拉低，另一端看到的都是 0V，
+          不存在超压问题。
+
+【为什么这个方案安全？】
+   5V 器件从来不往线上「输出 5V」——它只会把线拉到 0V，或者放手不管。
+   线上的电压永远由上拉电阻决定 = 3.3V。所以 STM32 永远不会看到 5V。
+
+【上拉电阻怎么选？】
+   · I2C 100kHz  → 4.7kΩ（最常用）
+   · I2C 400kHz  → 2.2kΩ ~ 3.3kΩ（速率越高，上拉要越小，边沿才够陡）
+   · 普通数字信号 → 4.7kΩ ~ 10kΩ
+   · 太小：静态电流大、低电平被抬高（可能识别不到低）
+   · 太大：上升沿变缓、高速时通信失败
+
+【STM32 这一侧要怎么配？】
+   引脚必须配成【开漏输出】或【复用开漏】：
+       HAL: GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;   // 普通 IO 开漏
+       I2C: GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;       // 复用开漏
+   绝不能配成推挽输出 —— 推挽输出会主动输出 3.3V 高电平，
+   和对面拉低的力量「打架」，大电流流过两个 MOS 管，可能烧掉。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">还有「做法零」：从源头换掉</div>
+            <p>很多传感器和模块<b>同时有 3.3V 版和 5V 版</b>（比如 HC-SR04 超声波有 3.3V 版本、DHT22 有 3.3V 版本、很多 OLED 模块支持 3.3V~5V 宽压）。<b>买之前先看一眼供电范围</b>，能省掉整条转换链路。这是最省事、最不容易出错的做法，应该优先考虑。</p>
+            <p class="mt-2">另一个方向：如果你手上只有 5V 模块，也可以<b>给整个系统用 5V 器件做主控</b>（比如继续用 51），把 STM32 用在对 3.3V 友好的场合。工程上「换器件」往往比「加转换电路」更可靠。</p>
+          </div>
+
+          <h3 id="sub-gpio-mode" class="mt-7 text-base font-semibold">GPIO 的八种模式：每种什么时候用</h3>
+          <p class="mt-3">51 的 IO 只有「准双向口」一种模式（加上读锁存器/读引脚那点差别），而 STM32 的每个引脚都要你从八种模式里选一种。这八种模式分成两大类：<b class="font-semibold text-ink">输入四种、输出四种</b>。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>#</th><th>模式</th><th>HAL 里怎么写</th><th>内部结构</th><th>什么时候用</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>输入浮空</td><td class="font-mono text-xs">GPIO_MODE_INPUT<br>+ GPIO_NOPULL</td><td>高阻，不与任何电平相连，电平完全由外部决定</td><td>外部已有确定驱动的信号：另一个芯片的输出脚、传感器的数字输出脚。<b>注意：悬空时会乱跳</b></td></tr>
+                <tr><td>2</td><td>输入上拉</td><td class="font-mono text-xs">GPIO_MODE_INPUT<br>+ GPIO_PULLUP</td><td>内部约 40kΩ 电阻接到 VDD</td><td>按键一端接引脚、另一端接 GND：平时读到高，按下读到低</td></tr>
+                <tr><td>3</td><td>输入下拉</td><td class="font-mono text-xs">GPIO_MODE_INPUT<br>+ GPIO_PULLDOWN</td><td>内部约 40kΩ 电阻接到 VSS</td><td>按键一端接引脚、另一端接 VDD：平时读到低，按下读到高</td></tr>
+                <tr><td>4</td><td>模拟</td><td class="font-mono text-xs">GPIO_MODE_ANALOG</td><td>断开数字输入缓冲器，引脚直连 ADC 通道</td><td>ADC 采样引脚必须用这个；未使用的引脚也可以用（省电、抗干扰）</td></tr>
+                <tr><td>5</td><td>推挽输出</td><td class="font-mono text-xs">GPIO_MODE_OUTPUT_PP</td><td>上下两个 MOS 管，主动输出高或低</td><td>LED、驱动另一个芯片的输入脚、绝大多数输出场合。<b>拿不准就用它</b></td></tr>
+                <tr><td>6</td><td>开漏输出</td><td class="font-mono text-xs">GPIO_MODE_OUTPUT_OD</td><td>只有下面的 NMOS，只能拉低，高电平靠外部上拉</td><td>I2C 总线、多个器件共享一根线（线与）、需要把高电平拉到 5V 的场合</td></tr>
+                <tr><td>7</td><td>复用推挽</td><td class="font-mono text-xs">GPIO_MODE_AF_PP</td><td>推挽结构，但控制权交给外设（USART/SPI/TIM）</td><td>USART 的 TX、SPI 的 SCK/MOSI、PWM 输出</td></tr>
+                <tr><td>8</td><td>复用开漏</td><td class="font-mono text-xs">GPIO_MODE_AF_OD</td><td>开漏结构，控制权交给外设</td><td>I2C 的 SCL/SDA（外设驱动 + 开漏）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">怎么快速决定用哪一种？按顺序问自己三个问题：</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="GPIO 模式选择决策表">
+            <pre><code>【第一步】这个引脚是「读别人的信号」还是「输出信号给别人」？
+
+   ├─ 读别人的信号（输入）→ 进第二步
+   └─ 输出信号给别人（输出）→ 进第三步
+
+【第二步】是「数字信号」还是「模拟电压」？
+
+   ├─ 模拟电压（要用 ADC 测量）→ 第 4 种：模拟输入
+   │                               ★ 配成数字输入会读到乱跳的 0/1，而不是电压值
+   └─ 数字信号（只有高低两种）→ 进第二步之 b
+
+       b) 外部信号源是什么类型？
+          ├─ 别的芯片的输出脚（推挽驱动）→ 第 1 种：输入浮空
+          │     （外部已经能主动输出高低，不需要内部上拉）
+          ├─ 按键 / 开关 / 开漏输出 → 需要内部上拉或下拉：
+          │     ├─ 开关另一端接 GND → 第 2 种：输入上拉（平时高，按下低）
+          │     └─ 开关另一端接 VDD → 第 3 种：输入下拉（平时低，按下高）
+          └─ 完全悬空不确定 → 一定要上拉或下拉，否则读数随机跳变
+
+【第三步】这个引脚的控制权归谁？
+
+   ├─ 我自己用代码控制高低 → 进第三步之 a
+   └─ 交给外设（串口、SPI、定时器 PWM）→ 进第三步之 b
+
+       a) 我自己控制：
+          ├─ 需要输出高电平（作为信号源驱动别人）→ 第 5 种：推挽输出 ★默认
+          ├─ 需要「线与」（多个器件共用一根线，谁都能拉低）→ 第 6 种：开漏输出
+          └─ 需要输出高电平高于 3.3V（想拉到 5V）→ 第 6 种：开漏输出 + 外部上拉到 5V
+
+       b) 交给外设：
+          ├─ 普通信号（USART TX / SPI SCK、MOSI / PWM）→ 第 7 种：复用推挽
+          └─ 开漏总线（I2C 的 SCL、SDA）→ 第 8 种：复用开漏
+
+【一句话总结】
+   拿不准就选【推挽输出】（输出）或【输入浮空/上拉】（输入），
+   这两个覆盖了 90% 的场合。等到你需要 I2C 或 5V 上拉时再换开漏。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">F1 的一个隐藏陷阱：输入上拉和输入下拉在寄存器里是「同一种配置」</div>
+            <p>STM32F103 的 <code class="icode">CRL</code>/<code class="icode">CRH</code> 寄存器里，每个引脚只有 4 个位（CNF 2 位 + MODE 2 位）。输入方向下：<code class="icode">CNF=10</code> 表示「带上拉/下拉的输入」——<b>但这一种配置同时对应上拉和下拉两种模式，到底哪个生效，取决于 <code class="icode">ODR</code> 寄存器里对应的那一位</b>：<code class="icode">ODR=1</code> 就是上拉，<code class="icode">ODR=0</code> 就是下拉。</p>
+            <p class="mt-2">这意味着：如果你自己写寄存器配「输入上拉」时忘了同时置 <code class="icode">ODR</code> 位，实际得到的是<b>下拉</b>，行为和你预期完全相反（按键平时读低、按下读高，正好反过来）。<b>用 HAL 就没有这个问题</b>——<code class="icode">GPIO_Init()</code> 内部会根据你的 <code class="icode">Pull</code> 字段自动去写 ODR 位。这是「为什么推荐用 HAL」的一个很具体的例子。</p>
+          </div>
+
+          <h3 id="sub-current" class="mt-7 text-base font-semibold">引脚电流限制：为什么不能直接用 IO 驱动电机、继电器</h3>
+          <p class="mt-3">这是「从 51 过来」最容易翻车的地方之一，因为 51 的 IO 灌电流能力（约 20mA）在直觉上「挺大」，而 STM32 的数字看起来差不多，于是很多人照着 51 的经验直接接继电器。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">STM32F103 的电流硬指标：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>指标</th><th>数值</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>单个 IO 灌电流（输出低，电流流入引脚）</td><td><b>最大 20mA</b></td><td>绝对最大额定值，长期工作建议 ≤ 8~10mA</td></tr>
+                <tr><td>单个 IO 拉电流（输出高，电流流出引脚）</td><td><b>最大 20mA</b></td><td>同上。注意输出高时电压会被拉低，20mA 时可能只有 2.9V</td></tr>
+                <tr><td>PC13 / PC14 / PC15</td><td><b>最大 3mA</b></td><td>这三个引脚能力特别弱。板载 LED 就挂在 PC13 上</td></tr>
+                <tr><td>所有 IO 合计灌电流</td><td><b>150mA</b></td><td>整片芯片所有引脚流出的电流总和上限</td></tr>
+                <tr><td>所有 IO 合计拉电流</td><td><b>150mA</b></td><td>同上，这是「整片芯片」级别的限制</td></tr>
+                <tr><td>引脚注入电流（引脚电压超出 VDD/VSS 时）</td><td><b>±5mA</b></td><td>就是前面讲的保护二极管导通电流，超了就烧</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="算一算：什么能直接接，什么不能">
+            <pre><code>【能直接接的：板载 LED】
+
+   电路：3.3V ──[470Ω]── LED ── PC13
+   红色 LED 正向压降约 1.8V，所以电阻上的电压 = 3.3V − 1.8V = 1.5V
+
+        I = U / R = 1.5V / 470Ω ≈ 3.2mA
+
+   ✅ 3.2mA 在 20mA 以内，安全。
+   ⚠ 但 PC13 的上限是 3mA，3.2mA 已经【贴着上限】了 ——
+     所以板载 LED 的亮度是可以用，但不要再往 PC13 上挂别的负载。
+
+【不能直接接的：5V 继电器模块（不带驱动的裸继电器）】
+
+   典型 5V 小型继电器线圈电阻约 70Ω：
+
+        I = 5V / 70Ω ≈ 71mA
+
+   ❌ 超单个 IO 上限 20mA 的 3.5 倍！
+
+   就算你接的是 3.3V 继电器：
+        I = 3.3V / 70Ω ≈ 47mA   ❌ 还是超标
+
+【不能直接接的：直流小电机】
+
+   TT 马达空载约 100~200mA，堵转可以到 500mA 以上。
+   ❌ 超过 20mA 十倍以上，而且电机会产生反向电动势和大量噪声。
+
+【不能直接接的：WS2812 灯带】
+
+   每一颗灯珠全白时约 60mA。一颗就超标 3 倍，一条 30 颗的灯带要 1.8A。
+   ❌ 完全不可能用 IO 直接驱动。
+
+【超标的后果，比「烧引脚」更麻烦的是「整片复位」】
+
+   ① 引脚内部 MOS 管过流 → 发热 → 烧毁（永久损坏）
+   ② 大电流瞬间抽取 VDD 上的电荷 → VDD 电压跌落
+      → 低于 2.0V 时芯片内部复位电路动作 → 程序突然从头开始跑
+      → 现象：「一开继电器，程序就重启」，很多人查成代码问题
+   ③ 电机/继电器线圈断电瞬间产生反向高压尖峰 → 干扰甚至击穿</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：加一级驱动。</b>让 IO 只负责「发出控制信号」（几毫安），真正的大电流由专门的器件去扛。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>要驱动的负载</th><th>推荐方案</th><th>关键点</th></tr></thead>
+              <tbody>
+                <tr><td>单个 LED（≤ 10mA）</td><td>IO 直驱 + 限流电阻</td><td>电阻按 (3.3 − Vf) / I 算。避免用 PC13/14/15</td></tr>
+                <tr><td>多个 LED / 大功率 LED</td><td>三极管（S8050 / S8550）或 MOS 管</td><td>IO 接基极/栅极，负载接集电极/漏极。基极串 1kΩ 电阻</td></tr>
+                <tr><td>继电器</td><td><b>买「继电器模块」</b>，或用三极管 + 续流二极管</td><td>模块自带光耦隔离和三极管驱动，最省事。<b>线圈两端必须并一个 1N4148/1N4007 续流二极管</b>吸收反向尖峰</td></tr>
+                <tr><td>直流电机</td><td>MOS 管（AO3400 / IRF540）或电机驱动模块（L298N / TB6612）</td><td>要能正反转就用 H 桥模块。电机两端并续流二极管或 RC 吸收</td></tr>
+                <tr><td>多个负载（≥ 3 路）</td><td>ULN2003 达林顿阵列</td><td>7 路，每路可达 500mA，内部已经集成续流二极管，非常省事</td></tr>
+                <tr><td>WS2812 灯带</td><td>专用 5V 电源 + 74HCT245 电平转换</td><td>灯带必须独立供电，且 STM32 的 3.3V 数据信号要高到 5V 才能被可靠识别</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-power" class="mt-7 text-base font-semibold">供电：3.3V 到底从哪来</h3>
+          <p class="mt-3">蓝药丸（Blue Pill）板子上有两个电源引脚容易搞混：<b class="font-semibold text-ink">5V 引脚</b>和 <b class="font-semibold text-ink">3.3V 引脚</b>。它们的来源和用途完全不同。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="蓝药丸的供电路径">
+            <pre><code>【USB 供电时的完整路径】
+
+   USB 口 ──► 5V 引脚（板上标 5V）
+     │            │
+     │            └──► 可以直接给 5V 模块供电
+     │
+     ▼
+   AMS1117-3.3  ← 板载 LDO（低压差线性稳压器）
+     │
+     ▼
+   3.3V 引脚（板上标 3V3）──► STM32 的 VDD / VDDA
+     │
+     └──► 可以给小的 3.3V 模块供电（电流受 LDO 和 USB 限制）
+
+【关键区别】
+
+   5V 引脚                          3.3V 引脚
+   ──────────────────────────────── ────────────────────────────────
+   来源：直接连 USB 的 5V           来源：板载 LDO 的输出
+   能不能当输入：能，接外部 5V      能不能当输入：⚠ 有风险，见下
+   给外部供电：能（USB 能提供多少   给外部供电：能，但注意 LDO 电流能力
+               它就提供多少，          （AMS1117 标称 800mA，但受 USB
+                一般 500mA 上限）        500mA 限制，实际按 300mA 算）
+   波动：跟随 USB，噪声较大          波动：经过 LDO 稳压，相对干净</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">三条绝对不能做的接法</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>把 5V 接到 3.3V 引脚。</b>这会直接把 5V 灌进 LDO 的输出端和 STM32 的 VDD 引脚。<b>LDO 会损坏，STM32 也会损坏。</b>接线时务必看清丝印：标 <code class="icode">5V</code> 的接 5V，标 <code class="icode">3V3</code> 的接 3.3V。</li>
+              <li><b>同时用 USB 和外部 3.3V 电源给板子供电。</b>两路电源会互相「倒灌」，轻则电压异常、重则烧掉 LDO。要外接电源就拔掉 USB。</li>
+              <li><b>把 9V 电池或 12V 电源直接接到 5V 引脚。</b>5V 引脚不是「宽压输入」，超过 5.5V 就会烧 LDO。要用电池就得加一个降压模块（比如 LM2596 降到 5V）。</li>
+            </ul>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">供电不足是「玄学问题」的头号来源。</b>它的表现非常像软件 bug，因为它会让芯片在运行中突然复位——看起来就像「程序跑飞了」。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>现象</th><th>真实原因</th><th>怎么确认</th></tr></thead>
+              <tbody>
+                <tr><td>程序隔几秒就重启一次，串口打印反复从头开始</td><td>3.3V 电压被大电流负载拉低，触发欠压复位</td><td>万用表接在 3.3V 引脚上，看负载启动瞬间是否掉到 3.0V 以下</td></tr>
+                <tr><td>串口偶尔收到乱码（不是全乱，是偶尔）</td><td>供电噪声耦合到时钟或信号线上</td><td>示波器看 VDD 纹波；或换成短而粗的 USB 线试试</td></tr>
+                <tr><td>ADC 读数上下跳动，稳定不下来</td><td>VDDA 不稳 / 没有去耦电容 / 参考电压被负载影响</td><td>万用表量 VDDA 是否稳定在 3.3V</td></tr>
+                <tr><td>接了 WiFi / 蓝牙模块后频繁掉线或重启</td><td>射频模块发射瞬间电流可达 300~500mA，远超 USB 与 LDO 的稳定输出能力</td><td>给模块单独供电（独立 LDO + 大电容），只共地不共电源</td></tr>
+                <tr><td>ST-Link 连接不稳定、下载时好时坏</td><td>供电本身不稳，或下载线太长</td><td>先量 3.3V；再用短杜邦线；SWD 线尽量 ≤ 15cm</td></tr>
+                <tr><td>板子摸起来温温的</td><td>LDO 在压差下耗散功率：从 5V 降到 3.3V，压差 1.7V × 电流</td><td>正常现象。但如果烫手（>60℃），说明电流太大，检查有没有短路</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">排查供电问题的标准动作</div>
+            <p><b>第一步，用万用表量空载电压。</b>3.3V 引脚应该在 <b>3.25V ~ 3.35V</b> 之间；5V 引脚在 <b>4.75V ~ 5.25V</b> 之间。偏离太多就说明供电本身有问题（USB 线太细、电源适配器虚标）。</p>
+            <p class="mt-2"><b>第二步，带载再量一次。</b>接上所有负载、让程序跑起来（尤其是让大电流外设动作）的同时量 3.3V。如果掉到 <b>3.0V 以下</b>，就是供电不足——解决办法是换更粗的 USB 线、给大负载单独供电、或者在 3.3V 和 GND 之间并一个 <b>100µF ~ 470µF</b> 的电解电容做缓冲。</p>
+            <p class="mt-2"><b>第三步，怀疑射频模块就彻底隔离它。</b>WiFi/蓝牙模块必须用<b>独立的 LDO 供电</b>（不要从板子的 3.3V 引脚取电），并且模块电源脚旁边放 100µF 以上电容。STM32 和模块之间只连信号线和 GND。</p>
+          </div>
+
+          <h3 id="sub-decoupling" class="mt-7 text-base font-semibold">去耦电容：为什么每个电源脚旁边都要放 0.1µF</h3>
+          <p class="mt-3">这是个「老师让你加你就加」的经典问题，但原理其实很好懂：<b class="font-semibold text-ink">数字芯片的电流消耗不是平稳的，而是脉冲式的</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="为什么需要去耦电容：一段导线的电感和脉冲电流">
+            <pre><code>【问题】芯片内部有成千上万个 MOS 管，每个时钟周期都有一批在同时翻转。
+       翻转瞬间需要抽取一个电流尖峰，而平时几乎不耗电。
+
+   电流
+    │      ╱╲        ╱╲        ╱╲
+    │     ╱  ╲      ╱  ╲      ╱  ╲
+    │ ───╱    ╲────╱    ╲────╱    ╲───    ← 72MHz 下每秒 7200 万次
+    └──────────────────────────────────► 时间
+
+【麻烦】电流从电源（LDO / 电池）到芯片，中间要经过导线。
+       任何一段导线都有【寄生电感】（约 1nH/mm）。
+
+       电感的基本性质：U = L × di/dt
+       —— 电流变化越快，电感上产生的电压跌落越大。
+
+       芯片要的那一瞬间电流（di/dt 极大），不可能通过长导线及时送到，
+       于是芯片电源脚上的电压会瞬间「塌」下去。
+
+【后果】电压跌落 → 芯片内部某些电路工作不正常 →
+       表现为随机复位、程序跑飞、ADC 读数错误、通信出错。
+
+【解决】在电源脚旁边放一个小电容。电容的两端电压不能突变 ——
+       它是一个【就近的电荷仓库】。
+
+       3.3V ──┬───────────► 到芯片 VDD 引脚
+              │
+             ─┴─  100nF  ← 就放在引脚旁边（5mm 内最好）
+             ─┬─
+              │
+       GND ───┴───────────► 到芯片 VSS 引脚
+
+       芯片要电流的瞬间，先从这个 100nF 里取（它就在旁边，路径极短，
+       寄生电感几乎为零），而不是从远处的电源经过长导线取。
+
+       100nF 在 72MHz 附近的阻抗很低，正好负责这种高频尖峰。
+       但它容量小，只能顶很短的时间 —— 所以还要有「大电容」配合。
+
+【两级配合】
+   · 100nF（0.1µF）陶瓷电容：每个 VDD 引脚旁边各放一个，管高频尖峰
+   · 10µF ~ 100µF 电解/钽电容：放在电源入口处，管低频波动和整体储能
+   · 再大一些（几百 µF）：给电机、继电器这类大负载做缓冲</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>问题</th><th>答案</th></tr></thead>
+              <tbody>
+                <tr><td>放多少个？</td><td><b>每个 VDD 引脚配一个 100nF</b>，一个都不能少。STM32F103C8T6（LQFP48）有 3 个 VDD 引脚 + 1 个 VDDA，所以至少 4 个 100nF。蓝药丸板上已经焊好了</td></tr>
+                <tr><td>放在哪？</td><td><b>尽可能靠近引脚</b>，最好在 5mm 以内。电容的作用依赖「路径短」，放在板子另一头就几乎没用了</td></tr>
+                <tr><td>为什么是 0.1µF 这个值？</td><td>这是几十年工程实践的结果：容值够大能顶住尖峰，同时自谐振频率（约 10~20MHz）恰好覆盖数字电路的主要噪声频段。太大（如 1µF）反而高频阻抗变高</td></tr>
+                <tr><td>不加会怎样？</td><td>不一定马上坏，但会出现「随机、偶尔、难复现」的故障：偶尔复位、偶尔通信出错、ADC 偶尔跳读。这类问题极难查，所以没人敢省这两个电容</td></tr>
+                <tr><td>面包板上要做吗？</td><td>面包板有寄生电容和接触电阻，一般不严格需要。但如果出现随机复位，<b>在面包板的电源轨上并一个 100nF + 一个 10µF</b>是成本最低的一试</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-esd" class="mt-7 text-base font-semibold">静电与操作规范：那些「莫名其妙就坏了」的时刻</h3>
+          <p class="mt-3">人体在干燥环境下能积累几千伏静电（冬天摸门把手被电到，那一下通常是 3000V 以上）。STM32 内部 MOS 管的栅极氧化层只有几纳米厚，<b class="font-semibold text-ink">几十伏就能击穿它</b>。</p>
+          <p class="mt-3">更麻烦的是，静电击穿往往<b class="font-semibold text-ink">不会让芯片立刻坏掉</b>，而是留下「暗伤」：栅极氧化层被削弱，芯片当时还能用，但几周后开始随机出错。这类故障几乎无法归因，所以唯一可靠的办法是<b class="font-semibold text-ink">从一开始就做好防护</b>。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>该做的</th><th>为什么</th></tr></thead>
+              <tbody>
+                <tr><td><b>拿板子之前先摸一下接地的金属</b>（电脑机箱、暖气片、水龙头）</td><td>把身上的静电泄放掉。这一步成本为零，效果最明显，养成肌肉记忆</td></tr>
+                <tr><td><b>不要带电插拔杜邦线</b></td><td>带电插拔会在信号线上产生瞬态尖峰，还可能瞬间让 5V 碰到 3.3V 引脚。<b>接线一律先断电</b></td></tr>
+                <tr><td><b>接线前断电，接完检查一遍再上电</b></td><td>反复确认电源和地没接反、没有 5V 落到 3.3V 引脚上。花 30 秒省一块板子</td></tr>
+                <tr><td><b>不要把板子放在金属桌面、防静电泡棉的导电面上</b></td><td>会直接短路板子底面的焊点和走线</td></tr>
+                <tr><td><b>不用时放进防静电袋</b>，有条件用防静电垫和防静电手环</td><td>长期存放和焊接时的主要防护手段</td></tr>
+                <tr><td><b>不要用金属镊子去碰引脚和芯片</b></td><td>金属工具会把手上静电直接传导到引脚上</td></tr>
+                <tr><td><b>杜邦线要插到底，线头不要有散丝</b></td><td>面包板接触不良是「玄学问题」的另一大来源，散丝还会造成随机短路</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">「玄学问题」对照表：看起来像灵异事件，其实都有物理原因</div>
+            <div class="table-scroll mt-2">
+              <table class="table-mcu">
+                <thead><tr><th>你看到的现象</th><th>八成是这些原因</th></tr></thead>
+                <tbody>
+                  <tr><td>动一下杜邦线，程序就正常了 / 又不正常了</td><td>接触不良（线没插到底、面包板簧片松、线内部断芯）</td></tr>
+                  <tr><td>同一个程序，昨天能跑今天不能</td><td>供电不稳（USB 线/接口松）、某个引脚被静电损伤、电池电量低</td></tr>
+                  <tr><td>手一碰板子就复位</td><td>人体带静电/工频干扰，或复位引脚（NRST）走线太长没加电容</td></tr>
+                  <tr><td>只接了一根线，什么都没接的引脚读数乱跳</td><td>悬空引脚的正常现象——必须配上拉/下拉，或配成模拟模式</td></tr>
+                  <tr><td>一开电机/继电器就重启</td><td>大电流拉低 3.3V（见供电一节），或反向电动势尖峰干扰</td></tr>
+                  <tr><td>焊完之后一批板子有几块坏的</td><td>焊接温度过高、静电损伤、或者烙铁漏电</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <h3 id="sub-adc-range" class="mt-7 text-base font-semibold">ADC 的输入范围：0 ~ 3.3V，接 5V 会烧</h3>
+          <p class="mt-3">STM32F103 的 ADC 是 12 位的，它的输入电压范围是 <b class="font-semibold text-ink">0V ~ VREF+</b>，而蓝药丸上 VREF+ 和 VDDA 是接在一起的，都是 3.3V。<b class="font-semibold text-ink">所以 ADC 引脚上绝对不能超过 3.3V。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="ADC 的换算关系与输入上限">
+            <pre><code>【输入范围】0V ~ 3.3V（VREF+ = VDDA = 3.3V）
+
+   12 位分辨率 = 2^12 = 4096 个刻度，读数 0 ~ 4095
+
+   每一个刻度代表多少电压（LSB）？
+       LSB = 3.3V / 4096 ≈ 0.000806V ≈ 0.806mV
+
+   换算公式（读数值 → 电压）：
+       电压 = 读数 × 3.3 / 4095
+
+   举例：
+       读数 0      → 0V
+       读数 2048   → 2048 × 3.3 / 4095 ≈ 1.650V   （约一半）
+       读数 4095   → 3.300V
+
+【为什么接 5V 会烧？】
+
+   ADC 引脚内部同样有两个 ESD 保护二极管（引脚→VDDA、VSSA→引脚）。
+
+   输入 5V 时，引脚电压 > VDDA + 0.3V = 3.6V
+   → 「引脚→VDDA」那个二极管正向导通
+   → 电流从引脚灌进 VDDA 网络
+   → 超过 ±5mA 的注入电流上限 → 二极管损坏 → 引脚报废
+
+   ⚠ 而且 ADC 引脚（PA0~PA7、PB0、PB1）全部【不是 FT 引脚】——
+     它们连 5V 容忍都没有。这一点前面已经强调过。
+
+【要接 5V 传感器怎么办？分压】
+
+   例：一个 0~5V 输出的压力传感器，接 PA0（ADC 通道 0）
+
+       传感器输出 ── R1 (10kΩ) ──┬──► PA0
+                                 │
+                                 R2 (15kΩ)
+                                 │
+                                GND
+
+   ① 传感器输出 5V 时，PA0 上的电压：
+          5V × 15/(10+15) = 3.0V        ✅ 安全，低于 3.3V
+
+   ② 传感器输出 0V 时，PA0 上 0V                      ✅
+
+   ③ 程序里读到电压后，要乘回反推系数：
+          原始电压 = 测得电压 × (R1 + R2) / R2
+                   = 测得电压 × 25 / 15
+                   = 测得电压 × 1.667
+
+      测得 3.0V  →  原始电压 = 3.0 × 1.667 = 5.00V   ✅
+      测得 1.5V  →  原始电压 = 1.5 × 1.667 = 2.50V   ✅
+
+【分压电阻的两个额外要求】
+
+   ① 总阻值别太大：ADC 采样时内部采样电容要充电，
+      源阻抗太大会导致采样不充分、读数偏低。
+      建议 (R1 + R2) 在 10kΩ ~ 30kΩ 之间。
+      ★ 有些 STM32 的 ADC 要求源阻抗 &lt; 1.4kΩ（对应最长采样时间），
+        如果读数明显偏低，可以把采样时间设长一点，或者用运放做缓冲。
+
+   ② 分压后别贴上限：目标落在 2.5V ~ 3.0V 之间。
+      如果分压后是 3.29V，电源稍微一波动就超过 3.3V 了，很危险。
+
+【另外两个容易忘的配置】
+
+   · 引脚模式必须是 GPIO_MODE_ANALOG（模拟输入）。
+     配成数字输入的话，读到的是被施密特触发器「整形成 0/1」的结果，
+     而不是真实电压。
+   · ADC 时钟不能超过 14MHz。72MHz 的 PCLK2 经过 ADCPRE ÷6 得到 12MHz，
+     这是标准配置。见《时钟系统》那一篇。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">一个常见误判：「ADC 读数一直是满量程」</div>
+            <p>如果你看到 ADC 读数恒定为 <b>4095</b>（或非常接近），第一反应应该是<b>「引脚上的电压超了」</b>，而不是「代码写错了」。可能的原因有三个：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>直接把 5V 传感器的输出接到了 ADC 引脚上</b>，没有分压。这是最常见的一个。此时保护二极管正在导通，芯片可能已经在受损，<b>立刻断电</b>。</li>
+              <li><b>传感器输出范围不是 0~5V，而是更高</b>（比如某些 0~10V 输出的工业变送器）。这种要重新算分压比。</li>
+              <li><b>VREF+ / VDDA 没接好或没有去耦电容</b>，导致参考电压异常。用万用表量一下 VDDA 引脚。</li>
+            </ul>
+            <p class="mt-2">反过来，如果读数<b>一直是 0</b>，先查引脚模式是不是配成了 <code class="icode">GPIO_MODE_ANALOG</code>，再查传感器有没有供电、共地没有。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+<!-- ---------------------------- 2. 硬件资源说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件资源说明</h2>
+          <p class="mt-4">这一节是本篇最实用的部分。<b class="font-semibold text-ink">遇到任何接线问题，先来查这两张表</b>：第一张回答「这个信号能不能接」，第二张回答「接不了的话电路怎么搭」。</p>
+
+          <h3 id="sub-wiring-table" class="mt-7 text-base font-semibold">能不能接：对照表</h3>
+          <p class="mt-3">查表方法：先看<b class="font-semibold text-ink">左边</b>你手上那个信号源是什么，再看<b class="font-semibold text-ink">中间</b>你要接到 STM32 的哪一类引脚上，交叉处就是答案。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>信号源</th><th>接到 STM32 的引脚类型</th><th>结论</th><th>处理办法</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>5V 器件的<b>推挽输出</b>（高 5V / 低 0V）</td>
+                  <td><b>FT 引脚</b>（PA8~PA15、PB2~PB15）</td>
+                  <td class="text-brand-600 dark:text-brand-300"><b>✅ 能直接接</b></td>
+                  <td>配成输入（浮空或上拉）。记住只在「数字输入」时 FT 才生效</td>
+                </tr>
+                <tr>
+                  <td>5V 器件的推挽输出</td>
+                  <td><b>非 FT 引脚</b>（PA0~PA7、PB0、PB1）</td>
+                  <td class="text-rose-600"><b>❌ 绝对不能接</b></td>
+                  <td>电阻分压（R1=10k、R2=15k）或电平转换模块。直接接会烧引脚</td>
+                </tr>
+                <tr>
+                  <td>5V 器件的推挽输出</td>
+                  <td><b>ADC 引脚</b>（PA0~PA7、PB0、PB1）</td>
+                  <td class="text-rose-600"><b>❌ 绝对不能接</b></td>
+                  <td>必须先分压，且分压后 ≤ 3.0V。这是「ADC 读数满量程」的头号原因</td>
+                </tr>
+                <tr>
+                  <td>5V 器件<b>开漏输出 + 上拉到 3.3V</b></td>
+                  <td>任意输入引脚（含非 FT）</td>
+                  <td class="text-brand-600 dark:text-brand-300"><b>✅ 能直接接</b></td>
+                  <td>线上最高电压就是 3.3V，所以任何引脚都安全。<b>这是最推荐的接法</b></td>
+                </tr>
+                <tr>
+                  <td>5V 器件开漏输出 + <b>上拉到 5V</b></td>
+                  <td>非 FT 引脚</td>
+                  <td class="text-rose-600"><b>❌ 不能接</b></td>
+                  <td><b>把上拉电阻改接到 3.3V</b>——只需改一个电阻的位置，I2C 场景下这是标准解法</td>
+                </tr>
+                <tr>
+                  <td>3.3V 器件输出（另一个 STM32、3.3V 模块）</td>
+                  <td>任意输入引脚</td>
+                  <td class="text-brand-600 dark:text-brand-300"><b>✅ 能直接接</b></td>
+                  <td>直接接。同电压等级，没有任何风险</td>
+                </tr>
+                <tr>
+                  <td>STM32 输出（3.3V）→ 接 <b>5V 的 CMOS 器件</b>（74HC 系列等）</td>
+                  <td>对方的输入引脚</td>
+                  <td class="text-ink"><b>⚠ 多半不行</b></td>
+                  <td>3.3V &lt; VIH(≈3.5V)，对方识别不到高电平。用开漏 + 上拉到 5V，或加电平转换</td>
+                </tr>
+                <tr>
+                  <td>STM32 输出（3.3V）→ 接 <b>5V 的 TTL 器件</b>（74LS 系列、STC89C52）</td>
+                  <td>对方的输入引脚</td>
+                  <td class="text-brand-600 dark:text-brand-300"><b>✅ 通常能接</b></td>
+                  <td>TTL 的 VIH 约 2.0V，3.3V 够用。<b>但 STC89C52 是 CMOS 结构，VIH 约 3.5V，要实测确认</b></td>
+                </tr>
+                <tr>
+                  <td>5V 模拟量（0~5V 传感器的模拟输出）</td>
+                  <td>ADC 引脚</td>
+                  <td class="text-rose-600"><b>❌ 不能直接接</b></td>
+                  <td>分压后再进，总阻值 10k~30kΩ，目标落在 2.5~3.0V</td>
+                </tr>
+                <tr>
+                  <td>12V / 24V 工业信号</td>
+                  <td>任意引脚</td>
+                  <td class="text-rose-600"><b>❌ 绝对禁止</b></td>
+                  <td><b>用光耦隔离</b>（PC817 等），或先分压 + 加钳位二极管。绝不能只靠电阻分压</td>
+                </tr>
+                <tr>
+                  <td>电机 / 继电器线圈 / LED 灯带（大电流负载）</td>
+                  <td>任意 IO</td>
+                  <td class="text-rose-600"><b>❌ 不能直接驱动</b></td>
+                  <td>加三极管 / MOS / ULN2003 / 驱动模块。IO 只出控制信号</td>
+                </tr>
+                <tr>
+                  <td>5V 电源线</td>
+                  <td><b>3.3V 引脚</b></td>
+                  <td class="text-rose-600"><b>❌ 会烧板子</b></td>
+                  <td>5V 接标 <code class="icode">5V</code> 的引脚，3.3V 接标 <code class="icode">3V3</code> 的引脚。看清丝印再插</td>
+                </tr>
+                <tr>
+                  <td>外部 3.3V 电源</td>
+                  <td>3.3V 引脚</td>
+                  <td class="text-ink"><b>⚠ 谨慎</b></td>
+                  <td>必须<b>先拔掉 USB</b>，否则两路电源互相倒灌，会烧 LDO</td>
+                </tr>
+                <tr>
+                  <td>按钮 / 开关（无源触点）</td>
+                  <td>任意输入引脚</td>
+                  <td class="text-brand-600 dark:text-brand-300"><b>✅ 能接</b></td>
+                  <td>另一端接 GND 时配「输入上拉」，接 VDD 时配「输入下拉」。<b>不能悬空不配</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">三条「不确定时」的通用判断法</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>先看电压，再看引脚。</b>用万用表量信号源输出高电平时的实际电压（不要看标签，要看实测值）。如果 ≤ 3.3V，随便接；如果 &gt; 3.6V，就必须查引脚或做转换。</li>
+              <li><b>看到 ADC 通道就当它是「3.3V 专属」。</b>PA0~PA7、PB0、PB1 这十个引脚，无论当数字口还是模拟口，都不能接 5V。</li>
+              <li><b>拿不准就串一个 1kΩ 电阻试。</b>在最坏的情况下，1kΩ 可以把注入电流限制在 (5−3.6)/1000 = 1.4mA，低于 ±5mA 的上限。<b>这只是应急保护手段，不是正确做法</b>，但能在你接线犹豫时保住芯片。</li>
+            </ol>
+          </div>
+
+          <h3 id="sub-level-circuit" class="mt-7 text-base font-semibold">电平转换电路图</h3>
+          <p class="mt-3">下面三种电路的实物画法，接线时照着连即可。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电路一：电阻分压（5V → 3.3V，单向，低速）">
+            <pre><code>【适用】单向、低频的数字信号，或者 ADC 模拟量
+【不适用】I2C 总线、高频信号（>100kHz）、需要反向转换的场合
+
+                  R1 = 10kΩ
+   5V 信号源 ────────[████]────────┬──────────► STM32 引脚
+                                   │
+                                   │
+                              R2 = 15kΩ
+                                   │
+                                   │
+                                  GND
+
+【接线要点】
+   · R1 接在「信号源」和「STM32 引脚」之间
+   · R2 接在「STM32 引脚」和「GND」之间
+   · STM32 引脚和信号源必须【共地】—— 也就是 GND 要连在一起
+   · 分压后的节点同时是「信号源的分压输出」和「STM32 的输入」
+
+【实测验证】
+   信号源输出高电平时，用万用表量 STM32 引脚对 GND 的电压，
+   应该是 3.0V 左右（5V × 15/25）。
+   如果量到 5V，说明 R2 没接好或者接到了 GND 以外的网络。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电路二：开漏 + 上拉到 3.3V（双向，I2C 标准解法）">
+            <pre><code>【适用】I2C 的 SDA/SCL、任何「多器件共享一根线」的总线
+【最大优点】双向自动工作，不需要方向控制脚
+
+                3.3V
+                  │
+            ┌─────┴─────┐
+            │           │
+        [4.7kΩ]     [4.7kΩ]         ← 上拉电阻，接到 3.3V（不是 5V！）
+            │           │
+            │           │
+   STM32 ───┼───────────┼─────── SDA
+   (PA6)    │           │
+            │           │
+            └───────────┼─────── SCL
+                        │
+   STM32 ───────────────┘
+   (PA5)
+
+                        │
+                        │  同一根线上挂的 5V 器件
+                        │
+              5V 器件 SDA ────────┤
+              5V 器件 SCL ────────┘
+
+   5V 器件那一侧【也要供电】：给它接 5V 和 GND，
+   但它的 SDA/SCL 引脚只接到这条被上拉到 3.3V 的线上。
+
+【接线要点】
+   ① STM32 的 SDA/SCL 引脚必须配成【复用开漏】
+          GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+      配成推挽会和对面的器件「打架」，可能烧引脚。
+   ② 上拉电阻只接一次，接在 3.3V 上。
+      如果 5V 器件模块上自带上拉电阻（很多模块都有），
+      必须把它拆掉或断开，否则它会经 5V 拉高，
+      STM32 那一侧就会看到 5V → 前功尽弃。
+   ③ 两侧必须共地。
+
+【为什么它能双向自动工作？】
+   因为「拉低」永远是从上往下拉（短路到 GND），
+   高电平永远由上拉电阻决定（3.3V）。
+   所以不管是谁在说话，线上的电压都只有 3.3V 和 0V 两种，
+   不存在「谁来输出 5V」的问题。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电路三：MOS 管双向电平转换（模块内部原理）">
+            <pre><code>【适用】需要双向、又要高速的场合。市售「4 路双向电平转换模块」就是这个电路
+【元件】一颗 N 沟道 MOS 管（如 BSS138）+ 两个上拉电阻
+
+       3.3V 侧                          5V 侧
+         │                                │
+    [10kΩ]                           [10kΩ]
+         │                                │
+         ├─── LV ────┬─────────── HV ─────┤
+         │           │                    │
+   3.3V 器件    ┌────┴────┐         5V 器件
+    引脚        │  G  │    │          引脚
+                │     │    │
+                │  S  │  D │
+                └──┬──┴──┬─┘
+                   │     │
+                 (BSS138 N-MOS)
+                   │
+              栅极 G 接 3.3V  ← 关键：栅极接低压侧的电源
+
+【工作原理（了解即可，用模块时不用管）】
+   · 两侧都高（3.3V / 5V）：MOS 管栅极是 3.3V，
+     源极也是 3.3V，Vgs = 0 → 截止 → 两侧被各自的上拉电阻拉高，互不影响
+   · 3.3V 侧被拉低到 0V：Vgs = 3.3V − 0V = 3.3V → 导通
+     → 5V 侧也被拉到接近 0V → 5V 器件看到低电平
+   · 5V 侧被拉低到 0V：MOS 管的体二极管先导通，把 3.3V 侧拉到约 0.7V，
+     然后 Vgs 上升使 MOS 管完全导通 → 3.3V 侧被拉到 0V
+
+【市售模块的引脚（一般长这样）】
+   ┌──────────────────────────────────────┐
+   │  LV     LV1  LV2  LV3  LV4   GND     │   ← 低压侧接 3.3V 和信号
+   │  HV     HV1  HV2  HV3  HV4   GND     │   ← 高压侧接 5V 和信号
+   └──────────────────────────────────────┘
+       ↑
+     两侧都要供电！LV 接 3.3V，HV 接 5V，两侧 GND 都接
+
+【使用注意】
+   · 两侧都要接电源，只接信号线模块不工作（最常见的误判）
+   · 别把 LV / HV 接反
+   · 连接时 LV1 对 HV1、LV2 对 HV2……通道要一一对应</code></pre>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+          <p class="mt-4">前面讲了那么多「不能接」，这一节反过来讲「怎么正确地接并读进来」。分两步：先在 CubeMX 里把引脚配好，再写代码把电压读出来并换算回原始值。</p>
+
+          <h3 id="sub-cubemx-gpio" class="mt-7 text-base font-semibold">第一步：在 CubeMX 里选 GPIO 模式</h3>
+          <p class="mt-3">CubeMX 是 ST 官方的图形化配置工具，见《寄存器、标准库与 HAL》那一篇讲过它的作用。这里只说<b class="font-semibold text-ink">点哪些地方能把引脚模式配对</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="CubeMX 里配置 GPIO 的分步操作">
+            <pre><code>【准备】新建工程时选芯片 STM32F103C8Tx（不是选板子）。
+
+────────────────────────────────────────────────────────────────
+第 1 步：找到引脚图
+────────────────────────────────────────────────────────────────
+   左侧栏点【Pinout &amp; Configuration】
+   → 中间出现芯片的引脚分布图（LQFP48 的方形图）
+   → 每个引脚上写着它的默认功能，比如 PA0 写着 ADC1_IN0
+
+────────────────────────────────────────────────────────────────
+第 2 步：给引脚指定功能
+────────────────────────────────────────────────────────────────
+   直接【左键点击】芯片图上某个引脚 → 弹出功能菜单：
+
+   ┌─────────────────────────┐
+   │ GPIO_Input              │  ← 当普通数字输入用
+   │ GPIO_Output             │  ← 当普通数字输出用
+   │ GPIO_EXTI0              │  ← 当外部中断用
+   │ ADC1_IN0                │  ← 当 ADC 模拟输入用
+   │ ...                     │
+   └─────────────────────────┘
+
+   选好之后，引脚会变成绿色（已配置状态）。
+
+   ★ 要接 5V 信号 → 优先挑 FT 引脚（PA8~PA15、PB2~PB15）
+   ★ 要测电压   → 只能挑带 ADCx_INx 标记的引脚
+
+────────────────────────────────────────────────────────────────
+第 3 步：配置引脚细节
+────────────────────────────────────────────────────────────────
+   左侧栏 → System Core → GPIO → 出现引脚列表
+
+   点开你要配的那个引脚，有下面几项：
+
+   ┌─ GPIO mode ────────────────────────────────────────────┐
+   │  Input mode        ← 输入                                        │
+   │  Output Push Pull  ← 推挽输出（默认，最常用）                    │
+   │  Output Open Drain ← 开漏输出（I2C、需要外部上拉时选它）          │
+   │  Alternate Function Push Pull  ← 复用推挽                        │
+   │  Alternate Function Open Drain ← 复用开漏                        │
+   │  Analog            ← 模拟（ADC 必须选它）                        │
+   │  External Interrupt Mode ...   ← 外部中断                        │
+   └────────────────────────────────────────────────────────┘
+
+   ┌─ GPIO Pull-up/Pull-down ───────────────────────────────┐
+   │  No pull-up and no pull-down   ← 浮空（外部有驱动时选）          │
+   │  Pull-up                       ← 上拉（按键接 GND 时选）        │
+   │  Pull-down                     ← 下拉（按键接 VDD 时选）        │
+   └────────────────────────────────────────────────────────┘
+
+   ┌─ Maximum output speed ─────────────────────────────────┐
+   │  Low       ← 低速：省电、噪声小（LED、普通信号用它）             │
+   │  Medium    ← 中速                                               │
+   │  High      ← 高速：边沿陡（SPI、高速信号用它）                   │
+   └────────────────────────────────────────────────────────┘
+
+   ┌─ User Label ───────────────────────────────────────────┐
+   │  可以填个名字，比如 LEVEL_IN 或 ADC_5V_SENSE           │
+   │  ★ 强烈建议填！它会变成代码里的宏定义，比记 PA0 清楚得多  │
+   └────────────────────────────────────────────────────────┘
+
+────────────────────────────────────────────────────────────────
+第 4 步：生成代码
+────────────────────────────────────────────────────────────────
+   Project Manager → 填工程名和路径
+   → Toolchain/IDE 选【MDK-ARM】（Keil）
+   → 点右上角【GENERATE CODE】
+
+   生成后会得到 MX_GPIO_Init() / MX_ADC1_Init() 这些函数，
+   它们在 Core/Src/main.c 里被 main() 调用。
+
+   ★ 你要写的代码全部放在 USER CODE BEGIN / END 之间，
+     否则下次重新生成会被覆盖（详见《寄存器、标准库与 HAL》一篇）。</code></pre>
+          </div>
+
+          <h3 id="sub-read-5v" class="mt-7 text-base font-semibold">第二步：读取 5V 信号（分压后）并换算回原始电压</h3>
+          <p class="mt-3">下面这段代码做两件事：<b class="font-semibold text-ink">①</b> 用 PA0（ADC 通道 0）读取经分压的 0~5V 信号；<b class="font-semibold text-ink">②</b> 把读数值换算成实际电压，再乘上分压比反推出传感器端的真实电压。</p>
+          <p class="mt-3">接线就是上一节「电路一」：传感器输出 → R1(10kΩ) → PA0 → R2(15kΩ) → GND。</p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— 读取经分压的 5V 模拟信号">
+            <pre><code>/* ============================================================================
+ * 读取 0~5V 传感器的模拟输出（经电阻分压后接入 PA0）
+ *
+ * 硬件接线：
+ *   传感器 OUT ── R1 (10kΩ) ──┬── PA0（ADC1_IN0）
+ *                              │
+ *                              R2 (15kΩ)
+ *                              │
+ *                             GND
+ *   传感器 VCC ── 5V， 传感器 GND ── 与 STM32 共地
+ *
+ * 分压比：Vout = Vin × R2/(R1+R2) = Vin × 15/25 = Vin × 0.6
+ * 反推系数：Vin = Vout × (R1+R2)/R2 = Vout × 25/15 ≈ Vout × 1.6667
+ * ============================================================================ */
+
+#include "main.h"
+#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+
+/* ---------- 由 CubeMX 生成的句柄（在别的 .c 文件里定义） ---------- */
+extern ADC_HandleTypeDef hadc1;
+extern UART_HandleTypeDef huart1;      /* 用来把结果打印出来 */
+
+/* ---------- 分压电阻的实际值（单位：欧姆） ----------
+ * ★ 用你实际焊上去的电阻值填这里！
+ *   标称 10kΩ 的电阻实际可能是 9.87kΩ，标称 15kΩ 可能是 15.2kΩ。
+ *   想要精确测量，就用万用表量出真实值填进来。 */
+#define DIVIDER_R1_OHM     10000.0f    /* 上电阻 R1 */
+#define DIVIDER_R2_OHM     15000.0f    /* 下电阻 R2 */
+
+/* ---------- ADC 参考电压 ----------
+ * 蓝药丸上 VREF+ 接的是 3.3V。如果你的板子不一样，改这里。 */
+#define ADC_VREF           3.300f
+
+/* ---------- ADC 满量程读数（12 位 = 4095） ---------- */
+#define ADC_FULL_SCALE     4095.0f
+
+/* ============================================================================
+ * 读取一次 ADC，返回引脚上的实际电压（单位 V）
+ * ============================================================================ */
+static float adc_read_voltage(void)
+{
+  uint32_t raw = 0;
+
+  /* ① 启动一次转换 */
+  if (HAL_ADC_Start(&amp;hadc1) != HAL_OK)
+  {
+    return -1.0f;                    /* 启动失败，返回一个明显的错误值 */
+  }
+
+  /* ② 等待转换完成。第三个参数是超时时间（毫秒），
+        必须给，否则 ADC 异常时程序会永久卡死在这里。 */
+  if (HAL_ADC_PollForConversion(&amp;hadc1, 100) != HAL_OK)
+  {
+    HAL_ADC_Stop(&amp;hadc1);
+    return -1.0f;
+  }
+
+  /* ③ 取出 0~4095 的原始读数 */
+  raw = HAL_ADC_GetValue(&amp;hadc1);
+
+  /* ④ 停止本次转换（轮询方式用完就停，省电也避免状态混乱） */
+  HAL_ADC_Stop(&amp;hadc1);
+
+  /* ⑤ 换算成电压：电压 = 读数 × VREF / 4095 */
+  return ((float)raw * ADC_VREF) / ADC_FULL_SCALE;
+}
+
+/* ============================================================================
+ * 把「STM32 引脚上的电压」反推成「传感器输出的原始电压」
+ * ============================================================================ */
+static float voltage_to_source(float v_pin)
+{
+  /* Vin = Vout × (R1 + R2) / R2 */
+  return v_pin * (DIVIDER_R1_OHM + DIVIDER_R2_OHM) / DIVIDER_R2_OHM;
+}
+
+/* ============================================================================
+ * 用串口打印结果的小工具
+ * ============================================================================ */
+static void uart_printf(const char *fmt, ...)
+{
+  char buf[128];
+  va_list args;
+  int len;
+
+  va_start(args, fmt);
+  len = vsnprintf(buf, sizeof(buf), fmt, args);
+  va_end(args);
+
+  if (len &gt; 0)
+  {
+    HAL_UART_Transmit(&amp;huart1, (uint8_t *)buf, (uint16_t)len, 100);
+  }
+}
+
+/* ============================================================================
+ * main
+ * ============================================================================ */
+int main(void)
+{
+  float v_pin;        /* 引脚上的电压（分压后） */
+  float v_source;     /* 反推出来的传感器原始电压 */
+  float v_avg;        /* 多次采样的平均值 */
+  uint8_t i;
+
+  /* ---------- HAL 库与时钟初始化（CubeMX 生成） ---------- */
+  HAL_Init();
+  SystemClock_Config();
+  MX_GPIO_Init();
+  MX_ADC1_Init();
+  MX_USART1_UART_Init();
+
+  uart_printf("\r\n===== 5V 信号分压采集 =====\r\n");
+  uart_printf("R1 = %.0f 欧, R2 = %.0f 欧\r\n", DIVIDER_R1_OHM, DIVIDER_R2_OHM);
+  uart_printf("分压比 = %.3f, 反推系数 = %.3f\r\n",
+              DIVIDER_R2_OHM / (DIVIDER_R1_OHM + DIVIDER_R2_OHM),
+              (DIVIDER_R1_OHM + DIVIDER_R2_OHM) / DIVIDER_R2_OHM);
+
+  /* ---------- ADC 校准 ----------
+   * ★ 这一步很多人会漏。HAL_ADCEx_Calibration_Start() 会执行一次
+   *   内部自校准，不做的话读数可能有几十个 LSB 的固定偏差。
+   *   F1 系列的校准函数在 stm32f1xx_hal_adc_ex.h 里。 */
+  HAL_ADCEx_Calibration_Start(&amp;hadc1);
+
+  while (1)
+  {
+    /* ---------- 采 8 次取平均，抑制随机噪声 ---------- */
+    v_avg = 0.0f;
+    for (i = 0; i &lt; 8; i++)
+    {
+      v_pin = adc_read_voltage();
+      if (v_pin &lt; 0.0f)
+      {
+        uart_printf("ADC 读取失败！\r\n");
+        v_avg = -1.0f;
+        break;
+      }
+      v_avg += v_pin;
+      HAL_Delay(2);                  /* 每次采样之间稍作间隔 */
+    }
+
+    if (v_avg &gt;= 0.0f)
+    {
+      v_avg /= 8.0f;                 /* 求平均 */
+      v_source = voltage_to_source(v_avg);
+
+      uart_printf("引脚电压 = %.3f V  →  传感器原始电压 = %.3f V\r\n",
+                  v_avg, v_source);
+
+      /* ---------- 顺便做个安全判断 ----------
+       * 如果引脚电压超过 3.2V，说明分压比不对，或者传感器输出超范围了。
+       * 这时候要立刻提醒自己检查电路，而不是继续读。 */
+      if (v_avg &gt; 3.2f)
+      {
+        uart_printf("  ⚠ 警告：引脚电压接近 3.3V 上限！\r\n");
+        uart_printf("     请检查分压电阻是否接对、传感器输出是否超范围。\r\n");
+      }
+    }
+
+    HAL_Delay(500);                  /* 每 500ms 更新一次 */
+  }
+}
+
+/* ============================================================================
+ * 【几个必须注意的点】
+ *
+ * ① HAL_ADCEx_Calibration_Start() 不能漏
+ *    ADC 内部有电容失配，上电后需要校准一次。不做校准，
+ *    读数可能整体偏移几十个 LSB（几十毫伏），你会以为是电阻精度问题。
+ *
+ * ② 分压电阻要用【实测值】
+ *    标称 10kΩ 的碳膜电阻误差 ±5%，两个电阻的误差叠加，
+ *    反推出来的电压可能偏 3~5%。要精确测量就万用表量一下真实阻值。
+ *
+ * ③ HAL_ADC_PollForConversion 必须给超时
+ *    很多初学者的代码是 HAL_ADC_PollForConversion(&amp;hadc1, HAL_MAX_DELAY)，
+ *    一旦 ADC 因为配置错误不产生转换完成标志，程序就永久卡死在这里，
+ *    看起来像「单片机死了」。给个 100ms 超时，出问题至少能返回。
+ *
+ * ④ 采样时间要够
+ *    如果分压电阻总阻值较大（比如 30kΩ），ADC 内部采样电容来不及充满，
+ *    读数会系统性偏低。解决办法是在 CubeMX 里把
+ *    ADC → Parameter Settings → Sampling Time 从 1.5 Cycles 调到
+ *    71.5 Cycles 或更长。源阻抗越大，采样时间要越长。
+ *
+ * ⑤ 共地！共地！共地！
+ *    传感器和 STM32 的 GND 必须连在一起。
+ *    只连了信号线不连地，读出来的电压是漂浮的随机值。
+ *    这是「读数一直乱跳」最常见的硬件原因。
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <div class="code-block mt-4" data-lang="c" data-title="纯数字信号的读法（FT 引脚直接接 5V）">
+            <pre><code>/* ============================================================================
+ * 如果信号是【数字量】（只有高低两种），而且接到了 FT 引脚上，
+ * 就不需要 ADC，也不需要分压，直接读就行。
+ *
+ * 硬件：5V 传感器数字输出 ──► PA8（FT 引脚，能直接接 5V）
+ *       传感器 VCC ── 5V，GND 与 STM32 共地
+ * ============================================================================ */
+
+#include "main.h"
+
+/* 判断 PA8 上的电平，并统计高电平出现的次数 */
+int main(void)
+{
+  uint32_t high_count = 0;
+  GPIO_PinState level;
+
+  HAL_Init();
+  SystemClock_Config();
+  MX_GPIO_Init();
+
+  while (1)
+  {
+    /* HAL_GPIO_ReadPin 返回 GPIO_PIN_SET（高）或 GPIO_PIN_RESET（低） */
+    level = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8);
+
+    if (level == GPIO_PIN_SET)
+    {
+      high_count++;
+      /* 这里的 high_count 如果想在中断里也访问，必须加 volatile */
+    }
+
+    /* 每读 1000 次翻转一次板载 LED，作为「程序还活着」的指示灯 */
+    if (high_count % 1000 == 0)
+    {
+      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    }
+
+    HAL_Delay(1);
+  }
+}
+
+/* ============================================================================
+ * 【CubeMX 里 PA8 要怎么配？】
+ *
+ *   GPIO mode    : Input mode
+ *   Pull-up/Pull-down : No pull-up and no pull-down
+ *                      （因为传感器会主动输出高低电平，不需要内部上拉。
+ *                        如果信号源是开漏输出，这里要选 Pull-up）
+ *   User Label   : SIGNAL_IN
+ *
+ * 【为什么这个能直接接 5V？】
+ *   PA8 属于 PA8~PA15 这一段，在 STM32F103C8 上全部标记为 FT。
+ *   数字输入模式下可以承受 5V。
+ *
+ * 【如果是 PA0 呢？】
+ *   PA0 是 TTa 结构，不是 FT，接 5V 会烧。
+ *   这时候必须加分压电路（R1=10k、R2=15k），
+ *   分压后 5V 变成 3.0V，才能安全地当数字输入读。
+ * ============================================================================ */</code></pre>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+          <p class="mt-4">这一节回答一个很实际的问题：<b class="font-semibold text-ink">我接完之后，怎么知道接对了？</b>答案是用万用表量几个点。下面这张表把「该量哪里、正常值是多少、量到别的值说明什么」全部列清楚。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">万用表怎么用（给没用过的同学）</div>
+            <p>调到<b>直流电压档（V⎓ 或 DCV）</b>，黑色表笔接<b>板子的 GND</b>（固定不动），红色表笔去点你要测的那个点。读数就是该点对地的电压。<b>注意</b>：如果调到电流档去量电压，万用表会瞬间短路，保险丝会烧——量电压永远用电压档。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">实测判据表</h3>
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>测量点（红表笔）</th><th>黑表笔</th><th>正常读数</th><th>量到别的值说明什么</th></tr></thead>
+              <tbody>
+                <tr><td>板上 <code class="icode">3V3</code> 引脚</td><td>GND</td><td><b>3.25V ~ 3.35V</b></td><td>低于 3.1V：供电不足（换粗 USB 线 / 给大负载单独供电）；高于 3.4V：LDO 异常</td></tr>
+                <tr><td>板上 <code class="icode">5V</code> 引脚</td><td>GND</td><td><b>4.75V ~ 5.25V</b></td><td>低于 4.5V：USB 线太细或电源适配器虚标</td></tr>
+                <tr><td>5V 信号源输出高电平</td><td>GND</td><td><b>4.8V ~ 5.1V</b></td><td>只有 3.3V：信号源本身是 3.3V 器件，不用做转换；只有 1~2V：信号源驱动能力不足或没供电</td></tr>
+                <tr><td><b>分压后的节点</b>（也就是接 STM32 引脚那个点）</td><td>GND</td><td><b>2.4V ~ 3.0V</b>（5V 输入时）</td><td><b>量到 5V</b>：R2 没接或没接地，<b>立刻断电</b>；量到 0V：R1 没接或信号源没输出；量到 3.3V 附近：分压比不对，重新算电阻</td></tr>
+                <tr><td>STM32 输出高电平的引脚</td><td>GND</td><td><b>3.1V ~ 3.3V</b>（空载）</td><td>只有 2.5V 以下：该引脚带载过重（超过 20mA），或配成了开漏但没加上拉电阻</td></tr>
+                <tr><td>STM32 输出低电平的引脚</td><td>GND</td><td><b>0V ~ 0.3V</b></td><td>高于 0.5V：引脚被外部强行拉高（对驱动打架），或者配成了输入模式</td></tr>
+                <tr><td>非 FT 引脚（如 PA0）在接 5V 信号时</td><td>GND</td><td><b>不应该出现 5V</b></td><td><b>量到 3.6V 左右</b>：保护二极管正在导通钳位，芯片正在受损，<b>立刻断电并改电路</b></td></tr>
+                <tr><td>ADC 引脚上的电压（分压后）</td><td>GND</td><td>随传感器变化，<b>不得超过 3.3V</b></td><td>恒定 3.3V：输入超范围；恒定 0V：没接好或引脚配成了数字模式</td></tr>
+                <tr><td>万用表电流档串在 3.3V 供电回路</td><td>—</td><td><b>几十 mA</b>（空板）</td><td>几百 mA：有短路或大负载在吸电；接近 0：板子没供电</td></tr>
+                <tr><td>板子表面温度（手背轻触）</td><td>—</td><td>微温正常</td><td><b>烫手（&gt;60℃）立刻断电</b>：有引脚超压/短路，或 LDO 过载</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">三个「必须先量再上电」的检查</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>接线完成、还没插 USB 之前</b>：用万用表的<b>通断档（蜂鸣档）</b>量一下 5V 引脚和 3.3V 引脚之间是否短路。蜂鸣器响 = 短路，绝对不要上电。</li>
+              <li><b>第一次接 5V 信号时</b>：先只接信号线，不接 STM32 的电源，单独给信号源上电，量一下分压节点的电压是不是 ≤ 3.0V。<b>确认了再接 STM32</b>。</li>
+              <li><b>接大电流负载之前</b>：先用万用表电流档量一下负载的实际电流。如果超过 20mA，<b>停下来先加驱动电路</b>，别抱着「试试看」的心态接上去。</li>
+            </ol>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查方案 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+          <p class="mt-4">这一节的每一条都是「看起来像软件问题，其实是硬件问题」的经典案例。<b class="font-semibold text-ink">排查顺序建议：先断电、先量电压、先查接线，再去改代码。</b>反过来做的话，你会在一个根本不成立的代码假设上花掉一整天。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>现象</th><th>原因</th><th>解决</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>接了 5V 传感器之后，那个引脚就没反应了</b>（读出来一直是低，或者一直乱跳）</td>
+                  <td>接在了<b>非 FT 引脚</b>（PA0~PA7、PB0、PB1）上。5V 让引脚内部的保护二极管持续导通，引脚功能异常甚至已经损坏</td>
+                  <td>① 立刻断电；② 换到 FT 引脚（PA8~PA15、PB2~PB15）重试；③ 如果换了引脚还是不行，说明这个引脚已经烧了，换一个引脚；④ 无法换引脚就加分压电路</td>
+                </tr>
+                <tr>
+                  <td><b>ADC 读数一直是 4095（满量程）</b>，不管传感器怎么变</td>
+                  <td>引脚上的电压超过了 VREF+（3.3V）。最常见的是 5V 传感器输出没分压就接到了 ADC 引脚</td>
+                  <td>① 断电，量一下引脚对地电压；② 加分压电路（R1=10k、R2=15k）；③ 确认分压后 ≤ 3.0V 再上电；④ 检查 VDDA 是否正常、有没有去耦电容</td>
+                </tr>
+                <tr>
+                  <td><b>芯片发烫</b>，程序还能跑但温度明显不正常</td>
+                  <td>有引脚在超压导通（保护二极管灌电流），或者 5V 落到了 3.3V 网络上，或者有引脚对地短路</td>
+                  <td><b>立刻断电！</b>不要抱着「还能跑就先不管」的心态。然后：① 检查 5V/3.3V 有没有接反；② 逐个断开外设，看是哪个引入的问题；③ 用通断档查短路；④ 量 3.3V 引脚的电流消耗</td>
+                </tr>
+                <tr>
+                  <td><b>ST-Link 下载失败 / 时好时坏 / 识别不到芯片</b></td>
+                  <td>① 忘了共地（ST-Link 的 GND 没和板子连）；② SWD 线太长或有干扰；③ 供电不足；④ 芯片进入了低功耗模式或 BOOT0 接错</td>
+                  <td>① <b>先接 GND，再接 SWDIO/SWCLK</b>，四根线（3.3V、GND、SWDIO、SWCLK）一根都不能少；② SWD 线尽量短于 15cm；③ 量一下 3.3V；④ BOOT0 接 GND 后重新上电</td>
+                </tr>
+                <tr>
+                  <td><b>一开继电器（或电机），程序就复位重启</b></td>
+                  <td>① 继电器线圈电流（约 70mA）远超 IO 的 20mA 上限，拉低了 3.3V 电压触发欠压复位；② 线圈断电瞬间的反向尖峰干扰了电源</td>
+                  <td>① 加三极管/MOS/驱动模块，IO 只出控制信号；② 线圈两端并一个续流二极管（1N4148 或 1N4007，注意方向：阴极接电源正）；③ 3.3V 与 GND 之间并 100µF 以上的电解电容；④ 大负载用独立电源，只共地</td>
+                </tr>
+                <tr>
+                  <td><b>STM32 输出 3.3V，但对方 5V 器件收不到</b>（示波器看波形正常，对方就是不响应）</td>
+                  <td>方向二的问题：3.3V 低于对方的 VIH。CMOS/74HC 系列 VIH ≈ 0.7×5V = 3.5V，3.3V 不够</td>
+                  <td>① 把 STM32 引脚配成<b>开漏输出</b>，外部上拉电阻接到 <b>5V</b>，这样高电平就是 5V；② 或者用 74HCT245（HCT 系列 VIH 只有 2.0V，能接受 3.3V 输入）或电平转换模块</td>
+                </tr>
+                <tr>
+                  <td><b>ADC 读数乱跳，稳定不下来</b></td>
+                  <td>① 没共地（最常见）；② 分压电阻太大，采样电容充不满；③ 采样时间设太短；④ 没有做 ADC 校准；⑤ 电源噪声大/缺去耦电容</td>
+                  <td>① 先确认传感器 GND 和 STM32 GND 连在一起；② 分压总阻值降到 10k~20kΩ；③ CubeMX 里把 Sampling Time 调大到 71.5 Cycles；④ 加上 <code class="icode">HAL_ADCEx_Calibration_Start()</code>；⑤ 多做几次采样求平均</td>
+                </tr>
+                <tr>
+                  <td><b>按键读到的电平和预期完全相反</b>（没按读到低，按下读到高）</td>
+                  <td>上拉/下拉配反了。按键接 GND 应该配<b>上拉</b>（平时高、按下低），配成下拉就正好反了</td>
+                  <td>看按键的另一端接的是 GND 还是 VDD：接 GND 配 Pull-up，接 VDD 配 Pull-down。<b>自己写寄存器时还要注意 F1 的陷阱</b>——输入上拉/下拉在 CRH 里是同一种配置，靠 ODR 位区分，详见前面 GPIO 模式那一节</td>
+                </tr>
+                <tr>
+                  <td><b>板子插上 USB 但电脑识别不到 / 板子不工作</b></td>
+                  <td>① USB 线是「只充电不传数据」的劣质线；② 5V 引脚被外部电源倒灌导致保护；③ 板上 3.3V 短路</td>
+                  <td>① 换一根确认能传数据的 USB 线（这是极其常见的原因）；② 拔掉所有外接电源；③ 用通断档查 3.3V 对 GND 是否短路；④ 看板上电源指示灯亮不亮</td>
+                </tr>
+                <tr>
+                  <td><b>接上电平转换模块后完全没反应</b></td>
+                  <td>模块的 LV / HV 两侧<b>只接了信号线，忘了接电源</b>，或者两侧电源接反</td>
+                  <td>① LV 侧接 3.3V、HV 侧接 5V、两侧 GND 都接——<b>三个电源连接一个都不能少</b>；② 确认没接反；③ 用万用表量模块两侧的供电引脚确认电压正确</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">一条黄金原则：闻到味道、摸到发烫，第一动作是拔电</div>
+            <p>芯片损坏往往在几秒内完成，而你的第一反应通常是「等等，我先看看代码」或者「再试一次」——这几秒钟足够把一个还能救的引脚彻底烧掉。<b>记住顺序：拔电 → 量电压 → 查接线 → 最后才看代码。</b>另外，如果闻到焦糊味，一定要找到源头再上电，不要直接重新插上试——烧掉的可能是 LDO，再上电会把 STM32 一起带走。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <h3 class="mt-6 text-base font-semibold">这一篇要记住的七句话</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">STM32 是 3.3V 器件</b>，引脚输出高电平是 3.3V，非 FT 引脚的耐压上限约 3.6V。</li>
+            <li><b class="font-semibold text-ink">只有 FT 引脚能直接接 5V</b>，而且只在数字输入模式下成立。<b>ADC 引脚（PA0~PA7、PB0、PB1）全都不是 FT</b>——这是最好用的一条速记规则。</li>
+            <li><b class="font-semibold text-ink">转换方向是不对称的</b>：5V 进 STM32 会烧芯片，3.3V 进 5V 器件最多是不工作。所以重点防「外面进来的 5V」。</li>
+            <li><b class="font-semibold text-ink">三种转换做法各有边界</b>：电阻分压只适合单向低速；电平转换模块最省心；开漏 + 上拉到 3.3V 是 I2C 的标准解法。</li>
+            <li><b class="font-semibold text-ink">每个 IO 最多 20mA</b>，全部 IO 合计 150mA。电机、继电器、灯带一律要加驱动电路，否则轻则烧引脚，重则整片复位。</li>
+            <li><b class="font-semibold text-ink">供电是「玄学问题」的头号来源</b>：随机复位、串口乱码、ADC 跳动，先量 3.3V 引脚再怀疑代码。</li>
+            <li><b class="font-semibold text-ink">ADC 输入只能是 0~3.3V</b>，接 5V 会烧。要测 5V 信号就分压，电阻总阻值 10k~30kΩ。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">自检题</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>你有一个 5V 的传感器，数字输出要接到 STM32 上。在 PA0、PA8、PB5 这三个引脚里，哪些能直接接？为什么？</li>
+            <li>为什么说「ADC 引脚都不是 FT 引脚」？从 ADC 的工作原理角度解释一下。</li>
+            <li>把 5V 接到一个非 FT 引脚上，芯片内部发生了什么？为什么这个过程可能「没有任何征兆」？</li>
+            <li>要用电阻分压把 0~5V 降到安全范围，R1（上）= 20kΩ、R2（下）= 30kΩ，分压后是多少伏？程序里读到 1.8V 时，传感器实际输出是多少？</li>
+            <li>STM32 输出 3.3V 接到某个 5V 器件，器件不响应。为什么？给出两种解决办法。</li>
+            <li>为什么不能用 IO 直接驱动继电器？如果一定要用，正确电路长什么样？必须加哪个元件？</li>
+            <li>程序每隔几秒重启一次，串口打印反复从头开始。写出你的排查步骤（至少三步）。</li>
+          </ol>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">自检题答案</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>只有 PA8 能直接接。</b>PA8 在 PA8~PA15 这一段，是 FT 引脚。PA0 属于 PA0~PA7，是 TTa 结构（ADC 通道），接 5V 会烧。PB5 属于 PB2~PB15 这一段，<b>也是 FT，其实也能接</b>——所以正确答案是 <b>PA8 和 PB5 都能接，只有 PA0 不能</b>。（这道题考的是「PA0~PA7 和 PB0/PB1 是例外」这条规则记得牢不牢。）</li>
+              <li>因为 ADC 需要<b>精确测量引脚上的模拟电压</b>。如果引脚带 5V 容忍能力，就意味着它在 5V 以内不会有保护二极管导通去钳位电压——但反过来，ST 为了让 ADC 引脚在任何情况下都能真实反映外部电压，把这些引脚做成了纯 3.3V 的 TTa 结构，没有 5V 容忍。<b>功能需求和电气保护在这里是矛盾的，ST 优先保证了测量精度。</b></li>
+              <li>引脚内部的「引脚→VDD」保护二极管正向导通，电流从引脚灌进 VDD 网络，把整片电源电压抬高，功率变成热，超过 ±5mA 注入电流上限后二极管烧毁。说「没有征兆」是因为：这个过程不影响程序正常执行的部分，只是那个引脚功能失效了，看起来很像软件 bug。</li>
+              <li>分压后 = 5V × 30/(20+30) = <b>3.0V</b>（安全）。反推系数 = (20+30)/30 = <b>1.667</b>；读到 1.8V 时，传感器实际输出 = 1.8 × 1.667 = <b>3.0V</b>。</li>
+              <li>因为对方的 VIH 高于 3.3V（CMOS/74HC 系列 VIH ≈ 3.5V），3.3V 达不到它的「判为高」门限。两种解法：① STM32 引脚配成<b>开漏输出</b>，外部上拉电阻接到 <b>5V</b>（高电平由 5V 决定）；② 用 <b>74HCT245</b>（HCT 系列 VIH 只有 2.0V）或电平转换模块。</li>
+              <li>因为继电器线圈电流约 70mA，超过单脚 20mA 上限 3.5 倍；大电流会拉低 3.3V 触发复位，断电瞬间的反向尖峰还会干扰电源。正确电路：IO → 1kΩ 基极电阻 → 三极管（S8050）基极，线圈接在 5V 和集电极之间，发射极接 GND。<b>必须加续流二极管</b>（1N4148 或 1N4007），并联在线圈两端，阴极（有环的一端）接 5V 侧。</li>
+              <li>① <b>先量 3.3V 引脚</b>：带载运行时是否掉到 3.0V 以下（供电不足）；② <b>断开所有外设</b>再试：如果不再重启，说明是某个外设拉低电压或引入干扰，逐个接回来定位；③ <b>检查有没有大电流负载直连 IO</b>（继电器/电机），有就加驱动电路；④ 用通断档查 5V 与 3.3V、3.3V 与 GND 之间是否短路；⑤ 换一根能传数据的粗 USB 线。核心原则是<b>先量电压、先查接线，最后才怀疑代码</b>。</li>
+            </ol>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li><b>用万用表建立「电压基线」。</b>板子上电但不接任何外设，量出 3V3 引脚、5V 引脚、一个输出高电平的引脚、一个输出低电平的引脚这四个值，记在笔记本上。<b>以后出问题时，第一件事就是和这四个基线对比。</b></li>
+            <li><b>亲手搭一次分压电路并验证。</b>用 R1=10kΩ、R2=15kΩ 接 5V，用万用表量分压节点，应该在 3.0V 左右。然后把 R2 换成 20kΩ，看是否变成 3.33V——<b>亲手体会一次「贴上限」有多危险</b>。</li>
+            <li><b>做一个「5V 信号探测器」。</b>把一个 5V 信号（比如 51 板子的某个输出）经分压接到 PA0，用 ADC 读出来，把结果通过串口打印到电脑。然后让 51 那边翻转电平，观察读数在 0V 和 3.0V 之间切换。<b>这道练习把「电平转换 + ADC + 串口」串成了一条完整链路。</b></li>
+            <li><b>故意制造一次「ADC 满量程」。</b>（<b>注意：用一块不心疼的板子，或者只接一秒钟就断电。</b>）把 5V 直接接到 PA0 上，串口读数会立刻变成 4095。然后用万用表量 PA0 对地电压，你会看到它被钳位在 3.6V 左右——<b>这就是保护二极管正在导通、芯片正在受损的直接证据。</b>看过一次，你这辈子都不会再接错。</li>
+            <li><b>用量程电流表测一次负载。</b>拿一个 5V 继电器模块，用万用表的电流档串在它的 5V 供电线上，量出实际电流。再把结果和「IO 上限 20mA」对比一下——<b>数字会让「必须加驱动」这件事瞬间变得具体。</b></li>
+            <li><b>检查你自己的板子有没有去耦电容。</b>对照 STM32F103C8T6 的数据手册，数一数它有几个 VDD 引脚，再数一数你板子上有几个 100nF 电容。<b>如果你自己画过板，这一条尤其要查。</b></li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">延伸阅读</h3>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>开漏与推挽在寄存器里怎么体现 → <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-hal.html">寄存器、标准库与 HAL：同一件事的三种写法</a></li>
+            <li>ADC 的时钟为什么不能超过 14MHz → <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-clock.html">时钟系统：为什么第一件事是配时钟</a></li>
+            <li>外设为什么映射在地址上、寄存器怎么直接写 → <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-arm.html">ARM Cortex-M 与 STM32 架构</a></li>
+            <li><code class="icode">volatile</code> 为什么是硬件编程的必需品 → <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-c.html">C 语言进阶：指针、结构体与回调</a></li>
+            <li>回到 STM32 栏目页，看完整的专题列表 → <a class="text-brand-600 dark:text-brand-300" href="../stm32.html">STM32 HAL 库开发</a></li>
+          </ul>
+
+          <div class="callout callout-info mt-6">
+            <div class="callout-title">基础篇到这里就结束了</div>
+            <p>这五篇补齐的是「上 STM32 之前必须知道的地基」：<b>ARM 架构与存储器映射</b>（知道外设是映射到地址上的）、<b>时钟系统</b>（知道为什么第一件事是开时钟）、<b>寄存器 / 标准库 / HAL</b>（知道三种写法在做什么）、<b>C 语言进阶</b>（看得懂 HAL 的代码）、<b>3.3V 电平与硬件安全</b>（接得对、烧不了）。</p>
+            <p class="mt-2">从这里往下走，就可以进入真正的专题了——<b>下一篇是环境搭建</b>，把 Keil、CubeMX、芯片包、烧录器这条链路打通，然后就能开始点亮第一个 LED 了。</p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="stm32-basic-c.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">C 语言进阶：指针、结构体与回调</p>
+          </a>
+          <a href="stm32-env.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：进入 STM32 专题 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">Keil MDK 环境搭建与芯片包安装</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

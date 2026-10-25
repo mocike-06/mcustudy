@@ -1,0 +1,4510 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STM32 中断系统与 NVIC 优先级 - McuStudy</title>
+  <meta name="description" content="知识体系第 35 篇：中断的通用原理在《中断与异常机制》里已经讲过，这一篇讲它在 STM32F103 这颗芯片上到底怎么落地。从异常向量表的 16 个内核异常 + 60 个外部中断、向量里的地址为什么最低位必须是 1、SCB-&gt;VTOR 重定位与 IAP，到 NVIC 的 ISER/ICER/ISPR/ICPR/IABR/IPR 六个寄存器组、IPR 只实现高 4 位导致的 16 级优先级与写 0x0F 的陷阱、AIRCR.PRIGROUP 的 5 种优先级分组、抢占与响应优先级的区别、嵌套与硬件压栈的 8 字帧、中断延迟与尾链/迟来、EXTI 的 20 条线怎么映射到引脚（PA0/PB0/PC0 共用 EXTI0）、AFIO_EXTICR 与 RTSR/FTSR/IMR/EMR/SWIER/PR、HAL 的 HAL_GPIO_EXTI_IRQHandler 到 HAL_GPIO_EXTI_Callback 链路，以及中断里调 HAL_Delay 为什么死锁、FromISR 与 configMAX_SYSCALL_INTERRUPT_PRIORITY 的坑，含 6 道数值例题、手写寄存器与 HAL 两套可直接编译的代码和 5 个复现实验。">
+  <meta name="keywords" content="STM32中断,NVIC,EXTI,优先级分组,PRIGROUP,抢占优先级,响应优先级,子优先级,AIRCR,ISER,ICER,ISPR,ICPR,IABR,IPR,__NVIC_PRIO_BITS,向量表,VTOR,SCB,向量重定位,IAP,Bootloader,startup_stm32f103xb,Weak,Thumb位,尾链,tail-chaining,late-arriving,中断延迟,DWT,CYCCNT,AFIO_EXTICR,RTSR,FTSR,IMR,EMR,SWIER,EXTI_PR,EXTI0,PA0,PB0,EXTI9_5,EXTI15_10,HAL_GPIO_EXTI_IRQHandler,HAL_GPIO_EXTI_Callback,HAL_UART_RxCpltCallback,HAL_Delay,volatile,临界区,FreeRTOS,FromISR,pxHigherPriorityTaskWoken,configMAX_SYSCALL_INTERRUPT_PRIORITY,HardFault,栈溢出">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">STM32 中断系统与 NVIC 优先级</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          STM32 中断系统与 NVIC 优先级
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          「中断」这件事的通用原理——向量表是什么、为什么要保护现场、为什么中断必须短——
+          在 <a href="core-interrupt.html" class="text-brand-600 hover:underline dark:text-brand-300">中断与异常机制</a> 那一篇里已经讲透了。
+          这一篇不重复那些，只回答一个更具体的问题：<b class="font-semibold text-ink">这些原理在 STM32F103 这颗芯片上，具体是哪几个寄存器、哪几个函数、哪几行代码在负责？</b>
+          同样是「配一个外部中断」，51 上你写 <code class="icode">IT0 = 1; EX0 = 1; EA = 1;</code> 三行就够了；
+          在 STM32 上你要依次照顾<b class="font-semibold text-ink">引脚模式 → AFIO 时钟 → EXTICR 端口选择 → 触发沿 → EXTI 屏蔽位 → NVIC 使能 → 优先级数值</b>七件事，
+          任何一件漏掉，现象都是同一句话：「中断没反应」。而配错了优先级分组或者把优先级数值写成了位，
+          现象又会变成「能进中断，但偶尔丢数据、偶尔卡死」——<b class="font-semibold text-ink">比完全不来更折磨人</b>。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-hard">高阶</span>
+          <span class="stat-pill">第 3 层 · STM32 深入</span>
+          <span class="stat-pill">STM32 深入 · 第 <b>35</b> 篇</span>
+          <span class="stat-pill">教材：刘火良 第 16、17 章</span>
+          <span class="stat-pill">阅读约 <b>60</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-vector">异常向量表：表里放的是地址</a>
+          <a class="toc-link is-sub" href="#sub-nvic-reg">NVIC 的六个寄存器组</a>
+          <a class="toc-link is-sub" href="#sub-priority-group">优先级分组：4 个有效位切出 5 种分法</a>
+          <a class="toc-link is-sub" href="#sub-nesting">抢占与嵌套：硬件自动压的 8 字帧</a>
+          <a class="toc-link is-sub" href="#sub-latency">中断延迟、尾链与迟来</a>
+          <a class="toc-link is-sub" href="#sub-exti">EXTI：20 条线怎么映射到引脚</a>
+          <a class="toc-link is-sub" href="#sub-hal-chain">HAL 的中断处理链路与回调</a>
+          <a class="toc-link is-sub" href="#sub-prio-design">优先级该怎么分配</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link is-sub" href="#calc-1">例 1：5 种分组各有几个抢占级与响应级</a>
+          <a class="toc-link is-sub" href="#calc-2">例 2：从事件到 ISR 第一条指令要多少纳秒</a>
+          <a class="toc-link is-sub" href="#calc-3">例 3：嵌套深度 4 的最坏栈用量</a>
+          <a class="toc-link is-sub" href="#calc-4">例 4：50µs 中断的 CPU 占用率与尾链收益</a>
+          <a class="toc-link is-sub" href="#calc-5">例 5：EXTI 线够不够用</a>
+          <a class="toc-link is-sub" href="#calc-6">例 6：按截止时间定优先级后的最坏响应延迟</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-reg-exti">手写寄存器版：EXTI0 按键中断</a>
+          <a class="toc-link is-sub" href="#sub-hal-exti">HAL 版：同样功能的初始化</a>
+          <a class="toc-link is-sub" href="#sub-pattern">正确范式：中断只置标志</a>
+          <a class="toc-link is-sub" href="#sub-exp-pr">复现实验：不清 PR 会怎样</a>
+          <a class="toc-link is-sub" href="#sub-exp-latency">测量中断延迟与尾链收益</a>
+          <a class="toc-link is-sub" href="#sub-exp-delay">复现 HAL_Delay 进中断的死锁</a>
+          <a class="toc-link is-sub" href="#sub-irq-table">中断号速查与优先级分配表</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-vector">异常向量表：表里放的是地址</a>
+            <a class="toc-link is-sub" href="#sub-nvic-reg">NVIC 的六个寄存器组</a>
+            <a class="toc-link is-sub" href="#sub-priority-group">优先级分组：4 个有效位切出 5 种分法</a>
+            <a class="toc-link is-sub" href="#sub-nesting">抢占与嵌套：硬件自动压的 8 字帧</a>
+            <a class="toc-link is-sub" href="#sub-latency">中断延迟、尾链与迟来</a>
+            <a class="toc-link is-sub" href="#sub-exti">EXTI：20 条线怎么映射到引脚</a>
+            <a class="toc-link is-sub" href="#sub-hal-chain">HAL 的中断处理链路与回调</a>
+            <a class="toc-link is-sub" href="#sub-prio-design">优先级该怎么分配</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link is-sub" href="#calc-1">例 1：5 种分组各有几个抢占级与响应级</a>
+            <a class="toc-link is-sub" href="#calc-2">例 2：从事件到 ISR 第一条指令要多少纳秒</a>
+            <a class="toc-link is-sub" href="#calc-3">例 3：嵌套深度 4 的最坏栈用量</a>
+            <a class="toc-link is-sub" href="#calc-4">例 4：50µs 中断的 CPU 占用率与尾链收益</a>
+            <a class="toc-link is-sub" href="#calc-5">例 5：EXTI 线够不够用</a>
+            <a class="toc-link is-sub" href="#calc-6">例 6：按截止时间定优先级后的最坏响应延迟</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-reg-exti">手写寄存器版：EXTI0 按键中断</a>
+            <a class="toc-link is-sub" href="#sub-hal-exti">HAL 版：同样功能的初始化</a>
+            <a class="toc-link is-sub" href="#sub-pattern">正确范式：中断只置标志</a>
+            <a class="toc-link is-sub" href="#sub-exp-pr">复现实验：不清 PR 会怎样</a>
+            <a class="toc-link is-sub" href="#sub-exp-latency">测量中断延迟与尾链收益</a>
+            <a class="toc-link is-sub" href="#sub-exp-delay">复现 HAL_Delay 进中断的死锁</a>
+            <a class="toc-link is-sub" href="#sub-irq-table">中断号速查与优先级分配表</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              这一篇的钥匙只有一句话：<b>中断是「外设 → EXTI → NVIC → 向量表 → 你的函数」这条链子</b>，
+              链上任何一环没使能，现象都是「中断不来」；<br>
+              而链上的优先级那一环写错，现象是「能来但乱」。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ============================== 1 为什么需要它 ============================== -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">
+            先把这一篇的定位说清楚。上一层的
+            <a href="core-interrupt.html" class="text-brand-600 hover:underline dark:text-brand-300">中断与异常机制</a>
+            讲的是<b>机制</b>：中断向量表是一张「异常号 → 处理函数」的表格、中断比轮询省 CPU、进入中断要保护现场、
+            中断服务函数必须短、优先级决定了谁能打断谁。这些结论在 51、STM32、ESP32 上都成立，属于「换个芯片也不会变」的知识。
+          </p>
+
+          <p class="mt-3">
+            但真正动手写代码时，你面对的从来不是这些结论，而是这样三个现场。
+          </p>
+
+          <h3 id="sub-scene" class="mt-7 text-base font-semibold">三个故障现场，全都不是「原理没学会」造成的</h3>
+
+          <p class="mt-3">
+            <b>现场一：两个按键，只有一个能用。</b>你在 PA0 和 PB0 各接了一个按键，都配成了下降沿触发的外部中断，
+            代码编译通过、烧进去也能跑——<b>但 PB0 那个键从头到尾没有反应</b>。你去查中断原理，查不出任何问题，
+            因为问题出在 STM32 的一条硬约束上：<b>EXTI 的线号等于引脚号</b>，PA0 和 PB0 抢的是同一根 EXTI0 线，
+            而 AFIO 里那个 4 位的选择字段只能填一个值。你后初始化谁，谁就赢。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="现场一：EXTI 线的争用（PA0 与 PB0 抢 EXTI0）">
+            <pre><code>配 置 顺 序 决 定 谁 生 效
+────────────────────────────────────────────────────────────
+  PA0 ──┐
+        ├──▶ [ AFIO_EXTICR1 的 EXTI0[3:0] 字段 ]  ──▶ EXTI0 线 ──▶ NVIC
+  PB0 ──┘         只能写一个值：0000=PA / 0001=PB
+                  ↑
+                  │  初始化顺序：先 PA0 后 PB0
+                  └── 最终值 = 0001（PB）→ PA0 的按键被彻底抛弃
+
+结果：PA0 按下 → 无任何中断   响应概率 0%
+      PB0 按下 → 正常进中断   响应概率 100%
+────────────────────────────────────────────────────────────
+正确做法：把两个按键接到「引脚号不同」的引脚上
+      PA0 (EXTI0) + PA1 (EXTI1)   ✔ 两根线，互不干扰
+      PA0 (EXTI0) + PB0 (EXTI0)   ✘ 抢同一根线，只能活一个
+            </code></pre>
+          </div>
+
+          <p class="mt-3">
+            <b>现场二：按键按一下，中断进了七八次。</b>示波器上看，一个机械按键按下的瞬间，
+            触点会在 5~10ms 里反复弹跳十几下。你开的是边沿触发，<b>每一个下降沿都是一次合法中断</b>，
+            于是「按一次，加七次」。这时候你会以为是中断配错了，其实是<b>触发沿的选择与去抖的责任划分</b>没想清楚。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="现场二：机械按键的抖动与边沿触发">
+            <pre><code>理 想 的 按 键 电 平            实 际 的 按 键 电 平（机械抖动）
+─────────────────────         ────────────────────────────────
+  3.3V ─────┐                   3.3V ─┐ ┌┐ ┌─┐ ┌┐ ┌─────────
+            │                         │ ││ │ │ ││ │
+    0V      └──────────           0V   └─┘└─┘ └─┘└─┘
+            ↑                          ↑↑↑↑↑↑↑↑↑↑↑↑  ↑
+          1 个下降沿               5~10ms 内十几个下降沿
+────────────────────────────────────────────────────────────
+  开「下降沿中断」= 把抖动原样交给 CPU  → 进 7~15 次
+  正确做法三选一：
+    ① ISR 里只置标志，主循环隔 20ms 再确认（最省事）
+    ② 上升沿和下降沿都开，用状态机判「稳定按下」
+    ③ 硬件上加 RC 滤波 / 施密特触发器，把抖动消在芯片外
+────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+          <p class="mt-3">
+            <b>现场三：中断里等一会儿，程序再也不动了。</b>你在串口接收中断里想「等 1ms 再发下一帧」，
+            顺手写了 <code class="icode">HAL_Delay(1)</code>。程序没有报错，编译器也不警告，
+            <b>但它就停在那里了</b>——因为 <code class="icode">HAL_Delay</code> 等的是 <code class="icode">uwTick</code> 变大，
+            <code class="icode">uwTick</code> 靠 SysTick 中断累加，而 HAL 把 SysTick 的优先级设成了最低的 15，
+            <b>它永远抢不过你正在执行的那个中断</b>。你在中断里等 SysTick，SysTick 在等你退出中断，死锁。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="现场三：HAL_Delay 进中断的三方死锁">
+            <pre><code>三 方 互 等（谁也动不了）
+────────────────────────────────────────────────────────────
+  你的 ISR (假设优先级 0)          SysTick ISR (优先级 15)
+  ┌──────────────────────┐        ┌──────────────────────┐
+  │ HAL_Delay(1)         │        │ uwTick++             │
+  │   while (uwTick - t  │        │                      │
+  │          &lt; 1) { }    │        │  优先级 15 = 最低     │
+  │        ↑             │        │  抢不过优先级 0       │
+  │        │  等 uwTick  │        └──────────────────────┘
+  └────────┼─────────────┘                  ↑
+           │                                │  要进来才能加
+           └────────────────────────────────┘
+           你等它 → 它等你退出 → 死锁（现象：程序静悄悄地卡住）
+            </code></pre>
+          </div>
+
+          <p class="mt-3">
+            这三个现场的共性很清楚：<b>它们都不是「中断原理不懂」造成的，而是「STM32 把它实现成了什么样」不清楚造成的。</b>
+            中断这件机制的通用道理（为什么要保护现场、为什么嵌套要受限、为什么 ISR 要短）已经在上一层的
+            <a href="core-interrupt.html" class="text-brand-600 hover:underline dark:text-brand-300">中断与异常机制</a>
+            里讲完了，这一篇要把通用道理落到<b>寄存器名、位号、函数名、现象</b>上：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b>向量表：</b>Cortex-M3 定了 16 个内核异常 + 最多 240 个外部中断，STM32F103 用了哪一部分？向量表默认住在 <code class="icode">0x08000000</code>，为什么做 IAP 时必须用 <code class="icode">SCB-&gt;VTOR</code> 挪走？</li>
+            <li><b>NVIC 六个寄存器组：</b>使能、挂起、活动、优先级分别由哪个寄存器负责？为什么 <code class="icode">IPR</code> 写 <code class="icode">0x0F</code> 会得到「最高优先级」？</li>
+            <li><b>优先级分组：</b>5 种分组下抢占位和响应位各占几个？为什么说「响应优先级只能在同时挂起时决定谁先跑」？</li>
+            <li><b>嵌套与延迟：</b>中断进出的几十个周期具体花在哪？尾链和迟来各自省掉了哪一段？</li>
+            <li><b>EXTI：</b>20 条线怎么和 37/80/112 个引脚对应起来？哪几个寄存器负责端口选择、触发沿、屏蔽、软件触发和挂起？</li>
+            <li><b>HAL 链路：</b>从 <code class="icode">EXTI0_IRQHandler</code> 到你的回调，中间隔了几层？回调里绝对不能做什么？</li>
+          </ul>
+
+          <div class="callout callout-tip mt-6">
+            <div class="callout-title">这一篇和上一篇的分工</div>
+            <p>
+              「中断是什么、为什么要用、现场保护的通用规则、51 怎么做的」→
+              <a href="core-interrupt.html" class="text-brand-600 hover:underline dark:text-brand-300">核心原理 · 中断与异常机制</a>。<br>
+              「STM32F103 上具体配哪几个位、HAL 在哪一层回调、实战里优先级怎么排、常见故障怎么逐条定位」→ 就是你现在读的这一篇。
+              两篇都读完，你才能既说得出「为什么」，也写得出「怎么配」。
+            </p>
+          </div>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">先给一个能保命的心智模型</div>
+            <p>
+              在 STM32 上，一次外部中断从物理世界走到你的 C 函数，固定要过五道关卡，
+              <b>顺序不能乱、一道不能少</b>：
+            </p>
+            <div class="code-block mt-2" data-lang="text" data-title="外部中断的五道关卡（按信号流动顺序）">
+            <pre><code>①  引脚模式         GPIOx_MODE / CNF：必须配成「输入」且使能了复用（HAL 里的 GPIO_MODE_IT_xxx）
+        ↓
+②  端口选择         AFIO_EXTICR1~4：把 EXTI 线的输入源选到 PA / PB / PC …（需要 AFIO 时钟！）
+        ↓
+③  触发沿与屏蔽     EXTI-&gt;RTSR / FTSR / IMR：哪种边沿、要不要产生中断
+        ↓
+④  NVIC 使能        NVIC-&gt;ISER[n]：把这一路请求接到 CPU 上（EXTI 与 NVIC 是两级使能，都要开）
+        ↓
+⑤  优先级           NVIC-&gt;IPR[n] 的高 4 位 + AIRCR.PRIGROUP：能不能打断别人、谁先跑
+        ↓
+   向量表            SCB-&gt;VTOR 指向的那张表：异常号 → 函数地址（默认 0x08000000）
+        ↓
+   你的函数          EXTI0_IRQHandler() → HAL_GPIO_EXTI_IRQHandler() → HAL_GPIO_EXTI_Callback()
+────────────────────────────────────────────────────────────
+排查口诀：中断不来，从 ① 往下逐关查；中断来了但乱，直接查 ⑤。
+            </code></pre>
+          </div>
+          </div>
+
+          <p class="mt-5">
+            记住这张图，第 5 节那张「故障逐条定位表」会反复回到它。
+            现在从最底下那张表开始讲——因为那才是「中断为什么能被找到」的根。
+          </p>
+        </section>
+<!-- ============================== 2 核心概念 ============================== -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">
+            这一节按「信号从芯片外面走进你的 C 函数」的顺序讲，一共 8 个子节。
+            前五个讲 CPU 那一侧（向量表、NVIC、优先级、嵌套、延迟），后三个讲外设那一侧（EXTI、HAL 链路、优先级设计）。
+            如果你只想先跑通一个按键中断，可以直接跳到 <a href="#sub-exti" class="text-brand-600 hover:underline dark:text-brand-300">EXTI 那一节</a>，
+            再回头看 CPU 侧——但早晚要回来，因为「能跑」和「跑得对」之间差的正是前面这几节。
+          </p>
+
+          <h3 id="sub-vector" class="mt-7 text-base font-semibold">异常向量表：表里放的是地址，地址最低位必须是 1</h3>
+
+          <p class="mt-3">
+            向量表的本质在
+            <a href="core-interrupt.html" class="text-brand-600 hover:underline dark:text-brand-300">中断与异常机制</a>
+            里已经定义过了：<b>一张「异常号 → 处理函数地址」的数组，放在内存的固定位置，CPU 响应中断时按异常号去查表</b>。
+            这里只补 STM32 这一侧你必须知道的三件事：<b>表的尺寸与位置、表里的地址长什么样、表是谁写进去的</b>。
+          </p>
+
+          <p class="mt-3">
+            Cortex-M3 规定异常号 0~15 属于<b>内核异常</b>（Reset、NMI、HardFault、SVCall、PendSV、SysTick 等），
+            异常号 16 往上属于<b>外部中断 IRQ</b>，最多 240 个（IRQ0~IRQ239）。
+            ST 在 STM32F103 上排了 <b>60 个外部中断（IRQ0~IRQ59）</b>，所以 F103 的向量表一共 16 + 60 = 76 项，
+            每项 4 字节，共 <b>304 字节</b>。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="STM32F103 的向量表布局（从表首地址开始，每项 4 字节）">
+            <pre><code>偏 移     内 容                     异 常 号        说 明
+──────────────────────────────────────────────────────────────────────
+0x00  ┌────────────────────┐
+      │ 0x2000_5000        │   项 0        ★ 不是异常！是复位后 MSP 的初值
+0x04  ├────────────────────┤
+      │ Reset_Handler      │   异常 1      复位向量（上电/按复位键后第一个执行）
+0x08  │ NMI_Handler        │   异常 2      不可屏蔽中断（F103 上 CSS 时钟失效会触发）
+0x0C  │ HardFault_Handler  │   异常 3      ★ F103 上所有故障的最终归宿
+0x10  │ MemManage_Handler  │   异常 4      F103 无 MPU，不会单独产生
+0x14  │ BusFault_Handler   │   异常 5      同上，实际升级成 HardFault
+0x18  │ UsageFault_Handler │   异常 6      同上
+0x1C  │ 保留 ×4            │   7~10       内核私有，不能用
+0x2C  │ SVC_Handler        │   异常 11     RTOS 用它启动第一个任务
+0x30  │ DebugMon_Handler   │   异常 12     F103 不使用
+0x34  │ 保留               │   异常 13
+0x38  │ PendSV_Handler     │   异常 14     ★ 任务切换就靠它（优先级必须最低）
+0x3C  │ SysTick_Handler    │   异常 15     ★ HAL 的 1ms 时基 uwTick
+0x40  ├────────────────────┤  ────────── 以下进入外部中断 ──────────
+      │ WWDG_IRQHandler    │   IRQ0        窗口看门狗
+0x44  │ PVD_IRQHandler     │   IRQ1        电源电压监测
+0x48  │ TAMPER_IRQHandler  │   IRQ2        侵入检测
+   ⋮          ⋮                  ⋮
+0x58  │ EXTI0_IRQHandler   │   IRQ6        ★ PA0/PB0/PC0… 走这里
+0x5C  │ EXTI1_IRQHandler   │   IRQ7        ★ PA1/PB1/PC1… 走这里
+0x60  │ EXTI2_IRQHandler   │   IRQ8
+0x64  │ EXTI3_IRQHandler   │   IRQ9
+0x68  │ EXTI4_IRQHandler   │   IRQ10
+   ⋮          ⋮                  ⋮
+0x9C  │ EXTI9_5_IRQHandler │   IRQ23       ★ EXTI5~9 五根线共用一个向量
+0xA0  │ TIM1_BRK_IRQHandler│   IRQ24
+   ⋮          ⋮                  ⋮
+0xB4  │ USART1_IRQHandler  │   IRQ37       ★ 串口 1
+   ⋮          ⋮                  ⋮
+0xC0  │ EXTI15_10_IRQHandler│  IRQ40       ★ EXTI10~15 六根线共用一个向量
+   ⋮          ⋮                  ⋮
+0x12C │ DMA2_Channel4_5    │   IRQ59       大容量型号才实现
+0x130 └────────────────────┘
+      76 项 × 4 字节 = 304 字节（向量表本身的大小）
+──────────────────────────────────────────────────────────────────────
+表的起始地址 = SCB-&gt;VTOR 里的值，复位默认 = 0x08000000（Flash 首地址）
+            </code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">项 0 不是异常，是栈顶</div>
+            <p>
+              很多人第一次看向量表会数错：表里的<b>第 0 项（偏移 0x00）不是任何异常的处理函数</b>，
+              它是「复位完成后，MSP 该被设成多少」，所以它填的是一个 RAM 地址（典型是 RAM 末尾 <code class="icode">0x2000_5000</code>），
+              而不是代码地址。真正的 Reset 向量在偏移 0x04。这一点在你自己写 Bootloader 的链接脚本时极其重要：
+              <b>APP 的向量表也必须自己排好项 0</b>，否则重定位之后一进中断就崩。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            接下来是最容易被忽略、但一旦错就必死的一条规则：<b>向量表里填的每一项，除了第 0 项，都是一个函数地址；
+            而 Cortex-M 要求这个地址的最低位（bit 0）必须是 1。</b>
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="为什么函数地址的最低位是 1：Thumb 状态标记">
+            <pre><code>真 实 的 向 量 表 内 容（用调试器看内存，以 0x08000000 开头）
+────────────────────────────────────────────────────────────
+0x08000000: 00 50 00 20     → 0x20005000   项0：栈顶（RAM 地址，最低位无意义）
+0x08000004: A5 01 00 08     → 0x080001A5   项1：Reset_Handler
+                                    ↑
+                                    └── 这个 1 是 Thumb 标记，不是地址的一部分
+
+为什么不加这个 1 就崩：
+  Cortex-M3 只有 Thumb 指令集，没有 ARM 指令集
+  CPU 从向量里取出地址后，用 BX 的方式跳过去
+    · 地址最低位 = 1  →  进入 Thumb 状态  →  正常执行
+    · 地址最低位 = 0  →  试图进入 ARM 状态 →  Cortex-M3 不支持 → HardFault
+────────────────────────────────────────────────────────────
+所以：用 C 写出来的函数，编译成 Thumb 之后符号值天然是最低位 1
+      （链接器对 Thumb 函数的符号会 +1），你写 .word Reset_Handler 就自动带上了
+      真正会踩坑的是「手写一个函数地址常量」的时候：
+         uint32_t addr = 0x080001A4;        /* 从调试器抄下来忘了 …那是偶数地址 */
+         ((void(*)(void))addr)();          /* → HardFault */
+      正确写法：((void(*)(void))(addr | 1U))();
+────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+          <p class="mt-3">
+            <b>向量表默认住在 0x08000000。</b>严格说，复位时 CPU 是从 <code class="icode">0x00000000</code> 取项 0、从
+            <code class="icode">0x00000004</code> 取 Reset 向量的——而 STM32 会把不同的物理存储区<b>映射</b>到 0x00000000：
+            BOOT0 = 0 时映射的是 Flash（也就是 0x08000000 的那块），BOOT0 = 1 时映射的是系统存储器（出厂 Bootloader）。
+            这就是「启动模式」那三个 BOOT 配置真正在做的事（第 39 篇会展开讲）。
+            对你的影响只有一句：<b>平常写代码时，把向量表的地址就当成 0x08000000 来理解。</b>
+          </p>
+
+          <p class="mt-3">
+            真正需要「挪动」向量表的场景是 <b>IAP（在应用编程，也就是自己做 Bootloader 升级固件）</b>。
+            设想 Flash 被切成两块：Bootloader 占 0x08000000 起的 16KB，APP 从 0x08004000 开始。
+            上电后 CPU 从 0x08000000 取向量，跳进 Bootloader；Bootloader 判断要启动 APP，就跳到 0x08004000。
+            可是 <b>APP 的代码和数据都住在 0x08004000 往后，它的向量表也在那里</b>——
+            而 CPU 仍然以为向量表在 0x08000000（那还是 Bootloader 的表）。
+            这时 APP 里任何一次中断，都会跳进 <b>Bootloader 的</b>中断处理函数，后果不可预测。
+          </p>
+
+          <p class="mt-3">
+            解法就是在 APP 启动的第一件事里，把 <code class="icode">SCB-&gt;VTOR</code> 改成 APP 自己的向量表地址：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="app_main.c —— IAP 里 APP 的第一件事：重定位向量表">
+<pre><code>#include "stm32f1xx.h"
+
+/* APP 在 Flash 里的起始地址，必须和 Bootloader 里的约定、以及 APP 工程的
+   IROM1 起始地址、链接脚本里的 FLASH ORIGIN 完全一致 */
+#define APP_BASE_ADDR     0x08004000U
+
+/* 这个函数必须在 main() 里的第一件事就调用，而且要在
+   HAL_Init()、任何 __enable_irq()、任何外设初始化之前。
+   否则一旦在重定位前来了中断，跑的就是 Bootloader 的处理函数。 */
+void app_relocate_vector_table(void)
+{
+    /* SCB-&gt;VTOR 是 32 位寄存器，低 7 位（有的内核是低几位）是保留位，
+       写入的地址必须对齐：最小 128 字节，且不小于向量表实际大小
+       向上取到 2 的幂。F103 的表是 304 字节 → 必须 512 字节对齐。
+       0x08004000 % 512 == 0，满足。 */
+    SCB-&gt;VTOR = APP_BASE_ADDR;
+
+    /* 顺手确认一下：读回来应该等于你写进去的值（低 7 位会被硬件忽略） */
+    if (SCB-&gt;VTOR != APP_BASE_ADDR) {
+        /* 走到这里说明对齐算错了，或者写的是非法地址 */
+        while (1) { }
+    }
+}
+
+/* 从 Bootloader 跳转到 APP 的经典写法（放 Bootloader 侧，供对照） */
+typedef void (*app_entry_t)(void);
+
+void boot_jump_to_app(void)
+{
+    uint32_t app_msp  = *(volatile uint32_t *)(APP_BASE_ADDR);        /* 项0：栈顶 */
+    uint32_t app_reset = *(volatile uint32_t *)(APP_BASE_ADDR + 4U);  /* 项1：Reset 向量 */
+
+    /* 合法性检查：栈顶必须落在 RAM 范围内（F103C8T6 的 RAM 是 0x20000000~0x20004FFF） */
+    if ((app_msp &amp; 0x2FFE0000U) != 0x20000000U) {
+        return;                        /* 表是空的，别跳，跳了就是 HardFault */
+    }
+
+    __disable_irq();                   /* 跳转前先关中断，别让残留的请求打进 APP */
+    SysTick-&gt;CTRL = 0U;                /* 关掉 SysTick，否则它的中断会打到旧向量表 */
+
+    /* 设好栈顶，再跳到复位向量。app_reset 的最低位天然是 1（Thumb 标记），
+       所以这里不需要手动 | 1 —— 但如果你是从别处算出来的地址，必须自己补上 */
+    __set_MSP(app_msp);
+    ((app_entry_t)app_reset)();
+}
+</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么这段代码里到处是「必须第一件事」</div>
+            <p>
+              因为 <code class="icode">SCB-&gt;VTOR</code> 换的是<b>查表用的基地址</b>，它管的是「下一次」中断去哪里。
+              已经挂起（pending）的中断不受影响，但站在代码顺序上，你不会希望有任何一次中断发生在重定位之前。
+              工程上的做法是：<b>APP 的 <code class="icode">Reset_Handler</code> 里、进 <code class="icode">main()</code> 之前就重定位</b>，
+              或至少是 <code class="icode">main()</code> 的第一行。第 39 篇会给出完整的两区工程。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            最后一个问题：<b>这张表是谁写进 Flash 的？</b>是启动文件
+            <code class="icode">startup_stm32f103xb.s</code>（CubeMX 生成的 GCC 版启动文件）。打开它你会看到两段东西：
+            上面是向量表本体（一堆 <code class="icode">.word</code>），下面是每个处理函数的<b>弱定义</b>。
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="startup_stm32f103xb.s 的两段结构（GCC 语法，节选）">
+<pre><code>/* ─────────── 第一段：向量表本体。放在名为 .isr_vector 的段里，
+   链接脚本会把这个段摆在 Flash 的最开头，也就是 0x08000000 ─────────── */
+  .section  .isr_vector,"a",%progbits
+  .type     g_pfnVectors, %object
+g_pfnVectors:
+  .word  _estack                  /* 项0：栈顶（链接器算出来的 RAM 末尾） */
+  .word  Reset_Handler            /* 项1：Reset */
+  .word  NMI_Handler
+  .word  HardFault_Handler
+  .word  MemManage_Handler
+  .word  BusFault_Handler
+  .word  UsageFault_Handler
+  .word  0                        /* 保留项，填 0 */
+  .word  0
+  .word  0
+  .word  0
+  .word  SVC_Handler
+  .word  DebugMon_Handler
+  .word  0
+  .word  PendSV_Handler
+  .word  SysTick_Handler
+  /* 以下是外部中断，从 IRQ0 开始 */
+  .word  WWDG_IRQHandler
+  .word  PVD_IRQHandler
+  .word  TAMPER_IRQHandler
+  .word  RTC_IRQHandler
+  .word  FLASH_IRQHandler
+  .word  RCC_IRQHandler
+  .word  EXTI0_IRQHandler
+  .word  EXTI1_IRQHandler
+  /* … 一直排到 DMA2_Channel4_5_IRQHandler，共 60 个 … */
+
+/* ─────────── 第二段：处理函数的「弱定义」。每个都是无限循环 b . ─────────── */
+  .weak      EXTI0_IRQHandler          /* ★ 关键就在这个 .weak */
+  .thumb_func
+  .type      EXTI0_IRQHandler, %function
+EXTI0_IRQHandler:
+  b   .                                /* 原地跳自己 = 卡死在这里 */
+  .size      EXTI0_IRQHandler, .-EXTI0_IRQHandler
+</code></pre>
+          </div>
+
+          <p class="mt-3">
+            <code class="icode">.weak</code> 是链接器的一个指令，意思是「这个符号的优先级很低」。
+            于是链接时会出现这样的裁决：启动文件里有一个<b>弱</b>的 <code class="icode">EXTI0_IRQHandler</code>，
+            你在自己的 <code class="icode">main.c</code> 或 <code class="icode">stm32f1xx_it.c</code> 里写了一个<b>强</b>的同名函数——
+            <b>链接器会选你的那个，丢掉 <code class="icode">b .</code></b>。
+            这就是「你只要写一个同名函数就能覆盖它」的全部原理。
+          </p>
+
+          <p class="mt-3">
+            它有两层实践意义：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <b>写错名字不会报错，只会卡死。</b>把 <code class="icode">EXTI0_IRQHandler</code> 写成了
+              <code class="icode">EXTI0_Handler</code>、或者加了 <code class="icode">static</code>（那就变成内部链接，链接器看不见）、
+              或者在 C++ 里忘了 <code class="icode">extern "C"</code>（名字被修饰成 <code class="icode">_Z16EXTI0_IRQHandlerv</code>）——
+              编译全都通过，链接也不报错，因为弱符号替你把缺补上了。运行时现象是：<b>中断确实来了，但程序卡在启动文件的 <code class="icode">b .</code> 上</b>，
+              你在 <code class="icode">main</code> 里打断点看不出任何问题。
+              排查方法：在调试器里暂停，看 PC 指向哪个地址，或者直接看反汇编窗口有没有停在 <code class="icode">b .</code> 那一行。
+            </li>
+            <li>
+              <b>不是所有中断都需要你写。</b>60 个外部中断里你用了几个，剩下的全都指向 <code class="icode">b .</code>。
+              这没问题——它们没被使能（NVIC 里是关着的），永远不会被触发。
+              但如果因为某个 bug 真的触发了没使能的中断（比如开了 <code class="icode">EXTI-&gt;IMR</code> 却忘了 NVIC），
+              你就会看到「程序莫名卡死」，而定位到 <code class="icode">b .</code> 的那一刻你就知道是谁了。
+            </li>
+          </ul>
+
+          <div class="code-block mt-3" data-lang="text" data-title="弱符号覆盖的三种「静默失败」写法对照">
+            <pre><code>写 法                                   结果
+──────────────────────────────────────────────────────────────────
+void EXTI0_IRQHandler(void) { … }       ✔ 覆盖成功（强符号、外部链接）
+static void EXTI0_IRQHandler(void){…}   ✘ static 是内部链接，链接器看不到 → 卡在 b .
+void exti0_irqhandler(void) { … }       ✘ C 区分大小写，名字不同 → 卡在 b .
+void EXTI0_IRQHandler(void);            ✘ 只声明没定义 → 卡在 b .
+（C++ 文件里）
+void EXTI0_IRQHandler(void) { … }       ✘ 被名字修饰成 _Z16EXTI0_IRQHandlerv → 卡在 b .
+extern "C" void EXTI0_IRQHandler(void){…} ✔ 加了 extern "C" 才覆盖成功
+──────────────────────────────────────────────────────────────────
+判据：调试器暂停时 PC 停在启动文件的 b . 上一行，就是名字没对上
+            </code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">最后这一条的计数：F103C8T6 上到底有几个外部中断能用</div>
+            <p>
+              F103 的向量表排了 60 个 IRQ（IRQ0~IRQ59），但<b>排了不等于实现了</b>。
+              中容量型号 F103C8T6 没有 TIM5~TIM8、没有 ADC3、没有 FSMC/SDIO、没有 UART4/5、没有 DMA2，
+              所以真正有外设挂在后面的只有 <b>IRQ0~IRQ42 这 43 个</b>；
+              IRQ43~IRQ59 是为大容量（F103ZET6 那类）和互联型预留的位置，在中容量上不会被触发。
+              你在 CubeMX 里选 F103C8T6 时，NVIC 列表里也只有这些——<b>列表里没有的中断，写代码也没用</b>。
+            </p>
+          </div>
+
+          <h3 id="sub-nvic-reg" class="mt-7 text-base font-semibold">NVIC 的六个寄存器组：五个管状态，一个管优先级</h3>
+
+          <p class="mt-3">
+            NVIC 全称 Nested Vectored Interrupt Controller（嵌套向量中断控制器），它<b>不是 ST 加的外设</b>，
+            而是 ARM 在 Cortex-M 内核里就做好的模块——所以它的寄存器地址在所有 Cortex-M 芯片上完全一样
+            （从 <code class="icode">0xE000E100</code> 开始），和 STM32 的 GPIO、USART 那些「厂商外设」不是一回事。
+            这也是为什么 <code class="icode">core_cm3.h</code> 里的 <code class="icode">NVIC_EnableIRQ()</code> 拿到任何一颗 Cortex-M 上都能用。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="NVIC 的六个寄存器组（地址是 Cortex-M3 铁定的，不是 ST 定的）">
+            <pre><code>寄 存 器      地 址 范 围              读 写 属 性      管 什 么
+────────────────────────────────────────────────────────────────────────────
+ISER[0..7]   0xE000E100 ~ 0xE000E11C  写 1 置位       Interrupt Set Enable
+                                          (w1s)          「使能这一路中断」——开
+ICER[0..7]   0xE000E180 ~ 0xE000E19C  写 1 清位       Interrupt Clear Enable
+                                          (w1c)          「关掉这一路中断」——关
+ISPR[0..7]   0xE000E200 ~ 0xE000E21C  写 1 置位       Interrupt Set Pending
+                                                        软件把某路中断「挂起来」（让它排队等待）
+ICPR[0..7]   0xE000E280 ~ 0xE000E29C  写 1 清位       Interrupt Clear Pending
+                                                        取消排队（ISR 入口硬件也会自动清）
+IABR[0..7]   0xE000E300 ~ 0xE000E31C  只 读           Interrupt Active Bit
+                                                        这一路中断「正在执行中」——判断重入/死锁靠它
+IPR[0..59]   0xE000E400 ~ 0xE000E4EF  逐字节读写       Interrupt Priority
+                                                        每一路中断占 1 字节，只用高 4 位
+────────────────────────────────────────────────────────────────────────────
+另有三个「不属于 NVIC 数组」但同一家族的重要寄存器：
+  SCB-&gt;AIRCR  0xE000ED0C   优先级分组 PRIGROUP[10:8] + 系统复位请求
+  SCB-&gt;VTOR   0xE000ED08   向量表基地址
+  NVIC-&gt;STIR  0xE000EF00   软件触发任意一路中断（写中断号即可，调试神器）
+────────────────────────────────────────────────────────────────────────────
+为什么是 [0..7] 八个 32 位字？因为 8 × 32 = 256 路，覆盖 Cortex-M3 的 240 路上限。
+F103 只有 60 路 → 实际只用到 ISER[0]、ISER[1] 的低 28 位（IRQ0~IRQ59）。
+            </code></pre>
+          </div>
+
+          <p class="mt-3">
+            注意上表里的读写属性：<code class="icode">ISER</code> 和 <code class="icode">ISPR</code> 是
+            <b>「写 1 有效、写 0 无影响」（write-1-to-set）</b>，<code class="icode">ICER</code> 和
+            <code class="icode">ICPR</code> 是 <b>「写 1 清除、写 0 无影响」（write-1-to-clear）</b>。
+            这个设计的好处是：想把 IRQ37（USART1）单独使能，你不必先读出整个字再改一位再写回（那会误伤别的中断），
+            直接写一个只有 bit 5 为 1 的字就行。所以「开中断」的地址算式是固定的两段式：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="nvic_raw.c —— 不用任何库，直接操作 NVIC（理解这一篇的最佳方式）">
+<pre><code>#include "stm32f1xx.h"
+
+/* ─── 中断号的定义在哪里？在 stm32f103xb.h 里，是一个枚举 IRQn_Type ───
+   typedef enum {
+     WWDG_IRQn = 0, PVD_IRQn = 1, TAMPER_IRQn = 2, RTC_IRQn = 3,
+     FLASH_IRQn = 4, RCC_IRQn = 5,
+     EXTI0_IRQn = 6, EXTI1_IRQn = 7, EXTI2_IRQn = 8, EXTI3_IRQn = 9, EXTI4_IRQn = 10,
+     DMA1_Channel1_IRQn = 11, /* … */ ADC1_2_IRQn = 18,
+     USB_HP_CAN_TX_IRQn = 19, USB_LP_CAN_RX0_IRQn = 20, CAN_RX1_IRQn = 21, CAN_SCE_IRQn = 22,
+     EXTI9_5_IRQn = 23,
+     TIM1_BRK_IRQn = 24, TIM1_UP_IRQn = 25, TIM1_TRG_COM_IRQn = 26, TIM1_CC_IRQn = 27,
+     TIM2_IRQn = 28, TIM3_IRQn = 29, TIM4_IRQn = 30,
+     I2C1_EV_IRQn = 31, I2C1_ER_IRQn = 32, I2C2_EV_IRQn = 33, I2C2_ER_IRQn = 34,
+     SPI1_IRQn = 35, SPI2_IRQn = 36,
+     USART1_IRQn = 37, USART2_IRQn = 38, USART3_IRQn = 39,
+     EXTI15_10_IRQn = 40, RTCAlarm_IRQn = 41, USBWakeUp_IRQn = 42,
+     /* … 43~59 是大容量型号的，中容量上不存在 … */
+   } IRQn_Type;
+   ※ 负数那一批（-1~-14）是内核异常，SysTick_IRQn = -1、PendSV_IRQn = -2 */
+
+/* ─── 手写版：使能 / 关闭 / 挂起 / 取消挂起 ─── */
+static inline void nvic_enable_irq(IRQn_Type irq)
+{
+    /* irq &gt;&gt; 5 算出用第几个 32 位字，irq &amp; 0x1F 算出字里的第几位 */
+    NVIC-&gt;ISER[(uint32_t)irq &gt;&gt; 5U] = 1UL &lt;&lt; ((uint32_t)irq &amp; 0x1FU);
+}
+
+static inline void nvic_disable_irq(IRQn_Type irq)
+{
+    NVIC-&gt;ICER[(uint32_t)irq &gt;&gt; 5U] = 1UL &lt;&lt; ((uint32_t)irq &amp; 0x1FU);
+}
+
+static inline void nvic_set_pending(IRQn_Type irq)      /* 软件触发：让它排队 */
+{
+    NVIC-&gt;ISPR[(uint32_t)irq &gt;&gt; 5U] = 1UL &lt;&lt; ((uint32_t)irq &amp; 0x1FU);
+}
+
+static inline void nvic_clear_pending(IRQn_Type irq)    /* 取消排队 */
+{
+    NVIC-&gt;ICPR[(uint32_t)irq &gt;&gt; 5U] = 1UL &lt;&lt; ((uint32_t)irq &amp; 0x1FU);
+}
+
+static inline uint32_t nvic_is_active(IRQn_Type irq)    /* 正在执行中？ */
+{
+    return (NVIC-&gt;IABR[(uint32_t)irq &gt;&gt; 5U] &gt;&gt; ((uint32_t)irq &amp; 0x1FU)) &amp; 1U;
+}
+
+/* ─── 优先级：IPR 是「按字节」编址的，每个中断 1 字节 ─── */
+/* 注意这一行的写法，它是这一节的核心陷阱：
+     优先级数值要左移 (8 - __NVIC_PRIO_BITS) 位再写进去。
+     在 F103 上 __NVIC_PRIO_BITS = 4，所以要左移 4 位。 */
+static inline void nvic_set_priority(IRQn_Type irq, uint32_t prio)
+{
+    NVIC-&gt;IP[(uint32_t)irq] = (uint8_t)((prio &lt;&lt; (8U - __NVIC_PRIO_BITS)) &amp; 0xFFU);
+}
+
+/* ─── 用起来是这样 ─── */
+void key_exti0_init(void)
+{
+    nvic_set_priority(EXTI0_IRQn, 5U);   /* 数值 5 → 实际写进 IPR 的是 0x50 */
+    nvic_enable_irq(EXTI0_IRQn);
+}
+</code></pre>
+          </div>
+
+          <p class="mt-3">
+            现在来看 <code class="icode">IPR</code> 那个「只用高 4 位」的设计，以及它带来的经典事故。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="IPR 中一个字节的位布局：高 4 位有效，低 4 位是空气">
+            <pre><code>一 个 中 断 的 优 先 级 字 节（NVIC-&gt;IP[n]）
+────────────────────────────────────────────────────────────
+   bit7  bit6  bit5  bit4 │ bit3  bit2  bit1  bit0
+  ┌─────┬─────┬─────┬─────┼─────┬─────┬─────┬─────┐
+  │  1  │  0  │  1  │  0  │  0  │  0  │  0  │  0  │   = 0xA0
+  └─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┘
+    └────── 已实现（STM32F103 实现 4 位）──────┘└─ 读出恒为 0，写入被丢弃 ─┘
+
+  __NVIC_PRIO_BITS = 4  →  只有 2⁴ = 16 级优先级（0~15，0 最高）
+  有些 Cortex-M0/M0+ 只实现 2 位 → 只有 4 级；M4/M7 常见实现 4 位（F4/F7 也是 16 级）
+────────────────────────────────────────────────────────────
+★ 于是「写 0x0F 会怎样」有了一个非常反直觉的答案：
+
+     NVIC-&gt;IP[EXTI0_IRQn] = 0x0F;     /* 你以为设了 15（最低优先级） */
+     读回来      → 0x00
+     实际优先级  → 0（最高！可以抢任何东西，包括 SysTick 和 PendSV）
+
+  因为 0x0F 的 4 个 1 全落在「未实现」的低 4 位里，被硬件丢弃；
+  高 4 位是 0000，等于把这一路中断设成了最高优先级。
+  更糟的是：它和「故意设成 0」的读回值一模一样，你无法从读回值反推自己写错了。
+────────────────────────────────────────────────────────────
+★ 正确写法（两种都行）：
+      NVIC-&gt;IP[EXTI0_IRQn] = (uint8_t)(15U &lt;&lt; 4);   /* = 0xF0 → 优先级 15 */
+      NVIC_SetPriority(EXTI0_IRQn, 15U);            /* CMSIS 帮你移位 */
+★ 自查方法：
+      printf("%02X\r\n", NVIC-&gt;IP[EXTI0_IRQn]);      /* 应该是 0xF0 而不是 0x0F */
+────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">这个错误在真实项目里的表现形式</div>
+            <p>
+              一个本该「最低优先级、谁都能打断它」的按键中断，被误设成了优先级 0。
+              于是它在执行期间<b>连 SysTick 都打断不了它的反面——它谁都打断</b>：
+              <code class="icode">HAL_GetTick()</code> 突然不准了（tick 丢了几次）、
+              串口 DMA 的搬运节奏乱了、RTOS 里 PendSV 切换被推迟导致任务抖动。
+              现象是「偶发、难复现、换个板子又好了」，查一周都查不到——
+              直到有人在调试器里看了一眼 <code class="icode">NVIC-&gt;IP[]</code> 的原始值。
+              <b>养成习惯：优先级只通过 <code class="icode">NVIC_SetPriority()</code> 设，不手写 <code class="icode">IPR</code>。</b>
+            </p>
+          </div>
+<h3 id="sub-priority-group" class="mt-7 text-base font-semibold">优先级分组：4 个有效位切出 5 种分法</h3>
+
+          <p class="mt-3">
+            F103 只有 16 级优先级（0~15，数字越小越优先），但这 16 级不够用怎么办？
+            ARM 的办法很巧妙：<b>把 4 个有效位切成两段，一段叫抢占优先级，一段叫响应优先级（也叫子优先级）</b>，
+            切在哪里由 <code class="icode">SCB-&gt;AIRCR</code> 里的 <code class="icode">PRIGROUP[10:8]</code> 这 3 位决定。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="优先级分组：把 4 个有效位一分为二">
+            <pre><code>AIRCR 的 PRIGROUP[2:0] 决定「切在第几位」
+────────────────────────────────────────────────────────────────
+  4 个有效位（bit7~bit4）的两种切法示意：PRIGROUP = 5（2 抢占位 + 2 响应位）
+  ┌─────┬─────┬─────┬─────┐
+  │ b7  │ b6  │ b5  │ b4  │
+  └──┬──┴──┬──┴──┬──┴──┬──┘
+     └─────┴─────┘     └─────┴─────┘
+       抢占优先级           响应（子）优先级
+     （能不能打断）        （同时排队时谁先跑）
+  取值 0~3（2 位）        取值 0~3（2 位）
+
+  PRIGROUP = 3（4 抢占位 + 0 响应位）：4 位全是抢占
+  ┌─────┬─────┬─────┬─────┐
+  │ b7  │ b6  │ b5  │ b4  │      取值 0~15，共 16 个抢占级
+  └──┬──┴──┬──┴──┬──┴──┬──┘      没有响应级，同优先级就是完全同优先级
+     └─────┴─────┴─────┘
+        全部是抢占优先级
+────────────────────────────────────────────────────────────────
+  ★ 无论怎么切，4 位能表达的组合总数恒为 16
+    1×16 = 2×8 = 4×4 = 8×2 = 16×1 = 16
+    分组不是「增加」优先级，而是「重新分配这 16 份给谁用」
+────────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+          <p class="mt-3">
+            STM32 的参考手册（RM0008）给了一张确定的表。注意 <code class="icode">PRIGROUP</code> 写 0、1、2 时，
+            因为只有 4 位有效，效果和写 3 是一样的——所以<b>真正有区别的只有 5 种分组</b>：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>分组</th>
+                  <th>PRIGROUP[2:0]</th>
+                  <th>抢占优先级位数</th>
+                  <th>响应优先级位数</th>
+                  <th>抢占级数</th>
+                  <th>响应级数</th>
+                  <th>抢占取值</th>
+                  <th>响应取值</th>
+                  <th>HAL 宏</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>分组 0</b></td>
+                  <td>0b111 = 7</td>
+                  <td><b>0 位</b></td>
+                  <td>4 位</td>
+                  <td>1（不可嵌套）</td>
+                  <td>16</td>
+                  <td>无</td>
+                  <td>0~15</td>
+                  <td><code class="icode">NVIC_PRIORITYGROUP_0</code></td>
+                </tr>
+                <tr>
+                  <td><b>分组 1</b></td>
+                  <td>0b110 = 6</td>
+                  <td><b>1 位</b></td>
+                  <td>3 位</td>
+                  <td>2</td>
+                  <td>8</td>
+                  <td>0~1</td>
+                  <td>0~7</td>
+                  <td><code class="icode">NVIC_PRIORITYGROUP_1</code></td>
+                </tr>
+                <tr>
+                  <td><b>分组 2</b></td>
+                  <td>0b101 = 5</td>
+                  <td><b>2 位</b></td>
+                  <td>2 位</td>
+                  <td>4</td>
+                  <td>4</td>
+                  <td>0~3</td>
+                  <td>0~3</td>
+                  <td><code class="icode">NVIC_PRIORITYGROUP_2</code></td>
+                </tr>
+                <tr>
+                  <td><b>分组 3</b></td>
+                  <td>0b100 = 4</td>
+                  <td><b>3 位</b></td>
+                  <td>1 位</td>
+                  <td>8</td>
+                  <td>2</td>
+                  <td>0~7</td>
+                  <td>0~1</td>
+                  <td><code class="icode">NVIC_PRIORITYGROUP_3</code></td>
+                </tr>
+                <tr>
+                  <td><b>分组 4</b>（HAL 默认）</td>
+                  <td>0b011 = 3</td>
+                  <td><b>4 位</b></td>
+                  <td>0 位</td>
+                  <td>16</td>
+                  <td>1</td>
+                  <td>0~15</td>
+                  <td>无</td>
+                  <td><code class="icode">NVIC_PRIORITYGROUP_4</code></td>
+                </tr>
+                <tr>
+                  <td colspan="9" class="text-muted">
+                    PRIGROUP = 2、1、0 在 F103 上与分组 4 等效（因为只有 4 位有效，多出来的位全是抢占位）。
+                    来源：STM32F103 参考手册 RM0008 的「Priority grouping」表。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">HAL 的组号是「反着」的，别被名字骗了</div>
+            <p>
+              <code class="icode">NVIC_PRIORITYGROUP_0</code> 听起来像「第 0 组 = 最高优先级」，其实它是
+              <b>0 个抢占位、4 个响应位</b>——也就是<b>完全不能嵌套</b>的那一组，<code class="icode">PRIGROUP</code> 要写 7。
+              而 <code class="icode">NVIC_PRIORITYGROUP_4</code>（写 3）才是 4 个抢占位的「全抢占」模式。
+              记忆方法：<b>HAL 的组号 = 抢占优先级的位数</b>。组 4 = 4 位抢占，组 0 = 0 位抢占。
+              再记住 <code class="icode">PRIGROUP = 7 - 抢占位数</code>（在 4 位有效的前提下），两边就都通了。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            然后是最核心的一条区别。<b>抢占优先级决定「能不能打断正在执行的中断」，响应优先级只在「两个中断同时挂着等」的时候决定谁先跑，它永远不能造成嵌套。</b>
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="抢占 vs 响应：三种情形逐一对照（假设分组 2：2 抢占位 + 2 响应位）">
+            <pre><code>情 形 A：抢占优先级不同 → 可以嵌套
+────────────────────────────────────────────────────────────
+  TIM2 中断            EXTI0 中断
+  抢占 = 1             抢占 = 0    ← 数值更小 = 更紧急
+  ┌──────────────┐
+  │ 正在执行      │
+  │        ┌─────┼──────────┐
+  │        │     │ EXTI0 打断│   ← 允许！EXTI0 抢占优先级更高
+  │        │     │ 并开始执行 │
+  │        └─────┼──────────┘
+  └──────────────┘
+  结论：EXTI0 的 ISR 与 TIM2 的 ISR 形成嵌套，TIM2 被挂起，等 EXTI0 执行完再继续
+
+情 形 B：抢占优先级相同、响应优先级不同 → 不嵌套，先来的先跑完
+────────────────────────────────────────────────────────────
+  TIM2 中断             EXTI0 中断
+  抢占 = 1 响应 = 3      抢占 = 1 响应 = 0   ← 响应更小，但没用
+  ┌──────────────┐
+  │ 正在执行      │      EXTI0 只能一直等着（挂起位为 1）
+  │              │      ← 不允许打断！因为抢占优先级相同
+  └──────────────┘
+         ↓ TIM2 执行完，EXTI0 才开始
+  结论：响应优先级只能决定「两者都还挂着的时候谁先被取走」
+
+情 形 C：抢占与响应都相同 → 完全同级，硬件按中断号顺序取
+────────────────────────────────────────────────────────────
+  TIM2(抢占1,响应1) 与 TIM3(抢占1,响应1) 同时挂起
+  → 谁先跑？硬件固定按「中断号小的先」：TIM2_IRQn = 28 &lt; TIM3_IRQn = 29 → TIM2 先
+  → 绝不能靠这个顺序做设计，它是硬件行为，不是你的语义
+────────────────────────────────────────────────────────────
+★ 一句话记法：抢占位管「打断」，响应位管「排队」
+            </code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="priority.c —— 用 HAL 设分组与优先级（以及它背后实际写进寄存器的值）">
+<pre><code>#include "stm32f1xx_hal.h"
+
+/* HAL_Init() 里已经默认调用过这一句（分组 4 = 4 位抢占、0 位响应）。
+   它是【全局设置】，改一次会影响所有中断的解释方式，所以只在初始化最开头设一次。 */
+HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
+/* 展开后大致是：
+     uint32_t reg = SCB-&gt;AIRCR;
+     reg &amp;= ~((uint32_t)0x0000FF00U);                 // 清掉优先级分组位与 VECTKEY
+     SCB-&gt;AIRCR = reg | (0x05FAU &lt;&lt; 16) | 0x03U;      // VECTKEY=0x05FA 是写入门票！
+   0x05FA 是必须的：不写这个魔数，AIRCR 的写操作会被硬件忽略（防止误写造成系统复位） */
+
+/* 在分组 4（4 位抢占、0 位响应）下设置优先级：
+   HAL_NVIC_SetPriority 只接受「数值」，不接受「已经移好位的值」 */
+void irq_priority_config(void)
+{
+    /* 时基类：最高。SysTick 的优先级 HAL 自己会设成 15，我们不动它 */
+    HAL_NVIC_SetPriority(TIM2_IRQn,      0, 0);   /* 1ms 系统节拍的基础 */
+    HAL_NVIC_SetPriority(TIM3_IRQn,      1, 0);   /* 100µs 采样定时器 */
+
+    /* 通信类 */
+    HAL_NVIC_SetPriority(USART1_IRQn,    2, 0);   /* 串口接收：有截止时间（下一个字节到来前） */
+    HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 3, 0);/* DMA 完成 */
+
+    /* 按键类：很慢，给最低 */
+    HAL_NVIC_SetPriority(EXTI0_IRQn,    14, 0);
+    HAL_NVIC_SetPriority(EXTI15_10_IRQn, 14, 0);
+
+    /* 使能（注意：SetPriority 不会使能中断，还要单独开） */
+    HAL_NVIC_EnableIRQ(TIM2_IRQn);
+    HAL_NVIC_EnableIRQ(USART1_IRQn);
+    HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+}
+
+/* ── 看一眼 HAL 到底帮你做了什么 ──
+   HAL_NVIC_SetPriority(irq, PreemptPriority, SubPriority) 内部：
+     1) 读 SCB-&gt;AIRCR 的 PRIGROUP，算出这个分组下「抢占位占几位」
+     2) 把 PreemptPriority 与 SubPriority 拼成一个 4 位的整体数值 priority
+     3) 对内核异常（irq &lt; 0）：写 SCB-&gt;SHP[...]
+        对外部中断（irq &gt;= 0）：写 NVIC-&gt;IP[irq]
+        —— 写入时会左移 (8 - __NVIC_PRIO_BITS) 位，也就是左移 4 位
+
+   所以在分组 4 下 NVIC_SetPriority(EXTI0_IRQn, 14) 之后：
+     NVIC-&gt;IP[6] 读出来应该是 0xE0，而不是 0x0E。 */</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">分组的两个致命特性：全局 + 只能更粗</div>
+            <p>
+              <b>第一，分组是全局的。</b>它不是「每个中断各有一套」，而是「整个 NVIC 共用一套解释规则」。
+              你在代码中途把分组从 4 改成 2，<b>之前所有已经设好的优先级含义会瞬间全部改变</b>：
+              原本 4 位全当抢占，现在高 2 位才是抢占、低 2 位变成响应位——
+              一个原本抢占优先级 2 的中断，可能变成「抢占 0、响应 2」，优先级反而升高了。
+              这就是「我只用了一个中断，分组随便设」这个想法最危险的地方：
+              <b>你用的不止一个，SysTick、PendSV、SVC 全都在同一个 NVIC 里。</b>
+            </p>
+            <p class="mt-2">
+              <b>第二，往细里改不回去。</b>从分组 4（16 个抢占级）改成分组 2（4 个抢占级）之后，
+              原来抢占优先级 5 和 6 的两个中断会变成同级（都映射到 2）——<b>你没法用「响应位」把它们再分开去实现嵌套</b>，
+              因为响应位根本不参与嵌套判定。想恢复嵌套能力只能改回更粗的分组，然后重设所有优先级。
+            </p>
+          </div>
+
+          <h3 id="sub-nesting" class="mt-7 text-base font-semibold">抢占与嵌套：硬件自动压的 8 字帧</h3>
+
+          <p class="mt-3">
+            嵌套的判定规则只有一句话，但它有三个条件，缺一不可。当一个新的中断请求到达时，CPU 会问：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="嵌套的三个条件：全部满足才会打断当前 ISR">
+            <pre><code>新 请 求 要 打 断「正 在 执 行 的 中 断」，必 须 同 时 满 足：
+────────────────────────────────────────────────────────────
+  ①  新请求的【抢占优先级】数值 &lt; 当前正在执行的抢占优先级数值
+        （严格小于。相等 = 同级 = 不能打断，哪怕响应优先级更小）
+
+  ②  当前不在「优先级更高或相等的处理中」——内核只比较抢占优先级，
+        响应优先级根本不参与这个比较
+
+  ③  全局中断没被关：PRIMASK = 0（__enable_irq() 之后的状态）
+        注意 __disable_irq() 关的是 PRIMASK，它挡不住 NMI 和 HardFault
+────────────────────────────────────────────────────────────
+反过来说，下面这些情况【绝对不会】发生嵌套：
+  · 两个中断的抢占优先级相同（哪怕响应优先级差 3 级）
+  · 新来的中断优先级数值更大（更不紧急）
+  · 当前执行的是 HardFault / NMI（它们的优先级是负数，比任何外部中断都高）
+  · 你在 ISR 里调了 __disable_irq() 还没调 __enable_irq()
+────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+          <p class="mt-4">
+            一旦允许嵌套，硬件会替你做一件很漂亮的事：<b>把 8 个寄存器自动压进栈（32 字节），
+            取向量、跳进新的 ISR</b>。这 8 个寄存器是固定的：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="硬件自动压栈的 8 字帧（32 字节），顺序固定、不可配置">
+            <pre><code>压 栈 顺 序 与 栈 内 容（MSP 或 PSP 由 EXC_RETURN 决定）
+────────────────────────────────────────────────────────────
+      栈地址 ↑ 增大
+      ┌──────────────────────┐ ← 压栈前的 SP
+      │  旧 SP（空出来的）    │
+      ├──────────────────────┤ ← 压栈后的 SP（= 旧 SP - 32）
+      │  R0                  │   ← 压栈顺序是从低地址开始，最后压 xPSR
+      │  R1                  │      所以 xPSR 在最高地址处
+      │  R2                  │
+      │  R3                  │
+      │  R12                 │
+      │  LR   (R14)          │   返回地址（被打断处的下一条指令）
+      │  PC   (R15)          │   ★ 被打断处正在执行的那条指令地址
+      │  xPSR                │   ★ 含条件标志位与 IPSR（当前异常号）
+      └──────────────────────┘
+  8 个字 × 4 字节 = 32 字节 / 每一层嵌套
+────────────────────────────────────────────────────────────
+为什么是这 8 个？因为 ARM 的调用约定（AAPCS）规定：
+  R0~R3、R12 是「调用者保存」的，LR、PC、xPSR 是控制流状态
+  → 硬件只保护这些就够让 ISR 正常返回；R4~R11 由编译器在 ISR 里按需压
+★ 这也解释了为什么「进入 ISR 的延迟」里有一个固定成本：压 8 个字要时间
+★ 更解释了为什么嵌套会吃栈：每嵌套一层，就多 32 字节硬件帧 + 该层 ISR 自己的局部变量
+────────────────────────────────────────────────────────────
+补充：xPSR 里保存的 IPSR 段是「被打断时的异常号」，
+      而 LR 里保存的是一个特殊值 EXC_RETURN（不是普通地址），
+      异常返回时往 PC 写这个值，硬件就知道「这是异常返回，该出栈了」。
+      所以你在 ISR 里【不能随便改 LR】——改了就没法正常返回。
+            </code></pre>
+          </div>
+
+          <p class="mt-3">
+            关于嵌套，还有两个一定要建立的直觉：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <b>嵌套是「栈」形状的，不是「链」形状的。</b>它严格后进先出：谁最后进来，谁最先出去。
+              所以嵌套深度就是你最坏情况下的栈消耗倍数。深度 4 = 4 层硬件帧（128 字节）加上 4 层 ISR 各自的局部变量。
+            </li>
+            <li>
+              <b>嵌套深度是有上界的，但上界往往比你想的小。</b>如果所有中断都用不同的抢占优先级，
+              最坏深度就是「有几种不同的抢占优先级」；如果把多个中断设成同一个抢占优先级，
+              它们之间就不嵌套——<b>这是控制栈用量最有效的一招</b>。工业代码里常常故意把一组相关中断
+              （比如所有按键、所有显示刷新）设成同一个抢占优先级，让它们排队而不是嵌套。
+            </li>
+          </ul>
+
+          <div class="code-block mt-3" data-lang="text" data-title="嵌套的时序：深度 3 的一次真实叠加">
+            <pre><code>时 间 ──────────────────────────────────────────────────────────▶
+
+主循环 ──┬──────────────────────────────────────────────────────
+         │
+         │    ┌── TIM2 ISR (抢占2) ──┐
+         │    │  压栈 32B             │
+中断      │    │      ┌─ USART1 (抢占1) ──┐
+         │    │      │  压栈 32B          │
+         │    │      │     ┌─ EXTI0 (抢占0) ─┐
+         │    │      │     │  压栈 32B        │
+         │    │      │     │  干活、清标志     │
+         │    │      │     └─ 出栈 32B ─────┘   ← 先回来的先退出
+         │    │      └─ 继续干活 ────────────┘
+         │    └─ 继续干活 ──────────────────┘
+         └────────────────────────────────────────────────────────
+栈 用 量：主上下文 + 32B + 32B + 32B（硬件帧）+ 各层 ISR 的局部变量
+────────────────────────────────────────────────────────────────
+★ 注意：嵌套里【没有】优先级反转保护——高优先级打断低优先级是硬件行为，
+  但低优先级 ISR 里如果握着共享资源，高优先级 ISR 就得等它（这就是 RTOS 要互斥量的原因）
+            </code></pre>
+          </div>
+
+          <p class="mt-4">
+            最后补一个实战细节：<b>为什么 <code class="icode">__disable_irq()</code> 不能保护共享数据到底？</b>
+            因为它只是把 PRIMASK 置 1，挡住所有可屏蔽中断——但挡不住 NMI 和 HardFault，
+            也挡不住 DMA（DMA 是硬件搬运，和 CPU 的中断屏蔽毫无关系）。
+            所以「关中断保护」只对「中断与主循环共享的普通变量」有效，对 DMA 完全无效。
+            这也是
+            <a href="core-interrupt.html" class="text-brand-600 hover:underline dark:text-brand-300">中断与异常机制</a>
+            里强调「volatile 只解决可见性、不解决原子性」的原因——按位或赋值丢标志的问题，关中断和原子指令才是解药。
+          </p>
+
+          <h3 id="sub-latency" class="mt-7 text-base font-semibold">中断延迟、尾链与迟来：那几十个周期花在哪</h3>
+
+          <p class="mt-3">
+            「中断延迟」的定义要卡死：<b>从硬件/外设产生中断请求的那一刻，到 ISR 第一条指令开始执行</b>，
+            而不是「到 ISR 执行完」（那是响应时间）。开路这一段时间，是一串可以逐项算出来的周期数。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="延迟的四段构成：同步请求和异步请求不一样">
+            <pre><code>从 请 求 到 ISR 第 一 条 指 令
+────────────────────────────────────────────────────────────────────
+①  请求产生阶段
+    · 同步请求（软件写 NVIC-&gt;STIR / 某外设的使能位就在 CPU 时钟域里）
+        → 0 周期额外开销，CPU 下一个周期就能看见
+    · 异步请求（EXTI 引脚上的电平变化、外部信号）
+        → 信号要先被同步到 CPU 时钟域（2 级触发器采样）
+        → 额外 2~3 个周期；如果正好在采样窗口边缘，还可能再多 1 个周期
+        ★ 这就是「外部中断天生比内部中断慢几个周期」的原因
+
+②  压栈阶段（硬件做）
+    · 8 个字（xPSR/PC/LR/R12/R3~R0）写进栈
+    · 零等待存储器时，ARM 给出的典型值是 12 个周期完成「压栈 + 取向量准备」
+    ★ 栈放在有等待周期的 RAM、或者总线上正在被 DMA 抢占 → 这里会变长
+
+③  取向量阶段（硬件做）
+    · 从 SCB-&gt;VTOR + 4×异常号 处读出一个字，就是 ISR 的入口地址
+    · 零等待存储器（Flash 有预取/缓存）时开销很小；如果 Flash 没开预取，这里会明显变慢
+    ★ 这也是「Flash 预取 / 等待周期设置」会影响中断实时性的原因
+
+④  ISR 入口指令取指与执行
+    · 到这里才算「延迟结束」，你数延迟就数到这里
+────────────────────────────────────────────────────────────────────
+典 型 值（Joseph Yiu《The Definitive Guide to Cortex-M3》/ ARM 文档，
+零等待周期存储器、无 FPU、无尾链）：             
+   中断延迟（异步请求）        约 12 周期 + 2~3 周期同步 = 14~15 周期
+   中断延迟（尾链进来的）      6 周期
+   迟来（late-arriving）       6 周期（对那个高优先级中断而言）
+   异常返回（出栈 + 恢复）      约 10 周期
+★ 这些数字是「量级参考」，不是你芯片上的实测值。
+  实测永远用第 4 节的 DWT-&gt;CYCCNT 方法，因为你的 Flash 等待周期、
+  优化等级、ISR 有多大、栈在哪块 RAM，都会让实测值偏离典型值。
+────────────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+          <p class="mt-4">
+            现在讲这两个把开销「吃掉一大半」的机制。它们的共同思想是：
+            <b>中断处理完了要回到主程序，但如果这时候已经有下一个中断在等着，那就别回去了，直接接着干。</b>
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="普通进出 vs 尾链 vs 迟来：三种时序的周期账对比">
+            <pre><code>前 提：两个中断【连续】到来（比如 50µs 定时器和另一个同频中断正好撞在一起）
+────────────────────────────────────────────────────────────────────────
+【A】没有尾链机制会怎样（假设硬件老老实实回主程序再重新进）
+   ISR1 执行完 → 出栈(10) → 回主程序 → 发现又挂起 → 再压栈+取向量(12+2) → 进 ISR2
+   中断之间的空隙开销 ≈ 10 + 14 = 24 周期，这期间 CPU 在「来回倒腾」而不是干活
+
+【B】尾链 tail-chaining（Cortex-M3 的真实行为）
+   ISR1 执行完 → 异常返回时【硬件检查还有没有挂起的中断】
+        ├─ 没有 → 正常出栈(约 10 周期)，回主程序
+        └─ 有   → ★ 不出栈、不回主程序，直接取下一个向量进 ISR2
+                  这一段只花 6 个周期
+   空隙开销从 24 周期压到 6 周期 → 省了 18 个周期，约 75%
+
+【C】迟来 late-arriving（在压栈过程中就有更高优先级请求到达）
+   时序：ISR_low 的压栈正在进行中 → 一个更高优先级的请求到了
+        ├─ 没有迟来机制 → 必须先把 ISR_low 完整地进去（再压一次栈），
+        │                 然后立刻被高优先级打断（又压一次栈）→ 白压一次
+        └─ 有迟来机制   → 压栈继续做（反正栈帧格式一样），
+                          但取向量时【改成取高优先级的向量】，
+                          直接进高优先级 ISR，等它执行完再回来做 ISR_low
+                          高优先级请求的等待被缩短到 6 个周期
+────────────────────────────────────────────────────────────────────────
+★ 一句话：尾链省的是「出栈 + 再压栈」，迟来省的是「白压一次多余的栈」。
+★ 意义：中断越密集（高频定时器、连续串口字节、多个外设同时报告），
+  尾链的收益越大——它把「每次中断固定几十周期」变成「第一个几十周期 + 后续每个几周期」。
+────────────────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+          <p class="mt-3">
+            还有一个必须澄清的点：<b>PRIMASK 关中断也会「吃掉」尾链的收益。</b>
+            如果你在主循环里长时间 <code class="icode">__disable_irq()</code>，这段时间到达的中断全部被挂起；
+            等 <code class="icode">__enable_irq()</code> 之后它们会一起被处理——第一个正常压栈（12 周期），
+            后面的全走尾链（各 6 周期）。
+            <b>从「总 CPU 占用」看这甚至更省；但从「实时性」看这是灾难</b>：
+            第一个中断的延迟被拉长到了「你关中断的时长 + 12 周期」。
+            这就是为什么临界区必须尽可能短——<b>关中断不是在省时间，而是在借时间，利息是实时性。</b>
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">把这一条和第 4 节的测量实验连起来看</div>
+            <p>
+              第 4 节会给你一段用 <code class="icode">DWT-&gt;CYCCNT</code> 数周期的代码：
+              在一个中断里翻转一个 GPIO，用示波器量「触发信号上升沿 → GPIO 翻转」的延迟；
+              或者用 <code class="icode">DWT</code> 在 ISR 首尾各记一次数，算出 ISR 的周期数。
+              再用一个定时器故意以很高的频率触发两个中断，就能亲眼看到「单独一次中断的周期数」
+              和「连续中断的平均周期数」之间的差距——那个差距就是尾链。
+            </p>
+          </div>
+<h3 id="sub-exti" class="mt-7 text-base font-semibold">EXTI：20 条线怎么映射到 37 个引脚</h3>
+
+          <p class="mt-3">
+            EXTI 是「外部中断/事件控制器」，是 ST 加在 APB2 上的外设（不是内核的一部分，所以有厂商差异）。
+            它的输入不是「某个引脚」，而是 <b>20 条固定的「线」（line）</b>：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>线号</th>
+                  <th>信号来源</th>
+                  <th>对应的中断向量</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>EXTI0</b></td>
+                  <td>PA0 / PB0 / PC0 / PD0 / PE0 之一</td>
+                  <td><code class="icode">EXTI0_IRQHandler</code>（IRQ6）</td>
+                  <td>独享一个向量</td>
+                </tr>
+                <tr>
+                  <td><b>EXTI1</b></td>
+                  <td>PA1 / PB1 / PC1 / …之一</td>
+                  <td><code class="icode">EXTI1_IRQHandler</code>（IRQ7）</td>
+                  <td>独享一个向量</td>
+                </tr>
+                <tr>
+                  <td><b>EXTI2</b></td>
+                  <td>PA2 / PB2 / PC2 / …之一</td>
+                  <td><code class="icode">EXTI2_IRQHandler</code>（IRQ8）</td>
+                  <td>独享一个向量</td>
+                </tr>
+                <tr>
+                  <td><b>EXTI3</b></td>
+                  <td>PA3 / PB3 / PC3 / …之一</td>
+                  <td><code class="icode">EXTI3_IRQHandler</code>（IRQ9）</td>
+                  <td>独享一个向量</td>
+                </tr>
+                <tr>
+                  <td><b>EXTI4</b></td>
+                  <td>PA4 / PB4 / PC4 / …之一</td>
+                  <td><code class="icode">EXTI4_IRQHandler</code>（IRQ10）</td>
+                  <td>独享一个向量</td>
+                </tr>
+                <tr>
+                  <td><b>EXTI5~EXTI9</b></td>
+                  <td>PA5~PA9 / PB5~PB9 / …</td>
+                  <td><code class="icode">EXTI9_5_IRQHandler</code>（IRQ23）</td>
+                  <td><b>5 条线共用 1 个向量</b>，ISR 里必须逐位判 PR</td>
+                </tr>
+                <tr>
+                  <td><b>EXTI10~EXTI15</b></td>
+                  <td>PA10~PA15 / PB10~PB15 / …</td>
+                  <td><code class="icode">EXTI15_10_IRQHandler</code>（IRQ40）</td>
+                  <td><b>6 条线共用 1 个向量</b>，ISR 里必须逐位判 PR</td>
+                </tr>
+                <tr>
+                  <td><b>EXTI16</b></td>
+                  <td>PVD 电源电压监测输出</td>
+                  <td><code class="icode">PVD_IRQHandler</code>（IRQ1）</td>
+                  <td>不是引脚，是内部信号</td>
+                </tr>
+                <tr>
+                  <td><b>EXTI17</b></td>
+                  <td>RTC 闹钟事件</td>
+                  <td><code class="icode">RTCAlarm_IRQHandler</code>（IRQ41）</td>
+                  <td>内部信号</td>
+                </tr>
+                <tr>
+                  <td><b>EXTI18</b></td>
+                  <td>USB 唤醒事件</td>
+                  <td><code class="icode">USBWakeUp_IRQHandler</code>（IRQ42）</td>
+                  <td>内部信号</td>
+                </tr>
+                <tr>
+                  <td><b>EXTI19</b></td>
+                  <td>以太网唤醒事件</td>
+                  <td>—（互联型才有）</td>
+                  <td>F103C8T6 上不存在</td>
+                </tr>
+                <tr>
+                  <td colspan="4" class="text-muted">
+                    16 + 3 = 19 条（含互联型的 20 条）线里，<b>只有 EXTI0~EXTI15 这 16 条和 GPIO 有关</b>。
+                    来源：STM32F103 参考手册 RM0008 第 9 章 EXTI。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            现在看最关键的那条规则，也是「两个按键只有一个响应」这个经典故障的根：
+            <b>EXTI 的线号等于引脚号</b>。PA0 和 PB0 的引脚号都是 0，所以它们<b>只能接到同一根 EXTI0 线上</b>；
+            而 AFIO 里那个选择字段只有 4 位，只能填一个值——<b>同一时刻，一根 EXTI 线只能连一个端口的引脚。</b>
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="EXTI 从引脚到 NVIC 的完整链路（以 PB1 下降沿为例）">
+            <pre><code>  芯 片 引 脚 这 一 侧                     EXTI 外 设 这 一 侧
+──────────────────────────────────────────────────────────────────────────
+  PB1 ──┐
+        │ ① 引脚模式必须配成输入
+        │    GPIOB-&gt;CRL 的 CNF1/MODE1 = 输入（HAL: GPIO_MODE_IT_FALLING）
+        ▼
+   ┌─────────────────────────────────┐
+   │  AFIO_EXTICR1                    │  ② 端口选择：EXTI1[3:0] = 0001(选 PB)
+   │  ┌────────┬────────┬────────┬──┐ │     需要先开 AFIO 时钟！
+   │  │EXTI3   │EXTI2   │EXTI1   │E0│ │     __HAL_RCC_AFIO_CLK_ENABLE()
+   │  │[15:12] │[11:8]  │[7:4]   │  │ │     ★ 不开时钟 → 写进去被丢弃 → 读回 0
+   │  └────────┴────────┴───┬────┴──┘ │        → 所有线都连 PA → 用 PB 的引脚没反应
+   └────────────────────────┼─────────┘
+                            ▼
+   ┌──────────────────────────────────────────────────────────┐
+   │  EXTI 内部（每条线一套电路）                                │
+   │                                                            │
+   │   边沿检测：上升沿(RTSR) / 下降沿(FTSR)  ──┐                │
+   │                                            ▼                │
+   │                                      ┌──────────┐           │
+   │                                      │  挂起位   │           │
+   │                          ┌──────────▶│   PR     │           │
+   │                          │           └────┬─────┘           │
+   │                          │                │                 │
+   │   ┌──────────┐           │                ▼  ③ 屏蔽位       │
+   │   │ 软件触发 │───────────┤           ┌──────────┐           │
+   │   │  SWIER   │           │           │   IMR    │──▶ 送 NVIC（产生中断）
+   │   └──────────┘           │           └──────────┘           │
+   │                          │           ┌──────────┐           │
+   │                          └──────────▶│   EMR    │──▶ 只产生事件脉冲
+   │                                      └──────────┘    （不进 NVIC、不置 PR）
+   └────────────────────────────────────────────┬─────────────┘
+                                                ▼
+   ┌──────────────────────────────────────────────────────────┐
+   │  NVIC：ISER[0] 的 bit7（EXTI1_IRQn = 7）  ④ 第二级使能      │
+   │         IPR[7] 的高 4 位 = 优先级                           │
+   └────────────────────────────────────────────┬─────────────┘
+                                                ▼
+   向量表（SCB-&gt;VTOR + 4×23? 不，EXTI1 是 IRQ7 → 偏移 0x40 + 7×4 = 0x5C）
+                                                ▼
+   EXTI1_IRQHandler()  →  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1)
+                       →  __HAL_GPIO_EXTI_CLEAR_IT()  ★ 清 PR
+                       →  HAL_GPIO_EXTI_Callback(GPIO_PIN_1)
+──────────────────────────────────────────────────────────────────────────
+★ 需要 AFIO 时钟的地方一共两种：改引脚的复用映射（重映射），和选择 EXTI 线的端口来源。
+  只要用到 EXTI 的 GPIO 中断，AFIO 时钟就必须开。
+──────────────────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+          <p class="mt-4">
+            关于这条链路，有五个寄存器必须能说出名字。它们全在 <code class="icode">EXTI</code> 结构体里
+            （基地址 <code class="icode">0x40010400</code>）：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>寄存器</th>
+                  <th>偏移</th>
+                  <th>作用</th>
+                  <th>怎么用</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">IMR</code></td>
+                  <td>0x00</td>
+                  <td>Interrupt Mask：这一路要不要产生<b>中断</b></td>
+                  <td>写 1 打开。<code class="icode">EXTI-&gt;IMR |= (1 &lt;&lt; 1);</code> 打开 EXTI1 的中断</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">EMR</code></td>
+                  <td>0x04</td>
+                  <td>Event Mask：这一路要不要产生<b>事件</b>脉冲</td>
+                  <td>写 1 打开。事件脉冲可以唤醒 CPU、触发 ADC/TIM，但不进中断</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">RTSR</code></td>
+                  <td>0x08</td>
+                  <td>Rising Trigger Selection：上升沿触发</td>
+                  <td><code class="icode">EXTI-&gt;RTSR |= (1 &lt;&lt; 1);</code> 让 EXTI1 对上升沿敏感</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">FTSR</code></td>
+                  <td>0x0C</td>
+                  <td>Falling Trigger Selection：下降沿触发</td>
+                  <td>按键接地 + 上拉时用它。<b>两个都置 1 = 双边沿触发</b></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">SWIER</code></td>
+                  <td>0x10</td>
+                  <td>Software Interrupt Event Register：软件触发</td>
+                  <td>写 1 就相当于「假装来了一个边沿」，用来测中断通路，非常实用</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">PR</code></td>
+                  <td>0x14</td>
+                  <td>Pending Register：挂起位</td>
+                  <td><b>读 1 表示「这条线有事件还没处理」；写 1 清除，写 0 无效</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">PR 必须清、而且要清对：忘了清就是「一次触发反复进」</div>
+            <p>
+              完整的事件流是这样的：引脚上来了一个合法边沿 → <b>硬件把 <code class="icode">PR</code> 对应位置 1</b>
+              → <code class="icode">IMR</code> 也开着 → 这一路的请求被送到 NVIC → NVIC 把这一路的 pending 置 1
+              → CPU 进入 ISR（<b>进入时 NVIC 的 pending 会自动清掉</b>）。
+              注意最后一句：<b>清掉的是 NVIC 的 pending，不是 EXTI 的 PR。</b>
+              如果 ISR 里没清 <code class="icode">PR</code>，它还是 1，也就是这条线的请求线一直是高的，
+              NVIC 会在你退出 ISR 的下一个瞬间重新把它挂起——<b>于是你一次按下，中断进来了成千上万次</b>，
+              表现是「程序卡在中断里出不来」或者「主循环像是在原地打转」。
+            </p>
+            <p class="mt-2">
+              所以 <b><code class="icode">PR</code> 的清除必须写在 ISR 里</b>，而且顺序有讲究，
+              两种写法对应两种语义：
+            </p>
+            <div class="code-block mt-2" data-lang="c" data-title="清 PR 的两种顺序，语义不同">
+<pre><code>/* 写法 A：先清 PR，再干活（HAL 用的就是这一种） */
+void EXTI1_IRQHandler(void)
+{
+    if (EXTI-&gt;PR &amp; (1U &lt;&lt; 1)) {
+        EXTI-&gt;PR = (1U &lt;&lt; 1);     /* ← 先清挂起位 */
+        do_something();            /* ← 再处理业务 */
+    }
+}
+/* 语义：清掉「这一次」之后进来的新边沿会重新置位 PR，
+   于是它在 do_something() 执行期间或之后被记为「又一次中断」。
+   抖动期间的每个边沿都会被如实记录 → 需要软件去抖配合。 */
+
+/* 写法 B：先干活，最后清 PR */
+void EXTI1_IRQHandler(void)
+{
+    if (EXTI-&gt;PR &amp; (1U &lt;&lt; 1)) {
+        do_something();
+        EXTI-&gt;PR = (1U &lt;&lt; 1);     /* ← 最后清 */
+    }
+}
+/* 语义：do_something() 期间产生的抖动边沿会被这一次清除一并抹掉，
+   相当于「在 ISR 执行期间自动去抖」——但也可能抹掉一个真实的第二次按键！
+   ★ 一般不用这种，除非你清楚地要它。 */
+</code></pre>
+            </div>
+            <p class="mt-2">
+              两条实用建议：<b>① 清 PR 时用「写 1 写回读到的位」，不要用 <code class="icode">EXTI-&gt;PR = 0xFFFF</code> 一把全清</b>
+              ——那会把别的线（你可能没处理的、或留给事件模式的）也一起清掉；
+              <b>② 判 PR 用 <code class="icode">if</code> 而不是 <code class="icode">while</code></b>——
+              进 ISR 时 NVIC 已经替你清掉 pending 了，没有「循环处理到没有为止」的必要，
+              写成 <code class="icode">while (EXTI-&gt;PR &amp; mask)</code> 反而可能在抖动时把你锁在中断里出不去。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            还有一组概念要分清：<b>事件（event）模式和中断（interrupt）模式</b>。它们共用同一条线的边沿检测器，
+            分岔点在 <code class="icode">IMR</code> 和 <code class="icode">EMR</code>：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th>中断模式（IMR 使能）</th>
+                  <th>事件模式（EMR 使能）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>目的</td>
+                  <td>让 CPU 执行一段代码</td>
+                  <td>让硬件之间互相触发，<b>不打扰 CPU</b></td>
+                </tr>
+                <tr>
+                  <td>是否置 PR</td>
+                  <td>是</td>
+                  <td>否</td>
+                </tr>
+                <tr>
+                  <td>是否送 NVIC</td>
+                  <td>是（还需要 NVIC 那一级使能）</td>
+                  <td>否，直接变成一根内部脉冲</td>
+                </tr>
+                <tr>
+                  <td>典型用途</td>
+                  <td>按键、编码器、外部告警</td>
+                  <td>把 EXTI 脉冲接到 TIM 的从模式触发 / ADC 的触发源；<br>或用它把 CPU 从睡眠/停止模式唤醒，但不进 ISR</td>
+                </tr>
+                <tr>
+                  <td>优先级</td>
+                  <td>受 NVIC 优先级管辖</td>
+                  <td>无优先级概念（不经过 NVIC）</td>
+                </tr>
+                <tr>
+                  <td>延迟</td>
+                  <td>数十周期（要压栈、取向量）</td>
+                  <td><b>几个周期</b>（纯硬件连线，CPU 不参与）</td>
+                </tr>
+                <tr>
+                  <td>开的写法</td>
+                  <td><code class="icode">EXTI-&gt;IMR |= mask;</code></td>
+                  <td><code class="icode">EXTI-&gt;EMR |= mask;</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">事件模式是「低功耗设计的标配」</div>
+            <p>
+              第 38 篇讲低功耗时会反复用到它：让一个 GPIO 的边沿通过 EMR 变成一个事件脉冲，
+              直接触发定时器开始计数或触发 ADC 采样，<b>CPU 全程在睡觉</b>。
+              代价是你失去了「在 ISR 里做判断」的能力——换来的是几微安级的待机电流。
+              现在只需要记住：<b>中断和事件不是两种外设，是同一条线的两个出口。</b>
+            </p>
+          </div>
+
+          <p class="mt-4">
+            最后是那句必须刻进肌肉记忆的话：<b>EXTI 与 NVIC 是两级使能，两个都必须开。</b>
+            只开 <code class="icode">EXTI-&gt;IMR</code> 不开 NVIC：请求被送到 NVIC 门口，但那一路上锁着，CPU 永远不知道；
+            请求会一直挂在 NVIC 的 pending 上，等你哪天开了 NVIC 使能，它会<b>立刻补上一次</b>（迟到的中断）。
+            只开 NVIC 不开 IMR：NVIC 永远收不到请求，开了也白开。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两级使能的四种组合（这就是「配了但不来」的一半原因）">
+            <pre><code>EXTI-&gt;IMR    NVIC-&gt;ISER    结 果
+────────────────────────────────────────────────────────────
+   0            0          永不触发（默认状态）
+   1            0          请求卡在 NVIC pending 上；一旦补开 ISER 会立刻进来一次
+   0            1          永不触发（最常见的手误：EnableIRQ 写了，IMR 忘了）
+   1            1          ✔ 正常触发
+────────────────────────────────────────────────────────────
+★ 还有三件同样会导致「永不触发」的事，一起记：
+   · AFIO 时钟没开（RCC-&gt;APB2ENR bit0）→ EXTICR 写不进 → 线连在错误的端口上
+   · 引脚没配成输入（还在默认的浮空输入之外的模拟/输出模式）→ 边沿根本传不到 EXTI
+   · 用了 EXTI5~9 或 EXTI10~15，却把中断使能开到了 EXTI0_IRQn 这种不存在的通道上
+────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+          <h3 id="sub-hal-chain" class="mt-7 text-base font-semibold">HAL 的中断处理链路：从 IRQHandler 到你的 Callback</h3>
+
+          <p class="mt-3">
+            现在把「向量表里的函数」和「你写的代码」之间的三层关系摆清楚。初学者最容易糊涂的就是这一层：
+            为什么我写的是 <code class="icode">HAL_GPIO_EXTI_Callback</code>，而中断响应的是
+            <code class="icode">EXTI0_IRQHandler</code>？中间是谁在转发？
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三层结构：向量表层面 → HAL 转发层 → 你的业务层">
+            <pre><code>第 一 层：向量表指向的函数（名字固定，不能改）
+  stm32f1xx_it.c 里的  EXTI0_IRQHandler(void)
+      │  这个文件名固定、函数名固定，是启动文件里弱符号的强覆盖
+      │
+      ▼
+第 二 层：HAL 的转发函数（库函数，你只负责调用）
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0)
+      │  判 PR → 清 PR → 调回调（★ 清 PR 在这里，不在你的回调里）
+      │
+      ▼
+第 三 层：你的回调（HAL 里是 __weak 空函数，你重写它）
+  HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+      │  ★ 所有 EXTI 引脚共用这一个函数，所以要判 GPIO_Pin
+      ▼
+  你的业务：置标志 / 发队列 / 记录时间戳（不要在这里干重活）
+────────────────────────────────────────────────────────────
+为什么要有中间这一层？因为「清标志」这件事必须由库来做，
+否则每个用户都要重复写一遍、而且写错就是「一次触发反复进」。
+HAL 把「硬件的脏活」收进第二层，把「你的业务」留成第三层。
+────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+          <p class="mt-4">
+            HAL 的源码很短，值得逐行读一遍（<code class="icode">stm32f1xx_hal_gpio.c</code>）：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="stm32f1xx_hal_gpio.c 节选：EXTI 的转发与回调">
+<pre><code>/* ─── 第二层：转发。CubeMX 生成的 EXTI0_IRQHandler 里就是调它 ─── */
+void HAL_GPIO_EXTI_IRQHandler(uint16_t GPIO_Pin)
+{
+    /* 先确认这条线的挂起位是不是真的置着（防止误进 ISR） */
+    if (__HAL_GPIO_EXTI_GET_IT(GPIO_Pin) != 0x00u)
+    {
+        /* ★ 先清 PR。展开后就是一句 EXTI-&gt;PR = GPIO_Pin;（写 1 清除） */
+        __HAL_GPIO_EXTI_CLEAR_IT(GPIO_Pin);
+
+        /* 再交给用户。注意：GPIO_Pin 参数被原样传下去，
+           这就是你能在回调里区分「是哪个引脚」的唯一依据 */
+        HAL_GPIO_EXTI_Callback(GPIO_Pin);
+    }
+}
+
+/* 展开后的宏（stm32f1xx_hal_gpio.h）：
+     #define __HAL_GPIO_EXTI_GET_IT(__EXTI_LINE__)  (EXTI-&gt;PR &amp; (__EXTI_LINE__))
+     #define __HAL_GPIO_EXTI_CLEAR_IT(__EXTI_LINE__) \
+                 do { EXTI-&gt;PR = (__EXTI_LINE__); } while (0u)
+   注意 GET 返回的是「按位与的结果」，不是一个 0/1；
+   所以判断写 != 0x00u，不能写 == 1U。 */
+
+/* ─── 第三层：回调。定义为 __weak，你不重写它就是空函数 ─── */
+__weak void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    /* 这个空函数存在本身就是文档：它在告诉你「这里是你该写的地方」 */
+    UNUSED(GPIO_Pin);
+}
+
+/* ─── 串口那一侧是同一个套路：判标志 → 分发 → 回调 ─── */
+void HAL_UART_IRQHandler(UART_HandleTypeDef *huart)
+{
+    uint32_t isrflags = READ_REG(huart-&gt;Instance-&gt;SR);   /* 状态寄存器 */
+    uint32_t cr1its   = READ_REG(huart-&gt;Instance-&gt;CR1);  /* 中断使能位 */
+    uint32_t errorflags;
+
+    /* ① 先把四种错误标志一起抠出来：PE 校验错、FE 帧错、ORE 溢出、NE 噪声 */
+    errorflags = (isrflags &amp; (uint32_t)(USART_SR_PE | USART_SR_FE |
+                                        USART_SR_ORE | USART_SR_NE));
+    if (errorflags == RESET)
+    {
+        /* 无错误 → 走正常接收分支 */
+    }
+    else { /* 有错误 → 里面会根据具体错误调 HAL_UART_ErrorCallback 或继续 */ }
+
+    /* ② 接收：RXNE（收到一个字节）并且 RXNEIE 开着 */
+    if (((isrflags &amp; USART_SR_RXNE) != RESET) &amp;&amp;
+        ((cr1its &amp; USART_CR1_RXNEIE) != RESET))
+    {
+        UART_Receive_IT(huart);      /* ★ 真正的活在这里：读 DR、存缓冲区、计数 */
+        return;                      /* 处理完接收就返回，不再往下判发送 */
+    }
+
+    /* ③ 发送：TXE（可以写下一个字节）→ 调 HAL_UART_TxCpltCallback（缓冲发完时） */
+    /* ④ 其它：IDLE 空闲线检测、CTS、PE 等，各有分支 */
+}
+
+/* UART_Receive_IT 内部逻辑（简化）：
+     *huart-&gt;pRxBuffPtr++ = (uint8_t)(huart-&gt;Instance-&gt;DR &amp; 0xFF);   // 读 DR 顺便清 RXNE
+     if (--huart-&gt;RxXferCount == 0) {
+         huart-&gt;Instance-&gt;CR1 &amp;= ~USART_CR1_RXNEIE;                   // 关掉 RXNE 中断
+         HAL_UART_RxCpltCallback(huart);                              // ★ 收满了才回调你
+     }
+   ★ 所以 HAL_UART_RxCpltCallback 是「收满你指定的字节数」才调一次，
+     不是「每收一个字节调一次」——这是很多人第一次用 HAL_UART_Receive_IT 时的困惑。
+     收一个字节就处理一次，要自己写 HAL_UART_RxHalfCpltCallback 或者用 DMA + IDLE。 */</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么 <code class="icode">HAL_GPIO_EXTI_Callback</code> 是所有引脚共用的一个函数</div>
+            <p>
+              因为 HAL 的设计者没法预知你要用几个引脚。他只有两个选择：
+              要么为 16 条线准备 16 个不同的回调（<code class="icode">HAL_GPIO_EXTI0_Callback</code>…），
+              要么只留一个、把引脚号当参数传进来。HAL 选了后者，理由是<b>EXTI5~9 和 EXTI10~15 本来就共用一个中断向量</b>，
+              在你写 <code class="icode">EXTI9_5_IRQHandler</code> 的时候，本来就得写五个
+              <code class="icode">HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_x)</code> 去分发，
+              既然分发已经发生在你的 IRQHandler 里了，回调再合并成一个也不增加负担。
+            </p>
+            <p class="mt-2">
+              于是正确写法只有一种：<b>回调的第一个动作就是判 <code class="icode">GPIO_Pin</code></b>。
+              忘了判、只写 <code class="icode">key_flag = 1;</code>，那么任何一个引脚的中断都会把「所有按键」的
+              标志一起点亮——现象是「按 A 键，程序认为 B、C 键也被按了」。第 4 节给的正确范式就是这么写的。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            最后是那句被说了一万遍、但每天还在被违反的话：<b>回调里绝对不能做重活。</b>
+            下面这张清单请当成硬性规定：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>不能做的事</th>
+                  <th>为什么不行</th>
+                  <th>正确做法</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">HAL_Delay()</code> / 任何等 tick 的循环</td>
+                  <td>tick 靠 SysTick 中断，而 SysTick 优先级最低（HAL 设成 15）<b>抢不过当前 ISR → 死锁</b></td>
+                  <td>置标志 + 记录 <code class="icode">HAL_GetTick()</code> 快照，主循环里判断时间差</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">HAL_UART_Transmit()</code>（阻塞版）</td>
+                  <td>它内部就是「死等 TXE 标志」，等的是<b>外设</b>；发 100 字节 @115200 要 8.7ms，全在中断里烧掉</td>
+                  <td><code class="icode">HAL_UART_Transmit_IT()</code> / <code class="icode">_DMA()</code>，或往环形缓冲区里塞、主循环发</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">printf()</code> 大字符串</td>
+                  <td>格式化浮点/长字符串要几千个周期；<code class="icode">printf</code> 还常带锁、不可重入</td>
+                  <td>格式化放主循环；ISR 里最多写一个字节到缓冲区，或用 SWO/ITM 输出</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">malloc</code> / <code class="icode">free</code></td>
+                  <td>堆管理器不可重入；中断里分配会破坏主循环正在维护的链表</td>
+                  <td>静态分配、预先建好内存池，ISR 里只做「取一块」的无锁操作</td>
+                </tr>
+                <tr>
+                  <td>浮点运算 / 除法 / 大数组拷贝</td>
+                  <td>F103 没有 FPU，浮点是软件模拟，一次 <code class="icode">float</code> 乘法上百周期</td>
+                  <td>定点化、查表、把计算搬回主循环</td>
+                </tr>
+                <tr>
+                  <td>长时间关中断 / 复杂的 <code class="icode">while</code> 等待</td>
+                  <td>把别的中断全部推迟，实时性全线崩坏</td>
+                  <td>只做「记录 + 置标志」；需要时序的地方交给硬件定时器</td>
+                </tr>
+                <tr>
+                  <td>同一变量在主循环与 ISR 里读写却忘了 <code class="icode">volatile</code></td>
+                  <td>编译器把变量缓存进寄存器，主循环永远看不到 ISR 的修改</td>
+                  <td>加 <code class="icode">volatile</code>；多字节数据再加临界区保护</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-prio-design" class="mt-7 text-base font-semibold">优先级该怎么分配：按截止时间，不按重要性</h3>
+
+          <p class="mt-3">
+            这是这一节最「工程」的一段。绝大多数教程会告诉你「重要的中断给高优先级」——这句话是错的，
+            或者说它把问题描述得太粗了。<b>正确的判据是「截止时间（deadline）」：谁晚了一点就会出错，谁就该高。</b>
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="按重要性排 vs 按截止时间排：同一组中断，两种排法的后果">
+            <pre><code>假 设 你 有 四 类 中 断
+────────────────────────────────────────────────────────────
+  中断            单次执行时间   事件间隔       截止时间（晚了会怎样）
+  EXTI0 按键      2µs           随机，秒级      50ms 内响应即可（人的感知）
+  USART1 接收     8µs           87µs @115200   必须在下一个字节到来前读完 DR
+                                              → 约 87µs，超了就是 ORE 溢出丢字节
+  TIM2 时基       5µs           1ms             1ms 内必须执行（tick 不能丢）
+  TIM3 采样       6µs           50µs            50µs 内必须启动 ADC，超了采样间隔就歪
+────────────────────────────────────────────────────────────
+【按「重要性」排】很多人会这么想：按键是「用户操作」，最重要 → 给 0
+  结果：按键抖动一次进来 15 次中断，每次 2µs（加上进出开销约 3µs）
+        → 45µs 被打断；如果按住不放、边沿不断，时基和串口全被推迟
+        → 现象：按键一按，串口就丢数据
+
+【按「截止时间」排】正确的排法：
+  TIM3 采样  → 0    （50µs 的窗口，最紧）
+  USART1     → 1    （87µs 的窗口）
+  TIM2 时基  → 2    （1ms 的窗口）
+  EXTI0 按键 → 14   （50ms 的窗口，最松，垫底）
+  结果：按键中断被所有东西抢占，但它本来就等得起；
+        紧的东西都拿到了短延迟，整机实时性反而最好
+────────────────────────────────────────────────────────────
+★ 记住三句话：
+  ① 截止时间越短 → 抢占优先级数值越小
+  ② 「重要」不等于「紧急」：按键重要但可以慢，ADC 采样不"重要"但必须准点
+  ③ 多个中断如果截止时间相近、且互相没有依赖，就【故意设成同一个抢占级】
+     让它们排队而不是嵌套 —— 这是把最坏栈用量压下来的最有效手段
+────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+          <p class="mt-4">
+            下面这张表可以作为你项目的起点（F103 中容量、裸机 + HAL、72MHz）。
+            <b>它是「建议」不是「标准」</b>——你的截止时间变了，排序就该跟着变：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>类别</th>
+                  <th>外设 / 中断</th>
+                  <th>IRQn</th>
+                  <th>建议优先级</th>
+                  <th>依据（截止时间）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td rowspan="3"><b>硬实时类</b><br>（晚了就出错）</td>
+                  <td>TIM1_BRK / TIM1_UP（电机控制、互补 PWM 的刹车）</td>
+                  <td>24 / 25</td>
+                  <td>0</td>
+                  <td>刹车信号必须在几个 µs 内封锁 PWM，晚了烧管子</td>
+                </tr>
+                <tr>
+                  <td>TIM3 / TIM4（高频采样节拍、编码器）</td>
+                  <td>29 / 30</td>
+                  <td>0~1</td>
+                  <td>采样间隔 50µs 级，抖动会直接歪掉采样率</td>
+                </tr>
+                <tr>
+                  <td>ADC1_2（转换完成）</td>
+                  <td>18</td>
+                  <td>1</td>
+                  <td>要在下一次转换开始前把数据取走</td>
+                </tr>
+                <tr>
+                  <td rowspan="3"><b>通信类</b><br>（有字节间隔）</td>
+                  <td>USART1（接收 RXNE / 空闲）</td>
+                  <td>37</td>
+                  <td>2</td>
+                  <td>115200 下 87µs 一个字节，超时即 ORE 丢字节</td>
+                </tr>
+                <tr>
+                  <td>SPI1（全双工收发）</td>
+                  <td>35</td>
+                  <td>2</td>
+                  <td>主机时钟不停，读慢了就丢</td>
+                </tr>
+                <tr>
+                  <td>DMA1_Channel4/5（搬运完成）</td>
+                  <td>14 / 15</td>
+                  <td>3</td>
+                  <td>完成中断通常只是收尾（切缓冲区），可以稍慢</td>
+                </tr>
+                <tr>
+                  <td rowspan="2"><b>时基类</b><br>（周期性）</td>
+                  <td>TIM2（1ms 系统节拍）</td>
+                  <td>28</td>
+                  <td>4</td>
+                  <td>1ms 的窗口，5µs 的执行时间，余量极大</td>
+                </tr>
+                <tr>
+                  <td>SysTick（HAL 的 uwTick）</td>
+                  <td>-1（内核）</td>
+                  <td>15（HAL 默认，别改）</td>
+                  <td>它就是「时间」本身；改了它等于改了 <code class="icode">HAL_Delay</code> 的语义</td>
+                </tr>
+                <tr>
+                  <td rowspan="3"><b>人机类</b><br>（几十 ms 都行）</td>
+                  <td>EXTI0（按键）</td>
+                  <td>6</td>
+                  <td>14</td>
+                  <td>50ms 的感知窗口，被抢占完全无所谓</td>
+                </tr>
+                <tr>
+                  <td>EXTI15_10（多个按键共用）</td>
+                  <td>40</td>
+                  <td>14</td>
+                  <td>同上；共用向量，ISR 里要判 PR + 判 Pin</td>
+                </tr>
+                <tr>
+                  <td>RTCAlarm / TAMPER</td>
+                  <td>41 / 2</td>
+                  <td>13~14</td>
+                  <td>秒级事件</td>
+                </tr>
+                <tr>
+                  <td><b>RTOS 专用</b></td>
+                  <td>PendSV / SVC</td>
+                  <td>-2 / -5（内核）</td>
+                  <td>PendSV = 15，SVC = 0</td>
+                  <td>PendSV 必须最低（否则任务切换会打断别的中断）；SVC 只在启动时用</td>
+                </tr>
+                <tr>
+                  <td colspan="5" class="text-muted">
+                    前提：分组 = <code class="icode">NVIC_PRIORITYGROUP_4</code>（4 位抢占 + 0 位响应），
+                    优先级数值 0~15，数值越小越紧急。若你的系统里有一个「绝对不能被任何东西推迟」的中断，
+                    它应该拿 0；其余按截止时间依次排开，中间留出空档方便以后插新中断。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">留空档是个好习惯</div>
+            <p>
+              上表里 5~12 全是空的。这不是浪费，是<b>给未来的自己留插队的位置</b>。
+              真实项目的优先级列表总是会越长越长的——你加了蓝牙、加了 Flash 写入、加了看门狗喂狗，
+              如果一开始就把 0~15 排满，之后每加一个中断都要重新调整全局，改动风险极大。
+              <b>用 0、2、4、6、8、14 这样「跳着排」</b>，是最省心的工程习惯。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            接着是裸机项目迟早会遇到的一步：上 FreeRTOS。这时候优先级这件事会多出一层约束，
+            而这一层的坑比前面所有坑加起来都更隐蔽。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="FreeRTOS 与 NVIC 的交界：两条必须记住的边界">
+            <pre><code>────────────────────────────────────────────────────────────────────────────
+边 界 一：能不能调用 FreeRTOS 的 API，取决于「优先级数值」的大小
+────────────────────────────────────────────────────────────────────────────
+               数值小（更紧急）                                 数值大（更不紧急）
+  ─────────────────┬───────────────────┬──────────────────────────────┬──────────
+      0             │  1  2  3  4       │   5  (= configMAX_SYSCALL)    │   …  15
+  ─────────────────┴───────────────────┴──────────────────────────────┴──────────
+     ★ 禁区：这一区间的中断          ★ 可用区：这一区间的中断
+       绝对【不能】调用任何             可以安全调用 FromISR 版本的 API
+       FreeRTOS API（哪怕 FromISR）      （队列、信号量、任务通知…）
+       因为它能抢占内核临界区，          FreeRTOS 会推迟调度、把临界区保护住
+       会破坏内核数据结构 → 偶发崩溃
+────────────────────────────────────────────────────────────────────────────
+  configMAX_SYSCALL_INTERRUPT_PRIORITY 的典型值：5 &lt;&lt; (8-4) = 0x50 = 80（"原始值"）
+  而 NVIC_SetPriority(irq, 5) 里的 5 是「数值」——两者【不是一回事】！
+────────────────────────────────────────────────────────────────────────────
+边 界 二：FromISR 版本 + pxHigherPriorityTaskWoken，一个都不能少
+────────────────────────────────────────────────────────────────────────────
+   ✘ 错误：在 ISR 里调 xQueueSend(q, &amp;d, 0);          → 用的是非 FromISR 版本
+           → 它内部会进临界区、可能阻塞 → 在中断里是未定义行为
+   ✘ 错误：xQueueSendFromISR(q, &amp;d, NULL);            → 不传唤醒标志
+           → 队列确实收到了，但被唤醒的高优先级任务要等到
+             下一次 tick 才可能切换 → 延迟最多一个 tick（1ms）
+   ✔ 正确：
+        BaseType_t woken = pdFALSE;
+        xQueueSendFromISR(q, &amp;data, &amp;woken);
+        portYIELD_FROM_ISR(woken);     /* woken == pdTRUE 时立刻切到那个任务 */
+────────────────────────────────────────────────────────────────────────────
+为什么一定要 portYIELD_FROM_ISR：
+  中断结束时硬件只会出栈回到「被打断的地方」。如果那个地方是低优先级任务，
+  而你的中断刚刚叫醒了一个高优先级任务，不主动触发 PendSV 的话，
+  这个高优先级任务就得等到调度器下一次自然抢占（下一个 tick）才运行。
+  加上 portYIELD_FROM_ISR，ISR 退出时立刻走 PendSV 做一次任务切换，
+  「中断 → 高优先级任务开始运行」的总延迟从「最多 1ms」降到「几个 µs」。
+────────────────────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">那个最经典的坑：把原始值当数值传给了 NVIC_SetPriority</div>
+            <p>
+              <code class="icode">configMAX_SYSCALL_INTERRUPT_PRIORITY</code> 在 FreeRTOS 里是
+              <b>「已经左移好的、要写进寄存器的原始值」</b>（典型 <code class="icode">0x50</code> = 80）。
+              而 <code class="icode">NVIC_SetPriority(irq, x)</code> 要的是<b>没移位的数值</b>（0~15）。
+              于是这个「看起来很合理」的写法：
+            </p>
+            <div class="code-block mt-2" data-lang="c" data-title="一个让 FreeRTOS 随机崩溃的优先级写法">
+<pre><code>/* ✘ 错误！把原始值当数值用了 */
+NVIC_SetPriority(USART1_IRQn, configMAX_SYSCALL_INTERRUPT_PRIORITY);
+/*   configMAX_SYSCALL_INTERRUPT_PRIORITY = 80
+     80 左移 4 位 = 1280 = 0x500
+     截断成 8 位 = 0x00
+     → 实际优先级 = 0（最高！）
+     → 这个串口中断现在比内核还高，可以在内核临界区里横插一脚
+     → 现象：偶发 HardFault、队列指针错乱、configASSERT 报
+             "vPortValidateInterruptPriority" 里说的优先级非法 */
+
+/* ✔ 正确：写数值（5 对应 MAX_SYSCALL 那条线） */
+NVIC_SetPriority(USART1_IRQn, 5);
+/* 或者干脆用 HAL： */
+HAL_NVIC_SetPriority(USART1_IRQn, 5, 0);
+
+/* 建议：给每个项目加一段开机自检，把说好的事变成代码检查 */
+void irq_priority_sanity_check(void)
+{
+    /* 逐条核对：不许有任何一个「可调用 RTOS API 的中断」跑到禁区里 */
+    assert_param( NVIC_GetPriority(USART1_IRQn) &gt;= 5U );
+    assert_param( NVIC_GetPriority(TIM2_IRQn)   &gt;= 5U );
+    /* NVIC_GetPriority 返回的是【数值】（0~15），不是原始值，正好可以直接比 */
+}
+</code></pre>
+            </div>
+            <p class="mt-2">
+              为什么这个 bug 这么难查？因为你写的是 <code class="icode">NVIC_SetPriority</code>，
+              这个名字看起来「就是设优先级」，而参数语义（数值 vs 原始值）在函数原型里完全看不出来：
+              两个参数的 C 类型都是 <code class="icode">uint32_t</code>。编译器救不了你。
+              <b>唯一的防线是知道这件事，以及那句 <code class="icode">configASSERT</code>。</b>
+              FreeRTOS 在 <code class="icode">port.c</code> 里的 <code class="icode">vPortValidateInterruptPriority()</code>
+              就是专门抓这个的，只要打开 <code class="icode">configASSERT</code>，它会在第一次调用 API 时就告诉你哪一路中断越界了。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            这一节到这里就完整了。八个子节合起来，其实就是一句话：
+            <b>中断是「外设 → EXTI → NVIC（两级使能 + 优先级）→ 向量表 → HAL 转发 → 你的回调」的一条链</b>，
+            链上每一环都有自己的寄存器、自己的默认值、自己的坑。
+            下一节我们用真实数字把这几十个周期和这 16 级优先级算一遍。
+          </p>
+        </section>
+
+        <section>
+          <h2 id="sec-calc" class="mt-12 text-xl font-semibold">动手算一遍：六个必须会算的数</h2>
+
+        <p class="mt-3">
+          这一节的六个例题，覆盖了你配中断时真正要决定的六个数：优先级的组合空间、延迟的绝对大小、
+          栈要给多少、CPU 占用率是多少、线够不够用、以及最重要的——<b>你这套优先级到底能不能满足截止时间</b>。
+          每一个都给出完整的算式和结论，数字全部可以在你自己的板子上复算。
+        </p>
+
+        <div class="callout callout-info mt-4">
+          <div class="callout-title">本节的统一前提</div>
+          <p>
+            STM32F103C8T6，<b>SYSCLK = HCLK = PCLK2 = 72MHz</b>，PCLK1 = 36MHz（APB1 预分频 2），
+            分组 = <code class="icode">NVIC_PRIORITYGROUP_4</code>（4 位抢占、0 位响应），
+            Flash 等待周期 2 WS（按 RM0008：48MHz &lt; HCLK ≤ 72MHz 时需要 2 个等待周期），
+            编译器 <code class="icode">-O2</code>。周期与微秒的换算基准：
+            <b>1 周期 = 1/72MHz ≈ 13.89ns</b>，反过来 <b>1µs ≈ 72 个周期</b>。
+          </p>
+        </div>
+
+        <h3 id="calc-1" class="mt-8 text-base font-semibold">例 1：5 种分组各有几个抢占级与响应级</h3>
+
+        <p class="mt-3">
+          <b>题目：</b>F103 的优先级寄存器每个中断只有 4 个有效位。在 RM0008 定义的 5 种分组下，
+          分别能提供多少个抢占优先级、多少个响应优先级？如果我的系统里有 12 个中断，
+          希望它们<b>两两之间都能互相嵌套</b>，应该选哪个分组？如果我希望把 12 个中断分成
+          「4 个紧急度层次，每层内部再分先后」，又该选哪个分组？
+        </p>
+
+        <p class="mt-3"><b>解：</b>把 4 位当资源来分。设抢占占 <i>p</i> 位、响应占 <i>s</i> 位，则 <i>p</i> + <i>s</i> = 4，
+        抢占级数 = 2<sup>p</sup>，响应级数 = 2<sup>s</sup>，且两者的乘积恒等于 2<sup>4</sup> = 16。
+        </p>
+
+        <div class="table-scroll mt-4">
+          <table class="table-mcu">
+            <thead>
+              <tr>
+                <th>分组</th>
+                <th>抢占位 p</th>
+                <th>响应位 s</th>
+                <th>抢占级数 2<sup>p</sup></th>
+                <th>响应级数 2<sup>s</sup></th>
+                <th>能同时挂起并区分的中断数上限</th>
+                <th>乘积</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>分组 0（PRIGROUP=7）</td>
+                <td>0</td>
+                <td>4</td>
+                <td><b>1</b></td>
+                <td><b>16</b></td>
+                <td>16（全靠排队，绝不嵌套）</td>
+                <td>16</td>
+              </tr>
+              <tr>
+                <td>分组 1（PRIGROUP=6）</td>
+                <td>1</td>
+                <td>3</td>
+                <td><b>2</b></td>
+                <td><b>8</b></td>
+                <td>16</td>
+                <td>16</td>
+              </tr>
+              <tr>
+                <td>分组 2（PRIGROUP=5）</td>
+                <td>2</td>
+                <td>2</td>
+                <td><b>4</b></td>
+                <td><b>4</b></td>
+                <td>16</td>
+                <td>16</td>
+              </tr>
+              <tr>
+                <td>分组 3（PRIGROUP=4）</td>
+                <td>3</td>
+                <td>1</td>
+                <td><b>8</b></td>
+                <td><b>2</b></td>
+                <td>16</td>
+                <td>16</td>
+              </tr>
+              <tr>
+                <td>分组 4（PRIGROUP=3）</td>
+                <td>4</td>
+                <td>0</td>
+                <td><b>16</b></td>
+                <td><b>1</b></td>
+                <td>16（每个都能互相嵌套）</td>
+                <td>16</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-4">
+          <b>第一个问题：12 个中断两两都能互相嵌套。</b>要「任意两个中断的抢占优先级都不相同」，
+          需要抢占级数 ≥ 12。分组 3 只有 8 级（0~7），不够；只有分组 4 的 16 级（0~15）够用。
+          所以在分组 4 下你可以给 12 个中断分别安排 0~11 的抢占优先级，任意两个都能嵌套。
+        </p>
+        <p class="mt-3">
+          <b>第二个问题：4 个紧急度层次、每层内部再分先后。</b>这正是分组 2 的定义：
+          抢占级 0~3 共 4 层，每层内部响应级 0~3 共 4 个先后顺序。
+          设<a href="#sub-priority-group" class="text-brand-600 hover:underline dark:text-brand-300">抢占与响应</a>时
+          要记住那句话——<b>抢占管打断，响应管排队</b>：
+          同一层里的 4 个中断互相<b>不</b>嵌套，但它们同时挂起时，响应级小的先跑。
+        </p>
+
+        <div class="callout callout-warn mt-4">
+          <div class="callout-title">「16」这个数字不变，变的是它的形状</div>
+          <p>
+            五种分组下「能表达的不同优先级数值」永远是 16 个——不是 16 加 16。
+            分组改变的是这 16 份资源<b>怎么切成两层树</b>：切得越偏抢占，就越能嵌套、越不能排队；
+            切得越偏响应，就越能排队、越不能嵌套。
+            工程上 90% 的裸机项目直接用分组 4（HAL 默认），因为「16 个能互相嵌套的等级」
+            在中断数不超过 16 时是最直观、最不容易出错的模型。
+            <b>只有在「中断数超过 16，必须让一部分中断共享优先级」时，才需要考虑分组 2 或 3。</b>
+          </p>
+        </div>
+
+        <h3 id="calc-2" class="mt-8 text-base font-semibold">例 2：从事件到 ISR 第一条指令要多少纳秒</h3>
+
+        <p class="mt-3">
+          <b>题目：</b>在 72MHz 下，一个定时器更新中断（同步请求）和一个按键 EXTI 中断（异步请求），
+          从「事件发生」到「ISR 第一条指令开始执行」分别要多少周期、多少纳秒？
+          把主频降到 8MHz 内部 RC 又会怎样？这个延迟相对于 115200 波特率下的字节间隔是什么量级？
+        </p>
+
+        <p class="mt-3"><b>解：</b>逐段累加，用第 2 节给出的典型周期数（ARM 文档与 Joseph Yiu 的
+        Cortex-M3 权威指南，零等待存储器、无 FPU）：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="例 2 的逐段计算：72MHz 下两种请求的延迟">
+            <pre><code>周 期 换 算 基 准 ：1 周 期 = 1 / 72 MHz = 13.89 ns
+────────────────────────────────────────────────────────────────────
+【A】同步请求（TIM 更新事件、软件写 SWIER、内核异常）
+   请求产生               0 周期（下一个 CPU 周期就能看见）
+   压栈 8 字            + 12 周期
+   取向量               + 已包含在上面 12 周期内（零等待 Flash + 预取开启）
+   ────────────────────────────────
+   合计                  12 周期 × 13.89 ns = 166.7 ns ≈ 0.17 µs
+
+【B】异步请求（EXTI 引脚边沿、外部信号）
+   同步到 CPU 时钟域      + 2~3 周期（两级触发器采样；正好卡在采样窗口边缘时再 +1）
+   压栈 8 字            + 12 周期
+   ────────────────────────────────
+   合计                 14~15 周期 × 13.89 ns = 194.4 ~ 208.3 ns ≈ 0.19~0.21 µs
+
+【C】把「工程上真实会遇到的额外开销」加上
+   · Flash 有 2 个等待周期（72MHz 的必然配置）：
+     如果 ISR 入口的取指正好没命中预取缓冲，多 1~2 周期
+   · 栈指针指向的 RAM 若被 DMA 占用总线：一次压栈可能多几个周期
+   · ISR 第一条指令本身要取指（1 周期 ICode 访问 + 执行）
+   ────────────────────────────────
+   现实中的实测值通常在 250 ~ 400 ns 之间
+   ★ 所以第 4 节的 DWT 实验会教你实测，而不是信纸面数字
+
+【D】把主频降到 8MHz（HSI 直连，无 PLL）
+   1 周期 = 1 / 8 MHz = 125 ns
+   14 周期 × 125 ns = 1750 ns = 1.75 µs
+   ★ 比 72MHz 慢了整整 9 倍 —— 因为延迟的「周期数」几乎不随主频变，
+     它是个常数；所以【主频越高，中断延迟的绝对时间越短】，线性关系。
+────────────────────────────────────────────────────────────────────
+【E】和 115200 波特率的字节间隔比一比
+   1 个字节 = 10 位（1 起始 + 8 数据 + 1 停止）
+   每个位的时间 = 1 / 115200 = 8.68 µs
+   一个字节 = 10 × 8.68 µs = 86.8 µs
+   → 中断延迟 0.21 µs 只占字节间隔的 0.24%
+   → 也就是说：中断延迟本身从来不是串口丢字节的原因，
+     【真正吃掉时间的是你的 ISR 执行时间和关中断时长】
+────────────────────────────────────────────────────────────────────
+【F】换个角度看这 15 个周期
+   Cortex-M3 在 -O2 下，简单指令（MOV/ADD/比较/分支）CPI 约 1~1.2
+   → 15 个周期 ≈ 本可以执行 12~15 条指令
+   → 也就是每次中断「白扔」十几条指令的时间；
+     每秒 20000 次中断（50µs 一个）时，光延迟就吃掉
+     15 × 20000 = 300,000 周期/s = 300k / 72M ≈ 0.42% 的 CPU
+────────────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+        <p class="mt-4">
+          <b>结论：</b>同步请求约 <b>167ns（12 周期）</b>，异步请求约 <b>194~208ns（14~15 周期）</b>，
+          实测约 <b>250~400ns</b>。这些数字小到「几乎可以忽略」，所以
+          <b>绝大多数实时性问题都不是中断延迟造成的，而是 ISR 太长或者关中断太久造成的</b>——
+          这个结论会在例 4 和例 6 里被反复验证。
+        </p>
+
+        <h3 id="calc-3" class="mt-8 text-base font-semibold">例 3：嵌套深度 4 的最坏栈用量</h3>
+
+        <p class="mt-3">
+          <b>题目：</b>系统里有四个中断可以互相嵌套（抢占优先级 0、1、2、3），
+          假设它们在最坏时刻同时叠加。请算出中断部分的最坏栈占用；如果栈总共只给了 1KB，
+          还剩多少给主程序？再算一下「某个 ISR 里手滑调了一次 <code class="icode">printf</code>」会发生什么。
+        </p>
+
+        <p class="mt-3"><b>解：</b>栈用量分三块——<b>硬件帧</b>（每层固定 32 字节，不可协商）、
+        <b>ISR 自身的局部变量与保存的寄存器</b>（编译器决定，要看 .su 文件或反汇编）、
+        以及<b>主上下文</b>（主循环的调用链深度）。</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="例 3 的栈账：逐层累加">
+            <pre><code>栈 是 从 高 地 址 往 低 地 址 生 长 的
+────────────────────────────────────────────────────────────────────
+假设：栈顶 MSP 初始 = 0x20005000（RAM 20KB 的顶）
+      分配给栈的空间 = 0x400 = 1024 字节 → 栈底警戒线 = 0x20004C00
+────────────────────────────────────────────────────────────────────
+地址            内容                                        用量
+0x20005000  ┌──────────────────────────────────┐
+            │  主上下文（main 调用链的最深处）      │ ← 先建立
+            │  main → process_data → parse_frame │
+            │  → 局部变量、保存的寄存器            │   约 260 字节
+0x20004EFC  ├──────────────────────────────────┤
+            │  第 1 层：EXTI0 ISR（抢占 3）        │
+            │   硬件帧 8 字                      │   32 字节
+            │   ISR 局部变量 + 调用 HAL 的保存      │   约 48 字节
+            ├──────────────────────────────────┤
+            │  第 2 层：TIM2 ISR（抢占 2）         │
+            │   硬件帧                           │   32 字节
+            │   局部变量                         │   约 64 字节
+            ├──────────────────────────────────┤
+            │  第 3 层：USART1 ISR（抢占 1）       │
+            │   硬件帧                           │   32 字节
+            │   局部变量 + HAL_UART_IRQHandler 帧  │   约 96 字节
+            ├──────────────────────────────────┤
+            │  第 4 层：TIM3 ISR（抢占 0）         │
+            │   硬件帧                           │   32 字节
+            │   局部变量                         │   约 40 字节
+0x20004D??  └──────────────────────────────────┘ ← 最坏时的 SP
+────────────────────────────────────────────────────────────────────
+计 算 ：
+  硬件帧合计 = 4 层 × 32 字节 = 128 字节
+  ISR 局部变量合计 = 48 + 64 + 96 + 40 = 248 字节
+  中断部分最坏 = 128 + 248 = 376 字节
+  主上下文     ≈ 260 字节
+  ────────────────────────────────
+  最坏总用量   = 376 + 260 = 636 字节
+  剩余         = 1024 - 636 = 388 字节（占 37.9% 余量）
+────────────────────────────────────────────────────────────────────
+★ 结论 1：栈余量 388 字节 —— 听起来还行，但这是【理想叠加】的估算。
+  真实情况里，各层 ISR 的局部变量大小依赖编译器优化和调用链深度，
+  你的估算误差可能达到 ±50%。所以【至少要留 30% 余量】，
+  而且必须用实测方法验证（下面给方法）。
+────────────────────────────────────────────────────────────────────
+★ 结论 2：把 ISR 里塞进一个 printf 会怎样？
+  newlib 的 printf（带 %f）单个调用就可能吃 200~500 字节栈，
+  加上它内部的 vfprintf 递归调用链：
+  最坏总用量 = 636 + 300 ≈ 936 字节 → 只剩 88 字节余量
+  再深一层嵌套、或者主循环恰好在调用链深处被中断 → 直接越过 0x20004C00
+  → 栈溢出 → 覆盖掉相邻的 .bss 变量（或者更糟：覆盖另一个任务的栈）
+  → 现象：一个和中断毫无关系的全局变量莫名其妙被改、或者 HardFault
+  ★ 这就是「HardFault 定位到 ISR 里 = 栈溢出」这条经验的来源：
+    栈溢出本身不会立刻报错，它是【无声地破坏别人的数据】，
+    直到某个倒霉的变量被踩坏才崩，而且崩的位置和原因隔了十万八千里。
+────────────────────────────────────────────────────────────────────
+★ 结论 3：嵌套深度直接决定最坏栈用量。
+  上面 4 层嵌套 = 376 字节。如果把 TIM2 和 EXTI0 设成【同一个抢占级】，
+  它们就不嵌套了 → 最坏深度降到 3 → 省下 32 + 48 = 80 字节。
+  这是「故意让一部分中断共享优先级」最实在的收益：
+  【用一点响应延迟，换稳定的栈预算】。
+────────────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+        <div class="code-block mt-3" data-lang="c" data-title="stack_check.c —— 用「填图案 + 扫栈」实测最坏栈用量">
+<pre><code>#include "stm32f1xx_hal.h"
+
+/* 思路：开机时把整块栈区填成一个不会自然出现的图案（0xA5），
+   跑完整套最坏场景后，从栈底往上扫，看有多少图案被改写。
+   被改写到的最深位置，就是实际用到的最大栈深度。 */
+
+#define STACK_FILL_BYTE   0xA5u
+#define STACK_SENTINEL     0x400u   /* 给栈留 1KB，与例 3 一致 */
+
+/* ★ 必须在 main 之前、栈还没被大量使用时装填。
+   做法：在 Reset_Handler 跳到 main 之前插一句，或者在 main 的第一行调用。
+   main 第一行调用是够用的，因为 main 自己还没用多少栈。 */
+void stack_paint(void)
+{
+    extern uint32_t _estack;                 /* 链接脚本里的栈顶符号 */
+    uint8_t *top = (uint8_t *)&amp;_estack;
+    uint8_t *bottom = top - STACK_SENTINEL;
+
+    for (uint8_t *p = bottom; p &lt; top; p++) {
+        *p = STACK_FILL_BYTE;
+    }
+    /* 注意：这个循环自己也要用栈，但它只用几个字节，
+       而且它写在栈底附近，影响的区域正是我们想测的最深处——
+       所以更严谨的做法是把它放到 .data 之前、用汇编实现。
+       对「量级估算」来说，这个版本已经够用。 */
+}
+
+/* 跑完一段最坏场景后调用，返回「从栈底算起的最大使用字节数」 */
+uint32_t stack_used_bytes(void)
+{
+    extern uint32_t _estack;
+    uint8_t *top = (uint8_t *)&amp;_estack;
+    uint8_t *bottom = top - STACK_SENTINEL;
+    uint8_t *p;
+
+    for (p = bottom; p &lt; top; p++) {
+        if (*p != STACK_FILL_BYTE) {        /* 找到一个被改写过的字节 */
+            return (uint32_t)(top - p);     /* 从栈顶往下数，这就是用量 */
+        }
+    }
+    return 0;                                /* 整个区域都没被动过 */
+}
+
+/* 使用方法：在调试会话里
+     1) 复位后立刻调用 stack_paint()
+     2) 触发最坏场景（比如同时按住所有按键 + 满速串口收发 + 让定时器最密）
+     3) 在断点里执行 printf("stack = %lu\n", stack_used_bytes());
+   反复几轮取最大值。它就作业余版「栈水位检测」。
+   ★ 生产代码里更常见的做法是配合 MPU（带 MPU 的型号）把栈区设成
+     「可读写但不可越界」，越界立刻触发 MemManage Fault，而不是静默破坏数据。 */</code></pre>
+        </div>
+
+        <h3 id="calc-4" class="mt-8 text-base font-semibold">例 4：50µs 中断的 CPU 占用率与尾链收益</h3>
+
+        <p class="mt-3">
+          <b>题目：</b>一个定时器每 50µs 中断一次，ISR 本体（含 HAL 调用与清标志）执行 432 个周期。
+          求 CPU 占用率；其中「进出中断的固定开销」占多少？如果有<b>两个</b>中断都以 20kHz 触发、
+          且总是背靠背到来，尾链能省多少？再用一组不同长度的 ISR 看看尾链收益的规律。
+        </p>
+
+        <p class="mt-3"><b>解：</b>先算出 50µs 在 72MHz 下是多少个周期，再算比例。</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="例 4 的三个层次：先算固定开销，再算占用率，最后看尾链">
+            <pre><code>基 准 ：50 µs × 72 MHz = 3600 周期/次中断（20 kHz）
+        432 周期 = 432 / 72 = 6.0 µs（ISR 本体执行时间）
+────────────────────────────────────────────────────────────────────
+【第 1 步】单次中断的固定开销（不干活、纯进出的那部分）
+   压栈 + 取向量（异步）   14 周期
+   异常返回（出栈）        10 周期
+   ────────────────────────────
+   合计                    24 周期 = 24 / 72 = 0.333 µs
+   ★ 这 0.333µs 是「每次中断都要交的过路费」，和 ISR 里干了什么无关
+────────────────────────────────────────────────────────────────────
+【第 2 步】CPU 占用率
+   每次中断实际耗时 = 432（本体） + 24（开销） = 456 周期
+   占用率 = 456 / 3600 = 12.67%
+   ────────────────────────────
+   拆分看：ISR 本体 12.00%，固定开销 0.67%
+   ★ 固定开销只占 0.67% —— 这就是为什么「优化中断开销」在多数项目里
+     优先级极低；真正吃掉 CPU 的是本体。要降占用率，先缩短 ISR 本体。
+────────────────────────────────────────────────────────────────────
+【第 3 步】两个 20kHz 中断背靠背到来，尾链省多少
+   场景：TIM3 和 DMA1_Channel4 都以 50µs 周期触发，且几乎同时到达
+   设 ISR_A 本体 = 200 周期，ISR_B 本体 = 100 周期
+
+   【无尾链（假设的硬件行为）】每次都完整进出：
+     开销 = (14 + 10) × 2 = 48 周期
+     总耗时 = 200 + 100 + 48 = 348 周期
+
+   【有尾链（Cortex-M3 的真实行为）】
+     第一个中断进来：压栈+取向量 14 周期
+     做完 ISR_A 后：异常返回时发现 ISR_B 还挂着
+        → 不出栈、不回主程序，直接取 ISR_B 的向量：6 周期
+     做完 ISR_B 后：正常出栈返回：10 周期
+     开销 = 14 + 6 + 10 = 30 周期
+     总耗时 = 200 + 100 + 30 = 330 周期
+
+   ────────────────────────────
+   省下 18 周期 / 每 50µs
+   固定开销从 48 周期降到 30 周期，【降低 37.5%】
+   折算成 CPU：省 18 / 3600 = 0.50% 的 CPU
+────────────────────────────────────────────────────────────────────
+【第 4 步】规律：本体越短、中断越密，尾链收益占比越大
+   固定开销：无尾链 48 周期 → 有尾链 30 周期（省 18 周期，恒定不变）
+   ┌──────────────┬───────────┬───────────┬───────────┬──────────┐
+   │ ISR 本体合计  │ 无尾链总   │ 有尾链总   │ 省下的比例 │ 折算 CPU  │
+   ├──────────────┼───────────┼───────────┼───────────┼──────────┤
+   │ 600 周期      │ 648       │ 630       │ 2.8%      │ 0.50%    │
+   │ 300 周期      │ 348       │ 330       │ 5.2%      │ 0.50%    │
+   │ 100 周期      │ 148       │ 130       │ 12.2%     │ 0.50%    │
+   │ 30 周期       │ 78        │ 60        │ 23.1%     │ 0.50%    │
+   └──────────────┴───────────┴───────────┴───────────┴──────────┘
+   ★ 注意最后一列都是 0.50% —— 因为 50µs 的周期下，
+     「省 18 周期」的绝对值是固定的。【尾链不会因为省比例高就多省 CPU】。
+   ★ 但如果中断频率提高 10 倍（5µs 一次，200kHz），
+     无尾链开销 = 48/360 周期 = 13.3% CPU，有尾链 = 8.3% CPU
+     → 省 5% CPU，这时候尾链的收益就是真的了。
+   ★ 换句话说：尾链是【高频中断场景下的救星】，
+     在中低频（&lt; 50kHz）场景下，它省下的 CPU 可以忽略。
+     知道这一点，你就不会去为「尾链优化」做无用功，
+     也不会在写高频中断驱动时忽略了它带来的 5% 收益。
+────────────────────────────────────────────────────────────────────
+【第 5 步】顺便算一下「关中断」的代价
+   如果主循环里有一段 200µs 的临界区（__disable_irq / __enable_irq）：
+     这段期间 50µs 的中断会被挂起 200 / 50 = 4 次（挂起位只记一次，不排队！）
+     ★ 关键：NVIC 的 pending 是【一位一个中断】，不是队列。
+       挂起 4 次，补上来只执行【1 次】→ 时基直接丢了 3 个 tick
+     → 现象：HAL_GetTick() 比真实时间慢，或者定时任务被吞掉
+   ★ 结论：临界区必须远小于中断周期，否则就是「时间丢失」。
+     200µs 的临界区 + 50µs 的中断 = 3/4 的 tick 被吞掉，这是灾难。
+────────────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+        <p class="mt-4">
+          <b>结论：</b>占用率 <b>12.67%</b>（本体 12.00% + 固定开销 0.67%）；
+          两个中断背靠背时尾链省 <b>18 周期（固定开销降低 37.5%）</b>，
+          折算 <b>0.50% CPU</b>。真正要盯的不是这 0.5%，而是：
+          <b>① ISR 本体别写长；② 临界区别超过中断周期的几分之一。</b>
+          一般工程经验是<b>整体 CPU 占用率留 30% 以上余量</b>（也就是别超过 70%），
+          因为你要给「同时发生的最坏情况」和「以后新增的功能」留地方。
+        </p>
+
+        <div class="callout callout-tip mt-4">
+          <div class="callout-title">一个反直觉但不难理解的推论</div>
+          <p>
+            既然固定开销在低频下可以忽略，那你为了「省掉进出中断的开销」而做的努力
+            （比如把两个中断合并成一个、或者把中断改成轮询）——
+            <b>省下的可能只是 0.67% 的 CPU，却损失了实时性</b>。
+            「用轮询代替中断」在 51 时代是常见优化，在 72MHz 的 M3 上往往是亏的。
+            要不要合并，算一次就知道了：<b>用这一节的算式，别用感觉。</b>
+          </p>
+        </div>
+
+        <h3 id="calc-5" class="mt-8 text-base font-semibold">例 5：EXTI 线够不够用</h3>
+
+        <p class="mt-3">
+          <b>题目：</b>一个项目要接 8 个独立按键，工程师把它们的引脚随手分配在 PA0~PA15、PB0~PB15、PC13~PC15 之间，
+          每接一个就用一次 EXTI。请问：① 这 37 个可用 GPIO 是否等于 37 个外部中断源？
+          ② 8 个按键「恰好互不冲突」的概率是多少？③ 冲突时「第二个按键」的响应概率是多少？
+          ④ 如果一定要用 EXTI 接 8 个键，正确的分配方式是什么？
+        </p>
+
+        <p class="mt-3"><b>解：</b>先把「引脚数」和「中断源数」这两个概念掰开。</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="例 5 的四问四答：把「随机分配」的后果算清楚">
+            <pre><code>【问 ①】37 个 GPIO 等于 37 个外部中断源吗？
+   ✘ 不等于。可用的 EXTI 线只有 EXTI0 ~ EXTI15 共 16 条。
+   F103C8T6（LQFP48）的可用 GPIO 数量：
+      PA0~PA15  = 16 个
+      PB0~PB15  = 16 个
+      PC13~PC15 =  3 个
+      PD0~PD1   =  2 个（有些封装不引出）
+      ────────────────────
+      合计        37 个 GPIO（按 STM32F103C8 数据手册的引脚定义）
+   → 37 个引脚，但只有 16 条 EXTI 线。
+   → 【一根线号上，PA、PB、PC、PD 的同号引脚只能选一个走中断】
+   → 所以「每个引脚一个独立中断」的方案，最多支持 16 个引脚，
+      而且这 16 个的引脚号必须两两不同。
+   ★ 这就是那条规则的真正含义：限制的不是引脚数量，
+     而是【线号（= 引脚号）必须唯一】。
+────────────────────────────────────────────────────────────────────
+【问 ②】8 个按键随机分配在 0~15 的引脚号上，「互不冲突」的概率是多少？
+   这是经典的「生日问题」：16 个格子（引脚号），8 个人（按键），
+   求 8 个人占的格子全不相同的概率。
+   第 1 个按键随便占一个格子          → 16/16
+   第 2 个按键要避开第 1 个          → 15/16
+   第 3 个要避开前 2 个              → 14/16
+   ...
+   第 8 个要避开前 7 个              →  9/16
+   ────────────────────────────────
+   P(全不冲突) = (16 × 15 × 14 × 13 × 12 × 11 × 10 × 9) / 16^8
+              = 518,918,400 / 4,294,967,296
+              = 0.1208 → 【只有 12.08%】
+   → 反过来：【至少有 2 个按键冲突的概率 = 87.9%】
+   ★ 换句话说，随手分配 8 个按键，「一定有键冲突」几乎是必然事件。
+     这就是为什么「两个按键只有一个响应」是初学者最常见的故障之一，
+     它不是运气不好，它是概率上的默认结果。
+────────────────────────────────────────────────────────────────────
+【问 ③】冲突时「第二个按键」的响应概率是多少？
+   设 PA5 和 PB5 两个按键都想用 EXTI5，而 AFIO_EXTICR2 里
+   EXTI5[3:0] 这个 4 位字段只能写一个值：
+     写 0b0000（选 PA）→ PA5 的边沿能进中断；PB5 的边沿【永远进不来】
+     写 0b0001（选 PB）→ 反过来
+   → 于是「第二个按键的响应概率」不是 50%，不是随机，
+     而是【0%：完全、稳定、必然地不响应】。
+   ★ 这一点非常重要，因为它决定了排查难度：
+     ✘ 如果它是「偶发不响应」，你会怀疑是抖动、是电气问题；
+     ✔ 而它是「稳定不响应」，所以正确的排查方式是：
+        - 按下不响应的那个键，看 EXTI-&gt;PR 对应位【有没有置 1】
+          → 没置 1 = 边沿压根没到 EXTI = AFIO 选错了端口（就是本例）
+          → 置了 1 但没进 ISR = NVIC 没使能 / 优先级被屏蔽
+   ★ 还有一个更隐蔽的变体：两个键都在 PA 上（PA5 和 PA6），
+     这样不冲突，但如果你只开了 EXTI5 没开 EXTI6，
+     PA6 的键同样永远不响应——现象和线冲突【一模一样】。
+     所以排查第二步必须看 PR 位，而不是猜。
+────────────────────────────────────────────────────────────────────
+【问 ④】正确分配方式（8 个按键都用 EXTI，且都要独立响应）
+   目标：8 个按键的【引脚号】两两不同 = 落在 8 条不同的 EXTI 线上。
+   推荐这样排（避开 JTAG/SWD 占用的 PA13/PA14/PA15/PB3/PB4）：
+   ┌──────────┬──────────┬────────────┬──────────────────────────┐
+   │ 引脚      │ 引脚号    │ EXTI 线     │ 中断向量（ISR 名）         │
+   ├──────────┼──────────┼────────────┼──────────────────────────┤
+   │ PA0      │ 0        │ EXTI0      │ EXTI0_IRQHandler         │
+   │ PA1      │ 1        │ EXTI1      │ EXTI1_IRQHandler         │
+   │ PA2      │ 2        │ EXTI2      │ EXTI2_IRQHandler         │
+   │ PA3      │ 3        │ EXTI3      │ EXTI3_IRQHandler         │
+   │ PB5      │ 5        │ EXTI5      │ EXTI9_5_IRQHandler  ←┐   │
+   │ PB6      │ 6        │ EXTI6      │ EXTI9_5_IRQHandler  ←┤ 共用  │
+   │ PB7      │ 7        │ EXTI7      │ EXTI9_5_IRQHandler  ←┤ 一个  │
+   │ PB10     │ 10       │ EXTI10     │ EXTI15_10_IRQHandler←┘ 向量  │
+   └──────────┴──────────┴────────────┴──────────────────────────┘
+   ★ 注意 PB5/PB6/PB7 三个键共用 EXTI9_5_IRQHandler：
+     ISR 里要【先判 PR 是哪一位、再判 GPIO_Pin】，这就是第 4 节范式代码的写法。
+   ★ 还有个更省心的替代方案——【定时器轮询】：
+     10ms 扫一次 GPIO IDR，8 个按键共用一个定时器中断，零线冲突风险，
+     而且天然带 10ms 去抖。代价是最坏 10ms 的响应延迟，
+     对按键这种 50ms 感知窗口的应用完全够用。
+     工程上很多量产产品就是这么做的 —— 【能不用 EXTI 就不用】，
+     因为 EXTI 的坑（线冲突、抖动、共用向量、清 PR）比它带来的收益多。
+────────────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+        <h3 id="calc-6" class="mt-8 text-base font-semibold">例 6：按截止时间定优先级后的最坏响应延迟</h3>
+
+        <p class="mt-3">
+          <b>题目：</b>用第 2 节那张建议表的中断集合，验证这套优先级到底能不能满足所有截止时间。
+          如果反过来把按键放在最高优先级（很多人凭直觉会这么做），后果是什么？
+        </p>
+
+        <p class="mt-3"><b>解：</b>用实时系统里的<b>响应时间分析（RTA）</b>来算。
+        对某个中断 <i>i</i>，它的最坏响应时间 <i>R<sub>i</sub></i> 由三部分组成：
+        <b>自己的执行时间 <i>C<sub>i</sub></i></b> +
+        <b>被阻塞的时间 <i>B<sub>i</sub></i></b>（最长的关中断临界区）+
+        <b>被所有更高优先级中断抢占的时间</b>。
+        最后一项要用迭代公式，因为「被抢占的时间里又可能被抢占」：</p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="例 6：响应时间分析的迭代公式与逐项代入">
+            <pre><code>公 式 （RTA，适用于固定优先级抢占式调度，如 NVIC）：
+   R_i = C_i + B_i + Σ_{j∈hp(i)} ⌈R_i / T_j⌉ × C_j
+   其中：hp(i) = 所有抢占优先级比 i 高的中断集合
+         T_j   = 中断 j 的触发周期
+         ⌈ ⌉   = 向上取整（在 R_i 这段时间里，j 最多会来 ⌈R_i/T_j⌉ 次）
+   迭代方法：先令 R_i = C_i + B_i，代入右边算出一个更大的值，
+             再代回去，直到两次结果相同（收敛）。
+────────────────────────────────────────────────────────────────────
+输 入 数 据 （按截止时间排出的优先级）
+   中断        抢占优先级   执行时间 C   周期 T     截止时间 D
+   TIM3        0（最高）    6 µs       50 µs      50 µs
+   USART1      1            8 µs       87 µs      87 µs
+   TIM2        2            5 µs       1000 µs    1000 µs
+   EXTI0       14（最低）    2 µs       随机（秒级） 50000 µs（人感知）
+   最长临界区 B = 10 µs（主循环里一段关中断的环形缓冲区操作）
+   中断进出开销已计入 C（每个 C 都按「本体 + 0.33µs 过路费」估算）
+────────────────────────────────────────────────────────────────────
+【算 TIM3（最高优先级）】
+   hp 集合为空，Σ 项 = 0
+   R = 6 + 10 + 0 = 16 µs
+   检验：16 µs &lt; 50 µs ✔ 余量 68%
+
+【算 USART1】
+   hp = {TIM3}：T=50, C=6
+   ── 先插入一段【故意走错路】的演示：把 B 也放进迭代项会怎样 ──
+   R₀ = 8 + 10 = 18
+   R₁ = 18 + ⌈18/50⌉ × 6 = 18 + 1×6 = 24
+   R₂ = 24 + ⌈24/50⌉ × 6 = 24 + 6 = 30
+   R₃ = 30 + ⌈30/50⌉ × 6 = 30 + 6 = 36          ← 注意：R 变大了，但 ⌈R/50⌉ 还是 1
+   R₄ = 36 + 1×6 = 42
+   R₅ = 42 + ⌈42/50⌉ × 6 = 42 + 6 = 48
+   R₆ = 48 + ⌈48/50⌉ × 6 = 48 + 6 = 54          ← 越过 50 了！取整变成 2
+   R₇ = 54 + ⌈54/50⌉ × 6 = 54 + 2×6 = 66
+   R₈ = 66 + ⌈66/50⌉ × 6 = 66 + 2×6 = 78
+   R₉ = 78 + 2×6 = 90                            ← 又越过 87 了吗？不，是 TIM3 的 50，
+                                                     ⌈90/50⌉ = 2，不变
+   R₁₀= 90 + 2×6 = 102 ...
+   ★ 等一下——收敛好像出问题了。继续代：
+   R = 102 → ⌈102/50⌉ = 3 → R = 102 + 18 = 120
+   R = 120 → ⌈120/50⌉ = 3 → R = 120 + 18 = 138
+   R = 138 → ⌈138/50⌉ = 3 → R = 138 + 18 = 156
+   R = 156 → ⌈156/50⌉ = 4 → R = 156 + 24 = 180
+   ... 它在无限增长！
+   ────────────────────────────
+   ★★ 这说明用 RTA 时【绝不能把 B（临界区）算成"每周期都发生"】。
+      我上面的代入犯了一个错：B 只在「你恰好撞上临界区」时发生一次，
+      不是每轮迭代都加一次。正确的做法是【只加一次 B】，
+      迭代时只让 Σ 项随 R 增长：
+      R = C + B + Σ_j ⌈R/T_j⌉ × C_j    ← B 在初始化时加，后续迭代不再加
+   重算 USART1：令 R = 8 + 10 = 18（含一次 B），后续只迭代 Σ：
+      R = 8 + 10 + ⌈18/50⌉×6  = 18 + 6  = 24
+      R = 8 + 10 + ⌈24/50⌉×6  = 18 + 6  = 24  ✔ 收敛
+   → 【USART1 最坏响应时间 = 24 µs】
+      检验：24 µs &lt; 87 µs ✔ 余量 72%
+────────────────────────────────────────────────────────────────────
+【算 TIM2】
+   hp = {TIM3 (T=50,C=6), USART1 (T=87,C=8)}
+   初值 R = C + B = 5 + 10 = 15
+   R = 15 + ⌈15/50⌉×6 + ⌈15/87⌉×8 = 15 + 6 + 8 = 29
+   R = 29 + ⌈29/50⌉×6 + ⌈29/87⌉×8 = 29 + 6 + 8 = 29  ✔ 收敛
+   → 【TIM2 最坏响应时间 = 29 µs】
+      检验：29 µs &lt; 1000 µs ✔ 余量 97%
+────────────────────────────────────────────────────────────────────
+【算 EXTI0（最低）】
+   hp = {TIM3, USART1, TIM2}
+   初值 R = 2 + 10 = 12
+   R = 12 + ⌈12/50⌉×6 + ⌈12/87⌉×8 + ⌈12/1000⌉×5 = 12 + 6 + 8 + 5 = 31
+   R = 31 + ⌈31/50⌉×6 + ⌈31/87⌉×8 + ⌈31/1000⌉×5 = 31 + 6 + 8 + 5 = 31  ✔ 收敛
+   → 【EXTI0 最坏响应时间 = 31 µs】
+      检验：31 µs &lt; 50000 µs ✔ 余量 99.9%
+────────────────────────────────────────────────────────────────────
+汇 总 表
+  中断      优先级  最坏响应 R   截止时间 D   R &lt; D ?   余量
+  TIM3      0       16 µs       50 µs        ✔        68%
+  USART1    1       24 µs       87 µs        ✔        72%
+  TIM2      2       29 µs       1000 µs      ✔        97%
+  EXTI0     14      31 µs       50000 µs     ✔        99.9%
+  ★★ 全部满足。这才是「配好了」的定义——不是"能跑"，而是
+     【每一个中断的最坏响应时间都有据可查地小于它的截止时间】。
+────────────────────────────────────────────────────────────────────
+【反 面 案 例】把按键放到最高优先级（抢占 0），其他顺次下移
+   EXTI0 = 0, TIM3 = 1, USART1 = 2, TIM2 = 3
+   ────────────────────────────
+   ① USART1 的最坏响应时间：
+      hp = {EXTI0, TIM3}
+      按键的「周期」不是固定的 —— 抖动时每分钟可能有几十个边沿，
+      取最坏情况 T = 2.33µs（每次按键中断 = 2µs 本体 + 0.33µs 开销）
+      R = 8 + 10 + ⌈R/2.33⌉×2.33 + ⌈R/50⌉×6
+      当 R ≈ 100µs 时：⌈100/2.33⌉ = 43 → 43 × 2.33 = 100µs
+      也就是说 R 会被按键完全填满，逐次迭代下去【不收敛】→
+      系统在这个最坏假设下【不可调度】（实时性无从保证）
+   ────────────────────────────
+   ② 算一个具体的临界点：USART1 最多能容忍多少 µs 的阻塞？
+      截止时间 87µs − 自身执行 8µs − 中断延迟 0.2µs ≈ 78.8 µs
+      每个按键中断占用 2µs + 0.33µs = 2.33µs
+      → 78.8 / 2.33 ≈ 【33 个】
+      结论：按键的抖动边沿只要累计超过 33 次，串口就会开始丢字节。
+      ★ 机械按键在按下/松开瞬间产生几十个抖动边沿是家常便饭，
+        尤其是触点氧化的旧按键（可达上百次）。
+        所以「按键抢最高优先级」不是理论风险，是必然出问题。
+   ────────────────────────────
+   ③ 对比「按键最低优先级」时：
+      按键被推迟到 31µs 才响应 —— 用户完全感知不到（人的感知阈值约 50ms）
+      而串口拿到了 24µs 的响应 —— 稳稳不丢字节
+      【同一套中断，只换了一个优先级数字，一个丢数据一个不丢】
+────────────────────────────────────────────────────────────────────
+【附：利用率检验（快速判断"这套中断是不是太满了"）】
+   U = Σ C_i / T_i
+     = 6/50 + 8/87 + 5/1000 + (按键按 10ms 一次、C=2.33µs 估)
+     = 0.120 + 0.0920 + 0.0050 + 0.000233
+     = 0.2172 → 【21.7%】
+   对 4 个任务，速率单调调度（RM）的可调度性充分条件是：
+     U ≤ n(2^(1/n) − 1) = 4 × (2^0.25 − 1) = 4 × 0.1892 = 0.7568
+   21.7% &lt;&lt; 75.7% ✔ 有充足余量
+   ★ 反过来，如果算出来 U 已经接近 70~80%，
+     别急着加中断，先回去把 ISR 本体砍短 —— 那才是分母。
+────────────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+        <p class="mt-4">
+          <b>结论：</b>按「截止时间」排出的优先级，四个中断的最坏响应时间分别是
+          <b>16 / 24 / 29 / 31µs</b>，全部远小于各自截止时间（50µs / 87µs / 1ms / 50ms），
+          总利用率 21.7%，系统有充分余量。
+          而按「重要性」把按键放最高，会让 USART1 在最坏情况下<b>不可调度</b>，
+          并且只要按键抖动累计 <b>33 次</b>，串口就开始丢字节。
+          <b>这就是「按截止时间排优先级」这句话的全部含义——它不是一个风格偏好，是一个可以算出来的结论。</b>
+        </p>
+
+        <div class="callout callout-warn mt-4">
+          <div class="callout-title">RTA 迭代里那个必须避开的坑（上面例 6 特意演示了）</div>
+          <p>
+            我第一次代入时把阻塞时间 <i>B</i> 放进了迭代公式里，结果 R 无限增长。
+            这不是数学问题，是我对模型的误解：<b><i>B</i> 是「最多被阻塞一次」的持续时间</b>
+            （你不可能被同一段临界区阻塞两次），所以它<b>只在初值里加一次</b>，
+            迭代时只让 Σ（被更高优先级抢占）随 R 增长。
+            这个坑很典型：<b>用公式算实时性的时候，模型搞错了比算错了更危险</b>——
+            算错你会得到一个偏保守的数，模型错你会得到一个无限增长、看似"系统完蛋"的假警报
+            （或者反过来，一个看似收敛、实则漏掉最坏情况的假安心）。
+          </p>
+        </div>
+        </section>
+
+        <section>
+          <h2 id="sec-mcu" class="mt-12 text-xl font-semibold">在单片机上的样子</h2>
+
+        <p class="mt-3">
+          这一节的代码都是可以直接编译的。前两段是同一个功能的两种写法（手写寄存器版和 HAL 版），
+          建议你<b>两个都跑一遍</b>——手写版会让你彻底记住「两级使能」和「AFIO 时钟」，
+          HAL 版会让你理解 CubeMX 到底替你做了什么。
+          后面四段是四个实验，每个实验都有一个明确的「你会看到什么」。
+        </p>
+
+        <h3 id="sub-reg-exti" class="mt-7 text-base font-semibold">手写寄存器版：EXTI0 按键中断</h3>
+
+        <p class="mt-3">
+          目标：按键接 <b>PA0</b>，另一端接 GND，按下时 PA0 从高变低（下降沿）。
+          每按一次，主循环里的计数加一，并把结果从串口打出来。
+          这个版本<b>不依赖 HAL</b>，只用 CMSIS 提供的寄存器定义，所以你能看清每一步在写哪个位。
+        </p>
+
+        <div class="code-block mt-3" data-lang="c" data-title="exti0_reg.c —— 手写寄存器版 EXTI0 按键中断（完整可编译）">
+<pre><code>/* ============================================================================
+ * exti0_reg.c  ——  手写寄存器版：PA0 按键下降沿中断
+ * 目标芯片：STM32F103C8T6（中容量），SYSCLK = 72MHz
+ * 依赖：只依赖 CMSIS 的 stm32f103xb.h（提供 RCC / GPIOA / AFIO / EXTI / NVIC / SCB）
+ *       不需要 HAL，也不需要 CubeMX 生成的代码
+ * ============================================================================ */
+#include "stm32f103xb.h"
+
+/* ── 全局：中断与主循环之间传递信息的变量 ──
+   ★ volatile 是必须的：
+     没有它，编译器在 -O2 下会把 g_key_press_cnt 缓存进寄存器，
+     主循环的 while 永远读到旧值，看起来像"中断没有生效"。 */
+static volatile uint32_t g_key_press_cnt = 0;   /* 有效按键次数（已去抖） */
+static volatile uint32_t g_ms_tick       = 0;   /* SysTick 维护的毫秒计数 */
+static volatile uint32_t g_key_last_ms   = 0;   /* 上次有效按键的时间戳 */
+
+#define EXTI0_LINE   (1UL &lt;&lt; 0)                 /* EXTI0 这条线的位掩码 */
+#define DEBOUNCE_MS  (20UL)                     /* 软件去抖窗口 */
+
+/* ============================================================================
+ * 1. 时钟：GPIOA + AFIO
+ * ============================================================================
+ * RCC-&gt;APB2ENR 的位定义（RM0008 第 8 章「RCC 寄存器描述」）：
+ *   bit0  = AFIOEN    辅助功能 IO 时钟
+ *   bit2  = IOPAEN    GPIOA 时钟
+ *   bit3  = IOPBEN    GPIOB 时钟
+ *   bit4  = IOPCEN    GPIOC 时钟
+ * 复位后这些位全是 0 —— 也就是【所有外设默认都没有时钟】。
+ * ★ 用按键的 EXTI 就必须开 AFIO 时钟：不开的话 AFIO-&gt;EXTICR 的写操作
+ *   会被硬件直接丢弃（读回永远是 0），于是所有线都连在 PA 上，
+ *   你用 PB 的引脚就永远不响应 —— 这是最难查的一类故障。 */
+static void clk_init(void)
+{
+    RCC-&gt;APB2ENR |= RCC_APB2ENR_AFIOEN | RCC_APB2ENR_IOPAEN;
+    (void)RCC-&gt;APB2ENR;     /* 读回一次：让写操作在慢速外设总线上落定（习惯做法） */
+}
+
+/* ============================================================================
+ * 2. PA0 配成「上拉输入」
+ * ============================================================================
+ * F1 的 GPIO 配置寄存器是 CRL / CRH，每 4 位管一个引脚：
+ *   CRL 管 pin0 ~ pin7，CRH 管 pin8 ~ pin15
+ *   每个引脚的 4 位 = [ CNF1 CNF0 MODE1 MODE0 ]
+ * 输入模式（MODE = 00）下的 CNF：
+ *   CNF = 00 → 模拟输入（给 ADC 用）
+ *   CNF = 01 → 浮空输入（复位默认值）
+ *   CNF = 10 → 上拉 / 下拉输入，具体是哪一个由 ODR 决定
+ *   CNF = 11 → 保留
+ * 所以「上拉输入」的 4 位 = CNF=10, MODE=00 = 0b1000 = 0x8 */
+static void gpio_init(void)
+{
+    GPIOA-&gt;CRL &amp;= ~(0xFUL &lt;&lt; (0 * 4));    /* 先清掉 PA0 的 4 个配置位 */
+    GPIOA-&gt;CRL |=  (0x8UL &lt;&lt; (0 * 4));    /* CNF=10 上拉/下拉输入，MODE=00 输入 */
+    GPIOA-&gt;ODR |=  (1UL &lt;&lt; 0);            /* ODR 置 1 → 选择【上拉】（按键另一端接 GND） */
+}
+
+/* ============================================================================
+ * 3. AFIO：把 EXTI0 这条线接到 PA 上
+ * ============================================================================
+ * AFIO-&gt;EXTICR1 管 EXTI0 ~ EXTI3，每 4 位一个线号：
+ *   [3:0]  = EXTI0    [7:4]   = EXTI1
+ *   [11:8] = EXTI2    [15:12] = EXTI3
+ * 取值：0b0000 = PA，0b0001 = PB，0b0010 = PC，0b0011 = PD，0b0100 = PE
+ * ★ 这一句就是「线号 = 引脚号」规则的落地：
+ *   EXTI0 只能连 PA0 / PB0 / PC0 / PD0 / PE0 中的一个，
+ *   想同时用 PA0 和 PB0 的中断 —— 不可能，只能选一个。 */
+static void afio_init(void)
+{
+    AFIO-&gt;EXTICR[0] &amp;= ~(0xFUL &lt;&lt; 0);
+    AFIO-&gt;EXTICR[0] |=  (0x0UL &lt;&lt; 0);      /* 0b0000 = 选 PA0 */
+}
+
+/* ============================================================================
+ * 4. EXTI：屏蔽位 + 触发沿 + 清挂起位
+ * ============================================================================
+ * 顺序有意设计成这样：
+ *   ① 先清 PR（写 1 清除，可能残留着复位期间的电平变化）
+ *   ② 配置期间先屏蔽 IMR，避免配置到一半就有边沿进来
+ *   ③ 最后才打开 IMR —— 到这里这一级使能才算完成 */
+static void exti_init(void)
+{
+    EXTI-&gt;PR    = EXTI0_LINE;               /* 写 1 清除残留挂起位（写 0 无效！） */
+    EXTI-&gt;IMR  &amp;= ~EXTI0_LINE;              /* 配置期间先屏蔽这一路 */
+    EXTI-&gt;RTSR &amp;= ~EXTI0_LINE;              /* 不要上升沿 */
+    EXTI-&gt;FTSR |=  EXTI0_LINE;              /* 要下降沿（按下时电平从高变低） */
+    /* EXTI-&gt;EMR 保持 0：不要事件模式，我们要的是中断（要进 ISR） */
+    EXTI-&gt;IMR  |=  EXTI0_LINE;              /* ★ 第一级使能：打开中断屏蔽位 */
+}
+
+/* ============================================================================
+ * 5. NVIC：第二级使能 + 优先级
+ * ============================================================================
+ * EXTI0_IRQn = 6（见 CMSIS 的 IRQn_Type 枚举）
+ *   中断号 6 落在 ISER[0]（管 0~31）的 bit 6
+ *   优先级写在 NVIC-&gt;IP[6]，只有【高 4 位】有效
+ *     → 数值 14 必须写成 14 &lt;&lt; 4 = 0xE0
+ *     → 直接写 14 会怎样？14 = 0b00001110，高 4 位是 0
+ *       → 实际优先级变成 0（最高！）—— 见第 2 节的 0x0F 陷阱
+ * 分组必须在写 IP 之前确定好，因为 IP 里的位【含义】由分组决定。 */
+static void nvic_init(void)
+{
+    uint32_t aircr;
+
+    /* 设分组为「4 位抢占 + 0 位响应」：PRIGROUP = 0b011 = 3
+       AIRCR 的写入门票：高 16 位必须写 0x05FA，否则整个写操作被忽略 */
+    aircr  = SCB-&gt;AIRCR;
+    aircr &amp;= ~((0xFFFFUL &lt;&lt; 16) | (0x7UL &lt;&lt; 8));
+    aircr |=  (0x05FAUL &lt;&lt; 16) | (0x3UL &lt;&lt; 8);
+    SCB-&gt;AIRCR = aircr;
+
+    NVIC-&gt;IP[EXTI0_IRQn] = (uint8_t)(14UL &lt;&lt; (8 - 4));   /* 数值 14 → 写 0xE0 */
+    NVIC-&gt;ISER[0]        = (1UL &lt;&lt; (EXTI0_IRQn &amp; 0x1F)); /* ★ 第二级使能 */
+    /* 通用写法（中断号可能 &gt;= 32 时）：
+       NVIC-&gt;ISER[irq &gt;&gt; 5] = 1UL &lt;&lt; (irq &amp; 0x1F);
+       NVIC-&gt;IP[irq]        = (uint8_t)(prio &lt;&lt; (8 - 4)); */
+}
+
+/* ============================================================================
+ * 6. SysTick：自己数毫秒（用来做软件去抖）
+ * ============================================================================
+ * ★ 优先级要设低：SysTick 是【内核异常】，它的优先级写在 SCB-&gt;SHP 里，
+ *   不在 NVIC-&gt;IP 里，而且 SHP 的下标是「异常号 - 4」：
+ *     SysTick 异常号 = 15 → SHP[15 - 4] = SHP[11]
+ *   注意 SHP 的字节同样「只有高 4 位有效」。 */
+static void systick_init(void)
+{
+    SysTick-&gt;LOAD = 72000UL - 1UL;          /* 72MHz / 1000 = 72000 周期 → 1ms */
+    SysTick-&gt;VAL  = 0UL;                    /* 写任何值都会清零当前计数 */
+    SysTick-&gt;CTRL = SysTick_CTRL_CLKSOURCE_Msk   /* 用内核时钟 72MHz，不是 HCLK/8 */
+                  | SysTick_CTRL_TICKINT_Msk     /* 计数到 0 时产生中断 */
+                  | SysTick_CTRL_ENABLE_Msk;     /* 启动 */
+
+    SCB-&gt;SHP[11] = (uint8_t)(15UL &lt;&lt; (8 - 4));  /* 最低优先级，别抢别的东西 */
+}
+
+void SysTick_Handler(void)      /* 名字来自向量表，不能改 */
+{
+    g_ms_tick++;
+}
+
+/* ============================================================================
+ * 7. 中断服务函数
+ * ============================================================================
+ * ★ 函数名 EXTI0_IRQHandler 是【固定的】，来自 startup_stm32f103xb.s 里的向量表。
+ *   那里对每个中断都有一个 .weak 弱定义（死循环），
+ *   你在 C 里写一个同名函数，链接器就会用你的强定义覆盖它 —— 见第 2 节。 */
+void EXTI0_IRQHandler(void)
+{
+    /* 判挂起位：只有真的置着才处理（防止误进，也方便共用向量的情况） */
+    if (EXTI-&gt;PR &amp; EXTI0_LINE)
+    {
+        EXTI-&gt;PR = EXTI0_LINE;      /* ★★ 清挂起位！
+                                       漏掉这一句 = 一次按键进千万次中断，
+                                       现象是"程序卡死在中断里出不来" */
+
+        /* 软件去抖：距离上次有效按键不到 20ms 就当作抖动丢弃。
+           这样即使硬件边沿产生了 30 个抖动脉冲，也只会记 1 次。 */
+        uint32_t now = g_ms_tick;
+        if ((now - g_key_last_ms) &gt; DEBOUNCE_MS)
+        {
+            g_key_last_ms = now;
+            g_key_press_cnt++;      /* 只做「记录」：不延时、不打印、不发串口 */
+        }
+    }
+    /* 退出 ISR 由硬件完成：出栈 8 个字、恢复 PC，回到被打断的地方 */
+}
+
+/* ============================================================================
+ * 8. 主循环：真正干活的地方
+ * ============================================================================ */
+static void do_something_slow(uint32_t cnt);   /* 前向声明 */
+
+int main(void)
+{
+    uint32_t seen = 0;
+
+    clk_init();         /* ① 时钟：GPIOA + AFIO */
+    gpio_init();        /* ② 引脚：PA0 上拉输入 */
+    afio_init();        /* ③ AFIO：EXTI0 接到 PA0 */
+    systick_init();     /* ④ 毫秒时基（用于去抖） */
+    exti_init();        /* ⑤ EXTI：第一级使能 + 下降沿 */
+    nvic_init();        /* ⑥ NVIC：第二级使能 + 优先级 */
+
+    for (;;)
+    {
+        uint32_t cnt;
+
+        /* 临界区：把共享变量「取出来看一眼」。
+           单个 32 位对齐变量的读本身就是原子的（一条 LDR），
+           这里加临界区是为了演示写法 —— 当共享数据是结构体、
+           或者你要"读并清零"时，就【必须】这样保护。 */
+        __disable_irq();
+        cnt = g_key_press_cnt;
+        __enable_irq();
+
+        if (cnt != seen)
+        {
+            seen = cnt;
+            /* ★ 所有耗时的事都放这里：它们不在中断上下文，
+               花 1ms 还是 100ms 都只是让主循环变慢，不会破坏实时性 */
+            do_something_slow(cnt);
+        }
+    }
+}
+
+static void do_something_slow(uint32_t cnt)
+{
+    /* 示例：把计数写进一个变量，供调试器观察；
+       真实项目里这里可能是刷新 OLED、往 Flash 写日志、发一帧串口数据…… */
+    static volatile uint32_t g_display_value;
+    g_display_value = cnt;
+}
+</code></pre>
+        </div>
+
+        <div class="callout callout-tip mt-4">
+          <div class="callout-title">怎么编译与验证</div>
+          <p>
+            一个最小工程需要四样东西：<code class="icode">exti0_reg.c</code>、
+            启动文件 <code class="icode">startup_stm32f103xb.s</code>（ST 官网或 CubeMX 包里）、
+            链接脚本 <code class="icode">STM32F103C8Tx_FLASH.ld</code>、以及
+            <code class="icode">system_stm32f1xx.c</code>（负责把主频配到 72MHz）。
+            用 <code class="icode">arm-none-eabi-gcc</code> 编译，
+            <code class="icode">st-flash write build/exti0.bin 0x08000000</code> 烧写。
+          </p>
+          <p class="mt-2">
+            <b>不要把它和 <code class="icode">HAL_Init()</code> 混在一个工程里</b>——
+            <code class="icode">HAL_Init()</code> 自己会配置 SysTick 和优先级分组，
+            和你这里的 <code class="icode">systick_init()</code>、<code class="icode">nvic_init()</code>
+            会互相覆盖，出现「优先级分组突然变了」这类怪事。
+            手写寄存器版和 HAL 版选一个，别两边都伸手。
+          </p>
+        </div>
+
+        <h3 id="sub-hal-exti" class="mt-7 text-base font-semibold">HAL 版：同样功能的初始化</h3>
+
+        <p class="mt-3">
+          现在换 HAL 做同一件事。代码短了很多，但<b>每一步都要能在心里映射回上面那段</b>——
+          否则你就只是在抄 CubeMX 生成的代码。
+        </p>
+
+        <div class="code-block mt-3" data-lang="c" data-title="hal_exti.c —— HAL 版：PA0 按键下降沿中断">
+<pre><code>/* ============================================================================
+ * hal_exti.c  ——  HAL 版：和手写寄存器版完全相同的功能
+ * ============================================================================ */
+#include "stm32f1xx_hal.h"
+
+static volatile uint32_t g_key_press_cnt = 0;
+static volatile uint32_t g_key_last_ms   = 0;
+
+/* ── 初始化 ──
+   对照手写版看每一行在干什么：
+     __HAL_RCC_AFIO_CLK_ENABLE()  ←→  RCC-&gt;APB2ENR |= AFIOEN
+     __HAL_RCC_GPIOA_CLK_ENABLE() ←→  RCC-&gt;APB2ENR |= IOPAEN
+     HAL_GPIO_Init()              ←→  GPIOA-&gt;CRL + AFIO-&gt;EXTICR + EXTI-&gt;IMR/RTSR/FTSR
+     HAL_NVIC_SetPriority()       ←→  SCB-&gt;AIRCR + NVIC-&gt;IP[n]
+     HAL_NVIC_EnableIRQ()         ←→  NVIC-&gt;ISER[n&gt;&gt;5]
+*/
+void key_exti_init(void)
+{
+    GPIO_InitTypeDef gpio_init;
+
+    /* ★ AFIO 时钟。
+       CubeMX 只在「用了重映射」或「用了 EXTI 的端口选择」时才生成这一句；
+       手写代码最容易漏的就是它，而漏了的后果是 EXTICR 写不进（读回 0），
+       所有线都连在 PA 上 —— 用 PB/PC 的按键永远不响应。 */
+    __HAL_RCC_AFIO_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+
+    /* 引脚：输入 + 下降沿中断 + 内部上拉。
+       HAL 把「输入模式」和「EXTI 触发沿配置」合并成了一个宏：
+         GPIO_MODE_IT_FALLING 在 stm32f1xx_hal_gpio_ex.h 里展开后，
+         除了把 CRL 配成输入，还会去写 EXTI-&gt;FTSR 和 EXTI-&gt;IMR。 */
+    gpio_init.Pin   = GPIO_PIN_0;
+    gpio_init.Mode  = GPIO_MODE_IT_FALLING;    /* 输入 + 下降沿触发中断 */
+    gpio_init.Pull  = GPIO_PULLUP;             /* 内部上拉（按键另一端接 GND） */
+    gpio_init.Speed = GPIO_SPEED_FREQ_LOW;     /* 输入模式下无意义，但结构体必须填全 */
+    HAL_GPIO_Init(GPIOA, &amp;gpio_init);
+
+    /* NVIC：第二级使能 + 优先级。
+       ★ HAL_NVIC_SetPriority 传的是【数值】（0~15），不是移好位的原始值。
+       ★ HAL_GPIO_Init 已经替你开了 EXTI-&gt;IMR（第一级），
+         但它【不会】碰 NVIC —— 所以下面这两行一行都不能省。 */
+    HAL_NVIC_SetPriority(EXTI0_IRQn, 14, 0);
+    HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+}
+
+/* ============================================================================
+ * 中断服务函数：CubeMX 生成在 stm32f1xx_it.c 里
+ * ============================================================================
+ * ★ 注意这里的函数体只有一行：把活交给 HAL。
+ *   为什么？因为【清 PR 这件事必须由库来做】，
+ *   如果让你自己清，每个人都会在某个时刻忘记，然后遇到"一次触发反复进"。
+ *   HAL 的设计是：IRQHandler 只负责转发，清标志和分发都在库里。 */
+void EXTI0_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
+    /* 展开后的行为：
+         if (EXTI-&gt;PR &amp; GPIO_PIN_0) {        // 判挂起位
+             EXTI-&gt;PR = GPIO_PIN_0;          // ★ 清挂起位
+             HAL_GPIO_EXTI_Callback(GPIO_PIN_0);  // 调你的回调
+         } */
+}
+
+/* ============================================================================
+ * 你的业务：重写 __weak 的 HAL_GPIO_EXTI_Callback
+ * ============================================================================
+ * ★ 所有 EXTI 引脚【共用这一个函数】，所以第一个动作必须是判 GPIO_Pin。
+ *   忘了判的后果：任何一个引脚的中断都会把「所有按键」的标志一起点亮，
+ *   现象是「按 A 键，程序认为 B、C 键也按了」。 */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if (GPIO_Pin == GPIO_PIN_0)
+    {
+        uint32_t now = HAL_GetTick();
+        if ((now - g_key_last_ms) &gt; 20UL)     /* 20ms 软件去抖 */
+        {
+            g_key_last_ms = now;
+            g_key_press_cnt++;                /* 只记录，不干活 */
+        }
+    }
+    else if (GPIO_Pin == GPIO_PIN_1)
+    {
+        /* 第二个按键：注意它必须在【不同的 EXTI 线】上才可能进到这里 */
+    }
+    /* 没有 else 分支：别的引脚不该进这个回调 */
+}
+
+/* ============================================================================
+ * 主循环
+ * ============================================================================ */
+int main(void)
+{
+    uint32_t seen = 0;
+
+    HAL_Init();                 /* 配置 Flash 等待周期、SysTick(1ms)、优先级分组(4) */
+    SystemClock_Config();       /* CubeMX 生成的 72MHz 时钟树配置 */
+    key_exti_init();
+
+    for (;;)
+    {
+        uint32_t cnt;
+        __disable_irq();
+        cnt = g_key_press_cnt;
+        __enable_irq();
+
+        if (cnt != seen)
+        {
+            seen = cnt;
+            key_on_pressed(cnt);    /* 耗时的业务放这里 */
+        }
+    }
+}
+</code></pre>
+        </div>
+
+        <div class="table-scroll mt-4">
+          <table class="table-mcu">
+            <thead>
+              <tr>
+                <th>对比项</th>
+                <th>手写寄存器版</th>
+                <th>HAL 版</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>初始化代码行数</td>
+                <td>约 45 行（6 个函数）</td>
+                <td>约 20 行（1 个函数）</td>
+              </tr>
+              <tr>
+                <td>你能看见的寄存器</td>
+                <td>全部：APB2ENR / CRL / ODR / EXTICR / IMR / RTSR / FTSR / IP / ISER / SHP</td>
+                <td>一个都看不见（全被库函数包住）</td>
+              </tr>
+              <tr>
+                <td>出错的典型方式</td>
+                <td><b>漏写一句</b>（比如忘了 AFIO 时钟）→ 现象明确，寄存器可查</td>
+                <td><b>调用顺序错</b>（比如在 <code class="icode">HAL_Init()</code> 之前设优先级）→ 被库静默覆盖</td>
+              </tr>
+              <tr>
+                <td>清 PR 的责任</td>
+                <td>你自己写（写错了就是一次触发反复进）</td>
+                <td>库帮你写（你甚至不知道有 PR 这个寄存器）</td>
+              </tr>
+              <tr>
+                <td>换芯片的代价</td>
+                <td>寄存器名全变，代码要重写</td>
+                <td>改一下 <code class="icode">HAL_GPIO_EXTI_Callback</code> 就能移植</td>
+              </tr>
+              <tr>
+                <td>适合什么场景</td>
+                <td>学习、极简工程、需要精确控制时序的场合</td>
+                <td>产品开发、多外设、需要快速迭代</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout-warn mt-4">
+          <div class="callout-title">HAL 里最容易踩的三个顺序问题</div>
+          <ol class="mt-2 list-decimal space-y-2 pl-5">
+            <li>
+              <b>在 <code class="icode">HAL_Init()</code> 之前设优先级分组</b>：
+              <code class="icode">HAL_Init()</code> 内部会调
+              <code class="icode">HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4)</code>，
+              把你之前设的分组覆盖掉。分组一定在 <code class="icode">HAL_Init()</code> 之后设。
+            </li>
+            <li>
+              <b>在 <code class="icode">SystemClock_Config()</code> 之前初始化带超时的外设</b>：
+              此时主频还没到 72MHz，<code class="icode">HAL_GetTick()</code> 的刻度也是错的，
+              超时时间会算错。
+            </li>
+            <li>
+              <b>只调 <code class="icode">HAL_NVIC_SetPriority()</code> 忘了
+              <code class="icode">HAL_NVIC_EnableIRQ()</code></b>：
+              设优先级不等于使能。<b>两个函数，两件事。</b>
+            </li>
+          </ol>
+        </div>
+
+        <h3 id="sub-pattern" class="mt-7 text-base font-semibold">正确范式：中断只置标志，主循环去处理</h3>
+
+        <p class="mt-3">
+          这是整篇文章里最该带走的一段代码。规则只有一句话：
+          <b>ISR 里只做「记录事实」和「通知」，所有耗时的事都搬回主循环。</b>
+          难点在于「怎么安全地把事实传出去」——这就是 <code class="icode">volatile</code> 和临界区的用武之地。
+        </p>
+
+        <div class="code-block mt-3" data-lang="c" data-title="pattern.c —— 标志 + 时间戳 + 临界区（三种共享数据的安全写法）">
+<pre><code>/* ============================================================================
+ * 范式一：单标志（最简单，也最容易写对）
+ * ============================================================================
+ * 适合：只关心"发生过至少一次"，不关心中间丢了几次的事件。
+ * 典型：按键、看门狗喂狗请求、模式切换。
+ * ============================================================================ */
+static volatile uint8_t  g_uart_rx_flag = 0;      /* ISR 置 1，主循环清 0 */
+static volatile uint8_t  g_rx_byte      = 0;
+
+void USART1_IRQHandler(void)
+{
+    if (USART1-&gt;SR &amp; USART_SR_RXNE)
+    {
+        g_rx_byte = (uint8_t)(USART1-&gt;DR &amp; 0xFF);  /* 读 DR 顺便清 RXNE */
+        g_uart_rx_flag = 1;                         /* ★ 只置标志 */
+    }
+}
+
+void main_loop_rx(void)
+{
+    if (g_uart_rx_flag)                 /* 读 */
+    {
+        uint8_t b = g_rx_byte;
+        g_uart_rx_flag = 0;             /* ★ 在主循环里清 */
+        handle_byte(b);                  /* 这里可以做任何耗时的事 */
+    }
+}
+/* ★ 单标志模式的固有缺陷：如果主循环处理慢，
+   两次中断之间只有一个字节被处理，【其余全丢】。
+   要一个都不丢，就得用范式二的环形缓冲区。 */
+
+/* ============================================================================
+ * 范式二：单生产者单消费者环形缓冲区（工业界最常用）
+ * ============================================================================
+ * 适合：串口接收、ADC 采样流、按键事件队列 —— 要求一个都不丢。
+ * 关键结构：一个数组 + 一个写指针（只有 ISR 写）+ 一个读指针（只有主循环写）。
+ * ★ 神奇之处：因为【head 只有一个写者、tail 也只有一个写者】，
+ *   两个指针各自是"单写多读"，而 32 位对齐变量的读写本身是原子的，
+ *   所以这个缓冲区【完全不需要关中断】就能安全工作。
+ * ============================================================================ */
+#define RX_BUF_SIZE 64                     /* 必须是 2 的幂，才能用 &amp; 取模 */
+
+static volatile uint8_t  g_rx_buf[RX_BUF_SIZE];
+static volatile uint16_t g_rx_head = 0;    /* 只由 ISR 修改 */
+static volatile uint16_t g_rx_tail = 0;    /* 只由主循环修改 */
+
+void USART1_IRQHandler(void)
+{
+    if (USART1-&gt;SR &amp; USART_SR_RXNE)
+    {
+        uint8_t  b    = (uint8_t)(USART1-&gt;DR &amp; 0xFF);
+        uint16_t next = (uint16_t)((g_rx_head + 1U) &amp; (RX_BUF_SIZE - 1U));
+
+        if (next != g_rx_tail)             /* 缓冲区没满才写 */
+        {
+            g_rx_buf[g_rx_head] = b;
+            g_rx_head = next;              /* ★ 最后才更新 head：
+                                              保证主循环看到 head 变了时，
+                                              对应的数据一定已经写好了 */
+        }
+        else
+        {
+            g_rx_overflow_cnt++;           /* 满了：记一次溢出，用于事后诊断 */
+        }
+    }
+}
+
+/* 主循环里取一个字节；返回 0 表示目前没有数据 */
+static int rx_get(uint8_t *out)
+{
+    if (g_rx_head == g_rx_tail) return 0;  /* 空 */
+    *out = g_rx_buf[g_rx_tail];
+    g_rx_tail = (uint16_t)((g_rx_tail + 1U) &amp; (RX_BUF_SIZE - 1U));
+    return 1;
+}
+
+/* ============================================================================
+ * 范式三：多字节共享数据 —— 这里才【真的】需要临界区
+ * ============================================================================
+ * 危险场景：主循环要读一个结构体，而 ISR 可能在读的中途改写它的一半。
+ *   struct { uint32_t ts; int16_t x, y, z; } g_sample;
+ * 主循环读 ts 之后被中断，ISR 更新了 x/y/z 和 ts，
+ * 于是主循环拿到的是「旧 ts + 新 x/y/z」—— 一组【从来没真实存在过】的数据。
+ * 这种错误的可怕之处：它不崩溃，只是数据悄悄错了。
+ * ============================================================================ */
+typedef struct {
+    uint32_t ts_ms;
+    int16_t  ax, ay, az;
+} sample_t;
+
+static volatile sample_t g_sample;
+static volatile uint32_t g_sample_seq = 0;   /* 序号：ISR 每次更新 +1 */
+
+void EXTI1_IRQHandler(void)                  /* 假设加速度计的数据就绪中断接在这 */
+{
+    if (EXTI-&gt;PR &amp; (1UL &lt;&lt; 1))
+    {
+        EXTI-&gt;PR = (1UL &lt;&lt; 1);
+        /* ISR 写入：先写数据、再加序号。
+           序号是"数据已就绪"的发布点，一定要最后写。 */
+        g_sample.ax = read_accel_x();
+        g_sample.ay = read_accel_y();
+        g_sample.az = read_accel_z();
+        g_sample.ts_ms = HAL_GetTick();
+        g_sample_seq++;                       /* ★ 发布 */
+    }
+}
+
+/* 主循环读取：用「双读序号」技巧，避免长时间关中断
+   思路：读序号 → 读数据 → 再读序号。
+        两次序号相同说明读的过程中没被 ISR 改写过，数据是完整的；
+        不同就重读。这是无锁读取的经典做法，代价是可能重试几次。 */
+static int sample_read(sample_t *out)
+{
+    uint32_t seq_before, seq_after;
+
+    seq_before = g_sample_seq;
+    __DMB();                                  /* 数据内存屏障：别让编译器/CPU 乱序 */
+    out-&gt;ax = g_sample.ax;
+    out-&gt;ay = g_sample.ay;
+    out-&gt;az = g_sample.az;
+    out-&gt;ts_ms = g_sample.ts_ms;
+    __DMB();
+    seq_after = g_sample_seq;
+
+    return (seq_before == seq_after);         /* 1 = 成功，0 = 被改写过，请重试 */
+}
+
+/* 如果嫌上面的重试逻辑麻烦，用最简单的临界区也完全可以 ——
+   只要临界区【足够短】（这里就是几条 LDR，约 10~20 个周期 = 0.3µs）： */
+static void sample_read_locked(sample_t *out)
+{
+    __disable_irq();
+    *out = *(sample_t *)&amp;g_sample;
+    __enable_irq();
+}
+/* ★ 判断该用哪种，只需要问一句：
+   "这段关中断的时间，会不会让别的中断错过截止时间？"
+   10~20 个周期（0.3µs）对 99% 的系统都无所谓；
+   但如果你在临界区里拷贝一个 200 字节的缓冲区（约 200 个周期 2.8µs），
+   就该考虑双读序号或者双缓冲了。 */
+
+/* ============================================================================
+ * 附：F103 上的一个小宝藏 —— 位带（bit-band）原子置位
+ * ============================================================================
+ * Cortex-M3 有"位带"机制：把 SRAM 和外设区的每一个位映射到
+ * 别名区的一个 32 位字上。写那个字就等于原子地读改写那一个位。
+ * 有了它，某些 "flags |= 1" 的竞态可以【不关中断】就解决。
+ *
+ * 别名地址公式（SRAM 区）：
+ *   别名 = 0x22000000 + (字节地址 - 0x20000000) x 32 + 位号 x 4
+ * ============================================================================ */
+#define BITBAND_SRAM_WORD(addr, bit) \
+    (*(volatile uint32_t *)(0x22000000UL \
+        + (((uint32_t)(addr) - 0x20000000UL) * 32UL) \
+        + ((uint32_t)(bit) * 4UL)))
+
+static volatile uint32_t g_flags = 0;
+
+/* 在 ISR 里置位：编译成一条 STR 指令，天然原子，不需要关中断 */
+#define FLAG_KEY_PRESSED    BITBAND_SRAM_WORD(&amp;g_flags, 0)
+#define FLAG_RX_TIMEOUT     BITBAND_SRAM_WORD(&amp;g_flags, 1)
+
+void EXTI2_IRQHandler(void)
+{
+    if (EXTI-&gt;PR &amp; (1UL &lt;&lt; 2))
+    {
+        EXTI-&gt;PR = (1UL &lt;&lt; 2);
+        FLAG_KEY_PRESSED = 1;      /* ← 一条指令，绝无竞态 */
+    }
+}
+/* ★ 对比一下这两种写法的区别：
+     g_flags |= (1UL &lt;&lt; 0);     ← 读-改-写三条指令，主循环同时改别的位就会丢更新
+     FLAG_KEY_PRESSED = 1;      ← 一条 STR，原子
+   第 27 篇讲过的 "flags |= 1 丢标志" 问题，在 M3 上就有了这个硬件解法。
+   注意：位带只对【置位/清零单个位】有用。要"读并清零"、
+   或者要更新一个 16 位数据，还是得用临界区。 */
+</code></pre>
+        </div>
+
+        <div class="callout callout-info mt-4">
+          <div class="callout-title">这三种范式怎么选</div>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>场景</th>
+                  <th>用哪种</th>
+                  <th>理由</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>按键、模式切换、出错通知</td>
+                  <td>范式一：单标志</td>
+                  <td>丢几次无所谓，代码最短，最不容易写错</td>
+                </tr>
+                <tr>
+                  <td>串口接收、ADC 采样流</td>
+                  <td>范式二：环形缓冲区</td>
+                  <td>一个都不能丢；单写者模型天然无锁</td>
+                </tr>
+                <tr>
+                  <td>一组相关的数据（时间戳 + 三个轴）</td>
+                  <td>范式三：序号双读 或 临界区</td>
+                  <td>多字节数据必须保证「看到的是一组完整快照」</td>
+                </tr>
+                <tr>
+                  <td>只想原子地置一个位</td>
+                  <td>位带</td>
+                  <td>一条指令搞定，连关中断都省了</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <h3 id="sub-exp-pr" class="mt-7 text-base font-semibold">复现实验：不清 PR 会怎样</h3>
+
+        <p class="mt-3">
+          这个实验十分钟就能做完，但它能让你<b>永远记住</b>清挂起位这件事。
+          做法是故意制造三种错误，看现象是否一致。
+        </p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="实验 1：三种「清 PR 出错」的写法与它们的现象">
+            <pre><code>准 备 ：用第 4 节的 exti0_reg.c 工程（或 HAL 版），能正常跑通。
+       在 EXTI0_IRQHandler 的第一行下断点（或者在里面加一句 GPIO 翻转）。
+────────────────────────────────────────────────────────────────────
+【实验 1-A】把清 PR 那一句直接注释掉
+   改动：  // EXTI-&gt;PR = EXTI0_LINE;
+   现象：  按一次按键 → 断点第一次命中
+          按"全速运行" → 立刻又命中
+          再全速 → 又命中 …… 无限循环
+          如果不设断点，表现是【主循环再也不执行了】，看起来像死机
+   观察寄存器（调试器的 System Viewer 或 Watch 窗口）：
+          EXTI-&gt;PR 的 bit0 = 1  （一直是 1，从没被清掉）
+          NVIC-&gt;ISPR[0] 的 bit6 = 1（你退出 ISR 后立刻又被置 1）
+   手动验证因果：在 Watch 窗口里把 EXTI-&gt;PR 的值写成 1（写 1 清除）
+          → 立刻恢复正常，不再反复进中断
+          ★ 这一步把"因果"钉死了：不是抖动、不是别的问题，就是 PR
+────────────────────────────────────────────────────────────────────
+【实验 1-B】写成"清 0"（这个变体比忘记清更常见！）
+   改动：  EXTI-&gt;PR = 0;          ← 想当然地以为 0 表示清除
+   现象：  和 1-A 完全一样，一次触发反复进
+   原因：  PR 是【写 1 清除】（rc_w1）寄存器。
+          写 0 到某一位 = 什么也不做。写 1 = 清除那一位。
+   教训：  所有 rc_w1（read/clear by writing 1）寄存器都遵守这条规则，
+          它和普通寄存器完全相反，是嵌入式的经典陷阱。
+          同类的还有：USART-&gt;SR 的部分位、TIM-&gt;SR 的标志位、
+          DMA 的 IFCR —— 全都"写 1 清除"。
+────────────────────────────────────────────────────────────────────
+【实验 1-C】清错了线号
+   改动：  EXTI-&gt;PR = (1UL &lt;&lt; 1);   ← 想清 EXTI1，实际是 EXTI0 在挂起
+   现象：  和 1-A 一样。EXTI0 的 PR bit0 依然是 1
+   原因：  PR 是 20 位一位一线的，清一位不会影响别的位。
+          这也解释了为什么【不要写 EXTI-&gt;PR = 0xFFFF 一把全清】——
+          那会把你没处理的其他线（比如事件模式留下的、或者留给别人的）一起抹掉。
+────────────────────────────────────────────────────────────────────
+【实验 1-D】用 SWIER 触发，不需要用手按（调试利器）
+   在调试器里执行这一句（或者在 main 里加一行）：
+        EXTI-&gt;SWIER = (1UL &lt;&lt; 0);      // 软件触发 EXTI0
+   效果：和"真的按了一下 PA0"完全一样（置 PR → 送 NVIC → 进 ISR）
+   用途：  ① 没有硬件、或者按键接触不良时也能测中断通路
+          ② 精确定位"是引脚没配好"还是"NVIC 没使能"：
+             能进去 → 引脚配置/电气有问题
+             进不去 → NVIC 或向量表有问题
+          ③ 在高频循环里反复写 SWIER，可以制造"中断风暴"，
+             用来测最坏情况下的 CPU 占用率
+────────────────────────────────────────────────────────────────────
+【怎么看到这些寄存器】
+   · Keil MDK：View → System Viewer → EXTI / NVIC
+   · STM32CubeIDE：调试时用 SFR 视图，或直接在 Watch 里写表达式
+        *(volatile uint32_t*)0x40010414       // EXTI-&gt;PR
+        *(volatile uint32_t*)0xE000E200       // NVIC-&gt;ISPR[0]
+        *(volatile uint32_t*)0xE000E100       // NVIC-&gt;ISER[0]
+        *(volatile uint32_t*)0xE000E400       // NVIC-&gt;IP[0..3]
+   · OpenOCD + GDB：monitor mdw 0x40010414 1
+   ★ 养成习惯：任何"中断不响应/反复进"的问题，
+     第一步都是打开 PR 和 ISPR 这两个寄存器看一眼 ——
+     它们的值能直接把故障范围砍掉一半。
+────────────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+        <h3 id="sub-exp-latency" class="mt-7 text-base font-semibold">测量中断延迟与尾链收益</h3>
+
+        <p class="mt-3">
+          Cortex-M3 内置了一个免费的周期计数器 <code class="icode">DWT-&gt;CYCCNT</code>，
+          它按 CPU 时钟计数，精度就是一个周期。用它可以把第 2 节那些"典型周期数"
+          换成你自己芯片上的真实数字。
+        </p>
+
+        <div class="code-block mt-3" data-lang="c" data-title="measure.c —— 用 DWT 数周期：测 ISR 时长、测延迟、算尾链收益">
+<pre><code>/* ============================================================================
+ * measure.c  ——  用 DWT-&gt;CYCCNT 做周期级测量
+ * ============================================================================
+ * 为什么能用：Cortex-M3 的 DWT（Data Watchpoint and Trace）单元里有一个
+ * 32 位的自由运行周期计数器 CYCCNT，它按 CPU 时钟递增，不需要调试器连着。
+ * 在 72MHz 下它大约每 2^32 / 72e6 ≈ 59.6 秒回绕一次 ——
+ * 用无符号减法 (now - t0) 天然处理回绕，不用管。
+ * ============================================================================ */
+#include "stm32f1xx_hal.h"
+
+static void dwt_init(void)
+{
+    CoreDebug-&gt;DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;   /* 打开跟踪/调试模块的时钟 */
+    DWT-&gt;CYCCNT = 0;                                  /* 计数器清零 */
+    DWT-&gt;CTRL |= DWT_CTRL_CYCCNTENA_Msk;              /* 启动计数 */
+    /* ★ 如果读出来一直是 0：说明这颗芯片的 DWT 没实现 CYCCNT，
+       或者 DEMCR 的 TRCENA 没打开。F103（M3 r1p1 及以后）都有。 */
+}
+
+/* ============================================================================
+ * 测 1：ISR 本体到底花了多少个周期
+ * ============================================================================ */
+static volatile uint32_t g_isr_cycles_last = 0;
+static volatile uint32_t g_isr_cycles_max  = 0;
+static volatile uint32_t g_isr_count       = 0;
+
+void EXTI0_IRQHandler(void)
+{
+    uint32_t t0 = DWT-&gt;CYCCNT;      /* 入口时间戳（这几条指令本身也占时间，
+                                       所以要把它们从结果里扣掉，见下面的说明） */
+    uint32_t dt;
+
+    if (EXTI-&gt;PR &amp; (1UL &lt;&lt; 0))
+    {
+        EXTI-&gt;PR = (1UL &lt;&lt; 0);
+        g_key_press_cnt++;          /* 业务：这里只有一句，方便对照测量结果 */
+    }
+
+    dt = DWT-&gt;CYCCNT - t0;          /* ★ 无符号减法，天然处理计数器回绕 */
+    g_isr_cycles_last = dt;
+    if (dt &gt; g_isr_cycles_max) { g_isr_cycles_max = dt; }
+    g_isr_count++;
+}
+/* 测出来之后怎么解读：
+   · 入口时间戳那两条语句（LDR CYCCNT + 压栈）约占 3~5 个周期，
+     所以真实 ISR 时长 ≈ g_isr_cycles_last - 约 6
+   · 典型值参考（-O2，无浮点）：
+       "置一个标志"级     → 20~35 周期（0.3~0.5µs）
+       "读 DR + 存环形缓冲区" 级 → 40~70 周期（0.6~1.0µs）
+       调用 HAL_GPIO_EXTI_IRQHandler + 回调 → 60~110 周期（0.8~1.5µs）
+   · 如果你测出 500 周期以上，去看是不是在 ISR 里调了什么重家伙。
+   ★ g_isr_cycles_max 比平均值更有用：实时性看的是最坏情况。 */
+
+/* ============================================================================
+ * 测 2：从「引脚边沿」到「ISR 第一条指令」的真实延迟（要用示波器）
+ * ============================================================================
+ * 软件自己测不了这个延迟 —— 因为在 ISR 执行之前，
+ * CPU 根本没有在跑你的代码，没人能打时间戳。
+ * 唯一诚实的办法是在 ISR 入口【立刻】翻转一个 GPIO，用示波器量时间差。
+ * ============================================================================ */
+void EXTI0_IRQHandler_measure_latency(void)
+{
+    /* ★ BSRR 是"位设置/清除寄存器"，写它是一条 STR 指令、
+       单周期生效，而且不需要读-改-写 —— 是 ISR 里最快的输出方式 */
+    GPIOB-&gt;BSRR = (1UL &lt;&lt; 12);     /* PB12 拉高（示波器 CH2） */
+
+    if (EXTI-&gt;PR &amp; (1UL &lt;&lt; 0)) { EXTI-&gt;PR = (1UL &lt;&lt; 0); }
+
+    GPIOB-&gt;BSRR = (1UL &lt;&lt; (12 + 16));   /* PB12 拉低：高电平的宽度 = ISR 时长 */
+}
+/* 接线与操作：
+     CH1 接按键信号（PA0 那一侧，或者用一个信号发生器给它一个下降沿方波）
+     CH2 接 PB12
+     触发方式：CH1 下降沿触发
+     测量：CH1 下降沿到 CH2 上升沿的时间差 = 中断延迟
+   预期：72MHz 下 200~400ns（对应第 3 节例 2 的 14~15 周期 + 几周期指令开销）
+   ★ 要扣掉的部分：ISR 第一条指令（BSRR 写）从取指到生效约 2~3 个周期
+     （约 30~40ns），可以忽略也可以扣掉。
+   ★ 想要更干净的测量：把触发源换成另一个定时器的 PWM 输出，
+     让下降沿非常陡（几 ns），比按键的机械抖动好得多。
+   ★ 把主频从 72MHz 降到 8MHz 再测一次，你会看到延迟变成 1.7µs 左右 ——
+     和第 3 节例 2 的计算对上了，这就证明了"延迟周期数是常数"。 */
+
+/* ============================================================================
+ * 测 3：尾链（tail-chaining）到底省了多少
+ * ============================================================================
+ * 思路：让两个中断以相同的频率触发，比较两种情况的"平均每次中断周期数"：
+ *   A 组：两个中断错开触发（各自独立，永远不背靠背）→ 每次都完整进出
+ *   B 组：两个中断故意对齐触发（同一时刻到达）→ 触发尾链
+ * 做法：把 TIM3 和 TIM4 都配成同样的周期，但让 TIM4 的计数器错开半个周期。
+ * ============================================================================ */
+static volatile uint32_t g_total_cycles = 0;   /* 累计：ISR 里的周期数 */
+static volatile uint32_t g_irq_total    = 0;   /* 累计：中断次数 */
+
+static void record_isr(uint32_t t0)
+{
+    g_total_cycles += DWT-&gt;CYCCNT - t0;
+    g_irq_total++;
+}
+
+void TIM3_IRQHandler(void)
+{
+    uint32_t t0 = DWT-&gt;CYCCNT;
+    if (TIM3-&gt;SR &amp; TIM_SR_UIF) { TIM3-&gt;SR = ~TIM_SR_UIF; }
+    record_isr(t0);
+}
+
+void TIM4_IRQHandler(void)
+{
+    uint32_t t0 = DWT-&gt;CYCCNT;
+    if (TIM4-&gt;SR &amp; TIM_SR_UIF) { TIM4-&gt;SR = ~TIM_SR_UIF; }
+    record_isr(t0);
+}
+
+void measure_report(void)
+{
+    /* 平均每次中断的周期数。注意这个"平均"里【混着尾链的收益】，
+       因为背靠背到来的那些中断，进场开销只有 6 个周期而不是 14 个。 */
+    uint32_t avg = (g_irq_total &gt; 0) ? (g_total_cycles / g_irq_total) : 0;
+
+    /* 关键对比方法：跑两轮。
+       第 1 轮：TIM4 的计数器初值错开（比如 TIM4-&gt;CNT = 半个周期）
+                → 两个中断错开到达 → 参考值（有完整进出开销）
+       第 2 轮：TIM4 的计数器初值和 TIM3 相同
+                → 两个中断同时到达 → 走尾链 → 平均值会明显变小
+       两者的差值就是尾链省下的周期数。按第 3 节例 4 的推算，应该接近 9 个周期/次
+       （也就是从 24 周期的两套完整开销，变成 14 + 6 + 10 = 30 周期的合计开销）。 */
+    (void)avg;
+}
+/* ★ 更直观的验证方式（不用算平均）：
+     把两个中断的频率开到很高（比如各 100kHz），
+     然后用 DWT 数"1 秒钟内主循环走了多少圈"。
+     尾链生效时，主循环能多走几圈 —— 那几圈的量级就是省下来的 CPU。
+   ★ 反面实验：在主循环里加一段 __disable_irq() 组成的 500µs 临界区，
+     再看平均值 —— 你会发现尾链的收益被吃掉了（因为中断被积压后一起处理），
+     同时第一个中断的【延迟】暴增到 500µs 以上。
+     这是"省了总时间、却毁了实时性"的教科书例子。 */
+
+/* ============================================================================
+ * 在调试器里把这个数打出来
+ * ============================================================================ */
+void print_measure(void)
+{
+    /* 别用 printf —— 它会用掉几百字节栈，还可能因为半主机模式卡住。
+       最省事的办法：
+         ① 在调试器的 Watch 窗口里直接看 g_isr_cycles_max
+         ② 或者用 SWO/ITM 输出（不影响时序，见第 30 篇的调试章节）
+         ③ 或者写到你自己的 OLED 上
+       ★ 只有在主循环里打印才是安全的。 */
+    (void)g_isr_cycles_last;
+    (void)g_isr_cycles_max;
+    (void)g_isr_count;
+}
+</code></pre>
+        </div>
+
+        <h3 id="sub-exp-delay" class="mt-7 text-base font-semibold">复现 HAL_Delay 进中断的死锁</h3>
+
+        <p class="mt-3">
+          这是整篇文章的「点题实验」——计划表里那句话「中断里调用 HAL_Delay 为什么会死锁」，
+          就在这里给出完整解释。<b>它不是"可能出问题"，而是必然会卡死。</b>
+        </p>
+
+        <div class="code-block mt-3" data-lang="c" data-title="stm32f1xx_hal.c 节选：HAL_Delay 的真身只有四行">
+<pre><code>/* ── HAL_Delay：阻塞式延时的全部实现 ── */
+__weak void HAL_Delay(uint32_t Delay)
+{
+    uint32_t tickstart = HAL_GetTick();      /* ① 取当前 tick */
+    uint32_t wait = Delay;
+
+    if (wait &lt; HAL_MAX_DELAY)                /* 处理 HAL_MAX_DELAY 的特殊含义 */
+    {
+        wait += (uint32_t)(uwTickFreq);
+    }
+
+    while ((HAL_GetTick() - tickstart) &lt; wait)   /* ② 死等，直到 tick 走过 wait */
+    {
+        /* 空循环 */
+    }
+}
+
+/* ── HAL_GetTick：只返回一个变量 ── */
+__weak uint32_t HAL_GetTick(void)
+{
+    return uwTick;                            /* ③ uwTick 就是"时间"本身 */
+}
+
+/* ── uwTick 是谁在维护？SysTick 中断 ── */
+__weak void HAL_IncTick(void)
+{
+    uwTick += (uint32_t)uwTickFreq;           /* ④ 每次 tick 中断加 1 */
+}
+
+void SysTick_Handler(void)                    /* 中断向量表指向它 */
+{
+    HAL_IncTick();                            /* ⑤ 一切时间都从这一个中断来 */
+    HAL_SYSTICK_IRQHandler();                 /* HAL 的内部 tick 回调 */
+}
+</code></pre>
+        </div>
+
+        <p class="mt-4">
+          把上面五个步骤串起来看，死锁的链条就清楚了：
+          <b><code class="icode">HAL_Delay</code> 等的是 <code class="icode">uwTick</code> 变化，
+          而 <code class="icode">uwTick</code> 只在 <code class="icode">SysTick_Handler</code> 里加一。
+          如果你在中断里调 <code class="icode">HAL_Delay</code>，
+          而这个中断的抢占优先级又比 SysTick 高（或者和它同值），
+          SysTick 就永远得不到执行机会，<code class="icode">uwTick</code> 冻住，
+          <code class="icode">while</code> 的条件永远为真——死在这里，出不去。</b>
+        </p>
+
+        <div class="code-block mt-3" data-lang="text" data-title="死锁的精确条件与两种配置下的不同表现">
+            <pre><code>死 锁 的 精 确 条 件
+────────────────────────────────────────────────────────────────────
+   SysTick 的抢占优先级【数值】 ≥ 当前 ISR 的抢占优先级【数值】
+   ⇔ SysTick 无法抢占当前 ISR（数值越大越低，相等则同级不嵌套）
+────────────────────────────────────────────────────────────────────
+【配置一：分组 4，SysTick 优先级 = 15（TICK_INT_PRIORITY 的常见默认值）】
+   任何中断的优先级数值都 ≤ 15（0~15）
+   → 所有 ISR 里的 HAL_Delay 都会死锁，没有例外
+   → 现象：
+       · 第一次按键，LED 不亮、串口没输出，主循环像是停了
+       · 调试器按暂停 → 调用栈显示：
+           HAL_Delay
+           HAL_GPIO_EXTI_Callback
+           HAL_GPIO_EXTI_IRQHandler
+           EXTI0_IRQHandler
+       · ★ 决定性证据：Watch 窗口里盯着 uwTick，它【不再增长】
+         （正常情况下它应该每毫秒 +1）
+   → 为什么是"死锁"而不是"延时变长"：
+     没有任何外部力量能改变 uwTick，这不是等待，是永久停止。
+────────────────────────────────────────────────────────────────────
+【配置二：把 TICK_INT_PRIORITY 改成 0（SysTick 变成最高优先级）】
+   打开你的 stm32f1xx_hal_conf.h，找到：
+       #define  TICK_INT_PRIORITY   ...
+   如果是 0（或者任何比你那个 ISR 数值更小的值）：
+   → SysTick 能打断你的 ISR，uwTick 正常增长，HAL_Delay 能返回
+   → 【不会死锁，但换成了另一个更隐蔽的问题】：
+       · 你的 ISR 真的在里面停了 10ms
+       · 这 10ms 里，所有优先级比 SysTick 低的中断全部被推迟
+       · 而且 SysTick 每 1ms 都来打断你一次
+     → 现象：平时看起来能跑，一旦串口/ADC 频率上来就开始丢数据
+     → 这类"偶尔丢数据"的问题，比死锁难查十倍
+   ★ 所以正确的结论不是"SysTick 优先级设高就能用 HAL_Delay"，
+     而是【HAL_Delay 从来就不该出现在任何中断里】。
+────────────────────────────────────────────────────────────────────
+【同类的函数（都有一个 Timeout 参数，都依赖 HAL_GetTick）】
+   HAL_UART_Transmit()      —— 超时判定用 tick；但等待 TXE 用的是硬件标志
+                                所以它【可能】看起来能跑，直到某次 TXE 没来 → 卡死
+   HAL_UART_Receive()
+   HAL_I2C_Master_Transmit() / HAL_I2C_Mem_Read() 等在中断里调用必死
+   HAL_SPI_Transmit()
+   HAL_FLASH_Program() / HAL_FLASHEx_Erase()  —— 写 Flash 要几毫秒，还会【阻塞总线取指】
+   ★ 判断标准很简单：【凡是带 Timeout 参数的阻塞式 HAL 函数，都不能进中断】。
+────────────────────────────────────────────────────────────────────
+            </code></pre>
+          </div>
+
+        <div class="code-block mt-3" data-lang="c" data-title="delay_compare.c —— 错误的写法、复现方法、三种正确修正">
+<pre><code>/* ============================================================================
+ * ✘ 错误写法 1：直接延时（必然死锁）
+ * ============================================================================ */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if (GPIO_Pin == GPIO_PIN_0)
+    {
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);  /* 点亮 LED */
+        HAL_Delay(10);                                          /* ★★ 死在这里 */
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);    /* 永远到不了 */
+    }
+}
+
+/* ---- 复现步骤 ----
+   1) 烧写上面这段，连上调试器
+   2) 在 HAL_Delay(10); 这一行下断点，按一下按键
+   3) 断点命中。把它删掉，改成在 HAL_Delay 之后的语句下断点
+   4) 全速运行 → 永远不再命中
+   5) 暂停调试器：调用栈停在 HAL_Delay 的 while 里
+   6) 打开 Watch 窗口添加 uwTick → 它的值【始终不变】
+      ★ 换成添加 DWT-&gt;CYCCNT，它却在飞快地涨 —— 这直接证明
+        "CPU 在跑，但时间停了"，也就是 SysTick 中断没有执行
+   7) 再看 NVIC-&gt;ISER[0] 的 bit15（SysTick 没有 ISER，看 SCB-&gt;SHP[11]）
+      和 SCB-&gt;ICSR 的 PENDSTSET 位（SysTick 挂起位）
+      → 你会看到 PENDSTSET = 1：SysTick 的请求【挂在那里没人处理】
+    ★ 最后这一步是理解的关键：SysTick 的挂起位一直是 1，
+      说明它想进但进不来 —— 因为它优先级比当前 ISR 低。
+   ------------------------------------------------------------------ */
+
+/* ============================================================================
+ * ✔ 修正 1（推荐）：状态机 + 时间戳，延时逻辑搬到主循环
+ * ============================================================================
+ * 这是工业代码里 90% 的"ISR 里要等一会儿"该怎么写。 */
+static volatile uint8_t  g_led_blink_req = 0;   /* ISR 只置请求 */
+static volatile uint32_t g_led_req_ms    = 0;   /* 请求发生的时刻 */
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if (GPIO_Pin == GPIO_PIN_0)
+    {
+        g_led_req_ms = HAL_GetTick();     /* ★ 只取一个时间快照，不做等待 */
+        g_led_blink_req = 1;
+    }
+}
+
+/* 主循环里的小状态机：把"点亮 → 等 10ms → 熄灭"拆成两个时刻 */
+void led_task(void)
+{
+    static uint8_t  state = 0;            /* 0=空闲 1=已点亮 2=已完成 */
+    static uint32_t t_on  = 0;
+
+    switch (state)
+    {
+    case 0:
+        if (g_led_blink_req)              /* 有请求 */
+        {
+            g_led_blink_req = 0;
+            HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+            t_on = HAL_GetTick();
+            state = 1;
+        }
+        break;
+
+    case 1:
+        /* ★ 时间比较要用无符号减法，不要写 (HAL_GetTick() &gt; t_on + 10)
+           —— 后者在 tick 回绕（约 49.7 天）时会失效 */
+        if ((HAL_GetTick() - t_on) &gt;= 10UL)
+        {
+            HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+            state = 2;
+        }
+        break;
+
+    case 2:
+        state = 0;                        /* 回到空闲，等下一次请求 */
+        break;
+    }
+}
+/* ★ 这个写法的三个好处：
+     ① ISR 里只有两条赋值（约 10 个周期），实时性无损
+     ② 延时期间 CPU 完全空出来干别的事，不是空转
+     ③ 可以同时有多个请求排队（把 req 换成计数器或队列即可）
+   ★ 唯一要注意：g_led_req_ms 和 g_led_blink_req 之间要保证顺序。
+     这个例子里即使主循环读到"req=1 但 ms 是旧值"，最坏也只是延时差一点，
+     属于可接受的抖动。如果顺序有严格要求，用范式三的序号双读。 */
+
+/* ============================================================================
+ * ✔ 修正 2：如果真的要"等一小会儿"（微秒级），用 DWT 而不是 HAL_Delay
+ * ============================================================================
+ * 适用：等 ADC 稳定、等某个引脚变化，量级在 1~100µs，且你确切知道
+ *       这几十微秒不会让别的中断错过截止时间。 */
+static void delay_cycles(uint32_t cycles)      /* 阻塞式，但【不依赖任何中断】 */
+{
+    uint32_t start = DWT-&gt;CYCCNT;
+    while ((DWT-&gt;CYCCNT - start) &lt; cycles)
+    {
+        __NOP();
+    }
+}
+/* 用法：delay_cycles(720);   // 72MHz 下约 10µs
+   ★ 为什么它不会死锁：它数的是 CPU 周期，和中断、和 uwTick 完全无关。
+   ★ 但它仍然是"在中断里空转"——只是不会死，不等于好。
+     只在真的需要硬件级短延时（比如软件模拟某个时序）时才用。 */
+
+/* ============================================================================
+ * ✔ 修正 3：用硬件定时器代替软件延时（最"嵌入式"的做法）
+ * ============================================================================
+ * 需要"延时 10ms 后做某事"时，让定时器替你数，CPU 全程自由。 */
+static void start_one_shot_10ms(void)
+{
+    /* 用一个基本定时器做单次触发（TIM6/TIM7 最合适，它们没有输出引脚，
+       纯做时基）。思路：
+         __HAL_RCC_TIM6_CLK_ENABLE();
+         TIM6-&gt;PSC  = 7200 - 1;      // 72MHz / 7200 = 10kHz → 0.1ms 一格
+         TIM6-&gt;ARR  = 100 - 1;       // 100 格 = 10ms
+         TIM6-&gt;CR1  = TIM_CR1_OPM    // ★ One Pulse Mode：数完自动停
+                    | TIM_CR1_URS    //   只由溢出产生更新事件
+                    | TIM_CR1_CEN;
+         TIM6-&gt;DIER |= TIM_DIER_UIE; // 开更新中断
+         HAL_NVIC_SetPriority(TIM6_IRQn, 5, 0);
+         HAL_NVIC_EnableIRQ(TIM6_IRQn);
+       然后在 TIM6_IRQHandler 里做"延时之后"的那件事。
+       因为 OPM 让定时器数完就停，所以不需要在 ISR 里关中断或清 CEN。 */
+}
+/* ★ 三种修正怎么选：
+     要"等一会儿再做"且期间 CPU 有用  → 修正 1（状态机），首选
+     要微秒级的硬件时序            → 修正 2（DWT 空转）
+     要精确的 10ms / 1s 级定时       → 修正 3（硬件定时器）
+     要"在中断里睡一觉"            → 【没有这种需求，重新想想设计】 */
+</code></pre>
+        </div>
+
+        <div class="callout callout-danger mt-4">
+          <div class="callout-title">这个死锁最难的地方：它只在"第一次按下按键"时才暴露</div>
+          <p>
+            如果你用的是开发板，通常有个 LED 在别的地方闪、或者有个串口在主动发数据，
+            那些都不受影响（因为它们在别的中断里或者主循环里）。
+            于是你看到的是「按键没反应」，很容易去怀疑按键接触不良、怀疑 EXTI 配置。
+          </p>
+          <p class="mt-2">
+            <b>最快的定位方法就是看 <code class="icode">uwTick</code> 有没有在涨。</b>
+            这是「系统时间是否还活着」的唯一指标：
+          </p>
+          <ul class="mt-2 list-disc space-y-1.5 pl-5">
+            <li><code class="icode">uwTick</code> 冻结 → 有代码在比 SysTick 优先级更高的中断里等待（就是本例）</li>
+            <li><code class="icode">uwTick</code> 正常但按键没反应 → 回到 <code class="icode">EXTI-&gt;PR</code> 和 <code class="icode">NVIC-&gt;ISPR</code> 两条线索</li>
+            <li><code class="icode">uwTick</code> 涨得比真实时间慢 → 有很长的临界区在吞 tick（第 3 节例 4 第 5 步）</li>
+          </ul>
+        </div>
+
+        <h3 id="sub-irq-table" class="mt-7 text-base font-semibold">中断号速查与优先级分配表</h3>
+
+        <p class="mt-3">
+          配中断时最常查的三个数：<b>IRQn 编号</b>（写 ISER 的位）、
+          <b>向量表里的地址</b>（调试时看栈帧或反汇编要用）、
+          <b>ISR 函数名</b>（写 <code class="icode">stm32f1xx_it.c</code> 要用）。
+          下表把三者对齐，向量地址按 <code class="icode">0x40 + 4 × IRQn</code> 算出
+          （0x00~0x3F 是 16 个内核异常的位置，第 0 项是初始栈顶而不是函数地址）。
+        </p>
+
+        <div class="table-scroll mt-4">
+          <table class="table-mcu">
+            <thead>
+              <tr>
+                <th>IRQn</th>
+                <th>向量地址</th>
+                <th>中断源</th>
+                <th>ISR 函数名</th>
+                <th>建议优先级</th>
+                <th>备注</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>0</td><td>0x40</td><td>WWDG</td><td><code class="icode">WWDG_IRQHandler</code></td><td>0~1</td><td>窗口看门狗，用来抓"程序跑飞"</td></tr>
+              <tr><td>1</td><td>0x44</td><td>PVD</td><td><code class="icode">PVD_IRQHandler</code></td><td>1~2</td><td>电源电压跌破阈值（EXTI16 送过来的）</td></tr>
+              <tr><td>2</td><td>0x48</td><td>TAMPER</td><td><code class="icode">TAMPER_IRQHandler</code></td><td>12~14</td><td>侵入检测，秒级事件</td></tr>
+              <tr><td>3</td><td>0x4C</td><td>RTC</td><td><code class="icode">RTC_IRQHandler</code></td><td>12~14</td><td>秒中断 / 溢出</td></tr>
+              <tr><td>4</td><td>0x50</td><td>FLASH</td><td><code class="icode">FLASH_IRQHandler</code></td><td>10~12</td><td>擦写完成；<b>写 Flash 期间总线被占，所有中断延迟都会变大</b></td></tr>
+              <tr><td>5</td><td>0x54</td><td>RCC</td><td><code class="icode">RCC_IRQHandler</code></td><td>10~12</td><td>时钟就绪（PLL 锁定等）</td></tr>
+              <tr><td><b>6</b></td><td><b>0x58</b></td><td><b>EXTI0</b></td><td><code class="icode">EXTI0_IRQHandler</code></td><td><b>14</b></td><td>按键常用；本篇主角</td></tr>
+              <tr><td>7</td><td>0x5C</td><td>EXTI1</td><td><code class="icode">EXTI1_IRQHandler</code></td><td>14</td><td>独享向量</td></tr>
+              <tr><td>8</td><td>0x60</td><td>EXTI2</td><td><code class="icode">EXTI2_IRQHandler</code></td><td>14</td><td>独享向量</td></tr>
+              <tr><td>9</td><td>0x64</td><td>EXTI3</td><td><code class="icode">EXTI3_IRQHandler</code></td><td>14</td><td>独享向量</td></tr>
+              <tr><td>10</td><td>0x68</td><td>EXTI4</td><td><code class="icode">EXTI4_IRQHandler</code></td><td>14</td><td>独享向量</td></tr>
+              <tr><td>11~17</td><td>0x6C~0x84</td><td>DMA1_Channel1~7</td><td><code class="icode">DMA1_Channel1_IRQHandler</code>…</td><td>3</td><td>搬运完成，通常只做收尾（切缓冲）</td></tr>
+              <tr><td>18</td><td>0x88</td><td>ADC1_2</td><td><code class="icode">ADC1_2_IRQHandler</code></td><td>1</td><td>转换完成，要在下次转换前取走</td></tr>
+              <tr><td>19</td><td>0x8C</td><td>USB_HP_CAN1_TX</td><td><code class="icode">USB_HP_CAN1_TX_IRQHandler</code></td><td>2~3</td><td>USB 高优先级 / CAN 发送</td></tr>
+              <tr><td>20</td><td>0x90</td><td>USB_LP_CAN1_RX0</td><td><code class="icode">USB_LP_CAN1_RX0_IRQHandler</code></td><td>2~3</td><td>USB 低优先级 / CAN 接收 FIFO0</td></tr>
+              <tr><td>21</td><td>0x94</td><td>CAN1_RX1</td><td><code class="icode">CAN1_RX1_IRQHandler</code></td><td>2~3</td><td>CAN 接收 FIFO1</td></tr>
+              <tr><td>22</td><td>0x98</td><td>CAN1_SCE</td><td><code class="icode">CAN1_SCE_IRQHandler</code></td><td>0~1</td><td>CAN 状态变化/错误，影响总线存活</td></tr>
+              <tr><td><b>23</b></td><td><b>0x9C</b></td><td><b>EXTI9_5</b></td><td><code class="icode">EXTI9_5_IRQHandler</code></td><td><b>14</b></td><td><b>5 条线共用</b>，ISR 里要逐位判 PR</td></tr>
+              <tr><td>24</td><td>0xA0</td><td>TIM1_BRK</td><td><code class="icode">TIM1_BRK_IRQHandler</code></td><td>0</td><td>刹车输入：电机控制的紧急封锁，必须最快</td></tr>
+              <tr><td>25</td><td>0xA4</td><td>TIM1_UP</td><td><code class="icode">TIM1_UP_IRQHandler</code></td><td>1</td><td>高级定时器更新</td></tr>
+              <tr><td>26</td><td>0xA8</td><td>TIM1_TRG_COM</td><td><code class="icode">TIM1_TRG_COM_IRQHandler</code></td><td>1</td><td>触发与通信</td></tr>
+              <tr><td>27</td><td>0xAC</td><td>TIM1_CC</td><td><code class="icode">TIM1_CC_IRQHandler</code></td><td>1</td><td>捕获比较</td></tr>
+              <tr><td><b>28</b></td><td><b>0xB0</b></td><td><b>TIM2</b></td><td><code class="icode">TIM2_IRQHandler</code></td><td><b>4</b></td><td>通用定时器，常做 1ms 节拍</td></tr>
+              <tr><td>29</td><td>0xB4</td><td>TIM3</td><td><code class="icode">TIM3_IRQHandler</code></td><td>0~1</td><td>高频采样节拍</td></tr>
+              <tr><td>30</td><td>0xB8</td><td>TIM4</td><td><code class="icode">TIM4_IRQHandler</code></td><td>0~1</td><td>同上（TIM4 只在中/大容量上有）</td></tr>
+              <tr><td>31</td><td>0xBC</td><td>I2C1_EV</td><td><code class="icode">I2C1_EV_IRQHandler</code></td><td>2~3</td><td>I2C 事件</td></tr>
+              <tr><td>32</td><td>0xC0</td><td>I2C1_ER</td><td><code class="icode">I2C1_ER_IRQHandler</code></td><td>1~2</td><td>I2C 错误（仲裁丢失、NACK）</td></tr>
+              <tr><td>33~34</td><td>0xC4~0xC8</td><td>I2C2_EV / I2C2_ER</td><td><code class="icode">I2C2_EV_IRQHandler</code>…</td><td>2~3 / 1~2</td><td>—</td></tr>
+              <tr><td>35</td><td>0xCC</td><td>SPI1</td><td><code class="icode">SPI1_IRQHandler</code></td><td>2</td><td>全双工收发</td></tr>
+              <tr><td>36</td><td>0xD0</td><td>SPI2</td><td><code class="icode">SPI2_IRQHandler</code></td><td>2</td><td>—</td></tr>
+              <tr><td><b>37</b></td><td><b>0xD4</b></td><td><b>USART1</b></td><td><code class="icode">USART1_IRQHandler</code></td><td><b>2</b></td><td>115200 下 87µs 一字节</td></tr>
+              <tr><td>38</td><td>0xD8</td><td>USART2</td><td><code class="icode">USART2_IRQHandler</code></td><td>2</td><td>—</td></tr>
+              <tr><td>39</td><td>0xDC</td><td>USART3</td><td><code class="icode">USART3_IRQHandler</code></td><td>2</td><td>—</td></tr>
+              <tr><td><b>40</b></td><td><b>0xE0</b></td><td><b>EXTI15_10</b></td><td><code class="icode">EXTI15_10_IRQHandler</code></td><td><b>14</b></td><td><b>6 条线共用</b></td></tr>
+              <tr><td>41</td><td>0xE4</td><td>RTCAlarm</td><td><code class="icode">RTCAlarm_IRQHandler</code></td><td>13~14</td><td>EXTI17 送过来的闹钟</td></tr>
+              <tr><td>42</td><td>0xE8</td><td>USBWakeUp</td><td><code class="icode">USBWakeUp_IRQHandler</code></td><td>13~14</td><td>EXTI18 送过来的唤醒</td></tr>
+              <tr>
+                <td colspan="6" class="text-muted">
+                  <b>中容量 F103C8T6 的外部中断到 42 为止。</b>
+                  大容量 / 互联型还有 43~59：TIM8_BRK(43)、TIM8_UP(44)、TIM8_TRG_COM(45)、TIM8_CC(46)、
+                  ADC3(47)、FSMC(48)、SDIO(49)、TIM5(50)、SPI3(51)、UART4(52)、UART5(53)、
+                  TIM6(54)、TIM7(55)、DMA2_Channel1~5(56~59)。
+                  寄存器上 <code class="icode">NVIC-&gt;ISER[1]</code> 管的是 32~63，所以中断号 ≥ 32 时
+                  ISER 的下标会变成 1 —— 这就是通用写法 <code class="icode">ISER[irq &gt;&gt; 5]</code> 的由来。
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout-tip mt-4">
+          <div class="callout-title">配置一个中断的七步检查清单（照着走一遍就不会漏）</div>
+          <ol class="mt-2 list-decimal space-y-2 pl-5">
+            <li><b>开时钟</b>：外设自己的时钟 + （GPIO 中断还要）<code class="icode">AFIO</code> 时钟。</li>
+            <li><b>配引脚</b>：输入模式（上拉/下拉/浮空），不是输出、不是模拟。</li>
+            <li><b>选 EXTI 线</b>：<code class="icode">AFIO-&gt;EXTICR</code> 选端口，并确认这个<b>线号没被别的引脚占用</b>。</li>
+            <li><b>配触发沿</b>：<code class="icode">RTSR</code> / <code class="icode">FTSR</code>，以及<b>先清 <code class="icode">PR</code></b>。</li>
+            <li><b>开第一级使能</b>：<code class="icode">EXTI-&gt;IMR</code>（事件模式则用 <code class="icode">EMR</code>）。</li>
+            <li><b>开第二级使能 + 设优先级</b>：<code class="icode">NVIC-&gt;ISER</code> + <code class="icode">NVIC-&gt;IP</code>（数值要左移 4 位）。</li>
+            <li><b>在 ISR 里清标志</b>，并且只放"记录 + 置标志"的代码。</li>
+          </ol>
+          <p class="mt-2">
+            故障排查时反向走一遍：<b>从 ISR 往回查</b>——先看 <code class="icode">PR</code> 有没有置 1
+            （有 = 边沿到 EXTI 了，问题在后半段；没有 = 问题在前半段），
+            再看 <code class="icode">ISPR</code> 有没有置 1（有 = NVIC 收到了，问题在优先级/使能；没有 = 还在 EXTI 那一侧）。
+            这两次观察能把七个步骤一刀切成三段，排查速度翻几倍。
+          </p>
+        </div>
+        </section>
+
+        <section>
+          <h2 id="sec-pitfall" class="mt-12 text-xl font-semibold">常见误解与坑：十条逐条定位</h2>
+
+        <p class="mt-3">
+          这一节的十条，全部来自真实的调试现场。每一条都按「错误认知 → 为什么错 → 正确做法」写，
+          并且给出<b>可观察的证据</b>——因为只有能看见的东西才能被排查。
+        </p>
+
+        <h3 id="pit-1" class="mt-8 text-base font-semibold">坑 1：「引脚上有边沿，就一定会进中断」</h3>
+        <p class="mt-2"><b>错误认知：</b>我把 GPIO 初始化成 EXTI 模式，又调了
+        <code class="icode">HAL_NVIC_EnableIRQ()</code>，那就该进中断了。</p>
+        <p class="mt-2"><b>为什么错：</b>从引脚边沿到 ISR，中间有<b>五道关卡</b>，任何一道没开都不进中断，
+        而且五种情况的现象完全一样（都是"没反应"），所以必须靠寄存器区分。
+        最容易被漏的是 <b>AFIO 时钟</b>——不开它，<code class="icode">EXTICR</code> 的写操作会被硬件丢弃（读回 0），
+        于是所有线都连在 PA 上，你用 PB 的按键永远不响应；这个故障甚至<b>不是偶发的，是必然的</b>，
+        但因为现象和"漏开中断使能"一模一样，很多人会查错方向。</p>
+        <p class="mt-2"><b>正确做法：</b>按第 4 节那张「七步检查清单」写代码；
+        排查时用「<code class="icode">EXTI-&gt;PR</code> 有没有置 1」把故障一刀切成两段：
+        <b>PR = 0 → 问题在前半段（时钟/引脚/AFIO/触发沿）；PR = 1 → 问题在后半段（IMR/NVIC/优先级）。</b></p>
+
+        <h3 id="pit-2" class="mt-8 text-base font-semibold">坑 2：「清标志随便写，反正库会清」</h3>
+        <p class="mt-2"><b>错误认知：</b>中断挂了、反复进，我加一句
+        <code class="icode">EXTI-&gt;PR = 0;</code> 清一下就好了。</p>
+        <p class="mt-2"><b>为什么错：</b><code class="icode">PR</code> 是
+        <b>rc_w1（写 1 清除）</b>寄存器——写 0 到某一位等于什么也不做，写 1 才清除那一位。
+        所以 <code class="icode">EXTI-&gt;PR = 0;</code> <b>完全没有效果</b>，现象和"忘了清"一模一样。
+        这个变体比"忘记清"更常见，因为它看起来像是在"清零"。
+        同类的还有 <code class="icode">USART-&gt;SR</code> 的部分位、<code class="icode">TIM-&gt;SR</code> 的标志、
+        DMA 的 <code class="icode">IFCR</code>、ADC 的 <code class="icode">SR</code>——它们全都是「写 1 清除」。</p>
+        <p class="mt-2"><b>正确做法：</b>只清<b>你刚刚确认过的那一位</b>：
+        <code class="icode">EXTI-&gt;PR = (1UL &lt;&lt; line);</code>。
+        不要写 <code class="icode">EXTI-&gt;PR = 0xFFFF;</code> 一把全清——那会抹掉别的线（包括事件模式留下的）的状态。
+        用 HAL 时，<code class="icode">HAL_GPIO_EXTI_IRQHandler()</code> 已经替你清好了，
+        <b>你千万不要在回调里再清一次</b>（双重清除会让你漏掉紧跟其后的第二个边沿）。</p>
+
+        <h3 id="pit-3" class="mt-8 text-base font-semibold">坑 3：「优先级数字越大，优先级越高」</h3>
+        <p class="mt-2"><b>错误认知：</b>我要让串口最紧急，给它设 <code class="icode">15</code>。</p>
+        <p class="mt-2"><b>为什么错：</b>Cortex-M 的规则是<b>数值越小优先级越高</b>，0 是最高。
+        这和很多人的直觉（也和一些其他架构）正好相反。
+        更隐蔽的一层：<code class="icode">NVIC_SetPriority()</code> 收的是<b>数值</b>（0~15），
+        而 <code class="icode">configMAX_SYSCALL_INTERRUPT_PRIORITY</code> 那种宏是<b>已经左移好的原始值</b>（典型 0x50 = 80），
+        把后者传给前者，会在左移时溢出截断成 0——优先级反而变成最高。见第 2 节的那个坑。</p>
+        <p class="mt-2"><b>正确做法：</b>给每组中断在注释里写清「数值 + 是数值还是原始值」，
+        例如 <code class="icode">HAL_NVIC_SetPriority(USART1_IRQn, 2, 0); /* 数值 2，第二紧急 */</code>；
+        开机时加一段 <code class="icode">NVIC_GetPriority()</code> 自检断言。</p>
+
+        <h3 id="pit-4" class="mt-8 text-base font-semibold">坑 4：「把响应优先级设高，就能打断别人」</h3>
+        <p class="mt-2"><b>错误认知：</b>两个中断抢占优先级都是 1，但我给重要的那个设了响应优先级 0，
+        所以它应该能打断另一个（响应优先级 3）。</p>
+        <p class="mt-2"><b>为什么错：</b>响应（子）优先级<b>只参与"同时挂起时谁先被取走"这一个判断，
+        永远不能造成嵌套</b>。抢占优先级相同 = 同级 = 不能互相打断，不管响应优先级差多少。
+        这条规则违反了不会报错、不会 HardFault，只会让你"看起来配了其实没配上"，
+        于是延迟比设计值大很多，很难联想到原因。</p>
+        <p class="mt-2"><b>正确做法：</b>需要嵌套的，就<b>必须</b>用不同的抢占优先级；
+        用响应优先级只是为了"同层内排先后"，别指望它做实时性保证。
+        反过来，如果你<b>不想</b>让两个中断嵌套（比如为了控制栈用量），
+        就把它们的抢占优先级设成相同——这是有意为之的工程手段，不是疏漏。</p>
+
+        <h3 id="pit-5" class="mt-8 text-base font-semibold">坑 5：「按键最重要，给它最高优先级」</h3>
+        <p class="mt-2"><b>错误认知：</b>用户操作是产品的核心，按键中断当然要最高优先级，不能被别的东西拖慢。</p>
+        <p class="mt-2"><b>为什么错：</b>优先级的依据是<b>截止时间</b>，不是重要性。
+        按键的截止时间是 50ms（人的感知阈值），而串口在 115200 下的字节间隔只有 87µs——
+        两者差三个数量级。把按键放最高，意味着每次按键抖动都会打断串口；
+        按第 3 节例 6 的算式，抖动边沿累计超过 <b>33 次</b>串口就开始丢字节，
+        而机械按键产生几十次边沿是常态。更糟的是这属于"概率性丢数据"，
+        在实验室按几下测不出来，到用户手里才暴露。</p>
+        <p class="mt-2"><b>正确做法：</b>按第 3 节例 6 的方法，为每个中断写下它的截止时间，
+        然后按截止时间从小到大分配抢占优先级数值（0 给最紧的）。
+        按键、显示、RTC 这类"人机类"给最低的那几级。</p>
+
+        <h3 id="pit-6" class="mt-8 text-base font-semibold">坑 6：「回调里不用判 GPIO_Pin，反正只会有一个引脚触发」</h3>
+        <p class="mt-2"><b>错误认知：</b>我只有一个按键用 EXTI，回调里直接写业务就行，判 <code class="icode">GPIO_Pin</code> 是多余的。</p>
+        <p class="mt-2"><b>为什么错：</b>因为 <code class="icode">HAL_GPIO_EXTI_Callback()</code> 是
+        <b>所有 EXTI 引脚共用的一个函数</b>。今天只有一个按键，等三个月后你加了第二个传感器中断
+        （比如红外接收头、或者霍尔传感器），你会忘记回来补判断——
+        那时现象是「传感器一有信号，程序就认为按键被按了」。
+        而且这个 bug 在开发阶段完全看不到（因为你只接了按键），是典型的"埋雷"。</p>
+        <p class="mt-2"><b>正确做法：</b>回调第一行永远是
+        <code class="icode">if (GPIO_Pin == GPIO_PIN_x)</code>，有多少个引脚就有多少个分支。
+        更进一步：把"引脚 → 动作"做成一张表，回调里查表分发，加新引脚时只改表不改逻辑。</p>
+
+        <h3 id="pit-7" class="mt-8 text-base font-semibold">坑 7：「中断里延时/打印一下，只是慢一点而已」</h3>
+        <p class="mt-2"><b>错误认知：</b><code class="icode">HAL_Delay(10)</code>、
+        <code class="icode">HAL_UART_Transmit()</code>、<code class="icode">printf()</code>
+        放进中断，无非是慢一点，功能还是对的。</p>
+        <p class="mt-2"><b>为什么错：</b>它们不是"慢一点"，而是分三种不同程度的灾难：
+        <b>① 必然死锁</b>：<code class="icode">HAL_Delay</code> 等的是 <code class="icode">uwTick</code>，
+        而 <code class="icode">uwTick</code> 靠 SysTick 中断增长；SysTick 优先级比你低（或同级）就永远涨不了，
+        于是永久卡住——第 4 节给了完整的复现步骤和决定性证据（<code class="icode">uwTick</code> 冻结）。
+        <b>② 栈溢出</b>：<code class="icode">printf</code> 单个调用可能吃 200~500 字节栈，
+        在深度 4 的嵌套里足够让 1KB 的栈爆掉，而且爆掉的表现是"某个无关变量被改坏"或 HardFault。
+        <b>③ 破坏数据</b>：<code class="icode">printf</code>、<code class="icode">malloc</code>
+        都是不可重入的，中断里调用会破坏主循环正在维护的内部状态。</p>
+        <p class="mt-2"><b>正确做法：</b>ISR 里只做「记录 + 置标志」；
+        需要打印就往环形缓冲/队列里塞原始数据，主循环格式化输出；
+        需要延时就用第 4 节的三种修正（状态机 / DWT 空转 / 硬件定时器）。
+        <b>一条硬判据：凡是带 <code class="icode">Timeout</code> 参数的阻塞式 HAL 函数，都不能进中断。</b></p>
+
+        <h3 id="pit-8" class="mt-8 text-base font-semibold">坑 8：「变量加了 volatile 就安全了」</h3>
+        <p class="mt-2"><b>错误认知：</b>我把共享变量声明成 <code class="icode">volatile</code>，
+        中断和主循环都读写它，这就万无一失了。</p>
+        <p class="mt-2"><b>为什么错：</b><code class="icode">volatile</code> 只保证
+        <b>「每次都从内存重新读、不许优化掉」</b>（可见性），它<b>不保证任何原子性</b>。
+        具体有两个层级的坑：
+        <b>① 位操作丢更新</b>：<code class="icode">flags |= (1 &lt;&lt; 2);</code> 在汇编上是
+        「读 flags → 或上掩码 → 写回」三条指令，如果在这中间被中断打断、而中断改了别的位，
+        你的写回会把中断的修改<b>覆盖掉</b>（第 27 篇讲过这个反汇编对照）。
+        <b>② 多字节数据撕裂</b>：主循环读一个结构体读到一半被中断，得到「新的一半 + 旧的一半」，
+        这组数据从来没有真实存在过。这类错误<b>不崩溃、只出错</b>，是最难查的一类。</p>
+        <p class="mt-2"><b>正确做法：</b>按第 4 节的三种范式选：
+        单标志（不用保护）/ 环形缓冲区（单写者模型天然无锁）/
+        多字节数据（序号双读或临界区）；
+        只想原子地置一个位，用 F103 的<b>位带别名</b>，一条 <code class="icode">STR</code> 指令搞定。</p>
+
+        <h3 id="pit-9" class="mt-8 text-base font-semibold">坑 9：「优先级分组随便设一个就行」</h3>
+        <p class="mt-2"><b>错误认知：</b>我只有一个中断自用，分组设几都无所谓。</p>
+        <p class="mt-2"><b>为什么错：</b>分组是<b>全局的、作用于整个 NVIC</b>，
+        不是你新加的那个中断的私有设置。你用的不止一个中断——
+        SysTick、PendSV、SVC 以及 HAL 内部用到的都在同一个 NVIC 里。
+        中途改分组会让<b>所有已经设好的优先级含义瞬间改变</b>（因为同一个字节的两段被重新划分了）。
+        而且分组<b>只能往粗里改</b>：从 16 个抢占级改到 4 个之后，
+        原来能嵌套的中断会变成同级，你没法用响应位把它们再分开。
+        还有一个静默覆盖：<code class="icode">HAL_Init()</code> 内部会调
+        <code class="icode">HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4)</code>，
+        你在它<b>之前</b>设的分组会被无声抹掉。</p>
+        <p class="mt-2"><b>正确做法：</b>在 <code class="icode">main()</code> 里
+        <code class="icode">HAL_Init()</code> <b>之后</b>设一次，写清注释，
+        之后全局都不再动；代码评审时把"改分组"当成和"改时钟树"同级的危险操作。</p>
+
+        <h3 id="pit-10" class="mt-8 text-base font-semibold">坑 10：「FreeRTOS 的 FromISR 和唤醒标志，加不加都行」</h3>
+        <p class="mt-2"><b>错误认知：</b>我在中断里用 <code class="icode">xQueueSendFromISR(q, &amp;d, NULL)</code>
+        也能把数据发出去，那个 <code class="icode">pxHigherPriorityTaskWoken</code> 参数传 NULL 省事。</p>
+        <p class="mt-2"><b>为什么错：</b>传 NULL 确实"能发出数据"，所以它在功能测试里<b>看起来是对的</b>。
+        但被唤醒的高优先级任务不会立即运行——它要等到调度器下一次自然抢占（下一个 tick）才可能切换，
+        于是「中断 → 任务开始处理」的延迟从几个µs 变成<b>最多 1ms</b>。
+        对需要快速响应的场合（比如串口协议的应答、步进电机的脉冲），这 1ms 就是功能失效。
+        另一半更危险：如果这个中断的优先级数值<b>小于</b> <code class="icode">configMAX_SYSCALL_INTERRUPT_PRIORITY</code>
+        （也就是比那条线更紧急），它<b>根本不允许调用任何 FreeRTOS API</b>——
+        因为它能抢占内核临界区，会破坏内核数据结构，现象是随机 HardFault 或队列指针错乱。</p>
+        <p class="mt-2"><b>正确做法：</b>ISR 里三步走全写：
+        <code class="icode">BaseType_t woken = pdFALSE;</code> →
+        <code class="icode">xQueueSendFromISR(q, &amp;d, &amp;woken);</code> →
+        <code class="icode">portYIELD_FROM_ISR(woken);</code>；
+        并且把所有会调用 RTOS API 的中断优先级数值限制在 <code class="icode">≥ 5</code>（即
+        <code class="icode">configMAX_SYSCALL_INTERRUPT_PRIORITY</code> 对应的数值），
+        打开 <code class="icode">configASSERT</code> 让 FreeRTOS 自己在
+        <code class="icode">vPortValidateInterruptPriority()</code> 里替你抓违规。</p>
+
+        <div class="callout callout-danger mt-6">
+          <div class="callout-title">十条里最该背下来的三条</div>
+          <p>
+            如果只记三条，记这三条：
+            <b>① <code class="icode">PR</code> 是写 1 清除，而且必须清；</b>
+            <b>② 优先级数值越小越高，且分组的位含义是全局的；</b>
+            <b>③ 中断里只置标志，凡是带 Timeout 的阻塞函数一律不准进中断。</b>
+            这三条覆盖了初学者 80% 的中断故障。
+          </p>
+        </div>
+        </section>
+
+        <section>
+          <h2 id="sec-summary" class="mt-12 text-xl font-semibold">小结与自检</h2>
+
+        <h3 id="sum-points" class="mt-7 text-base font-semibold">要点清单</h3>
+
+        <div class="card card-pad mt-4">
+          <ul class="space-y-3 text-[14.5px] leading-relaxed">
+            <li>
+              <b>中断是一条链，不是一件事。</b>
+              完整链路是：外设事件 → EXTI（边沿检测、PR、IMR）→ NVIC（两级使能、优先级）→
+              向量表（VTOR + 4×异常号）→ <code class="icode">XXX_IRQHandler</code> →
+              HAL 转发层（清 PR）→ 你的 <code class="icode">Callback</code> →
+              置标志 → 主循环处理。每一环都有自己的寄存器和默认值。
+            </li>
+            <li>
+              <b>向量表里放的是地址，不是函数。</b>
+              第 0 项是初始栈顶（不是代码地址），第 1 项才是 <code class="icode">Reset_Handler</code>；
+              每个 ISR 地址的<b>最低位必须是 1</b>（Thumb 标记）。
+              默认表在 <code class="icode">0x08000000</code>，Bootloader/IAP 场景要用
+              <code class="icode">SCB-&gt;VTOR</code> 重定位，跳转前必须
+              <code class="icode">__disable_irq()</code> 且重定位后的表要对齐到 128 字（512 字节）边界。
+            </li>
+            <li>
+              <b><code class="icode">.weak</code> 是"可以被覆盖"的声明。</b>
+              启动文件里每个 ISR 都有一条弱定义（跳到死循环），
+              你在 C 里写一个同名函数，链接器就会用你的强定义替换它——
+              这就是"为什么写同名函数就能接管中断"，也是为什么<b>函数名拼错不会报错</b>（会静默死循环）。
+            </li>
+            <li>
+              <b>NVIC 六个寄存器组各管一件事。</b>
+              <code class="icode">ISER/ICER</code> 管使能，
+              <code class="icode">ISPR/ICPR</code> 管挂起（软件也能手动置位/清除），
+              <code class="icode">IABR</code> 是只读的"正在执行哪一路"（调试时很有用），
+              <code class="icode">IPR</code> 管优先级。<b>它们都是按 32 位一组寻址的</b>：
+              中断号 <i>n</i> 落在 <code class="icode">[n &gt;&gt; 5]</code> 的
+              <code class="icode">1 &lt;&lt; (n &amp; 0x1F)</code> 位上。
+            </li>
+            <li>
+              <b>IPR 只有高 4 位有效。</b>F103 只实现了 4 位优先级 → 16 个等级，
+              数值要左移 4 位再写（<code class="icode">prio &lt;&lt; 4</code>）。
+              直接写 <code class="icode">NVIC-&gt;IP[n] = 14</code> 会得到优先级 0（最高）——
+              因为 14 = <code class="icode">0b00001110</code>，硬件只看高 4 位。
+            </li>
+            <li>
+              <b>抢占位管"能不能打断"，响应位只管"同时挂起时谁先跑"。</b>
+              5 种分组下（抢占位, 响应位）分别是 (0,4)、(1,3)、(2,2)、(3,1)、(4,0)，
+              抢占级数 × 响应级数恒等于 16。
+              <b>抢占优先级相同就绝不嵌套</b>，不管响应优先级差多少。
+            </li>
+            <li>
+              <b>嵌套由硬件自动压 8 字帧（32 字节）。</b>
+              R0~R3、R12、LR、PC、xPSR，顺序固定、不可配置。
+              嵌套深度直接决定最坏栈用量，
+              <b>把一组中断设成同一个抢占优先级是控制栈用量最有效的手段</b>。
+            </li>
+            <li>
+              <b>延迟是常数周期数，不是常数时间。</b>
+              同步请求约 12 周期、异步请求约 14~15 周期（要加 2~3 周期做时钟域同步），
+              72MHz 下约 0.2µs。<b>主频翻倍，延迟减半</b>——因为周期数不变。
+              尾链把连续中断的进场开销从 14 周期压到 6 周期，迟来则省掉"白压一次多余的栈"。
+            </li>
+            <li>
+              <b>EXTI 的线号 = 引脚号，一根线只能连一个端口。</b>
+              PA0/PB0/PC0 共用 EXTI0，<code class="icode">AFIO-&gt;EXTICR</code> 只能选一个。
+              8 个按键随机分配引脚号，"互不冲突"的概率只有 <b>12%</b>；
+              冲突时另一个键的响应概率不是 50%，而是<b>稳定的 0%</b>。
+            </li>
+            <li>
+              <b>EXTI 与 NVIC 是两级使能，两个都要开。</b>
+              只开 IMR 不开 ISER，请求会挂在 NVIC 的 pending 上，
+              等你哪天补开 ISER，它会立刻补上一次"迟到的中断"——
+              这是"改了无关代码，突然多进一次中断"的原因。
+            </li>
+            <li>
+              <b>HAL 的转发层存在的唯一目的是清除标志。</b>
+              <code class="icode">HAL_GPIO_EXTI_IRQHandler</code> = 判 PR → 清 PR → 调回调；
+              <code class="icode">HAL_UART_IRQHandler</code> = 判各种标志 → 分发到
+              <code class="icode">HAL_UART_RxCpltCallback</code> 等。
+              <b>所有引脚的 EXTI 回调共用一个函数</b>，所以第一行必须判 <code class="icode">GPIO_Pin</code>。
+            </li>
+            <li>
+              <b>优先级的依据是截止时间，不是重要性。</b>
+              先写出每个中断的截止时间，再按从小到大分配抢占优先级数值（0 给最紧的）。
+              按键的截止时间是 50ms 级，串口是 87µs 级——差三个数量级，
+              所以按键应该垫底而不是居首。
+            </li>
+            <li>
+              <b>ISR 里只置标志，主循环去处理。</b>
+              <code class="icode">volatile</code> 解决可见性，环形缓冲区的单写者模型解决原子性，
+              多字节数据用序号双读或临界区。<b>凡是带 <code class="icode">Timeout</code> 的阻塞式 HAL 函数进中断就是 bug</b>——
+              <code class="icode">HAL_Delay</code> 会死锁（等 <code class="icode">uwTick</code>，
+              而 <code class="icode">uwTick</code> 靠比它优先级更低的 SysTick）。
+            </li>
+            <li>
+              <b>排查的顺序永远是从寄存器倒着走。</b>
+              <code class="icode">EXTI-&gt;PR</code> 置了没？→ <code class="icode">NVIC-&gt;ISPR</code> 置了没？→
+              <code class="icode">NVIC-&gt;ISER</code>／<code class="icode">IP</code> 对不对？→
+              最后才是看代码。两次寄存器观察能把七个步骤一刀切成三段。
+            </li>
+          </ul>
+        </div>
+
+        <h3 id="sum-quiz" class="mt-7 text-base font-semibold">自测题</h3>
+
+        <p class="mt-3">先自己想一遍再看答案。八道题覆盖本篇的全部关键结论。</p>
+
+        <ol class="mt-4 list-decimal space-y-3 pl-5 text-[14.5px] leading-relaxed">
+          <li>
+            F103 的优先级寄存器每个中断只有 4 个有效位。如果写下
+            <code class="icode">NVIC-&gt;IP[6] = 0x0F;</code>，
+            那么 EXTI0 这个中断的实际优先级是几？为什么？
+          </li>
+          <li>
+            在分组 2（2 位抢占 + 2 位响应）下，中断 A 设成抢占 = 1、响应 = 3，
+            中断 B 设成抢占 = 1、响应 = 0。B 正在 A 的 ISR 执行期间到来，
+            B 能打断 A 吗？如果两个中断是同时挂起的，谁先执行？
+          </li>
+          <li>
+            异常向量表的第 0 项和第 1 项分别是什么？
+            为什么每个 ISR 地址的最低位必须是 1？如果你用 C 数组手写一张向量表放到 RAM 里
+            并通过 <code class="icode">SCB-&gt;VTOR</code> 重定位，最容易犯什么错？
+          </li>
+          <li>
+            PA0 和 PB0 各接一个按键，两块代码都配了 EXTI0 和 <code class="icode">NVIC_EnableIRQ(EXTI0_IRQn)</code>。
+            会出现什么现象？排查时为什么必须先看 <code class="icode">EXTI-&gt;PR</code>？
+          </li>
+          <li>
+            SysTick 的优先级是 15，EXTI0 的优先级是 0。
+            在 <code class="icode">EXTI0_IRQHandler()</code> 里调用
+            <code class="icode">HAL_Delay(10)</code> 会发生什么？
+            把两个优先级对调（SysTick = 0，EXTI0 = 15）会不会就好了？
+          </li>
+          <li>
+            一个定时器每 50µs 中断一次，ISR 本体（含 HAL 调用）执行 300 个周期。
+            它的 CPU 占用率是多少（要含进出中断的固定开销）？
+            如果有两个这样的中断总是背靠背到来，尾链能省多少周期、占固定开销的百分之多少？
+          </li>
+          <li>
+            <code class="icode">NVIC_SetPriority(USART1_IRQn, configMAX_SYSCALL_INTERRUPT_PRIORITY);</code>
+            这一行哪里错了？实际写进寄存器的是什么值？会导致什么后果？
+          </li>
+          <li>
+            调试器显示一次 HardFault 发生在某个 ISR 内部，
+            但那段 ISR 的代码只有几句赋值，看起来毫无问题。
+            列出三个最可能的原因，以及各自的验证方法。
+          </li>
+        </ol>
+
+        <div class="callout callout-info mt-5">
+          <div class="callout-title">答案与解析</div>
+          <ol class="mt-2 list-decimal space-y-4 pl-5 text-[14px] leading-relaxed">
+            <li>
+              <b>实际优先级是 0，也就是最高。</b>
+              因为 F103 只实现了 4 个优先级位，硬件读取的是这个字节的<b>高 4 位</b>。
+              <code class="icode">0x0F = 0b00001111</code>，高 4 位全是 0 → 优先级 0。
+              要设成数值 14，必须写 <code class="icode">14 &lt;&lt; (8 - 4) = 0xE0</code>。
+              这是个纯粹由"位布局"造成的静默错误：不会报错，只会让一个本该垫底的中断
+              悄悄爬到最高，然后把系统实时性搞乱。
+            </li>
+            <li>
+              <b>不能打断。</b>两者的抢占优先级都是 1，同级之间绝不嵌套——
+              响应优先级（3 和 0）<b>不参与嵌套判定</b>，它只在"两者同时处于挂起状态、
+              等待被取走"的时候决定顺序。
+              所以 B 会一直等到 A 的 ISR 执行完；如果两个中断是<b>同时</b>挂起的
+              （比如你在同一个时刻手动置了两个 ISPR 位），那么 B（响应 0）先被取走执行。
+              一句话记法：<b>抢占位管打断，响应位管排队。</b>
+            </li>
+            <li>
+              <b>第 0 项是初始栈顶值（MSP 的初值），第 1 项才是 <code class="icode">Reset_Handler</code> 的地址。</b>
+              第 0 项不是函数地址这件事，是很多人第一次读向量表时最大的困惑。
+              最低位为 1 是 <b>Thumb 标记</b>：Cortex-M 只支持 Thumb 指令集，
+              硬件靠地址最低位判断"目标是 Thumb 代码"，同时把这一位从实际跳转地址里去掉
+              （所以不会跳错到奇数地址）。
+              手写向量表最常见的错就是<b>忘了 <code class="icode">| 1</code></b>——
+              症状通常是直接进 HardFault，或者跳到一个奇怪的地址执行。
+              另外还有两个约束：重定位的向量表必须对齐到 <b>128 字（512 字节）</b>边界
+              （因为 VTOR 的低 9 位被硬件忽略），以及跳转前必须关中断
+              （否则重定位的中间状态可能被中断用到）。
+            </li>
+            <li>
+              <b>只有一个按键能响应，另一个稳定地完全不响应。</b>
+              因为 EXTI0 这条线只能连 PA0/PB0/PC0/PD0/PE0 中的一个，
+              <code class="icode">AFIO-&gt;EXTICR[0]</code> 的 4 位字段只保留最后一次写入的值，
+              之前配置的那个端口就被彻底断开了。
+              <b>必须先看 <code class="icode">EXTI-&gt;PR</code></b>，因为它能把故障一刀切成两段：
+              按下不响应的那个键，如果 <code class="icode">PR</code> 的 bit0 <b>不置 1</b>，
+              说明边沿根本没到 EXTI，问题在 AFIO 的端口选择或引脚模式；
+              如果 <code class="icode">PR</code> <b>置 1 了却没进 ISR</b>，
+              说明是 NVIC 那一侧的问题（没使能、优先级、或者被更高优先级挡住）。
+              不看 PR 就开始猜，通常会在错误的一半里查很久。
+            </li>
+            <li>
+              <b>必然死锁。</b><code class="icode">HAL_Delay</code> 的核心是一个
+              <code class="icode">while ((HAL_GetTick() - tickstart) &lt; wait)</code> 空循环，
+              而 <code class="icode">HAL_GetTick()</code> 返回的 <code class="icode">uwTick</code>
+              只在 <code class="icode">SysTick_Handler()</code> 里增长。
+              SysTick 的优先级数值是 15，比 EXTI0 的 0 更低 →
+              <b>SysTick 无法抢占正在执行 EXTI0 ISR 的 CPU</b> → <code class="icode">uwTick</code> 冻住 →
+              <code class="icode">while</code> 条件永远为真。
+              决定性证据：Watch 窗口里 <code class="icode">uwTick</code> 不再变化，
+              但 <code class="icode">DWT-&gt;CYCCNT</code> 在飞快增长——
+              "CPU 在跑，时间停了"。
+              <b>对调之后不会死锁，但换来一个更隐蔽的问题</b>：
+              SysTick 能打断 ISR 了，<code class="icode">HAL_Delay</code> 会正常返回，
+              但你的 ISR 真的在里面停了 10ms，这期间所有优先级低于它的中断全被推迟，
+              而且每 1ms 被 SysTick 打断一次。
+              结论不是"调整优先级就能用 HAL_Delay"，而是
+              <b>阻塞式延时从来就不该出现在中断里</b>。
+            </li>
+            <li>
+              <b>占用率 = (300 + 24) / 3600 = 9.0%。</b>
+              50µs × 72MHz = 3600 周期是分母；
+              固定的进出开销是「压栈取向量 14 + 异常返回 10」= 24 周期，
+              占 <b>0.67%</b> 的 CPU。
+              两个这样的中断背靠背时：
+              无尾链的固定开销是 2 × 24 = 48 周期；
+              有尾链则是「14（第一个进来）+ 6（尾链切到第二个）+ 10（最后出去）」= 30 周期，
+              <b>省下 18 周期，占固定开销的 37.5%</b>，折算 CPU 只有 0.50%。
+              这道题的意义在于让你看清：<b>固定开销和尾链在几十 kHz 以下的频率里几乎可以忽略，
+              真正吃 CPU 的是 ISR 本体</b>（这里 300 周期占了 8.3%，是开销的 12 倍）。
+              要降占用率，先砍 ISR 本体。
+            </li>
+            <li>
+              <b>错在把"原始值"当"数值"传了。</b>
+              <code class="icode">configMAX_SYSCALL_INTERRUPT_PRIORITY</code>
+              是<b>已经左移好、准备直接写进寄存器的原始值</b>（F103 上典型是
+              <code class="icode">5 &lt;&lt; 4 = 0x50 = 80</code>）；
+              而 <code class="icode">NVIC_SetPriority()</code> 要的是<b>没移位的数值</b>（0~15），
+              它内部会自己左移。
+              于是 80 被再左移 4 位 → 1280 = <code class="icode">0x500</code> →
+              截断成 8 位 → <code class="icode">0x00</code> →
+              <b>实际优先级 0（最高）</b>。
+              后果：这个中断现在能抢占 FreeRTOS 的内核临界区，
+              会破坏内核数据结构，表现为偶发 HardFault、队列/链表指针错乱，
+              或者 <code class="icode">configASSERT</code> 在
+              <code class="icode">vPortValidateInterruptPriority()</code> 里报错。
+              正确写法是 <code class="icode">NVIC_SetPriority(USART1_IRQn, 5)</code>
+              或 <code class="icode">HAL_NVIC_SetPriority(USART1_IRQn, 5, 0)</code>。
+              两个参数的 C 类型都是 <code class="icode">uint32_t</code>，编译器救不了你——
+              唯一的防线是知道这件事。
+            </li>
+            <li>
+              三个最可能的原因（按概率排序）：
+              <br>
+              <b>① 栈溢出。</b>这是首选怀疑对象——"故障在 ISR 里、但 ISR 代码没问题"
+              几乎就是栈溢出的典型特征。因为栈溢出本身不报错，它只是<b>无声地覆盖别人的数据</b>，
+              直到某个被踩坏的变量（可能是返回地址、可能是指针）被使用才崩，
+              所以崩溃位置和真正原因隔了十万八千里。
+              验证：用第 4 节「填 0xA5 + 扫栈」的方法测最坏水位；
+              在调试器里看崩溃瞬间的 SP 是否已经接近栈底；查 ISR 调用链里有没有
+              <code class="icode">printf</code>／大数组／浮点格式化。
+              <br>
+              <b>② 访问了没有时钟的外设寄存器，或者用了野指针。</b>
+              在 ISR 里写一个"看起来正常"的赋值语句，如果目标地址落在没有使能时钟的外设区，
+              或者结构体指针从未初始化（是 <code class="icode">NULL</code> 或随机值），
+              都会触发总线错误并升级成 HardFault。
+              验证：读 <code class="icode">SCB-&gt;CFSR</code> 判断是哪一类故障
+              （<code class="icode">IMPRECISERR</code> / <code class="icode">PRECISERR</code> / <code class="icode">IBUSERR</code>），
+              再读 <code class="icode">SCB-&gt;BFAR</code> 看是不是有个可疑的访问地址。
+              <br>
+              <b>③ 调用了不可重入函数。</b>最常见的是在 ISR 里
+              <code class="icode">printf</code> 或 <code class="icode">malloc</code>：
+              它们内部有静态状态（stdio 的缓冲、堆的空闲链表），
+              被中断打断主循环正在进行的同一次调用后，状态会被破坏。
+              验证：把可疑调用临时搬回主循环看是否消失；
+              或者看反汇编里 ISR 是否调用了 <code class="icode">_malloc_r</code>／<code class="icode">_vfprintf_r</code>。
+              <br>
+              <b>共同的方法论：</b>不要读 ISR 的代码找 bug——
+              它只是"受害者"。去查<b>栈</b>、查<b>故障状态寄存器</b>、查<b>有没有调用不该调的东西</b>。
+            </li>
+          </ol>
+        </div>
+
+        <h3 id="sum-exercise" class="mt-7 text-base font-semibold">练习</h3>
+
+        <ol class="mt-4 list-decimal space-y-3.5 pl-5 text-[14.5px] leading-relaxed">
+          <li>
+            <b>中断风暴实验。</b>用 <code class="icode">EXTI-&gt;SWIER</code> 在主循环里
+            以可控的频率反复触发 EXTI0（不需要按键，也不需要外部信号），
+            从 1kHz 逐步提到 100kHz，每一档用 DWT 数出「主循环每秒能跑多少圈」，
+            画出「中断频率 → 主循环吞吐量」的曲线。
+            然后把 ISR 本体从"只置标志"换成"调用
+            <code class="icode">HAL_GPIO_EXTI_Callback</code> 里做一次
+            <code class="icode">HAL_UART_Transmit</code>"，再画一次。
+            两次曲线的差别，就是"ISR 本体 vs 固定开销"的直观量化。
+          </li>
+          <li>
+            <b>把按键做成短按 / 长按识别。</b>基于第 4 节的 exti0_reg.c，
+            改成<b>双边沿触发</b>（<code class="icode">RTSR</code> 和 <code class="icode">FTSR</code> 都置位），
+            在 ISR 里读 <code class="icode">GPIOA-&gt;IDR</code> 的 bit0 判断这是"按下"还是"松开"，
+            只把「按下时刻」和「松开时刻」记进一个环形缓冲区；
+            <b>所有判定逻辑（去抖、短按、长按 1s、双击）都写在主循环里</b>。
+            要求：ISR 的周期数用 DWT 实测并记录下来，证明它没有随着功能增加而变长。
+          </li>
+          <li>
+            <b>实测中断延迟，验证"周期数是常数"。</b>
+            用第 4 节「测 2」的方法（ISR 入口翻转 GPIO + 示波器），
+            先在你的板子上测出 72MHz 下的真实延迟；
+            再把时钟树改成 8MHz 内部 RC（或者 24MHz）重测一次。
+            要求：两次结果都换算成"周期数"，证明它们是同一个量级（14~20 周期），
+            并解释为什么会比 ARM 文档说的 12 周期多一些。
+          </li>
+          <li>
+            <b>人为制造一次 EXTI 线冲突，并证明因果。</b>
+            PA1 和 PB1 各接一个按键，代码里只配 EXTI1 且 <code class="icode">AFIO_EXTICR[0]</code>
+            选 PA。用调试器逐一按下两个键，观察 <code class="icode">EXTI-&gt;PR</code> 的 bit1：
+            记录哪种情况会置 1。然后给出两种修法：
+            ① 换成引脚号不同的两个引脚（并说明你选的两个引脚为什么安全）；
+            ② 改成 10ms 定时器轮询 <code class="icode">GPIOA-&gt;IDR</code> 和 <code class="icode">GPIOB-&gt;IDR</code>，
+            并比较两种方案的代码量、中断次数和最快响应时间。
+          </li>
+          <li>
+            <b>做一个 8 通道按键扫描器，和 8 路 EXTI 对比。</b>
+            用定时器每 10ms 中断一次，在 ISR 里把
+            <code class="icode">GPIOB-&gt;IDR</code> 整个读一次做快照、
+            和上一次快照异或得到"变化的位"、把变化写入环形缓冲区；
+            主循环做去抖（连续 2 次相同才确认）和短按/长按识别。
+            要求：统计并对比
+            ① 中断次数（8 路 EXTI 在按键抖动时 vs 10ms 轮询）；
+            ② 最坏响应时间；
+            ③ 代码行数与需要配置的寄存器数量。
+            给出你的场景下该选哪个方案的结论和理由。
+          </li>
+        </ol>
+
+        <div class="callout callout-tip mt-6">
+          <div class="callout-title">下一步看什么</div>
+          <p>
+            这一篇把「中断怎么落地」讲完了，但有几件事只是点到：
+            <b>定时器</b>的中断源（更新、捕获比较、触发）怎么配、<b>DMA</b> 如何把
+            "每字节一次中断"变成"每缓冲区一次中断"、以及
+            <b>低功耗</b>模式下中断怎么当唤醒源——这三块分别在下一篇和后面的章节里。
+            另外如果你要上手 FreeRTOS，第 43 篇会专门讲
+            「中断与任务之间怎么安全地传递数据」。
+          </p>
+        </div>
+
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a class="card card-pad card-hover group sm:max-w-[48%]" href="adv-stm32-clock.html">
+            <p class="text-2xs font-semibold uppercase tracking-wider text-faint">← 上一篇</p>
+            <p class="mt-2 text-[15px] font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">STM32 时钟树与 RCC 配置</p>
+            <p class="mt-1.5 text-[13px] leading-relaxed text-muted">先把主频、总线和外设时钟的关系理清，中断的延迟才有意义。</p>
+          </a>
+          <a class="card card-pad card-hover group sm:max-w-[48%] sm:text-right" href="adv-stm32-timer.html">
+            <p class="text-2xs font-semibold uppercase tracking-wider text-faint">下一篇：继续深入 →</p>
+            <p class="mt-2 text-[15px] font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">STM32 定时器高级应用</p>
+            <p class="mt-1.5 text-[13px] leading-relaxed text-muted">中断最常见的来源就是定时器：PWM、输入捕获、编码器接口与主从触发。</p>
+          </a>
+        </nav>
+
+        </section>
+
+      </article>
+    </div>
+  </main>
+
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

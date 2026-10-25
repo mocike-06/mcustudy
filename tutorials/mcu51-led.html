@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IO 口输出：LED 流水灯 - McuStudy</title>
+  <meta name="description" content="51 单片机 P1 口驱动 8 颗 LED 的完整教程：8 位并行输出的本质、灌电流（20mA）与拉电流（不到 1mA）为什么推荐灌电流、限流电阻计算（5V/2V/10mA → 300Ω 取 470Ω）、位运算循环左移 (led << 1) | (led >> 7) 的原理与二进制状态表、软件延时为什么不准，附完整可编译代码与现象判据表。">
+  <meta name="keywords" content="51单片机流水灯,P1口,灌电流,拉电流,限流电阻计算,循环移位,位运算,软件延时,LED驱动">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="mcu51" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../mcu51.html" class="hover:text-brand-600 dark:hover:text-brand-300">51单片机</a>
+          <span>/</span>
+          <span class="text-muted">IO 口输出：LED 流水灯</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          IO 口输出：LED 流水灯
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          用 P1 口驱动 8 颗 LED，把「一个字节的电平变化」变成肉眼可见的流水效果。
+          这一篇讲清三件事：为什么必须用灌电流接法、限流电阻 470Ω 是怎么算出来的、
+          以及 <code class="icode">led = (led &lt;&lt; 1) | (led &gt;&gt; 7)</code> 这一行到底在做什么。
+          不需要任何前置电路知识，但需要你已经能把程序下载进芯片。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">芯片：<b>STC89C52RC</b></span>
+          <span class="stat-pill">端口：<b>P1 口 × 8</b></span>
+          <span class="stat-pill">阅读约 <b>13</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>点灯看着简单，其实同时考三件事：LED 怎么接、字节怎么算、引脚怎么控制。对应的三篇基础如下。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-digital.html">数字电路与电平</a> —— 为什么是「低电平点亮」，灌电流与拉电流到底差在哪</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-number.html">数制与位运算</a> —— <code class="icode">0xFE</code> 是怎么来的、移位与循环移位怎么写</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-register.html">单片机内部结构与寄存器</a> —— P1 是 SFR、<code class="icode">0x90</code> 是它的字节地址、位寻址又是什么</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-components.html">常用元件：从色环电阻到三极管</a> —— 470Ω 限流电阻是怎么算出来的</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-io">P1 口 8 位并行输出</a>
+          <a class="toc-link is-sub" href="#sub-current">灌电流与拉电流</a>
+          <a class="toc-link is-sub" href="#sub-bitshift">位运算与循环左移</a>
+          <a class="toc-link is-sub" href="#sub-delay">软件延时为什么不准</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link is-sub" href="#sub-variants">两种等价写法</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-io">P1 口 8 位并行输出</a>
+            <a class="toc-link is-sub" href="#sub-current">灌电流与拉电流</a>
+            <a class="toc-link is-sub" href="#sub-bitshift">位运算与循环左移</a>
+            <a class="toc-link is-sub" href="#sub-delay">软件延时为什么不准</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link is-sub" href="#sub-variants">两种等价写法</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            流水灯是几乎所有单片机教材的第一个实验，但很多人做完也只是「抄了一段能跑的代码」。
+            这一节要把三件事讲透：<b class="font-semibold text-ink">字节怎么变成引脚电平</b>、
+            <b class="font-semibold text-ink">为什么必须让引脚去「吸」电流</b>、
+            <b class="font-semibold text-ink">一个字节怎么自己循环移位</b>。
+            理解了这三件事，后面驱动继电器、数码管、步进电机都是同一套思路的延伸。
+          </p>
+
+          <h3 id="sub-io" class="mt-7 text-base font-semibold">P1 口 8 位并行输出</h3>
+          <p class="mt-3">
+            51 的四个 IO 口（P0~P3）在芯片内部都是一组<b class="font-semibold text-ink">特殊功能寄存器（SFR）</b>，
+            每个口对应一个 8 位寄存器 + 8 个输出锁存器 + 8 个驱动场效应管。以 P1 为例：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>P1 的字节地址是 <code class="icode">0x90</code>，8 个位分别是 <code class="icode">P1.0 ~ P1.7</code>，位地址 <code class="icode">0x90 ~ 0x97</code>。</li>
+            <li>因为 <code class="icode">0x90</code> 能被 8 整除，所以 P1 是<b class="font-semibold text-ink">可位寻址（bit-addressable）</b>的——
+              你既能整体写 <code class="icode">P1 = 0xFE;</code>，也能单独写 <code class="icode">P1 ^ 0 = 0;</code>（或先 <code class="icode">sbit</code> 起个名字）。</li>
+            <li>写 <code class="icode">P1 = 0xFE;</code> 这一个动作，在硬件上是 <b>8 个锁存器同时被更新</b>，8 个引脚的电平在同一时刻确定——
+              这就是「并行输出」的含义，也是为什么流水灯可以做到 8 路完全同步。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">为什么是 P1 而不是 P0</div>
+            <p>
+              上一节讲过，<b>P0 是开漏结构</b>，要输出高电平必须外接 10kΩ 上拉电阻；
+              而 <b>P1/P2/P3 内部自带弱上拉</b>，直接接 LED 就能用。
+              所以入门实验统一用 P1 口，省掉一组排阻，也少一处出错的地方。
+              等你以后需要外扩存储器或驱动总线时，才会回头去处理 P0 的上拉问题。
+            </p>
+          </div>
+
+          <h3 id="sub-current" class="mt-7 text-base font-semibold">灌电流与拉电流：为什么推荐「吸」不推荐「推」</h3>
+          <p class="mt-3">
+            同一个 LED，接法不同，程序里的电平逻辑完全相反。所以接线之前必须先把这件事定下来：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>接法</th>
+                  <th>怎么接</th>
+                  <th>什么时候亮</th>
+                  <th>引脚电流能力</th>
+                  <th>结论</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>灌电流</b>（推荐）</td>
+                  <td>LED 正极经限流电阻接 +5V，负极接引脚</td>
+                  <td>引脚输出<b>低电平（0）</b>时亮</td>
+                  <td>下拉管导通，可吸收约 <b>20mA</b></td>
+                  <td>亮度足、稳定，工程首选</td>
+                </tr>
+                <tr>
+                  <td><b>拉电流</b></td>
+                  <td>LED 正极接引脚，负极接地</td>
+                  <td>引脚输出<b>高电平（1）</b>时亮</td>
+                  <td>内部弱上拉，只有几百微安（<b>不到 1mA</b>）</td>
+                  <td>灯很暗甚至不亮，不建议</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            为什么差别这么大？因为 51 的准双向口输出级是「一个弱上拉管 + 一个强下拉管」：
+            输出 1 时电流要经过内部上拉电阻，内阻大、能给的电流就小；
+            输出 0 时下拉管直接导通到地，通道阻抗低，能「吸」走大电流。
+            <b class="font-semibold text-ink">记住一句话：51 的引脚擅长「吸」，不擅长「推」。</b>
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">限流电阻怎么算：从 300Ω 到 470Ω</h3>
+          <p class="mt-3">
+            LED 是二极管，导通后两端电压基本固定（红色约 1.8~2.0V），多出来的电压必须由电阻承担，
+            否则电流会失控烧掉 LED 或引脚。计算只用一条欧姆定律：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="限流电阻计算过程">
+            <pre><code>已知：电源 VCC = 5V，红色 LED 正向压降 Vf ≈ 2V，期望电流 I = 10mA
+
+        R = (VCC - Vf) / I
+          = (5V - 2V) / 0.010A
+          = 300Ω
+
+300Ω 不是标准阻值，最近的 E24 标称值有两个：
+
+   330Ω → 实际电流 (5-2)/330 = 9.1mA   （接近目标，亮度高）
+   470Ω → 实际电流 (5-2)/470 = 6.4mA   （留足余量，亮度仍清晰可见）
+
+本教程选 470Ω，原因有三条：
+  ① 8 路同时点亮时总电流只有 8 × 6.4mA ≈ 51mA，不会让芯片和电源吃力；
+  ② 电阻功耗小、不发热，长时间运行稳定；
+  ③ 亮度差 30% 肉眼几乎看不出，但可靠性差别很大。
+
+注意：如果用的是蓝光或白光 LED（Vf ≈ 3.0~3.4V），
+      (5-3.4)/470 = 3.4mA，灯会明显偏暗，
+      这时应改用 220Ω 或 180Ω，并按同样公式复核电流不要超过 10mA。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>电阻</th>
+                  <th>电流（红色 LED，Vf=2V）</th>
+                  <th>8 路总电流</th>
+                  <th>适用场景</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">1kΩ</td><td class="font-mono text-xs">3.0mA</td><td class="font-mono text-xs">24mA</td><td>室内暗环境、只是看状态</td></tr>
+                <tr><td class="font-mono text-xs">470Ω</td><td class="font-mono text-xs">6.4mA</td><td class="font-mono text-xs">51mA</td><td><b>推荐</b>，亮度与安全兼顾</td></tr>
+                <tr><td class="font-mono text-xs">330Ω</td><td class="font-mono text-xs">9.1mA</td><td class="font-mono text-xs">73mA</td><td>要亮一点，且不长时间全亮</td></tr>
+                <tr><td class="font-mono text-xs">220Ω</td><td class="font-mono text-xs">13.6mA</td><td class="font-mono text-xs">109mA</td><td>不推荐 8 路同时点亮，总电流偏大</td></tr>
+                <tr><td class="font-mono text-xs">不接</td><td class="font-mono text-xs">仅受内阻限制，可达 100mA 以上</td><td>—</td><td><b>禁止</b>，会烧 LED 甚至烧引脚</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-bitshift" class="mt-7 text-base font-semibold">位运算与循环左移</h3>
+          <p class="mt-3">
+            流水灯的本质是<b class="font-semibold text-ink">一个字节的循环移位</b>。
+            灌电流接法下，哪一位是 0，对应的灯就亮。所以「只有最低位那盏灯亮」的初始状态是
+            <code class="icode">1111 1110</code>，也就是十六进制 <code class="icode">0xFE</code>。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>步数</th>
+                  <th>二进制</th>
+                  <th>十六进制</th>
+                  <th>亮的灯</th>
+                  <th>这一字节是怎么来的</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>1</td><td class="font-mono text-xs">1111 1110</td><td class="font-mono text-xs">0xFE</td><td>P1.0</td><td>初始值</td></tr>
+                <tr><td>2</td><td class="font-mono text-xs">1111 1101</td><td class="font-mono text-xs">0xFD</td><td>P1.1</td><td>0xFE 循环左移 1 位</td></tr>
+                <tr><td>3</td><td class="font-mono text-xs">1111 1011</td><td class="font-mono text-xs">0xFB</td><td>P1.2</td><td>0xFD 循环左移 1 位</td></tr>
+                <tr><td>4</td><td class="font-mono text-xs">1111 0111</td><td class="font-mono text-xs">0xF7</td><td>P1.3</td><td>0xFB 循环左移 1 位</td></tr>
+                <tr><td>5</td><td class="font-mono text-xs">1110 1111</td><td class="font-mono text-xs">0xEF</td><td>P1.4</td><td>0xF7 循环左移 1 位</td></tr>
+                <tr><td>6</td><td class="font-mono text-xs">1101 1111</td><td class="font-mono text-xs">0xDF</td><td>P1.5</td><td>0xEF 循环左移 1 位</td></tr>
+                <tr><td>7</td><td class="font-mono text-xs">1011 1111</td><td class="font-mono text-xs">0xBF</td><td>P1.6</td><td>0xDF 循环左移 1 位</td></tr>
+                <tr><td>8</td><td class="font-mono text-xs">0111 1111</td><td class="font-mono text-xs">0x7F</td><td>P1.7</td><td>0xBF 循环左移 1 位</td></tr>
+                <tr><td>回到 1</td><td class="font-mono text-xs">1111 1110</td><td class="font-mono text-xs">0xFE</td><td>P1.0</td><td>0x7F 循环左移 1 位</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            普通左移 <code class="icode">&lt;&lt;</code> 的问题在于：最高位会被移出丢弃。
+            0x7F（<code class="icode">0111 1111</code>）左移一位变成 <code class="icode">1111 1110</code>，
+            看起来正好，但如果初始状态里最高位是 1（比如两颗灯一起流动），移出去的那一位就永远丢了，
+            循环会出现「断点」。所以正确的写法是<b class="font-semibold text-ink">把移出去的那一位补回来</b>：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="(led &lt;&lt; 1) | (led &gt;&gt; 7) 到底做了什么">
+            <pre><code>设 led = 0xFE = 1111 1110
+
+第一步：led &lt;&lt; 1         左移一位，最高位被挤出 8 位之外
+       1111 1110  →  1 1111 1100        （C 语言里运算结果按 int 处理，共 9 位）
+
+第二步：led &gt;&gt; 7         把最低位移到最高位的位置上
+       1111 1110  →  0000 0001
+
+第三步：按位或 |         把两部分拼起来
+       1 1111 1100
+   |   0 0000 0001
+   ─────────────────
+       1 1111 1101
+       截断成 8 位 → 1111 1101 = 0xFD   ✔ 灯从 P1.0 走到了 P1.1
+
+关键在于赋值回 unsigned char 时发生了截断：
+   (led &lt;&lt; 1) | (led &gt;&gt; 7) 的运算结果是 16 位（或 int）的 0x1FD，
+   赋给 unsigned char 类型的 led 时只保留低 8 位 0xFD，高位那个 1 自然消失，
+   而被 &gt;&gt; 7 补上来的那一位留在了最低位——这就是「循环」的由来。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么不能只写 led = led &lt;&lt; 1;</div>
+            <p>
+              只左移不补位，0xFE 走到 0x7F 之后，下一次左移变成 <code class="icode">0xFE</code>（恰好转了一圈）——
+              看起来居然也能用！但如果初始值不是「单灯」，比如 0xFC（两颗灯），
+              走到 0x3F 之后左移得到 0x7E，那一位「移丢」了，接下来就再也回不到 0xFC，
+              循环会出现越来越多的灯，最后全亮并卡住。
+              这就是为什么必须老老实实写全 <code class="icode">(led &lt;&lt; 1) | (led &gt;&gt; 7)</code>。
+            </p>
+          </div>
+
+          <h3 id="sub-delay" class="mt-7 text-base font-semibold">软件延时为什么不准</h3>
+          <p class="mt-3">
+            流水灯的「慢动作」靠空的 <code class="icode">for</code> 循环消耗时间。教材通常写
+            <code class="icode">for (j = 110; j &gt; 0; j--);</code> 并标注「约 1ms」，
+            但很少有人告诉你这个 110 是怎么来的——因为它是<b class="font-semibold text-ink">在特定环境下凑出来的</b>。
+            影响它的因素有四类：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>影响因素</th>
+                  <th>为什么会影响时长</th>
+                  <th>偏差量级</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>晶振频率</td>
+                  <td>1 个机器周期 = 12 / fosc，12MHz 是 1µs，11.0592MHz 是 1.085µs</td>
+                  <td>约 8.5%</td>
+                </tr>
+                <tr>
+                  <td>编译器优化等级</td>
+                  <td>Options for Target → C51 → Level 0~9，等级越高生成的汇编越短；极端情况下空循环可能被整段优化掉</td>
+                  <td>可达数倍</td>
+                </tr>
+                <tr>
+                  <td>循环变量的类型</td>
+                  <td><code class="icode">unsigned char</code> 的加一/比较是 8 位运算，<code class="icode">unsigned int</code> 是 16 位，指令条数差好几倍</td>
+                  <td>数倍</td>
+                </tr>
+                <tr>
+                  <td>中断打断</td>
+                  <td>定时器或外部中断一旦触发，CPU 要跳去执行中断服务程序，延时会被拉长</td>
+                  <td>取决于中断频率</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            正确的态度是：<b class="font-semibold text-ink">把软件延时当成「模糊节拍」而不是「时间」</b>。
+            它够用，是因为流水灯只需要「人眼能看清」；
+            一旦要用它做串口波特率、数码管动态扫描、红外解码这类对时序有要求的场合，
+            就必须换成定时器。本文最后给的练习会让你亲手标定一次这个延时，
+            并用秒表算出它的真实误差——这比记住「110 等于 1ms」有用得多。
+          </p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            8 路 LED 一共 24 个焊点，接错一处就会出现「个别灯不亮」这种最难查的现象。
+            下面先给接线表，再给示意图，最后是接线顺序——按顺序接，能把出错概率降到最低。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">元件与接线表</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>元件</th>
+                  <th>引脚 / 规格</th>
+                  <th>连接到</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>STC89C52RC</td>
+                  <td class="font-mono text-xs">P1.0 ~ P1.7（第 1~8 脚）</td>
+                  <td>8 颗 LED 的负极（短脚）</td>
+                  <td>灌电流接法，输出低电平点亮</td>
+                </tr>
+                <tr>
+                  <td>LED × 8</td>
+                  <td>正极（长脚）</td>
+                  <td>经限流电阻接 +5V</td>
+                  <td>长脚是正极，短脚是负极；接反了不亮</td>
+                </tr>
+                <tr>
+                  <td>限流电阻 × 8</td>
+                  <td class="font-mono text-xs">470Ω（1/4W）</td>
+                  <td>串在 LED 正极与 +5V 之间</td>
+                  <td>按 (5V−2V)/10mA = 300Ω 反算后取标准值 470Ω</td>
+                </tr>
+                <tr>
+                  <td>晶振</td>
+                  <td class="font-mono text-xs">11.0592MHz</td>
+                  <td>XTAL1（19 脚）/ XTAL2（18 脚）</td>
+                  <td>两个引脚各对地接一个 30pF 电容</td>
+                </tr>
+                <tr>
+                  <td>复位电路</td>
+                  <td class="font-mono text-xs">10µF + 10kΩ</td>
+                  <td>RST（第 9 脚）</td>
+                  <td>上电复位，电容正极接 +5V</td>
+                </tr>
+                <tr>
+                  <td>电源</td>
+                  <td class="font-mono text-xs">5V</td>
+                  <td>第 40 脚 VCC、第 20 脚 GND</td>
+                  <td>第 40 脚旁并一个 104 去耦电容</td>
+                </tr>
+                <tr>
+                  <td>EA 引脚</td>
+                  <td class="font-mono text-xs">第 31 脚</td>
+                  <td>接 +5V</td>
+                  <td>置高才从片内 Flash 取指令</td>
+                </tr>
+                <tr>
+                  <td>USB 转串口</td>
+                  <td class="font-mono text-xs">CH340 模块</td>
+                  <td>TXD→P3.0、RXD→P3.1、GND→GND</td>
+                  <td>下载程序用</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意图</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="8 路 LED 灌电流接法（共阳）">
+            <pre><code>  STC89C52RC                              +5V
+  ┌───────────┐                            │
+  │           │                        ┌───┴───┬───────┬───── … ─────┐
+  │           │                       [470Ω] [470Ω] [470Ω]        [470Ω]
+  │           │                          │      │      │             │
+  │           │                        LED1   LED2   LED3    …     LED8
+  │           │                       (正极在上，负极在下)          │
+  │       P1.0├─────────────────────────┘      │      │             │
+  │       P1.1├────────────────────────────────┘      │             │
+  │       P1.2├───────────────────────────────────────┘             │
+  │        …  │                                                     │
+  │       P1.7├─────────────────────────────────────────────────────┘
+  │           │
+  │   XTAL1 ──┴── 11.0592MHz ──┴── XTAL2     两端各 30pF 到地
+  │           │
+  │   RST  9 ├── 10µF(+) ── +5V
+  │           └── 10kΩ  ── GND               上电复位
+  │           │
+  │  EA/VPP 31├── +5V                        必须接高电平
+  │           │
+  │   VCC  40 ├── +5V ──┬── [104] ── GND     电源去耦
+  │   GND  20 ├── GND ──┘
+  └───────────┘
+
+  电流路径（灯亮时）：
+     +5V ──► 470Ω ──► LED 正极 ──► LED 负极 ──► P1.x 引脚 ──► 芯片内部下拉管 ──► GND
+                                                   ↑
+                                       引脚输出低电平 0 才有这条路
+
+  所以：写 0 点亮，写 1 熄灭</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线顺序建议</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>先接电源与地（40/20 脚 + 104 电容），上电量一次电压，确认 5V 且不短路。</li>
+            <li>接晶振与两个 30pF 电容，再接复位电路，最后把第 31 脚 EA 接到 +5V。</li>
+            <li>把 8 个 470Ω 电阻的一端<b>连成一条公共线接到 +5V</b>，另一端分别接 8 颗 LED 的正极。</li>
+            <li>把 8 颗 LED 的负极分别接到 P1.0 ~ P1.7，<b>按顺序接</b>，并在心里记住 P1.0 对应哪一颗。</li>
+            <li>接下载线：模块 TXD→P3.0、RXD→P3.1、GND 共地。</li>
+            <li>全部接完，用万用表通断档逐路确认「电阻—LED—引脚」这条链是通的，再上电。</li>
+          </ol>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">上电前必查</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>LED 的长短脚有没有插反——反了不亮，而且不会烧，所以非常容易被误判为程序问题。</li>
+              <li>限流电阻有没有漏掉：<b>漏一个就可能烧掉那颗 LED 和对应的引脚</b>。</li>
+              <li>公共线是不是接在 +5V 上而不是 GND 上。接到 GND 上就是「共阴」接法，程序逻辑正好相反（写 1 才亮）。</li>
+              <li>8 根信号线有没有插错位（比如 P1.0 接到了 P1.4）。现象是「顺序乱了但确实在流」，属于接线问题而不是代码问题。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            下面这段代码可以直接复制进 Keil 编译下载：上电先全灭一次，
+            然后一颗灯从 P1.0 依次走到 P1.7，走到头自动回到 P1.0 循环。
+            每行都有注释，注释里写的是「为什么这么写」，不只是「这行做了什么」。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— P1 口 LED 流水灯（灌电流接法）">
+            <pre><code>#include &lt;reg52.h&gt;              /* 51 单片机标准头文件，里面定义了 P1、P0 等寄存器 */
+
+/* ------------------------------------------------------------------
+ * 软件延时函数（单位：约毫秒）
+ * 12MHz 晶振、默认 12T 模式下，内层循环约 1ms
+ * 11.0592MHz 时机器周期长 8.5%，同样的循环次数实际约 1.09ms
+ * 注意：这个延时不精确，换晶振或改优化等级就要重新标定
+ * ------------------------------------------------------------------ */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;                  /* 51 的 int 是 16 位，最大 65535 */
+    for (i = ms; i &gt; 0; i--)            /* 外层循环 ms 次，每次约 1ms */
+        for (j = 110; j &gt; 0; j--);      /* 内层空循环：靠 CPU 空转消耗时间 */
+}
+
+void main(void)
+{
+    /* 0xFE = 1111 1110，最低位是 0，对应 P1.0 那颗灯亮（灌电流接法） */
+    unsigned char led = 0xFE;
+
+    P1 = 0xFF;                          /* 上电先让 8 颗灯全灭（高电平 = 熄灭） */
+
+    while (1)                           /* 单片机程序不退出，主循环必须是死循环 */
+    {
+        P1 = led;                       /* 把当前状态送到 P1 口，8 个引脚同时更新 */
+        Delay_ms(200);                  /* 保持 200ms，太快人眼会看成一片全亮 */
+
+        /* ----------------------------------------------------------
+         * 循环左移一位
+         * led &lt;&lt; 1 ：整体左移，最高位被移出 8 位之外（暂时保留在 int 的高位）
+         * led &gt;&gt; 7 ：把最低位挪到最高位
+         * 兩者按位或，再赋回 unsigned char，高 8 位被截断 → 实现循环
+         * ---------------------------------------------------------- */
+        led = (led &lt;&lt; 1) | (led &gt;&gt; 7);
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">unsigned char led = 0xFE;</code>——为什么用
+              <code class="icode">unsigned char</code> 而不是 <code class="icode">int</code>？
+              因为只需要 8 位，用最小的类型既省 RAM（51 只有 128 字节可用的内部 RAM），
+              也让「赋值时自动截断成 8 位」这个循环移位的关键机制自然成立。
+            </li>
+            <li>
+              <code class="icode">P1 = led;</code>——这一行不是「设置某个引脚」，
+              而是<b>一次性覆盖整个 P1 口的 8 个锁存器</b>。
+              所以你在别处对 P1 做的任何修改都会被这一行冲掉，这也是为什么流水灯程序里不要同时用 P1 口做别的事。
+            </li>
+            <li>
+              <code class="icode">Delay_ms(200)</code>——数字怎么定？
+              以「人眼舒适」为准：小于 50ms 会把流水看成一段模糊的亮带，
+              大于 500ms 又显得卡顿。200ms 是常见的折中值，8 步走完一圈约 1.6 秒。
+            </li>
+            <li>
+              <code class="icode">led = (led &lt;&lt; 1) | (led &gt;&gt; 7);</code>——这是全篇的核心。
+              括号不能省：虽然 <code class="icode">&lt;&lt;</code> 的优先级高于 <code class="icode">|</code>，
+              但写清楚能让读代码的人立刻看懂「左移 + 右移 7 位 拼起来」这个意图。
+            </li>
+            <li>
+              <code class="icode">while (1)</code>——<b>单片机的 main 函数不能返回</b>。
+              如果它退出了，CPU 会继续执行 Flash 后面未使用的空间（通常是 0xFF），行为不可预测。
+              标准做法就是死循环，或者写成 <code class="icode">for (;;)</code>。
+            </li>
+          </ul>
+
+          <h3 id="sub-variants" class="mt-7 text-base font-semibold">两种等价写法（对照理解）</h3>
+          <p class="mt-3">
+            循环移位不是只能手写位运算。下面两种写法效果完全相同，
+            分别代表「用库函数」和「用查表」两种思路，代码都是完整可编译的。
+            想验证某个字节对应哪几位、二进制长什么样，可以用
+            <a class="text-brand-600 dark:text-brand-300" href="../tools.html#tool-base">进制转换工具</a>现场对一下。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="写法 A：用 intrins.h 的 _crol_ 循环左移函数">
+            <pre><code>#include &lt;reg52.h&gt;
+#include &lt;intrins.h&gt;             /* _crol_ / _cror_ / _nop_ 等内联函数在这里声明 */
+
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;
+    for (i = ms; i &gt; 0; i--)
+        for (j = 110; j &gt; 0; j--);
+}
+
+void main(void)
+{
+    unsigned char led = 0xFE;
+
+    P1 = 0xFF;
+    while (1)
+    {
+        P1 = led;
+        Delay_ms(200);
+        led = _crol_(led, 1);       /* 循环左移 1 位，等价于 (led &lt;&lt; 1) | (led &gt;&gt; 7) */
+    }
+}</code></pre>
+          </div>
+
+          <div class="code-block mt-4" data-lang="c" data-title="写法 B：查表法（把 8 个状态存在数组里）">
+            <pre><code>#include &lt;reg52.h&gt;
+
+/* 把 8 个状态直接写死在数组里，可读性最好，也最省 CPU（不用做移位运算） */
+unsigned char code table[8] = {0xFE, 0xFD, 0xFB, 0xF7, 0xEF, 0xDF, 0xBF, 0x7F};
+
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;
+    for (i = ms; i &gt; 0; i--)
+        for (j = 110; j &gt; 0; j--);
+}
+
+void main(void)
+{
+    unsigned char i;
+
+    P1 = 0xFF;
+    while (1)
+    {
+        for (i = 0; i &lt; 8; i++)     /* 依次输出表里的 8 个状态 */
+        {
+            P1 = table[i];
+            Delay_ms(200);
+        }
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">注意 code 关键字</div>
+            <p>
+              写法 B 里的 <code class="icode">unsigned char code table[8]</code> 用的是 Keil C51 特有的
+              <b>存储类型修饰符 <code class="icode">code</code></b>，表示把这个数组放在
+              <b>片内 Flash（程序存储器）</b>而不是只有 128 字节的 RAM 里。
+              漏写 <code class="icode">code</code> 时数组会占用宝贵的 RAM，程序一大就会报
+              <code class="icode">*** ERROR L107: ADDRESS SPACE OVERFLOW</code>。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            流水灯的现象很容易描述，但「偏差现象」的种类特别多，而且大多数偏差都能直接定位到
+            某个具体原因。所以下面这张判据表比「正确现象」更有用。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>上电瞬间 8 颗灯<b class="font-semibold text-ink">全灭</b>（因为程序一开始就把 P1 写成了 0xFF）。</li>
+            <li>紧接着接 P1.0 的那颗灯亮起，其余 7 颗全灭。</li>
+            <li>亮点以约每 200ms 一格的速度，从 P1.0 依次移动到 P1.7。</li>
+            <li>走到最后一颗后，<b class="font-semibold text-ink">立刻回到 P1.0 重新开始</b>，中间没有停顿也没有跳格。</li>
+            <li>任何时刻<b class="font-semibold text-ink">始终只有一颗灯亮</b>；8 步走完一圈约 1.6 秒，可用秒表核对。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>8 颗灯全灭，完全不动</td>
+                  <td>程序没跑起来，或没下载进去</td>
+                  <td>量 VCC、(31 脚) EA、(18 脚) XTAL2，并用 STC-ISP 重新冷启动下载</td>
+                </tr>
+                <tr>
+                  <td>8 颗灯<b>全亮</b>且不流动</td>
+                  <td>P1 口的低 8 位全是 0，说明移位写成了 <code class="icode">led = led &lt;&lt; 1;</code> 一路移到 0x00 后卡住</td>
+                  <td>检查循环移位那一行是否写全了 <code class="icode">(led &lt;&lt; 1) | (led &gt;&gt; 7)</code></td>
+                </tr>
+                <tr>
+                  <td>只有一颗灯常亮，从不移动</td>
+                  <td><code class="icode">led</code> 变量没有被更新，或 <code class="icode">P1 = led;</code> 后面又写了一次固定值把它覆盖了</td>
+                  <td>确认移位语句在 <code class="icode">while (1)</code> 循环体内，且循环里没有别的 P1 赋值</td>
+                </tr>
+                <tr>
+                  <td>流动方向相反（从 P1.7 往 P1.0 走）</td>
+                  <td>程序是对的，只是「左边」的定义和你想象的不同</td>
+                  <td>把移位改成 <code class="icode">(led &gt;&gt; 1) | (led &lt;&lt; 7)</code>，或者干脆把 LED 的物理顺序反过来插</td>
+                </tr>
+                <tr>
+                  <td>流动速度太快，看起来像一片全亮</td>
+                  <td>延时太短（或被编译器优化掉了空循环）</td>
+                  <td>把 <code class="icode">Delay_ms(200)</code> 调大；检查 C51 优化等级不要设成最高</td>
+                </tr>
+                <tr>
+                  <td>有 1~2 颗灯始终不亮，其余正常流动</td>
+                  <td>这一路 LED 接反、电阻虚焊，或引脚线没插紧</td>
+                  <td>把该 LED 的负极直接用导线短到 GND，亮说明 LED 没问题 → 问题在引脚/连线</td>
+                </tr>
+                <tr>
+                  <td>灯<b>很暗</b>，几乎看不清亮没亮</td>
+                  <td>接成了拉电流接法（LED 正极接引脚），或限流电阻误用了 10kΩ</td>
+                  <td>确认 LED 负极接引脚、正极经 470Ω 接 +5V；核对电阻色环</td>
+                </tr>
+                <tr>
+                  <td>亮灭顺序乱（比如 1→3→2→5…）</td>
+                  <td>8 根信号线插错了位置</td>
+                  <td>按 P1.0→P1.7 的顺序重新核对杜邦线</td>
+                </tr>
+                <tr>
+                  <td>上电后现象和上一次实验一样</td>
+                  <td>STC-ISP 打开的 .hex 是旧的</td>
+                  <td>重新在 Objects 目录里选最新的 .hex 再下载</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">顺手标定你的延时函数</div>
+            <p>
+              用手机秒表量「8 步走完一圈」的实际耗时，和理论值比较：
+              如果程序里延时是 <code class="icode">Delay_ms(200)</code>，理论一圈 = 8 × 200ms = 1.6 秒。
+              实测如果是 1.75 秒，说明你的延时循环比标称慢约 9%——
+              这个数字就是你这套「晶振 + 编译器 + 优化等级」组合的修正系数，
+              以后写软件延时时可以按它折算。把「理论值 / 实测值 / 偏差」写进实验报告，
+              是很专业的一笔。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            下面六条按「报错原文 / 现象原文 → 原因 → 解决」组织。
+            前三条是编译期的，后三条是运行期的——运行期的问题更值得花时间读，
+            因为现象和原因之间的对应关系不是一眼能看出来的。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">编译报错：main.c(3): error C202: 'P1': undefined identifier</div>
+            <p><b class="font-semibold">原因：</b>漏写了 <code class="icode">#include &lt;reg52.h&gt;</code>，编译器不知道 P1 这个符号对应哪个寄存器地址。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>在文件最上面补上头文件。如果补了还报错，检查工程 Device 选的是不是 AT89C52/STC89C52RC 这类 51 芯片（选了 ARM 芯片就没有这个头文件）。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">编译报错：main.c(12): error C141: syntax error near '='</div>
+            <p><b class="font-semibold">原因：</b>把赋值语句写在了函数外面。例如在 <code class="icode">#include</code> 之后直接写 <code class="icode">led = 0xFE;</code>——函数外只能做变量定义和声明，不能写可执行语句。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>把初始化语句挪进 <code class="icode">main</code> 里；如果确实要在定义时初始化，写成 <code class="icode">unsigned char led = 0xFE;</code> 放在函数内部即可。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">编译警告：main.c(18): warning C206: 'Delay_ms': missing function-prototype</div>
+            <p><b class="font-semibold">原因：</b>函数在被调用之前没有声明。C89/Keil C51 要求先声明后使用，警告本身不致命，但编译器会因为不知道参数类型而做出错误的参数传递假设，可能引发难查的运行异常。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>把 <code class="icode">Delay_ms</code> 的定义写在 <code class="icode">main</code> 之前（本文示例就是这么做的），或在文件开头补一行声明 <code class="icode">void Delay_ms(unsigned int ms);</code>。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：下载成功，但 8 颗灯同时全亮、完全不会流动</div>
+            <p><b class="font-semibold">原因：</b>移位语句写成了 <code class="icode">led = led &lt;&lt; 1;</code>。0xFE 一路左移，第 8 次变成 0x00（8 位全是 0），此后左移仍然是 0x00，于是 8 颗灯全亮并永久卡住。灌电流接法下「全亮」正是全 0 的表现。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>写全循环移位：<code class="icode">led = (led &lt;&lt; 1) | (led &gt;&gt; 7);</code>，用括号把两部分包起来再赋值。也可以改用 <code class="icode">_crol_(led, 1)</code>。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：方向正好相反，或者流动顺序错乱</div>
+            <p><b class="font-semibold">原因：</b>两种情况要分开判断——① 只是方向相反（严格从 P1.7 → P1.0），说明代码没错，是你的「左边」定义与接线顺序不同；② 顺序错乱（比如 1→4→2→6），那是信号线插错了位置。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>方向问题改一句就行：<code class="icode">led = (led &gt;&gt; 1) | (led &lt;&lt; 7);</code>；接线问题必须重新逐根核对 P1.0~P1.7 与 LED 的对应关系（给每根线贴标签是最省事的办法）。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：4 颗灯亮、4 颗灯暗，或每颗灯亮度都不一样</div>
+            <p><b class="font-semibold">原因：</b>这不是程序问题，而是电流问题——限流电阻取值不一致（混用了 220Ω 和 1kΩ）、LED 型号混用（红/绿/蓝的 Vf 差很多），或者公共线用的是面包板的细长跳线导致压降过大。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>统一使用同一批次的 LED 与同规格电阻（用万用表逐个量一遍阻值）；公共 +5V 线改用粗一点的线或直接焊在铜箔上。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">程序明明对了，现象却总差一格</div>
+            <p>
+              如果你觉得「灯先亮 P1.1 才轮到 P1.0」，先别改代码，先数接线。
+              这类问题的根源几乎总是「LED 与引脚的一一对应关系」记错了。
+              建议在第一颗 LED 旁边贴一小张纸写上「P1.0」，成本极低但能省掉半小时排查。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇走完了 51 驱动 LED 的完整链路：从灌电流接法为什么比拉电流好，
+            到用限流电阻把电流控制在 6.4mA，再到用一个字节的循环移位实现流水效果，
+            最后是现象对照表和六条高频问题的排查路径。
+            真正需要记住的只有两点：<b class="font-semibold text-ink">低电平点亮</b>，
+            以及 <b class="font-semibold text-ink">循环移位必须左右移配合、再靠赋值截断成 8 位</b>。
+          </p>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b>两颗灯一起流动</b>：把初始值改成 <code class="icode">0xFC</code>（<code class="icode">1111 1100</code>），
+                其余代码一行不改，观察现象；然后回答：为什么这次的循环移位<b>必须</b>用
+                <code class="icode">(led &lt;&lt; 1) | (led &gt;&gt; 7)</code>，而不能只写左移？请用移位过程中具体出现的字节值来论证。
+              </li>
+              <li>
+                <b>用软件延时做呼吸灯，并解释为什么吃力</b>：用「快速亮灭 + 改变亮灭时间比例」的方式模拟渐亮渐暗。
+                做完之后想一想：51 只有空循环延时，做不到真正精确的 PWM，
+                呼吸效果会抖；要做出干净的呼吸灯，需要用什么硬件资源？（提示：定时器 + 中断，见下一篇。）
+              </li>
+              <li>
+                <b>标定你的延时函数</b>：写一个只翻转 P1.0 的程序，让它在 <code class="icode">Delay_ms(500)</code> 下闪烁，
+                用秒表量 20 个周期的总时间，算出实际延时与标称值的偏差百分比；
+                再把 C51 优化等级从 Level 8 改成 Level 0，重新标定一次，比较两次结果并解释原因。
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-timer.html">定时器原理与定时</a>——把这一篇里「不准的延时」换成精确到微秒的硬件定时。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-min-system.html">51 最小系统电路原理</a>——如果灯完全不亮，问题可能不在代码，而在这四要素。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="../mcu51.html">51 单片机全部教程</a>——数码管、按键、串口等后续实验都建立在本文的端口操作之上。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="mcu51-min-system.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">51 最小系统电路原理</p>
+          </a>
+          <a href="mcu51-timer.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">定时器原理与定时</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

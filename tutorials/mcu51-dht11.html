@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>综合项目：温湿度采集（DHT11 + LCD1602） - McuStudy</title>
+  <meta name="description" content="51 单片机综合项目：DHT11 温湿度传感器 + LCD1602 显示。讲透单总线协议完整时序（主机拉低 18ms、响应 80us+80us、40 位数据每位 50us 低电平开头、26-28us 为 0 与 70us 为 1）、40 位数据格式与校验和、微秒延时为什么要用 _nop_()、采样间隔不能小于 1 秒、读数据必须关中断的原因，附可编译的完整项目代码。">
+  <meta name="keywords" content="51单片机,DHT11,温湿度采集,单总线时序,40位数据,校验和,LCD1602,_nop_,微秒延时,关中断">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="mcu51" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资源下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../mcu51.html" class="hover:text-brand-600 dark:hover:text-brand-300">51单片机</a>
+          <span>/</span>
+          <span class="text-muted">教程正文</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          综合项目：温湿度采集（DHT11 + LCD1602）
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          把前面几课学到的东西拼成一个真正能用的小设备：DHT11 负责测量，LCD1602 负责显示，
+          51 单片机负责把它们串起来。这一篇的重点不是“抄一份能跑的代码”，
+          而是把 DHT11 那套只用一根线、靠几十微秒的高低电平宽度来传数据的单总线协议彻底讲明白，
+          顺便说清楚为什么读它的时候必须关中断、为什么采样不能太频繁。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-hard">综合项目</span>
+          <span class="stat-pill">芯片：<b>STC89C52RC</b></span>
+          <span class="stat-pill">外设：<b>DHT11 + LCD1602</b></span>
+          <span class="stat-pill">占用 IO：<b>12 个</b></span>
+          <span class="stat-pill">阅读约 <b>18</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>这是 51 路线的综合项目，把前面几篇的东西串起来用。如果前面跳得太多，这一篇会非常吃力—— 建议先补完下面这几块再回来。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-number.html">数制与位运算</a> —— 40 位数据怎么拼成湿度与温度、校验和怎么算</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-register.html">单片机内部结构与寄存器</a> —— 定时器与 GPIO 是怎么配合出微秒级延时的</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-c.html">C 语言基础</a> —— 用数组存数据、用宏定义写时序延时</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-digital.html">数字电路与电平</a> —— 单总线为什么必须接上拉电阻</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-what">DHT11 是什么</a>
+          <a class="toc-link is-sub" href="#sub-timing">单总线完整时序</a>
+          <a class="toc-link is-sub" href="#sub-format">40 位数据格式与校验</a>
+          <a class="toc-link is-sub" href="#sub-delay">微秒延时与关中断</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-what">DHT11 是什么</a>
+            <a class="toc-link is-sub" href="#sub-timing">单总线完整时序</a>
+            <a class="toc-link is-sub" href="#sub-format">40 位数据格式与校验</a>
+            <a class="toc-link is-sub" href="#sub-delay">微秒延时与关中断</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              本文是 51 单片机专栏的综合项目，会直接复用
+              <a class="text-brand-600 dark:text-brand-300" href="mcu51-lcd1602.html">LCD1602 液晶驱动</a>
+              那一篇里的显示函数。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            这一篇的硬件比前面几篇都简单——一共只多接三根线（VCC、GND、DATA）。
+            难点全在软件上：DHT11 用的是<b class="font-semibold text-ink">单总线协议</b>，
+            <b class="font-semibold">只用一根数据线，既发又收，靠电平持续的时间长度来区分 0 和 1</b>。
+            这意味着你写的延时函数准不准，直接决定读回来的数据对不对。
+          </p>
+
+          <h3 id="sub-what" class="mt-7 text-base font-semibold">DHT11 是什么</h3>
+          <p class="mt-3">
+            DHT11 不是单纯的“敏感元件”，它内部集成了一颗小单片机：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold">湿敏元件</b>——电阻式，湿度变化引起电阻变化。</li>
+            <li><b class="font-semibold">NTC 测温元件</b>——热敏电阻，温度变化引起电阻变化。</li>
+            <li><b class="font-semibold">一颗 8 位单片机</b>——负责把电阻值转换成数字量、做温度补偿，并管理单总线通信协议。</li>
+            <li><b class="font-semibold">出厂标定的系数</b>——存在内部 OTP 里，所以你不需要自己校准。</li>
+          </ul>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>参数</th>
+                  <th>湿度</th>
+                  <th>温度</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>量程</td>
+                  <td>20% ~ 90%RH（元件本体 5% ~ 95%RH）</td>
+                  <td>0°C ~ 50°C</td>
+                </tr>
+                <tr>
+                  <td>精度</td>
+                  <td>±5%RH</td>
+                  <td>±2°C</td>
+                </tr>
+                <tr>
+                  <td><b class="font-semibold">分辨率</b></td>
+                  <td><b class="font-semibold">1%RH</b></td>
+                  <td><b class="font-semibold">1°C</b></td>
+                </tr>
+                <tr>
+                  <td>采样周期</td>
+                  <td colspan="2"><b class="font-semibold">不能小于 1 秒</b></td>
+                </tr>
+                <tr>
+                  <td>供电</td>
+                  <td colspan="2">3.3V ~ 5.5V（推荐 5V）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">DHT11 的小数位永远是 0，不是坏了</div>
+            <p>
+              它的数据格式里确实留了“小数部分”两个字节，但 DHT11 的分辨率只有 1，
+              这两个字节固定读回 <code class="icode">0x00</code>。
+              想做 0.1°C 精度的记录，得换 <b class="font-semibold">DHT22 / AM2302</b>——
+              数据格式一样，但起始信号只要拉低 1ms 以上，读数据的思路可以照搬本篇代码。
+              这也是为什么本项目的显示只用到整数位。
+            </p>
+          </div>
+
+          <h3 id="sub-timing" class="mt-7 text-base font-semibold">单总线完整时序</h3>
+          <p class="mt-3">
+            为什么一根线能双向通信？因为双方都采用
+            <b class="font-semibold text-ink">“平时放手、要说话才拉低”</b>的方式：
+            数据线通过一个 <b class="font-semibold">4.7kΩ ~ 10kΩ 上拉电阻</b>接到 +5V，
+            没人理它时线上就是高电平；谁想说话，谁就把线拉低。
+            单片机这边用准双向口（写 1 就相当于“放手”），DHT11 那边是开漏输出。
+            <b class="font-semibold">没有上拉电阻，这根线永远是低电平，通信必然失败</b>——
+            这是本项目第一大坑。
+          </p>
+
+          <p class="mt-3">一次完整的读取分成三个阶段：</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="单总线完整时序（时间轴，非等比）">
+            <pre><code>【阶段 1】主机发起始信号
+   主机（单片机）         ┌──────────────────────────────┐
+   P3.4 电平   ───────────┘                              └────────
+                          │&lt;────── 拉低 ≥ 18ms ──────&gt;│  释放（靠上拉电阻回到高电平）
+                          目的：DHT11 内部单片机平时在休眠，需要足够长的低电平把它叫醒
+
+【阶段 2】DHT11 响应（表示“我在，准备发数据”）
+   20~40us 之后，DHT11 开始应答：
+   DHT11 拉低            ┌────────┐                ┌──── 40 位数据开始
+   P3.4 电平   ──────────┘        └────────────────┘
+                        │&lt; 80us &gt;│&lt;── 80us ──────&gt;│
+                          低电平      高电平
+
+【阶段 3】40 位数据，每一位的格式都一样
+   每一位 = 50us 低电平 + 一段高电平，高电平的长度决定这一位是 0 还是 1
+
+        位 = 0 ：  ┌──┐                    ┌──┐
+   P3.4 ──────────┘  └────────────────────┘  └────────
+                  │50us│&lt;─ 26~28us ─&gt;│50us│  高电平短 → 0
+
+        位 = 1 ：  ┌──┐                           ┌──┐
+   P3.4 ──────────┘  └───────────────────────────┘  └───
+                  │50us│&lt;──────── 70us ────────&gt;│50us│  高电平长 → 1
+
+   采样策略：等这 50us 低电平结束（上升沿）之后，延时 40us 再看电平
+             · 还是高电平 → 这一位是 1（因为 70us 还没走完）
+             · 已经变低   → 这一位是 0（因为 26~28us 早就结束了）
+             安全区间是 28us ~ 70us，取 40us 正好在正中间，最稳</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>阶段</th>
+                  <th>谁在拉低</th>
+                  <th>持续时间</th>
+                  <th>含义</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>起始信号</td>
+                  <td>主机（单片机）</td>
+                  <td><b class="font-semibold">≥ 18ms</b></td>
+                  <td>把休眠中的 DHT11 叫醒</td>
+                </tr>
+                <tr>
+                  <td>响应低电平</td>
+                  <td>DHT11</td>
+                  <td>80µs</td>
+                  <td>“我收到起始信号了”</td>
+                </tr>
+                <tr>
+                  <td>响应高电平</td>
+                  <td>—（上拉）</td>
+                  <td>80µs</td>
+                  <td>“准备发数据”</td>
+                </tr>
+                <tr>
+                  <td>数据位起始低电平</td>
+                  <td>DHT11</td>
+                  <td>50µs</td>
+                  <td>每一位都以它开头，用上升沿对齐位边界</td>
+                </tr>
+                <tr>
+                  <td>数据位高电平 = 0</td>
+                  <td>—（上拉）</td>
+                  <td>26 ~ 28µs</td>
+                  <td>读到 0</td>
+                </tr>
+                <tr>
+                  <td>数据位高电平 = 1</td>
+                  <td>—（上拉）</td>
+                  <td>70µs</td>
+                  <td>读到 1</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            算一笔时间账：一位大约 76 ~ 120µs，40 位就是 3 ~ 5ms，
+            再加上起始信号的 18ms 和响应的 160µs，
+            <b class="font-semibold text-ink">读一次完整数据大约需要 22 ~ 25ms</b>。
+            这个数字很关键，后面讲“为什么要关中断”“为什么不能读太快”都要用到它。
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">看波形是最好的学习方式</div>
+            <p>
+              如果你手边有示波器或逻辑分析仪（几十块的那种 USB 逻辑分析仪就够），
+              把探头夹在 P3.4 上抓一次通信，你会直接看到上面这张图的实物版：
+              一个很长的低电平（18ms）、两个 80µs 的方波、然后 40 组“短低 + 长短不一的高”。
+              对着实物波形调代码，比盯着文字猜快十倍。
+            </p>
+          </div>
+
+          <h3 id="sub-format" class="mt-7 text-base font-semibold">40 位数据格式与校验</h3>
+          <p class="mt-3">
+            40 位数据按顺序分成 5 个字节。注意 DHT11 是
+            <b class="font-semibold text-ink">先发高位（MSB first）</b>——
+            这一点决定了代码里移位和赋值的方向，写反了字节里的 8 位就会整个颠倒。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>字节序号</th>
+                  <th>内容</th>
+                  <th>本项目怎么用</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>第 1 字节</td>
+                  <td>湿度整数部分</td>
+                  <td>直接显示，例如 45 表示 45%RH</td>
+                </tr>
+                <tr>
+                  <td>第 2 字节</td>
+                  <td>湿度小数部分</td>
+                  <td>DHT11 恒为 0，本项目丢弃</td>
+                </tr>
+                <tr>
+                  <td>第 3 字节</td>
+                  <td>温度整数部分</td>
+                  <td>直接显示，例如 23 表示 23°C</td>
+                </tr>
+                <tr>
+                  <td>第 4 字节</td>
+                  <td>温度小数部分</td>
+                  <td>DHT11 恒为 0，本项目丢弃</td>
+                </tr>
+                <tr>
+                  <td>第 5 字节</td>
+                  <td><b class="font-semibold">校验和</b></td>
+                  <td>用来判断这次数据是不是读错了</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            校验规则只有一句话：
+            <b class="font-semibold text-ink">第五字节 = 前四个字节之和的低 8 位</b>。
+            举两个例子，算一遍就懂了：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="校验和计算示例">
+            <pre><code>例 1：湿度 45%RH、温度 23°C
+   45 + 0 + 23 + 0 = 68        68 没有超过 255，校验和就是 68
+   完整 40 位数据： 45  0  23  0  68
+
+例 2：湿度 90%RH、温度 50°C（两个都是量程上限附近）
+   90 + 0 + 50 + 0 = 140       140 没超过 255，校验和就是 140
+
+例 3：假设四个字节加起来超过 255，比如 200 + 0 + 100 + 0 = 300
+   300 = 0x12C，取低 8 位 = 0x2C = 44
+   在 C 语言里不用手动取模，把结果存进 unsigned char 时自动就截断了：
+       unsigned char sum = buf[0] + buf[1] + buf[2] + buf[3];   ← sum 自动等于 44
+   所以校验比较要写成 (unsigned char)(前四个相加) == buf[4]</code></pre>
+          </div>
+
+          <p class="mt-4">
+            为什么要有校验？因为这种“靠时间长短判 0/1”的协议天生怕干扰：
+            线太长、旁边有电机、中断插进来打乱了采样点，都可能把 1 读成 0。
+            有了校验和，<b class="font-semibold text-ink">读错的数据会被自己发现并丢掉</b>，
+            你只要下一轮重读就行。本项目在主循环里就是这么做的：
+            校验不过就把这次数据扔掉，屏幕上记一个错误次数。
+          </p>
+
+          <h3 id="sub-delay" class="mt-7 text-base font-semibold">微秒延时与关中断</h3>
+
+          <h4 class="mt-6 text-sm font-semibold">为什么不能用随便写的循环来延时</h4>
+          <p class="mt-3">
+            判断 0 和 1 的安全区间是 <b class="font-semibold">28µs ~ 70µs</b>，窗口不算太窄，
+            但如果你用一个“每次循环几微秒”的粗略延时函数，误差很容易翻倍。原因有三个：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold">晶振不同</b>——12MHz 与 11.0592MHz 差 8.5%，串口那一课已经踩过这个坑。</li>
+            <li><b class="font-semibold">编译器优化等级不同</b>——同一段循环，优化等级一改，机器周期数就变了。</li>
+            <li><b class="font-semibold">循环本身有开销</b>——<code class="icode">for (i = 0; i &lt; 10; i++);</code>
+              每次循环的判断、自增、跳转加起来大约 4 ~ 6 个机器周期，比你以为的“一条空指令”贵得多。</li>
+          </ul>
+
+          <p class="mt-3">
+            最可控的办法是用 <code class="icode">_nop_()</code>：
+            <b class="font-semibold text-ink">它编译出来就是一条 NOP 指令，正好占一个机器周期</b>。
+            12MHz 晶振、12T 模式下 1 个机器周期 = 1µs，
+            所以想要 40µs 就老老实实堆 40 个 <code class="icode">_nop_()</code>——
+            所见即所得，不受循环开销和优化等级影响（<code class="icode">_nop_()</code> 来自
+            <code class="icode">intrins.h</code>，编译器不会把它优化掉）。
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">换成 11.0592MHz 晶振时怎么办</div>
+            <p>
+              11.0592MHz 下一个机器周期是 <code class="icode">12 / 11.0592 ≈ 1.085µs</code>，
+              同样 40 个 <code class="icode">_nop_()</code> 实际是 <b class="font-semibold">43.4µs</b>，
+              仍然落在 28 ~ 70µs 的安全区间内，所以<b class="font-semibold">本项目代码不用改</b>。
+              这也说明一个道理：只要安全区间够宽，就应该把采样点放在区间正中间，
+              给晶振误差和温度漂移留出余量，而不是贴着边界写。
+            </p>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">用示波器校准的通用做法</h4>
+          <p class="mt-3">
+            如果延时窗口很窄（比如某些红外接收、单总线温度芯片），或者你要把代码移植到别的晶振上，
+            就需要实测校准。标准做法是“<b class="font-semibold">翻 IO 口 + 量脉宽</b>”：
+          </p>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>找一个空闲 IO（例如 P1.1），在延时函数进入前拉高、返回后拉低。</li>
+            <li>把这句 <code class="icode">Delay_40us();</code> 单独放进主循环里死循环调用。</li>
+            <li>示波器测 P1.1 的方波周期就是一个完整循环的时间，高电平时间就是延时函数的实际耗时。</li>
+            <li>按实测值调整 <code class="icode">_nop_()</code> 的个数或循环次数。</li>
+            <li>校准完把翻转 IO 的代码删掉——它自己也要花时间。</li>
+          </ol>
+
+          <h4 class="mt-6 text-sm font-semibold">为什么读数据时必须关中断</h4>
+          <p class="mt-3">
+            再算一次那笔账：一位数据的高电平只有 <b class="font-semibold">26µs 或 70µs</b>，
+            而 51 的一个中断服务程序（尤其是里面还调了函数、刷了数码管的）执行时间动辄几十微秒。
+            如果读到一半定时器中断进来了：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>中断里的代码会占掉几十微秒，你那个“延时 40µs 再采样”就变成了“延时 80µs 再采样”，
+              <b class="font-semibold">原本是 0 的位早就进入下一位了，数据整体错位</b>。</li>
+            <li>更糟的是位边界（50µs 低电平）也可能被跨过去，导致后面 40 位全部对不齐。</li>
+          </ul>
+          <p class="mt-3">
+            所以标准写法是：<b class="font-semibold text-ink">读之前 <code class="icode">EA = 0;</code>，
+            读完立刻 <code class="icode">EA = 1;</code></b>。
+            这样做有两个必须知道的副作用，都属于工程取舍：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>
+              <b class="font-semibold">这 22 ~ 25ms 内所有中断都会被推迟。</b>
+              对本项目无影响（LCD 刷新和秒级计时都感觉不到），
+              但如果同时在用 9600 波特率收串口数据，一帧只要 1ms，
+              连续 22ms 不响应就可能丢字节——那就得改成“先把串口数据收进缓冲区，再读 DHT11”，
+              或者干脆用带硬件缓存的方案。
+            </li>
+            <li>
+              <b class="font-semibold"><code class="icode">EA = 0</code> 只关总开关，不会改掉 ES / ET0 这些使能位。</b>
+              所以 <code class="icode">EA = 1</code> 之后串口、定时器中断会照常工作，不需要重新初始化。
+              真正会出事的是<b class="font-semibold">某个提前返回的分支忘记把 EA 打开</b>——
+              那之后所有中断永久失效，程序表面还活着但功能全废。
+              本次代码里每一条 <code class="icode">return</code> 之前都补了 <code class="icode">EA = 1;</code>，就是这个原因。
+            </li>
+          </ul>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">采样间隔绝对不能小于 1 秒</div>
+            <p>
+              DHT11 采集一次需要经历“测量 → 转换 → 存结果”的内部过程，
+              手册要求两次读取之间至少间隔 <b class="font-semibold">1 秒</b>。
+              读太快会出现两种典型现象：一是温湿度数值明显滞后、变化迟钝；
+              二是校验和频繁出错（它内部还没准备好，返回的是旧数据或半成品）。
+              本项目用 <code class="icode">Delay_ms(1500)</code>，留了 50% 余量。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            本项目 = 上一篇的 LCD1602 + 一个 DHT11。DHT11 只有三根线要接，
+            但其中<b class="font-semibold text-ink">上拉电阻</b>这一项最容易漏。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">元件与接线表</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>器件 / 引脚</th>
+                  <th>连接到</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">DHT11 1 VCC</td>
+                  <td>+5V</td>
+                  <td>不要接 3.3V，虽然能工作但读数容易漂</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">DHT11 2 DATA</td>
+                  <td class="font-mono text-xs">P3.4</td>
+                  <td>数据线，同时也是被读的那根线</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">DHT11 3 NC</td>
+                  <td>悬空</td>
+                  <td>空脚，什么都不接</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">DHT11 4 GND</td>
+                  <td>GND</td>
+                  <td>必须与单片机共地</td>
+                </tr>
+                <tr>
+                  <td><b class="font-semibold">上拉电阻</b></td>
+                  <td>DATA 与 +5V 之间接 4.7kΩ ~ 10kΩ</td>
+                  <td><b class="font-semibold">三脚裸传感器必须自己加</b>；四脚模块通常已板载</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">LCD1602 1 / 2 / 3</td>
+                  <td>GND / +5V / 10kΩ 电位器中点</td>
+                  <td>V0 对比度必须接，详见上一课</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">LCD1602 4 / 5 / 6</td>
+                  <td class="font-mono text-xs">P3.5 / P3.6 / P3.7</td>
+                  <td>RS / RW / EN</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">LCD1602 7~14</td>
+                  <td class="font-mono text-xs">P2.0 ~ P2.7</td>
+                  <td>8 位数据总线</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">LCD1602 15 / 16</td>
+                  <td>经 100Ω 到 +5V / GND</td>
+                  <td>背光</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">P1.0</td>
+                  <td>LED + 220Ω 到 +5V</td>
+                  <td>心跳灯：证明主循环在转（可选，但强烈建议留一个）</td>
+                </tr>
+                <tr>
+                  <td>晶振 / 复位 / 电源</td>
+                  <td>11.0592MHz + 30pF×2、10µF + 10kΩ、5V</td>
+                  <td>12MHz 也能用，微秒延时的余量够</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意图</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="接线示意（DHT11 三线 + LCD1602 八位总线）">
+            <pre><code>              +5V
+               │
+               ├──────────────[4.7kΩ]──────────┐   ← 上拉电阻：绝对不能漏！
+               │                               │
+               │                          ┌────┴─────┐
+               │                          │  DHT11   │
+               ├──────────────────────────┤ 1 VCC    │
+               │                          │ 2 DATA   │──┐
+               │                     ┌────┤ 3 NC     │  │
+               │                     │    │ 4 GND    │  │
+               │                     │    └──────────┘  │
+               │                    GND                 │
+               │                                      │
+      ┌────────┴─────────┐                            │
+      │   STC89C52RC     │                            │
+      │                  │                            │
+      │  P3.4 ───────────┼────────────────────────────┘   （数据线：发也靠它，收也靠它）
+      │                  │
+      │  P3.5 ───────────┼──── RS  ┐
+      │  P3.6 ───────────┼──── RW  ├── LCD1602 控制线
+      │  P3.7 ───────────┼──── EN  ┘
+      │  P2.0 ~ P2.7 ────┼──── D0 ~ D7      （注意 D0 对 P2.0，顺序别接反）
+      │                  │
+      │  P1.0 ── LED ──[220Ω] ── +5V        （心跳灯）
+      └──────────────────┘
+               │
+              GND  ← 单片机、LCD、DHT11 三者必须共地
+
+   接线顺序建议：
+     1. 先把 LCD 接好、跑通上一篇的显示程序，确认屏幕能显示字符
+     2. 再接 DHT11 的 VCC / GND（先不接数据线），万用表量 DATA 与 GND 之间应有 ~5V
+     3. 最后把 DATA 接到 P3.4，上电测试
+   这样分步做，出问题时你能立刻判断是“屏幕的问题”还是“传感器的问题”</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">上电前必查</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><b class="font-semibold">上拉电阻有没有接。</b>三脚裸传感器没有内部上拉，不接就是“永远读不到数据”。</li>
+              <li>DHT11 的 VCC / GND 有没有接反。接反通电会立刻损坏传感器。</li>
+              <li>三块电路（单片机、LCD、DHT11）有没有<b class="font-semibold">共地</b>。只接信号不接 GND 是最隐蔽的错。</li>
+              <li>数据线有没有和 LCD 的数据线（P2 口）串了。本项目 DHT11 特意放在 <code class="icode">P3.4</code>，就是为了避开 LCD 占用的 P3.5~P3.7。</li>
+              <li>连接线不要太长。DHT11 手册建议数据线在 20m 以内，实验用杜邦线十几厘米最稳；线长了要加屏蔽或用双绞线。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            代码分成三块：<b class="font-semibold">微秒延时</b>、<b class="font-semibold">DHT11 读取</b>、
+            <b class="font-semibold">LCD 显示</b>。前两块是本篇的新内容，
+            LCD 那几个函数是上一篇原封不动搬过来的（注释做了精简）。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— DHT11 温湿度采集 + LCD1602 显示">
+            <pre><code>#include &lt;reg52.h&gt;
+#include &lt;intrins.h&gt;                  /* _nop_() 在这里声明，少了它会报 C202 */
+
+/* ---------------- 引脚定义 ---------------- */
+sbit DHT11_DATA = P3^4;             /* DHT11 单总线数据线（必须外接 4.7k~10k 上拉） */
+
+#define LCD_DATA   P2               /* LCD 数据总线 D0~D7 → P2.0~P2.7 */
+sbit LCD_RS = P3^5;                 /* RS：0 = 指令，1 = 数据 */
+sbit LCD_RW = P3^6;                 /* RW：0 = 写，1 = 读 */
+sbit LCD_EN = P3^7;                 /* EN：下降沿锁存数据 */
+
+sbit LED_RUN = P1^0;                /* 心跳灯：程序还活着就能看见 */
+
+/* ==================================================================
+ * 第一部分：延时函数
+ * ================================================================== */
+
+/* 毫秒延时：起始信号的 18ms 和采样间隔都用它 */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;
+    for (i = ms; i &gt; 0; i--)
+        for (j = 110; j &gt; 0; j--);
+}
+
+/* 粗延时：约 (5 × us) 微秒（12MHz 下每次循环约 5 个机器周期）
+ * 只用在“等待信号到来”这种不敏感的地方；
+ * 判断 0/1 的关键采样点必须用下面的 Delay_40us()
+ */
+void Delay_us(unsigned char us)
+{
+    while (us--)
+    {
+        _nop_(); _nop_(); _nop_(); _nop_();
+        _nop_(); _nop_(); _nop_(); _nop_();
+    }
+}
+
+/* ------------------------------------------------------------------
+ * 关键采样延时：40us
+ *   12MHz 晶振、12T 模式：1 个机器周期 = 1us，一个 _nop_() 正好 1us
+ *   所以堆 40 个 _nop_() 就是 40us，所见即所得，不受循环开销影响。
+ *
+ *   为什么是 40us？判断 0/1 的安全区间是 28us ~ 70us：
+ *     早于 28us 采样：是 0 的位还是高电平，会被误判成 1
+ *     晚于 70us 采样：是 1 的位已经变低，会被误判成 0
+ *   取正中间的 40us，给晶振误差、温度漂移都留了余量。
+ *   换成 11.0592MHz 时它实际是 43.4us，仍在安全区间内。
+ * ------------------------------------------------------------------ */
+#define Delay_40us()  do { \
+        _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); \
+        _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); \
+        _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); \
+        _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); \
+        _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); \
+    } while (0)
+
+/* ==================================================================
+ * 第二部分：DHT11 单总线读取
+ * ================================================================== */
+
+/* ------------------------------------------------------------------
+ * 等待数据线变成指定电平，带超时保护
+ *   level：0 = 等低电平，1 = 等高电平
+ *   返回 0 = 等到了；1 = 超时（大约 1ms 都没等到，说明传感器没应答）
+ * 超时的意义：万一传感器没插好，程序不会卡死在这个死循环里
+ * ------------------------------------------------------------------ */
+unsigned char DHT11_WaitLevel(unsigned char level)
+{
+    unsigned char t = 200;          /* 每轮循环约 5 个机器周期，200 轮约 1ms */
+
+    while (DHT11_DATA != level)
+    {
+        if (--t == 0)
+            return 1;               /* 超时 */
+    }
+
+    return 0;
+}
+
+/* ------------------------------------------------------------------
+ * 读一次 DHT11
+ *   humi：输出，湿度整数部分（%RH）
+ *   temp：输出，温度整数部分（°C）
+ *   返回 0 = 成功；1 = 校验和错误；2 = 超时（传感器没应答）
+ * ------------------------------------------------------------------ */
+unsigned char DHT11_Read(unsigned char *humi, unsigned char *temp)
+{
+    unsigned char i, j;
+    unsigned char buf[5];
+
+    EA = 0;                         /* ---------- 关中断！读这 22ms 不能被任何人打断 ---------- */
+
+    /* ---------- 阶段 1：主机发起始信号（拉低 ≥18ms 把 DHT11 叫醒）---------- */
+    DHT11_DATA = 0;                 /* 主机拉低 */
+    Delay_ms(20);                   /* 保持 20ms（手册要求 ≥18ms，多留一点余量） */
+    DHT11_DATA = 1;                 /* 释放总线：写 1 后引脚处于弱上拉，线被 4.7k 拉到高电平 */
+
+    /* ---------- 阶段 2：等 DHT11 响应（80us 低 + 80us 高）---------- */
+    if (DHT11_WaitLevel(0)) { EA = 1; return 2; }   /* 等它拉低（20~40us 后开始） */
+    if (DHT11_WaitLevel(1)) { EA = 1; return 2; }   /* 等这 80us 低电平结束 */
+    if (DHT11_WaitLevel(0)) { EA = 1; return 2; }   /* 等 80us 高电平结束 → 第一位开始 */
+
+    /* ---------- 阶段 3：读 40 位数据（5 个字节，高位先发）---------- */
+    for (i = 0; i &lt; 5; i++)
+    {
+        buf[i] = 0;                 /* 每读一个字节前清零 */
+
+        for (j = 0; j &lt; 8; j++)
+        {
+            /* 每一位都以 50us 低电平开头，先等它结束（上升沿 = 位边界） */
+            if (DHT11_WaitLevel(1)) { EA = 1; return 2; }
+
+            /* 高电平持续 26~28us 表示 0，70us 表示 1
+             * 在 40us 处采样：还是高电平就是 1，已经变低就是 0
+             */
+            Delay_40us();
+
+            buf[i] &lt;&lt;= 1;             /* 先左移一位，给新来的这一位腾出最低位（高位先发） */
+
+            if (DHT11_DATA == 1)
+            {
+                buf[i] |= 0x01;                             /* 这一位是 1 */
+                if (DHT11_WaitLevel(0)) { EA = 1; return 2; }   /* 等这 70us 高电平结束 */
+            }
+            /* 如果这一位是 0：40us 时高电平早就结束了，此刻正处在下一位的 50us 低电平里，
+             * 直接进入下一轮循环即可，不需要额外等待 */
+        }
+    }
+
+    EA = 1;                         /* ---------- 读完了，立刻恢复中断 ---------- */
+
+    /* ---------- 阶段 4：校验（第五字节 = 前四字节之和的低 8 位）---------- */
+    if ((unsigned char)(buf[0] + buf[1] + buf[2] + buf[3]) != buf[4])
+        return 1;                   /* 校验不过，这次数据丢掉，让主循环下一轮重读 */
+
+    *humi = buf[0];                 /* 湿度整数部分 */
+    *temp = buf[2];                 /* 温度整数部分 */
+
+    return 0;                       /* 成功 */
+}
+
+/* ==================================================================
+ * 第三部分：LCD1602 驱动（与上一篇完全相同，注释略）
+ * ================================================================== */
+
+void LCD_Delay_short(void)
+{
+    unsigned char i;
+    for (i = 0; i &lt; 15; i++)
+        _nop_();
+}
+
+void LCD_EN_Pulse(void)
+{
+    LCD_EN = 1;
+    LCD_Delay_short();
+    LCD_EN = 0;
+}
+
+void LCD_WriteCmd(unsigned char cmd)
+{
+    LCD_RS   = 0;
+    LCD_RW   = 0;
+    LCD_DATA = cmd;
+    LCD_EN_Pulse();
+
+    if (cmd &lt; 0x03)
+        Delay_ms(2);                /* 清屏 / 光标复位要 1.64ms */
+    else
+        LCD_Delay_short();
+}
+
+void LCD_WriteData(unsigned char dat)
+{
+    LCD_RS   = 1;
+    LCD_RW   = 0;
+    LCD_DATA = dat;
+    LCD_EN_Pulse();
+    LCD_Delay_short();
+}
+
+void LCD_Init(void)
+{
+    Delay_ms(50);                   /* 上电后控制器内部复位需要 &gt;15ms */
+    LCD_WriteCmd(0x38);             /* 8 位总线、2 行、5×8 点阵（连写三次更稳） */
+    Delay_ms(5);
+    LCD_WriteCmd(0x38);
+    LCD_WriteCmd(0x38);
+    LCD_WriteCmd(0x0C);             /* 开显示、关光标、不闪烁 */
+    LCD_WriteCmd(0x06);             /* 地址自增、整屏不移动 */
+    LCD_WriteCmd(0x01);             /* 清屏 */
+}
+
+void LCD_SetCursor(unsigned char row, unsigned char col)
+{
+    unsigned char addr = (row == 0) ? 0x00 : 0x40;
+
+    if (col &gt; 15) col = 15;
+    LCD_WriteCmd(0x80 | (addr + col));
+}
+
+void LCD_ShowString(unsigned char row, unsigned char col, char *s)
+{
+    LCD_SetCursor(row, col);
+    while (*s != '\0')
+        LCD_WriteData((unsigned char)(*s++));
+}
+
+/* 显示定长十进制数：num = 23、len = 2 → 显示 “23”
+ * 定长的好处是数字从 9 变到 10 时不会残留旧字符 */
+void LCD_ShowNum(unsigned char row, unsigned char col, unsigned int num, unsigned char len)
+{
+    unsigned char buf[5];
+    unsigned char i;
+
+    if (len &gt; 5) len = 5;
+
+    for (i = 0; i &lt; len; i++)
+    {
+        buf[len - 1 - i] = (unsigned char)('0' + num % 10);
+        num /= 10;
+    }
+
+    LCD_SetCursor(row, col);
+    for (i = 0; i &lt; len; i++)
+        LCD_WriteData(buf[i]);
+}
+
+/* ==================================================================
+ * 主程序
+ * ================================================================== */
+void main(void)
+{
+    unsigned char humi = 0;         /* 湿度整数部分 */
+    unsigned char temp = 0;         /* 温度整数部分 */
+    unsigned char err;
+    unsigned int  fail = 0;         /* 累计失败次数，方便判断是偶发还是接线问题 */
+
+    LED_RUN = 0;
+
+    LCD_Init();
+
+    /* 先把固定文字一次写好，之后每轮只覆盖变化的数字 —— 这样屏幕不会闪 */
+    LCD_ShowString(0, 0, "Temp:     C");
+    LCD_ShowString(1, 0, "Humi:     %RH");
+
+    Delay_ms(1000);                 /* DHT11 上电后需要 1s 越过不稳定状态，别急着读 */
+
+    while (1)
+    {
+        err = DHT11_Read(&amp;humi, &amp;temp);
+
+        if (err == 0)
+        {
+            LCD_ShowNum(0, 6, temp, 2);         /* 温度：第 7~8 格 */
+            LCD_ShowNum(1, 6, humi, 2);         /* 湿度：第 7~8 格 */
+            LCD_ShowString(0, 12, "    ");      /* 成功就把上一轮的错误提示擦掉 */
+        }
+        else
+        {
+            LCD_ShowString(0, 12, "E");
+            LCD_ShowNum(0, 13, fail, 3);        /* 显示累计失败次数：E 1 / E 12 / E 137 */
+            fail++;
+        }
+
+        LED_RUN = ~LED_RUN;                     /* 心跳灯：每次循环翻转一次 */
+
+        Delay_ms(1500);                         /* 采样间隔必须 ≥1s，这里留足余量 */
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">#define Delay_40us() do { … } while (0)</code>——
+              用宏而不是函数，是为了<b class="font-semibold">避开函数调用的开销</b>。
+              51 上一次 <code class="icode">LCALL</code> 加一次 <code class="icode">RET</code>
+              就要花掉大约 4 个机器周期（4µs），对 40µs 的精度来说这笔开销不能忽略。
+              外面套 <code class="icode">do { … } while (0)</code> 是宏定义的标准写法，
+              保证它用起来和一条语句完全一样（尤其是写在 <code class="icode">if</code> 后面时不会出错）。
+            </li>
+            <li>
+              <code class="icode">DHT11_WaitLevel()</code>——把“等某个电平”抽成一个带超时的函数，
+              是这段代码里最重要的工程习惯。没有超时保护时，只要传感器没插好，
+              <code class="icode">while (DHT11_DATA == 0);</code> 就会永远转下去，
+              现象是“程序看起来死了、屏幕不刷新”。有了 200 次超时，最坏情况也只是返回错误码，
+              主循环下一轮接着试。
+            </li>
+            <li>
+              <code class="icode">EA = 0;</code> … <code class="icode">EA = 1;</code>——
+              成对出现，而且<b class="font-semibold">每一条提前返回的路径上都补了 <code class="icode">EA = 1;</code></b>。
+              这是关中断代码最容易犯的错：正常路径记得开，错误路径忘了开，
+              结果程序“看起来在跑”，但串口、定时器全部失灵。
+            </li>
+            <li>
+              <code class="icode">buf[i] &lt;&lt;= 1;</code> 然后再 <code class="icode">buf[i] |= 0x01;</code>——
+              这两句的<b class="font-semibold">顺序不能反</b>，它对应的是
+              “DHT11 先发高位（MSB first）”。先左移把已经收到的位往高位挪，
+              再往最低位填入新收到的一位。如果写成先或后移，读回来的字节里 8 位就是反的
+              （例如 23°C 会读成 232°C 那种离谱数字）。
+            </li>
+            <li>
+              <code class="icode">if (DHT11_DATA == 1)</code> 里多了一次
+              <code class="icode">DHT11_WaitLevel(0)</code>——这一句是把 1 的
+              70µs 高电平“等完”，让循环回到“下一位的 50µs 低电平”这个统一起点上。
+              如果省掉它，下一轮进来时可能还停在高电平里，
+              于是“等上升沿”立刻返回，整个位边界就此错位。
+            </li>
+            <li>
+              <code class="icode">LCD_ShowString(0, 0, "Temp:     C")</code> 只写一次，
+              之后每轮只调用 <code class="icode">LCD_ShowNum</code> 覆盖数字——
+              和上一课讲的一样：<b class="font-semibold">固定文字写一次、变化的部分覆盖写、永远不清屏</b>，
+              这是屏幕不闪的唯一诀窍。这里用定长 2 位显示，也避免了个位变十位时的字符残留。
+            </li>
+            <li>
+              <code class="icode">LCD_ShowNum(0, 13, fail, 3)</code>——把失败次数显示出来，
+              是调试期的“仪表盘”。如果这个数字一直是 0，说明通信很稳；
+              如果每读几次就涨一次，多半是上拉电阻偏大、线太长或者有干扰源；
+              如果它一路猛涨，就是接线或时序根本没对。有了它，你不需要串口也能判断系统状态。
+            </li>
+            <li>
+              <code class="icode">Delay_us()</code> 与 <code class="icode">Delay_40us()</code> 分工明确——
+              前者是“差不多就行”的粗延时（约 5µs 一格），只用在超时计数器之类的地方；
+              后者是“所见即所得”的精确定时，只用在判断 0/1 的关键采样点。
+              <b class="font-semibold">把精度要求不同的延时分开写、分开注释，是嵌入式代码可维护性的关键</b>——
+              半年后你回来看，一眼就知道哪个能改、哪个不能碰。
+            </li>
+          </ul>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>上电后 LCD 先显示 <code class="icode">Temp:     C</code> 与 <code class="icode">Humi:     %RH</code>，数字位置是空的。</li>
+            <li>大约 1 秒后数字填上，例如第一行 <code class="icode">Temp: 23  C</code>、第二行 <code class="icode">Humi: 45  %RH</code>，之后每 1.5 秒更新一次。</li>
+            <li><b class="font-semibold text-ink">更新时只有数字那两格在变，屏幕其余部分完全不动、不闪。</b></li>
+            <li>P1.0 的心跳灯每 1.5 秒翻转一次（因为一次循环结束才翻转），说明主循环在正常运转。</li>
+            <li>对着传感器哈一口气：湿度会明显上升（可能涨到 60% 以上），温度也会升一两度；过一两分钟慢慢回落。</li>
+            <li>用手捏住传感器外壳：温度会缓慢上升——这是最直观的“它在真的测量”的证据。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>数字一直是 0，屏幕上没有错误提示</td>
+                  <td>读数成功但值和实际不符（罕见）</td>
+                  <td>确认 <code class="icode">buf[0]</code> / <code class="icode">buf[2]</code> 取的是第 1、3 字节，别取错了小数位</td>
+                </tr>
+                <tr>
+                  <td>右上角出现 <code class="icode">E</code> 加一个猛涨的数字</td>
+                  <td>通信根本没建立（超时返回 2）</td>
+                  <td>上拉电阻、DATA 引脚、VCC/GND、共地，逐项用万用表确认</td>
+                </tr>
+                <tr>
+                  <td>失败次数偶尔涨一次，大部分时候正常</td>
+                  <td>通信基本对，但有干扰或采样点偏差</td>
+                  <td>缩短连线、换 4.7kΩ 上拉、把 <code class="icode">Delay_40us()</code> 调到 35~45 之间试试</td>
+                </tr>
+                <tr>
+                  <td>湿度温度都读出离谱的大数（比如 232、255）</td>
+                  <td>位序读反了，或位边界错位</td>
+                  <td>检查 <code class="icode">buf[i] &lt;&lt;= 1;</code> 是否写在赋值之前；检查 1 分支里有没有等完那 70µs</td>
+                </tr>
+                <tr>
+                  <td>把采样间隔改成 200ms 后，校验错误明显变多</td>
+                  <td>违反了“间隔 ≥1s”的要求</td>
+                  <td>改回 1000ms 以上；DHT11 内部转换跟不上这么快的节奏</td>
+                </tr>
+                <tr>
+                  <td>拔掉 DHT11 后程序不再刷新，心跳灯也不闪了</td>
+                  <td>有死循环在等电平，没有超时保护</td>
+                  <td>确认所有等待都走 <code class="icode">DHT11_WaitLevel()</code>，代码里不要留裸的 <code class="icode">while (DHT11_DATA == 0);</code></td>
+                </tr>
+                <tr>
+                  <td>屏幕显示正常，但串口/定时器功能突然全失效</td>
+                  <td>某条路径关中断后没恢复 <code class="icode">EA = 1</code></td>
+                  <td>逐个检查 DHT11_Read 里的每一条 return，前面都必须有 <code class="icode">EA = 1;</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">想验证“关中断到底有没有必要”</div>
+            <p>
+              在 <code class="icode">DHT11_Read</code> 开头把 <code class="icode">EA = 0;</code>
+              改成 <code class="icode">EA = 1;</code>（等于不关中断），
+              同时打开一个 1ms 的定时器中断、在里面加一句 <code class="icode">Delay_us(2)</code> 之类的小动作，
+              再观察失败次数。你会看到失败率明显上升——这就是时序敏感型协议的真实脾气，
+              写进实验报告比空口说“要关中断”有说服力得多。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">编译报错：error C202: '_nop_': undefined identifier</div>
+            <p><b class="font-semibold">原因：</b>用了 <code class="icode">_nop_()</code> 但没有包含它所在的头文件。<code class="icode">_nop_()</code> 不是 C 语言的关键字，而是 Keil 提供的<b class="font-semibold">内部函数</b>，声明在 <code class="icode">intrins.h</code> 里。另外要确认芯片型号选的是 8051 系列（比如 AT89C52 / STC89C52），ARMMDK 的工程里没有这个函数。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>在文件开头加上 <code class="icode">#include &lt;intrins.h&gt;</code>。同一个头文件里还有 <code class="icode">_crol_</code>（循环左移）等常用内部函数，做流水灯时也用得到。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：失败次数一路猛涨，温湿度永远不更新</div>
+            <p><b class="font-semibold">原因：</b>通信根本没有建立起来，<code class="icode">DHT11_Read</code> 一直返回 2（超时）。按发生概率排序：① 数据线<b class="font-semibold">没接上拉电阻</b>（三脚裸传感器必踩）；② DATA 接到了别的引脚，代码里的 <code class="icode">P3^4</code> 和实际接线不一致；③ VCC 与 GND 接反或没共地；④ 主机拉低时间不够（把 20ms 改成了 2ms 之类）。</p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>断开传感器，只上电单片机，用万用表量 DATA 引脚对 GND 的电压——
+              装了上拉电阻应该是接近 5V 的高电平。如果量到 0V，说明引脚被短路或被别的代码拉死了。
+              再把传感器接上，量一次读数过程中的波形（有条件就上示波器），
+              看那个 18ms 的低电平有没有真的出现。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：温湿度偶尔能读对，但校验和经常报错（失败次数缓慢上涨）</div>
+            <p><b class="font-semibold">原因：</b>通信建立了但时序不够稳。三种典型情况：① 读数据期间被中断打断（忘了 <code class="icode">EA = 0;</code>，或者中断里干了耗时的事）；② 采样间隔小于 1 秒，DHT11 内部还没转换完；③ 连线太长、旁边有电机/继电器等干扰源，线上电平被拉毛刺。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>先确认 <code class="icode">EA = 0;</code> 真的在读取函数开头；把 <code class="icode">Delay_ms(1500)</code> 加到 2000 试试；缩短数据线、把上拉电阻从 10kΩ 换成 4.7kΩ（更强的上拉抗干扰更好）；实在不行在 DATA 与 GND 之间并一个 100pF 小电容滤毛刺。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：读回来的数值离谱（比如温度 232、湿度 255），但校验居然能过</div>
+            <p><b class="font-semibold">原因：</b>位序或位边界错位。DHT11 是<b class="font-semibold">高位先发（MSB first）</b>，如果代码里把移位和赋值的顺序写反了，一个字节的 8 位就会整个颠倒——数值看着随机，但校验和仍然是自洽的，所以校验救不了你。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>确认是 <code class="icode">buf[i] &lt;&lt;= 1;</code> 先执行、再 <code class="icode">buf[i] |= 0x01;</code>。另外检查读到 1 之后有没有等完那 70µs（<code class="icode">if (DHT11_WaitLevel(0))</code>），少了这一句会让每一位都错开一点点，累积到最后就是彻底错位。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：拔掉传感器后程序就“卡住”了，屏幕不刷新、按键没反应</div>
+            <p><b class="font-semibold">原因：</b>代码里有不带超时保护的死等循环，例如 <code class="icode">while (DHT11_DATA == 0);</code>。传感器不在时这根线被上拉电阻拉成高电平，这个循环永远出不来，程序就真的停在那里了。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>所有等待外部信号的地方都必须带超时计数——本篇的 <code class="icode">DHT11_WaitLevel()</code> 就是标准做法（等 200 轮，约 1ms，等不到就返回错误码）。另外顺手检查一下：超时返回的路径上有没有恢复 <code class="icode">EA = 1</code>，不然中断会一直关着。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">还有三个容易被当成故障的正常现象</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold">小数永远是 0。</b>DHT11 的分辨率就是 1，小数位固定为 0，不是读数失败。
+                要 0.1 精度请换 DHT22 / AM2302（数据格式一样，起始低电平只需 &gt;1ms）。
+              </li>
+              <li>
+                <b class="font-semibold">上电后头一两秒数值偏大或跳变。</b>DHT11 需要约 1 秒越过上电不稳定状态，
+                所以本项目在进入主循环前先 <code class="icode">Delay_ms(1000)</code>。省掉这一步就会出现“刚上电显示很怪，过一会儿才对”。
+              </li>
+              <li>
+                <b class="font-semibold">湿度读数对呼吸极其敏感，温度却很迟钝。</b>这是物理特性：
+                湿度靠的是敏感元件表面的水分子吸附，响应快；而测量温度的热敏电阻有热惯性，
+                要等整个外壳温度平衡，所以慢是正常的。
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这个项目看起来只是“读个传感器、显示个数”，但它把前面几课的知识全部串起来了：
+            延时函数（第 1 课）、中断与关中断（外部中断那一课）、
+            LCD 总线时序与覆盖式刷新（上一课）、以及在“多快好省”和“稳”之间做工程取舍。
+          </p>
+
+          <p class="mt-3">把下面五句话记住，DHT11 这类单总线协议以后都不用再查手册：</p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold">一根线、一个上拉电阻、谁说话谁拉低</b>——单总线的物理层。</li>
+            <li><b class="font-semibold">主机拉低 ≥18ms 叫醒它</b>，随后是 80µs 低 + 80µs 高的应答。</li>
+            <li><b class="font-semibold">每一位都是 50µs 低电平开头</b>，高电平 26~28µs 是 0、70µs 是 1。</li>
+            <li><b class="font-semibold">40 位 = 湿度整 + 湿度小 + 温度整 + 温度小 + 校验和</b>，校验和是前四字节之和的低 8 位。</li>
+            <li><b class="font-semibold">读之前关中断、读完立刻开；采样间隔 ≥1s、所有等待带超时</b>——三条保命纪律。</li>
+          </ul>
+
+          <p class="mt-3">
+            还有一条最重要的工程思维方式：<b class="font-semibold text-ink">对时序敏感的代码，
+            先把“安全区间”算出来，再把采样点放在区间正中间</b>。
+            40µs 这个数字不是抄来的，而是从 28µs 和 70µs 中间取的——
+            这样换了晶振、改了优化等级、温度变了，你都还有余量。
+          </p>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold text-ink">加一个最大值 / 最小值记录。</b>
+                用四个变量记住开机以来的最高温、最低温、最高湿、最低湿，
+                显示在第二行的空余位置（或者做成按键切换显示页面）。
+                顺便想一想：这个记录需要掉电保存吗？如果要，你会怎么做？
+              </li>
+              <li>
+                <b class="font-semibold text-ink">把串口接进来做数据记录。</b>
+                复用串口那一课的 <code class="icode">printf</code> 重定向，
+                每 2 秒往电脑发一行 <code class="icode">T=23C H=45%</code>，
+                用串口助手录一段，观察哈气前后的变化曲线。
+                动手前先回答一个问题：读 DHT11 时要关中断 22ms，
+                而 9600 波特率下一帧只要 1ms，这会不会影响接收？该怎么解决？
+              </li>
+              <li>
+                <b class="font-semibold text-ink">用量出来的数据校准延时。</b>
+                把 <code class="icode">Delay_40us()</code> 单独放进主循环死循环调用，
+                用示波器（或逻辑分析仪）测它的实际宽度，
+                再改成 20 个、60 个 <code class="icode">_nop_()</code> 各测一次，
+                画一张“_nop_ 个数 — 实测微秒数”的对照表，写进实验报告。
+              </li>
+              <li>
+                <b class="font-semibold text-ink">算出读取一次到底要多久。</b>
+                用定时器 0 在 <code class="icode">DHT11_Read</code> 前后各记一次时间，
+                把耗时显示在屏幕上（毫秒级），再和理论值（约 22~25ms）对一下。
+                如果实测差得比较多，说明哪个环节的时间和你以为的不一样？
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">接下来可以做什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>加一个按键（用外部中断那一课的方法）切换显示“实时值 / 最大最小值 / 上下限”。</li>
+              <li>加上限报警：湿度超过 80%RH 就点亮一个 LED 或者驱动蜂鸣器。</li>
+              <li>换成 <b class="font-semibold">ESP32</b> 把同样的传感器数据发到网上——本站的 ESP32 专栏里有对应的 WiFi 上传案例。</li>
+              <li>回头把 <a class="text-brand-600 dark:text-brand-300" href="../project.html">实训毕设</a> 里的案例照着自己实现一遍，你会发现模块化的代码是可以直接搬的。</li>
+            </ul>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">本专栏其它教程</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-exti.html">外部中断触发</a>——按键与中断，本项目做按键切页要用到。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-uart.html">UART 串口通信</a>——把数据记录到电脑上。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-lcd1602.html">LCD1602 液晶驱动</a>——本篇显示部分的详细原理都在这里。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="mcu51-lcd1602.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">LCD1602 液晶驱动</p>
+          </a>
+          <a href="../mcu51.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">返回目录 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">51 单片机全部教程</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

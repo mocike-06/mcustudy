@@ -1,0 +1,3586 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>云平台接入与 OTA 远程升级 - McuStudy</title>
+  <meta name="description" content="知识体系第 44 篇：设备连上云之后的两件工程事。第一篇讲云平台接入——MQTT 三元组（ProductKey / DeviceName / DeviceSecret）与身份认证、一机一密与一型一密、物模型（属性 / 服务 / 事件）、真实主题格式 /sys/{pk}/{dn}/thing/event/property/post、上下行 QoS 选择、心跳与离线判定、云端属性下发如何落到 NVS 并回执、断线重连与消息不丢（本地缓存 + 序号去重）、设备时间同步；第二篇讲 OTA 远程升级——ESP32 分区表（factory / ota_0 / ota_1 / otadata / nvs / phy_init）与 partitions.csv 写法、双分区交替升级、otadata 如何记录当前启动分区、esp_https_ota() 全流程与手动 esp_ota_begin/write/end/set_boot_partition 对照、HTTPS 根证书校验与跳过校验的风险、镜像签名与 Secure Boot / Flash 加密的分工、回滚机制与自检失败自动回退、断电续传与分块写入校验、升级后如何确认版本。附七道数值例题与六段可编译 ESP-IDF 代码。">
+  <meta name="keywords" content="ESP32 OTA,云平台接入,阿里云物联网平台,三元组,ProductKey,DeviceName,DeviceSecret,一机一密,一型一密,物模型,属性上报,事件上报,服务调用,MQTT主题,QoS,心跳,离线判定,属性设置,回执,NVS,断线重连,消息去重,SNTP时间同步,ESP32分区表,partitions.csv,ota_0,ota_1,otadata,factory,nvs,phy_init,双分区升级,esp_https_ota,esp_ota_begin,esp_ota_write,esp_ota_end,esp_ota_set_boot_partition,esp_ota_get_running_partition,esp_ota_mark_app_valid_cancel_rollback,回滚,PENDING_VERIFY,root certificate,根证书,Secure Boot,Flash加密,镜像签名,分块下载,断点续传,app_desc,版本确认">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">云平台接入与 OTA 远程升级</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          云平台接入与 OTA 远程升级
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          前面几篇，你已经能让 ESP32 连上 WiFi、能让它跑 FreeRTOS 任务、能用 Socket 和 HTTP 跟服务器说话。
+          那都是「设备自己能上网了」。这一篇要往前走一大步：<b class="font-semibold text-ink">设备上网之后，它和一个真正的云平台之间到底在说什么，以及你怎么在几百公里外把它肚子里的程序换掉。</b>
+          这两件事在行业里各有名字：前者叫<b class="font-semibold text-ink">云平台接入</b>，后者叫 <b class="font-semibold text-ink">OTA（Over-The-Air）远程升级</b>。
+          它们合起来，就是「物联网设备」和「一块会联网的单片机开发板」之间的全部差别。
+        </p>
+
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+          这篇的写法跟前面不一样：<b class="font-semibold text-ink">它讲的是工程纪律，不是新原理。</b>
+          二元组、三元组、物模型、主题、QoS、心跳、分区表、otadata、回滚状态机——这些名词背后没有一条新的电学定律，
+          全是「一群人踩了十年坑之后定下来的规矩」。规矩的特点是：你不遵守它也能跑起来，然后在某个你不在现场的日子集体出事。
+          所以这一篇的每一节，都会同时告诉你<b class="font-semibold text-ink">规矩是什么</b>和<b class="font-semibold text-ink">不遵守它的时候，现场是什么样子</b>。
+        </p>
+
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+          涉及到通用 Bootloader / IAP 原理、双分区容量账、跳转 App 的步骤，第 39 篇 <a href="adv-stm32-flash.html" class="text-brand-600 dark:text-brand-300 hover:underline">《STM32 存储、启动模式与 IAP》</a>已经讲透了，这篇不重复；
+          Socket 与 HTTP 的编程细节在第 42 篇 <a href="adv-esp32-network.html" class="text-brand-600 dark:text-brand-300 hover:underline">《ESP32 网络编程：Socket 与 HTTP》</a>里，这篇也不重复。
+          <b class="font-semibold text-ink">这篇只讲 ESP32 + ESP-IDF 这一套「官方已经把 Bootloader 写好了」的世界里，你还需要自己负责的那部分。</b>
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="badge-brand">云平台 + OTA 实操</span>
+          <span class="stat-pill">第 3 层 · ESP32 与工程实践</span>
+          <span class="stat-pill">第 44 篇</span>
+          <span class="stat-pill">教材：康玮剑 第 9、10 章</span>
+          <span class="stat-pill">平台：<b>ESP32-WROOM-32</b>（ESP-IDF）</span>
+          <span class="stat-pill">阅读约 <b>85</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-triple">三元组：设备凭什么证明「我是我」</a>
+          <a class="toc-link is-sub" href="#sub-tsl">物模型：属性、服务、事件</a>
+          <a class="toc-link is-sub" href="#sub-topic">主题规划、QoS 与心跳离线判定</a>
+          <a class="toc-link is-sub" href="#sub-downlink">下行指令怎么落地：属性设置 → NVS → 回执</a>
+          <a class="toc-link is-sub" href="#sub-reconnect">断线重连、消息不丢与时间同步</a>
+          <a class="toc-link is-sub" href="#sub-partition">ESP32 分区表：四个区的职责</a>
+          <a class="toc-link is-sub" href="#sub-otadata">双分区交替升级与 otadata</a>
+          <a class="toc-link is-sub" href="#sub-security">证书、签名与回滚：最后一层保险</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link is-sub" href="#calc-1">例 1：4 MB Flash 的双分区容量账</a>
+          <a class="toc-link is-sub" href="#calc-2">例 2：1.2 MB 固件的擦写次数与 Flash 寿命</a>
+          <a class="toc-link is-sub" href="#calc-3">例 3：1 KB/s 窄带链路上传 1.2 MB 要多久</a>
+          <a class="toc-link is-sub" href="#calc-4">例 4：1000 台设备的错峰升级窗口规划</a>
+          <a class="toc-link is-sub" href="#calc-5">例 5：心跳与属性上报的日均流量与资费</a>
+          <a class="toc-link is-sub" href="#calc-6">例 6：掉电概率与回滚把变砖率压到多少</a>
+          <a class="toc-link is-sub" href="#calc-7">例 7：分块下载的 RAM 账与单个请求大小</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#mcu-part">分区表与 sdkconfig 关键项</a>
+          <a class="toc-link is-sub" href="#mcu-https">esp_https_ota() 最小实现</a>
+          <a class="toc-link is-sub" href="#mcu-manual">手动 esp_ota_* 流式写入</a>
+          <a class="toc-link is-sub" href="#mcu-selfcheck">启动自检、回滚标记与版本确认</a>
+          <a class="toc-link is-sub" href="#mcu-cloud">属性下发 → NVS → 回执闭环</a>
+          <a class="toc-link is-sub" href="#mcu-reconnect">重连状态机</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-triple">三元组：设备凭什么证明「我是我」</a>
+            <a class="toc-link is-sub" href="#sub-tsl">物模型：属性、服务、事件</a>
+            <a class="toc-link is-sub" href="#sub-topic">主题规划、QoS 与心跳离线判定</a>
+            <a class="toc-link is-sub" href="#sub-downlink">下行指令怎么落地：属性设置 → NVS → 回执</a>
+            <a class="toc-link is-sub" href="#sub-reconnect">断线重连、消息不丢与时间同步</a>
+            <a class="toc-link is-sub" href="#sub-partition">ESP32 分区表：四个区的职责</a>
+            <a class="toc-link is-sub" href="#sub-otadata">双分区交替升级与 otadata</a>
+            <a class="toc-link is-sub" href="#sub-security">证书、签名与回滚：最后一层保险</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link is-sub" href="#calc-1">例 1：4 MB Flash 的双分区容量账</a>
+            <a class="toc-link is-sub" href="#calc-2">例 2：1.2 MB 固件的擦写次数与 Flash 寿命</a>
+            <a class="toc-link is-sub" href="#calc-3">例 3：1 KB/s 窄带链路上传 1.2 MB 要多久</a>
+            <a class="toc-link is-sub" href="#calc-4">例 4：1000 台设备的错峰升级窗口规划</a>
+            <a class="toc-link is-sub" href="#calc-5">例 5：心跳与属性上报的日均流量与资费</a>
+            <a class="toc-link is-sub" href="#calc-6">例 6：掉电概率与回滚把变砖率压到多少</a>
+            <a class="toc-link is-sub" href="#calc-7">例 7：分块下载的 RAM 账与单个请求大小</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#mcu-part">分区表与 sdkconfig 关键项</a>
+            <a class="toc-link is-sub" href="#mcu-https">esp_https_ota() 最小实现</a>
+            <a class="toc-link is-sub" href="#mcu-manual">手动 esp_ota_* 流式写入</a>
+            <a class="toc-link is-sub" href="#mcu-selfcheck">启动自检、回滚标记与版本确认</a>
+            <a class="toc-link is-sub" href="#mcu-cloud">属性下发 → NVS → 回执闭环</a>
+            <a class="toc-link is-sub" href="#mcu-reconnect">重连状态机</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              6 节 · 8 个概念子节 · 7 道数值例题 · 6 段可编译代码 · 10 条坑<br>
+              代码基于 ESP-IDF v5.x / v6.x 的 <span class="font-mono">app_update</span> 与 <span class="font-mono">esp_https_ota</span> 组件
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <article class="prose-mcu min-w-0">
+
+        <!-- ============================== 1. 为什么需要它 ============================== -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4 leading-relaxed">
+            「云平台接入」和「OTA 升级」这两件事，在教室里听起来像是「锦上添花的高级功能」，在工程现场却是<b class="font-semibold text-ink">出事故的两个主要来源</b>。
+            原因很简单：它们都是「设备和你的距离被拉开了」之后才出现的问题。距离一拉开，你原来靠眼睛和手解决问题的那些手段就全部失效了——
+            你看不到串口日志，摸不到复位键，也没法拔掉电源重插。下面三个现场，是从实验室到工地都会遇到的真实剧本。
+          </p>
+
+          <h3 id="why-1" class="mt-8 text-base font-semibold">现场一：三块板子互相「顶号」，云端永远只显示 1 台在线</h3>
+
+          <p class="mt-3 leading-relaxed">
+            这是几乎每个做物联网毕设的人都会撞上的第一堵墙。场景长这样：你在云平台上创建了<b class="font-semibold text-ink">一个</b>设备，拿到了三串字符（ProductKey、DeviceName、DeviceSecret），
+            把这三串字符写进代码里，然后编译出<b class="font-semibold text-ink">同一份固件</b>烧进了三块 ESP32。三块板子摆在桌上同时上电。
+          </p>
+
+          <p class="mt-3 leading-relaxed">
+            现象非常迷惑人：三块板子的串口都在打印「连接成功」，可云平台的「设备在线数」永远只有 1；
+            每隔十几秒，会有一块板子打印类似 <code class="icode">MQTT connect failed, rc=-2</code> 或者被服务器断开（<code class="icode">connection reset by peer</code>）的日志，然后自动重连，重连成功之后再被踢，
+            如此循环。<b class="font-semibold text-ink">三块板子像在抢一把椅子，谁抢到谁坐，另外两个站着。</b>
+          </p>
+
+          <p class="mt-3 leading-relaxed">
+            原因不在你的代码，而在「设备的身份定义」上。MQTT 协议里有一个 <code class="icode">ClientID</code> 字段，它的语义是「<b class="font-semibold text-ink">一个会话的唯一名字</b>」。
+            协议规定：当服务器收到一个 ClientID 与现有连接相同的 <code class="icode">CONNECT</code> 报文时，<b class="font-semibold text-ink">必须先把旧连接断掉，再接受新连接</b>——
+            这不是 bug，这是为了让你「网络断开后重新连上来」时不会留下僵尸会话。
+            而云平台通常用 <code class="icode">{ProductKey}.{DeviceName}</code> 拼出 ClientID，于是三块板子的 ClientID 一模一样，谁先连上谁被踢。
+            换句话说：<b class="font-semibold text-ink">你没有「三台设备」，你只有「一台设备被烧进了三块板子」。</b>
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这个现场真正暴露的问题</div>
+            <p>它不是「MQTT 用错了」，而是<b>你把「设备身份」当成了「固件的一部分」</b>。
+            身份必须是每台设备独有的、在出厂或配网时注入的、而且不能明文躺在固件里被人拷走的东西。
+            这背后就是本文 <a href="#sub-triple" class="text-brand-600 dark:text-brand-300 hover:underline">三元组与身份认证</a> 和 <a href="#sub-reconnect" class="text-brand-600 dark:text-brand-300 hover:underline">断线重连</a> 两节要解决的。</p>
+          </div>
+
+          <h3 id="why-2" class="mt-8 text-base font-semibold">现场二：现场 200 台设备要改一个阈值，只能派人一台台插串口</h3>
+
+          <p class="mt-3 leading-relaxed">
+            第二个现场更沉默，也更贵。你给某厂做了一套 200 点的温湿度监控，装在车间的配电柜里。
+            上线三个月后，甲方说：「报警阈值 60 度太低了，夏天设备本身就有 55 度，改成 70 度。」
+          </p>
+
+          <p class="mt-3 leading-relaxed">
+            这句话在代码上是一行常量的改动：<code class="icode">#define ALARM_TEMP 60.0f</code> 改成 <code class="icode">70.0f</code>，重新编译，大小增加不到 100 字节。
+            但在现场，它是这样一笔账：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li>200 个点位分布在三个车间，其中 40 个在 4 米高的桥架上，需要升降车；</li>
+            <li>每个点位：开柜门 → 找串口 → 插 USB 转串口线 → 电脑上点烧写 → 等 30 秒 → 拔线 → 关柜门，熟练工约 15 分钟，加上爬梯与走位，实际平均 20 分钟；</li>
+            <li>200 台 × 20 分钟 = 4000 分钟 ≈ <b class="font-semibold text-ink">67 个工时</b>，两个人干也要 4 个工作日；</li>
+            <li>更糟的是：<b class="font-semibold text-ink">下一次甲方再改一次，这笔账要重算一遍。</b></li>
+          </ul>
+
+          <p class="mt-3 leading-relaxed">
+            而如果设备接入了云平台，这件事的正确形态应该是：<b class="font-semibold text-ink">在网页上把「报警阈值」这个属性的期望值改成 70，点一下「下发」，200 台设备在几分钟内自己改完并回执确认</b>。
+            连固件都不用动——因为阈值本来就不该硬编码在程序里，它应该是「云端能改、设备本地能存、改了能回执」的一个<b class="font-semibold text-ink">属性</b>。
+            这就是 <a href="#sub-tsl" class="text-brand-600 dark:text-brand-300 hover:underline">物模型</a> 和 <a href="#sub-downlink" class="text-brand-600 dark:text-brand-300 hover:underline">下行指令落地</a> 要讲的事。
+          </p>
+
+          <p class="mt-3 leading-relaxed">
+            但也要说清楚：<b class="font-semibold text-ink">不是所有改动都能靠「下发属性」解决。</b>
+            如果甲方要的是「新增一个 Modbus 寄存器解析」「换一个传感器型号」「修一个内存泄漏的 bug」，那就必须换固件。
+            这时候你面对的就不是「点一下按钮」，而是一场需要精心设计、不能出错的<b class="font-semibold text-ink">远程手术</b>——本文后半部分的 OTA，讲的就是这场手术怎么做才不出人命。
+          </p>
+
+          <h3 id="why-3" class="mt-8 text-base font-semibold">现场三：OTA 升级到一半断电，设备变成一块砖</h3>
+
+          <p class="mt-3 leading-relaxed">
+            第三个现场是最惨的，也是最常见的。它通常发生在一个很普通的下午：设备正在通过 HTTP 下载新固件，下载到 70%，
+            <b class="font-semibold text-ink">车间跳闸了 / 有人拔了插头 / 电压跌落触发了欠压复位</b>。然后设备再也没起来。
+          </p>
+
+          <p class="mt-3 leading-relaxed">
+            如果你用的是一块 Flash 里只划了一个 app 分区的方案（或者 STM32 上自己写的「原地擦写」bootloader），后果是确定的：
+            app 分区里现在是<b class="font-semibold text-ink">半个新固件</b>，旧固件已经被擦掉了。上电后 Bootloader 检查镜像头与校验和，发现不合法，
+            于是拒绝启动，打印一行 <code class="icode">invalid header: 0xffffffff</code>，重启，再检查，再拒绝……你看到的是一块串口在无限刷屏、但功能全无的板子。
+            也有人遇到的是更恶心的版本：设备能启动，但每次启动跑几十秒就复位一次，因为某些代码段是 0xFF，跳转到非法地址触发了异常复位。
+          </p>
+
+          <p class="mt-3 leading-relaxed">
+            要彻底消灭这个剧本，需要三件东西配合：<b class="font-semibold text-ink">不在当前运行的镜像上做手术</b>（双分区，写另一块）、
+            <b class="font-semibold text-ink">让「下次从哪启动」变成一个可以原子更新的小状态</b>（otadata）、
+            以及<b class="font-semibold text-ink">新固件上线后如果自检不通过，能自动退回上一个能跑的版本</b>（回滚）。
+            ESP-IDF 把这三件事全做完了，你要学的是怎么正确使用它们的语义——这就是 <a href="#sub-partition" class="text-brand-600 dark:text-brand-300 hover:underline">分区表</a>、<a href="#sub-otadata" class="text-brand-600 dark:text-brand-300 hover:underline">otadata</a>、<a href="#sub-security" class="text-brand-600 dark:text-brand-300 hover:underline">回滚</a> 三节的内容。
+          </p>
+
+          <h4 class="mt-8 text-sm font-semibold">三个现场与本文小节的对应关系</h4>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>现场症状</th>
+                  <th>真正的根因</th>
+                  <th>本文对应小节</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>三块板子互相顶号，云端只显示 1 台在线</td>
+                  <td>身份写进了固件、多台设备共用同一个 DeviceName / DeviceSecret</td>
+                  <td><a href="#sub-triple" class="text-brand-600 dark:text-brand-300 hover:underline">三元组与身份认证</a></td>
+                </tr>
+                <tr>
+                  <td>设备频繁掉线，日志一会儿 CONNECT 一会儿断开</td>
+                  <td>心跳周期与平台离线判定窗口不匹配；重连没有退避；同一个 ClientID 被抢占</td>
+                  <td><a href="#sub-topic" class="text-brand-600 dark:text-brand-300 hover:underline">心跳与离线判定</a>、<a href="#sub-reconnect" class="text-brand-600 dark:text-brand-300 hover:underline">断线重连</a></td>
+                </tr>
+                <tr>
+                  <td>云端改成 70，设备还是按 60 报警</td>
+                  <td>阈值硬编码在固件里；或没有订阅下行主题；或收到后没写入 NVS、重启就丢</td>
+                  <td><a href="#sub-tsl" class="text-brand-600 dark:text-brand-300 hover:underline">物模型</a>、<a href="#sub-downlink" class="text-brand-600 dark:text-brand-300 hover:underline">属性下发落地</a></td>
+                </tr>
+                <tr>
+                  <td>断网 10 分钟内的数据全丢了，云端曲线有缺口</td>
+                  <td>上报失败就丢弃，没有本地缓存与序号去重</td>
+                  <td><a href="#sub-reconnect" class="text-brand-600 dark:text-brand-300 hover:underline">消息不丢：缓存 + 去重</a></td>
+                </tr>
+                <tr>
+                  <td>证书校验失败 / 时间不对导致 TLS 握手报错</td>
+                  <td>根证书过期；设备没有 RTC，开机时间停在 1970 年，证书「尚未生效」</td>
+                  <td><a href="#sub-reconnect" class="text-brand-600 dark:text-brand-300 hover:underline">设备时间同步</a>、<a href="#sub-security" class="text-brand-600 dark:text-brand-300 hover:underline">证书校验</a></td>
+                </tr>
+                <tr>
+                  <td>升级后跑的还是旧版本</td>
+                  <td>只写了镜像没切启动分区；或写错了分区；otadata 没更新</td>
+                  <td><a href="#sub-otadata" class="text-brand-600 dark:text-brand-300 hover:underline">双分区交替与 otadata</a></td>
+                </tr>
+                <tr>
+                  <td>OTA 中断电，设备卡在 bootloader 重启循环</td>
+                  <td>在当前运行的唯一 app 分区上原地擦写；没有第二个可启动的槽</td>
+                  <td><a href="#sub-partition" class="text-brand-600 dark:text-brand-300 hover:underline">分区表规划</a></td>
+                </tr>
+                <tr>
+                  <td>新固件一启动就崩，但再也回不去了</td>
+                  <td>没做自检就调用 mark_app_valid；一旦标记 VALID 就永久失去回滚机会</td>
+                  <td><a href="#sub-security" class="text-brand-600 dark:text-brand-300 hover:underline">回滚与自检</a></td>
+                </tr>
+                <tr>
+                  <td>改了分区表之后程序启动不了</td>
+                  <td>分区区间重叠或超出 Flash 容量；偏移没按 4 KB 对齐</td>
+                  <td><a href="#calc-1" class="text-brand-600 dark:text-brand-300 hover:underline">例 1：双分区容量账</a></td>
+                </tr>
+                <tr>
+                  <td>一批设备升级失败，日志停在 TLS 握手</td>
+                  <td>服务器换了证书链，设备里烧的还是旧的中间证书；或运营商劫持了 HTTP 下载链接</td>
+                  <td><a href="#sub-security" class="text-brand-600 dark:text-brand-300 hover:underline">根证书 vs 中间证书</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-6">
+            <div class="callout-title">本文的边界：STM32 上你得自己写 Bootloader，ESP32 上你得学「语义」</div>
+            <p>这句话请先记住，它是这一篇和第 39 篇的分界线：</p>
+            <p class="mt-2"><b>在 STM32 上，OTA 意味着你要自己规划 Flash、自己写 Bootloader、自己定升级协议、自己决定跳转、自己处理掉电——你造的是整套轮子。第 39 篇讲的就是怎么造这套轮子。</b></p>
+            <p class="mt-2"><b>在 ESP32 上，这套轮子 IDF 已经给你了：Bootloader 是芯片固化的 ROM 代码加上 Espressif 编译好的二级引导程序，它天生就会读分区表、读 otadata、验镜像、按 otadata 的指示决定从 ota_0 还是 ota_1 启动。你要学的不再是「怎么写引导程序」，而是「分区表怎么划、写哪个分区、otadata 什么时候被改、镜像什么时候算『被认可』」——也就是语义（semantics）。</b></p>
+            <p class="mt-2">把「造轮子」换成「学语义」，表面上是轻松了，实际上是要求变高了：因为你不再掌握全部控制权，你必须<b>按它的规矩来</b>。规矩里最有名的一条就是本文最后要讲的回滚状态机：新固件只有一次证明自己的机会。</p>
+          </div>
+        </section>
+
+        <!-- ============================== 2. 核心概念 ============================== -->
+        <section class="mt-14">
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4 leading-relaxed">
+            这一节分两半：<b class="font-semibold text-ink">前半（8 个子节里的前 5 个）讲「连上云之后怎么说话」，后半（后 3 个）讲「怎么在几百公里外把程序换掉」。</b>
+            两半的衔接点是同一个词：<b class="font-semibold text-ink">状态</b>。云端要维护「这台设备在线吗、它的阈值是多少」；
+            设备要维护「我下次从哪个分区启动、我刚上传的新固件算不算数」。把这些状态搞清楚，这两件事就不神秘了。
+          </p>
+
+          <h3 id="sub-triple" class="mt-8 text-lg font-semibold">三元组：设备凭什么证明「我是我」</h3>
+
+          <p class="mt-3 leading-relaxed">
+            云平台管着成千上万台设备，它必须回答一个最基本的问题：<b class="font-semibold text-ink">现在这个 TCP 连接，到底是哪一台设备？</b>
+            于是每家平台都会给设备发一套「身份证」，行业里最通用的形式就是<b class="font-semibold text-ink">三元组</b>（三个字符串）：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><code class="icode">ProductKey</code>：产品标识，同一个型号的所有设备共用。形如 <code class="icode">a1B2c3D4e5</code>，相当于「这一批设备属于哪个产品线」。</li>
+            <li><code class="icode">DeviceName</code>：设备名，<b class="font-semibold text-ink">同一产品内唯一</b>。形如 <code class="icode">sensor-001</code>。它是设备在云端的主键，也是你在控制台上搜设备的依据。</li>
+            <li><code class="icode">DeviceSecret</code>：设备密钥，<b class="font-semibold text-ink">每台设备独有、绝不相同</b>。形如 32 位随机十六进制串。它相当于密码，<b class="font-semibold text-ink">永远不在网络上明文传输</b>。</li>
+          </ul>
+
+          <p class="mt-3 leading-relaxed">
+            注意这三者的唯一性等级：ProductKey 是「一批一个」，DeviceName 是「一台一个」，DeviceSecret 是「一台一个且保密」。
+            第 43 篇的现场一之所以出事，就是因为三块板子共享了同一组三元组——在平台眼里它们不是三台设备，而是<b class="font-semibold text-ink">同一台设备的三个替身</b>。
+          </p>
+
+          <p class="mt-3 leading-relaxed">
+            那设备怎么用这三串字符登录？MQTT 协议本身只有一个朴素的 <code class="icode">CONNECT</code> 报文，里面能填身份的地方只有三处：<code class="icode">ClientID</code>、<code class="icode">Username</code>、<code class="icode">Password</code>。
+            三元组正好一一对应地塞进去，但<b class="font-semibold text-ink">密码不能直接把 DeviceSecret 填进去</b>——因为 DeviceSecret 是长期密钥，一旦在链路上被看到就等于泄露。
+            正确做法是<b class="font-semibold text-ink">拿 DeviceSecret 当 HMAC 的密钥，对一段包含时间戳的内容做签名，把签名当密码发出去</b>。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="三元组与 MQTT CONNECT 报文字段的对应关系"><pre><code>                     ┌─────────────── 云平台（设备管理后台）───────────────┐
+                     │  产品  ProductKey   = a1B2c3D4e5                   │
+                     │   └── 设备 DeviceName = sensor-001                 │
+                     │         └── 密钥 DeviceSecret = 3f8a1c...（每台唯一）│
+                     └───────────────────────┬────────────────────────────┘
+                                             │ 出厂标定 / 配网时，把这 3 串写进设备的 NVS
+                                             ▼
+   ┌──────────────────────── ESP32 发出的 MQTT CONNECT 报文 ────────────────────────┐
+   │                                                                               │
+   │  clientId = "sensor-001|securemode=3,signmethod=hmacsha1,timestamp=1730000000000|"
+   │  username = "sensor-001&amp;a1B2c3D4e5"                ← DeviceName &amp; ProductKey
+   │  password = HMAC-SHA1(content, DeviceSecret) 的十六进制小写，固定 40 个字符
+   │                                                                               │
+   │  content  = "clientId"   + clientId                                           │
+   │           + "deviceName" + "sensor-001"                                       │
+   │           + "productKey" + "a1B2c3D4e5"                                       │
+   │           + "timestamp"  + "1730000000000"                                    │
+   │           ↑ 参数名按字典序（c &lt; d &lt; p &lt; t）排列，键值直接相连、中间不加分隔符    │
+   └───────────────────────────────────────────────────────────────────────────────┘
+
+   服务器侧怎么验：它按同样的规则用「自己存的 DeviceSecret」再算一遍 HMAC-SHA1。
+   两次结果一致 → 说明对方持有正确的密钥 → 放行。
+   时间戳的作用：签名只在 15 分钟内有效（平台侧校验时间窗口），
+   这样即使签名被截获，攻击者过一会儿也不能拿它重放登录。</code></pre></div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">HMAC 是什么，为什么这里不能用 SHA1(密码 + 内容)</div>
+            <p>HMAC 全称「带密钥的散列消息认证码」，定义是 <code class="icode">HMAC(K, m) = H((K ⊕ opad) ‖ H((K ⊕ ipad) ‖ m))</code>，
+            其中 H 是散列函数（这里是 SHA1），K 是密钥，ipad/opad 是两个固定常量。</p>
+            <p class="mt-2">你不用背这个式子，只要记住它的两个性质：<b>一是「只有知道 K 的人才算得出结果」；二是「算出来的结果不泄露 K」</b>。
+            它和「把密码拼在内容后面再散列」的区别在于：后者存在「长度扩展攻击」，知道一个签名就能伪造另一个消息的签名；HMAC 的双层结构堵住了这条路。</p>
+            <p class="mt-2">SHA1 的<b>抗碰撞性</b>早已被攻破，但<b>HMAC-SHA1 依然被认为是安全的</b>——抗碰撞和多密钥认证码是两回事。所以很多平台的 signmethod 至今仍是 <code class="icode">hmacsha1</code>。如果平台支持 <code class="icode">hmacsha256</code>，优先用后者。</p>
+          </div>
+
+          <h4 class="mt-8 text-sm font-semibold">一机一密 vs 一型一密：密钥怎么进到设备里</h4>
+
+          <p class="mt-3 leading-relaxed">
+            上一段假设「设备里已经有自己的 DeviceSecret」。可是量产的时候，这个密钥是怎么进到设备里的？这就是两条不同的产线流程，行业里分别叫<b class="font-semibold text-ink">一机一密</b>和<b class="font-semibold text-ink">一型一密</b>。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th>一机一密（预注册）</th>
+                  <th>一型一密（动态注册）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>密钥来源</td>
+                  <td>在平台上批量创建 1000 台设备，导出 1000 组三元组，<b>每台烧一组</b></td>
+                  <td>平台记一个 <code class="icode">ProductSecret</code>（产品级密钥），设备<b>先烧通用固件</b>，首次联网时用 ProductSecret 换取本机独有的 DeviceSecret</td>
+                </tr>
+                <tr>
+                  <td>产线操作</td>
+                  <td>烧写固件 + 单独注入密钥，需逐台上报序列号与三元组的对应关系</td>
+                  <td>只烧一份通用固件，注入密钥由设备自己在首次联网时完成（省一道工序）</td>
+                </tr>
+                <tr>
+                  <td>泄露后果</td>
+                  <td>只影响那一台设备（前提是固件里不留明文）</td>
+                  <td><b>ProductSecret 泄露 = 整条产品线可以被伪造设备冒名注册</b>，影响面是全产品</td>
+                </tr>
+                <tr>
+                  <td>依赖</td>
+                  <td>不依赖「首次联网」这条路，装到没有网络的地方也能工作</td>
+                  <td>首次上电必须能联网；且动态注册的动作<b>只能成功一次</b>，之后要妥善保存返回的 DeviceSecret</td>
+                </tr>
+                <tr>
+                  <td>适合什么产品</td>
+                  <td>安全要求高、产量中等、有产线标定工位</td>
+                  <td>产量大、希望产线简单、能接受「首次联网激活」的流程</td>
+                </tr>
+                <tr>
+                  <td>本文建议</td>
+                  <td><b>做课程设计与小批量：用这个。</b>一台设备一组，出问题好排查</td>
+                  <td>量产再考虑，而且要配合 Flash 加密，否则 ProductSecret 能被人从 Flash 里读出来</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">DeviceSecret 到底该存在哪里</div>
+            <p>最常见的错误是写成 <code class="icode">#define DEVICE_SECRET "3f8a1c..."</code> 放在源码里。后果是<b>任何拿到你固件二进制的人（包括同学、甲方、竞争对手）都能用 <code class="icode">esptool.py read_flash</code> 或直接反汇编找到它</b>，
+            然后伪造一台设备上线，往你的数据库里灌脏数据。</p>
+            <p class="mt-2">三条依次增强的存放方案：</p>
+            <ol class="mt-2 list-decimal space-y-1.5 pl-5">
+              <li><b>存 NVS</b>（<code class="icode">nvs</code> 分区）：固件里只有「读 NVS 取三元组」的代码，密钥用 <code class="icode">esptool.py write_flash</code> 或专门的标定脚本单独写入。这能防住「同一个 bin 烧到多台板子上互相顶号」，但防不住直接读 Flash。</li>
+              <li><b>NVS + Flash 加密</b>：Flash 内容以 AES-256 加密存储，读出的是密文。这是量产的最低门槛配置。</li>
+              <li><b>eFuse + Secure Boot</b>：把设备私钥/证书写进 eFuse（不可读出，「只可用」），固件签名验证。这是金融、门锁类产品的做法，代价是<b>不可逆</b>——写错一次这颗芯片就废了。</li>
+            </ol>
+            <p class="mt-2">本篇的代码按第 1 条写（NVS），并在第 4 节的坑里说明升级到第 2 条的代价。</p>
+          </div>
+
+          <h3 id="sub-tsl" class="mt-8 text-lg font-semibold">物模型：属性、服务、事件</h3>
+
+          <p class="mt-3 leading-relaxed">
+            假设你现在成功把设备接上了云，接下来要传数据。新手的第一反应是「那我随便发个 JSON 上去不就行了」——
+            技术上确实能发，但云平台<b class="font-semibold text-ink">不知道该拿它干什么</b>：它不知道这个字段叫温度还是电压，不知道单位是摄氏度还是华氏度，不知道超出范围要不要报警，更不可能自动给手机 App 生成一个滑块控件。
+          </p>
+
+          <p class="mt-3 leading-relaxed">
+            所以要有一份<b class="font-semibold text-ink">双方都认可的接口契约</b>，它规定了「这台设备向外暴露了什么」，这份契约就叫<b class="font-semibold text-ink">物模型（TSL，Thing Specification Language）</b>，
+            在平台上通常是用 JSON 描述、在控制台上以「功能定义」页面呈现的。物模型把所有交互归成三类，这三类覆盖了现实中的全部需求：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>类别</th>
+                  <th>语义</th>
+                  <th>典型例子</th>
+                  <th>谁主动</th>
+                  <th>有没有回执</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>属性</b> property</td>
+                  <td>设备的<b>状态量</b>，是一个「值」，可以被读、也可能被写</td>
+                  <td>当前温度 25.3、报警阈值 70、开关状态 on</td>
+                  <td>上报：设备主动<br>设置：云端主动</td>
+                  <td>都有（<code class="icode">_reply</code>）</td>
+                </tr>
+                <tr>
+                  <td><b>服务</b> service</td>
+                  <td>一次<b>可被调用的动作</b>，有入参、有出参，执行完就结束</td>
+                  <td>重启设备、开始校准、清空本地缓存、查询历史记录</td>
+                  <td>云端主动调用</td>
+                  <td>有（<code class="icode">_reply</code>，带返回码）</td>
+                </tr>
+                <tr>
+                  <td><b>事件</b> event</td>
+                  <td>设备主动上报的<b>通知</b>，分 info（信息）/ alert（告警）/ error（故障）三级</td>
+                  <td>高温报警、传感器断线、重启原因上报</td>
+                  <td>设备主动</td>
+                  <td>有（<code class="icode">post_reply</code>，一般不用等）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3 leading-relaxed">
+            分不清属性和服务的时候，问自己一句：<b class="font-semibold text-ink">「它是一个能存住的值，还是一个做一次就结束的动作？」</b>
+            「报警阈值」是值，改完之后要一直在那儿，重启还得记得住 → 属性。「重启设备」是动作，执行完就没有「重启状态」这个东西 → 服务。
+            <b class="font-semibold text-ink">现场二里的阈值之所以应该做成属性，正是因为它必须被持久记住。</b>
+          </p>
+
+          <p class="mt-3 leading-relaxed">
+            物模型最终要变成 MQTT 主题上的具体字符串。平台会把每个类别映射成一组固定格式的主题，你只要按格式订阅和发布就行。
+            下图是一个真实的对应关系（阿里云 IoT 的格式，也是教材里用的格式；其他平台只在主题前缀上有差别，语义完全一致）：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="物模型三要素与 MQTT 主题的对应关系"><pre><code>  物模型（TSL：双方约定的接口契约）       真实的 MQTT 主题字符串（{pk}=ProductKey，{dn}=DeviceName）
+  ┌────────────────────────────┐   ┌──────────────────────────────────────────────────────┐
+  │ 属性 property              │   │ /sys/{pk}/{dn}/thing/event/property/post              │ 设备→云  上报
+  │  CurrentTemperature  只读  │◄─►│ /sys/{pk}/{dn}/thing/event/property/post_reply        │ 云→设备  上报回执
+  │  CurrentHumidity     只读  │   └──────────────────────────────────────────────────────┘
+  │  AlarmTemp           读写  │   ┌──────────────────────────────────────────────────────┐
+  │  PowerSwitch         读写  │◄─►│ /sys/{pk}/{dn}/thing/service/property/set             │ 云→设备  设置属性
+  └────────────────────────────┘   │ /sys/{pk}/{dn}/thing/service/property/set_reply       │ 设备→云  设置回执
+                                   └──────────────────────────────────────────────────────┘
+  ┌────────────────────────────┐   ┌──────────────────────────────────────────────────────┐
+  │ 服务 service              │   │ /sys/{pk}/{dn}/thing/service/{identifier}             │ 云→设备  调用
+  │  reboot       入参:delay  │◄─►│ /sys/{pk}/{dn}/thing/service/{identifier}_reply       │ 设备→云  调用回执
+  │  calibrate    出参:offset │   └──────────────────────────────────────────────────────┘
+  └────────────────────────────┘
+  ┌────────────────────────────┐   ┌──────────────────────────────────────────────────────┐
+  │ 事件 event                │   │ /sys/{pk}/{dn}/thing/event/{identifier}/post          │ 设备→云  上报
+  │  HighTempAlarm  alert     │◄─►│ /sys/{pk}/{dn}/thing/event/{identifier}/post_reply    │ 云→设备  上报回执
+  │  SensorFault    error     │   └──────────────────────────────────────────────────────┘
+  └────────────────────────────┘
+
+  记忆口诀：/sys/产品/设备/thing/ 之后分三条路——
+           event/property/... 走属性，service/property/... 走属性设置，
+           service/{服务名} 走服务，event/{事件名}/post 走事件。
+           凡是设备主动发的，云端的确认都叫 _reply；post_reply 是上报的回执，
+           set_reply 是设置的回执，{identifier}_reply 是服务调用的回执。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed">
+            主题定好了，报文长什么样？上行属性上报的 payload 大致是这样一个 JSON：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="属性上报的 payload（上行）与属性设置的 payload（下行）"><pre><code>设备 → 云端  主题 /sys/a1B2c3D4e5/sensor-001/thing/event/property/post
+{
+  "id": "1730000000123",
+  "version": "1.0",
+  "params": {
+    "CurrentTemperature": 25.3,
+    "CurrentHumidity": 58,
+    "AlarmTemp": 70
+  },
+  "method": "thing.event.property.post"
+}
+
+云端 → 设备  主题 /sys/a1B2c3D4e5/sensor-001/thing/event/property/post_reply
+{
+  "id": "1730000000123",          ← 原样带回，设备靠它把「回执」和「哪次上报」对上
+  "code": 200,
+  "message": "success"
+}
+
+云端 → 设备  主题 /sys/a1B2c3D4e5/sensor-001/thing/service/property/set
+{
+  "id": "1730000000955",
+  "version": "1.0",
+  "params": {
+    "AlarmTemp": 70               ← 只带要改的属性，没提到的属性不许动
+  },
+  "method": "thing.service.property.set"
+}
+
+设备 → 云端  主题 /sys/a1B2c3D4e5/sensor-001/thing/service/property/set_reply
+{
+  "id": "1730000000955",
+  "code": 200,
+  "data": {}                      ← 回执里 code 200 表示「已生效」，非 200 表示拒绝并说明原因
+}</code></pre></div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">id 字段为什么必须原样带回去</div>
+            <p>因为 MQTT 是异步的，设备可能同时有好几条上报在飞。平台侧的 <code class="icode">id</code> 是它自己生成的消息编号，
+            只有当设备在 <code class="icode">_reply</code> 里把它带回来，平台才能知道「这条回执对应哪一次下发」，从而把「指令状态」从「已下发」改成「已执行」。</p>
+            <p class="mt-2">反过来也一样：设备发出 <code class="icode">id=1730000000123</code> 的上报后，如果收到的回执里 <code class="icode">id</code> 不匹配，说明那是另一条消息的回执。
+            <b>把 id 当成请求与应答之间的「挂号信回执联」，是理解整套上下行机制的关键。</b></p>
+          </div>
+
+          <h3 id="sub-topic" class="mt-8 text-lg font-semibold">主题规划、QoS 与心跳离线判定</h3>
+
+          <p class="mt-3 leading-relaxed">
+            主题（Topic）是 MQTT 里唯一的「寻址方式」，它是一个用斜杠分隔的字符串，本质是一棵树上的路径。
+            除了物模型自动生成的主题，你还可以申请<b class="font-semibold text-ink">自定义主题</b>来传一些不适合纳入物模型的数据（比如整段波形、自定义二进制协议、多设备协同消息）。
+            自定义主题的格式是 <code class="icode">/{pk}/{dn}/user/自定义后缀</code>，权限要在控制台上显式申请（读 / 写 / 读写），否则连上了也发不出去。
+          </p>
+
+          <p class="mt-3 leading-relaxed">
+            主题里有两个通配符，规则必须记牢：<code class="icode">+</code> 匹配<b>一层</b>，<code class="icode">#</code> 匹配<b>剩余所有层</b>且只能出现在末尾。
+            <b class="font-semibold text-ink">通配符只能用在订阅里，发布时必须给出完整主题</b>——服务器无法把一个带通配符的发布消息「展开」成具体设备。
+            另外要注意：云平台几乎都<b class="font-semibold text-ink">禁止订阅其他人的主题</b>（比如你不该订阅 <code class="icode">/sys/{pk}/+/thing/event/property/post</code> 去偷看同产品其他设备的数据），
+            这类权限在平台侧被 ACL 拦掉，日志上通常表现为「连接成功但订阅后收不到任何消息」。
+          </p>
+
+          <h4 class="mt-8 text-sm font-semibold">QoS：到底选 0、1 还是 2</h4>
+
+          <p class="mt-3 leading-relaxed">
+            MQTT 给你三档「投递保证」，代价是线性增长的握手开销：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>QoS</th>
+                  <th>语义</th>
+                  <th>报文往返</th>
+                  <th>会不会重复</th>
+                  <th>会不会丢</th>
+                  <th>用在哪</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>0</td>
+                  <td>至多一次（发了就不管）</td>
+                  <td>1 次 PUBLISH，无应答</td>
+                  <td>不会</td>
+                  <td><b>会丢</b>（链路抖动就没了）</td>
+                  <td>周期性传感器数据（丢一个点无所谓，下一个点马上补上）</td>
+                </tr>
+                <tr>
+                  <td>1</td>
+                  <td>至少一次（收到要确认）</td>
+                  <td>PUBLISH → PUBACK</td>
+                  <td><b>会重复</b>（重发导致）</td>
+                  <td>不丢（只要连接还在）</td>
+                  <td><b>下行指令、属性设置、告警事件、升级通知</b></td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td>恰好一次（四次握手）</td>
+                  <td>PUBLISH → PUBREC → PUBREL → PUBCOMP</td>
+                  <td>不会</td>
+                  <td>不丢</td>
+                  <td>计费、开关闸门这类<b>绝对不能重复执行</b>的动作；嵌入式里少用，开销大</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">「QoS 1 会重复」这件事必须写进你的代码</div>
+            <p>很多人以为选了 QoS 1 就「稳了」，结果现场出现「云端下发一次『开阀 30 秒』，阀门被执行了两次」这种事。原因是 QoS 1 的保证是「至少一次」：
+            如果设备处理完了但 <code class="icode">PUBACK</code> 在回程丢了，服务器会重发同一条消息，设备会再收到一遍。</p>
+            <p class="mt-2"><b>解决办法不是升到 QoS 2，而是让设备端「幂等」</b>：记住最近处理过的消息 <code class="icode">id</code>，
+            收到重复的直接回一条「已执行」的回执，不再真的执行第二次。这也是第 5 节里 <a href="#sub-reconnect" class="text-brand-600 dark:text-brand-300 hover:underline">消息去重</a> 要讲的内容——
+            <b>去重是设备端的责任，不是协议的责任。</b></p>
+          </div>
+
+          <h4 class="mt-8 text-sm font-semibold">心跳与离线判定：云端怎么知道设备还活着</h4>
+
+          <p class="mt-3 leading-relaxed">
+            MQTT 建立连接时，客户端会在 <code class="icode">CONNECT</code> 报文里带一个 <b>Keep Alive</b> 秒数（常写 60）。
+            它是一条双向约定：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><b>设备侧的责任</b>：只要在这个时间内<b>没有发出任何报文</b>，就必须发一个 <code class="icode">PINGREQ</code>；服务器回 <code class="icode">PINGRESP</code>。
+            <b>注意：发出任何报文（包括一条属性上报）都会刷新这个计时器</b>，所以数据上报频繁时根本不需要额外心跳。</li>
+            <li><b>服务器侧的责任</b>：如果在 <b>1.5 × Keep Alive</b> 的时间里没有收到该客户端的任何报文，就判定它掉线，关闭连接、发布遗嘱消息（如果有）、把设备状态置为离线。</li>
+          </ul>
+
+          <p class="mt-3 leading-relaxed">
+            工程上真正麻烦的不是「设备知道要发心跳」，而是<b class="font-semibold text-ink">「云端判定离线」与「设备自认为在线」之间的时间差</b>。
+            假设 Keep Alive 设成 300 秒（为了省流量和省电，很多低功耗项目这么设），那么设备被拔网线之后，
+            <b class="font-semibold text-ink">最长 450 秒（7.5 分钟）内云端仍然显示「在线」</b>。这段时间里，甲方在网页上点了「下发阈值」，平台会认为指令成功发给了在线设备，
+            而设备根本没收到——这就是现场最常见的「我点了下发，设备没反应，但平台显示已下发」。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>Keep Alive</th>
+                  <th>云端最迟多久发现掉线</th>
+                  <th>空闲时的日均心跳流量（按 2 字节 PINGREQ + 4 字节 PINGRESP + MQTT/TCP 头估算）</th>
+                  <th>适用</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>30 s</td>
+                  <td>45 s</td>
+                  <td>约 2880 次往返，粗算 1 MB 量级（详见 <a href="#calc-5" class="text-brand-600 dark:text-brand-300 hover:underline">例 5</a>）</td>
+                  <td>市电供电、需要「指令秒到」的场合</td>
+                </tr>
+                <tr>
+                  <td>60 s</td>
+                  <td>90 s</td>
+                  <td>约 1440 次往返，粗算 0.5 MB 量级</td>
+                  <td><b>本文推荐：市电设备默认值</b></td>
+                </tr>
+                <tr>
+                  <td>300 s</td>
+                  <td>450 s</td>
+                  <td>约 288 次往返，粗算 0.1 MB 量级</td>
+                  <td>电池供电、只想省电、能接受指令延迟</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">缩短「看起来在线其实不在」的窗口，有三招</div>
+            <ol class="mt-2 list-decimal space-y-1.5 pl-5">
+              <li><b>把 Keep Alive 降到 60 秒</b>，代价是流量与功耗（下文例 5 会算到底值不值）。</li>
+              <li><b>用遗嘱消息（LWT，Last Will and Testament）</b>：连接时告诉平台「如果我掉线了，请替我发一条消息到某个主题」。
+              这样设备异常掉线时，平台可以第一时间收到「sensor-001 掉线了」这种通知，你的后台就能立刻把设备标记为离线，不必等 1.5 × Keep Alive。</li>
+              <li><b>用 QoS 1 下发 + 等回执</b>：把「下发成功」和「执行成功」区分开。平台显示「已下发」只代表消息发出去了；
+              只有设备回了 <code class="icode">set_reply</code>（<code class="icode">code=200</code>），才算真的改成功了。做后台展示时，这两个状态必须分开显示。</li>
+            </ol>
+          </div>
+        <h3 id="sub-downlink" class="mt-8 text-lg font-semibold">下行指令怎么落地：属性设置 → NVS → 回执</h3>
+
+          <p class="mt-3 leading-relaxed">
+            上行好理解：设备采到数据就发。真正容易出错的是<b class="font-semibold text-ink">下行</b>——云端主动把一条指令推到设备上，设备要在一堆约束下把它正确地「落地」。
+            先把一条完整的链路的时序画出来，你会看到它比「发一条消息」复杂得多：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="上行 / 下行完整时序：设备上报 → 规则引擎 → 手机 App 下发 → 设备回执"><pre><code>  设备 ESP32                云平台（设备接入 + 规则引擎）              手机 App / 后台
+  ─────────                 ──────────────────────────────              ──────────────
+      │                                  │                                    │
+      │ ① 属性上报 QoS1                  │                                    │
+      │  /sys/{pk}/{dn}/thing/           │                                    │
+      │   event/property/post            │                                    │
+      │  {"params":{"CurrentTemperature":25.3,...}}                           │
+      ├─────────────────────────────────►│                                    │
+      │                                  │ ② 落库 + 触发规则引擎               │
+      │                                  │   「若温度 &gt; 60 则推送告警」        │
+      │ ③ post_reply {"id":...,"code":200}                                    │
+      │◄─────────────────────────────────┤                                    │
+      │                                  │ ④ 实时推送（WebSocket / 长连接）     │
+      │                                  ├───────────────────────────────────►│
+      │                                  │                                    │ ⑤ 用户在界面上
+      │                                  │                                    │    把阈值拖到 70
+      │                                  │                                    │    点「下发」
+      │                                  │ ⑥ 属性设置 QoS1（平台鉴权 + ACL）     │
+      │                                  │◄───────────────────────────────────┤
+      │ ⑦ /sys/{pk}/{dn}/thing/          │                                    │
+      │    service/property/set          │                                    │
+      │  {"id":"...955","params":{"AlarmTemp":70}}                            │
+      │◄─────────────────────────────────┤                                    │
+      │                                  │                                    │
+      │ ⑧ 校验：70 在 [0,120] 内？        │                                    │
+      │    通过 → 写 NVS → commit         │                                    │
+      │    失败 → code=400 说明原因        │                                    │
+      │                                  │                                    │
+      │ ⑨ set_reply {"id":"...955","code":200,"data":{}}                      │
+      ├─────────────────────────────────►│                                    │
+      │                                  │ ⑩ 指令状态：已下发 → 已执行          │
+      │                                  ├───────────────────────────────────►│
+      │                                  │                                    │ ⑪ 界面显示
+      │                                  │                                    │    「sensor-001
+      │                                  │                                    │     已生效」
+      │                                  │                                    │
+      └── ⑫ 断网期间：⑦ 收不到。平台最迟 1.5×KeepAlive 才判定离线，
+             这段时间指令显示「已下发」但永远不会「已执行」——所以 ⑩ 的两个状态必须分开显示。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed">
+            这张图里，<b class="font-semibold text-ink">第 ⑧ 步是全部价值所在</b>，也是新手最容易写成一行了事的地方。正确的落地要满足四条纪律：
+          </p>
+
+          <div class="mt-4 space-y-3">
+            <div class="mini-step">
+              <span class="step-num">1</span>
+              <div>
+                <p class="font-semibold text-ink">回调里绝不做重活</p>
+                <p class="mt-1 leading-relaxed">MQTT 的下行回调是在 MQTT 任务的上下文里执行的。你在回调里写 Flash、等信号量、做 HTTP 请求，
+                都会<b>卡住整条 MQTT 连接</b>——心跳发不出去，服务器在 1.5 × KeepAlive 之后把你踢掉，然后你重连、再收一遍这条指令、再卡一次，形成死循环。
+                正确做法：回调里只做一件事——把 payload 拷进队列（<code class="icode">xQueueSend</code>），立刻返回；真正的处理放在业务任务里。</p>
+              </div>
+            </div>
+            <div class="mini-step">
+              <span class="step-num">2</span>
+              <div>
+                <p class="font-semibold text-ink">先校验，再执行，越界要明确拒绝</p>
+                <p class="mt-1 leading-relaxed">云端下发的值不一定合理：可能是操作员手滑输了 700，可能是别的产品的模板串了参数，也可能是攻击者在试探。
+                设备必须做<b>范围与类型校验</b>，不合法就回 <code class="icode">code=400</code> 并带上原因，<b>绝不能默默接受</b>。
+                一个真实的教训：有人把「采样周期」做成可下发属性，云端发了个 0，设备的定时任务周期变成 0，任务以最高频率空转，十分钟后看门狗复位。</p>
+              </div>
+            </div>
+            <div class="mini-step">
+              <span class="step-num">3</span>
+              <div>
+                <p class="font-semibold text-ink">必须持久化，而且「commit 完成」才算生效</p>
+                <p class="mt-1 leading-relaxed">NVS 的写是分两步的：<code class="icode">nvs_set_i32()</code> 只是把值写进内存里的缓存，<code class="icode">nvs_commit()</code> 才真正落到 Flash。
+                只有 commit 返回 <code class="icode">ESP_OK</code>，你才有资格回 <code class="icode">code=200</code>。
+                先回执再写盘 = 一旦此刻掉电，云端认为已生效、设备重启后还是旧值，两边永久不一致。</p>
+              </div>
+            </div>
+            <div class="mini-step">
+              <span class="step-num">4</span>
+              <div>
+                <p class="font-semibold text-ink">幂等：同一个 id 处理过一次就不要再执行</p>
+                <p class="mt-1 leading-relaxed">QoS 1 会重复投递（见上一节）。设备要保存「最近处理过的消息 id」，重复的直接回 200、不重复执行。
+                对于「改阈值」这种操作，重复执行恰好没有副作用，但换成「重启」「累计清零」「开阀 30 秒」就会出事——所以<b>幂等要一开始就做，不要等出事再补</b>。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="callout callout-info mt-6">
+            <div class="callout-title">「默认值 / NVS 值 / 云端期望值」三者的优先级</div>
+            <p>加了云端下发之后，同一个参数会有三个来源，必须定一个明确顺序，否则你会遇到「重启后阈值莫名其妙变回去了」：</p>
+            <ol class="mt-2 list-decimal space-y-1.5 pl-5">
+              <li><b>固件里的默认值</b>（<code class="icode">#define ALARM_TEMP_DEFAULT 60.0f</code>）：只在 NVS 里读不到时使用，即「出厂状态」。</li>
+              <li><b>NVS 里的值</b>：设备正常运行期间的权威值。上电后先读它，读到就用，<b>不要等云端</b>——否则一断网设备就退回默认值。</li>
+              <li><b>云端下发的期望值</b>：只在连接正常时到达，到达即覆盖并落盘。不上电时它不在设备上，也不该被设备「猜」。</li>
+            </ol>
+            <p class="mt-2">顺序就是：<b>默认值 → NVS 覆盖 → 云端再覆盖</b>。本文第 4 节的 <a href="#mcu-cloud" class="text-brand-600 dark:text-brand-300 hover:underline">属性下发 → NVS → 回执闭环</a> 就是按这个顺序写的。</p>
+          </div>
+
+          <h3 id="sub-reconnect" class="mt-8 text-lg font-semibold">断线重连、消息不丢与设备时间同步</h3>
+
+          <p class="mt-3 leading-relaxed">
+            把设备放在实验室里，它可能连着跑三天不断线；装在车间的配电柜里，它每天都会断几次——AP 重启、信号被行车挡住、交换机端口抖动、运营商基站切换。
+            <b class="font-semibold text-ink">工程上，「永远在线」不是目标，「断了能自己回来，并且回来的路上不丢数据」才是目标。</b>
+          </p>
+
+          <h4 class="mt-8 text-sm font-semibold">重连状态机：不要在 while 里裸奔重连</h4>
+
+          <p class="mt-3 leading-relaxed">
+            新手写法通常是这样：<code class="icode">while (mqtt_connect() != OK) { vTaskDelay(1000); }</code>。它的三个问题都很致命：
+            失败时<b>每秒一次</b>猛敲服务器，可能被平台判定为攻击而封禁；没有区分「WiFi 掉了」和「MQTT 掉了」；重连期间阻塞了整个任务，采集停摆。
+            正确的是一个显式状态机：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="MQTT 连接状态机与指数退避"><pre><code>        ┌──────────────┐
+        │  S_INIT      │ 上电：读 NVS 里的三元组，初始化 NVS / 队列 / 事件组
+        └──────┬───────┘
+               ▼
+        ┌──────────────┐   WiFi 断开事件 / 超时
+        │ S_WIFI_WAIT  │◄────────────────────────┐
+        └──────┬───────┘                         │
+               │ 拿到 IP（IP_EVENT_STA_GOT_IP）  │
+               ▼                                 │
+        ┌──────────────┐   CONNECT 失败（rc≠0）   │
+        │ S_MQTT_CONN  ├─────────────────────────┤  退避：1 → 2 → 4 → 8 → 16 → 32 → 60 s（封顶）
+        └──────┬───────┘                         │  每次 +0~1000ms 随机抖动，避免整批设备同时重连
+               │ CONNACK 成功                    │
+               ▼                                 │
+        ┌──────────────┐   订阅失败（ACL 拒绝）  │
+        │ S_SUBSCRIBE  ├─────────────────────────┤
+        └──────┬───────┘                         │
+               │ 上行 + 下行 + 回执三类主题都订上  │
+               ▼                                 │
+        ┌──────────────┐   MQTT_EVENT_DISCONNECTED
+        │  S_ONLINE    ├─────────────────────────┘  退避计数清零的条件：
+        └──────────────┘                              连上并稳定 ≥ 60 s 才算「真的好了」，
+              │                                       否则一直保持当前退避档位
+              └── 采集任务照常跑：数据先进本地环形缓冲，能发就发、发不掉就先存
+
+   抖动（jitter）为什么必须有：假设 200 台设备都在同一个 AP 下，AP 重启后它们会在同一毫秒
+   集体发起重连。若退避周期完全一致，它们会永远「同频共振」——一起失败、一起等待、一起重试。
+   加一个随机抖动，重连请求就被摊平到整个退避窗口里。</code></pre></div>
+
+          <h4 class="mt-8 text-sm font-semibold">消息不丢：本地缓存 + 序号去重</h4>
+
+          <p class="mt-3 leading-relaxed">
+            断线期间采到的数据怎么办？三个档次，按代价从低到高：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>策略</th>
+                  <th>做法</th>
+                  <th>能扛多久断网</th>
+                  <th>代价 / 风险</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>直接丢弃</td>
+                  <td>发不出去就丢，只保证「在线时的数据」</td>
+                  <td>0（断网期间的数据全没）</td>
+                  <td>零代价，但云端曲线会缺一块，做「跳闸前后趋势分析」时无从下手</td>
+                </tr>
+                <tr>
+                  <td><b>RAM 环形缓冲（推荐）</b></td>
+                  <td>固定长度的数组当环形队列，重连后按顺序补发；满了就覆盖最老的</td>
+                  <td>由缓冲深度决定（见下文估算）</td>
+                  <td>占 RAM；掉电即失；需要序号来标记「哪条是哪条」</td>
+                </tr>
+                <tr>
+                  <td>NVS / SPIFFS 落盘</td>
+                  <td>每条数据写 Flash，重连后补发并删除</td>
+                  <td>几乎无限（受分区容量限制）</td>
+                  <td><b>Flash 擦写寿命被快速消耗</b>，不适合高频采集；需要自己做磨损与容量管理</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3 leading-relaxed">
+            环形缓冲有一个必须解决的问题：<b class="font-semibold text-ink">补发时重复了怎么办</b>。
+            场景是这样：设备发出第 100 条数据，服务器收到了，但 <code class="icode">PUBACK</code> 在回程丢了，设备认为「没发成功」把它留在缓冲里；
+            重连后设备又发了一遍第 100 条。此时云端数据库里就有两条第 100 条。
+          </p>
+
+          <p class="mt-3 leading-relaxed">
+            标准解法是<b class="font-semibold text-ink">给每条消息一个单调递增的序号（seq），云端记住每台设备收到的最大 seq，凡是 seq 不大于已记录值的一律丢弃（或只回执不入库）</b>。
+            序号还有一个附带好处：云端看到序号突然跳过一段（比如从 100 跳到 137），就知道设备在中间断过、有数据没上来，可以主动去问或至少标记「这段有缺口」，而不是把曲线无声地连起来骗自己。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="序号去重与缺口检测（云端视角）"><pre><code>   设备 → 云端上行（补发场景，QoS 1，可能重复）
+   ┌──────────────────────────────────────────────────────────────┐
+   │ seq=98 │ seq=99 │ seq=100 │ seq=100(重发) │ seq=101 │ seq=137 │
+   └──────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+   云端每台设备维护一行状态： { last_seq: 99, gap: [] }
+
+   seq=100  → 100 &gt; 99  → 入库，last_seq = 100            ✓
+   seq=100  → 100 &lt;= 100 → 丢弃（只回 PUBACK，不改 last_seq）✓ 去重成功
+   seq=101  → 101 &gt; 100 → 入库，last_seq = 101            ✓
+   seq=137  → 137 &gt; 101 → 入库，同时记录缺口 [102,136]，last_seq = 137
+                          → 后台可以据此提醒「该设备曾离线，缺 35 个点」
+
+   注意：序号是「每台设备一个计数器」，不是全局唯一 ID。
+   它只需要在单台设备内单调，所以 32 位足够（每秒 1 条也能用 136 年）。</code></pre></div>
+
+          <h4 class="mt-8 text-sm font-semibold">设备时间同步：为什么它排在这篇的必讲清单里</h4>
+
+          <p class="mt-3 leading-relaxed">
+            ESP32 有 RTC 硬件，但<b class="font-semibold text-ink">没有电池供电的备份域</b>（除非你自己外挂一颗纽扣电池或 RTC 芯片）。
+            所以每次断电重启，芯片内部时间从某个固定点重新开始。如果你直接用 <code class="icode">time(NULL)</code> 打时间戳，结果会是 1970 年或者某个魔数。
+            这会同时毁掉三件事：
+          </p>
+
+          <ol class="mt-3 list-decimal space-y-1.5 pl-5">
+            <li><b>TLS 证书校验直接失败。</b>每张证书都有生效时间（Not Before）与失效时间（Not After）。设备时间若早于 Not Before，握手会报
+            <code class="icode">mbedtls: x509_crt_verify failed / certificate validity</code>；时间若在几十年后，同样失败。
+            这是「代码没动过，某天所有设备突然连不上服务器」的常见原因之一。</li>
+            <li><b>云端数据无法定位。</b>上报里带的时间戳如果全是 1970-01-01，云端要么拒收、要么按接收时间入库，于是「断网补发」的数据会全部挤在同一时刻，
+            进来一堆数据却分不清先后，做趋势分析时完全没用。</li>
+            <li><b>OTA 的签名与证书同样依赖时间</b>，而且日志排查也依赖时间——没有正确时间，你连「设备是几点断的」都不知道。</li>
+          </ol>
+
+          <p class="mt-3 leading-relaxed">
+            正确做法：<b class="font-semibold text-ink">联网成功后、做任何 TLS 交互之前，先用 SNTP 校时，并等到同步完成再继续。</b>
+            ESP-IDF 提供了 <code class="icode">esp_sntp</code>（旧版本叫 <code class="icode">esp_sntp</code> 的前身 <code class="icode">sntp</code>），
+            典型流程是：设置工作模式为轮询（POLL）→ 指定服务器 → <code class="icode">esp_sntp_init()</code> → 轮询等待 <code class="icode">sntp_get_sync_status()</code> 变成
+            <code class="icode">SNTP_SYNC_STATUS_COMPLETED</code> → 最后 <code class="icode">setenv("TZ", "CST-8", 1)</code> 加 <code class="icode">tzset()</code> 把时区设成东八区。
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">时区不等于时间戳</div>
+            <p>设备内部应该<b>始终以 UTC 秒</b>保存和上报时间戳（<code class="icode">time(NULL)</code> 返回的就是 UTC 秒），
+            时区只在「给人看」的时候才参与计算（<code class="icode">localtime_r()</code> 才会用到 TZ 环境变量）。</p>
+            <p class="mt-2">如果你在设备侧就把时间加上了 8 小时再上报，云端再按 UTC 解释一次，数据就会整体偏移 8 小时——
+            这类 bug 的现象是「曲线整体左移或右移，形状完全正确」，非常容易被误判成「采集周期配错了」。</p>
+          </div>
+
+          <h3 id="sub-partition" class="mt-8 text-lg font-semibold">ESP32 分区表：四个区的职责</h3>
+
+          <p class="mt-4 leading-relaxed">
+            从这里开始进入本文的后半部分。在讲「怎么升级」之前，必须先讲「东西存在哪里」，因为<b class="font-semibold text-ink">ESP32 的 OTA 之所以比 STM32 简单，全靠分区表的规划</b>。
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">先划清与第 39 篇的分界线</div>
+            <p><b>在 STM32 上，你要自己写 Bootloader 与升级协议</b>：自己决定 Bootloader 占哪几个扇区、App 从哪个地址开始、参数存哪一页、收到固件怎么往 Flash 里写、写完了怎么跳转、跳转前要关哪些中断、堆栈指针怎么设（第 39 篇的六步时序就是干这个的）。</p>
+            <p class="mt-2"><b>在 ESP32 上，这套东西是 IDF 内置的</b>：Bootloader 是 ROM 里的固化代码加上 IDF 编译出来的二级引导程序，它上电后会自动读分区表、读 <code class="icode">otadata</code>、校验镜像、按记录决定从 <code class="icode">ota_0</code> 还是 <code class="icode">ota_1</code> 启动，还会处理回滚状态。
+            <b>你不需要写引导程序，你要学的是「分区表怎么划、写哪个分区、otadata 什么时候被改、镜像什么时候算被认可」——也就是语义。</b></p>
+            <p class="mt-2">所以本篇不讲「怎么造轮子」，只讲「怎么正确使用 IDF 的轮子」；想看轮子怎么造，回头看 <a href="adv-stm32-flash.html" class="text-brand-600 dark:text-brand-300 hover:underline">《STM32 存储、启动模式与 IAP》</a>。</p>
+          </div>
+
+          <h4 class="mt-8 text-sm font-semibold">一块 4 MB Flash 是怎么被切开的</h4>
+
+          <p class="mt-3 leading-relaxed">
+            ESP32-WROOM-32 模组上焊的是一颗 4 MB（32 Mbit）SPI NOR Flash，地址从 <code class="icode">0x000000</code> 到 <code class="icode">0x3FFFFF</code>。
+            它被分区表切成若干<b class="font-semibold text-ink">互不重叠的区间</b>，每个区间有名字、类型、子类型和用途。下面是本文实例用的双 OTA 槽布局（开发板出厂常见的 4 MB 单应用布局只有 <code class="icode">factory</code> 一个应用槽，那种布局下 OTA 无处可写）：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="4 MB Flash 双 OTA 槽分区表布局"><pre><code>  地址范围（十六进制）        大小        分区名      类型 / 子类型      谁在用它、存什么
+  ────────────────────────────────────────────────────────────────────────────────────────────
+  0x001000 ─ 0x007FFF      0x007000    （bootloader）  bootloader        IDF 二级引导程序，不在分区表中
+  0x008000 ─ 0x008FFF      0x001000    （分区表）      partition table   32 字节/条；表长 0xC00 = 3072 B ÷ 32 = 96 条（含 1 条终止项）→ 实际可用 95 条
+  0x009000 ─ 0x00EFFF      0x006000    nvs            data / nvs       三元组、阈值、OTA 断点、序号、配网信息
+  0x00F000 ─ 0x010FFF      0x002000    otadata        data / ota       ★ 记录「下次从哪个 app 槽启动」，两个 4 KB 扇区
+  0x011000 ─ 0x011FFF      0x001000    phy_init       data / phy       RF 校准数据（模组出厂标定，别覆盖）
+  0x012000 ─ 0x191FFF      0x180000    ota_0          app  / ota_0     第一个应用槽 1.5 MB ← 当前可能正在跑
+  0x192000 ─ 0x311FFF      0x180000    ota_1          app  / ota_1     第二个应用槽 1.5 MB ← 新固件先写到这里
+  0x312000 ─ 0x3FFFFF      0x0EE000    （未分配）      —                剩余 952 KB，可再划 storage(SPIFFS) 或加大 app 槽
+
+  ★ otadata 是整套 OTA 的「方向盘」：它只有 8 KB，却决定了设备下次从哪个槽启动。
+    它里面存的是两个条目，每条记录一个「序号 + 目标分区」，序号大的那条胜出。
+    出厂时它是全 0xFF（空），此时 bootloader 的行为是：没有 factory 分区就启动第一个可用的 OTA 槽。
+
+  对齐规则（写错一条就起不来）：
+   · 所有分区偏移必须是 0x1000（4 KB）的整数倍——Flash 的擦除粒度就是 4 KB。
+   · 应用分区的偏移还必须与分区表里 app 的推荐对齐一致（IDF 要求 app 分区按 0x10000 对齐时最省心）。
+   · otadata 必须是 data/ota 类型且大小恰好 0x2000（两个 4 KB 扇区），这是 bootloader 的硬性要求。
+   · 镜像的实际大小 = bin 文件大小 + 一些元数据，要留出余量；ESP-IDF 编译时会打印
+     「App size: ... / 0x180000」这类信息，必须小于分区容量，否则一开始烧写就失败。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed">
+            这张表里有四个区是必须理解透的，因为 OTA 的全部行为都由它们决定：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>分区</th>
+                  <th>作用</th>
+                  <th>OTA 过程中的角色</th>
+                  <th>出错的典型现象</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">nvs</code></td>
+                  <td>键值对存储，掉电不丢，读写接口是 <code class="icode">nvs_open/set/get/commit</code></td>
+                  <td>存三元组、属性当前值、OTA 断点（已写入字节数）、消息序号、最近处理过的指令 id</td>
+                  <td>NVS 分区太小 → <code class="icode">nvs_open</code> 返回 <code class="icode">ESP_ERR_NVS_NO_FREE_PAGES</code>，整个应用起不来</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">otadata</code></td>
+                  <td>OTA 数据分区，8 KB，两个扇区互为备份</td>
+                  <td><b>决定下次启动哪个 app 槽</b>；写新固件不改它，<code class="icode">esp_ota_set_boot_partition()</code> 才改它</td>
+                  <td>升级完重启还是旧版本 → otadata 没被改（或者改的是另一个槽）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ota_0</code> / <code class="icode">ota_1</code></td>
+                  <td>两个等大的 app 分区，装固件</td>
+                  <td>一个在跑、另一个在写，写完了交换角色（详见下一节）</td>
+                  <td>两个槽容量不等 → 奇数版能装、偶数版装不下，升级时失败</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">phy_init</code></td>
+                  <td>RF 校准数据，每颗模组出厂标定</td>
+                  <td>与 OTA 无关，但<b>别把它擦掉</b></td>
+                  <td>擦掉后 WiFi 发射功率/灵敏度下降，表现为「距离变近、丢包变多」</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">为什么不能只有一个 app 分区</div>
+            <p>因为你在<b>当前正在运行的那个分区</b>上写数据，等于一边跑程序一边把程序本身擦掉。
+            一个正在执行 <code class="icode">for</code> 循环的函数，如果它所在的 Flash 页正好被擦成 0xFF，下一次取指就会拿到非法指令，芯片立刻崩溃——
+            而这时你连「写失败了」的日志都来不及打印。</p>
+            <p class="mt-2">ESP-IDF 甚至为此专门定义了一个错误码：<code class="icode">ESP_ERR_OTA_PARTITION_CONFLICT</code>。
+            当你试图把固件写进「当前正在运行的分区」时，<code class="icode">esp_ota_begin()</code> 会直接返回它，把你拦住。所以双分区不是「更好」，而是「唯一正确」。</p>
+          </div>
+        <h3 id="sub-otadata" class="mt-8 text-lg font-semibold">双分区交替升级与 otadata</h3>
+
+          <p class="mt-4 leading-relaxed">
+            有了两个等大的应用槽，升级就变成一场「换房间」的搬家：<b class="font-semibold text-ink">住在 ota_0 的时候，把新家具搬进 ota_1；搬完检查一遍，确认没问题，再在门口挂个牌子「下次住 ota_1」；然后重启，人就住进新房间了。</b>
+            整个过程里，旧房间的东西一件没动——所以哪怕搬家搬到一半停电，你仍然有地方住。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="双分区交替升级时序：写另一个槽 → 校验 → 改 otadata → 重启 → 自检 → 标记有效 / 回滚"><pre><code>  ┌───────────────────────── 阶段 0：当前状态 ─────────────────────────┐
+  │  ota_0: 旧固件 v1.0（正在运行）      ota_1: 空（0xFF）              │
+  │  otadata: seq=7 → ota_0              bootloader 按它启动 ota_0      │
+  └──────────────────────────────┬────────────────────────────────────┘
+                                 │ ① 云端下发升级指令（MQTT 或页面点按钮）
+                                 ▼
+  ┌───────────────────────── 阶段 1：下载并写入 ──────────────────────┐
+  │  ota_0: v1.0（照常运行，不受影响）   ota_1: 正在写入 v1.1          │
+  │  HTTPS 分块下载 → esp_ota_write() → 每满 4 KB 自动擦+写一个扇区     │
+  │  ★ 断电安全：此时 otadata 仍指向 ota_0，重启还是跑 v1.0            │
+  └──────────────────────────────┬────────────────────────────────────┘
+                                 │ ② 全部字节写完：esp_ota_end() 校验镜像
+                                 ▼
+  ┌───────────────────────── 阶段 2：校验与切分区 ────────────────────┐
+  │  esp_ota_end() 检查镜像头 magic、芯片型号、段校验和、尾部 hash      │
+  │  校验不过 → 返回 ESP_ERR_OTA_VALIDATE_FAILED，otadata 不动，继续跑 v1.0 │
+  │  校验通过 → esp_ota_set_boot_partition(ota_1)                      │
+  │           otadata: seq=8 → ota_1   ← 只有这一步是「改方向盘」       │
+  └──────────────────────────────┬────────────────────────────────────┘
+                                 │ ③ esp_restart()
+                                 ▼
+  ┌───────────────────────── 阶段 3：新固件首次启动 ──────────────────┐
+  │  bootloader 读 otadata：seq=8 → ota_1                              │
+  │  发现 ota_1 的状态是 NEW，把它改写成 PENDING_VERIFY（待验证）        │
+  │  启动 ota_1 里的 v1.1                                             │
+  └──────────────────────────────┬────────────────────────────────────┘
+                                 │ ④ 你的自检代码：WiFi 连上了吗？
+                                 │    传感器读数合理吗？云端能连上吗？
+                    ┌────────────┴────────────┐
+              自检通过 │                        │ 自检失败 / 根本没跑完就崩了 / 掉电了
+                    ▼                        ▼
+  ┌────────────────────────────┐   ┌──────────────────────────────────┐
+  │ esp_ota_mark_app_valid_    │   │ 情况 A：主动调用                  │
+  │   cancel_rollback()        │   │   esp_ota_mark_app_invalid_       │
+  │ ota_1 状态 → VALID         │   │   rollback_and_reboot()           │
+  │ 此后它是「正式版本」        │   │   ota_1 → INVALID，立即回退        │
+  └────────────────────────────┘   ├──────────────────────────────────┤
+                                   │ 情况 B：没来得及表态就复位        │
+                                   │   下次启动 bootloader 看到        │
+                                   │   PENDING_VERIFY 未确认 →         │
+                                   │   改写成 ABORTED → 自动回退       │
+                                   └──────────────────────────────────┘
+
+  ⑤ 回退之后：ota_0 里的 v1.0 继续跑，设备功能完好。
+     你要做的是去查「为什么 v1.1 自检不过」，而不是让设备变砖。
+
+  关键理解：新固件只有「一次」证明自己的机会。
+  它必须在第一次启动后主动表态「我很好」（VALID）或「我不行」（INVALID）。
+  不表态 = 默认判为不合格，直接回退。这是 IDF 的默认设计，也是它最安全的地方。</code></pre></div>
+
+          <h4 class="mt-8 text-sm font-semibold">otadata 为什么是两个扇区</h4>
+
+          <p class="mt-3 leading-relaxed">
+            看上面的时序，最容易忽略的是阶段 2 那一步「改方向盘」。这一步必须在任意时刻断电都不出问题——
+            而 Flash 的物理特性是<b class="font-semibold text-ink">擦除粒度 4 KB、先擦后写、擦除需要几毫秒</b>。
+            如果 otadata 只有一个扇区，那它在「已经擦掉、还没写回新内容」的那几毫秒里是空的；如果恰好这时断电，设备就丢了「从哪启动」的全部信息。
+          </p>
+
+          <p class="mt-3 leading-relaxed">
+            IDF 的解法是<b class="font-semibold text-ink">两个扇区乒乓 + 一个序号计数器</b>：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li>otadata 固定 0x2000 字节 = 两个 4 KB 扇区，每个扇区里存一条同样格式的记录：<b>序号（ota_seq）+ 目标分区序号</b>。</li>
+            <li>更新时，<b>永远去擦「序号小的那个老扇区」，擦完写入「序号 +1」的新记录</b>。另一个扇区全程不动。</li>
+            <li>bootloader 上电时读两个扇区，<b>序号大的那条胜出</b>；两条都非法（比如全 0xFF）就按「无 factory 则用第一个 OTA 槽」的规则启动。</li>
+          </ul>
+
+          <p class="mt-3 leading-relaxed">
+            这样在任何一瞬间断电，<b class="font-semibold text-ink">至少有一个扇区是完好的、且它的序号是已知的</b>：要么新记录已经写好了（用新的），要么没写好（用旧的，等于这次升级的「切分区」动作没发生，下次重来）。
+            这就是「原子更新」在 Flash 上的标准实现手法——和第 39 篇里 STM32 参数区「双份参数 + 校验和」的思路是同一个，只不过 IDF 已经替你做完了。
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这三个工具命令，调试 OTA 时能救你半天</div>
+            <p>IDF 自带 <code class="icode">otatool.py</code>（在 <code class="icode">components/app_update/</code> 下），它可以直接操作 otadata，你不用改一行代码就能验证「到底是谁在决定启动」：</p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><code class="icode">otatool.py --port COM5 read_otadata</code>：打印当前 otadata 里两个扇区的序号与目标槽。<b>排查「升级后还跑旧版本」的第一条命令。</b></li>
+              <li><code class="icode">otatool.py --port COM5 switch_ota_partition --slot 1</code>：手动把启动分区切到 ota_1，用来验证「ota_1 里的镜像本身能不能跑」。</li>
+              <li><code class="icode">otatool.py --port COM5 erase_otadata</code>：把 otadata 复位（等于回到「没有 factory 就用第一个 OTA 槽」的出厂状态）。<b>这是最后一个救砖手段</b>：只要你烧进去的镜像本身是好的，清掉 otadata 就能回到 ota_0。</li>
+            </ul>
+          </div>
+
+          <h4 class="mt-8 text-sm font-semibold">esp_https_ota() 与手动 esp_ota_* 的分工</h4>
+
+          <p class="mt-3 leading-relaxed">
+            IDF 提供两套 API，它们不是「新旧」关系，而是<b class="font-semibold text-ink">「全自动」和「手动挡」</b>的关系。
+            理解它们的交界线，你才知道该用哪个：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>环节</th>
+                  <th><code class="icode">esp_https_ota()</code> 系列</th>
+                  <th>手动 <code class="icode">esp_ota_*</code> + <code class="icode">esp_http_client</code></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>DNS / TCP / TLS 握手</td>
+                  <td>全部包办</td>
+                  <td>自己建 <code class="icode">esp_http_client</code>，自己配 <code class="icode">cert_pem</code></td>
+                </tr>
+                <tr>
+                  <td>HTTP 重定向（302/301）</td>
+                  <td>自动跟随（多个域名的 CA 要都塞进 <code class="icode">cert_pem</code>）</td>
+                  <td>自己判断 <code class="icode">Location</code> 头并重新发起</td>
+                </tr>
+                <tr>
+                  <td>分块读取 + 写 Flash</td>
+                  <td>内部循环，<code class="icode">esp_https_ota_perform()</code> 每次读一块就返回</td>
+                  <td>自己 <code class="icode">esp_http_client_read()</code> 到缓冲区，再 <code class="icode">esp_ota_write()</code></td>
+                </tr>
+                <tr>
+                  <td>镜像校验</td>
+                  <td><code class="icode">esp_https_ota_finish()</code> 内部做</td>
+                  <td>自己 <code class="icode">esp_ota_end()</code></td>
+                </tr>
+                <tr>
+                  <td>切换启动分区</td>
+                  <td><code class="icode">finish()</code> 成功后自动切</td>
+                  <td>自己 <code class="icode">esp_ota_set_boot_partition()</code></td>
+                </tr>
+                <tr>
+                  <td>断点续传</td>
+                  <td>支持：<code class="icode">ota_resumption = true</code> + <code class="icode">ota_image_bytes_written</code>（走 HTTP Range 请求）</td>
+                  <td>支持：<code class="icode">esp_ota_resume()</code>（<b>v5.5 起</b>）从指定偏移继续写（<b>注意它不会重新擦分区</b>）</td>
+                </tr>
+                <tr>
+                  <td>中途放弃</td>
+                  <td><code class="icode">esp_https_ota_abort()</code></td>
+                  <td><code class="icode">esp_ota_abort()</code> + 关闭 HTTP</td>
+                </tr>
+                <tr>
+                  <td>读镜像头里的版本号</td>
+                  <td><code class="icode">esp_https_ota_get_img_desc()</code>（只能在 begin 之后、perform 之前调）</td>
+                  <td>自己读前 0x100 字节解析 <code class="icode">esp_app_desc_t</code></td>
+                </tr>
+                <tr>
+                  <td>适合</td>
+                  <td><b>90% 的项目</b>：固件放在 HTTP(S) 服务器 / OSS / CDN 上</td>
+                  <td>私有协议、需要边下边解密、从 MQTT 分片传固件、或是要在下载过程中做特殊限速</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">两套 API 千万不要混用</div>
+            <p>官方明确写了：如果你调用了 <code class="icode">esp_https_ota()</code>（那个一次干完的版本），<b>就不要再调用本组件的其它任何 API</b>。
+            同理，<code class="icode">esp_https_ota_finish()</code> 之后不能再 <code class="icode">abort()</code>，<code class="icode">abort()</code> 之后不能再 <code class="icode">finish()</code>——
+            这两条会在运行时返回 <code class="icode">ESP_ERR_INVALID_STATE</code>，但更常见的是句柄已经被释放、你的代码却还在用它。</p>
+            <p class="mt-2">还有一条容易踩的：<code class="icode">esp_https_ota_begin()</code> <b>是阻塞式实现</b>，如果你在 <code class="icode">http_config</code> 里设了 <code class="icode">is_async = true</code>，它会直接报错返回。想做异步 OTA，请把整个 OTA 流程放到一个独立任务里，而不是打开 HTTP 的异步开关。</p>
+          </div>
+
+          <h4 class="mt-8 text-sm font-semibold">一次 OTA 在数据流上到底发生了什么</h4>
+
+          <p class="mt-3 leading-relaxed">
+            把上面所有环节串成一张流程图，这张图建议你在真正上板之前对着代码看一遍：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="OTA 分块下载与写入流程"><pre><code>  ┌──────────────┐
+  │ 触发升级      │  MQTT 下发 / 网页点按钮 / 开机自检时主动查询版本
+  └──────┬───────┘
+         ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │ 1. 选目标槽：esp_ota_get_next_update_partition(NULL)          │
+  │    当前跑 ota_0 → 返回 ota_1；当前跑 ota_1 → 返回 ota_0        │
+  └──────┬───────────────────────────────────────────────────────┘
+         ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │ 2. 建立 HTTPS 连接，先只读镜像头（前 0x100 字节）              │
+  │    · 校验服务器证书（根证书）                                  │
+  │    · 解析 esp_app_desc_t：version / idf_ver / secure_version   │
+  │    · 版本相同可直接放弃（省流量），这就是「不降级」策略的实现点  │
+  └──────┬───────────────────────────────────────────────────────┘
+         ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │ 3. esp_ota_begin(目标分区, 镜像长度, &amp;handle)                 │
+  │    · 镜像长度已知 → 只擦这么多；传 OTA_SIZE_UNKNOWN → 全擦      │
+  │    · 默认「边写边擦」：写到哪里擦哪个 4 KB 扇区                 │
+  │    · bulk_flash_erase=true → 一开始就全擦完（总时间更短，       │
+  │      但大分区可能触发任务看门狗，要把超时调大）                  │
+  └──────┬───────────────────────────────────────────────────────┘
+         ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │ 4. 循环：读一块 → 写一块   ★ 这就是「分块」的全部秘密          │
+  │    ┌────────────────────────────────────────────────────┐    │
+  │    │ esp_http_client_read(client, buf, 4096)  ← 4 KB 缓冲 │    │
+  │    │        │ 返回 n &gt; 0                              │    │
+  │    │        ▼                                            │    │
+  │    │ esp_ota_write(handle, buf, n)                       │    │
+  │    │        │ ESP_OK                                     │    │
+  │    │        ▼                                            │    │
+  │    │ 进度 = 已写字节 / 总字节 → 上报云端 / 打日志 / 点灯    │    │
+  │    │        └──────── 回到读下一块 ────────┐              │    │
+  │    └──────────────────────────────────────┼──────────────┘    │
+  │                                           │ n == 0：下载结束   │
+  │    ★ 全程只占 1 个 4 KB 缓冲 + TLS 内部缓冲，                 │
+  │      绝不要 malloc(整个固件大小)——那是新手最常见的致命错误。   │
+  └──────┬───────────────────────────────────────────────────────┘
+         ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │ 5. 确认收全：esp_https_ota_is_complete_data_received()        │
+  │    或手动比对「已写字节 == Content-Length」。                  │
+  │    少一个字节都不能往下走——不完整的镜像会在第 6 步被拒。        │
+  └──────┬───────────────────────────────────────────────────────┘
+         ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │ 6. esp_ota_end(handle) → 校验整个镜像                          │
+  │    失败：ESP_ERR_OTA_VALIDATE_FAILED → 升级作废，otadata 不动   │
+  │    成功：句柄与内部内存被释放（无论成败都会释放）                │
+  └──────┬───────────────────────────────────────────────────────┘
+         ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │ 7. esp_ota_set_boot_partition(目标分区) → 写 otadata（seq+1）  │
+  │ 8. 回报云端「升级完成，准备重启」→ esp_restart()               │
+  │ 9. 新固件启动 → 自检 → VALID（正式）或 INVALID（回滚）           │
+  └──────────────────────────────────────────────────────────────┘</code></pre></div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">「安全更新」与「不安全更新」：不是所有分区都能 OTA</div>
+            <p>IDF 文档把一个概念讲得很清楚，但它经常被忽略：<b>只有 app 分区属于「安全更新模式」</b>——因为机器上永远有另一个完好的 app 槽可以启动，
+            所以更新 app 的过程中断电不会变砖。</p>
+            <p class="mt-2">而<b>bootloader、分区表本身、以及 NVS / SPIFFS 这类数据分区属于「不安全更新模式」</b>：更新它们的通用做法是先把新内容写到一个临时分区，
+            再拷贝到目标位置，<b>拷贝过程中断电就可能不可恢复</b>。所以：除非你真的需要（比如为了用上更大的 Flash 布局），<b>不要在线升级分区表</b>。
+            本文后面的例子只升级 app。</p>
+          </div>
+
+          <h3 id="sub-security" class="mt-8 text-lg font-semibold">证书、签名与回滚：最后一层保险</h3>
+
+          <p class="mt-4 leading-relaxed">
+            这一节回答三个问题：<b class="font-semibold text-ink">固件从服务器到你设备这一路上，怎么保证没被人换过？怎么保证只有你签发的固件能被安装？万一装上去的新固件是坏的，怎么回来？</b>
+            它们是三层独立的防线，很多人把它们混成一件事，结果是一层都没做对。
+          </p>
+
+          <h4 class="mt-8 text-sm font-semibold">第一层：HTTPS 证书校验（保护传输）</h4>
+
+          <p class="mt-3 leading-relaxed">
+            ESP-IDF 里做 HTTPS 请求时，服务器证书的校验通过 <code class="icode">esp_http_client_config_t</code> 的 <code class="icode">cert_pem</code> 字段配置。
+            这里有一个<b class="font-semibold text-ink">新手几乎必踩的坑</b>：很多人从浏览器里导出了「网站的证书」填进去，结果设备能连上，几个月后突然全部连不上。
+          </p>
+
+          <p class="mt-3 leading-relaxed">
+            原因是证书链有三层：根证书（Root CA）→ 中间证书（Intermediate CA）→ 站点证书（Leaf）。你从浏览器导出的通常是最下面那张<b>站点证书或中间证书</b>，
+            而它们的有效期很短（Let's Encrypt 的站点证书只有 90 天，中间证书也会轮换）。
+            <b class="font-semibold text-ink">官方要求填的是「服务器证书链的根证书」</b>，理由很实际：<b>根证书有效期最长（10~25 年），通常长期不变</b>。
+            填根证书之后，服务器换站点证书、换中间证书，你的设备都不受影响。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>做法</th>
+                  <th>写法</th>
+                  <th>能防什么</th>
+                  <th>风险 / 代价</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>根证书（推荐）</b></td>
+                  <td><code class="icode">.cert_pem = root_ca_pem_start</code>，根证书以二进制数组嵌进固件（<code class="icode">target_add_binary_data</code> 或 <code class="icode">EMBED_TXTFILES</code>）</td>
+                  <td>中间人替换、DNS 劫持、伪造服务器</td>
+                  <td>根证书长期有效；只需注意平台换 CA 这种极少见的情况</td>
+                </tr>
+                <tr>
+                  <td><b>ESP x509 证书包</b></td>
+                  <td><code class="icode">.crt_bundle_attach = esp_crt_bundle_attach</code></td>
+                  <td>同上，且覆盖几乎所有主流 CA，不用自己维护证书文件</td>
+                  <td>固件里多约 60 KB 的证书包（可裁剪）；升级 IDF 时证书包会更新</td>
+                </tr>
+                <tr>
+                  <td>只跳 CN 检查</td>
+                  <td><code class="icode">.skip_cert_common_name_check = true</code></td>
+                  <td>仍然验证书链与有效期，只是不比对域名</td>
+                  <td>看起来「省事」，实际放开了同 CA 下任意域名的服务器（含被攻陷的小站）来冒充你的升级服务器</td>
+                </tr>
+                <tr>
+                  <td><b>完全不校验</b></td>
+                  <td>既不给 <code class="icode">cert_pem</code>，也不挂 <code class="icode">crt_bundle_attach</code></td>
+                  <td><b>只加密、不认证</b>：别人看不到内容，但可以冒充服务器给你喂任意固件</td>
+                  <td><b>等于把 OTA 变成了「允许任何人远程给你刷固件」的通道。</b>升级日志里会出现 esp-tls 的警告「No server verification option set」</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">为什么「跳过校验」在 OTA 场景里格外危险</div>
+            <p>如果是普通业务请求（查个天气、上报一条数据），跳过证书校验最坏结果是数据泄露或伪造——损失有限。
+            但 OTA 的下载内容会<b>直接变成设备上运行的代码</b>。跳过校验就等于：任何能劫持 DNS 或做 ARP 欺骗的人，
+            都可以让你的 200 台设备装上他的固件，而那个固件可以干任何事（比如把你的设备变成攻击别人的肉鸡）。</p>
+            <p class="mt-2">更隐蔽的是：很多公网 HTTP（非 HTTPS）下载源本身就是明文传输，攻击者连劫持都不用，直接在链路上改几个字节就够了。
+            <b>所以本文的一条硬规矩：OTA 的固件地址必须是 HTTPS，且必须带证书校验。如果服务器只有 HTTP，宁可自己搭一个带证书的反向代理。</b></p>
+          </div>
+
+          <h4 class="mt-8 text-sm font-semibold">第二层：镜像签名与 Secure Boot / Flash 加密（保护身份与内容）</h4>
+
+          <p class="mt-3 leading-relaxed">
+            证书校验保护的是「传输过程」。但如果服务器本身被攻陷、或者有人能改你挂在 OSS 上的 bin 文件呢？
+            那就需要<b class="font-semibold text-ink">镜像签名</b>——即「固件里带一个用你私钥生成的签名，设备用公钥验证它」。这三套机制的职责完全不同，别混：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>机制</th>
+                  <th>防的是谁 / 防什么</th>
+                  <th>密钥在哪</th>
+                  <th>开销</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>Secure Boot v2</b><br>（安全启动）</td>
+                  <td>防「装一个不是你签发的固件」。Bootloader 启动前用 RSA-3072 验签，签名不过就拒绝启动</td>
+                  <td>私钥在你手里（离线保存）；公钥摘要烧进 <b>eFuse</b>（只读）</td>
+                  <td>eFuse 一次性烧写不可逆；启动时多一次验签（几十毫秒）；固件里多一个签名块（约 4 KB）</td>
+                </tr>
+                <tr>
+                  <td><b>Flash 加密</b><br>（Flash Encryption）</td>
+                  <td>防「把设备拆开、读出 Flash 内容」（抄板、提取三元组与密钥）</td>
+                  <td>AES-256 密钥在 eFuse（默认每颗芯片随机生成，不可读出）</td>
+                  <td>读写经硬件加解密；OTA 写入的镜像以密文落盘；<b>与 Secure Boot 配合才有意义</b></td>
+                </tr>
+                <tr>
+                  <td><b>签名验证（不开 Secure Boot）</b></td>
+                  <td>只要求「升级时验签」，不要求启动时强制验签</td>
+                  <td>公钥摘要同样在 eFuse</td>
+                  <td><code class="icode">CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT</code> + <code class="icode">CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT</code>，适合想先试水签名的项目</td>
+                </tr>
+                <tr>
+                  <td><b>防回滚（Anti-rollback）</b></td>
+                  <td>防「攻击者拿一个旧版本固件（含已知漏洞）刷回去」</td>
+                  <td>安全版本号（<code class="icode">secure_version</code>）在 <code class="icode">esp_app_desc</code> 里，比对结果写 eFuse 的 <code class="icode">EFUSE_BLK3_RDATA4_REG</code></td>
+                  <td><b>该寄存器置 1 的位不可逆，最多只能防回滚 32 次</b>；且<b>与 factory / test 分区不兼容</b>（开了它，分区表里就不能有 factory 或 test 子类型）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3 leading-relaxed">
+            对课程设计和小批量产品，一个务实的推荐顺序是：<b class="font-semibold text-ink">先把 HTTPS 根证书校验做对（零成本），再考虑 Flash 加密（防止别人读出三元组），Secure Boot 与防回滚留到产品定型、eFuse 方案想清楚之后再做。</b>
+            因为 eFuse 是<b>一次性、不可逆</b>的：烧错一次，那颗芯片就只能报废。在你还没确定「密钥怎么生成、怎么备份、怎么在产线上分发」之前，不要碰它。
+          </p>
+
+          <h4 class="mt-8 text-sm font-semibold">第三层：回滚状态机（保护可用性）</h4>
+
+          <p class="mt-3 leading-relaxed">
+            前两层防的是「坏人」，这一层防的是<b class="font-semibold text-ink">「你自己写坏的固件」</b>——而后者在现实中发生的概率高得多。
+            回滚机制的状态机可以画成一张表，这张表就是 IDF 的 bootloader 每次上电时的全部决策依据：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>应用状态</th>
+                  <th>含义</th>
+                  <th>bootloader 会不会选它启动</th>
+                  <th>怎么变成这个状态</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">ESP_OTA_IMG_NEW</code></td>
+                  <td>刚被指定为下次启动的候选</td>
+                  <td>会（<b>只给一次机会</b>），随即改写为 PENDING_VERIFY</td>
+                  <td><code class="icode">esp_ota_set_boot_partition()</code> 之后</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ESP_OTA_IMG_PENDING_VERIFY</code></td>
+                  <td>已启动过一次，但还没表态</td>
+                  <td><b>不会</b>（会被改写成 ABORTED）</td>
+                  <td>bootloader 启动 NEW 应用时自动改写</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ESP_OTA_IMG_VALID</code></td>
+                  <td>正式版本，自检通过</td>
+                  <td>会，无任何限制</td>
+                  <td><code class="icode">esp_ota_mark_app_valid_cancel_rollback()</code></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ESP_OTA_IMG_INVALID</code></td>
+                  <td>明确判定失败</td>
+                  <td><b>不会</b></td>
+                  <td><code class="icode">esp_ota_mark_app_invalid_rollback_and_reboot()</code></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ESP_OTA_IMG_ABORTED</code></td>
+                  <td>没来得及表态就复位了（掉电 / 崩溃 / 手动复位）</td>
+                  <td><b>不会</b></td>
+                  <td>bootloader 发现上次留下的是 PENDING_VERIFY</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ESP_OTA_IMG_UNDEFINED</code></td>
+                  <td>从未参与过 OTA（比如出厂就烧在 ota_0 的版本）</td>
+                  <td>会，无限制</td>
+                  <td>默认值</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">三条必须记住的硬约束</div>
+            <ol class="mt-2 list-decimal space-y-1.5 pl-5">
+              <li><b>回滚默认是关的。</b>必须显式打开 <code class="icode">CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE</code>，否则 NEW 与 PENDING_VERIFY 这两个状态根本不会被使用，
+              调用 <code class="icode">mark_app_valid</code> / <code class="icode">mark_app_invalid</code> 也只是「可选动作」——你的设备不会自动回退。</li>
+              <li><b>只有 OTA 分区能回滚，factory 分区不能。</b>如果你的分区表里只有 <code class="icode">factory</code> 一个应用槽，回滚机制形同虚设。
+              这也是本文推荐布局里<b>不写 factory、只写 ota_0 和 ota_1</b> 的原因：一旦有了 factory，它永远是「不会回滚的那个版本」，反而让你的升级路径更复杂。</li>
+              <li><b>自检必须快。</b>官方文档明确提醒：自检过程要尽可能短，否则一旦在自检期间掉电，这次启动就会被判为「没表态」，直接回滚——
+              你会看到「升级成功了，但设备自己退回了旧版本」这种让人摸不着头脑的现象。</li>
+            </ol>
+          </div>
+
+          <p class="mt-3 leading-relaxed">
+            还有一个极容易踩、且报错信息很难联想的坑：<b class="font-semibold text-ink">如果当前运行的固件处于 PENDING_VERIFY 状态，<code class="icode">esp_ota_begin()</code> 会直接失败（<code class="icode">ESP_ERR_OTA_ROLLBACK_INVALID_STATE</code>）。</b>
+            也就是说：新固件启动后自检通过了、但你忘了调用 <code class="icode">esp_ota_mark_app_valid_cancel_rollback()</code>，
+            那么在这台设备上<b>永远无法开始下一次 OTA</b>。现象是「第一次 OTA 成功，第二次 OTA 一直报 begin 失败」，很多人会怀疑网络或服务器，其实是状态没表态。
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">把「不变砖」拆成一份清单</div>
+            <p>回到现场三那个断电变砖的剧本，防住它需要下面这些条件同时成立。你可以拿它当自检表：</p>
+            <ol class="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>分区表里有 <b>两个等大的 app 槽</b>，且固件大小不超过槽容量（留 10% 余量）。</li>
+              <li>写入的是<b>非当前运行</b>的那个槽（用 <code class="icode">esp_ota_get_next_update_partition(NULL)</code> 取，别自己写死）。</li>
+              <li>下载是<b>分块流式</b>的，不需要一次性分配整包内存（否则大固件会因内存不足而失败）。</li>
+              <li>写完后<b>校验</b>（<code class="icode">esp_ota_end()</code>），校验不过绝不去改 otadata。</li>
+              <li><code class="icode">otadata</code> 是标准的 0x2000 双扇区，切分区用官方 API（不要自己写 Flash）。</li>
+              <li>开了 <code class="icode">CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE</code>，并且新固件有<b>快速自检 + 明确表态</b>。</li>
+              <li>升级过程中不做别的重活（下面第 5 节有一整坑专门讲这个）。</li>
+              <li>版本号可查：新固件启动后能打印出自己的 <code class="icode">app_desc</code> 版本，用来确认「到底跑的是谁」。</li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="mt-14">
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4 leading-relaxed">
+            这一节的七道题，全部是你在设计和运维一个联网设备项目时<b class="font-semibold text-ink">真的会被人问到</b>的问题：
+            「4 MB 够不够用」「升级一次会不会把 Flash 写坏」「现场是 NB-IoT，升级要多久」「1000 台设备什么时候能升完」「一张流量卡一年多少钱」「断电了会不会变砖」「为什么要分块下载」。
+            每题都给完整算式，你可以把自己的数字代进去重算一遍。
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">本文用到的基准数据（后面反复引用）</div>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li>固件大小 <b>1,228,800 字节</b>（即十进制 1.2 MB，等于 1200 KiB）——这是一个带 WiFi + MQTT + HTTPS OTA + cJSON 的常规工程的典型规模，按典型值估算。</li>
+              <li>Flash 擦除粒度 <b>4 KiB = 4096 字节</b>；Flash 总容量 <b>4 MiB = 4,194,304 字节 = 4096 KiB</b>（ESP32-WROOM-32 常见配置）。</li>
+              <li>SPI NOR Flash 擦写寿命按 <b>10,000 次</b>（保守）与 <b>100,000 次</b>（典型）两个口径都给——写进设计文档时用保守值，做趋势判断时看典型值。</li>
+              <li>MQTT Over TLS 的单个报文额外开销：TCP 头 20 B + IP 头 20 B + TLS 记录头 5 B + AEAD 标签 16 B = <b>61 B</b>。</li>
+            </ul>
+          </div>
+
+          <h3 id="calc-1" class="mt-8 text-lg font-semibold">例 1：4 MB Flash 的双分区容量账</h3>
+
+          <p class="mt-3 leading-relaxed">
+            <b>题目：</b>一块 4 MB 的 ESP32-WROOM-32，固件 1,228,800 字节，要做双分区 OTA、还要留一块 SPIFFS 存离线日志。容量到底怎么分？4 MB 看起来很大，够不够？
+          </p>
+
+          <p class="mt-3 leading-relaxed"><b>第一步：单槽要多大。</b>分区容量必须不小于镜像大小，且 app 分区的大小要对齐到 64 KiB（0x10000）——因为 Flash 到 CPU 的映射是按 64 KiB 页建立的：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="单槽容量与 64 KiB 对齐"><pre><code>  所需页数 = 1,228,800 ÷ 65,536 = 18.75 页
+  向上取整 = 19 页
+  单槽容量 = 19 × 65,536 = 1,245,184 字节 = 1216 KiB ≈ 1.19 MiB
+
+  工程上不会选 1216 KiB 这种数，而选 1,536 KiB（0x180000）——多出来的 320 KiB 是
+  「固件长大的空间」。理由见第四步。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed"><b>第二步：固定开销。</b>这些区是每个 OTA 工程都要付的「税」，先扣掉：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="分区表固定开销"><pre><code>  bootloader（0x1000 偏移，占 28 KiB）      28 KiB   ← IDF 二级引导程序
+  分区表（0x8000，4 KiB）                     4 KiB
+  nvs（0x9000，24 KiB）                      24 KiB   ← 三元组 / 阈值 / 断点 / 序号
+  otadata（0xF000，8 KiB）                    8 KiB   ← 必须恰好两个 4 KiB 扇区
+  phy_init（0x11000，4 KiB）                  4 KiB   ← RF 校准，别动
+  ─────────────────────────────────────────────────
+  固定开销合计                                68 KiB</code></pre></div>
+
+          <p class="mt-3 leading-relaxed"><b>第三步：总账。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="4 MiB Flash 的容量分配（双槽 1.5 MiB 方案）"><pre><code>  固定开销                       68 KiB
+  两个 app 槽（各 1536 KiB）   3072 KiB
+  ────────────────────────────────────────
+  已用                         3140 KiB = 3,215,360 字节
+  4 MiB 总量                   4096 KiB = 4,194,304 字节
+  ────────────────────────────────────────
+  剩余                          956 KiB = 978,944 字节
+
+  剩余 956 KiB 正好可以划一块 0xE0000（896 KiB）的 SPIFFS 存离线日志，
+  或划 0xEE000（952 KiB）全部给它（本文实例用的就是后者）。
+  结论：★★ 4 MB 做双分区是「刚好够」——固件 1.2 MB 时还剩 28% 空间，
+        但这个余量不足以让你随便加库。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed"><b>第四步：把「刚好够」证明给你看。</b>假设你想豪气一点，给两个 app 槽各 2 MiB：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="为什么两个 2 MiB 槽放不下"><pre><code>  两个 2 MiB 槽     = 2 × 2048 KiB = 4096 KiB
+  固定开销          =               68 KiB
+  ────────────────────────────────────────────
+  合计              =             4164 KiB  &gt;  4096 KiB   ✗ 超了 68 KiB！
+
+  也就是说：4 MB 的 Flash，把开销扣完，两个 app 槽的理论上限是
+  (4096 − 68) ÷ 2 = 2014 KiB 每槽，
+  再按 64 KiB 对齐向下取整：2014 ÷ 64 = 31.5 → 31 页 → 31 × 64 = 1984 KiB（0x1F0000）。
+  此时：1984 × 2 + 68 = 4036 KiB，只剩 60 KiB 可用 —— 连一块像样的 SPIFFS 都没有了。
+
+  再换个常见思路：factory + ota_0 + ota_1 三个槽各分 1 MiB：
+  3 × 1024 + 68 = 3140 KiB，看似还剩 956 KiB，但——
+  1 MiB = 1024 KiB &lt; 固件的 1200 KiB  ✗ 固件根本装不下！
+  而且 factory 分区不参与回滚，留着它等于多维护一条升级路径。
+  ★ 这就是本文分区表里「不写 factory、只写 ota_0 和 ota_1」的容量理由。</code></pre></div>
+
+          <div class="callout callout-tip mt-3">
+            <div class="callout-title">什么时候该重新规划分区表</div>
+            <p>盯住编译日志里的 <code class="icode">App size</code> 与槽容量的比值。经验阈值：</p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b>低于 70%</b>：安全。本次 1200 ÷ 1536 = 78%，已经偏紧了，所以你敢加库之前应该先算。</li>
+              <li><b>超过 85%</b>：危险。下一次加个库就可能装不下，而且 <code class="icode">esp_ota_end()</code> 的校验、签名块还要占空间。</li>
+              <li><b>超过 100%</b>：烧写阶段就会失败，报 <code class="icode">Error: app partition is too small for binary</code>。这时只有两条路：砍功能，或者换成 8 MB/16 MB Flash 的模组并重排分区表。</li>
+            </ul>
+          </div>
+
+          <h3 id="calc-2" class="mt-8 text-lg font-semibold">例 2：1.2 MB 固件的擦写次数与 Flash 寿命</h3>
+
+          <p class="mt-3 leading-relaxed">
+            <b>题目：</b>「OTA 会不会把 Flash 写坏？」这个问题必须用数字回答。固件 1,228,800 字节，擦写粒度 4 KiB，双分区交替升级，每天升级一次，能升多少年？
+          </p>
+
+          <p class="mt-3 leading-relaxed"><b>第一步：一次 OTA 要擦写多少个块。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="一次 OTA 的擦写块数"><pre><code>  块数 = 1,228,800 ÷ 4096 = 300 个扇区（正好 300）
+
+  每个扇区：擦 1 次 + 写 1 次 → 记为 1 次「擦写循环」
+  所以一次 OTA 消耗目标分区里 300 个扇区各 1 次循环。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed"><b>第二步：双分区交替把它减半。</b>因为升级是交替写到两个槽里的，同一个槽每两次升级才被写一次：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="单块寿命换算成升级次数"><pre><code>  同一个槽里每个扇区：每 2 次升级被擦 1 次
+  寿命（按数据手册两个口径）：
+    · 保守 10,000 次 ÷ (1 次 / 2 升级) = 20,000 次升级
+    · 典型 100,000 次 ÷ (1 次 / 2 升级) = 200,000 次升级
+
+  每天升级 1 次：
+    保守：20,000 天 ÷ 365 = 54.8 年
+    典型：200,000 天 ÷ 365 = 548 年
+
+  ★ 结论：OTA 本身对 Flash 寿命几乎没有任何影响。
+    你一辈子也升不到 2 万次。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed"><b>第三步：真正的寿命杀手是 NVS 的高频写。</b>很多人为了「消息不丢」，每上报一条数据就把序号写一次 NVS。算一下它的代价：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="NVS 高频写的寿命估算"><pre><code>  前提：NVS 分区 24 KiB = 6 个 4 KiB 扇区
+        每个扇区扣掉页头后，按 32 字节一条计算：
+        (4096 − 32) ÷ 32 = 126.9 → 126 条 / 扇区
+        整个 NVS 一次可容纳 6 × 126 = 756 条，写满才需要擦一轮
+        NVS 自带磨损均衡，写操作会被摊到 6 个扇区上
+
+  场景 A：每 30 秒上报一次，每条都写 NVS
+    每天写次数 = 86,400 ÷ 30 = 2880 次
+    每天消耗的扇区份额 = 2880 ÷ 126 = 22.9 次「扇区填满」
+    摊到 6 个扇区 = 每个扇区 3.8 次擦除 / 天
+    寿命：保守 10,000 ÷ 3.8 = 2631 天 ≈ 7.2 年
+          典型 100,000 ÷ 3.8 = 26,315 天 ≈ 72 年
+    → 还行，但已经在「会被磨损」的量级上了。
+
+  场景 B：每 1 秒上报一次，每条都写 NVS
+    每天写次数 = 86,400 次
+    每天扇区擦除 = 86,400 ÷ 126 = 685 次，摊到 6 个扇区 = 114 次 / 扇区 / 天
+    寿命：保守 10,000 ÷ 114 = 87 天  ← ★ 三个月就写坏
+          典型 100,000 ÷ 114 = 877 天 ≈ 2.4 年
+
+  ★ 正确做法：序号、统计量这类高频变化的数据不要每条落盘。
+    改成「每 100 条」或「每 10 分钟」批量落一次，掉电最多丢一小段，
+    换来的是寿命从 87 天变成几十年。</code></pre></div>
+
+          <div class="callout callout-warn mt-3">
+            <div class="callout-title">现场判断「是不是写坏了」的方法</div>
+            <p>NVS 磨损的典型现象是：设备能启动，但某个键读出来总是旧值，或者 <code class="icode">nvs_set_*</code> 返回 <code class="icode">ESP_ERR_NVS_NOT_ENOUGH_SPACE</code>，
+            再严重时 <code class="icode">nvs_open()</code> 返回 <code class="icode">ESP_ERR_NVS_NO_FREE_PAGES</code> 让整个应用起不来。
+            排查顺序：先算写入频率（像上面这样），再看 NVS 分区是不是划得太小（24 KiB 是本文的取值，只有 8 KiB 的工程要格外小心），最后才怀疑芯片。</p>
+          </div>
+
+          <h3 id="calc-3" class="mt-8 text-lg font-semibold">例 3：1 KB/s 窄带链路上传 1.2 MB 要多久</h3>
+
+          <p class="mt-3 leading-relaxed">
+            <b>题目：</b>现场用的是 NB-IoT 或低速 4G，实测有效下行速率只有 1 KiB/s。升级 1,228,800 字节的固件要多久？这段时间设备还能干活吗？
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="窄带链路传输时间与不同链路的对比"><pre><code>  理想时间 = 1,228,800 字节 ÷ 1024 字节/秒 = 1200 秒 = 20 分钟整
+
+  现实修正（都按典型值估算）：
+    · TLS 握手（含证书校验）                      + 1~3 秒
+    · 1% 丢包导致的重传：1200 ÷ 0.99            = 1212 秒  + 12 秒
+    · 服务器限速与 TCP 慢启动                     + 30~60 秒
+    · 每块 4 KiB 的往返等待（1200/4 = 300 次 RTT，每次 100 ms）= + 30 秒
+  ─────────────────────────────────────────────────────────────
+  实际按 25 分钟规划比较稳妥（留 20% 余量）。
+
+  同样 1,228,800 字节，换不同链路的耗时对比：
+    NB-IoT 上行 20 kbps   = 2.5 KiB/s  → 1200 ÷ 2.5 = 480 秒  = 8 分钟
+    GPRS / 2G 上行 40 kbps = 5 KiB/s   → 1200 ÷ 5   = 240 秒  = 4 分钟
+    4G Cat-1 上行 5 Mbps   = 640 KiB/s → 1200 ÷ 640 = 1.9 秒
+    WiFi 局域网 8 Mbps     = 1000 KiB/s→ 1200 ÷ 1000 = 1.2 秒
+
+  ★ 差距是 1000 倍。这就是为什么「在有 WiFi 的实验室里 OTA 很爽，
+    到现场用 NB-IoT 就变成一件需要规划的事」。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed">
+            <b>「升级期间设备不可用」的代价。</b>新手最常见的写法是在 OTA 流程里把主循环阻塞掉，于是：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两种做法的取舍"><pre><code>  做法 A：升级期间停止采集（阻塞式 OTA）
+    空白时间 = 20~25 分钟
+    按采集周期 30 秒算 → 丢 40~50 个数据点
+    如果有报警逻辑跑在同一个循环里 → 这 20 分钟里报警功能完全失效 ★ 危险
+
+  做法 B：OTA 放低优先级任务，采集照常跑（推荐）
+    CPU 与网络被两个任务分时复用，OTA 速率大约降到 0.7 KiB/s
+    升级时间 = 1200 ÷ 0.7 = 1714 秒 ≈ 28.6 分钟
+    数据点：一个不丢（因为采集任务优先级更高，OTA 只是变慢）
+
+  两者比较：空白 20 分钟 vs 慢 8.6 分钟。
+  ★ 现场数据的连续性比升级速度重要得多 —— 选做法 B。
+    唯一的例外是你必须控制「升级期间不能有任何报警误动作」，
+    那也要靠状态标记来做，而不是靠停掉整个采集。</code></pre></div>
+
+          <div class="callout callout-warn mt-3">
+            <div class="callout-title">20 分钟的窗口里，断线概率不可忽略</div>
+            <p>按典型现场情况估算，20 分钟内发生一次网络中断的概率相当可观。如果 OTA 不支持续传，一次断线就意味着<b>从头再来 20 分钟</b>；
+            若是 25 分钟的窗口里断了三次，这次升级可能永远完不成（每次都超时）。</p>
+            <p class="mt-2">所以窄带 + 大固件的组合下，<b>续传不是「高级功能」，而是必需功能</b>：<code class="icode">esp_https_ota_config_t</code> 里的 <code class="icode">ota_resumption = true</code> 配合把已写字节数存进 NVS，
+            或者手动版用 <code class="icode">esp_ota_resume()</code> 从断点继续（注意它<b>不会重新擦分区</b>，所以断点之前写进去的内容必须仍然有效）。不加新 API 的等价手段是 <code class="icode">esp_ota_write_with_offset(handle, data, size, offset)</code>，但官方注明<b>不要与 <code class="icode">esp_ota_write()</code> 混用</b>。</p>
+          </div>
+
+          <h3 id="calc-4" class="mt-8 text-lg font-semibold">例 4：1000 台设备的错峰升级窗口规划</h3>
+
+          <p class="mt-3 leading-relaxed">
+            <b>题目：</b>一个项目现场有 1000 台设备，需要在一次发布里全部升级到 v1.1。计划按并发 50 台分批推。要多久？需要多少服务器带宽？如果不管控并发会怎样？
+          </p>
+
+          <p class="mt-3 leading-relaxed"><b>第一步：单台耗时与服务器带宽账。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="单台耗时与并发带宽"><pre><code>  单台耗时（实测经验值，按典型值估算）：
+    下载 1,228,800 字节：若服务器每台限速 50 KiB/s → 1200 ÷ 50 = 24 秒
+    镜像校验（esp_ota_end）                            ≈ 1 秒
+    重启 + 重连 WiFi + 连上 MQTT + 自检                 ≈ 15 秒
+    ────────────────────────────────────────────────────────
+    合计 ≈ 40 秒。但在几十台并发、云端也忙的情况下，
+    按保守的「每台 3 分钟」规划才不会失控。
+
+  单台平均速率 = 1,228,800 字节 ÷ 180 秒 = 6,827 字节/秒 ≈ 6.7 KiB/s
+  50 台并发 → 50 × 6,827 = 341,350 字节/秒 ≈ 333 KiB/s ≈ 2.7 Mbps
+  再乘 3 倍峰值余量（瞬时并发 + 重传 + 校验期间的突发）→ 约 8~10 Mbps
+
+  ★ 结论：一次 50 并发需要约 10 Mbps 的稳定出口带宽。
+    如果你把固件放在只有 5 Mbps 带宽的云主机上，实际并发会自动
+    降到 25 台左右，也就是「你以为在 50 并发，实际只有一半速度」。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed"><b>第二步：批次数与总窗口。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="1000 台分批升级的窗口估算"><pre><code>  批次数 = 1000 ÷ 50 = 20 批
+  总时间 = 20 × 3 分钟 = 60 分钟 = 1 小时
+
+  加上失败重试（弱信号设备，按 5% 估算）：
+    第一轮失败 = 1000 × 5% = 50 台 → 一轮正好 3 分钟
+    第二轮失败 =   50 × 5% = 2.5 → 3 台 → 又 3 分钟
+  ────────────────────────────────────────────────────────────
+  总计 = 60 + 3 + 3 = 66 分钟，再留 30 分钟人工缓冲
+  ★ 按 1.5 小时规划一次全量升级。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed"><b>第三步：不错峰会怎样。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="不做错峰的峰值带宽"><pre><code>  假设 1000 台设备在早上 8:00 上电时同时检查到新版本并开始下载：
+    峰值带宽 = 1000 × 6,827 字节/秒 = 6,827,000 字节/秒 ≈ 6.5 MiB/s ≈ 54.6 Mbps
+  ★ 这还没有算上云平台自身的限制：几乎所有物联网平台都对
+    「每秒下行消息数」「每秒新建连接数」有配额，1000 台同时来
+    会直接触发限流，结果是大面积失败重试 —— 而重试又制造新的峰值。
+
+  两种错峰方案（推荐第二种）：
+    方案 1（服务端推）：收到升级通知后，按 hash(DeviceName) % 3600
+                       得到 0~3599 秒的随机延迟，睡够了再开始下载。
+                       缺点：要给 1000 台各发一条通知，且设备时钟/随机种子要靠谱。
+    方案 2（设备端拉）：设备每 6 小时自己去问一次「有没有新版本」。
+                       1000 台在 6 小时 = 21,600 秒里自然摊开，
+                       平均每秒只有 1000 ÷ 21,600 = 0.046 台开始下载。
+                       不需要平台群发，新上线的设备也会自动加入。
+  ★ 方案 2 还顺便解决了「设备当时离线、错过了升级通知」的问题 ——
+    拉模式下，离线设备下次醒来自然会看到新版本。</code></pre></div>
+
+          <div class="callout callout-tip mt-3">
+            <div class="callout-title">发布节奏的建议</div>
+            <p>真实现场的做法很少是「一次全量」。更稳的是：<b>先给 1~5 台内部设备升（灰度）→ 观察 24 小时 → 给一个车间的 50 台升 → 观察 → 再全量</b>。
+            每级都验证三件事：新版本上报正常、指令能下发并回执、重启后版本号确实变了。这个流程能把「一次性把 1000 台推坏」的概率降到接近零，
+            代价只是发布从 1.5 小时变成几天——而后者是可以提前排期的，前者是事故。</p>
+          </div>
+
+          <h3 id="calc-5" class="mt-8 text-lg font-semibold">例 5：心跳与属性上报的日均流量与资费</h3>
+
+          <p class="mt-3 leading-relaxed">
+            <b>题目：</b>设备用 MQTT over TLS 连云平台，心跳（Keep Alive）60 秒，属性上报 30 秒一次。一天的流量是多少？1000 台设备的流量卡一年要多少钱？
+          </p>
+
+          <p class="mt-3 leading-relaxed"><b>第一步：逐项算单个报文的线上开销。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="各类报文的实际线上字节数"><pre><code>  【心跳 PINGREQ / PINGRESP】
+    MQTT 报文 2 B + TCP 头 20 B + IP 头 20 B + TLS 记录头 5 B + AEAD 标签 16 B
+      = 63 B → 取整 64 B
+    一来一回 = 2 × 64 = 128 B，每 60 秒一次
+      → 128 ÷ 60 = 2.13 B/s
+
+  【属性上报 POST】
+    payload 100 B
+    MQTT 固定头 2 B + 主题 45 B（/sys/{pk}/{dn}/thing/event/property/post）
+      + 报文标识符 2 B = 报文 149 B
+    加 TCP/IP/TLS 开销 61 B = 210 B → 取整 220 B（留余量）
+    每 30 秒一次 → 220 ÷ 30 = 7.33 B/s
+
+  【服务器回的 PUBACK（QoS 1 必须等它）】
+    报文 4 B + 61 B = 65 B，每 30 秒一次 → 2.17 B/s
+
+  【TCP 层的纯 ACK】
+    每个数据包都触发一个约 60 B 的 ACK，按每秒约 0.03 个包算 → 约 2 B/s
+
+  ──────────────────────────────────────────────────────
+  合计 ≈ 2.13 + 7.33 + 2.17 + 2 = 13.6 B/s</code></pre></div>
+
+          <p class="mt-3 leading-relaxed"><b>第二步：换成月流量与资费。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="日均 / 月均流量与两种资费对比"><pre><code>  日流量 = 13.6 × 86,400 = 1,175,040 B ≈ 1.12 MiB/天
+  月流量 = 1.12 × 30 = 33.6 MiB，加 20% 的重连 / 重传 / 订阅开销
+         = 33.6 × 1.2 = 40.3 MiB/月 ≈ 42 MB/月
+
+  资费对比（单价按市场常见区间取典型值）：
+    ① 普通手机 SIM 卡按量计费，约 0.29 元/MB
+       单台 = 42 × 0.29 = 12.2 元/月
+       1000 台 = 12,180 元/月 = 14.6 万元/年  ← ★ 这是灾难
+
+    ② 物联网卡流量池，约 0.05 元/MB
+       单台 = 42 × 0.05 = 2.1 元/月
+       1000 台 = 2,100 元/月 = 2.52 万元/年
+
+  所以第一条工程结论：★ 联网设备项目一定要用物联网卡 / 定向流量，
+  不能用普通手机卡。同一条数据，资费差 6 倍。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed"><b>第三步：调周期能省多少。</b>心跳和上报周期是你在「数据分辨率」和「运营成本」之间唯一能直接拨的旋钮：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="把心跳调到 300 秒、上报调到 300 秒"><pre><code>  心跳 60 → 300 秒：2.13 ÷ 5 = 0.43 B/s
+  上报 30 → 300 秒：7.33 ÷ 10 = 0.73 B/s
+  PUBACK 同步变稀：2.17 ÷ 10 = 0.22 B/s
+  TCP ACK：约 0.2 B/s
+  ──────────────────────────────────────────────
+  合计 ≈ 1.58 B/s
+
+  月流量 = 1.58 × 86,400 × 30 × 1.2 = 4,913,664 B ≈ 4.7 MiB/月
+  成本 = 4.7 × 0.05 = 0.24 元/月/台 → 1000 台 = 236 元/月
+
+  ★ 从 2100 元/月降到 236 元/月，省了 89%。
+    代价：温度曲线的分辨率从 30 秒变成 5 分钟。</code></pre></div>
+
+          <div class="callout callout-tip mt-3">
+            <div class="callout-title">既省流量又不丢时效的折中方案</div>
+            <p>把「周期性上报」和「事件上报」分开用，这是物模型设计的本意：</p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b>属性（property）</b>：常态下 300 秒上报一次，用于画趋势曲线，省流量。</li>
+              <li><b>事件（event）</b>：温度越限、振动异常这类情况用 <code class="icode">/sys/{pk}/{dn}/thing/event/{identifier}/post</code> 立即上报，
+              只有真正出事时才发，一年也发不了几条。</li>
+            </ul>
+            <p class="mt-2">这样常态 4.7 MiB/月，异常时刻仍然是秒级响应——<b>周期决定成本下限，事件决定响应上限</b>，两者不要互相牺牲。</p>
+          </div>
+
+          <h3 id="calc-6" class="mt-8 text-lg font-semibold">例 6：掉电概率与回滚把变砖率压到多少</h3>
+
+          <p class="mt-3 leading-relaxed">
+            <b>题目：</b>用概率算清楚：现场三那个「升级中途断电变砖」到底有多大概率？双分区和回滚各自把它压到多少？为什么说「不开回滚是在赌那 2%」？
+          </p>
+
+          <p class="mt-3 leading-relaxed"><b>第一步：先算「升级窗口内恰好断电」的概率。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="掉电命中概率"><pre><code>  前提（按典型工业现场估算）：
+    · 该车间电网每天平均发生 0.05 次瞬断（约 20 天一次）
+    · 一次瞬断在一天 86,400 秒里随机出现，落在某个时间窗内的概率
+      = 窗口长度 ÷ 86,400
+    · 升级窗口取例 3 的窄带场景：20 分钟 = 1200 秒
+
+  命中概率 p = 0.05 × (1200 ÷ 86,400)
+             = 0.05 × 0.01389
+             = 6.94 × 10⁻⁴
+             ≈ 0.069%
+
+  ★ 也就是每次升级约万分之七的概率会碰上断电。
+    1000 台设备升级一次，期望命中 = 1000 × 0.069% = 0.69 台。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed"><b>第二步：三种方案各自会怎样。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种升级方案在断电下的结果"><pre><code>  【方案 A：单分区原地擦写，没有第二个槽】
+    断电落在整个 20 分钟窗口内的任何一点 → 固件残缺 → 无法启动
+    变砖率 = p = 0.069%
+    ★ 注意：这才是「OTA 会变砖」的真正含义。
+      ESP32 只要按官方方式做双分区，就根本不会出现这种情况。
+
+  【方案 B：双分区，但没开 CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE】
+    断电在阶段 1（下载写入 ota_1）    → otadata 还指着 ota_0 → 安全 ✓
+    断电在阶段 2（改 otadata）        → 两个扇区乒乓，至少一个完好 → 安全 ✓
+    断电在阶段 3（新固件首次自检中）  → 新固件没表态。因为没开回滚，
+                                        PENDING_VERIFY 状态根本不存在，
+                                        bootloader 下次仍然启动 ota_1。
+                                        若新固件在自检位置崩溃 → 复位 -&gt; 再崩 -&gt; 死循环 ✗
+    → 变砖率从 0.069% 降到「只在新固件本身有缺陷时才发生」
+
+  【方案 C：双分区 + 开启回滚（本文推荐）】
+    断电在阶段 3 → 下次启动发现 PENDING_VERIFY 未确认 → 改写为 ABORTED
+                    → 自动回退到 ota_0 里的旧版本 → 设备继续正常服务 ✓
+    变砖率 ≈ 0（前提：旧固件全程没被碰过，而它确实没被碰过）
+    ★ 唯一的代价：这台设备会「升级失败并回到旧版本」，
+      你需要在云端看到一台设备版本号没变，去查原因。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed"><b>第三步：真正的大头不是掉电，是固件缺陷。</b>把两个概率放在一起看，结论会完全改变你的优先级：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="掉电概率 vs 固件缺陷率的对比"><pre><code>  假设新固件在现场有 2% 的设备自检失败
+  （原因很常见：不同批次的传感器型号不同、某批模组的 Flash 时序差异、
+    现场 DNS 被劫持导致云端连不上，而自检里恰好测了这一项）
+
+  【不开回滚，升级 1000 台】
+    掉电导致变砖：1000 × 0.069% = 0.69 台
+    缺陷导致变砖：1000 × 2%     = 20 台
+    合计 ≈ 20.7 台需要人工到现场救砖
+    成本 ≈ 20 × (出车 300 元 + 半天工时) ≈ 6000 元 + 10 个工作日
+    更糟的是：这 20 台在救回来之前是完全停摆的，可能停几天。
+
+  【开了回滚，同样升级 1000 台】
+    掉电导致变砖：0 台（自动回退）
+    缺陷导致可用性损失：20 台留在旧版本，功能正常，只是没升级
+    需要人工的只有「判断这批设备为什么自检失败」 → 大概率是固件
+    问题，改一版重新灰度即可，成本 0。
+
+  ★ 对比：0.069% vs 2%，相差 29 倍。
+    「回滚机制防的是掉电」是一个误解 ——
+    回滚真正防的是「你自己写坏的固件」，而后者概率高 29 倍。
+
+  群体期望的一般式（设备数 N、缺陷率 q、掉电命中率 p）：
+    无回滚变砖期望 = N × (p + q)
+    有回滚变砖期望 ≈ 0，代价是 N × q 台设备停留在旧版本</code></pre></div>
+
+          <div class="callout callout-danger mt-3">
+            <div class="callout-title">自检代码写错，等于没写</div>
+            <p>上面方案 C 的结论建立在「自检真的跑起来并且真的表态了」之上。三种常见的假自检：</p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b>自检里只检查「变量能读」</b>（比如测一个恒等式），不问 WiFi、不问传感器、不问云端——新固件明明连不上网，却被判定为 VALID，永久失去了回滚机会。</li>
+              <li><b>自检放在启动后 5 分钟才跑</b>：官方明确提醒自检要尽可能快，因为自检期间掉电会被判为「未表态」而回滚。你把自检拖到 5 分钟，等于把回滚的触发概率从「重启瞬间」扩大到「5 分钟窗口」。</li>
+              <li><b>自检通过后忘了调用 <code class="icode">esp_ota_mark_app_valid_cancel_rollback()</code></b>：结果是这台设备之后<b>再也无法开始下一次 OTA</b>（<code class="icode">esp_ota_begin()</code> 会返回 <code class="icode">ESP_ERR_OTA_ROLLBACK_INVALID_STATE</code>）。</li>
+            </ul>
+          </div>
+
+          <h3 id="calc-7" class="mt-8 text-lg font-semibold">例 7：分块下载的 RAM 账与单个请求大小</h3>
+
+          <p class="mt-3 leading-relaxed">
+            <b>题目：</b>为什么必须分块写 Flash，不能一次读进内存再写？分块方案到底占多少 RAM？分块大小又该怎么选？
+          </p>
+
+          <p class="mt-3 leading-relaxed"><b>第一步：一次性读入的方案为什么不行。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="一次性读入整包的 RAM 需求"><pre><code>  需要的内存 = 1,228,800 B = 1200 KiB
+
+  ESP32 内部 SRAM 总量             520 KiB
+  启动 IDF + WiFi + MQTT + TLS 之后，
+  留给应用的堆内存按典型值估算     150 ~ 250 KiB（取 200 KiB）
+
+  1200 KiB ÷ 200 KiB = 6 倍  → malloc 直接返回 NULL
+  现象：malloc(1228800) 失败，代码里只会看到 ESP_ERR_NO_MEM，
+        或者更糟 —— 你没检查返回值，memcpy 把空指针写崩。
+
+  那用 PSRAM 呢（很多开发板带 4 MB PSRAM）？
+    · 能分配成功，但 TLS 加解密要把数据在 PSRAM 与内部 SRAM 之间搬运，
+      速率下降明显；更严重的是它会挤占 lwIP 的 pbuf 池与 MQTT
+      发送缓冲 → 表现为「升级到一半网络随机断」。
+    ★ 结论：内存够也不该这么用。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed"><b>第二步：分块方案的实际占用。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="分块流式写入的 RAM 明细"><pre><code>  HTTP 读缓冲（自己定义的 buf[4096]）                4 KiB
+  mbedTLS 输入缓冲 CONFIG_MBEDTLS_SSL_IN_CONTENT_LEN
+    默认 16 KiB，可降到 4 KiB                       16 KiB  →  可降到 4 KiB
+  mbedTLS 输出缓冲 CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN 4 KiB
+  esp_ota 句柄与内部状态（只记计数器，不缓存镜像）    约 4 KiB
+  lwIP TCP 收发窗口（受 CONFIG_LWIP_TCP_WND_DEFAULT） 约 6 KiB
+  ────────────────────────────────────────────────────────────
+  默认配置合计 = 4 + 16 + 4 + 4 + 6 = 34 KiB
+  把输入缓冲降到 4 KiB 后     = 4 +  4 + 4 + 4 + 6 = 22 KiB
+
+  ★ 占用从 1200 KiB 降到 34 KiB，是原来的 1/35（2.8%）。
+    相对 200 KiB 的可用堆：占比从 600%（不可能）降到 17%（轻松）。
+    这就是「分块是唯一可行方案」的量化理由。</code></pre></div>
+
+          <p class="mt-3 leading-relaxed"><b>第三步：每个 HTTP 请求取多长（分块下载时的 <code class="icode">max_http_request_size</code>）。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="请求分段长度的取舍"><pre><code>  总段数 = 1,228,800 ÷ max_http_request_size
+  每段耗时 = max_http_request_size ÷ 有效速率（取 6.7 KiB/s）
+  每段的 HTTP 头开销约 300 B
+
+  取 16 KiB：
+    段数 = 1200 ÷ 16 = 75 段，每段 16 ÷ 6.7 = 2.4 秒
+    协议开销占比 = 300 ÷ 16,384 = 1.8%
+    ★ 某段失败只重传 2.4 秒的数据 → 续传代价最小
+
+  取 64 KiB：
+    段数 = 1200 ÷ 64 = 18.75 → 19 段，每段 64 ÷ 6.7 = 9.6 秒
+    协议开销占比 = 300 ÷ 65,536 = 0.46%
+    ★ 请求数少、开销低，但一段失败要重传 9.6 秒
+
+  取 256 KiB：
+    段数 = 1200 ÷ 256 = 4.7 → 5 段，每段 38 秒
+    协议开销占比 = 300 ÷ 262,144 = 0.11%
+    ★ 一段失败重传 38 秒，在窄带链路上不划算
+
+  ★ 折中区间 16 ~ 64 KiB：弱网用 16 KiB（重传代价小），
+    好网用 64 KiB（请求少、总时间短）。
+
+  两个前置条件（缺一不可）：
+    ① menuconfig 里打开 CONFIG_ESP_HTTPS_OTA_ENABLE_PARTIAL_DOWNLOAD
+    ② 结构体里设 partial_http_download = true
+    ③ 服务器必须能返回 Content-Length。若它用 chunked transfer encoding
+       分块传输，就拿不到总长度，分块下载直接不可行 ——
+       这时要么改用普通整包下载，要么在服务器上关掉 chunked。</code></pre></div>
+
+          <div class="callout callout-info mt-3">
+            <div class="callout-title">顺手把进度也算了</div>
+            <p>进度上报不难，但要算对分母：<code class="icode">esp_https_ota_get_image_size()</code> 在服务器用 chunked 编码时会返回 -1。
+            这时你只能上报「已写入字节数」（<code class="icode">esp_https_ota_get_image_len_read()</code> 或事件里的 <code class="icode">WRITE_FLASH</code> 数据），而不是百分比——
+            <b>别用 -1 当分母去算百分比</b>，那会算出负数或天文数字，云端仪表盘会很难看。本文第 4 节的进度回调就同时处理了「知道总长」和「不知道总长」两种情况。</p>
+          </div>
+        </section>
+
+        <section class="mt-14">
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4 leading-relaxed">
+            这一节给的都是可以直接编译的 ESP-IDF 工程代码。为了让你能整段照抄，我尽量让它<b class="font-semibold text-ink">少依赖别的文件</b>：
+            除了证书文件需要用 <code class="icode">EMBED_TXTFILES</code> 嵌进来之外，其余都是自包含的。
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">工程结构与版本说明</div>
+            <p>本文代码按 ESP-IDF <b>v5.5 及以后</b> 的 API 写（示例在 v6.1 上核对）。<code class="icode">esp_ota_resume()</code> <b>自 v5.5 起提供</b>：v5.2 ~ v5.4 上没有这个函数，照抄会直接编译报「未定义」——
+            但本文的手动主流程没有依赖它（续传那一段标了「仅 IDF 支持 esp_ota_resume 时可用」），兼容性更好；<code class="icode">esp_https_ota_config_t</code> 里的续传字段若你的 IDF 版本报「未知成员」，说明该版本还不支持，把它删掉即可（功能退化为不支持续传，其余不变）。</p>
+            <p class="mt-2">建议的目录结构（与第 45 篇《嵌入式项目工程化》的分层一致）：</p>
+            <div class="code-block mt-3" data-lang="text" data-title="工程目录"><pre><code>  ota_demo/
+  ├── CMakeLists.txt
+  ├── partitions.csv              ← 分区表（本文第 1 段）
+  ├── sdkconfig.defaults          ← 关键配置（本文第 1 段）
+  ├── certs/
+  │   └── server_root_ca.pem      ← 服务器证书链的根证书
+  └── main/
+      ├── CMakeLists.txt
+      ├── app_main.c              ← 启动流程与自检（第 4 段）
+      ├── ota_https.c             ← HTTPS OTA（第 2 段）
+      ├── ota_manual.c            ← 手动流式 OTA（第 3 段）
+      ├── cloud_link.c            ← 云平台上下行（第 5 段）
+      └── net_state.c             ← 重连状态机（第 6 段）</code></pre></div>
+          </div>
+
+          <h3 id="mcu-part" class="mt-8 text-lg font-semibold">第一段：分区表与 sdkconfig 关键项</h3>
+
+          <p class="mt-3 leading-relaxed">
+            分区表是 CSV 文件，<b class="font-semibold text-ink">它不是「配置」，而是硬件层面的事实</b>：烧进去之后，Bootloader 读的就是它。
+            下面这份就是例 1 算出来的那个布局，可以直接用：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="partitions.csv"><pre><code># ESP32 4 MB Flash · 双 OTA 槽布局
+# 名称,     类型, 子类型,   偏移,     大小,      标志
+# 注意：注释行以 # 开头；偏移必须 4 KB 对齐；otadata 必须恰好 0x2000
+nvs,        data, nvs,      0x9000,   0x6000,
+otadata,    data, ota,      0xF000,   0x2000,
+phy_init,   data, phy,      0x11000,  0x1000,
+ota_0,      app,  ota_0,    0x12000,  0x180000,
+ota_1,      app,  ota_1,    0x192000, 0x180000,
+storage,    data, spiffs,   0x312000, 0xEE000,
+
+# 逐行解释：
+#  0x9000 起 nvs 24 KB     —— 三元组、阈值、OTA 断点、序号、去重 id 都存这里
+#  0xF000 起 otadata 8 KB  —— ★ 必须是 data/ota 且恰好两个 4 KB 扇区，bootloader 的硬性要求
+#  0x11000 起 phy_init 4 KB—— RF 校准，别动它
+#  0x12000 起 ota_0 1.5 MB —— 第一个应用槽（也是首次上电的默认启动槽，因为没有 factory）
+#  0x192000 起 ota_1 1.5 MB—— 第二个应用槽，与 ota_0 等大（★ 不等大是常见错误）
+#  0x312000 起 storage 952 KB —— SPIFFS，存离线日志
+#  ★ 刻意不写 factory 分区：一是省 1.5 MB 容量，二是 factory 不参与回滚</code></pre></div>
+
+          <p class="mt-3 leading-relaxed">
+            然后把这些配置写进 <code class="icode">sdkconfig.defaults</code>（放在工程根目录，<code class="icode">idf.py set-target esp32</code> 时会自动生效）：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="sdkconfig.defaults"><pre><code># ── Flash 与分区表 ─────────────────────────────────────────────
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_OFFSET=0x8000
+
+# ── ★ 回滚开关：默认是关的，不开等于没有回滚 ──────────────────
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# ── HTTPS OTA ────────────────────────────────────────────────
+# 分块下载的编译期开关（结构体里的 partial_http_download 要同时为 true）
+CONFIG_ESP_HTTPS_OTA_ENABLE_PARTIAL_DOWNLOAD=y
+# 禁止用明文 HTTP 做 OTA（默认 n；如果你的服务器没有 HTTPS，它也不会救你，
+# 只是让「有人图省事改成明文 HTTP」这件事在编译期失败，非常值）
+CONFIG_OTA_ALLOW_HTTP=n
+
+# ── 省 RAM：把 TLS 输入缓冲从 16 KB 降到 4 KB（省 12 KB）───────
+CONFIG_MBEDTLS_SSL_IN_CONTENT_LEN=4096
+CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=4096
+
+# ── 看门狗：若改用 bulk_flash_erase 需把超时调大 ───────────────
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=30
+
+# ── 版本号：让 esp_app_desc.version 由这里决定，便于云端比对 ────
+CONFIG_APP_PROJECT_VER_FROM_CONFIG=y
+CONFIG_APP_PROJECT_VER="1.1.0"
+
+# ── 证书包（可选）：用它就不必自己嵌根证书文件 ─────────────────
+# CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+
+# ── 用自定义分区表时务必关掉「单应用」优化 ─────────────────────
+# （若你的 IDF 版本里有 CONFIG_PARTITION_TABLE_SINGLE_APP 之类的默认项，
+#   设了 CONFIG_PARTITION_TABLE_CUSTOM=y 就会自动覆盖，不必手动处理）</code></pre></div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">改了分区表之后必须做的两件事</div>
+            <ol class="mt-2 list-decimal space-y-1.5 pl-5">
+              <li><b>全片擦除再烧。</b>分区表本身变了，旧的 otadata 内容就失去了意义（甚至可能指向一个已经不存在的分区）。
+              第一次用新分区表时执行 <code class="icode">idf.py erase-flash</code> 再 <code class="icode">idf.py flash</code>；
+              否则现象是「烧写成功，但启动就崩」或「启动分区名不对」。</li>
+              <li><b>确认签名与烧写偏移对得上。</b>自定义分区表默认放在 0x8000，这也是 bootloader 查找分区表的默认位置。
+              如果你把 <code class="icode">CONFIG_PARTITION_TABLE_OFFSET</code> 改成别的值，就要同步确认 <code class="icode">CONFIG_BOOTLOADER_OFFSET_IN_FLASH</code> 之类相关项——<b>除非有充分理由，别改这个偏移</b>。</li>
+            </ol>
+          </div>
+
+          <h3 id="mcu-https" class="mt-8 text-lg font-semibold">第二段：<code class="icode">esp_https_ota()</code> 最小实现（含进度、重试与证书）</h3>
+
+          <p class="mt-3 leading-relaxed">
+            这一段是 90% 项目需要的全部。要点有四个：<b class="font-semibold text-ink">证书用根证书、进度分「知道总长」和「不知道总长」两种情况、失败要能重试并保留续传断点、成功后必须自己 <code class="icode">esp_restart()</code></b>。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main/ota_https.c"><pre><code>#include &lt;string.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "esp_system.h"
+#include "esp_app_desc.h"
+#include "esp_ota_ops.h"
+#include "esp_https_ota.h"
+#include "esp_http_client.h"
+#include "nvs.h"
+
+static const char *TAG = "ota";
+
+/* 根证书以二进制形式嵌进固件。main/CMakeLists.txt 里写：
+ *   idf_component_register(SRCS "ota_https.c" ...
+ *                          EMBED_TXTFILES "../certs/server_root_ca.pem")
+ * 链接后会自动生成 _binary_&lt;文件名&gt;_start / _end 两个符号。 */
+extern const uint8_t server_root_ca_pem_start[] asm("_binary_server_root_ca_pem_start");
+extern const uint8_t server_root_ca_pem_end[]   asm("_binary_server_root_ca_pem_end");
+
+#define OTA_MAX_RETRY        3
+#define OTA_URL              "https://ota.example.com/fw/sensor-001.bin"
+#define NVS_NS_OTA           "ota"
+#define NVS_KEY_WRITTEN      "written"
+
+/* ─────────── 续传断点：存在 NVS 里，跨重启有效 ─────────── */
+
+static size_t ota_load_written_bytes(void)
+{
+    nvs_handle_t h;
+    uint32_t v = 0;
+    if (nvs_open(NVS_NS_OTA, NVS_READONLY, &amp;h) == ESP_OK) {
+        nvs_get_u32(h, NVS_KEY_WRITTEN, &amp;v);   /* 不存在也返回 ESP_OK，v 保持 0 */
+        nvs_close(h);
+    }
+    return (size_t)v;
+}
+
+static void ota_save_written_bytes(size_t n)
+{
+    nvs_handle_t h;
+    if (nvs_open(NVS_NS_OTA, NVS_READWRITE, &amp;h) == ESP_OK) {
+        nvs_set_u32(h, NVS_KEY_WRITTEN, (uint32_t)n);
+        nvs_commit(h);          /* ★ 不 commit 等于没写 */
+        nvs_close(h);
+    }
+}
+
+static void ota_clear_written_bytes(void) { ota_save_written_bytes(0); }
+
+/* ─────────── 版本号：用于「不降级、不重复升」判断 ─────────── */
+
+static const char *running_version(void)
+{
+    return esp_app_get_description()-&gt;version;   /* 由 CONFIG_APP_PROJECT_VER 决定 */
+}
+
+/* ─────────── 进度回调：两种服务器都要能处理 ─────────── */
+
+static void ota_report_progress(esp_https_ota_handle_t h, int *last_mark)
+{
+    int total = esp_https_ota_get_image_size(h);       /* chunked 编码时返回 -1 */
+    int read  = esp_https_ota_get_image_len_read(h);   /* 已写入 Flash 的字节数 */
+    if (read &lt; 0) {
+        return;
+    }
+    if (total &gt; 0) {
+        int pct = (int)((int64_t)read * 100 / total);
+        if (pct / 10 != *last_mark / 10) {             /* 每 10% 打一条，别刷屏 */
+            *last_mark = pct;
+            ESP_LOGI(TAG, "进度 %d%%（%d / %d 字节）", pct, read, total);
+        }
+    } else {
+        int chunk = read / (128 * 1024);               /* 不知道总长：每 128 KB 一条 */
+        if (chunk != *last_mark) {
+            *last_mark = chunk;
+            ESP_LOGI(TAG, "已写入 %d 字节（服务器未提供总长度）", read);
+        }
+    }
+}
+
+/* ─────────── 核心：一次完整的 HTTPS OTA ─────────── */
+
+static esp_err_t ota_do_upgrade(const char *url)
+{
+    esp_http_client_config_t http_cfg = {
+        .url               = url,
+        .cert_pem          = (const char *)server_root_ca_pem_start,
+        /* 若改用证书包，把上一行换成：
+         * .crt_bundle_attach = esp_crt_bundle_attach,  并 include "esp_crt_bundle.h"
+         * ★ 两者必须二选一。都不给 = 完全不校验服务器，见第 2 节的警告。 */
+        .timeout_ms        = 15000,
+        .keep_alive_enable = true,
+        .buffer_size       = 4096,
+    };
+
+    size_t resume_from = ota_load_written_bytes();
+    esp_https_ota_config_t ota_cfg = {
+        .http_config            = &amp;http_cfg,
+        .partial_http_download  = true,          /* 需配合 Kconfig 开关，见第 1 段 */
+        .max_http_request_size  = 64 * 1024,     /* 每段 64 KiB，例 7 的结论 */
+        .bulk_flash_erase       = false,         /* 边写边擦，避免长时间阻塞 */
+        .ota_resumption         = true,          /* 断点续传（走 HTTP Range 请求） */
+        .ota_image_bytes_written = resume_from,  /* 上次写到哪了；0 表示从头开始 */
+    };
+    if (resume_from &gt; 0) {
+        ESP_LOGW(TAG, "检测到未完成的升级，从第 %u 字节继续", (unsigned)resume_from);
+    }
+
+    esp_https_ota_handle_t handle = NULL;
+    esp_err_t err = esp_https_ota_begin(&amp;ota_cfg, &amp;handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_https_ota_begin 失败：%s", esp_err_to_name(err));
+        return err;      /* 失败时 handle 已被显式置 NULL，不要再去 abort */
+    }
+
+    /* ★ 读服务器上的固件版本：只能在 begin 之后、perform 之前 */
+    esp_app_desc_t new_app;
+    if (esp_https_ota_get_img_desc(handle, &amp;new_app) == ESP_OK) {
+        ESP_LOGI(TAG, "服务器固件：version=%s  编译=%s %s  IDF=%s",
+                 new_app.version, new_app.date, new_app.time, new_app.idf_ver);
+        if (resume_from == 0 &amp;&amp; strcmp(new_app.version, running_version()) == 0) {
+            ESP_LOGW(TAG, "版本与当前一致，取消本次升级");
+            esp_https_ota_abort(handle);          /* abort 之后不能再 finish */
+            return ESP_ERR_HTTP_NOT_MODIFIED;
+        }
+    }
+
+    /* ★ perform 循环：这是唯一能插入「喂狗 / 上报进度 / 检查取消」的地方 */
+    int last_mark = -1;
+    size_t last_saved = resume_from;
+    while (1) {
+        err = esp_https_ota_perform(handle);
+        if (err != ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
+            break;                                /* 出错或已下载完 */
+        }
+        ota_report_progress(handle, &amp;last_mark);
+
+        /* 每 256 KB 记一次断点：万一中途掉电，下次开机可以接着写 */
+        int read = esp_https_ota_get_image_len_read(handle);
+        if (read &gt; 0 &amp;&amp; (size_t)read - last_saved &gt;= 256 * 1024) {
+            ota_save_written_bytes((size_t)read);
+            last_saved = (size_t)read;
+        }
+
+        /* ★ 让出 CPU：采集任务优先级更高，OTA 慢一点没关系（例 3 的结论） */
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "下载失败：%s（断点已保存，下次可续传）", esp_err_to_name(err));
+        esp_https_ota_abort(handle);
+        return err;
+    }
+
+    /* ★ finish 之前确认整包都收到了，少一个字节都不行 */
+    if (!esp_https_ota_is_complete_data_received(handle)) {
+        ESP_LOGE(TAG, "数据不完整，放弃本次升级");
+        esp_https_ota_abort(handle);
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    /* finish 内部做两件事：校验镜像 + 把启动分区切到新槽（写 otadata） */
+    err = esp_https_ota_finish(handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "校验或切换启动分区失败：%s", esp_err_to_name(err));
+        return err;      /* ★ finish 之后绝不能再 abort */
+    }
+
+    ota_clear_written_bytes();
+    ESP_LOGI(TAG, "OTA 完成，3 秒后重启进入新固件");
+    vTaskDelay(pdMS_TO_TICKS(3000));
+    esp_restart();
+    return ESP_OK;       /* 走不到这里 */
+}
+
+/* ─────────── 重试包装：失败不影响设备正常功能 ─────────── */
+
+void ota_task(void *arg)
+{
+    const char *url = (arg != NULL) ? (const char *)arg : OTA_URL;
+
+    for (int attempt = 1; attempt &lt;= OTA_MAX_RETRY; attempt++) {
+        if (ota_do_upgrade(url) == ESP_OK) {
+            vTaskDelete(NULL);                  /* 成功路径已经在 esp_restart 里了 */
+            return;
+        }
+        ESP_LOGW(TAG, "第 %d/%d 次尝试失败，%d 秒后重试",
+                 attempt, OTA_MAX_RETRY, 5 * attempt);
+        vTaskDelay(pdMS_TO_TICKS(5000 * attempt));   /* 线性退避，避免猛敲服务器 */
+    }
+
+    /* 只有彻底失败才会走到这里：设备仍跑在旧固件上，功能完好 */
+    ESP_LOGE(TAG, "OTA 连续 %d 次失败，本次放弃；设备继续运行 %s",
+             OTA_MAX_RETRY, running_version());
+    vTaskDelete(NULL);
+}</code></pre></div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">怎么触发这个任务</div>
+            <p>三种常见触发方式，从简到繁：</p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b>开机自检时查一次版本</b>：设备每隔 6 小时自己去查（例 4 的方案 2）。最省事，不需要云端配合。</li>
+              <li><b>MQTT 下行指令触发</b>：收到升级指令后校验来源与参数，再创建 OTA 任务。适合你要控制「哪一批设备现在升」的场景。</li>
+              <li><b>串口命令 / 长按按键</b>：现场调试时最有用——长按 5 秒进入升级模式，配合一个固定的升级地址。</li>
+            </ul>
+            <p class="mt-2">无论哪种，都要用 <code class="icode">xTaskCreate</code> 起一个<b>独立任务</b>（栈建议 8 KB 以上，因为 TLS 握手比较吃栈），
+            不要在主任务里直接调用——否则升级期间整个设备都卡住了。</p>
+          </div>
+
+          <h3 id="mcu-manual" class="mt-8 text-lg font-semibold">第三段：手动 <code class="icode">esp_ota_*</code> 流式写入</h3>
+
+          <p class="mt-3 leading-relaxed">
+            什么时候需要手动挡？三个典型场景：<b class="font-semibold text-ink">服务器不给 Content-Length（chunked）、固件不放在 HTTP 上（走私有协议或 MQTT 分片）、需要在写入过程中做额外的校验或解密</b>。
+            这段代码的重点是<b>「边读边写」</b>——全程只占一个 4 KB 缓冲：
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main/ota_manual.c"><pre><code>#include &lt;string.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "esp_system.h"
+#include "esp_ota_ops.h"
+#include "esp_http_client.h"
+
+static const char *TAG = "ota_manual";
+#define BUF_SIZE 4096          /* ★ 4 KB 就够，见例 7 的 RAM 账 */
+
+extern const uint8_t server_root_ca_pem_start[] asm("_binary_server_root_ca_pem_start");
+
+esp_err_t ota_manual_from_http(const char *url)
+{
+    /* ── 1. 选目标槽：永远是「不是当前在跑的那个」 ── */
+    const esp_partition_t *target = esp_ota_get_next_update_partition(NULL);
+    if (target == NULL) {
+        ESP_LOGE(TAG, "找不到可写入的 OTA 槽（分区表里只有一个 app 分区？）");
+        return ESP_ERR_NOT_FOUND;
+    }
+    ESP_LOGI(TAG, "目标分区 %s：偏移 0x%08lx，容量 %lu 字节",
+             target-&gt;label, (unsigned long)target-&gt;address, (unsigned long)target-&gt;size);
+
+    /* ── 2. 建 HTTP 连接（同第二段的证书纪律） ── */
+    esp_http_client_config_t cfg = {
+        .url               = url,
+        .cert_pem          = (const char *)server_root_ca_pem_start,
+        .timeout_ms        = 15000,
+        .buffer_size       = BUF_SIZE,
+        .keep_alive_enable = true,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&amp;cfg);
+    if (client == NULL) {
+        return ESP_FAIL;
+    }
+
+    esp_err_t err = esp_http_client_open(client, 0);   /* 0 = 没有请求体 */
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "HTTP 连接失败：%s", esp_err_to_name(err));
+        esp_http_client_cleanup(client);
+        return err;
+    }
+
+    int64_t content_len = esp_http_client_fetch_headers(client);
+    int status = esp_http_client_get_status_code(client);
+    ESP_LOGI(TAG, "HTTP %d，Content-Length = %lld", status, (long long)content_len);
+    if (status != 200) {
+        esp_http_client_cleanup(client);
+        return ESP_FAIL;
+    }
+
+    /* ── 3. begin：★ 知道长度就把长度传进去 ──
+     * 传 OTA_SIZE_UNKNOWN(0) 会让 esp_ota_begin 擦掉「整个分区」，
+     * 既慢又白白消耗寿命，只有真的不知道长度时才这么做。 */
+    esp_ota_handle_t ota = 0;
+    err = esp_ota_begin(target,
+                        (content_len &gt; 0) ? (size_t)content_len : OTA_SIZE_UNKNOWN,
+                        &amp;ota);
+    if (err != ESP_OK) {
+        /* 常见：ESP_ERR_OTA_ROLLBACK_INVALID_STATE（当前应用还是 PENDING_VERIFY，
+         *       忘了调用 esp_ota_mark_app_valid_cancel_rollback）
+         *      ESP_ERR_OTA_PARTITION_CONFLICT（试图写当前正在运行的分区） */
+        ESP_LOGE(TAG, "esp_ota_begin 失败：%s", esp_err_to_name(err));
+        esp_http_client_cleanup(client);
+        return err;
+    }
+
+    /* ── 4. 循环：读一块写一块 ── */
+    uint8_t *buf = malloc(BUF_SIZE);
+    if (buf == NULL) {
+        esp_ota_abort(ota);
+        esp_http_client_cleanup(client);
+        return ESP_ERR_NO_MEM;
+    }
+
+    size_t written = 0;
+    while (1) {
+        int n = esp_http_client_read(client, (char *)buf, BUF_SIZE);
+        if (n &lt; 0) {                       /* 网络断了 */
+            ESP_LOGE(TAG, "读取中断（已写 %u 字节）", (unsigned)written);
+            err = ESP_FAIL;
+            break;
+        }
+        if (n == 0) {                      /* 服务器发完了 */
+            err = ESP_OK;
+            break;
+        }
+        err = esp_ota_write(ota, buf, n);  /* ★ 必须顺序写，不能跳着写 */
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "esp_ota_write 失败：%s", esp_err_to_name(err));
+            break;
+        }
+        written += n;
+        if ((written % (256 * 1024)) &lt; BUF_SIZE) {     /* 每 256 KB 报一次进度 */
+            ESP_LOGI(TAG, "已写入 %u 字节", (unsigned)written);
+        }
+    }
+    free(buf);
+
+    /* ── 5. 长度对不上就放弃（别去改 otadata） ── */
+    if (err == ESP_OK &amp;&amp; content_len &gt; 0 &amp;&amp; written != (size_t)content_len) {
+        ESP_LOGE(TAG, "长度不符：收到 %u，声明 %lld", (unsigned)written, (long long)content_len);
+        err = ESP_ERR_INVALID_SIZE;
+    }
+
+    if (err != ESP_OK) {
+        esp_ota_abort(ota);                /* 中途放弃，otadata 不动 */
+        esp_http_client_cleanup(client);
+        return err;
+    }
+
+    /* ── 6. end：校验镜像（无论成败都会释放 handle） ── */
+    err = esp_ota_end(ota);
+    esp_http_client_cleanup(client);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "镜像校验失败：%s（不是合法 app 镜像，或签名验不过）",
+                 esp_err_to_name(err));
+        return err;                        /* 校验不过绝不能改启动分区 */
+    }
+
+    /* ── 7. 切启动分区：这一步才写 otadata ── */
+    err = esp_ota_set_boot_partition(target);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "切换启动分区失败：%s", esp_err_to_name(err));
+        return err;
+    }
+
+    ESP_LOGI(TAG, "升级准备完成，重启后将从 %s 启动", target-&gt;label);
+    return ESP_OK;
+}
+
+/* 断线续传版本（仅 IDF 支持 esp_ota_resume 时可用）：
+ *   · 先用 esp_partition_read 或 NVS 记录拿到「已正确写入的字节数 image_offset」
+ *   · esp_ota_resume(target, erase_size, image_offset, &amp;ota)
+ *     ★ 它不会像 esp_ota_begin 那样擦分区 —— 前提是 image_offset 之前的内容
+ *       确实已经正确写入；所以断点必须由「写入成功后」才更新的变量给出。
+ *   · 然后用 esp_http_client 发带 Range 头的请求，从 image_offset 继续读。
+ */</code></pre></div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">手动挡最容易错的三件事</div>
+            <ol class="mt-2 list-decimal space-y-1.5 pl-5">
+              <li><b>跳着写。</b><code class="icode">esp_ota_write()</code> 只能顺序写；如果你的数据包乱序到达（比如走 UDP 或 MQTT 分片），要用 <code class="icode">esp_ota_write_with_offset()</code>，
+              而官方明确说<b>这两个函数不要混用</b>。开了 Flash 加密时，偏移写入的数据还必须 16 字节对齐。</li>
+              <li><b>不比对长度。</b><code class="icode">esp_ota_end()</code> 会校验镜像结构，但如果下载被截断在一个「恰好看起来合法」的位置，后面还是会出问题。
+              所以「收到的字节数 == Content-Length」这一条要自己查（第 5 步）。</li>
+              <li><b>把 <code class="icode">esp_ota_end()</code> 的返回值当可选。</b>校验失败却继续 <code class="icode">set_boot_partition()</code>，等于主动把设备切到一个坏镜像上——
+              这是「升级后设备反复重启」的头号原因。</li>
+            </ol>
+          </div>
+        <h3 id="mcu-selfcheck" class="mt-8 text-lg font-semibold">第四段：启动自检、回滚标记与版本确认</h3>
+
+          <p class="mt-3 leading-relaxed">
+            这段代码是整篇里<b class="font-semibold text-ink">最短、但最重要</b>的一段。它决定了「新固件坏了之后设备会不会自己回来」。
+            把它放在 <code class="icode">app_main()</code> 的<strong>最前面</strong>——自检要快（官方明确提醒），也要在别的组件把状态搞乱之前完成。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main/app_main.c"><pre><code>#include &lt;string.h&gt;
+#include &lt;time.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "esp_system.h"
+#include "esp_app_desc.h"
+#include "esp_ota_ops.h"
+#include "nvs_flash.h"
+
+static const char *TAG = "app";
+
+/* 自检上限：超过这个时间还未表态，就有掉电被判回滚的风险（见第 2 节） */
+#define SELFTEST_MAX_MS   5000
+
+/* ─────────── 三项快速自检 ─────────── */
+
+static bool check_nvs(void)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open("cfg", NVS_READONLY, &amp;h);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        return true;                 /* 全新的设备，还没有命名空间，算通过 */
+    }
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "自检：NVS 打开失败 %s", esp_err_to_name(err));
+        return false;
+    }
+    int32_t v;
+    err = nvs_get_i32(h, "alarm_temp", &amp;v);   /* 读不出来也算通过，读出错才算失败 */
+    nvs_close(h);
+    return (err == ESP_OK || err == ESP_ERR_NVS_NOT_FOUND);
+}
+
+static bool check_cloud(void)
+{
+    /* 用第 6 段的状态机事件组：等 WiFi 拿到 IP */
+    EventBits_t bits = xEventGroupWaitBits(s_net_evt, BIT_WIFI_GOT_IP,
+                                           pdFALSE, pdTRUE,
+                                           pdMS_TO_TICKS(3000));
+    if ((bits &amp; BIT_WIFI_GOT_IP) == 0) {
+        ESP_LOGE(TAG, "自检：3 秒内没连上 WiFi");
+        return false;
+    }
+    return true;
+}
+
+/* ─────────── 版本与分区信息：出问题时的第一手证据 ─────────── */
+
+void app_print_info(void)
+{
+    const esp_app_desc_t *d = esp_app_get_description();
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    const esp_partition_t *boot    = esp_ota_get_boot_partition();
+
+    ESP_LOGI(TAG, "固件版本 %s（编译于 %s %s，IDF %s）",
+             d->version, d->date, d->time, d->idf_ver);
+    ESP_LOGI(TAG, "正在运行的分区：%s", running-&gt;label);
+    ESP_LOGI(TAG, "下次启动的分区：%s", boot-&gt;label);
+    if (running != boot) {
+        /* 两者不一致说明：otadata 指向的分区里没有合法 app，
+         * bootloader 自己回退到了当前这个能跑的分区。 */
+        ESP_LOGW(TAG, "运行分区与启动分区不一致 —— bootloader 发生了回退启动");
+    }
+
+    esp_ota_img_states_t st;
+    if (esp_ota_get_state_partition(running, &amp;st) == ESP_OK) {
+        /* 0=NEW 1=PENDING_VERIFY 2=VALID 3=INVALID 4=ABORTED */
+        ESP_LOGI(TAG, "分区状态 = %d（%s）", (int)st,
+                 st == ESP_OTA_IMG_VALID          ? "有效版本" :
+                 st == ESP_OTA_IMG_PENDING_VERIFY ? "待验证：必须尽快表态" :
+                 st == ESP_OTA_IMG_NEW            ? "新镜像" :
+                 st == ESP_OTA_IMG_INVALID        ? "已判无效" :
+                 st == ESP_OTA_IMG_ABORTED        ? "未表态已被放弃" : "未定义");
+    }
+}
+
+/* ─────────── ★ 回滚检查：新固件的「第一次表态」 ─────────── */
+
+void app_rollback_check(void)
+{
+    const esp_partition_t *running = esp_ota_get_running_partition();
+    esp_ota_img_states_t st;
+
+    if (esp_ota_get_state_partition(running, &amp;st) != ESP_OK) {
+        ESP_LOGW(TAG, "读不到分区状态（回滚功能可能没开）");
+        return;
+    }
+    if (st != ESP_OTA_IMG_PENDING_VERIFY) {
+        return;                     /* 正常运行中的老固件，不需要自检 */
+    }
+
+    ESP_LOGW(TAG, "★ 这是新固件的首次启动（PENDING_VERIFY），开始自检");
+
+    TickType_t t0 = xTaskGetTickCount();
+    bool ok = check_nvs() &amp;&amp; check_cloud();
+    uint32_t ms = (xTaskGetTickCount() - t0) * portTICK_PERIOD_MS;
+
+    if (ok &amp;&amp; ms &lt; SELFTEST_MAX_MS) {
+        ESP_LOGI(TAG, "自检通过（%u ms），标记为有效版本", (unsigned)ms);
+        /* 一旦标记 VALID，这个分区今后不再受启动次数限制 */
+        esp_ota_mark_app_valid_cancel_rollback();
+        return;
+    }
+
+    ESP_LOGE(TAG, "自检失败（%s，耗时 %u ms），准备回滚",
+             ok ? "超过时间上限" : "有项目未通过", (unsigned)ms);
+    vTaskDelay(pdMS_TO_TICKS(500));    /* 给日志一点时间发出去，再复位 */
+
+    /* 置为 INVALID 并立即重启：bootloader 会选另一个槽里的旧版本启动 */
+    esp_err_t err = esp_ota_mark_app_invalid_rollback_and_reboot();
+    /* 走到这里说明回滚失败：另一个槽里没有可启动的应用 */
+    ESP_LOGE(TAG, "回滚失败：%s（没有可启动的其他应用）", esp_err_to_name(err));
+    /* 此时分区仍是 PENDING_VERIFY，下次还能再试一次 */
+}
+
+/* ─────────── 手动救回一个被判死的版本 ─────────── */
+
+void app_try_rescue_invalid(void)
+{
+    const esp_partition_t *bad = esp_ota_get_last_invalid_partition();
+    if (bad == NULL) {
+        return;
+    }
+    ESP_LOGW(TAG, "上次被判无效的分区：%s", bad-&gt;label);
+    /* 如果确认它只是自检误判（比如上次只是网线没插），可以强行再试一次：
+     *   esp_ota_set_boot_partition(bad);
+     *   esp_restart();
+     * ★ 这是现场救急用的一次性手段，不要写成自动逻辑，
+     *   否则「自检失败 → 强行切回 → 再失败」会变成无限循环。 */
+}
+
+/* ─────────── 启动流程 ─────────── */
+
+void app_main(void)
+{
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ESP_ERROR_CHECK(nvs_flash_init());
+    }
+
+    app_print_info();          /* 先打印版本：任何问题都能从这里看出线索 */
+    net_state_start();         /* 起第 6 段的重连状态机（内部会连 WiFi） */
+    app_rollback_check();      /* ★ 自检 + 表态：必须尽快完成 */
+
+    /* 自检结束之后，才是正常的业务启动：读 NVS 配置、起采集任务、连 MQTT */
+    cfg_load();
+    cloud_link_start();
+    // xTaskCreate(collect_task, "collect", 4096, NULL, 5, NULL);
+    // xTaskCreate(ota_task, "ota", 8192, NULL, 3, NULL);   /* OTA 用低优先级 */
+}</code></pre></div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">自检写什么，才算真的「测过」</div>
+            <p>判断标准很简单：<b>把设备放到真实使用场景里，任何一项不满足都会导致它没法干活，那这一项就该进自检。</b>
+            一个联网采集设备的最小自检集：</p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b>NVS 能打开</b>——打不开说明分区表或 Flash 有问题，后面所有配置读取都会失败。</li>
+              <li><b>传感器能读出合理值</b>——注意是「合理值」，不是「读到了」。读到 <code class="icode">-40.0</code> 或 <code class="icode">85.0</code> 这种典型故障值要判失败。</li>
+              <li><b>WiFi 能连上并拿到 IP</b>——这是「设备还能被远程管理」的前提，也是 OTA 的前提。</li>
+            </ul>
+            <p class="mt-2">反过来，<b>不要</b>把「云端已经能收发消息」放进自检：它依赖的环节太多（DNS、服务器、账号），
+            任何一环的临时故障都会让你的新固件被误判为坏版本而回滚，你会白白丢一次升级机会。</p>
+          </div>
+
+          <h3 id="mcu-cloud" class="mt-8 text-lg font-semibold">第五段：属性下发 → NVS → 回执闭环</h3>
+
+          <p class="mt-3 leading-relaxed">
+            这是第 2 节「下行指令落地」四条纪律的完整实现。关键结构是<b class="font-semibold text-ink">「MQTT 回调只投队列，业务任务里做重活」</b>——
+            回调所在的任务一旦被阻塞，心跳就会断，然后你会被踢下线，然后你重连、再收一遍、再卡住。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main/cloud_link.c（下行闭环）"><pre><code>#include &lt;string.h&gt;
+#include &lt;stdio.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "esp_log.h"
+#include "esp_event.h"
+#include "mqtt_client.h"
+#include "nvs.h"
+#include "cJSON.h"
+
+static const char *TAG = "cloud";
+
+/* 三元组由 menuconfig 或 NVS 提供，这里用宏示意 */
+#define DEV_PK   "a1B2c3D4e5"
+#define DEV_DN   "sensor-001"
+
+/* 物模型主题：★ 上行用 post，下行用 set，回执主题都是 ..._reply */
+#define T_PROP_POST       "/sys/" DEV_PK "/" DEV_DN "/thing/event/property/post"
+#define T_PROP_POST_REPLY "/sys/" DEV_PK "/" DEV_DN "/thing/event/property/post_reply"
+#define T_PROP_SET        "/sys/" DEV_PK "/" DEV_DN "/thing/service/property/set"
+#define T_PROP_SET_REPLY  "/sys/" DEV_PK "/" DEV_DN "/thing/service/property/set_reply"
+
+#define NVS_NS_CFG     "cfg"
+#define NVS_KEY_ALARM  "alarm_temp"      /* 存整数毫度：×1000，避免浮点存储的麻烦 */
+
+static esp_mqtt_client_handle_t s_mqtt;
+static QueueHandle_t            s_down_q;      /* 下行消息队列 */
+static float                    s_alarm_temp = 60.0f;   /* 第一优先级：固件默认值 */
+static char                     s_last_msg_id[64];      /* 幂等：最近处理过的指令 id */
+
+/* ─────────── 配置的读写：NVS 是第二优先级，云端下发是第三 ─────────── */
+
+static void cfg_load(void)
+{
+    nvs_handle_t h;
+    if (nvs_open(NVS_NS_CFG, NVS_READONLY, &amp;h) == ESP_OK) {
+        int32_t milli = 0;
+        if (nvs_get_i32(h, NVS_KEY_ALARM, &amp;milli) == ESP_OK) {
+            s_alarm_temp = milli / 1000.0f;
+            ESP_LOGI(TAG, "阈值 %.1f ℃（来自 NVS）", s_alarm_temp);
+        } else {
+            ESP_LOGI(TAG, "阈值 %.1f ℃（NVS 无记录，用固件默认值）", s_alarm_temp);
+        }
+        nvs_close(h);
+    }
+}
+
+static esp_err_t cfg_save_alarm_temp(float v)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NS_CFG, NVS_READWRITE, &amp;h);
+    if (err != ESP_OK) {
+        return err;
+    }
+    /* ★ 存整数比存 float 省事：NVS 对 float 只提供 blob 接口 */
+    err = nvs_set_i32(h, NVS_KEY_ALARM, (int32_t)(v * 1000.0f));
+    if (err == ESP_OK) {
+        err = nvs_commit(h);        /* ★★ 少了这一行，掉电后什么都不会留下 */
+    }
+    nvs_close(h);
+    if (err == ESP_OK) {
+        s_alarm_temp = v;
+    }
+    return err;
+}
+
+/* ─────────── 回执：id 原样带回，code 表明结果 ─────────── */
+
+static void send_reply(const char *topic, const char *id, int code, const char *msg)
+{
+    char payload[224];
+    int n = snprintf(payload, sizeof(payload),
+                     "{\"id\":\"%s\",\"code\":%d,\"data\":{\"result\":\"%s\"}}",
+                     id, code, (msg != NULL) ? msg : "ok");
+    if (n &lt;= 0 || n &gt;= (int)sizeof(payload)) {
+        ESP_LOGE(TAG, "回执拼装失败");
+        return;
+    }
+    /* QoS 1：回执必须送达，否则云端一直显示「下发中」 */
+    esp_mqtt_client_publish(s_mqtt, topic, payload, n, 1, 0);
+}
+
+/* ─────────── MQTT 事件回调：★ 只投队列，绝不做重活 ─────────── */
+
+typedef struct {
+    char topic[96];
+    char data[512];
+    int  len;
+} down_msg_t;
+
+static void mqtt_event_handler(void *args, esp_event_base_t base,
+                               int32_t event_id, void *event_data)
+{
+    esp_mqtt_event_handle_t e = (esp_mqtt_event_handle_t)event_data;
+
+    switch ((esp_mqtt_event_id_t)event_id) {
+    case MQTT_EVENT_CONNECTED:
+        ESP_LOGI(TAG, "MQTT 已连接");
+        xEventGroupSetBits(s_net_evt, BIT_MQTT_UP);
+        /* 只订阅真正需要的三类主题：属性设置、服务调用、上报回执 */
+        esp_mqtt_client_subscribe(e-&gt;client, T_PROP_SET, 1);
+        esp_mqtt_client_subscribe(e-&gt;client, T_PROP_POST_REPLY, 1);
+        break;
+
+    case MQTT_EVENT_DISCONNECTED:
+        ESP_LOGW(TAG, "MQTT 断开");
+        xEventGroupClearBits(s_net_evt, BIT_MQTT_UP);
+        break;
+
+    case MQTT_EVENT_DATA: {
+        down_msg_t m = {0};
+        int tl = (e-&gt;topic_len &lt; (int)sizeof(m.topic) - 1) ? e-&gt;topic_len : (int)sizeof(m.topic) - 1;
+        int dl = (e-&gt;data_len  &lt; (int)sizeof(m.data)  - 1) ? e-&gt;data_len  : (int)sizeof(m.data)  - 1;
+        memcpy(m.topic, e-&gt;topic, tl);
+        memcpy(m.data,  e-&gt;data,  dl);
+        m.len = dl;
+
+        /* ★ 回调里唯一该做的事：把消息拷进队列后立刻返回 */
+        if (xQueueSend(s_down_q, &amp;m, 0) != pdTRUE) {
+            ESP_LOGW(TAG, "下行队列已满，丢弃一条（业务任务太慢？）");
+        }
+        break;
+    }
+
+    case MQTT_EVENT_ERROR:
+        ESP_LOGE(TAG, "MQTT 错误（tls=%d, sock_errno=%d）",
+                 (int)e-&gt;error_handle-&gt;esp_tls_last_esp_err,
+                 e-&gt;error_handle-&gt;esp_transport_sock_errno);
+        break;
+
+    default:
+        break;
+    }
+}
+
+/* ─────────── 业务任务：校验 → 落盘 → 回执 ─────────── */
+
+static void down_worker(void *arg)
+{
+    down_msg_t m;
+    while (1) {
+        if (xQueueReceive(s_down_q, &amp;m, portMAX_DELAY) != pdTRUE) {
+            continue;
+        }
+
+        cJSON *root = cJSON_ParseWithLength(m.data, m.len);
+        if (root == NULL) {
+            ESP_LOGE(TAG, "JSON 解析失败，丢弃");
+            continue;
+        }
+        const cJSON *id     = cJSON_GetObjectItem(root, "id");
+        const cJSON *params = cJSON_GetObjectItem(root, "params");
+        if (!cJSON_IsString(id) || !cJSON_IsObject(params)) {
+            cJSON_Delete(root);
+            continue;
+        }
+
+        /* ① 幂等：同一条 id 处理过一次，就只回执、不再执行 */
+        if (strcmp(id-&gt;valuestring, s_last_msg_id) == 0) {
+            ESP_LOGW(TAG, "重复指令 id=%s，只回执不执行", id-&gt;valuestring);
+            send_reply(T_PROP_SET_REPLY, id-&gt;valuestring, 200, "duplicated");
+            cJSON_Delete(root);
+            continue;
+        }
+
+        int code = 200;
+        const char *msg = "ok";
+
+        /* ② 逐个属性处理：校验 → 落盘（顺序不能反） */
+        const cJSON *alarm = cJSON_GetObjectItem(params, "AlarmTemp");
+        if (cJSON_IsNumber(alarm)) {
+            double v = alarm-&gt;valuedouble;
+            if (v &lt; 0.0 || v &gt; 120.0) {
+                code = 400;
+                msg = "AlarmTemp out of range [0,120]";
+                ESP_LOGE(TAG, "拒绝越界参数：%.1f", v);
+            } else if (cfg_save_alarm_temp((float)v) != ESP_OK) {
+                code = 500;
+                msg = "nvs write failed";
+            } else {
+                ESP_LOGI(TAG, "阈值已更新为 %.1f ℃ 并已落盘", (float)v);
+            }
+        } else {
+            code = 400;
+            msg = "unknown property";
+        }
+
+        /* ③ 回执：只有落盘成功（code=200）才敢说「已生效」 */
+        send_reply(T_PROP_SET_REPLY, id-&gt;valuestring, code, msg);
+
+        if (code == 200) {
+            strncpy(s_last_msg_id, id-&gt;valuestring, sizeof(s_last_msg_id) - 1);
+        }
+        cJSON_Delete(root);          /* ★ 每个出口都要释放，否则内存慢慢漏光 */
+    }
+}
+
+void cloud_link_start(void)
+{
+    s_down_q = xQueueCreate(8, sizeof(down_msg_t));
+    xTaskCreate(down_worker, "down", 6144, NULL, 6, NULL);
+
+    esp_mqtt_client_config_t cfg = {
+        .broker.address.uri              = "mqtts://iot.example.com:8883",
+        .credentials.client_id           = DEV_DN "|securemode=3,signmethod=hmacsha1|",
+        .credentials.username            = DEV_DN "&amp;" DEV_PK,
+        .credentials.authentication.password = "由 DeviceSecret 与时间戳算出的签名",
+        .session.keepalive               = 60,          /* 秒；见例 5 的流量账 */
+        .session.last_will.topic         = "/sys/" DEV_PK "/" DEV_DN "/user/lwt",
+        .session.last_will.msg           = "{\"state\":\"offline\"}",
+        .session.last_will.qos           = 1,
+        .session.last_will.retain        = true,        /* ★ 遗嘱要 retained，否则后连的 App 看不到 */
+        .network.disable_auto_reconnect  = true,        /* ★ 重连交给我们自己的状态机（第 6 段） */
+    };
+    s_mqtt = esp_mqtt_client_init(&amp;cfg);
+    esp_mqtt_client_register_event(s_mqtt, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
+    esp_mqtt_client_start(s_mqtt);
+}</code></pre></div>
+
+          <p class="mt-3 leading-relaxed">
+            下行闭环做完，再补上行。上行唯一的额外要求是<b class="font-semibold text-ink">带单调递增的序号</b>，用于云端去重与缺口检测（第 2 节讲过原理）：
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="上行属性上报（带序号与批量落盘）"><pre><code>/* 序号：单调递增，用于云端去重与缺口检测 */
+static uint32_t s_seq;                    /* 掉电会归零，云端按「新会话」处理 */
+
+static void publish_property(float temp, float hum)
+{
+    char payload[288];
+    int n = snprintf(payload, sizeof(payload),
+        "{\"id\":\"%lu\",\"version\":\"1.0\",\"params\":{"
+        "\"CurrentTemperature\":%.1f,\"CurrentHumidity\":%.1f,"
+        "\"AlarmTemp\":%.1f,\"seq\":%lu},"
+        "\"method\":\"thing.event.property.post\"}",
+        (unsigned long)(esp_log_timestamp()),
+        temp, hum, s_alarm_temp, (unsigned long)s_seq);
+
+    if (n &lt;= 0 || n &gt;= (int)sizeof(payload)) {
+        return;
+    }
+    /* QoS 1：至少一次。重复由云端的 seq 去重兜住 */
+    int msg_id = esp_mqtt_client_publish(s_mqtt, T_PROP_POST, payload, n, 1, 0);
+    if (msg_id &lt; 0) {
+        ESP_LOGW(TAG, "上报失败，进本地缓存等重连");   /* 见第 6 段的环形缓冲 */
+        cache_push(s_seq, temp, hum);
+    }
+    s_seq++;
+
+    /* ★ 每 100 条才落一次盘：例 2 算过，每条都写会把 Flash 写坏 */
+    if ((s_seq % 100) == 0) {
+        nvs_handle_t h;
+        if (nvs_open("ota", NVS_READWRITE, &amp;h) == ESP_OK) {
+            nvs_set_u32(h, "seq", s_seq);
+            nvs_commit(h);
+            nvs_close(h);
+        }
+    }
+}
+
+/* 处理 post_reply：云端告诉你「这条收到了 / 这条不合法」 */
+static void handle_post_reply(const cJSON *root)
+{
+    const cJSON *code = cJSON_GetObjectItem(root, "code");
+    if (cJSON_IsNumber(code) &amp;&amp; code-&gt;valueint != 200) {
+        ESP_LOGE(TAG, "云端拒收上报：code=%d（检查物模型标识符拼写与数据类型）",
+                 code-&gt;valueint);
+    }
+}</code></pre></div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">调试下行链路的顺序</div>
+            <p>下行不工作时，按这个顺序查，比乱翻日志快得多：</p>
+            <ol class="mt-2 list-decimal space-y-1.5 pl-5">
+              <li><b>订阅成功了吗</b>——<code class="icode">MQTT_EVENT_SUBSCRIBED</code> 的 <code class="icode">msg_id</code> 与你订阅时返回的一致，且 granted QoS 不是 0x80（0x80 表示平台拒绝了订阅，通常是主题没权限）。</li>
+              <li><b>主题拼对了吗</b>——把设备日志里打印的订阅主题与平台文档里的模板逐字比对，<b>特别注意 DeviceName 里的下划线、连字符和大小写</b>。一个字符错，消息永远不来，而且没有任何报错。</li>
+              <li><b>消息到了吗</b>——在回调里加一条 <code class="icode">ESP_LOGI</code> 打印 <code class="icode">topic</code> 与 <code class="icode">data</code>。如果这行日志都没有，问题在订阅或平台侧；如果有了但业务没生效，问题在队列或解析。</li>
+              <li><b>回执发出去了吗</b>——平台侧看到「已下发」但一直不「已执行」，通常是回执主题写错、或者 <code class="icode">id</code> 没有原样带回。</li>
+            </ol>
+          </div>
+
+          <h3 id="mcu-reconnect" class="mt-8 text-lg font-semibold">第六段：重连状态机（含退避、校时与本地缓存）</h3>
+
+          <p class="mt-3 leading-relaxed">
+            最后一段把所有东西串起来。它的三个职责：<b class="font-semibold text-ink">把连接状态显式化、按指数退避重连、在联网之前先校时</b>。
+            另外它管着一个环形缓冲——断网时数据进缓冲，重连后补发。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main/net_state.c"><pre><code>#include &lt;string.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;time.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "esp_log.h"
+#include "esp_random.h"
+#include "esp_sntp.h"
+#include "esp_wifi.h"
+#include "esp_event.h"
+#include "mqtt_client.h"
+
+static const char *TAG = "net";
+
+/* 事件位：由 WiFi / MQTT 的事件回调设置，状态机只读它们 */
+EventGroupHandle_t s_net_evt;
+#define BIT_WIFI_GOT_IP (1 &lt;&lt; 0)
+#define BIT_MQTT_UP     (1 &lt;&lt; 1)
+
+typedef enum {
+    S_INIT, S_WIFI_WAIT, S_MQTT_CONN, S_SUBSCRIBE, S_ONLINE
+} net_state_t;
+
+static const char *state_name(net_state_t s)
+{
+    switch (s) {
+    case S_INIT:      return "INIT";
+    case S_WIFI_WAIT: return "WIFI_WAIT";
+    case S_MQTT_CONN: return "MQTT_CONN";
+    case S_SUBSCRIBE: return "SUBSCRIBE";
+    case S_ONLINE:    return "ONLINE";
+    default:          return "?";
+    }
+}
+
+/* ─────────── 指数退避 + 抖动：避免整批设备同频重连 ─────────── */
+
+static void backoff_sleep(uint32_t *backoff_ms)
+{
+    uint32_t jitter = esp_random() % 1000;          /* 0~999 ms 随机抖动 */
+    ESP_LOGW(TAG, "退避 %u ms（含抖动 %u ms）后重连", (unsigned)*backoff_ms, (unsigned)jitter);
+    vTaskDelay(pdMS_TO_TICKS(*backoff_ms + jitter));
+    *backoff_ms *= 2;                               /* 1→2→4→… */
+    if (*backoff_ms &gt; 60000) {
+        *backoff_ms = 60000;                        /* 封顶 60 秒 */
+    }
+}
+
+/* ─────────── SNTP 校时：★ 必须早于任何 TLS 交互 ─────────── */
+
+static bool sntp_sync(uint32_t timeout_ms)
+{
+    esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);   /* 轮询模式，省电 */
+    esp_sntp_setservername(0, "pool.ntp.org");
+    esp_sntp_setservername(1, "ntp.aliyun.com");       /* 备用服务器，国内更稳 */
+    esp_sntp_init();
+
+    TickType_t t0 = xTaskGetTickCount();
+    while (sntp_get_sync_status() != SNTP_SYNC_STATUS_COMPLETED) {
+        if ((xTaskGetTickCount() - t0) * portTICK_PERIOD_MS &gt; timeout_ms) {
+            ESP_LOGE(TAG, "校时超时：TLS 证书校验很可能失败");
+            return false;
+        }
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+    /* 时区只影响「给人看」的时间；时间戳本身始终是 UTC 秒 */
+    setenv("TZ", "CST-8", 1);
+    tzset();
+
+    time_t now = time(NULL);
+    struct tm tm_utc;
+    gmtime_r(&amp;now, &amp;tm_utc);
+    ESP_LOGI(TAG, "校时完成，UTC = %04d-%02d-%02d %02d:%02d:%02d",
+             tm_utc.tm_year + 1900, tm_utc.tm_mon + 1, tm_utc.tm_mday,
+             tm_utc.tm_hour, tm_utc.tm_min, tm_utc.tm_sec);
+    return true;
+}
+
+/* ─────────── 本地缓存：固定深度环形缓冲，满了覆盖最老的 ─────────── */
+
+#define CACHE_DEPTH 64
+typedef struct { uint32_t seq; float temp; float hum; } sample_t;
+
+static sample_t s_cache[CACHE_DEPTH];
+static int      s_count;      /* 当前条数 */
+static uint32_t s_drop;       /* 被覆盖掉的条数，用于上报「有缺口」 */
+
+void cache_push(uint32_t seq, float temp, float hum)
+{
+    if (s_count &lt; CACHE_DEPTH) {
+        s_cache[s_count].seq = seq;
+        s_cache[s_count].temp = temp;
+        s_cache[s_count].hum = hum;
+        s_count++;
+    } else {
+        memmove(&amp;s_cache[0], &amp;s_cache[1], sizeof(sample_t) * (CACHE_DEPTH - 1));
+        s_cache[CACHE_DEPTH - 1].seq = seq;
+        s_cache[CACHE_DEPTH - 1].temp = temp;
+        s_cache[CACHE_DEPTH - 1].hum = hum;
+        s_drop++;
+        ESP_LOGW(TAG, "缓存已满，覆盖最老一条（累计丢 %u 条）", (unsigned)s_drop);
+    }
+}
+
+/* 重连后补发：按 seq 顺序发出去，发完清空 */
+static void cache_flush(void)
+{
+    for (int i = 0; i &lt; s_count; i++) {
+        publish_sample(s_cache[i].seq, s_cache[i].temp, s_cache[i].hum);
+        vTaskDelay(pdMS_TO_TICKS(20));      /* 别一次灌爆服务器 */
+    }
+    if (s_count &gt; 0) {
+        ESP_LOGI(TAG, "补发完成：%d 条（其中因缓存满而丢失过 %u 条）",
+                 s_count, (unsigned)s_drop);
+    }
+    s_count = 0;
+    s_drop  = 0;
+}
+
+/* ─────────── 状态机主体 ─────────── */
+
+static void net_state_task(void *arg)
+{
+    net_state_t st       = S_INIT;
+    uint32_t    backoff  = 1000;
+    TickType_t  online_t = 0;
+
+    for (;;) {
+        switch (st) {
+        case S_INIT:
+            s_net_evt = xEventGroupCreate();
+            wifi_start_sta();                 /* 你的 WiFi 初始化函数 */
+            st = S_WIFI_WAIT;
+            break;
+
+        case S_WIFI_WAIT: {
+            /* ★ 等位而不是裸轮询：不占 CPU，也能设超时 */
+            EventBits_t b = xEventGroupWaitBits(s_net_evt, BIT_WIFI_GOT_IP,
+                                                pdFALSE, pdTRUE,
+                                                pdMS_TO_TICKS(30000));
+            if ((b &amp; BIT_WIFI_GOT_IP) != 0) {
+                ESP_LOGI(TAG, "WiFi 已连接");
+                if (!sntp_sync(15000)) {
+                    ESP_LOGW(TAG, "校时失败，先继续（HTTPS 可能失败）");
+                }
+                st = S_MQTT_CONN;
+            } else {
+                backoff_sleep(&amp;backoff);      /* WiFi 都没上来，退避后继续等 */
+            }
+            break;
+        }
+
+        case S_MQTT_CONN: {
+            ESP_LOGI(TAG, "发起 MQTT 连接");
+            esp_mqtt_client_reconnect(s_mqtt);      /* 自动重连已关，由我们驱动 */
+
+            EventBits_t b = xEventGroupWaitBits(s_net_evt, BIT_MQTT_UP,
+                                                pdFALSE, pdTRUE,
+                                                pdMS_TO_TICKS(15000));
+            if ((b &amp; BIT_MQTT_UP) != 0) {
+                st = S_SUBSCRIBE;
+            } else {
+                backoff_sleep(&amp;backoff);
+                /* WiFi 掉了就回到更前面那个状态，不要在这里盲目重连 MQTT */
+                if ((xEventGroupGetBits(s_net_evt) &amp; BIT_WIFI_GOT_IP) == 0) {
+                    st = S_WIFI_WAIT;
+                }
+            }
+            break;
+        }
+
+        case S_SUBSCRIBE: {
+            /* 订阅动作在 MQTT_EVENT_CONNECTED 回调里做（见第 5 段）。
+             * 这里只确认「订阅请求已经发出」，然后进入在线态。 */
+            online_t = xTaskGetTickCount();
+            ESP_LOGI(TAG, "MQTT 在线，开始补发缓存");
+            cache_flush();
+            st = S_ONLINE;
+            break;
+        }
+
+        case S_ONLINE: {
+            EventBits_t b = xEventGroupGetBits(s_net_evt);
+            if ((b &amp; BIT_MQTT_UP) == 0) {
+                ESP_LOGW(TAG, "检测到 MQTT 断开");
+                st = ((b &amp; BIT_WIFI_GOT_IP) != 0) ? S_MQTT_CONN : S_WIFI_WAIT;
+                break;
+            }
+            /* ★ 稳定在线满 60 秒，才把退避重置回 1 秒。
+             *   否则「连上秒断」的场景永远不会把退避加上去。 */
+            if (backoff != 1000 &amp;&amp;
+                (xTaskGetTickCount() - online_t) * portTICK_PERIOD_MS &gt; 60000) {
+                ESP_LOGI(TAG, "已稳定在线 60 秒，退避重置");
+                backoff = 1000;
+            }
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            break;
+        }
+        }
+    }
+}
+
+void net_state_start(void)
+{
+    xTaskCreate(net_state_task, "net", 4096, NULL, 4, NULL);
+}
+
+/* 说明：实际工程里还应加一个「采样任务」——它无条件把数据写进
+ * cache（或者直接 publish），与网络状态完全解耦。
+ * ★ 采集绝不应该依赖网络：网络断了设备仍然要测量、要报警。 */</code></pre></div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">把六段代码串成一次完整的发布</div>
+            <p>现在回看整篇的流程，你可以把它压缩成一份操作清单：</p>
+            <ol class="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>按第 1 段改分区表与 <code class="icode">sdkconfig.defaults</code>（<b>别忘了打开回滚开关</b>），<code class="icode">idf.py erase-flash flash</code>。</li>
+              <li>把服务器根证书放进 <code class="icode">certs/</code>，并在 <code class="icode">main/CMakeLists.txt</code> 里 <code class="icode">EMBED_TXTFILES</code>。</li>
+              <li>用第 4 段的 <code class="icode">app_print_info()</code> 确认设备跑在 <code class="icode">ota_0</code>、版本是 v1.0、状态是 VALID（或 UNDEFINED）。</li>
+              <li>把 <code class="icode">CONFIG_APP_PROJECT_VER</code> 改成 <code class="icode">1.1.0</code>，编译出新固件，上传到 HTTPS 服务器。</li>
+              <li>触发第 2 段的 <code class="icode">ota_task</code>，观察进度日志 → 重启 → 第 4 段打印「固件版本 1.1.0 / 运行分区 ota_1」→ 自检通过 → 标记 VALID。</li>
+              <li>故意把 v1.2.0 的自检写成「必然失败」，验证回滚：应该看到它重启回 <code class="icode">ota_0</code> 的 v1.1.0，而不是卡死。</li>
+              <li>升级过程中拔掉网线、甚至直接断电，验证续传与不断砖。这三件事都验证过，才算真的会做 OTA。</li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="mt-14">
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误解与坑</h2>
+
+          <p class="mt-4 leading-relaxed">
+            下面 10 条是这类项目里<b class="font-semibold text-ink">出现频率最高、且现象最容易被误判</b>的问题。
+            每一条都按「现象 → 为什么错 → 正确做法」写，你可以把它当排查清单用：出问题先来这里对现象。
+          </p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">坑 1：升级跑完了、设备也重启了，版本号却还是旧的</div>
+            <p><b>现象：</b>日志里能看到完整的下载进度、校验通过、重启；重启后 <code class="icode">app_print_info()</code> 打出来的版本还是 v1.0，运行分区还是 <code class="icode">ota_0</code>。
+            再升一次，现象完全一样。</p>
+            <p class="mt-2"><b>为什么错：</b>「把固件写进 Flash」和「让设备从新固件启动」是两件独立的事。前者是 <code class="icode">esp_ota_write()</code>，
+            后者是写 <code class="icode">otadata</code>。只要后者没发生（忘了调 <code class="icode">esp_ota_set_boot_partition()</code>；或者用了 <code class="icode">esp_https_ota_begin/perfom</code>
+            却在 <code class="icode">finish()</code> 之前就自己重启了），设备就会老老实实从原分区启动——它完全不知道你写了别的地方。</p>
+            <p class="mt-2"><b>正确做法：</b>先查 otadata 到底指向谁，别改代码猜。用 <code class="icode">otatool.py --port COM5 read_otadata</code> 看两个扇区的序号与目标槽；
+            或者在设备上打印 <code class="icode">esp_ota_get_boot_partition()-&gt;label</code> 与 <code class="icode">esp_ota_get_running_partition()-&gt;label</code>。
+            若「写入的分区」与「get_next_update_partition 返回的分区」不是同一个，说明你自己算错了槽——<b>永远用 API 取目标分区，不要手写死分区名</b>。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">坑 2：改完分区表，烧进去直接起不来（或升级必失败）</div>
+            <p><b>现象：</b>改完 <code class="icode">partitions.csv</code>，<code class="icode">idf.py flash</code> 显示成功，但串口只有一行乱码或者
+            <code class="icode">invalid header: 0xffffffff</code> 反复刷屏；另一种是设备能启动，但一升级就报 <code class="icode">ESP_ERR_NOT_FOUND</code> 或 <code class="icode">ESP_ERR_OTA_SELECT_INFO_INVALID</code>。</p>
+            <p class="mt-2"><b>为什么错：</b>分区表是<b>硬件层面的事实</b>，改它相当于换了房子的门牌号，而旧 <code class="icode">otadata</code> 里还记着老门牌。
+            具体有三种典型错法：① 分区表改了但没全片擦除，旧 otadata 指向一个偏移已被挪走的分区；
+            ② 两个 app 槽大小不等（比如 <code class="icode">ota_0</code> 0x180000、<code class="icode">ota_1</code> 0x100000），固件一旦长大到中间尺寸就出现「奇数版能升、偶数版装不下」；
+            ③ 分区偏移写重叠了（手改 CSV 时改了大小忘了改下一个偏移），两个分区抢同一段 Flash。</p>
+            <p class="mt-2"><b>正确做法：</b>① 换分区表后第一件事永远是 <code class="icode">idf.py erase-flash</code>，把 otadata 一起清掉；
+            ② 两个 app 槽写成完全相同的 size，并且偏移按 <code class="icode">前一个偏移 + 前一个大小</code> 逐行推算，写完自己把整张表加一遍确认没重叠、没超出 Flash 末尾；
+            ③ 留 factory 分区之前想清楚：它省不出来容量，而且<b>不参与回滚</b>。本文的布局（无 factory、双 1.5 MB 槽）就是为了避开这些。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">坑 3：镜像校验通过，但一启动就崩，设备反复重启</div>
+            <p><b>现象：</b>升级过程一切正常，重启后设备在启动几秒内崩溃（或者卡死在某个初始化里），复位后再崩，形成重启循环。运气不好时，这个循环要等你到现场手动清 otadata 才能停下来。</p>
+            <p class="mt-2"><b>为什么错：</b>镜像校验只能证明「这是一个结构完整、签名正确的 app 镜像」，<b>它不能证明这个镜像在你的硬件上跑得起来</b>。
+            崩溃可能是某个外设驱动初始化失败、某个缓冲区开太大把内存吃光、某个只在新批次模组上出现的时序问题。
+            更糟的是：如果新固件启动后立刻调用 <code class="icode">esp_ota_mark_app_valid_cancel_rollback()</code>（「先标记有效，再慢慢做正事」），
+            你就<b>永久失去了回滚机会</b>——设备只能在崩溃循环里等你。</p>
+            <p class="mt-2"><b>正确做法：</b>把 <code class="icode">mark_app_valid</code> 放在<b>自检通过之后</b>，绝不能放在 <code class="icode">app_main()</code> 开头图省事。
+            自检要覆盖「设备真的能干活」的最小集合（见第 4 节的清单），而且要在 5 秒内做完。
+            另外，回滚只有在打开了 <code class="icode">CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE</code> 时才存在——不打开，<code class="icode">mark_app_valid</code> 只是走个形式，谁也不会替你回退。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">坑 4：某天开始，全部设备的 OTA 同时失败</div>
+            <p><b>现象：</b>代码一行没改、服务器也没动，昨天还好的升级今天全部失败。串口日志里是 <code class="icode">mbedtls: x509_crt_verify failed</code> 或
+            <code class="icode">esp-tls: Failed to verify peer certificate</code>。更奇怪的是手机浏览器访问同一个地址完全正常。</p>
+            <p class="mt-2"><b>为什么错：</b>你在固件里嵌的很可能是<b>站点证书或中间证书</b>，而不是根证书。这类证书有效期很短（Let's Encrypt 的站点证书只有 90 天，
+            中间证书也会随 CA 策略轮换）。证书一过期，设备端校验就失败——浏览器会自动去下载新的中间证书，所以它「看不见」这个问题。
+            另一个同样常见的原因：<b>设备时间不对</b>。证书校验会检查「当前时间是否在有效期内」，而 ESP32 掉电后时间回到起点，
+            于是「证书有效」这件事在设备看来永远不成立。</p>
+            <p class="mt-2"><b>正确做法：</b>① 嵌<b>根证书</b>（有效期 10~25 年），或者直接用 <code class="icode">esp_crt_bundle_attach</code> 挂证书包；
+            ② 联网后先 SNTP 校时，再发起任何 TLS 交互（第 6 段的顺序就是这个原因）；
+            ③ 把「证书到期日」写进你的运维日历——用根证书时它是几年后的事，但你得知道是哪一天。
+            <b>千万不要因为「换了证书就好」而改成不校验</b>，那等于给攻击者留了后门。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 5：升级期间设备「失联」，云端显示离线、下发的指令全丢</div>
+            <p><b>现象：</b>升级一启动，平台就判设备离线；升级期间下发的指令全部没有回执；升级完重连后，平台上的离线告警还要响一次。
+            慢的链路上这个现象尤其明显——升级耗 20 分钟，设备就「离线」20 分钟。</p>
+            <p class="mt-2"><b>为什么错：</b>MQTT 的心跳是靠<b>周期性往连接上写 PINGREQ</b> 维持的。如果你的 OTA 在一个优先级更高、又是阻塞式的任务里跑
+            （或者在 MQTT 回调里做重活），MQTT 任务就抢不到 CPU，心跳发不出去；服务器在 1.5 × KeepAlive 之后就判定你掉线并断开连接。
+            设备自己倒是没发现（因为它压根没在收发），于是「云端认为你死了，你认为自己活着」。</p>
+            <p class="mt-2"><b>正确做法：</b>① OTA 用<b>独立任务 + 低优先级</b>（本文第 2 段用优先级 3，采集用 5），并在 <code class="icode">perform</code> 循环里
+            <code class="icode">vTaskDelay</code> 让出 CPU；② <code class="icode">perform</code> 循环本身就是最好的「让出点」，因为每读一块它就返回一次；
+            ③ 长升级可以在开始时给云端发一条「升级中」的状态，让平台侧知道这是预期行为而不是故障；④ 如果是极慢的窄带链路，
+            考虑升级前主动断开心跳、升级完成后重连——但这会让「升级期间不能下发指令」成为设计约束，要写进接口文档。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 6：以为开了回滚，其实没有；或者忘了表态，第二次 OTA 永远起不来</div>
+            <p><b>现象：</b>两种表现。A：新固件崩了，设备在崩溃循环里不出来——「回滚」根本没发生。
+            B：第一次 OTA 非常成功，但之后每次 OTA 都在 <code class="icode">esp_ota_begin()</code> 就失败，错误码
+            <code class="icode">ESP_ERR_OTA_ROLLBACK_INVALID_STATE</code>，重启也没用。</p>
+            <p class="mt-2"><b>为什么错：</b>A 的原因是 <code class="icode">CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE</code> <b>默认是关的</b>。
+            不开它的时候，NEW 与 PENDING_VERIFY 这两个状态根本不会被使用，<code class="icode">mark_app_valid</code> 只是「可选动作」，
+            bootloader 不会替你回退。B 的原因是：新固件启动后处于 PENDING_VERIFY，而你忘了调用
+            <code class="icode">esp_ota_mark_app_valid_cancel_rollback()</code>；处于这个状态的应用<b>不允许开始新的 OTA</b>，必须先把状态表态掉。</p>
+            <p class="mt-2"><b>正确做法：</b>① 在 <code class="icode">sdkconfig.defaults</code> 里显式写上 <code class="icode">CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y</code>，
+            并在启动时打印分区状态确认它真的生效（本文第 4 段的 <code class="icode">app_print_info()</code>）；
+            ② 自检无论成功失败都要表态：成功 <code class="icode">mark_app_valid_cancel_rollback()</code>，失败 <code class="icode">mark_app_invalid_rollback_and_reboot()</code>；
+            ③ 如果你接手了一个「B 症状」的设备，手工救法是让它启动时检查到 PENDING_VERIFY 后立刻标记 VALID（重启一次即可回到可用状态）。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 7：固件地址用了 http，或者「反正能连上」跳过了证书校验</div>
+            <p><b>现象：</b>开发阶段一切正常，因为没人攻击你。上线后可能出现：设备装上了你没发布过的固件、设备开始往陌生地址发数据、
+            或者只有位于某些网络环境的设备出现异常行为。</p>
+            <p class="mt-2"><b>为什么错：</b>OTA 下载的内容<b>会直接变成设备上运行的代码</b>，这是整个系统里权限最高的一条通道。
+            明文 HTTP 意味着链路上任何人改几个字节就能改变设备行为；不校验证书意味着任何人可以冒充你的升级服务器。
+            这两种写法在开发者眼里是「省了两行配置」，在攻击者眼里是「拿到了你这批设备的 root」。</p>
+            <p class="mt-2"><b>正确做法：</b>① 固件地址必须是 HTTPS；② 必须给 <code class="icode">cert_pem</code> 或 <code class="icode">crt_bundle_attach</code> 其中之一；
+            ③ 在 <code class="icode">sdkconfig</code> 里设 <code class="icode">CONFIG_OTA_ALLOW_HTTP=n</code>，让「图省事改成 http」在编译期就失败；
+            ④ 条件允许时再叠加镜像签名（<code class="icode">CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT</code>），这样即使服务器被攻陷也刷不进未签名的固件。
+            <b>「跳过校验」只在一种情况下可以接受：你根本没打算让这个固件上生产。</b></p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 8：malloc 一整个固件；或者把两种写入 API 混着用</div>
+            <p><b>现象：</b>小固件（300 KB）时一切正常，固件长到 1 MB 以上后开始随机失败：<code class="icode">ESP_ERR_NO_MEM</code>、
+            分配成功但升级到一半网络断、或者校验总是失败。</p>
+            <p class="mt-2"><b>为什么错：</b>ESP32 内部 SRAM 只有 520 KB，跑起 WiFi + MQTT + TLS 之后可用堆通常只剩 150~250 KB（典型值），
+            1.2 MB 的固件根本放不下（例 7 算过，差 6 倍）。而「先 malloc 整包再写」在开发期之所以看不出问题，是因为你的测试固件小。
+            另一种隐蔽错误是<b>混用 <code class="icode">esp_ota_write()</code> 与 <code class="icode">esp_ota_write_with_offset()</code></b>——
+            官方明确不建议混用；前者要求严格顺序，后者用于乱序补写，混着用会让 Flash 里的内容出现「空洞」，而 <code class="icode">esp_ota_end()</code> 只在最后才发现。</p>
+            <p class="mt-2"><b>正确做法：</b>永远<b>分块流式</b>写：4 KB 缓冲 + <code class="icode">esp_ota_write</code>（或直接用 <code class="icode">esp_https_ota</code>，它内部就是这么做的）。
+            数据包真会乱序时（UDP、MQTT 分片），要么在应用层按序重组后再顺序写，要么全程使用 <code class="icode">esp_ota_write_with_offset()</code>——
+            二选一，别混。顺手把 <code class="icode">CONFIG_MBEDTLS_SSL_IN_CONTENT_LEN</code> 从 16 KB 降到 4 KB，还能再省 12 KB。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 9：三元组共用、硬编码在源码里，或者把 DeviceSecret 当「密码」发给所有人</div>
+            <p><b>现象：</b>几台设备轮流上下线、互相把对方顶掉；平台上有设备上报了明显不属于它的数据；
+            或者退出登录的设备还能继续发数据。开发阶段最典型的现象是：<b>两台设备同时烧同一份固件，只能有一台在线。</b></p>
+            <p class="mt-2"><b>为什么错：</b>ProductKey + DeviceName 是设备的「身份」，同一个身份只允许一条连接——
+            后连的把先连的踢掉，这是平台设计的正常行为，不是 bug。三元组写死在源码里还会带来第二个问题：
+            你的固件一旦外流（客户手上、GitHub 上、二手模组里），这套身份就永久泄露了，对方可以冒充你的设备发数据、也能收到你的下行指令。</p>
+            <p class="mt-2"><b>正确做法：</b>① 一机一密：每台设备一套自己的三元组，<b>烧写时注入而不是编译进源码</b>（本文第 5 段用宏只是为了示意，
+            实际工程应把它放进 NVS，由产线工具写入）；② 量产用平台的「一型一密」能力：固件只带产品级密钥，设备首次联网时向平台换取自己的 DeviceSecret，
+            这样固件可以通用而身份仍然唯一；③ 更安全一档：把密钥放进 NVS 并打开 <b>Flash 加密</b>，再叠加 Secure Boot，
+            这样即使有人把 Flash 读出来也拿不到密钥（第 2 节的三级方案）；④ 平台上给每台设备配最小权限的 ACL，别用产品级管理员账号。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">坑 10：QoS 1 重复下发被重复执行；NVS 被当成高频数据库写</div>
+            <p><b>现象：</b>两种「不像 bug 的 bug」。A：同一条指令在设备上执行了两次——「开阀 30 秒」变成了 60 秒，或者累计流量被清零两遍。
+            B：设备用了一两年后开始出现配置丢失、<code class="icode">nvs_set</code> 报 <code class="icode">ESP_ERR_NVS_NOT_ENOUGH_SPACE</code>，甚至
+            <code class="icode">nvs_open</code> 失败导致整机起不来。</p>
+            <p class="mt-2"><b>为什么错：</b>A 是 MQTT 的正常语义：QoS 1 承诺的是「至少一次」，重传是它的正常工作方式，不是异常。
+            B 是 Flash 的物理特性：NVS 每次写入都会消耗存储条目，写满一个扇区就要擦一次，而 Flash 的擦写寿命是有限的（例 2 算过，
+            每秒写一次的话，保守口径下 87 天就能写坏）。很多人把 NVS 当成「掉电不丢的变量」来用，于是它就成了整个系统里最先坏掉的部件。</p>
+            <p class="mt-2"><b>正确做法：</b>① 指令处理必须<b>幂等</b>：记住最近处理过的 <code class="icode">id</code>（或按业务语义做去重，比如「清零」用目标值判断而不是增量），
+            重复的只回执不执行；② 高频数据（消息序号、实时统计）先放 RAM，按「每 N 条」或「每 N 分钟」批量落盘，掉电最多丢一小段；
+            ③ 别把 NVS 分区划得太小（本文用 24 KB），也别在里面存大块数据（大块数据用 SPIFFS）；④ 真需要极高频写入时，
+            考虑外挂 FRAM/EEPROM，或者干脆接受「掉电丢最近几条」——对绝大多数采集场景，这比写坏 Flash 划算得多。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">把这 10 条压缩成一句口诀</div>
+            <p><b>「写另一个槽、校验完再改方向盘、重启后要表态、传输要认证书、重活别挡心跳、密钥别硬编码、指令要幂等、Flash 别当内存用。」</b>
+            这八件事做到，你在这一篇里会遇到的问题基本都能避开。</p>
+          </div>
+        </section>
+
+        <section class="mt-14">
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自检</h2>
+
+          <p class="mt-4 leading-relaxed">
+            这一篇讲的是「设备连上云之后的两件工程事」：<b class="font-semibold text-ink">把设备接入一个云平台</b>，以及
+            <b class="font-semibold text-ink">让它能远程升级自己</b>。前者考的是你的接口纪律（身份、主题、幂等、回执），
+            后者考的是你对 Flash 布局与启动流程的理解（分区表、otadata、回滚语义）。
+            这两件事有一个共同点：<b>做对了没人夸你，做错了要到现场才能发现</b>——所以下面这 8 道题，请先自己答一遍再看答案。
+          </p>
+
+          <p class="mt-6 font-semibold text-ink">要点清单</p>
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><b>三元组 = 设备的身份证</b>：ProductKey 是一型、DeviceName 是一机、DeviceSecret 是密钥。同一个三元组只允许一条连接，后连的会把先连的顶掉。</li>
+            <li><b>一机一密 vs 一型一密</b>：前者每台设备一套密钥（必须产线注入、不能编译进固件），后者固件只带产品级密钥、首连时换取自己的密钥（固件可通用）。</li>
+            <li><b>物模型是设备与云端的合同</b>：属性（可读写状态）、服务（可被调用）、事件（主动上报）三类，分别映射到不同的 MQTT 主题。</li>
+            <li><b>主题格式要背下来</b>：上行 <code class="icode">/sys/{pk}/{dn}/thing/event/property/post</code>，下行 <code class="icode">/sys/{pk}/{dn}/thing/service/property/set</code>，回执主题是加 <code class="icode">_reply</code> 后缀。</li>
+            <li><b>QoS 决定了「谁保证」</b>：QoS 0 最多一次、QoS 1 至少一次（会重复，必须幂等）、QoS 2 恰好一次（代价最大）。控制类指令用 QoS 1。</li>
+            <li><b>心跳与离线判定</b>：设备每 KeepAlive 秒发一次 PINGREQ，服务器在 1.5 × KeepAlive 无响应后判离线。心跳越小离线判定越快，流量越多。</li>
+            <li><b>下行落地的四条纪律</b>：回调只投队列、先校验越界再拒绝（code=400）、<code class="icode">nvs_set</code> 后必须 <code class="icode">nvs_commit</code> 才回 200、按 <code class="icode">id</code> 去重保证幂等。</li>
+            <li><b>断线不丢数据</b>：RAM 环形缓冲 + 单调递增 seq + 云端按 seq 去重与缺口检测；退避重连要加随机抖动，避免整批设备同频冲击。</li>
+            <li><b>设备时间必须先校准</b>：TLS 证书校验依赖系统时间，SNTP 同步要在任何 HTTPS 交互之前完成。</li>
+            <li><b>分区表就是房子的门牌号</b>：<code class="icode">factory</code>（出厂）、<code class="icode">ota_0</code> / <code class="icode">ota_1</code>（两个等大的应用槽）、<code class="icode">otadata</code>（记当前启动槽）、<code class="icode">nvs</code>（配置）、<code class="icode">phy_init</code>（射频校准数据）。</li>
+            <li><b>4 MB Flash 要精打细算</b>：固定开销 68 KiB，两槽平分剩下的部分；想让固件有 1.2 MB 的空间，每槽至少要 1,984 KB（31 × 64 KB）。</li>
+            <li><b>双分区交替升级</b>：跑在 ota_0 时把新固件写进 ota_1，校验通过后改 otadata 指向 ota_1，重启即从新固件运行；下次反过来写 ota_0。<b>任何时候都有一个完整的旧固件在另一个槽里</b>。</li>
+            <li><b>otadata 是两个扇区的乒乓结构</b>，靠 ota_seq 序号判断谁更新；清空它等于「恢复出厂启动分区」。</li>
+            <li><b>两套 OTA API 不要混用</b>：<code class="icode">esp_https_ota()</code> 一站式（含 TLS、断点、进度事件），手动 <code class="icode">esp_ota_*</code> 灵活（能自己控制数据来源）。后者不能对当前运行分区下手（<code class="icode">ESP_ERR_OTA_PARTITION_CONFLICT</code>）。</li>
+            <li><b>证书校验用根证书</b>：站点证书 90 天就换，根证书有效期 10~25 年；跳过校验等于把固件通道交给攻击者。</li>
+            <li><b>镜像签名与 Flash 加密分工不同</b>：签名保证「只有你签过的固件能运行」，加密保证「别人读不出你的 Flash 内容」。两者都用 eFuse 存密钥，一次性、不可逆。</li>
+            <li><b>回滚要显式打开</b>：<code class="icode">CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y</code>。默认关闭时 NEW / PENDING_VERIFY 两个状态根本不会出现，<code class="icode">mark_app_valid</code> 只是走形式。</li>
+            <li><b>新固件只有一次启动成功的机会</b>：启动后若既没标 VALID 也没标 INVALID（崩溃、掉电、复位），下次启动 PENDING_VERIFY 会变成 ABORTED，bootloader 自动回退到上一个能跑的版本。</li>
+            <li><b>只有 OTA 分区能回滚</b>，factory 分区不参与回滚——这是「要不要留 factory」的关键决策依据。</li>
+            <li><b>分块流式写入是硬要求</b>：1.2 MB 固件配 200 KB 可用堆，必须 4 KB 一块地写，绝不能 malloc 整包。</li>
+            <li><b>升级时不要做重活</b>：OTA 放独立低优先级任务，让出 CPU 给心跳；否则云端会在升级中途判你离线。</li>
+            <li><b>升级完必须确认版本</b>：打印 <code class="icode">esp_app_get_description()-&gt;version</code> 与 <code class="icode">esp_ota_get_running_partition()-&gt;label</code>，这两行日志是现场排查的第一手证据。</li>
+          </ul>
+
+          <p class="mt-6 font-semibold text-ink">自测题（先自己答，再看答案）</p>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>三元组的三项里，哪一项<b>绝对不能</b>编译进固件源码？为什么？量产时应该怎么处理？</li>
+            <li>一块 4 MB Flash 的 ESP32，按本文的双槽方案布置分区表，理论上「每个槽最大能放多大的固件」？请写出推算过程（保留到 KB 的整数倍）。</li>
+            <li>otadata 里记的下次启动分区是 <code class="icode">ota_1</code>，但 ota_1 里的镜像其实是坏的（或根本没写完整）。设备上电后会怎样？会不会变砖？</li>
+            <li>升级失败了，错误码是 <code class="icode">ESP_ERR_OTA_ROLLBACK_INVALID_STATE</code>，出现在 <code class="icode">esp_ota_begin()</code>。最可能的原因是什么？怎么修？</li>
+            <li>为什么 HTTPS OTA 要嵌<b>根证书</b>，而不是嵌你服务器正在用的那张站点证书？换成后者会发生什么事？</li>
+            <li>升级过程中，在「新固件已经写进 ota_1、但还没改 otadata」这一瞬间突然断电。设备重新上电会跑哪个版本？为什么这被称为「安全更新」？</li>
+            <li>一个 1.2 MB 的固件，设备侧链路实测 1 KB/s。粗算升级需要多久？在这段时间里，设备「不能做」和「还能做」的事情分别是什么？</li>
+            <li>云端因为网络重传，把同一条「设置阈值 = 80 ℃」的指令下发了两次，<code class="icode">id</code> 完全相同。设备应该怎么处理？如果两次的 <code class="icode">id</code> 不同、但内容相同呢？</li>
+          </ol>
+
+          <p class="mt-6 font-semibold text-ink">参考答案</p>
+          <p class="mt-3"><b>第 1 题：</b><b>DeviceSecret</b>。前两项（ProductKey、DeviceName）是「身份」，被别人知道不会造成滥用（顶多知道你有这个型号和这么多设备）；
+            但 DeviceSecret 是用来算登录签名的<b>密钥</b>，拿到它就能冒充你的设备连接平台、收发你的数据、接收你的下行指令。
+            固件会外流（出货给客户、被抄板、二手模组），所以密钥必须<b>烧写时注入</b>——存进 NVS（配合 Flash 加密则读取也受限），
+            而不是 <code class="icode">#define DEVICE_SECRET "..."</code>。量产可以用平台的一型一密：固件只带产品级密钥，首连时换取各自的 DeviceSecret。</p>
+
+          <p class="mt-3"><b>第 2 题：</b>固定开销 = bootloader 28 KB + 分区表 4 KB + nvs 24 KB + otadata 8 KB + phy_init 4 KB = <b>68 KB</b>。
+            4 MB = 4,096 KB，减去 68 KB 剩 4,028 KB，两个槽平分 = <b>2,014 KB</b>。
+            分区大小必须是 64 KB 的整数倍（也就是 0x10000 的整数倍，本文取 1,536 KB 槽），所以单槽上限取
+            <b>31 × 64 KB = 1,984 KB</b>——因为 2,014 KB 不是 64 KB 的整数倍，向上取整会超出。结论：<b>每个槽放得下约 1.9 MB 的固件</b>，
+            而本文的两个槽各给 1.5 MB，是为了给数据分区（storage，952 KB）留位置。这也解释了为什么「两个 2 MB 槽」的方案（合计 4,164 KB）在 4 MB Flash 上装不下。</p>
+
+          <p class="mt-3"><b>第 3 题：</b>bootloader 启动时会检查 otadata 指向的那个分区里<b>有没有一个合法的 app 镜像</b>（头部 magic、长度、校验都在这一步做）。
+            发现不合法，它不会傻等，也不会变砖，而是<b>按状态回退</b>：在剩下的分区里挑一个状态可用（VALID 或 UNDEFINED，且不是 INVALID/ABORTED）的启动。
+            结果就是设备仍然跑着旧固件——<b>这正是双分区方案的意义</b>。你会看到 <code class="icode">esp_ota_get_boot_partition()</code> 与
+            <code class="icode">esp_ota_get_running_partition()</code> 返回的分区不一致（一个是 ota_1，一个是 ota_0），这条日志就是「上次升级其实没生效」的铁证。
+            要彻底复位，用 <code class="icode">otatool.py --port COM5 erase_otadata</code>。</p>
+
+          <p class="mt-3"><b>第 4 题：</b>当前运行的应用处于 <b>PENDING_VERIFY</b> 状态。这个状态的语义是「新固件刚启动，还没证明自己可用」，
+            此时平台<b>不允许</b>它再开始一次新的 OTA（否则一个未验证的固件可能把两个槽都写坏，永远失去回退能力）。
+            修法：在自检结束时明确表态——自检通过就 <code class="icode">esp_ota_mark_app_valid_cancel_rollback()</code>，
+            失败就 <code class="icode">esp_ota_mark_app_invalid_rollback_and_reboot()</code>。
+            排查手法：启动时打印 <code class="icode">esp_ota_get_state_partition()</code> 的结果（1 就是 PENDING_VERIFY），
+            你会在日志里一眼看出「上次升级后忘了表态」。</p>
+
+          <p class="mt-3"><b>第 5 题：</b>因为<b>有效期与轮换周期完全不同</b>。站点证书（Let's Encrypt 之类）有效期只有 90 天，
+            服务器每次续期都会换一张新的；而设备的固件是「烧进去就不动」的，它嵌的那张证书到期那一刻，
+            <b>全网设备的升级能力同时失效</b>——现象是手机浏览器访问完全正常，设备却全部报证书校验失败。
+            根证书是所有签发者共同的信任起点，有效期通常 10~25 年，且不会随站点续期而变。
+            更好的做法是 <code class="icode">crt_bundle_attach</code> 挂 ESP-IDF 的证书包（一份受信任根证书集合，随 IDF 更新）。
+            另外别忘了<b>校时</b>：证书校验要判断「当前时间在有效期内」，设备时间不对时连根证书也救不了。</p>
+
+          <p class="mt-3"><b>第 6 题：</b>仍然跑<b>旧版本</b>（ota_0 里那个）。因为 otadata 还没被修改，bootloader 压根不知道 ota_1 里多了个新固件；
+            新写入的 ota_1 分区处于「写了一半」的状态——但它是<b>脏的另一个槽</b>，不影响启动。
+            这正是官方所说的「安全更新模式」：<b>app 分区的更新是断电可恢复的</b>，因为负责启动的那个分区从头到尾没被动过，
+            只有「写新槽 → 校验 → 改 otadata → 重启」这条顺序链保证了这一点。
+            对照一下「不安全更新模式」：更新 bootloader、分区表本身或数据分区时，新内容必须先写临时区域再拷到目标，
+            <b>拷贝过程中断电就可能不可恢复</b>。所以这三类更新要么别做，要么必须保证供电。</p>
+
+          <p class="mt-3"><b>第 7 题：</b>1.2 MB = 1,228,800 B，按 1,024 B/s 得 <b>1,200 秒 = 20 分钟</b>。
+            实际还要加上 TLS 握手、每段请求的头开销、丢包重传与服务器限速（例 3 里按 <b>25 分钟</b>做保守预算）。
+            <b>不能做</b>：不能重启、不能进低功耗休眠、不能让 OTA 独占 CPU（会把 MQTT 心跳饿死，云端在 1.5 × KeepAlive 后判你离线）、
+            不能做任何会长时间关中断的事（Flash 写入本身就要求缓存暂时停用，中断响应会变差）。<b>还能做</b>：测量与本地存储照常（把 OTA 放低优先级任务，
+            采集任务优先，数据先写本地缓存在联网恢复后补发）、本地告警照常、按键与本地显示照常。
+            一句话：<b>升级只应占用「带宽」和「一段 Flash」，不该占用「设备的本职功能」</b>。</p>
+
+          <p class="mt-3"><b>第 8 题：</b><b>id 相同</b>时按幂等处理：查一下这个 id 是不是刚处理过（比如保存最近一条 id 做比对，或用一个小的 id 环形表），
+            是就直接回 <code class="icode">code=200</code> 并注明「重复」，<b>不再执行一次写 NVS 的动作</b>——否则「开阀 30 秒」会被执行两次。
+            这也是 QoS 1 的正确用法：它承诺「至少一次」，重复是正常语义，不是异常。
+            <b>id 不同但内容相同时</b>，设备<b>可以</b>照常执行（平台认为是两条不同的指令，你无法区分是「重发」还是「用户又设了一次同样的值」）。
+            代价是这类重复会产生额外的 NVS 写入，所以更重要的防线在<b>设计层面</b>：让操作本身<b>幂等</b>——
+            「设为 80 ℃」天然幂等，而「加 5 ℃」不是，需要改成「设为 85 ℃」这种绝对量语义。
+            控制类的指令尽量写成绝对量，是省掉一大半幂等麻烦的最省事做法。</p>
+
+          <p class="mt-6 font-semibold text-ink">练习（建议动手做一遍）</p>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li><b>做一次真升级。</b>拿一块 ESP32-WROOM-32，按本文第 1 段的分区表建工程，写一个只有串口日志的 v1.0 固件烧进去；
+                再把版本号改成 v1.1.0，编译后用本机的 <code class="icode">python -m http.server</code>（或直接放服务器）提供固件，
+                触发升级。要求日志里能依次看到：拿到镜像描述 → 进度百分比 → 校验通过 → 重启 → <b>新版本号与新分区名</b>。
+                验收标准：连续升级三次，每次都能看到分区在 ota_0 与 ota_1 之间来回切换。</li>
+            <li><b>做一次真回滚。</b>写 v1.2.0，让它的自检<b>故意失败</b>（比如检查一个不存在的 NVS 键、或者把 <code class="icode">diagnostic()</code> 直接返回 false）。
+                升级并观察：日志应出现「PENDING_VERIFY → 自检失败 → 准备回滚」，设备重启后<b>回到 v1.1.0</b> 并且状态是 VALID。
+                然后再用 <code class="icode">otatool.py --port COM5 read_otadata</code> 把 otadata 的两个扇区内容读出来对照，
+                验证「回滚是靠改状态与引导槽实现的」。</li>
+            <li><b>做一次拔电测试。</b>在升级进行到大约 30%、60%、90% 时各拔一次电（共 3 组、每组重复 3 次），
+                记录每次重新上电后的运行版本、分区状态与 otadata 序号。最后写一份半页结论：
+                <b>哪种断电时机是安全的、哪种会让设备停在旧版本、有没有出现过变砖</b>。
+                这份记录的价值比你写的代码大得多——它是你向别人证明「这套升级方案可靠」的唯一证据。</li>
+            <li><b>把下行闭环接起来。</b>用公共 MQTT broker（或者你手上的平台）建好主题，
+                用 MQTT 客户端软件手工往 <code class="icode">.../thing/service/property/set</code> 发一条 JSON；
+                要求设备做到：越界值回 <code class="icode">code=400</code>、合法值写进 NVS 并在断电重启后仍生效、
+                回执里 <code class="icode">id</code> 与下发时逐字一致。再故意发两次同 id，确认第二次只回执不重复执行。</li>
+            <li><b>算一次你的项目账。</b>用本文例 2、例 4、例 5 的算法，为你自己的项目算三个数：
+                ① 按固件实际大小算出需要的双槽容量与 Flash 选型（4 MB 够不够？）；
+                ② 按设备数量算出错峰升级窗口与服务器出口带宽；
+                ③ 按心跳与上报周期算出每台设备每月流量与全年资费。
+                把这三个数写给同学看——如果你解释不清为什么是这些数，说明这一篇还要再读一遍。</li>
+          </ol>
+
+          <div class="callout callout-tip mt-6">
+            <div class="callout-title">下一篇</div>
+            <p>到这里，<b>ESP32 与工程实践</b>这一层就只剩下最后一篇了。前面你已经学过了任务与调度、任务间通信、网络编程、低功耗，
+                以及这一篇的云平台与 OTA——这些是「一个能用的设备」所需要的全部零件。
+                但零件堆在一起不等于产品：目录怎么分层、模块之间怎么定接口、版本怎么管、内存怎么算、交付文档怎么写，
+                这些才是「能不能交给别人维护、能不能量产」的分水岭。
+                下一篇《嵌入式项目工程化》会把这一层收口，讲的正是这些内容。</p>
+          </div>
+
+          <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+            <a href="adv-esp32-lowpower.html" class="card card-pad card-hover group sm:max-w-[48%]">
+              <span class="text-2xs text-faint">← 上一篇</span>
+              <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">ESP32 低功耗与电源管理</p>
+            </a>
+            <a href="adv-project-engineering.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+              <span class="text-2xs text-faint">下一篇：把这一层收口 →</span>
+              <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">嵌入式项目工程化</p>
+            </a>
+          </nav>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-bold tracking-tight text-ink">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a href="../route.html" class="text-muted hover:text-brand-600 dark:hover:text-brand-300">学习路线</a></li>
+            <li><a href="../knowledge.html" class="text-muted hover:text-brand-600 dark:hover:text-brand-300">知识体系</a></li>
+            <li><a href="../mcu51.html" class="text-muted hover:text-brand-600 dark:hover:text-brand-300">51 单片机</a></li>
+            <li><a href="../stm32.html" class="text-muted hover:text-brand-600 dark:hover:text-brand-300">STM32 HAL 库</a></li>
+            <li><a href="../esp32.html" class="text-muted hover:text-brand-600 dark:hover:text-brand-300">ESP32 物联网</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a href="../tools.html" class="text-muted hover:text-brand-600 dark:hover:text-brand-300">在线工具</a></li>
+            <li><a href="../resource.html" class="text-muted hover:text-brand-600 dark:hover:text-brand-300">资料下载</a></li>
+            <li><a href="../project.html" class="text-muted hover:text-brand-600 dark:hover:text-brand-300">实训毕设</a></li>
+            <li><a href="../article-template.html" class="text-muted hover:text-brand-600 dark:hover:text-brand-300">教程模板</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+      </div>
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop" class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600" aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+</body>
+</html>

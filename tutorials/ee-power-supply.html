@@ -1,0 +1,2066 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>电源与功率：整流滤波、LDO 与 DC-DC - McuStudy</title>
+  <meta name="description" content="知识体系 · 电路理论第六篇：从 220V 到 3.3V 中间到底发生了什么。半波/全波/桥式整流的波形与电压关系、电容滤波与纹波电压估算 ΔU≈I·Δt/C、稳压管稳压电路与限流电阻计算、线性稳压器 LDO 的工作原理、压差 Dropout 的含义、LDO 功耗与结温计算 P=(Vin−Vout)·I、开关电源 Buck/Boost/Buck-Boost 原理与效率优势、开关纹波与 EMI、线性与开关选型对比、去耦与旁路电容的分工、电池供电功耗估算，附开发板 AMS1117 发热与 ADC 基准滤波实战。">
+  <meta name="keywords" content="整流,半波整流,全波整流,桥式整流,电容滤波,纹波电压,稳压二极管,限流电阻,LDO,线性稳压器,AMS1117,Dropout,压差,结温计算,Buck,Boost,Buck-Boost,开关电源,DC-DC,开关频率,效率,开关纹波,EMI,去耦电容,旁路电容,电池续航,VREFINT,ADC基准">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">电源与功率：整流滤波、LDO 与 DC-DC</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          电源与功率：整流滤波、LDO 与 DC-DC
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你给开发板插上 12V 电源，程序跑起来了。可过了十分钟，板上那颗三只脚的小黑片烫得手指碰不住，串口打印开始反复从头开始。你翻遍代码也找不出问题——<b class="font-semibold text-ink">因为它根本不在代码里</b>。那颗小黑片叫 AMS1117，是一颗线性稳压器，它把 12V 降到 3.3V 的方式，就是把中间那 8.7V 全部变成热。这一篇从市电 220V 一直讲到你板子上那颗 3.3V：整流桥怎么把交流变直流、滤波电容怎么把纹波压下去、稳压管的限流电阻怎么算、LDO 为什么怕压差、Buck 电路凭什么能把效率从 27% 拉到 90%、去耦与旁路电容到底谁管什么、以及一块电池究竟能撑多久。<b class="font-semibold text-ink">看完它，你能自己算出一颗稳压芯片会不会烫手、一块电池能用几个小时</b>，也能看懂原理图上那些「老师让你加你就加」的电容究竟在干什么。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-brand">学科基础</span>
+          <span class="stat-pill">电路理论 · 第 <b>6</b> 篇</span>
+          <span class="stat-pill">第 1 层 · 电路理论</span>
+          <span class="stat-pill">教材：童诗白《模拟电子技术基础》第 5 版 第 <b>9</b> 章（参考第 <b>10</b> 章）</span>
+          <span class="stat-pill">阅读约 <b>34</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-chain">从 220V 到 3.3V：整条电源链路</a>
+          <a class="toc-link is-sub" href="#sub-rectifier">整流：半波、全波与桥式</a>
+          <a class="toc-link is-sub" href="#sub-filter">电容滤波与纹波估算</a>
+          <a class="toc-link is-sub" href="#sub-zener">稳压管与限流电阻</a>
+          <a class="toc-link is-sub" href="#sub-ldo">线性稳压器与压差 Dropout</a>
+          <a class="toc-link is-sub" href="#sub-sps">开关电源：Buck / Boost / Buck-Boost</a>
+          <a class="toc-link is-sub" href="#sub-select">线性与开关的选型对比</a>
+          <a class="toc-link is-sub" href="#sub-decoupling">去耦与旁路的分工</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-chain">从 220V 到 3.3V：整条电源链路</a>
+            <a class="toc-link is-sub" href="#sub-rectifier">整流：半波、全波与桥式</a>
+            <a class="toc-link is-sub" href="#sub-filter">电容滤波与纹波估算</a>
+            <a class="toc-link is-sub" href="#sub-zener">稳压管与限流电阻</a>
+            <a class="toc-link is-sub" href="#sub-ldo">线性稳压器与压差 Dropout</a>
+            <a class="toc-link is-sub" href="#sub-sps">开关电源：Buck / Boost / Buck-Boost</a>
+            <a class="toc-link is-sub" href="#sub-select">线性与开关的选型对比</a>
+            <a class="toc-link is-sub" href="#sub-decoupling">去耦与旁路的分工</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先看一个几乎每个人都遇到过的现场。你在实验室里把 12V 的电源适配器插到开发板的 DC 座上，板子亮了，LED 闪了，串口也打印出了「System Init OK」。一切正常，直到你去碰了一下板上那颗三只脚的小黑片——烫得立刻缩回手。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="现场还原：一块被 12V 喂着的开发板">
+            <pre><code>【时间线】
+
+  t = 0s       通电。LED 亮，程序正常运行，串口打印 System Init OK
+  t = 5min     板上那颗三只脚的小黑片（AMS1117-3.3）表面温度超过 80℃
+               手指碰上去会本能地缩回来
+  t = 10min    串口助手上打印的内容反复从 System Init OK 开始
+               → 芯片在反复复位
+  t = 30min    板子开始有轻微的焦糊味
+
+【你的第一反应】
+  「是不是我代码写死了？」「是不是数组越界了？」「堆栈溢出？」
+  于是你查了一整天代码，什么都没查出来。
+
+【真实原因】
+  问题在那颗三只脚的稳压芯片上，不在代码里。
+  它叫 AMS1117-3.3，是一颗【线性稳压器】。
+  它的工作方式可以一句话说完：
+
+      把自己当成一个「会自己调节的可变电阻」，
+      把输入和输出之间多出来的电压，全部变成热。
+
+  12V 进、3.3V 出 → 中间整整 8.7V 全部落在它自己身上。
+  电流稍微大一点，它就会自己把自己烫到失控。
+
+  ★ 这不是「坏了一颗芯片」，而是「选错了稳压方案」。
+    换成 DC-DC 开关电源模块，同样 12V 进 3.3V 出，它几乎不发热。
+    为什么？这就是这一篇要讲清楚的事情。</code></pre>
+          </div>
+
+          <p class="mt-3">这个现场之所以值得单独写一篇，是因为它同时踩到了三块知识：<b class="font-semibold text-ink">电从哪里来</b>（整流、滤波）、<b class="font-semibold text-ink">怎么把它变成稳定的 3.3V</b>（线性稳压还是开关稳压）、<b class="font-semibold text-ink">到了芯片脚边上还要做什么</b>（去耦与旁路电容）。这三块分别在教材的第 9、10 章里讲，而你会在同一块开发板上同时遇到它们。</p>
+
+          <p class="mt-3">下面这些「像灵异事件」的故障，本质上都是电源问题。它们有一个共同点：<b class="font-semibold text-ink">看起来都像软件 bug，实际上都在电源线上</b>。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>你看到的现象</th><th>电源侧的真实原因</th><th>本篇对应内容</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>板子摸起来很烫，程序过一会儿就重启</td>
+                  <td>线性稳压器压差太大，功耗 (V<sub>in</sub>−V<sub>out</sub>)·I 全部变成热，芯片进入过温保护</td>
+                  <td><a class="text-brand-600 dark:text-brand-300" href="#sub-ldo">LDO 与压差</a> · <a class="text-brand-600 dark:text-brand-300" href="#sec-calc">例题三</a></td>
+                </tr>
+                <tr>
+                  <td>电池设备理论能用一个月，实际三天就没电</td>
+                  <td>用错了供电方案：电池电压和 3.3V 之间的差、静态电流、可用容量区间都没算</td>
+                  <td><a class="text-brand-600 dark:text-brand-300" href="#sub-select">电池功耗估算</a> · <a class="text-brand-600 dark:text-brand-300" href="#sec-calc">例题四</a></td>
+                </tr>
+                <tr>
+                  <td>ADC 读数一直抖，动一下就变几个字</td>
+                  <td>VDDA / VREF+ 没有单独滤波，参考电压自己在动，读数当然跟着动</td>
+                  <td><a class="text-brand-600 dark:text-brand-300" href="#sub-decoupling">去耦与旁路</a> · <a class="text-brand-600 dark:text-brand-300" href="#sec-mcu">ADC 基准滤波</a></td>
+                </tr>
+                <tr>
+                  <td>接了 WiFi / 继电器之后频繁掉线或复位</td>
+                  <td>负载瞬时电流远超电源的稳定输出能力，电压被拉塌</td>
+                  <td><a class="text-brand-600 dark:text-brand-300" href="#sec-mcu">ESP32 的 500mA 余量</a> · <a class="text-brand-600 dark:text-brand-300" href="#sec-calc">例题五</a></td>
+                </tr>
+                <tr>
+                  <td>换了 DC-DC 模块以后，收音机有啸叫、ADC 更不准了</td>
+                  <td>开关电源的纹波和 EMI 比线性稳压大得多，没有做滤波和布局隔离</td>
+                  <td><a class="text-brand-600 dark:text-brand-300" href="#sub-sps">开关纹波与 EMI</a> · <a class="text-brand-600 dark:text-brand-300" href="#sub-select">混合方案</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">如果你只用 USB 线给开发板供电、只点几个 LED、只用板载的 LDO，你可能一辈子碰不到这些问题——<b class="font-semibold text-ink">那只是因为你运气好，供电链路恰好被设计过了</b>。但只要出现下面任何一种情况，这一篇的知识就会立刻变成必需品：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">你要自己做一块板子。</b>板子上必须有电源部分：输入从哪来、怎么变成 3.3V、每个电源脚旁边放什么电容。画错了，板子做出来就是一块废铜。</li>
+            <li><b class="font-semibold text-ink">你要用电池供电。</b>电池设备的成败几乎全在功耗估算上：电池电流是多少、能用多少小时、什么时候该报警关机。</li>
+            <li><b class="font-semibold text-ink">你要接大电流负载。</b>电机、继电器、WiFi 模块、灯带——它们的瞬时电流会让电源电压「塌」一下，而这一塌就是复位。</li>
+            <li><b class="font-semibold text-ink">你要做测量。</b>ADC 的精度上限由参考电压决定，而参考电压由电源决定。电源不干净，12 位的 ADC 实际只有 8 位有效。</li>
+            <li><b class="font-semibold text-ink">你要买模块。</b>市面上「12V 转 3.3V」「5V 转 3.3V」的模块从几毛钱到几十块钱，选错的代价是发热、掉线或者噪声。</li>
+          </ul>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一篇在知识地图里的位置</div>
+            <p>本篇属于<b>第 1 层 · 学科基础 → 电路理论</b>，是这个方向的第 <b>6</b> 篇。教材出处是<b>童诗白、华成英《模拟电子技术基础》第 5 版 第 9 章</b>（并参考第 10 章）。</p>
+            <p class="mt-2">为什么放在「电路理论」而不是直接归到模电？因为在单片机开发里，电源问题的<b>算法</b>比电路结构更重要：你更常做的是「估一估这个方案行不行」，而不是「设计一个整流电路」。这一点和教材里的顺序正好相反——教材先讲器件和电路，我们先把公式和估算讲透，再回头看电路长什么样。</p>
+          </div>
+
+          <p class="mt-3">这一篇要回答的就是下面这七个问题。你可以把它们当作阅读清单，读完每一条都回头对一遍：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="本篇要回答的七个问题">
+            <pre><code>① 220V 的交流电，是怎么变成芯片能用的直流电的？
+   → 变压器、整流、滤波、稳压，每一级各干什么
+
+② 半波、全波、桥式整流，输出电压到底是多少？
+   → 0.45U2 / 0.9U2 / 1.2U2 这三个系数从哪来
+
+③ 滤波电容要多大？纹波电压怎么估？
+   → ΔU ≈ I·Δt / C，一个式子解决 90% 的场合
+
+④ 稳压管电路的限流电阻怎么算？为什么只能带小电流？
+   → 两个不等式，算出 R 的上下限，没交集就是无解
+
+⑤ LDO 为什么会烫？「压差 Dropout」到底限制了什么？
+   → P = (Vin − Vout)·I，以及结温 Tj = Ta + P·θJA
+
+⑥ 开关电源凭什么效率高？它又带来了什么新麻烦？
+   → Buck / Boost / Buck-Boost 三种拓扑 + 纹波与 EMI
+
+⑦ 板子上那些 100nF、10µF、100µF 的电容分别管什么？
+   → 去耦与旁路的分工，以及为什么不能只放一颗大电容</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">怎么读这一篇最省时间</div>
+            <p><b>如果你是来救火的</b>（板子正烫着手、电池撑不住、ADC 在抖），直接跳到第 3 节「动手算一遍」，那里有四道用真实数字的例题，算完基本就能定位问题；再跳到第 5 节的「常见误解与坑」对号入座。</p>
+            <p class="mt-2"><b>如果你是来打地基的</b>，从第 2 节顺序读。第 2 节里每个小节都是独立的，可以按需跳读，但<b>建议至少把「电容滤波」「LDO 与压差」「去耦与旁路」这三节读透</b>——它们在日常开发里出现的频率远高于整流电路。</p>
+          </div>
+        </section>
+
+<hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节把整条链路拆成八块讲。每一块都按同一个套路：<b class="font-semibold text-ink">它要解决什么问题 → 电路长什么样 → 关键公式 → 数字大概是多少</b>。公式不多，一共五六个，但每一个你都要能用嘴说出来「这个符号代表什么、单位是什么、变大变小会怎么样」——这比会代入数字重要得多。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">先记住一个总纲</div>
+            <p>电源电路的整条链路，本质上是<b>四级接力</b>：<b>变压</b>（把 220V 变成合适的低压交流）→ <b>整流</b>（把交流变成单向脉动）→ <b>滤波</b>（把脉动抹平成带纹波的直流）→ <b>稳压</b>（把「会随负载和输入变化的电压」钉死成固定值）。</p>
+            <p class="mt-2">每一级只负责一件事，而且后面的级别无法弥补前面级的致命缺陷：滤波电容不够大，稳压器就只能疲于奔命；整流出来的电压不够高，稳压器就「压不住」。<b>看任何电源原理图，先按这四级去套，一眼就能看出它在干什么。</b></p>
+          </div>
+
+          <!-- 2.1 整条链路 -->
+          <h3 id="sub-chain" class="mt-7 text-base font-semibold">从 220V 到 3.3V：整条电源链路</h3>
+
+          <p class="mt-3">先把地图画出来。下面是「经典线性电源」的完整链路，也是教材第 9 章讲的那条路。注意每一级后面的电压形态，它比电压数值更重要。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="经典线性电源链路：220V 交流 → 3.3V 直流">
+            <pre><code>  220V / 50Hz        变压器            整流桥          滤波电容         稳压器
+  市电交流           (降压+隔离)      (全波整流)      (抹平脉动)      (钉死电压)
+
+  ┌────────┐      ┌──────────┐    ┌──────────┐   ┌──────────┐   ┌──────────┐
+  │  ~~~~  │      │  ~~~~    │    │  ⌒⌒⌒⌒  │   │  ⌒⌒⌒⌒  │   │ ─────────│
+  │ 220V~  ├─────►│  9V~     ├───►│ 脉动直流 ├──►│ 带纹波   ├──►│ 3.3V 稳  ├──► 单片机
+  │ 峰值   │      │ 峰值     │    │          │   │ 的直流   │   │ 定直流   │
+  │ 311V   │      │ 12.7V    │    │ 平均     │   │ 平均     │   │          │
+  └────────┘      └──────────┘    │ 8.1V     │   │ 11.3V    │   └──────────┘
+                                  └──────────┘   └──────────┘
+   电压形态：       正弦交流        单向脉动        有纹波的直流      平直的直流
+   频率：           50Hz            100Hz          100Hz 纹波        无（理论上）
+
+  【关键数字：为什么是 12.7V 和 11.3V？】
+    变压器标称「9V」指的是【有效值】(RMS)，它的峰值是 9 × 1.414 ≈ 12.7V
+    桥式整流有两条二极管通路，导通时每个二极管掉 0.7V，共掉 1.4V
+    于是滤波电容上真正能充到的最高电压约为 12.7 − 1.4 ≈ 11.3V
+
+  【为什么 220V 插座的峰值是 311V？】
+    220V 是有效值，峰值 = 220 × 1.414 ≈ 311V
+    ★ 这就是为什么电解电容的耐压要选 400V 而不是 250V
+      ——它扛的是峰值，不是有效值。选小了会炸。</code></pre>
+          </div>
+
+          <p class="mt-3">而上世纪那种「变压器 + 桥堆 + 大电容」的电源，今天的开发板上基本看不到了。你现在真正会遇到的链路是下面这两种：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="今天你在开发板上真正看到的两种链路">
+            <pre><code>【链路 A：USB 供电的开发板】—— 最常见，最省事
+
+  电脑 USB 5V ──► 板载 LDO (AMS1117-3.3) ──► 3.3V ──► STM32
+                 压差 5 − 3.3 = 1.7V
+                 电流 100mA 时功耗 1.7 × 0.1 = 0.17W
+                 → 温热，不烫手。这是「被设计过」的供电。
+
+【链路 B：12V 适配器供电的开发板】—— 出事的重灾区
+
+  12V 适配器 ──► 板载 LDO (AMS1117-3.3) ──► 3.3V ──► STM32
+                 压差 12 − 3.3 = 8.7V   ← 是链路 A 的 5 倍
+                 电流 200mA 时功耗 8.7 × 0.2 = 1.74W
+                 → 烫手、复位、可能烧毁。★ 这就是本文开头那个现场。
+
+【链路 C：正确的 12V 方案】—— 两段式
+
+  12V 适配器 ──► DC-DC (MP1584 等) ──► 5V ──► LDO ──► 3.3V ──► STM32
+                 效率约 90%，几乎不发热      压差只有 1.7V，功耗很小
+                 既解决了发热，又保住了 3.3V 的干净
+
+  ★ 一句话总结：★
+    「高压差 + 大电流」必须用开关电源；
+    「低压差 + 小电流 + 要干净」用线性稳压器。
+    两种都要的时候，就串联起来用（链路 C）。</code></pre>
+          </div>
+
+          <p class="mt-3">这三级（整流、滤波、稳压）在教材里是分开讲的，但它们的关系可以一句话概括：<b class="font-semibold text-ink">整流决定「能不能」，滤波决定「稳不稳」，稳压决定「准不准」</b>。</p>
+
+          <!-- 2.2 整流 -->
+          <h3 id="sub-rectifier" class="mt-7 text-base font-semibold">整流：半波、全波与桥式</h3>
+
+          <p class="mt-3">二极管的特性是<b>单向导电</b>：正极电位高于负极时导通（硅管约需 0.7V 压差），反之截止。整流就是利用这一点，把交流电里「反方向」的那半个周期砍掉或者翻过来，让电流只往一个方向走。</p>
+
+          <p class="mt-3">三种整流电路的区别只有一个：<b class="font-semibold text-ink">它在每个周期里利用了多少个半波</b>。用得多，输出电压就高、纹波就密。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种整流的输入与输出波形对照">
+            <pre><code>【输入：变压器副边电压 u2（正弦，周期 T = 20ms @ 50Hz）】
+
+        ╱╲              ╱╲              ╱╲
+      ╱    ╲          ╱    ╲          ╱    ╲
+    ─╱──────╲────────╱──────╲────────╱──────╲──►  t
+     ╲      ╱        ╲      ╱        ╲      ╱
+      ╲    ╱          ╲    ╱          ╲    ╱
+        ╲╱              ╲╱              ╲╱
+     |◄── T = 20ms ──►|
+
+【半波整流：1 只二极管】  Uo = 0.45 U2     脉动频率 50Hz
+
+        ╱╲              ╱╲              ╱╲
+      ╱    ╲          ╱    ╲          ╱    ╲
+    ─╱──────╲────────╱──────╲────────╱──────╲──►  t
+     ────────          ────────          ────────
+      只有正半周有输出，负半周被完全丢弃
+      → 利用率低，但电路最简单，只要 1 只二极管
+
+【全波整流（中心抽头）：2 只二极管】  Uo = 0.9 U2    脉动频率 100Hz
+
+        ╱╲    ╱╲        ╱╲    ╱╲        ╱╲    ╱╲
+      ╱    ╲╱    ╲    ╱    ╲╱    ╲    ╱    ╲╱    ╲
+    ─╱────────────╲──╱────────────╲──╱────────────╲►  t
+      两个半周都翻到上面来了
+      → 需要带中心抽头的变压器，现在很少见
+
+【桥式整流：4 只二极管】  Uo = 0.9 U2        脉动频率 100Hz
+
+        ╱╲    ╱╲        ╱╲    ╱╲        ╱╲    ╱╲
+      ╱    ╲╱    ╲    ╱    ╲╱    ╲    ╱    ╲╱    ╲
+    ─╱────────────╲──╱────────────╲──╱────────────╲►  t
+      |◄─ 10ms ──►|
+      → 效果和全波一样，但不需要中心抽头
+        代价是每次都有 2 只二极管串联导通，多掉约 1.4V
+      ★ 今天的整流桥（把 4 只二极管封装在一起）几乎全是这种
+
+【重要：上面三个数字都是「不接滤波电容」时的平均值】
+  一旦并上滤波电容，输出电压会被抬到接近峰值：
+      空载时  Uo ≈ 1.414 U2（减去二极管压降）
+      带载时  Uo ≈ 1.2 U2   ← 工程上常用的估算值
+  所以同一个 9V 变压器：
+      不接电容 → 8.1V     接上电容 → 约 10.8V
+  ★ 估算口诀：无电容乘 0.9，有电容乘 1.2。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>半波整流</th><th>全波整流（中心抽头）</th><th>桥式整流</th></tr></thead>
+              <tbody>
+                <tr><td>二极管数量</td><td>1 只</td><td>2 只</td><td>4 只（或一个整流桥）</td></tr>
+                <tr><td>输出电压平均值（无电容）</td><td>U<sub>o</sub> = 0.45 U<sub>2</sub></td><td>U<sub>o</sub> = 0.9 U<sub>2</sub></td><td>U<sub>o</sub> = 0.9 U<sub>2</sub></td></tr>
+                <tr><td>输出电压（有滤波电容）</td><td>约 1.0~1.2 U<sub>2</sub></td><td>约 1.2 U<sub>2</sub></td><td>约 1.2 U<sub>2</sub></td></tr>
+                <tr><td>纹波频率</td><td>50Hz（等于电源频率）</td><td>100Hz（两倍）</td><td>100Hz（两倍）</td></tr>
+                <tr><td>每只二极管承受的反向电压</td><td>1.41 U<sub>2</sub></td><td>2.83 U<sub>2</sub></td><td>1.41 U<sub>2</sub></td></tr>
+                <tr><td>变压器要求</td><td>普通双线并绕</td><td>必须带中心抽头</td><td>普通，无需抽头</td></tr>
+                <tr><td>今天的实际使用</td><td>极少（只在小电流、低成本场合）</td><td>几乎绝迹</td><td><b class="font-semibold text-ink">绝对主流</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">关于「U<sub>2</sub>」这个符号千万别弄混</div>
+            <p><b>U<sub>2</sub> 是变压器副边电压的有效值</b>，也就是变压器铭牌上标的那个数（比如「9V」）。它是有效值，不是峰值。</p>
+            <p class="mt-2">在<b>全波（中心抽头）</b>电路里，U<sub>2</sub> 指的是<b>半个绕组</b>的电压（因为两个二极管各接一半绕组）；在<b>桥式</b>电路里，U<sub>2</sub> 是<b>整个副边绕组</b>的电压。同样是标 9V 的变压器，接成全波和接成桥式，输出是一样的——但如果你是拿一个 9V-0-9V 的中心抽头变压器接桥式（只用两端），U<sub>2</sub> 就变成了 18V。这就是很多人换变压器时莫名其妙烧电容的原因。</p>
+          </div>
+
+          <p class="mt-3">还有一件常被忽略的事：<b class="font-semibold text-ink">整流二极管的选型不只是看电流，还要看反向耐压</b>。反向耐压选 1.41 U<sub>2</sub> 只够用在「输出端没有大电容」的场合；一旦输出端挂了大滤波电容，电容上的电压会一直保持在峰值附近，二极管承受的反向电压就变成「电容电压 + 副边峰值」，也就是接近 <b>2.83 U<sub>2</sub></b>。所以工程上一般按 <b>2 U<sub>2</sub> ~ 3 U<sub>2</sub></b> 来选，再留一倍余量。</p>
+
+          <!-- 2.3 滤波 -->
+          <h3 id="sub-filter" class="mt-7 text-base font-semibold">电容滤波：纹波是怎么来的，又怎么估</h3>
+
+          <p class="mt-3">整流出来的电压虽然方向是单向的，但它每个周期都会从零附近一直冲到峰值再跌回来——这个「跌回来」的过程就是纹波。滤波电容做的事非常简单粗暴：<b class="font-semibold text-ink">电压冲高的时候把电荷存起来，电压要掉的时候把电荷放出来</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="桥式整流 + 电容滤波的波形：充电尖峰与放电斜坡">
+            <pre><code>【桥式整流 + 滤波电容，带负载】
+
+  电压
+   ▲
+   │      ╱│╲         ╱│╲         ╱│╲      ← 整流后的脉动（100Hz）
+   │    ╱  │  ╲     ╱  │  ╲     ╱  │  ╲
+   │  ╱    │    ╲ ╱    │    ╲ ╱    │    ╲
+   │╱      │     ╳     │     ╳     │     ╲
+   └───────────────────────────────────────► t
+   │◄─ 10ms ─►│
+
+  加电容之后，实际输出电压：
+
+  电压
+   ▲  Up ────────────────────────────────  ← 峰值（电容充到的最高点）
+   │        ╲        ╲        ╲        ╲
+   │         ╲        ╲        ╲        ╲     ← 电容放电段（负载在耗电）
+   │          ╲        ╲        ╲        ╲
+   │  Up−ΔU ───╲────────╲────────╲────────╲─  ← 谷点（纹波最低点）
+   │            ▲        ▲        ▲
+   │            │        │        │
+   └────────────┴────────┴────────┴────────► t
+             充电尖峰  充电尖峰  充电尖峰
+             （很窄、电流很大）
+
+【两段过程，记住它们的名字】
+  充电段：整流桥导通，给电容充到峰值 Up。时间很短（因为电容已经很满了），
+          所以【充电电流是尖峰状的】，可能比平均电流大好几倍 → 这就是浪涌电流。
+  放电段：整流桥截止，负载完全靠电容供电。
+          ★ 电容电压下降的速度，就是我们估算纹波的依据。
+
+【推导只用到初中物理】
+  电容的定义式：   C = Q / U          （Q 是电荷量，单位库仑）
+  电流的定义式：   I = Q / t          （t 是时间）
+  两式一合并：     Q = C·ΔU = I·Δt
+  ⇒  ★ 纹波估算公式：
+              ΔU ≈ I · Δt / C
+  其中：ΔU = 纹波电压（峰峰值，单位 V）
+        I  = 负载电流（单位 A）
+        Δt = 电容放电时间（单位 s）
+        C  = 滤波电容容量（单位 F）
+
+【Δt 取多少？】
+  桥式/全波整流（100Hz）：Δt ≈ 10ms = 0.01s （半个周期）
+  半波整流（50Hz）：      Δt ≈ 20ms = 0.02s （一个周期）
+  ★ 工程口诀：Δt ≈ 1/(2f)，f 是市电频率 50Hz，所以 Δt ≈ 10ms。</code></pre>
+          </div>
+
+          <p class="mt-3">把这个式子反过来用，就是设计公式：</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">C ≥ I · Δt / ΔU<sub>允许</sub></b>。你先定「允许纹波多大」（比如要求 ΔU 不超过输出电压的 10%），再代入负载电流，就能算出电容至少要多大。这是电源设计里最实用的一个式子。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这个式子什么时候不准</div>
+            <p>ΔU ≈ I·Δt/C 是<b>工程估算式</b>，它假设「电容放电期间电流恒定、放电时间正好是半个周期」，误差在 20%~30% 量级，用来选型完全够，用来写论文不够。</p>
+            <p class="mt-2">它<b>严重失真</b>的两种场合：① 电容特别小、纹波特别大（放电一开始电压就掉很多，整流桥会提前重新导通，Δt 实际没那么长）；② 负载电流特别大、电容 ESR（等效串联电阻）不可忽略——此时纹波主要由 ΔU<sub>ESR</sub> ≈ I × ESR 决定，跟容量已经没关系了。这就是为什么开关电源的输出纹波，光靠加大容量压不下去：<b>你加大的是 C，而限制纹波的是 ESR。</b></p>
+          </div>
+
+          <p class="mt-3">另外两个必须记住的细节：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">耐压要留余量。</b>电容上承受的最高电压是整流峰值（空载时就是 1.414 U<sub>2</sub>）。选耐压时按<b>峰值的 1.5 倍以上</b>，例如 12V 电路选 25V 耐压。刚刚够的电容会在市电偏高（有些地方能到 250V）时爆浆。</li>
+            <li><b class="font-semibold text-ink">容量越大，上电冲击越大。</b>空电容在上电瞬间相当于短路，充电电流只受变压器内阻和线路电阻限制，可能达到几十安培。这就是为什么大功率电源要在输入串 NTC 热敏电阻或加软启动电路——不是保护电容，是保护整流桥。</li>
+          </ul>
+
+          <!-- 2.4 稳压管 -->
+          <h3 id="sub-zener" class="mt-7 text-base font-semibold">稳压管稳压电路与限流电阻</h3>
+
+          <p class="mt-3">滤波之后的电压仍然会变：市电波动它会变、负载电流变化它也会变（因为纹波和线路压降都和电流有关）。所以最后一级要做<b>稳压</b>。最简单、最原始、也是最能说明「稳压是怎么回事」的电路，就是<b class="font-semibold text-ink">稳压二极管 + 限流电阻</b>。</p>
+
+          <p class="mt-3">稳压管的特性和普通二极管不同：它在<b>反向击穿</b>区工作。普通二极管反向击穿就烧了，稳压管是专门设计成「在某个电压下稳定击穿，而且不坏」。在击穿区里，它两端的电压几乎不变（比如 5.1V 的稳压管，电流从 5mA 变到 40mA，电压可能只从 5.05V 变到 5.20V），多出来的电压全部落在串联的限流电阻上。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="稳压管稳压电路与电流分配">
+            <pre><code>【电路结构】
+
+                 R  （限流电阻，必须要有！）
+        ┌───────/\/\/\───────┬──────────────┐
+        │                    │              │
+       Vin                  ▼ 稳压管        │
+     (会波动的              ───  Dz        │  IL
+      输入电压)             ▲  │           ▼
+        │                    │           负载 RL
+        │                    │              │
+        └────────────────────┴──────────────┘
+                             │
+                            GND
+
+  说明：稳压管【阴极接高电位、阳极接地】，也就是工作在反向击穿区。
+        画图时三角形朝上（电流从阴极流向阳极的方向被击穿钳位）。
+
+【电流怎么分配：这是理解一切的关键】
+
+        Vin ──►[ R ]──┬──► 给负载：IL = Uo / RL   （负载要多少就给多少）
+                      │
+                      └──► 剩下的全灌进稳压管：Iz = IR − IL
+
+        其中  IR = (Vin − Uo) / R       ← 由电阻决定，和负载无关
+
+  ★ 所以稳压管其实是「吃掉多余的电流」来稳压的：
+      负载电流变小 → 多余的电流变多 → 稳压管电流变大 → 电压不变
+      负载电流变大 → 多余的电流变少 → 稳压管电流变小 → 电压不变
+    它就像一个「自动泄洪闸」，多出来的水（电流）从它这里排掉。
+
+【稳压管能正常工作的两个条件】
+  ① 电流不能太小：Iz ≥ Izmin   （否则退不出击穿区，电压就稳不住了）
+     一般取 Izmin = 5mA（小功率管典型值，查手册）
+  ② 功率不能超额：Uz · Iz ≤ Pzmax （否则管子过热烧掉）
+     例如 1/2W、5.1V 的管子：Izmax = 0.5 / 5.1 ≈ 98mA
+
+【四种极端组合，决定 R 的取值范围】
+  ┌────────────────────────┬──────────────────────────┐
+  │ 输入最高 + 负载最轻    │ Iz 最大 → 决定 R 的【下限】│
+  │ (Vin_max, IL_min)      │ R 太小会把管子烧掉        │
+  ├────────────────────────┼──────────────────────────┤
+  │ 输入最低 + 负载最重    │ Iz 最小 → 决定 R 的【上限】│
+  │ (Vin_min, IL_max)      │ R 太大就稳不住电压        │
+  └────────────────────────┴──────────────────────────┘
+
+  两式联立：
+      R ≥ (Vin_max − Uz) / (Izmax + IL_min)      ← 上限比较宽松，注意方向
+      R ≤ (Vin_min − Uz) / (Izmin + IL_max)      ← 这才是真正的约束
+  （若算出来的下限比上限还大 → 【无解】：这个电路带不动这个负载，
+    说明你需要换 LDO 或开关电源，而不是继续调电阻）</code></pre>
+          </div>
+
+          <p class="mt-3">这个电路有个致命缺点，也是它今天几乎只出现在「做基准、做钳位」场合的原因：<b class="font-semibold text-ink">效率极低，而且只能带很小的电流</b>。因为不管负载要多少电流，电阻上的电流 IR 是固定的，负载用不掉的部分全被稳压管白白烧掉。它本质上和 LDO 一样是「线性」的，但比 LDO 更粗糙（没有负反馈，靠的是管子本身的特性）。</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">最常见的错误：稳压管不接限流电阻</div>
+            <p>「我把 5V 直接接到 5.1V 稳压管上，不就能得到 5.1V 了吗？」——不能。稳压管的伏安特性在击穿后非常陡，<b>电压稍微高一点点，电流就会从几毫安飙到几安培</b>。没有限流电阻，管子瞬间烧毁（通常直接短路，然后你的电源也跟着短路）。</p>
+            <p class="mt-2"><b>稳压管必须靠限流电阻来限定它的电流。</b>这一点和发光二极管一样，是所有「靠钳位工作的器件」的共同要求。</p>
+          </div>
+
+          <p class="mt-3">顺带说清一个概念：稳压管所在的这条「钳位」思路，在单片机电路里到处都是——比如 ESD 保护二极管、TVS 管、ADC 输入端的钳位、继电器线圈的续流二极管，本质都是「超过某个电压就把多余的能量引走」。</p>
+        </section>
+
+<hr class="hr-soft my-10">
+
+          <!-- 2.5 LDO -->
+          <h3 id="sub-ldo" class="mt-7 text-base font-semibold">线性稳压器（LDO）与压差 Dropout</h3>
+
+          <p class="mt-3">稳压管电路的缺点很明显：靠「白白烧掉多余电流」来稳压。LDO 把这件事做得优雅得多，但<b class="font-semibold text-ink">本质完全没变——它依然是一个「自动调节的可变电阻」</b>。想通这一点，你就想通了 LDO 为什么一定会烫。</p>
+
+          <p class="mt-3">LDO 的完整名字是 Low Dropout Regulator，低压差线性稳压器。「线性」指的是它的调整管工作在线性放大区（不是开关状态）；「低压差」指的是它能在输入输出相差很小的情况下仍然稳压。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="LDO 内部结构：一个负反馈环路">
+            <pre><code>【LDO 内部框图】
+
+                    ┌──────────────────────────────┐
+   Vin ──┬──────────┤  调整管（Pass Transistor）    ├──────┬──── Vout
+         │          │  PNP 三极管 或 P-MOSFET       │      │
+         │          └──────────────▲───────────────┘      │
+         │                         │ 控制信号             │
+         │          ┌──────────────┴───────────────┐      │
+         │          │        误差放大器             │      │
+         │          │      （Error Amplifier）      │      │
+         │          └───▲──────────────────────▲────┘      │
+         │              │                      │           │
+         │        ┌─────┴─────┐          ┌─────┴─────┐     │
+         │        │ 基准电压源 │          │ 反馈分压   │     │
+         │        │ (1.25V左右)│          │ R1 / R2   │     │
+         │        └───────────┘          └─────┬─────┘     │
+         │                                     │           │
+        GND ───────────────────────────────────┴───────────┘
+
+【它是怎么工作的：一句话版本】
+  误差放大器不停地比较「输出分压回来的一小部分电压」和「内部基准电压」：
+     输出偏低 → 让调整管导通得更多一点 → 输出电压升回来
+     输出偏高 → 让调整管导通得更少一点 → 输出电压降回去
+  这个环路的反应速度非常快（微秒量级），快到输出电压几乎是平的。
+  ★ 这就是为什么 LDO 的【瞬态响应】比开关电源好得多。
+
+【代价在哪里：调整管上要白白承受 Vin − Vout 的电压】
+  它不是在「变压」，而是在「耗压」：
+     输入功率  Pin  = Vin  · Iin  ≈ Vin  · Iout
+     输出功率  Pout = Vout · Iout
+     转换成热的功率  P = (Vin − Vout) · Iout     ← 本篇第二个重要公式
+     效率  η = Pout / Pin ≈ Vout / Vin
+
+  ★ 效率只取决于【电压比】，和电流大小无关：
+      5V  → 3.3V ：η ≈ 66%
+      12V → 3.3V ：η ≈ 27.5%   ← 超过 72% 的能量变成了热！
+      3.7V→ 3.3V ：η ≈ 89%     ← 这就是锂电池设备爱用 LDO 的原因
+
+【压差 Dropout 到底是什么意思】
+  调整管不是理想开关，它自己也要占掉一点电压才能工作。
+  【Dropout 电压 = 维持稳压所需的最小 (Vin − Vout)】。低于这个值，LDO 就
+  退出稳压状态，输出会跟着输入一起往下掉（此时它退化成一个电阻）。
+
+      正常区                        失效区
+      ────────────────────────────┼──────────────
+      Vin − Vout ≥ Dropout        │  Vin − Vout 小于 Dropout
+      输出稳定在 3.3V             │  输出 ≈ Vin − Dropout，随 Vin 一起掉
+
+  按 AMS1117 数据手册（典型值，估算请取大值留余量）：
+      800mA 满载时最大压差约 1.3V，典型值约 1.1V
+      电流越小，压差越小（因为它本质上是调整管的导通压降）
+  ★ 所以「5V 转 3.3V」看起来有 1.7V 余量很安全，
+    但如果你要拉 800mA，余量就只剩 0.4V 了 —— 这就是为什么有些板子
+    一接 WiFi 模块，3.3V 就掉到 3.0V。</code></pre>
+          </div>
+
+          <p class="mt-3">把上面这段浓缩成两句话，就是选型时最该背下来的判断规则：</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">LDO 选型的两条铁律</div>
+            <p><b>铁律一：输入电压不能太低。</b>必须满足 V<sub>in</sub> ≥ V<sub>out</sub> + Dropout + 余量。余量建议留 0.3V 以上，因为压差随电流增大而增大，而且输入本身还在波动。</p>
+            <p class="mt-2"><b>铁律二：压差不能太大。</b>压差越大，发热越猛。工程经验：<b>当 (V<sub>in</sub> − V<sub>out</sub>) × I 超过 1W 时，就该认真算散热甚至换方案了</b>。1W 大约是一颗 SOT-223 封装在普通敷铜上「温热但不烫手」的上限。</p>
+          </div>
+
+          <p class="mt-3">LDO 还有一个容易被忽略的参数：<b class="font-semibold text-ink">静态电流（Quiescent Current，也叫接地电流 I<sub>GND</sub>）</b>——就是 LDO 自己不干活也要消耗的电流。AMS1117 这类「老式」LDO 的静态电流在毫安量级（按典型值估算约 5mA，具体看你手上那颗的手册），而专为电池设计的 LDO 可以低到几百纳安到几微安。</p>
+
+          <p class="mt-3">这个参数为什么重要？因为单片机大部分时间在睡觉。假设你的系统待机电流只有 10µA，却用了一颗静态电流 5mA 的 LDO——<b class="font-semibold text-ink">那么待机电流实际是 5.01mA，比芯片本身大 500 倍</b>，电池续航会被 LDO 一个人吃掉。这就是为什么电池设备必须选「低静态电流」的 LDO 或 DC-DC，而不是随手拿一颗 AMS1117。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>特性</th><th>线性稳压器 LDO</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>理想效率</td><td>V<sub>out</sub> / V<sub>in</sub></td><td>压差越大越差，这是它的根本弱点</td></tr>
+                <tr><td>输出噪声</td><td>很低（µV 量级）</td><td>无开关动作，天然干净</td></tr>
+                <tr><td>纹波抑制 PSRR</td><td>低频 60~80dB，高频变差</td><td>100kHz 以上要靠输出电容接力</td></tr>
+                <tr><td>瞬态响应</td><td>快（微秒量级）</td><td>适合负载电流突变频繁的场合</td></tr>
+                <tr><td>能否升压</td><td><b class="font-semibold text-ink">不能</b></td><td>输出永远低于输入</td></tr>
+                <tr><td>外围元件</td><td>典型 2 个电容</td><td>输入一个、输出一个就能工作</td></tr>
+                <tr><td>输出电容要求</td><td>部分老型号对 ESR 有范围要求</td><td>用错电容会自激振荡，输出出现几十 kHz 的抖动</td></tr>
+                <tr><td>典型用途</td><td>5V→3.3V、3.7V→3.3V、模拟/射频供电</td><td>压差小、电流不大、要干净</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 2.6 开关电源 -->
+          <h3 id="sub-sps" class="mt-7 text-base font-semibold">开关电源：Buck / Boost / Buck-Boost</h3>
+
+          <p class="mt-3">开关电源换了个思路：<b class="font-semibold text-ink">既然「线性地耗掉多余电压」会发热，那就不耗——让开关管在「完全导通」和「完全截止」两种状态之间高速切换，再用储能元件（电感和电容）把能量搬过去</b>。</p>
+
+          <p class="mt-3">完全导通时，开关管上的压降接近 0（导通电阻 R<sub>DS(on)</sub> 通常只有几十毫欧）；完全截止时，电流为 0。两种状态下<b>消耗的功率都很小</b>（P = U·I，要么 U 很小，要么 I 很小），这就是效率能做到 90% 以上的原因。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种基本拓扑：Buck / Boost / Buck-Boost">
+            <pre><code>【Buck 降压：输出低于输入】—— 用得最多，就是「12V 转 5V」那个
+
+             开关管 S（MOSFET，高速开关）
+        ┌────────┤├────────┬─────────┬──────┐
+        │        SW        │         │      │
+       Vin              二极管 D   电感L    Cout   RL    Vout
+        │                 ▼        │         │      │
+        │                 │        │         │      │
+        └─────────────────┴────────┴─────────┴──────┘
+                          GND
+
+  工作过程（分两个阶段）：
+    ① S 导通：Vin 通过 L 给负载供电，电感电流【上升】，L 在储能
+    ② S 截止：电感电流不能突变，它通过二极管 D 继续流动（续流），
+               电流【下降】，把刚才存的能量放出来
+    输出电压由「导通时间占空比 D」决定：
+
+        ★  Vout = D · Vin          D = Ton / T  (0 ~ 1)
+
+    即：占空比 50% 时输出一半，25% 时输出四分之一。
+
+【Boost 升压：输出高于输入】—— 电池升压、LED 驱动
+
+        ┌────────┤├────────┬─────────┐
+        │        SW        │         │
+       Vin              电感L     二极管 D ──┬── Vout
+        │                 │        (阳极在左) │
+        │                 │         ▼        Cout   RL
+        │                 └────┤├───┴────────┴──────┘
+        │                      S
+        └──────────────────────┴─────────────────────┘
+                               GND
+
+  工作过程（和 Buck 恰好相反）：
+    ① S 导通：Vin 给电感充电，电感电流上升，此时负载靠 Cout 供电
+    ② S 截止：电感电流通过二极管 D 灌进输出，给 Cout 充电并供负载
+
+        ★  Vout = Vin / (1 − D)      D 越接近 1，升压倍数越高
+
+    注意：D 不能无限接近 1（实际模块最多做到 4~5 倍升压），
+          而且 Boost 电路【不能短路输出】，一短路开关管就炸。
+
+【Buck-Boost 升降压：输出可以高于也可以低于输入】
+
+        ★  Vout = Vin · D / (1 − D)     （输出电压极性是反的！）
+
+    典型用途：单节锂电池（4.2V~3.0V）稳定出 3.3V —— 电池高时降压、
+              电池低时升压，全程都能稳压。
+
+【两种「二极管」：异步与同步】
+  异步（传统）：用肖特基二极管续流，压降 0.3~0.5V，轻载时这部分损耗占比大
+  同步（现代）：把二极管也换成 MOSFET，压降变成 R_DS(on)·I，可以做得很小
+               → 效率更高（可达 95% 以上），芯片更贵，是现在的主流
+
+  实际芯片（按典型值估算，以手册为准）：
+    降压：MP1584、MP2315、TPS5430、LM2596（老但常见，效率约 80%）
+    升压：MT3608、TPS61088
+    升降压：TPS63020、SY7088
+    ★ 你在某宝上买的「Mini-360」「MP1584EN 降压模块」就是这一类。</code></pre>
+          </div>
+
+          <p class="mt-3">开关电源的效率优势有多大？同一个任务——12V 转 3.3V，输出 0.5A（也就是 1.65W）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>指标</th><th>线性稳压器（AMS1117）</th><th>开关电源（同步 Buck）</th></tr></thead>
+              <tbody>
+                <tr><td>输入功率</td><td>12V × 0.5A ≈ 6.0W</td><td>1.65W ÷ 0.9 ≈ 1.83W</td></tr>
+                <tr><td>发热功率</td><td>(12−3.3) × 0.5 = <b class="font-semibold text-ink">4.35W</b></td><td>约 0.18W</td></tr>
+                <tr><td>效率</td><td>约 27.5%</td><td>约 90%</td></tr>
+                <tr><td>需要散热器吗</td><td>4.35W 下几乎必然需要，否则过温关断</td><td>不需要，SOT-23 封装就能扛</td></tr>
+                <tr><td>结果</td><td>烫手、复位、可能烧毁</td><td>微微温热</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">但开关电源不是免费的，它把「发热」这个麻烦换成了另外三个麻烦：<b class="font-semibold text-ink">纹波、EMI、布局敏感</b>。</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">开关纹波。</b>输出上的纹波不再是 100Hz 的斜坡，而是<b>和开关频率同频</b>的三角波，频率通常在 100kHz~2MHz。典型幅度几十毫伏（比如 5V 输出上 30mV 纹波，约 0.6%）。这个纹波很难靠加大电容压下去，因为它的主要来源是电感的电流纹波和电容的 ESR。</li>
+            <li><b class="font-semibold text-ink">EMI（电磁干扰）。</b>开关节点（SW）每个周期都在 Vin 和 GND 之间跳变，<b>dv/dt 极高</b>，它会通过寄生电容耦合到周围一切导线上，既向外辐射，也向内干扰自己的反馈网络。这就是为什么 DC-DC 的 PCB 布局要求特别苛刻：<b>输入电容必须紧贴芯片，SW 节点的铜皮面积要尽可能小</b>。</li>
+            <li><b class="font-semibold text-ink">啸叫。</b>如果开关频率落进音频范围（20Hz~20kHz），或者芯片在轻载时进入「间歇工作模式」（打几个脉冲停一会儿），电感或陶瓷电容会因为<b>电致伸缩效应</b>发出人耳能听到的吱吱声。这就是知识地图上那句「DC-DC 会啸叫」的来源。解决办法：选开关频率在 20kHz 以上的芯片、换用一体成型电感、避免轻载间歇模式。</li>
+          </ul>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">开关频率选高的还是选低的</div>
+            <p>开关频率 f<sub>sw</sub> 越高，每个周期需要搬运的能量越少，需要的<b>电感和电容就越小</b>（模块可以做得很小）；但开关损耗与频率成正比，<b>效率会下降、EMI 会更难搞、对布局更敏感</b>。</p>
+            <p class="mt-2">工程上的常见区间：<b>100kHz~500kHz</b>（效率优先，模块较大）、<b>1MHz~2.2MHz</b>（体积优先，用于手机等空间紧张场合）。你买的那些小降压模块多数工作在 300kHz~1.5MHz，具体看芯片手册。</p>
+          </div>
+
+          <p class="mt-3">测开关电源的纹波有个讲究：<b class="font-semibold text-ink">不能用普通万用表测</b>。万用表测的是平均值，看不到纹波；用示波器测也要注意两点——探头的地线要极短（用弹簧地针，不要用那根十几厘米长的鳄鱼夹地线，否则你测到的主要是环路拾取的噪声），并且打开示波器的 20MHz 带宽限制。这两条不做，你会看到几百毫伏的「纹波」，然后白白换一堆电容。</p>
+
+          <!-- 2.7 选型对比 -->
+          <h3 id="sub-select" class="mt-7 text-base font-semibold">线性与开关的选型对比，以及电池供电的功耗估算</h3>
+
+          <p class="mt-3">选型不是「谁更好」，而是「谁更合适」。下面这张表是这一节最该记住的东西，考试会考，做项目更会用到：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比维度</th><th>线性稳压器（LDO）</th><th>开关电源（DC-DC）</th></tr></thead>
+              <tbody>
+                <tr><td>效率</td><td>V<sub>out</sub>/V<sub>in</sub>，压差大时极低</td><td>80%~95%，与压差关系不大</td></tr>
+                <tr><td>发热</td><td>P=(V<sub>in</sub>−V<sub>out</sub>)·I，压差大就烫</td><td>只有百分之十几的损耗，通常无需散热</td></tr>
+                <tr><td>输出噪声 / 纹波</td><td>极低（µV 级），天然干净</td><td>较大（几十 mV 级），与开关频率同频</td></tr>
+                <tr><td>EMI</td><td>几乎没有</td><td>明显，需要布局与滤波配合</td></tr>
+                <tr><td>外围元件</td><td>1~2 个电容</td><td>电感 + 若干电容 + 反馈电阻，布局要求高</td></tr>
+                <tr><td>瞬态响应</td><td>快，适合负载突变</td><td>较慢（受环路带宽限制），大电流突变会跌落</td></tr>
+                <tr><td>静态电流</td><td>可从 nA 到 mA 都有，差的型号拖垮电池</td><td>好的型号可低至 µA 级，但多数在几十 µA~mA</td></tr>
+                <tr><td>能升压吗</td><td>不能</td><td>Boost / Buck-Boost 可以</td></tr>
+                <tr><td>综合成本</td><td>低（一颗芯片 + 两个电容）</td><td>高（芯片 + 电感 + 更多电容）</td></tr>
+                <tr><td><b class="font-semibold text-ink">什么场合用</b></td><td>压差小、电流小、要干净：3.7V→3.3V、模拟/射频供电、ADC 基准、运放供电</td><td>压差大、电流大、要效率或要升压：12V→5V、电池升压、LED 驱动、电机供电</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一张图记住怎么选</div>
+            <div class="code-block mt-2" data-lang="text" data-title="三句话选型法">
+              <pre><code>  压差大 或 电流大（P 大于 1W）  ────────►  上 DC-DC，别犹豫
+  压差小 且 电流小（P 小于 0.5W）────────►  LDO，最简单最干净
+  两者都要（效率 + 干净）      ────────►  串联：DC-DC 粗降 + LDO 精稳
+
+  例：12V 输入，要给 ADC 和射频供电（要极干净）
+      12V ──► Buck 降到 3.8V ──► LDO 降到 3.3V
+      第一级承担全部压差（效率 90%），第二级压差只有 0.5V（发热很小），
+      同时 LDO 把 Buck 的开关纹波又压掉一个数量级。
+      ★ 这就是很多仪器、音频板、射频板的真实供电结构。</code></pre>
+            </div>
+          </div>
+
+          <p class="mt-3">接下来是电池设备最核心的一件事：<b class="font-semibold text-ink">功耗估算</b>。它由三个数字决定，缺一不可：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电池续航估算的三步法">
+            <pre><code>【第一步：算平均电流，而不是「工作电流」】
+  设备很少一直在满负荷跑。必须按【时间占比】加权：
+
+      平均电流 = Σ (每种状态的电流 × 它占的时间比例)
+
+  例：一个无线传感器节点
+      睡眠：10µA  × 99%
+      采集：5mA   × 0.9%
+      发射：120mA × 0.1%
+      ────────────────────────────────
+      平均 = 10µA×0.99 + 5mA×0.009 + 120mA×0.001
+           = 9.9µA + 45µA + 120µA
+           ≈ 175µA  ← 注意！它不是「几十毫安」，而是不到 0.2mA
+
+  ★ 结论往往反直觉：决定续航的是【睡眠电流】和【占空比】，
+    不是发射时那 120mA 的峰值。
+
+【第二步：算电源转换环节自己的损耗】
+  这一层最容易被漏掉：
+      LDO：输出电流 Iout 要由输入提供，另外还要加上 LDO 自己的静态电流
+           Iin ≈ Iout + Iq
+      DC-DC：输入功率 = 输出功率 / 效率
+           Iin ≈ (Vout · Iout) / (η · Vin)
+  例：上面那个 175µA 的负载，用一颗静态电流 5mA 的 AMS1117 供电，
+      实际电池电流 ≈ 5mA + 0.175mA ≈ 5.2mA
+      → 待机电流被 LDO 一个人放大了 30 倍！
+
+【第三步：算可用容量，而不是标称容量】
+      续航时间(h) = 可用容量(mAh) / 平均电流(mA)
+
+  ★ 三个打折因素：
+    ① 电池不能放到 0V。单节锂电标称 3.7V，实际可用区间约 4.2V~3.3V
+       （放到 3.0V 会损伤电池），大约只能用到标称容量的 80%~90%
+    ② 温度打折。0℃ 以下锂电容量可能只剩 60%~70%
+    ③ 稳压方案决定「能用多深」：
+       单节锂电 + LDO 出 3.3V：电池掉到 3.4V 左右就退出稳压区，
+         最后那 10%~20% 的容量根本用不上
+       单节锂电 + Buck-Boost 出 3.3V：可以一直榨到 3.0V，
+         同样的电池多用 15% 以上
+
+  算例：一块 2000mAh 的锂电，可用容量按 85% 计，平均电流 5.2mA
+      续航 ≈ 2000 × 0.85 / 5.2 ≈ 327 小时 ≈ 13.6 天
+  如果换成静态电流 10µA 的低功耗 LDO：
+      平均电流 ≈ 0.185mA → 续航 ≈ 2000 × 0.85 / 0.185 ≈ 9189 小时 ≈ 383 天
+   ★ 同一块电池，只是换了一颗 LDO，续航从 13 天变成一年多。
+     这就是「功耗估算」在电池设备里的分量。</code></pre>
+          </div>
+
+          <!-- 2.8 去耦与旁路 -->
+          <h3 id="sub-decoupling" class="mt-7 text-base font-semibold">去耦与旁路：100nF 和 10µF 到底谁管什么</h3>
+
+          <p class="mt-3">至此电压已经稳在 3.3V 了，但故事还没结束。假设芯片内部的一个门电路在 2ns 内突然要 50mA 电流，而最近的 10µF 电容在 3cm 外的电源入口——这 3cm 的 PCB 走线电感大约是 3nH（按典型值估算约 1nH/mm），那么电压瞬间的跌落是：</p>
+
+          <p class="mt-3">ΔU = L · di/dt = 3nH × 0.05A / 2ns = <b class="font-semibold text-ink">0.075V</b>。看起来只有 75mV，但对于 1.2V 的内核电压来说，这是 6% 的跌落；如果十几路逻辑同时翻转，跌落会叠加到几百毫伏——足够让芯片误动作、让 ADC 读数乱跳、让时钟失锁。</p>
+
+          <p class="mt-3">解决这个问题的办法不是「把电源做得更好」，而是<b class="font-semibold text-ink">把电荷库搬到芯片脚边上</b>。这就是去耦电容的使命。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>电容</th><th>主要管什么</th><th>有效频率范围（按典型值估算）</th><th>典型位置</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>100nF（0.1µF）陶瓷</td>
+                  <td>芯片级的<b>高频瞬态电流</b>，就近放电，同时给高频噪声一条到地的低阻通路</td>
+                  <td>约 1MHz ~ 30MHz（受封装寄生电感与自谐振频率限制）</td>
+                  <td><b class="font-semibold text-ink">每一个电源引脚旁边，一个都不能少</b></td>
+                </tr>
+                <tr>
+                  <td>10µF 陶瓷</td>
+                  <td>板级的<b>中低频储能</b>，负责毫秒级电流起伏（比如 WiFi 发射的包络）、补足 100nF 在低频段容量不够的问题</td>
+                  <td>约 100kHz ~ 几 MHz</td>
+                  <td>每个电源域 / 每个芯片组放 1 颗，靠近电源入口</td>
+                </tr>
+                <tr>
+                  <td>100µF~1000µF 电解或钽</td>
+                  <td><b>大能量缓冲</b>，应对大负载的开关（电机启动、继电器吸合），也降低整条电源线的阻抗</td>
+                  <td>约 1kHz ~ 几百 kHz（ESR 较大）</td>
+                  <td>电源入口、大功率负载旁</td>
+                </tr>
+                <tr>
+                  <td>1nF ~ 100pF</td>
+                  <td>射频段的<b>谐振与匹配</b>、高速信号的边缘</td>
+                  <td>几十 MHz ~ GHz</td>
+                  <td>射频前端、晶振、高速接口</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">「去耦」和「旁路」这两个词经常被混用，其实它们的<b>出发点不同</b>，理解了这个区别，你就能自己想明白该放什么电容：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">去耦（Decoupling）</b>：站在<b>芯片的角度</b>——「我干活时突然需要一股电流，希望有人立刻给我」。所以电容要<b>就近、量大、低阻抗</b>，目的是让瞬态电流不必从远处电源绕一圈。关键词是「把电源和芯片解耦开」。</li>
+            <li><b class="font-semibold text-ink">旁路（Bypass）</b>：站在<b>噪声的角度</b>——「这条线上的高频噪声别进到我的敏感脚里去，直接下地吧」。所以电容要<b>给噪声提供一条到地的短路通路</b>。典型场合：ADC 的 VREF+、运放的输入端、复位脚、比较器基准。</li>
+          </ul>
+
+          <p class="mt-3">实际电路中两者常常是同一颗电容干的活，但<b>当你遇到噪声问题时，问自己「这是要给人供电，还是要给噪声开路」，答案会不一样</b>：前者要靠近负载并考虑容量，后者要考虑噪声频率并可能串联电阻或磁珠。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="去耦电容怎么摆才对：走线电感决定一切">
+            <pre><code>【错误摆法】电容在芯片外面，电流要绕远路
+
+   ┌──────────── 3cm 走线（约 3nH） ────────────┐
+   │                                            │
+  3.3V ──────┬──────────────────────────────► VDD（芯片脚）
+             │                                     │
+           100nF                                芯片内部
+             │                                  瞬态电流路径
+            GND ◄─────────────────────────────── GND
+
+  问题：电容「名义上」在附近，但【电流环路面积很大】。
+        环路面积大 = 寄生电感大 = 高频时电容几乎不起作用。
+        同时这个大环路还是一个天线，向周围辐射噪声。
+
+【正确摆法】电容紧贴引脚，环路面积最小
+
+         ┌──────── 极短的引线 ────────┐
+         │                            │
+  3.3V ──┴──┬──[ 100nF ]──┬───────── ┴ ──► VDD（芯片脚）
+            │             │
+           via           via
+            │             │
+   ─────────┴─────────────┴─────────────────── 地平面（完整、连续）
+
+  三条布局规则：
+    ① 电容与引脚之间的距离越短越好（优先 1mm 以内）
+    ② 电容的接地端【直接打 via 到地平面】，不要绕到别的电容那里再接地
+    ③ 走线「先经过电容，再进芯片脚」，让瞬态电流必须穿过电容
+       （而不是在电容和芯片之间分叉）
+
+【多个电容并联的讲究】
+  100nF + 10µF 并联，是因为它们各自覆盖不同频段：
+      低频段：10µF 阻抗低，主要出力
+      高频段：100nF 因自谐振频率高，阻抗更低，主要出力
+  ★ 但不能无脑并一堆不同容值：两个电容的自谐振频率若靠得太近，
+    会在中间频段形成一个【阻抗尖峰】（反谐振），反而比只用一颗更差。
+    工程上通常「大中小搭配 2~3 种」就够了，不是越多越好。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">ADC 的参考电压为什么要单独滤波</div>
+            <p>ADC 的工作原理是「把输入电压和参考电压比一下，看占多少比例」：结果 = (V<sub>in</sub> / V<sub>REF</sub>) × 满量程。所以<b>参考电压上任何一点抖动，都会直接变成读数上的误差</b>——而且它是按比例的，V<sub>REF</sub> 抖 1%，读数就整体漂 1%。</p>
+            <p class="mt-2">更麻烦的是，ADC 每次采样都要从 V<sub>REF</sub> 脚抽一小股电荷（采样电容充电），如果 V<sub>REF</sub> 的源阻抗高、电容小，<b>参考电压会在采样瞬间被自己拉低</b>——连续采样时，读数就跟着采样率一起跳。</p>
+            <p class="mt-2">标准做法：给 VDDA / VREF+ 单独走线，加 <b>磁珠或 10Ω 电阻 + 100nF 与 1µF 电容</b>（构成 π 型或 RC 滤波），并且<b>采样期间不要在这条线上切换大电流负载</b>。STM32 上还要注意：VREF+ 与 VDDA 通常是同一个引脚或相邻引脚，而 VSSA 必须与数字地单点相连。</p>
+          </div>
+        </section>
+
+<hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">这一节的五道题全部来自真实的开发场景，不是教材习题的改编。每道题都按同一格式走：<b>已知 → 求 → 解（带单位）→ 结论</b>。请务必动笔跟着算一遍，这些数字你自己算过一遍之后，会变成一种直觉——以后看到「12V 转 3.3V」就知道要出事，看到「1000µF 带 1A」就知道不用试了。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">算之前先统一单位</div>
+            <p>这五道题里最容易错的地方不是公式，而是<b>单位换算</b>。请先把这三个换算刻在脑子里：</p>
+            <p class="mt-2"><b>1µF = 10<sup>−6</sup> F</b>　　<b>1mA = 10<sup>−3</sup> A</b>　　<b>1ms = 10<sup>−3</sup> s</b></p>
+            <p class="mt-2">还有一个容易被忽略的：<b>「纹波电压」指的是峰峰值</b>（最高点到最低点），不是有效值，也不是振幅。示波器上量出来的 Vpp 才是它。</p>
+          </div>
+
+          <!-- 例题一 -->
+          <h3 id="ex1" class="mt-7 text-base font-semibold">例题一：50Hz 桥式整流 + 1000µF 电容，1A 负载下的纹波有多大</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>市电频率 50Hz，桥式整流（所以纹波频率是 100Hz），滤波电容 C = 1000µF，负载电流 I = 1A。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">求：</b>① 纹波电压 ΔU 大约是多少？② 如果要求纹波不超过 1V，电容要多大？③ 这颗电容带 100mA 负载时纹波多大？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题一解答：纹波估算">
+            <pre><code>【第一步：确定放电时间 Δt】
+  桥式整流是【全波】，一个市电周期内整流桥导通两次，
+  所以纹波频率翻倍：
+      f_纹波 = 2 × 50Hz = 100Hz
+      Δt = 1 / f_纹波 = 1 / 100 = 0.01s = 10ms
+
+  ★ 这一步千万别用 20ms。用错的话答案会直接差一倍。
+
+【第二步：统一单位，代入公式】
+      C  = 1000µF = 1000 × 10⁻⁶ F = 1 × 10⁻³ F
+      I  = 1A
+      Δt = 0.01s
+
+      ΔU ≈ I · Δt / C
+         = 1 × 0.01 / (1 × 10⁻³)
+         = 0.01 / 0.001
+         = 10V      ← ①答案
+
+  答①：纹波电压约 10V（峰峰值）。
+
+【第三步：这个数字说明什么】
+  10V 的纹波意味着：谷点电压比峰值低了整整 10V。
+  若整流峰值是 11.3V，谷点只有 1.3V —— 这已经完全不是「直流」了，
+  后面的稳压器根本无法工作（输入都掉到 1.3V 了，3.3V 从哪来？）。
+
+  ★ 结论：1000µF 的电容，带 1A 负载是彻底不够的。
+
+【第四步：反算需要多大的电容】
+  把公式变形：
+      C ≥ I · Δt / ΔU_允许
+        ≥ 1 × 0.01 / 1
+        ≥ 0.01 F
+        = 10000µF    ← ②答案
+
+  答②：要压到 1V 纹波，需要约 10000µF（也就是 10 个 1000µF 并联）。
+
+  ★ 现实检查：10000µF/25V 的电解电容体积接近一节 5 号电池，
+    价格和体积都不可接受。这就是为什么【大电流电源不能靠电容滤波】，
+    必须换成开关电源 —— 这不是「选型偏好」，是物理规律。
+
+【第五步：负载小一点会怎样】
+      I = 100mA = 0.1A
+      ΔU ≈ 0.1 × 0.01 / (1 × 10⁻³) = 1V    ← ③答案
+
+  答③：带 100mA 时纹波约 1V，是可以接受的量级。
+
+  ★ 记住这个对照关系：同一颗电容，电流缩小 10 倍，纹波也缩小 10 倍。
+    所以「1000µF」这个数字本身没有意义，必须和负载电流一起说。
+
+【补充：为什么实际测出来比 10V 小】
+  本章前面提醒过：当 ΔU 接近峰值 Up 时，电容电压掉得太快，
+  整流桥会在下一个周期到来之前就提前重新导通，
+  实际放电时间比 10ms 短，所以实测值会更小（比如 6~8V）。
+  ★ 但结论完全不变：这个电容带不动 1A。
+    估算式的价值在于「快速判定方案行不行」，而不是精确预测。</code></pre>
+          </div>
+
+          <!-- 例题二 -->
+          <h3 id="ex2" class="mt-7 text-base font-semibold">例题二：稳压管限流电阻怎么选（以及什么时候它无解）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>输入是 12V 电源，波动 ±5%（即 11.4V ~ 12.6V）；要得到 5.1V 的稳定电压给一个小电路供电；负载电流在 0 ~ 20mA 之间变化。手上有一颗 5.1V、额定功率 0.5W 的稳压管，手册建议最小工作电流 I<sub>zmin</sub> = 5mA。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">求：</b>① 限流电阻 R 的取值范围；② 选一个标准阻值并校验；③ 校验电阻功率；④ 如果负载改成 100mA，还做得成吗？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题二解答：限流电阻的双向约束">
+            <pre><code>【第一步：先算出稳压管允许的最大电流】
+      Izmax = Pz / Uz = 0.5W / 5.1V ≈ 0.098A ≈ 98mA
+
+  ★ 但工程上不会按 98mA 去设计，那样管子会长期工作在极限。
+    这里我们按手册上限的 40% 取整，比较保守地取 Izmax ≈ 40mA 来留余量。
+
+【第二步：写约束（这是本题的核心）】
+  流过电阻的电流是固定的：IR = (Vin − Uz) / R
+  稳压管分到的电流是：      Iz = IR − IL
+
+  ① 要稳压，Iz 不能小于 Izmin：
+       IR − IL_max ≥ Izmin
+       (Vin_min − Uz) / R − 0.020 ≥ 0.005
+       ⇒ R ≤ (11.4 − 5.1) / (0.005 + 0.020)
+       ⇒ R ≤ 6.3 / 0.025 = 252Ω          ← R 的【上限】
+
+  ② 要安全，Iz 不能超过 Izmax：
+       (Vin_max − Uz) / R − IL_min ≤ Izmax
+       (12.6 − 5.1) / R − 0 ≤ 0.040
+       ⇒ R ≥ 7.5 / 0.040 = 187.5Ω        ← R 的【下限】
+
+  ★ 注意两个式子的方向：【最大电流】约束给出 R 的下限，
+    【最小电流】约束给出 R 的上限。写反了整道题就废了。
+
+【第三步：取交集，选标准值】
+      187.5Ω ≤ R ≤ 252Ω
+      E24 标准阻值里，落在区间内的有 200Ω、220Ω、240Ω
+      本题选 R = 220Ω（居中，两边都留余量）
+
+  ⚠ 一个技巧：如果算出来的区间很窄（比如 190Ω ~ 200Ω），
+    说明这个电路「能工作但很勉强」，实际温度一变、管子参数一散，
+    就会出问题。此时应该【扩大区间】，办法只有两个：
+      降低 Iz 要求（换更灵敏的管子）或 提高输入电压的稳定性。
+
+【第四步：校验两种极端情况】
+  情况 A：Vin = 11.4V（最低），负载最重 IL = 20mA
+      IR = (11.4 − 5.1) / 220 = 6.3 / 220 = 0.0286A = 28.6mA
+      Iz = 28.6 − 20 = 8.6mA          ← 大于 5mA ✓ 稳压有效
+
+  情况 B：Vin = 12.6V（最高），负载最轻 IL = 0
+      IR = (12.6 − 5.1) / 220 = 7.5 / 220 = 0.0341A = 34.1mA
+      Iz = 34.1 − 0 = 34.1mA          ← 小于 40mA ✓ 安全
+      Pz = Uz × Iz = 5.1 × 0.0341 = 0.174W
+         ← 远小于额定的 0.5W ✓         ← ③答案的一半
+
+  答①：R 的取值范围 187.5Ω ~ 252Ω；答②：选 220Ω，两种极端情况都通过。
+
+【第五步：校验电阻自己的发热】
+  电阻在【最坏情况】下发热最大 —— 也就是 Vin 最高时：
+      P_R = (Vin_max − Uz)² / R
+          = 7.5² / 220
+          = 56.25 / 220
+          = 0.256W
+
+  答③：需要选额定功率 0.5W 或以上的电阻（1/4W 的会明显发热甚至变色）。
+  ★ 这里体现一个通用原则：【电容看耐压，电阻看功率】，
+    选型时都要按最坏情况算，而不是按典型情况。
+
+【第六步：顺手看一眼效率（这会让你明白它为什么被淘汰）】
+  最坏情况 Vin = 12.6V，IL = 20mA：
+      输入功率 Pin = 12.6V × 0.0341A = 0.430W
+      有用输出   Pout = 5.1V × 0.020A = 0.102W
+      效率 η = 0.102 / 0.430 ≈ 23.7%
+
+  答④（追问）：如果负载要 100mA 呢？
+      ① 式：R ≤ (11.4 − 5.1) / (0.005 + 0.100) = 6.3 / 0.105 = 60Ω
+      ② 式：R ≥ 7.5 / 0.040 = 187.5Ω
+      下限 187.5Ω 大于上限 60Ω → 【无解】
+
+  ★ 「无解」是一个非常宝贵的结论：它告诉你这个电路结构本身
+    带不动这个负载，继续调电阻是浪费时间。正确做法是换 LDO，
+    或者提高 Izmax（换更大功率的稳压管，但发热会转移到电阻上）。
+    稳压管电路的现实能力上限大约是【几十毫安】，
+    再往上就该用三端稳压器或 LDO 了。</code></pre>
+          </div>
+
+          <!-- 例题三 -->
+          <h3 id="ex3" class="mt-7 text-base font-semibold">例题三：AMS1117 从 5V 降到 3.3V 带 300mA，功耗与结温是多少</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>用一颗 AMS1117-3.3（SOT-223 封装）从 5V 稳压到 3.3V，输出电流 300mA。按典型值估算，SOT-223 封装在普通双面敷铜板上的热阻 θ<sub>JA</sub> ≈ 80°C/W；环境温度取室温 25°C。AMS1117 的静态电流按典型 5mA 估算。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">求：</b>① 稳压器自身的功耗；② 结温；③ 效率；④ 如果把输入换成 12V，还能带 300mA 吗？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题三解答：LDO 功耗与结温">
+            <pre><code>【第一步：算功耗】
+      压差 Vin − Vout = 5 − 3.3 = 1.7V
+      P = (Vin − Vout) × Iout
+        = 1.7V × 0.300A
+        = 0.51W                    ← ①答案
+
+  ★ 加上静态电流的更精确写法（本例影响很小，但概念要清楚）：
+      Pin = Vin × (Iout + Iq) = 5 × (0.300 + 0.005) = 1.525W
+      P   = Pin − Pout = 1.525 − 3.3×0.300 = 1.525 − 0.990 = 0.535W
+    与 0.51W 只差 5%，所以日常估算用 P = (Vin−Vout)·Iout 就够了。
+
+【第二步：算结温】
+      结温公式：Tj = Ta + P × θJA
+                    = 25 + 0.51 × 80
+                    = 25 + 40.8
+                    = 65.8°C                ← ②答案
+  ★ θJA 是「结到环境」的热阻，单位 °C/W，含义是「每瓦功耗让结温升高多少度」。
+    这个值【高度依赖 PCB 敷铜面积】：手册上同一个封装可能给出 60~120°C/W
+    的不同数据，因为它对应不同的测试板。所以估算时一定要说明取值依据，
+    并且宁可往大取（更保守）。
+
+【第三步：判断行不行】
+  AMS1117 的允许结温上限通常是 125°C（以手册为准）。
+      65.8°C 远低于 125°C → 完全安全，只会「温热」，不烫手。
+
+  ★ 但要做一次「最坏情况」复核：
+    夏天密闭外壳内环境温度可能到 50°C：
+       Tj = 50 + 40.8 = 90.8°C    ← 仍然安全，但已经很热了
+    如果敷铜不足（θJA 达到 120°C/W）：
+       Tj = 50 + 0.51 × 120 = 111.2°C  ← 逼近上限，危险
+    这就是为什么「同样的电路，别人做出来温温的，你做出来烫手」——
+    差在敷铜面积和散热焊盘的过孔上，不在电路图上。
+
+【第四步：效率】
+      η ≈ Vout / Vin = 3.3 / 5 = 66%
+  ★ 也就是 0.51W 变成了热，0.99W 送到了负载。对 LDO 来说这已经不错了。
+
+【第五步：把输入换成 12V】
+      压差 = 12 − 3.3 = 8.7V
+      P = 8.7 × 0.300 = 2.61W
+      Tj = 25 + 2.61 × 80 = 25 + 208.8 = 233.8°C   ← 远远超过 125°C
+
+  答④：不行。芯片会立刻进入过温保护，表现为：
+       输出断续、电压跌落、单片机反复复位 —— 正是本文开头那个现场。
+
+  ★ 反算一下「12V 输入时它最多能带多少电流」：
+      允许温升 = 125 − 25 = 100°C
+      允许功耗 = 100 / 80 = 1.25W
+      允许电流 = 1.25 / 8.7 ≈ 0.144A = 144mA
+
+      即使把敷铜做到极致（θJA = 60°C/W）：
+      允许功耗 = 100 / 60 = 1.67W
+      允许电流 = 1.67 / 8.7 ≈ 192mA
+
+  ★ 结论（请务必记住这三个数字）：
+      12V → 3.3V 用 LDO，最多只能带【150mA 左右】，而且是在室温、
+      敷铜充足、不封闭的理想条件下。
+      而 ESP32 的 WiFi 发射峰值电流就要 500mA ——
+      所以「12V 供电 + LDO 直降 + WiFi 模块」这个组合，
+      从设计上就是不可能工作的，无论你加多大的电容。
+
+  ★ 正确做法（三种，任选一种都能解决）：
+      ① 换 DC-DC：12V→3.3V 的 Buck 模块，2.61W 的损耗降到约 0.3W
+      ② 两段式：12V →(DC-DC)→ 5V →(LDO)→ 3.3V，LDO 只承担 1.7V 压差
+      ③ 换输入：直接用 5V 适配器或 USB 供电，绕开 12V 这个大压差</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">把这道题的结论变成一张速查表</div>
+            <div class="table-scroll mt-2">
+              <table class="table-mcu">
+                <thead><tr><th>输入 → 3.3V</th><th>压差</th><th>300mA 时功耗</th><th>估算结温（θ<sub>JA</sub>=80）</th><th>判断</th></tr></thead>
+                <tbody>
+                  <tr><td>3.7V（单节锂电）</td><td>0.4V</td><td>0.12W</td><td>约 35°C</td><td>很理想，几乎不热</td></tr>
+                  <tr><td>5V（USB）</td><td>1.7V</td><td>0.51W</td><td>约 66°C</td><td>温热，安全</td></tr>
+                  <tr><td>9V</td><td>5.7V</td><td>1.71W</td><td>约 162°C</td><td><b class="font-semibold text-ink">不可用</b></td></tr>
+                  <tr><td>12V</td><td>8.7V</td><td>2.61W</td><td>约 234°C</td><td><b class="font-semibold text-ink">不可用</b>，必然保护</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-3">这张表建议你直接背下来：<b>LDO 的适用边界大约就是「压差 2V 以内、电流 500mA 以内」</b>，出了这个框，就该想想开关电源了。</p>
+          </div>
+
+          <!-- 例题四 -->
+          <h3 id="ex4" class="mt-7 text-base font-semibold">例题四：一块 2000mAh 的锂电池，能撑多久</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>一个便携数据采集器，用单节 2000mAh 锂电池供电，需要稳定的 3.3V，平均负载电流 80mA（采集 + 显示的平均值）。有三种供电方案可选。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">求：</b>分别估算三种方案的电池电流与续航时间，并说明差在哪。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题四解答：三种方案对比">
+            <pre><code>【先确定两个「打折系数」】
+  ① 电池可用容量：单节锂电标称 3.7V，实际可用区间约 4.2V ~ 3.3V，
+     按典型值估算只能用到标称容量的 85%（低温还要再打折）
+        可用容量 = 2000 × 0.85 = 1700mAh
+  ② 平均电池电压：放电过程中从 4.2V 降到 3.3V，取中间值 3.7V 估算
+
+────────────────────────────────────────────────────────
+【方案 A：普通 LDO（AMS1117，静态电流按 5mA 估算）】
+      效率 η ≈ Vout / Vin = 3.3 / 3.7 = 89%
+      电池电流 = 负载电流 + 静态电流 = 80mA + 5mA = 85mA
+      续航 T = 可用容量 / 电池电流 = 1700mAh / 85mA = 20 小时
+
+  ★ 注意：80mA 的负载下，那 5mA 静态电流只占 6%，影响不大。
+    但下面你会看到，负载一变小结论就彻底翻转。
+
+────────────────────────────────────────────────────────
+【方案 B：低静态电流 LDO（Iq = 10µA）】
+      电池电流 = 80mA + 0.01mA ≈ 80.01mA
+      续航 T = 1700 / 80.01 ≈ 21.2 小时
+
+  ★ 只比方案 A 多了 1 小时。这告诉我们一件重要的事：
+    【低静态电流只在负载电流本身也很小时才有意义】。
+    把方案 B 用在一个待机 175µA 的传感器节点上试试：
+        方案 A：1700 / 5.175 ≈ 328 小时 ≈ 13.7 天
+        方案 B：1700 / 0.185 ≈ 9189 小时 ≈ 383 天
+    同一个「10µA」，在高负载场合省 6%，在低负载场合省 28 倍。
+    ★ 选型永远是「对着实际工况算」，不是「参数越好越对」。
+
+────────────────────────────────────────────────────────
+【方案 C：Buck-Boost 升降压（η = 90%，Iq = 30µA）】
+      优点 1：电池掉到 3.0V 也能稳稳输出 3.3V
+              → 可用容量按 95% 计 = 1900mAh
+      优点 2：效率与压差无关，按 90% 算
+      电池输入功率 = 输出功率 / η = (3.3V × 80mA) / 0.90
+                   = 264mW / 0.90 = 293mW
+      电池电流 ≈ 293mW / 3.7V = 79.3mA
+      续航 T = 1900 / 79.3 ≈ 24 小时
+
+────────────────────────────────────────────────────────
+【三个方案排在一起看】
+
+  方案                    电池电流    可用容量    续航
+  ─────────────────────────────────────────────────────
+  A 普通 LDO              85mA       1700mAh    20.0 小时
+  B 低功耗 LDO            80.01mA    1700mAh    21.2 小时
+  C Buck-Boost            79.3mA     1900mAh    24.0 小时
+
+  ★ 方案 C 比方案 A 多撑 4 小时（提升 20%），
+    但它多花的成本是一颗电感 + 一颗芯片，而且会带来开关纹波。
+    如果你的电路里有 ADC 或射频，方案 C 后面还必须再串一级 LDO。
+
+【这道题真正的考点：三件事，缺一不可】
+  ① 效率（决定电池电流）
+  ② 可用容量（决定电池能被用到多深）
+  ③ 静态电流（决定待机时有没有被偷电）
+  ★ 很多人的续航估算只做第 ① 步，结果实测差一倍。</code></pre>
+          </div>
+
+          <!-- 例题五 -->
+          <h3 id="ex5" class="mt-7 text-base font-semibold">例题五：电容到底能顶多久（为什么 ESP32 要留 500mA 余量）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>一个 ESP32 模块在 WiFi 发射瞬间需要 500mA，持续约 1ms；而你的电源只能稳定提供 200mA。要求供电电压不能跌超过 0.3V（3.3V 跌到 3.0V 已经是 ESP32 的下限）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">求：</b>① 靠电容补上这个缺口需要多大容量？② 100nF 和 10µF 分别能顶多久？③ 这件事说明了什么？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题五解答：电容的「顶住时间」反算">
+            <pre><code>【第一步：缺口有多大】
+      缺口电流 = 负载峰值 − 电源能力 = 500 − 200 = 300mA = 0.3A
+      允许跌落 ΔU = 0.3V
+      缺口持续时间 Δt = 1ms = 0.001s
+
+【第二步：把纹波公式反过来用】
+      原式：ΔU ≈ I · Δt / C
+      反解：C ≥ I · Δt / ΔU
+
+      C ≥ 0.3 × 0.001 / 0.3
+        ≥ 0.001 F
+        = 1000µF                     ← ①答案
+
+  答①：需要约 1000µF 才能补上这 1ms 的缺口。
+
+  ★ 1000µF！这已经是一颗相当可观的电解电容了，
+    而且它只是为了应付【1 毫秒】。如果 WiFi 发射持续 10ms 呢？
+    容量要 10000µF —— 不现实。
+
+【第三步：反过来算「给定电容能顶多久」】
+  把式子写成时间的形式：Δt ≈ C · ΔU / I
+
+      100nF = 1×10⁻⁷ F：
+        Δt ≈ 1×10⁻⁷ × 0.3 / 0.3 = 1×10⁻⁷ s = 0.1µs = 100ns
+
+      10µF = 1×10⁻⁵ F：
+        Δt ≈ 1×10⁻⁵ × 0.3 / 0.3 = 1×10⁻⁵ s = 10µs
+
+      1000µF = 1×10⁻³ F：
+        Δt ≈ 1×10⁻³ × 0.3 / 0.3 = 1×10⁻³ s = 1ms
+
+  答②：100nF 只能顶 100 纳秒；10µF 能顶 10 微秒；1000µF 能顶 1 毫秒。
+
+【第四步：把三个时间尺度摆在一起，一切都清楚了】
+
+      100nF ──► 100ns    ← 芯片内部逻辑翻转、时钟边沿
+      10µF  ──► 10µs     ← 一路外设同时启动
+      1000µF──► 1ms      ← 一个小负载的开关
+      【更大的负载突变 → 只能靠电源本身，电容救不了】
+
+  ★ 答③：这就是去耦电容「分工」的数学依据。
+    100nF 存在的意义【从来不是】给 WiFi 供电，而是让 ns 级的
+    逻辑瞬态不跑到电源线上去；指望它顶住 1ms 的 300mA 缺口，
+    差了整整 10000 倍。
+
+【第五步：所以「留 500mA 余量」是什么意思】
+  它指的是【电源的额定输出能力】要覆盖负载的峰值，而不是平均值：
+
+      错误做法：算平均电流 80mA，于是选一颗 100mA 的 LDO
+                → WiFi 一发射就掉压、复位、重启
+      正确做法：查模块手册的【峰值电流】= 500mA（ESP32 常见值）
+                → 电源额定输出留到 500mA 以上，再留一点余量
+                → 选 800mA 的 LDO 或 1A 的 DC-DC
+
+  ★ 数据手册里一般会写三个电流值，别只看第一个：
+      ① 平均电流（Average）—— 决定续航
+      ② 峰值电流（Peak / Burst）—— 决定电源选型
+      ③ 睡眠电流（Sleep / Deep-sleep）—— 决定待机时间
+  ★ 关于「余量」还有一个经验规则：
+      电源额定电流 ≥ 峰值电流 × 1.5
+    留 1.5 倍是因为：芯片的额定电流是在特定条件下标的（温度、
+    压差、敷铜），而实际工况更恶劣；同时电感/电容的余量也在这里面。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">五道例题用到的公式汇总</div>
+            <div class="table-scroll mt-2">
+              <table class="table-mcu">
+                <thead><tr><th>公式</th><th>用在</th><th>每个符号的含义与单位</th></tr></thead>
+                <tbody>
+                  <tr><td>ΔU ≈ I · Δt / C</td><td>例题一、五</td><td>ΔU 纹波峰峰值(V)；I 负载电流(A)；Δt 放电时间(s)；C 容量(F)</td></tr>
+                  <tr><td>C ≥ I · Δt / ΔU<sub>允许</sub></td><td>例题一、五</td><td>反解形式，用来选电容</td></tr>
+                  <tr><td>I<sub>z</sub> = (V<sub>in</sub>−U<sub>z</sub>)/R − I<sub>L</sub></td><td>例题二</td><td>稳压管电流(A)；R 限流电阻(Ω)</td></tr>
+                  <tr><td>P = (V<sub>in</sub> − V<sub>out</sub>) · I</td><td>例题三</td><td>线性稳压器的发热功率(W)</td></tr>
+                  <tr><td>T<sub>j</sub> = T<sub>a</sub> + P · θ<sub>JA</sub></td><td>例题三</td><td>结温(°C)；环境温度(°C)；热阻(°C/W)</td></tr>
+                  <tr><td>η ≈ V<sub>out</sub>/V<sub>in</sub></td><td>例题三、四</td><td>线性稳压器的效率（无量纲）</td></tr>
+                  <tr><td>T = 容量 / 电流</td><td>例题四</td><td>续航时间(h)；容量(mAh)；电流(mA)</td></tr>
+                  <tr><td>I<sub>in</sub> ≈ (V<sub>out</sub>·I<sub>out</sub>)/(η·V<sub>in</sub>)</td><td>例题四</td><td>开关电源的输入电流(A)</td></tr>
+                  <tr><td>Δt ≈ C · ΔU / I</td><td>例题五</td><td>电容量能「顶住」的时间(s)</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-3">这九个式子其实就是本篇的全部数学。你会发现它们大多数是<b>同一个式子的不同变形</b>——把「电荷守恒」写成不同形式而已。<b>理解了 C = Q/U 和 I = Q/t 这两个初中公式，整篇电源估算就没有新东西了。</b></p>
+          </div>
+        </section>
+
+<hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4">前面三节讲的是原理和公式，这一节全部换成你手上真实的东西：一块 STM32 最小系统板、一个 ESP32 模块、一张 ADC 采样电路、一段电源监控代码。看完这一节，你应该能拿着自己的板子，指着上面的每一个元件说出它是干什么的。</p>
+
+          <!-- 4.1 开发板的电源树 -->
+          <h3 id="mcu-board" class="mt-7 text-base font-semibold">拆开一块 STM32 最小系统板：电源树长什么样</h3>
+
+          <p class="mt-3">以最常见的 STM32F103C8T6 最小系统板（俗称「蓝板」）为例，它的电源部分其实只有一颗 LDO 加几个电容，但每一处都有讲究。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="STM32 最小系统板的电源树（典型值，具体以你的板子为准）">
+            <pre><code>【整板电源树】
+
+  ┌──────────────┐
+  │ USB 5V       │──────┬───────────────────────────────────► 5V 引脚（排针）
+  │ （或 5V 引脚）│      │                                     给 WS2812、舵机、
+  └──────────────┘      │                                     超声波模块等外设
+                        │
+                     ┌──┴───┐  10µF（输入电容）
+                     │      │
+                    ─┴─     │
+                    ─┬─     │
+                     │      │
+              ┌──────┴──────┴───────┐
+              │   AMS1117-3.3       │   ← 三只脚 + 一个散热片
+              │   输入 5V → 3.3V    │      压差 1.7V，温热，正常
+              └──────────┬──────────┘
+                         │
+                     ┌───┴────┐ 10µF~22µF（输出电容）
+                    ─┴─      │
+                    ─┬─      │
+                         │
+                   3.3V 电源轨
+                         │
+     ┌───────────────────┼────────────────────┬──────────────┐
+     │                   │                    │              │
+  ┌──┴───┐          ┌────┴─────┐        ┌─────┴──────┐  ┌────┴─────┐
+  │ MCU  │          │ 数字外设 │        │ 模拟电源   │  │ 调试接口 │
+  │ VDD   │          │ 显示屏等 │        │ VDDA       │  │ SWD      │
+  │       │          │          │        │ 经磁珠/0Ω  │  │          │
+  │每个脚 │          │          │        │ +100nF     │  │          │
+  │100nF  │          │          │        │ +1µF       │  │          │
+  └───────┘          └──────────┘        └────────────┘  └──────────┘
+
+  【几个关键观察】
+  ① USB 的 5V 是【直连】到 LDO 输入和 5V 排针的 —— 也就是说，
+     你从 5V 排针灌 12V 进去，12V 会直接打在 AMS1117 上。
+     ★ 这就是「刚上电就烫手」的最常见原因：把 12V 接到了 5V 引脚。
+  ② VDDA（模拟电源）不是直接从 3.3V 轨引一根线过来的，
+     而是经过磁珠或 0Ω 电阻 + 电容单独滤波。
+  ③ VBAT 引脚接纽扣电池，只给 RTC 和备份寄存器供电。
+     它不走 LDO —— 因为纽扣电池才 3V，走 LDO 反而更低。
+
+  【给 12V 供电的正确接法】
+     12V ──► DC-DC 降压模块 ──► 5V ──► 板子的 5V 引脚
+     （或者干脆用 5V 适配器 / USB 供电）
+     千万不要把 12V 直接接到 5V 引脚上「试试看」。</code></pre>
+          </div>
+
+          <p class="mt-3">再放大看那颗 LDO。它的典型应用电路在数据手册上只有一页，但有两个细节经常被忽略：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="AMS1117 典型应用电路（对照手册）">
+            <pre><code>                        ┌───────────────┐
+   Vin ──┬──────────────┤ IN        OUT ├──────────────┬──┬── 3.3V
+         │              │               │              │  │
+        ─┴─ 10µF        │      GND      │             ─┴─ │  22µF
+        ─┬─  （钽电容或  │               │             ─┬─ │ （钽电容或
+         │    陶瓷）     └───────┬───────┘              │  │   陶瓷）
+         │                       │                     │  │
+        GND                     GND                   GND GND
+                                                 (散热片 TAB
+                                                  与 OUT 相连)
+
+  【细节一：输出电容不能省】
+     很多「精简版」的板子把输出电容省掉了，结果一接负载就振荡。
+     AMS1117 这类老式 LDO 的环路稳定性依赖输出电容的 ESR，
+     手册要求输出端接 22µF 钽电容（ESR 在 0.1~1Ω 量级）。
+     ★ 换成低 ESR 的陶瓷电容有时反而会【自激振荡】，
+       表现为输出上叠加一个几十 kHz 的抖动，万用表量不出来，
+       但单片机就会莫名其妙复位。稳妥做法是按手册推荐的容值和类型。
+
+  【细节二：散热片（TAB）与输出脚内部相连】
+     也就是说那颗金属散热片上是 3.3V，不是地！
+     后果：
+       ① 用金属螺丝把板子固定在金属机箱上 → 3.3V 短路到地
+       ② 手指同时碰到散热片和地 → 没事，但碰到别的 5V 就麻烦了
+     ★ 正确做法：把 TAB 焊在一块【敷铜焊盘】上散热，
+       并在焊盘下面打几个过孔连到背面更大的铜皮。
+       这就是为什么「同样的电路有人做出来温温的、有人做出来烫手」——
+       差别就在这块铜皮上。热阻从 120°C/W 降到 60°C/W，
+       结温能差 30°C 以上。</code></pre>
+          </div>
+
+          <!-- 4.2 ESP32 峰值电流 -->
+          <h3 id="mcu-esp32" class="mt-7 text-base font-semibold">为什么 ESP32 的电源要留 500mA 余量</h3>
+
+          <p class="mt-3">STM32 的电流很温柔（不带射频时通常几十毫安），而 ESP32 完全不同：它内部有一整台射频发射机。射频功放的工作方式是<b class="font-semibold text-ink">脉冲式</b>的——WiFi 包一来就猛抽一口电流，包发完立刻回落。这个「猛抽一口」的峰值，就是电源设计的分水岭。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="ESP32 工作时的电流波形（示意，量级按典型值估算）">
+            <pre><code>  电流
+   ▲
+   │        ┌──┐                    ┌──┐
+500mA ──────┤  │────────────────────┤  │───────────  WiFi 发射瞬间
+   │        │  │                    │  │
+   │        │  │                    │  │
+240mA ──────┘  └────────────────────┘  └───────────  接收 / 处理
+   │
+ 80mA ─────────────────────────────────────────────  正常运算
+   │  ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+ 20µA ─────────────────────────────────────────────  Deep-sleep
+   └──────────────────────────────────────────────► t
+      |◄ 发射持续约 1~3ms，周期取决于发送间隔 ►|
+
+  【三种电流，三种用途 —— 千万不要只有一个数字】
+      平均电流   → 决定电池能撑多久（用它算续航）
+      峰值电流   → 决定电源选型（用它选 LDO / DC-DC）
+      睡眠电流   → 决定待机能耗（用它评估低功耗设计）
+
+  【电源不够时的表现：非常好认】
+      现象 1：一连 WiFi 就重启，串口打印 brownout detector was triggered
+      现象 2：连上了但频繁掉线，或者发送数据偶尔丢包
+      现象 3：用示波器看 3.3V，能在发射瞬间看到明显的下陷（比如跌到 2.9V）
+      ★ 第 3 条是最有力的证据：一旦看到 3.3V 在发射瞬间塌陷，
+        就不要再怀疑程序了，那是电源问题。
+
+  【为什么 ESP32 官方模块都要并一颗大电容】
+      几乎所有 ESP32 模组的电源脚旁边都有一颗 10µF 甚至 22µF 的电容，
+      有些开发板还会并一颗 100µF 的电解。
+      用例题五的公式算一下就知道：10µF 只能顶 10µs，
+      100µF 只能顶 100µs —— 都远小于 1~3ms 的发射时长。
+      ★ 所以那颗电容的作用是【吸收最快的那个边沿】，
+        真正扛住 1ms 的仍然是电源本身的能力。
+        这也是为什么「电源选小了，加多少电容都没用」。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">「留 500mA 余量」具体怎么落地</div>
+            <p><b>第一步：查手册拿峰值电流。</b>ESP32 系列在 WiFi 发射时的峰值电流通常在 500mA 量级（不同型号、不同发射功率下差异较大，以你所用模组的数据手册为准）。</p>
+            <p class="mt-2"><b>第二步：电源额定输出 ≥ 峰值 × 1.5。</b>500mA × 1.5 = 750mA，所以选 <b>800mA 的 LDO</b> 或 <b>1A 的 DC-DC</b>。注意 800mA 是「额定」，不是「极限」——AMS1117 标称 1A，但那个 1A 是在压差极小、散热理想的前提下；在 5V→3.3V 下实际能稳定输出的能力要按例题三的方法自己算。</p>
+            <p class="mt-2"><b>第三步：确认压差在工作区间内。</b>如果输入是 USB 5V，要考虑 USB 线本身的压降（长线 + 大电流时可能只有 4.6V），此时 5V→3.3V 的压差只剩 1.3V，已经在 AMS1117 的 Dropout 边缘。这就是为什么很多 ESP32 开发板用的是 <b>低 Dropout 的 LDO</b>（压差几百毫伏）或者干脆用 DC-DC。</p>
+          </div>
+
+          <!-- 4.3 去耦电容实战 -->
+          <h3 id="mcu-dec" class="mt-7 text-base font-semibold">100nF 和 10µF 在真实板子上的分工</h3>
+
+          <p class="mt-3">回到第 2 节那张表，这次把抽象的分工落到具体位置上。下面是一块典型单片机板上你会看到的电容，以及它们各自在防什么：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>位置</th><th>典型容值</th><th>防的是什么</th><th>漏了会怎样</th></tr></thead>
+              <tbody>
+                <tr><td>每个 VDD 引脚旁</td><td>100nF</td><td>芯片内部门电路翻转的 ns 级瞬态</td><td>随机死机、跑飞，最难查的一类故障</td></tr>
+                <tr><td>VDD 电源入口</td><td>10µF</td><td>多路外设同时启动的 µs 级电流起伏</td><td>一开显示屏就复位</td></tr>
+                <tr><td>VDDA / VREF+ 旁</td><td>100nF + 1µF（经磁珠）</td><td>数字噪声窜进模拟电源、采样瞬间的参考跌落</td><td>ADC 读数抖动、跳动几个字到几十个字</td></tr>
+                <tr><td>电源总入口</td><td>100µF~470µF 电解</td><td>整板电流的大幅波动、长导线的电感效应</td><td>接电机/继电器时整板复位</td></tr>
+                <tr><td>复位脚、BOOT 脚旁</td><td>100nF</td><td>外界干扰导致误复位 / 误进 Bootloader</td><td>偶尔无法启动、需要按好几次复位</td></tr>
+                <tr><td>晶振旁</td><td>10~22pF（负载电容）</td><td>不是去耦，是振荡匹配</td><td>起振慢或不起振（这是另一码事，别和去耦混）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">一句话版本：<b class="font-semibold text-ink">100nF 管「近」，10µF 管「多」，100µF 管「大」</b>——近指的是距离，多指的是同时翻转的路数，大指的是能量的量级。三者不能互相替代，这就是为什么一块板子上会有三种容值同时存在。</p>
+
+          <!-- 4.4 ADC 基准 -->
+          <h3 id="mcu-adc" class="mt-7 text-base font-semibold">ADC 基准为什么要单独滤波，以及怎么用 VREFINT 校准</h3>
+
+          <p class="mt-3">这是电源知识里<b class="font-semibold text-ink">回报率最高</b>的一部分：只要加两个元件、改几行代码，ADC 的稳定性就能有明显的改善。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="VDDA / VREF+ 的单独滤波（典型做法）">
+            <pre><code>【省事的做法（大多数开发板出厂状态）】
+
+  3.3V ────────────────────┬─────── VDDA / VREF+（与 VDD 共用一个电源）
+                           │
+                         100nF
+                           │
+                          GND
+
+  问题：VDDA 和数字电源【同一根线】。
+        数字部分的电流波动会直接体现在 VDDA 上，
+        而 ADC 的结果 = (Vin / VREF) × 满量程，
+        VREF 抖 1%，读数就整体抖 1%。
+
+【讲究的做法（加两个元件）】
+
+  3.3V ────[ 磁珠 或 0Ω ]────┬──────┬────── VDDA
+        （或 10Ω 电阻）       │      │
+                            1µF   100nF
+                             │      │
+                            GND    GND
+                                        ★ 也可以做成 π 型：
+                                          电容 + 磁珠 + 电容，
+                                          对高频噪声抑制更好
+
+  磁珠的作用：对直流几乎没电阻（不会降压），
+              但高频（几十 MHz 以上）呈现很高的阻抗，
+              → 把数字噪声「堵」在模拟电源外面。
+  两个电容的作用：1µF 管中低频（采样瞬间的电荷补给），
+                  100nF 管高频。
+  ★ 注意：采样瞬间 ADC 会从 VREF 抽一小股电荷，
+    所以 VREF 的源阻抗不能太高 —— 这也是为什么串的是磁珠或小电阻，
+    而不是几十 kΩ 的电阻。
+
+【加分项：VREFINT 校准（STM32 系列都支持）】
+  困境：低成本的板子上 VREF+ 就是 VDDA，而 VDDA 会随电池电压波动，
+        那么 ADC 读出来的「绝对电压」就不可信了。
+  解法：STM32 内部有一个【内部参考电压源 VREFINT】，
+        它的电压在出厂时被测量并存进了芯片的信息区
+        （F1 系列通常是 1.20V 典型值，F4/L4 等系列是 1.21V，
+          具体数值和地址见对应型号的参考手册）。
+  原理：既然 VREFINT 的【真实电压】是已知的，而它被测出来的
+        【数字量】又受当前 VDDA 影响，那么就可以反推出 VDDA：
+            VDDA = VREFINT_典型值 × 满量程 / VREFINT_读数
+        拿到真实的 VDDA 之后，再用它去换算其他通道的电压，
+        结果就不再受电源波动影响。
+  ★ 这一步在电池设备上几乎是必需的：电池从 4.2V 掉到 3.3V 的过程中，
+    VDDA 一直在变，不校准的话，你测出来的所有电压都会「跟着电池漂」。</code></pre>
+          </div>
+
+          <p class="mt-3">下面这段代码把上面两件事一起做了：<b>测电池电压</b>（带分压和 VREFINT 校准）。注意代码里的每一个「为什么」，都和电源知识直接相关。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="battery.c —— 用 ADC 测电池电压（含 VREFINT 校准）">
+            <pre><code>#include "stm32f1xx_hal.h"
+#include &lt;stdint.h&gt;
+
+/* ---- 硬件参数 ---- */
+#define ADC_FULL_SCALE   4095.0f   /* 12 位 ADC 满量程 */
+#define VREFINT_TYP_MV   1200.0f   /* 内部参考典型值，务必查你自己芯片的手册 */
+#define DIVIDER_RATIO    2.0f      /* 100k + 100k 分压，测量值要乘 2 */
+#define ADC_AVG_TIMES    16        /* 多次平均，压掉随机噪声 */
+
+/* 内部参考通道号：STM32F1 是 17，F4 是 VREFINT_CHANNEL，按型号改 */
+#define ADC_CH_VREFINT   17
+#define ADC_CH_VBAT      0         /* 电池分压接在 PA0 */
+
+static ADC_HandleTypeDef hadc1;
+
+/* 读一次 ADC 通道，返回原始值（0 ~ 4095） */
+static uint16_t adc_read_raw(uint32_t channel)
+{
+    ADC_ChannelConfTypeDef cfg = {0};
+    uint32_t sum = 0;
+
+    cfg.Channel      = channel;
+    /* 采样时间要选长一点：分压电阻 100k 属于高源阻抗，
+       采样电容充不满会让读数偏低且不稳定 */
+    cfg.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+    HAL_ADC_ConfigChannel(&amp;hadc1, &amp;cfg);
+
+    for (uint8_t i = 0; i &lt; ADC_AVG_TIMES; i++) {
+        HAL_ADC_Start(&amp;hadc1);
+        HAL_ADC_PollForConversion(&amp;hadc1, 10);
+        sum += HAL_ADC_GetValue(&amp;hadc1);
+        HAL_ADC_Stop(&amp;hadc1);
+    }
+    return (uint16_t)(sum / ADC_AVG_TIMES);
+}
+
+/* 先算出真实的 VDDA（单位 mV）——这是全篇最关键的一步 */
+static float get_vdda_mv(void)
+{
+    uint16_t raw = adc_read_raw(ADC_CH_VREFINT);
+    if (raw == 0) {
+        return 3300.0f;            /* 异常保护，返回标称值 */
+    }
+    /* VDDA = 内部参考真实值 × 满量程 / 内部参考读数 */
+    return VREFINT_TYP_MV * ADC_FULL_SCALE / (float)raw;
+}
+
+/* 读电池电压（单位 mV） */
+float battery_read_mv(void)
+{
+    float vdda = get_vdda_mv();
+    uint16_t raw = adc_read_raw(ADC_CH_VBAT);
+
+    /* 先算引脚上的电压，再乘分压比还原电池电压 */
+    float vpin = (float)raw / ADC_FULL_SCALE * vdda;
+    return vpin * DIVIDER_RATIO;
+}
+
+/* 电池电量的粗判：单节锂电的经验阈值 */
+uint8_t battery_percent(float vbat_mv)
+{
+    if (vbat_mv &gt;= 4150.0f) return 100;
+    if (vbat_mv &gt;= 3950.0f) return 75;
+    if (vbat_mv &gt;= 3800.0f) return 50;
+    if (vbat_mv &gt;= 3650.0f) return 25;
+    if (vbat_mv &gt;= 3400.0f) return 10;
+    return 0;                      /* 该提醒充电了 */
+}
+/* ★ 注意分压电阻的代价：100k + 100k 会持续消耗 4.2V / 200k = 21µA。
+   对一个待机 175µA 的节点来说，这 21µA 占了 12%！
+   讲究的做法是在测量时才用 MOSFET 把分压电阻接通，测完断开。 */</code></pre>
+          </div>
+
+          <p class="mt-3">顺便说一个和电池分压有关的小坑：<b class="font-semibold text-ink">分压电阻同时决定了精度和功耗，两者是矛盾的</b>。电阻大省电但源阻抗高、ADC 采样不准；电阻小准确但白白耗电。折中办法有两条：加大 ADC 采样时间（代码里已经这么做了），或者在分压点并一颗 100nF 电容做「电荷缓冲」——<b>又是电容在解决瞬态问题</b>。</p>
+
+          <!-- 4.5 低功耗 -->
+          <h3 id="mcu-lowpower" class="mt-7 text-base font-semibold">让系统真的睡下去：低功耗实战</h3>
+
+          <p class="mt-3">电池设备的续航，一半在电源方案，另一半在代码。硬件选对了，软件没做好，照样三天没电。下面这段代码是低功耗节点的典型骨架：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="low_power.c —— 休眠前的准备与 STOP 模式">
+            <pre><code>#include "stm32f1xx_hal.h"
+
+/* 进入 STOP 模式前的收拾工作：漏一项，功耗就差一个数量级 */
+static void prepare_sleep(void)
+{
+    /* ① 关掉所有不用的外设时钟 —— 外设不关，它就在持续耗电 */
+    __HAL_RCC_ADC1_CLK_DISABLE();
+    __HAL_RCC_SPI1_CLK_DISABLE();
+    __HAL_RCC_USART1_CLK_DISABLE();
+
+    /* ② GPIO 处理：这是最容易被忽略、也最耗电的一项
+          悬空的输入脚会因为电平漂移导致输入级反复翻转，
+          推挽输出脚如果对外灌电流（比如点亮 LED、驱动上拉），
+          电流会一直流走。正确做法：
+            - 未使用的脚设为模拟输入（最省电）
+            - 必须保持的脚设为合适状态，别让它对外灌电流 */
+    GPIO_InitTypeDef gpio = {0};
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+
+    gpio.Mode = GPIO_MODE_ANALOG;
+    gpio.Pull = GPIO_NOPULL;
+    /* 实际项目里应遍历所有未使用引脚逐个配置，这里只示意 */
+    HAL_GPIO_Init(GPIOA, &amp;gpio);
+    HAL_GPIO_Init(GPIOB, &amp;gpio);
+    HAL_GPIO_Init(GPIOC, &amp;gpio);
+
+    /* ③ 关掉板上的电源指示灯 —— 一颗 2mA 的 LED
+          在待机 175µA 的系统里就是【11 倍】的功耗 */
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+}
+
+/* 用 RTC 定时唤醒的 STOP 模式：典型电流几微安（按典型值估算） */
+void sleep_until_rtc(void)
+{
+    prepare_sleep();
+
+    HAL_SuspendTick();                       /* 停掉 SysTick，否则它会把 MCU 唤醒 */
+    HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+
+    /* 唤醒后：STOP 模式会关闭主时钟，必须重新配置系统时钟 */
+    SystemClock_Config();
+    HAL_ResumeTick();
+}
+/* ★ 三件事必须配套做，缺一件功耗就下不去：
+     ① 外设时钟关掉
+     ② GPIO 状态处理干净
+     ③ 调试器拔掉（连着 ST-Link 时，它自己的漏电流会掩盖真实功耗） */</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">实测功耗的正确姿势</div>
+            <p><b>万用表测不了。</b>普通万用表在 µA 档内阻很大，串进电路后会「吃掉」电压，而且它测的是平均值，看不到 WiFi 发射那种 500mA 的尖峰。</p>
+            <p class="mt-2"><b>正确做法：</b>用专门的功耗分析仪（如 Nordic PPK2、Joulescope 一类），或者用一个<b>小阻值采样电阻 + 示波器</b>：在电池和板子之间串一个 0.1Ω（甚至 0.01Ω）的电阻，用示波器测它两端的压降，除以电阻就是电流。这样既能看平均值，也能看到尖峰。</p>
+            <p class="mt-2"><b>测之前一定要做的三件事：</b>拔掉调试器、断开所有外接模块、确认没有 LED 在亮。这三条任何一条没做，测出来的数字都会大一个数量级，然后你会花几天时间去优化一个根本不存在的问题。</p>
+          </div>
+
+          <!-- 4.6 检查表 -->
+          <h3 id="mcu-checklist" class="mt-7 text-base font-semibold">拿到一块新板子，电源部分看这六眼</h3>
+
+          <p class="mt-3">这一节最后给你一张可以随身用的检查表。它把前面所有内容压缩成了六个动作，做一遍大约五分钟，能避开 90% 的电源坑。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电源六眼检查表">
+            <pre><code>【第一眼】输入是什么？接到哪里？
+  □ 输入电压是多少？接到板子的哪个引脚/接口？
+  □ 板上有没有标注「5V」「VIN」「VBAT」的引脚？它们的耐压范围是多少？
+  □ ★ 最常见的错误：把 12V 接到标着「5V」的引脚上。
+
+【第二眼】稳压方案是什么？压差多大？
+  □ 板上那颗三脚芯片的型号是什么？（放大镜看一下丝印）
+  □ 输入电压 − 输出电压 = ？乘上你的预期电流，功耗是多少？
+  □ 用例题三的方法估一下结温：超过 100°C 就该换方案。
+
+【第三眼】负载的峰值电流是多少？
+  □ 查所有外设手册的峰值电流，加起来。
+  □ 电源的额定输出 ≥ 峰值 × 1.5 吗？
+  □ 有没有 WiFi / 电机 / 继电器这类「脉冲型」负载？
+
+【第四眼】电容齐不齐？
+  □ 电源入口有没有大电容（100µF 以上）？
+  □ 每个电源引脚旁有没有 100nF？
+  □ VDDA / VREF+ 有没有单独滤波（磁珠 + 两个电容）？
+
+【第五眼】实际测一下电压
+  □ 万用表量输入的静态电压和带载电压，差得多说明线材/接插件有问题。
+  □ 示波器（20MHz 带宽限制 + 短地线）量输出的纹波：
+     LDO 应在几毫伏以内，DC-DC 在几十毫伏以内。
+  □ 加上最大负载，看电压有没有跌落、跌落多少。
+
+【第六眼】温度
+  □ 满载跑 15 分钟，用手背碰一下稳压芯片（别用指尖，指尖不敏感）。
+  □ 温热（能持续按住）≈ 结温 60~80°C，正常。
+  □ 烫到必须缩手 ≈ 结温 90°C 以上，必须改方案，不要抱侥幸心理。
+  □ ★ 判断标准不是「能不能用」，而是「能不能连续用一年」。
+    长期工作在 100°C 以上的芯片，寿命会显著缩短。</code></pre>
+          </div>
+        </section>
+
+<hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见误解与坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误解与坑</h2>
+
+          <p class="mt-4">下面八条，每一条都是我在实验室里真实见过、或者自己踩过的。它们的共同特征是：<b class="font-semibold text-ink">听起来都很合理，但每一条都能让一块板子报废或者让你白查三天</b>。请对着自己的项目逐条确认。</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">误解 1：稳压芯片烫手，说明买到假货了 / 芯片坏了</div>
+            <p><b>为什么错：</b>线性稳压器的发热是它的<b>工作原理</b>，不是故障。它的调整管就是一个「自动调节的可变电阻」，输入输出之间多出来的电压<b>必须</b>落在它自己身上，变成热。压差 8.7V、电流 300mA 的时候，它就是在烧 2.6W，跟真假货毫无关系。换一颗全新的 AMS1117 上去，它一样会烫。</p>
+            <p class="mt-2"><b>正确做法：</b>发现烫手时，先算 P = (V<sub>in</sub>−V<sub>out</sub>)·I，再算 T<sub>j</sub> = T<sub>a</sub> + P·θ<sub>JA</sub>。如果 P 超过 1W 或者 T<sub>j</sub> 逼近 125°C，<b>换方案而不是换芯片</b>——改成 DC-DC，或者改成「DC-DC 粗降 + LDO 精稳」的两段式。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 2：滤波电容越大越好，不够就并一个更大的</div>
+            <p><b>为什么错：</b>三个具体原因。① 容量越大，<b>上电瞬间的充电冲击电流越大</b>，可能烧整流桥或让适配器进入保护（空电容上电时近似短路）。② 大容量电解电容的 <b>ESR 也大</b>，而高频纹波主要由 I×ESR 决定，容量再大也压不下去。③ 电容只能顶很短的时间：例题五算过，1000µF 也只能顶 1ms，指望它扛住 WiFi 发射那种毫秒级、几百毫安的缺口，容量差了成千上万倍。</p>
+            <p class="mt-2"><b>正确做法：</b>先用量级公式 C ≥ I·Δt/ΔU 估出需要的容量，再按「大中小搭配」放三种容值（100µF / 10µF / 100nF），各自负责不同频段。真正的大电流缺口，只能靠<b>换电源</b>解决。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 3：只要电压对得上就行，电流不用管</div>
+            <p><b>为什么错：</b>电压对了只是「能不能工作」，电流决定了三件事：<b>会不会过热</b>（发热 P 与电流成正比）、<b>会不会掉压</b>（LDO 的压差随电流增大而增大，电池的内阻压降也随电流增大）、<b>会不会复位</b>（峰值电流超过电源能力时电压被拉塌，芯片直接重启）。</p>
+            <p class="mt-2"><b>正确做法：</b>把负载分成三类电流来算——<b>平均电流</b>算续航、<b>峰值电流</b>选电源（额定值要留 1.5 倍）、<b>睡眠电流</b>评估待机。手册里这三个值通常都有，别只看第一个。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">误解 4：AMS1117 标称能输出 1A，所以带 1A 没问题</div>
+            <p><b>为什么错：</b>「1A」是芯片在特定条件下（压差小、散热理想、结温不超标）的极限能力，<b>不是任何工况下都能兑现的承诺</b>。在 12V→3.3V 的情况下，按例题三算，它最多只能稳定输出约 150mA——1A 的标称值在这里完全用不上。随身记住这个反直觉的结论：<b>决定 LDO 输出能力的不是它的额定电流，而是它的散热能力。</b></p>
+            <p class="mt-2"><b>正确做法：</b>选 LDO 时永远做两步验算：① 压差够不够（V<sub>in</sub> ≥ V<sub>out</sub> + Dropout + 0.3V）；② 功耗扛不扛得住（P·θ<sub>JA</sub> + T<sub>a</sub> 是否明显低于 T<sub>j(max)</sub>）。额定电流只是筛掉明显不行的选项，不能代替这两步。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 5：DC-DC 效率高，所以任何场合都该用它</div>
+            <p><b>为什么错：</b>三个反例。① <b>小电流场合</b>：DC-DC 的开关损耗和自身工作电流在轻载时占比很大，一颗 10µA 负载的系统用 DC-DC 未必比低静态电流 LDO 省电。② <b>噪声敏感场合</b>：DC-DC 的几十毫伏纹波和 EMI 会直接破坏 ADC、运放、射频的性能，而这些噪声很难靠后级电容完全压掉。③ <b>成本与体积</b>：DC-DC 要加电感、更多电容，PCB 面积和布局难度都上去了。</p>
+            <p class="mt-2"><b>正确做法：</b>按「压差与功耗」选大方向（P = (V<sub>in</sub>−V<sub>out</sub>)·I 超过 1W 就该上 DC-DC），按「噪声与成本」做微调。两者冲突时用两段式串联：<b>DC-DC 承担压差，LDO 负责干净</b>。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 6：去耦电容嘛，板子上有就行，放哪都一样</div>
+            <p><b>为什么错：</b>PCB 走线大约每毫米 1nH 电感（按典型值估算），而高频瞬态的压降是 ΔU = L·di/dt，<b>和距离成正比</b>。芯片要 50mA、边沿 2ns 时：电容距离 1mm 大约跌 25mV，距离 3cm 就要跌 750mV——电容名义上「还在板子上」，实际上已经完全失效。而且大环路面积本身还是个辐射天线。</p>
+            <p class="mt-2"><b>正确做法：</b>100nF 必须紧贴电源引脚（1mm 以内最好），接地端直接打 via 到地平面，走线做到「先过电容再进芯片脚」。宁可多花十分钟摆电容，也别事后花三天查随机死机。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 7：万用表量出来是稳定的 3.3V，说明电源没问题</div>
+            <p><b>为什么错：</b>万用表测的是<b>平均值</b>，而且它的采样速度极慢（每秒几次）。电源的失效往往发生在微秒和毫秒尺度：WiFi 发射瞬间的 500mA 尖峰、电容在负载突变时的恢复过程、DC-DC 的开关纹波、LDO 的振荡——这些在万用表上<b>统统看不见</b>。一个「稳定 3.3V」的电源照样可以让芯片随机复位。</p>
+            <p class="mt-2"><b>正确做法：</b>用示波器看。要点三条：① 打开 <b>20MHz 带宽限制</b>（否则你测到的多是探头拾取的噪声）；② 用<b>弹簧地针</b>，不要用那根十几厘米长的鳄鱼夹地线；③ 把探头放在<b>芯片的电源引脚上</b>测量，而不是电源模块的输出端——两点之间的走线压降本身就是问题的一部分。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">误解 8：电池标 2000mAh，那用 2000mA 就能撑 1 小时</div>
+            <p><b>为什么错：</b>mAh 这个单位本身就带着「1 小时」的隐含条件，大电流放电时电池的<b>可用容量会明显缩水</b>（内阻压降让电压提前触底、极化效应加剧）。再加上：可用区间只有标称容量的 80%~90%（不能放到 0V）、低温还要再打 6~7 折、电池自身有自放电、以及稳压方案会决定你能用掉多深（LDO 在电池掉到 3.4V 时就退出稳压区，最后一段容量根本用不上）。</p>
+            <p class="mt-2"><b>正确做法：</b>按例题四那样算三步：<b>可用容量</b>（标称 × 0.85 左右）→ <b>电池侧电流</b>（含转换效率和静态电流）→ <b>续航</b>（可用容量 ÷ 电池电流）。算完再打个 0.8 的折当作现实余量，然后用实测数据修正。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">最后一个不算误解，但必须提：地线不是「到处都是 0V」</div>
+            <p>很多电源问题最后都归结到地上：地线是有电阻和电感的，大电流流过的地线上确实存在电位差；数字电路的地电流流经模拟地时，会把开关噪声「共阻抗耦合」进模拟信号里。所以你会看到「单点接地」「模拟地与数字地分开、只在一点相连」「地平面要完整」这些说法。</p>
+            <p class="mt-2">这一篇只讲到这里——更系统的接地、屏蔽、滤波与 EMI 抑制，是知识地图上的下一站 <a class="text-brand-600 dark:text-brand-300" href="ee-emc.html">电磁兼容与抗干扰基础</a>。等你把电源的「供能」这一面想清楚之后，再去看「抗干扰」那一面，会顺畅得多。</p>
+          </div>
+        </section>
+
+<hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与自检 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自检</h2>
+
+          <p class="mt-4">这一篇从头到尾其实只在讲一件事：<b class="font-semibold text-ink">能量守恒在电源电路里的具体表现形式</b>。整流是把交流「掰」成单向，滤波是把电荷存起来慢慢用，稳压是「多退少补」，而线性与开关的区别，无非是「多出来的能量是烧掉还是搬过去」。下面把整篇压缩成一份清单，用来做最后一次回顾。</p>
+
+          <h3 id="sum-points" class="mt-7 text-base font-semibold">要点清单</h3>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>电源链路是四级接力：<b class="font-semibold text-ink">变压 → 整流 → 滤波 → 稳压</b>。每一级只负责一件事，后面补不了前面的致命缺陷。</li>
+            <li>变压器铭牌上的电压是<b>有效值</b>，峰值要乘 1.414。220V 的峰值是 311V，所以 220V 侧的电容要选 400V 耐压。</li>
+            <li>整流输出电压（不接电容）：半波 0.45U<sub>2</sub>，全波/桥式 0.9U<sub>2</sub>；<b>接上滤波电容后约 1.2U<sub>2</sub></b>。桥式整流是今天的主流。</li>
+            <li>纹波估算只有一个式子：<b class="font-semibold text-ink">ΔU ≈ I·Δt / C</b>，其中 Δt 取 1/(2f)（桥式 50Hz 时 = 10ms，半波是 20ms）。反解即得选电容的公式。</li>
+            <li>估算式的两个失效场合：纹波大到接近峰值、以及 ESR 主导的高频场合（此时纹波由 I×ESR 决定，加大容量无效）。</li>
+            <li>稳压管电路靠<b>限流电阻</b>限定电流：R 的下限由「最大电流」约束决定，上限由「最小电流」约束决定；两者无交集说明<b>这个结构带不动这个负载</b>，该换 LDO。</li>
+            <li>LDO 本质是「自动调节的可变电阻」，效率 η ≈ V<sub>out</sub>/V<sub>in</sub>，发热 <b>P = (V<sub>in</sub>−V<sub>out</sub>)·I</b>，结温 <b>T<sub>j</sub> = T<sub>a</sub> + P·θ<sub>JA</sub></b>。</li>
+            <li><b>Dropout（压差）</b>是维持稳压所需的最小输入输出差。选型要满足 V<sub>in</sub> ≥ V<sub>out</sub> + Dropout + 余量，且压差越大、电流越大就越烫。</li>
+            <li>开关电源靠「完全导通/完全截止」避免发热，Buck 的 <b>V<sub>out</sub> = D·V<sub>in</sub></b>，Boost 的 <b>V<sub>out</sub> = V<sub>in</sub>/(1−D)</b>，Buck-Boost 可升可降。效率 80%~95%。</li>
+            <li>开关电源的代价是<b>纹波、EMI 与布局敏感</b>，开关频率还可能与音频段重合导致电感啸叫。</li>
+            <li>选型三句话：压差或功耗大就用 DC-DC；压差小、要干净就用 LDO；两者都要就串联（DC-DC 粗降 + LDO 精稳）。</li>
+            <li><b>P = (V<sub>in</sub>−V<sub>out</sub>)·I 超过 1W</b> 是「该认真算散热」的经验门槛。判断 LDO 能力的是散热，不是额定电流。</li>
+            <li>电容分工：<b>100nF 管「近」（ns~百 ns 级、每个电源脚）、10µF 管「多」（µs 级、每片区域）、100µF 以上管「大」（ms 级、电源入口）</b>，三者不可互相替代。</li>
+            <li>去耦是「给芯片就近供电」，旁路是「给噪声开路」。前者看距离与容量，后者看噪声频率。</li>
+            <li>ADC 结果 = (V<sub>in</sub>/V<sub>REF</sub>) × 满量程，所以 <b>V<sub>REF</sub> 抖动 1%，读数就整体偏 1%</b>。VDDA / VREF+ 必须单独滤波，电池设备应使用 VREFINT 校准。</li>
+            <li>电池续航要算三样：<b>平均电流（按时序加权）、电源转换损耗（含静态电流）、可用容量（标称 × 0.85 左右）</b>。低静态电流只在小负载时才重要。</li>
+          </ul>
+
+          <h3 id="sum-quiz" class="mt-7 text-base font-semibold">自测题（7 道）</h3>
+
+          <p class="mt-3">先自己算，再展开答案对照。第 3 题和第 6 题是易错题，如果你答对了，说明这一篇的核心真的掌握了。</p>
+
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>市电 50Hz 经<b>桥式整流</b>后接 1000µF 滤波电容，负载电流 200mA。估算纹波电压是多少？如果把电容换成 2200µF 呢？</li>
+            <li>一颗 LDO 从 9V 稳压到 5V，输出电流 400mA。它自己消耗多少功率？假设 θ<sub>JA</sub> = 80°C/W、环境 25°C，结温大约多少？这个方案能用吗？</li>
+            <li>某 LDO 的 Dropout 是 1.2V，输出设定为 3.3V，输入是一节 4.2V~3.0V 的锂电池。这个组合能正常工作吗？为什么？该怎么改？</li>
+            <li>为什么 100nF 不能替代 10µF，10µF 也不能替代 100nF？请从「时间尺度」和「频段」两个角度各说一句。</li>
+            <li>一颗 LDO 的静态电流是 5mA，你的系统待机电流设计成 20µA。实际待机电流是多少？LDO 占了多大比例？应该换什么？</li>
+            <li>稳压管电路中，12V±5% 输入、5.1V 稳压管、负载 0~20mA，若限流电阻取 470Ω（而不是例题二的 220Ω），会出现什么问题？</li>
+            <li>一块 1000mAh / 3.7V 的锂电池，经过一颗静态电流 5mA 的 LDO，给平均 200mA 的负载供电。估算续航时间大约多少小时？</li>
+          </ol>
+
+          <details class="card card-pad mt-4">
+            <summary class="cursor-pointer text-sm font-semibold">展开参考答案</summary>
+            <div class="mt-3 space-y-4 text-[15px] leading-relaxed">
+
+              <div>
+                <p><b class="font-semibold text-ink">第 1 题</b></p>
+                <p class="mt-1">桥式整流的纹波频率是 100Hz，所以 Δt = 1/100 = 0.01s。</p>
+                <p class="mt-1">1000µF = 1×10<sup>−3</sup>F：ΔU ≈ 0.2 × 0.01 / 0.001 = <b>2V</b>。</p>
+                <p class="mt-1">2200µF = 2.2×10<sup>−3</sup>F：ΔU ≈ 0.2 × 0.01 / 0.0022 ≈ <b>0.91V</b>。</p>
+                <p class="mt-1">注意 Δt 用的是 10ms 而不是 20ms——这是本题唯一但也是最常见的错误。另外 2V 的纹波意味着后级稳压器的输入电压在 2V 范围内起伏，必须确认最低点仍高于「V<sub>out</sub> + Dropout」。</p>
+              </div>
+
+              <div>
+                <p><b class="font-semibold text-ink">第 2 题</b></p>
+                <p class="mt-1">P = (9 − 5) × 0.4 = <b>1.6W</b>。</p>
+                <p class="mt-1">T<sub>j</sub> = 25 + 1.6 × 80 = 25 + 128 = <b>153°C</b>，远超常见的 125°C 上限。</p>
+                <p class="mt-1">结论：<b>不能用</b>。芯片会进入过温保护，表现为输出断续、负载反复复位。正确做法是改用 DC-DC（9V→5V 用 Buck，损耗约 0.18W），或者换一个压差更小的方案（比如先降到 5.5V 再线性稳压）。顺便记住：1.6W 已经超过「1W 门槛」，这就是该换方案的分界线。</p>
+              </div>
+
+              <div>
+                <p><b class="font-semibold text-ink">第 3 题（易错）</b></p>
+                <p class="mt-1">要维持 3.3V 输出，输入至少要 3.3 + 1.2 = <b>4.5V</b>。而锂电池即使满电也<u>只有 4.2V</u>——<b>从满电开始就已经低于要求，全程都在失效区</b>。</p>
+                <p class="mt-1">表现：输出约等于 V<sub>in</sub> − 1.2V，也就是满电时约 3.0V，然后随着电池放电一路往下掉。单片机可能凑合能跑一会儿，但电压不稳、各种随机故障。</p>
+                <p class="mt-1">改法有三种：① 换<b>低压差 LDO</b>（Dropout 0.2~0.3V 的型号，3.3 + 0.3 = 3.6V，4.2V~3.6V 区间内可以稳压，但电池最后一段仍用不上）；② 用 <b>Buck-Boost</b> 升降压（电池高时降压、低时升压，全程稳定，能榨到 3.0V）；③ 降低系统电压到 3.0V 或改用 2 节电池。本题的教训：<b>看 Dropout 要看「V<sub>out</sub> + Dropout」这个和，而不是只看 Dropout 大不大。</b></p>
+              </div>
+
+              <div>
+                <p><b class="font-semibold text-ink">第 4 题</b></p>
+                <p class="mt-1"><b>时间尺度：</b>100nF 只能顶住约 100ns 的瞬态（例题五算过），10µF 能顶约 10µs——芯片内部逻辑翻转需要前者，一路外设启动需要后者，两者覆盖的时间尺度差 100 倍，所以谁也不能替代谁。</p>
+                <p class="mt-1"><b>频段：</b>电容的实际阻抗随频率变化，容量大的电容自谐振频率低，在高频段反而呈感性（阻抗上升）；容量小的电容自谐振频率高，在高频段阻抗更低。所以 100nF 负责高频（约 1~30MHz），10µF 负责中低频（约 100kHz~几 MHz）。<b>并联它们不是「容量相加」，而是「覆盖更宽的频段」。</b></p>
+              </div>
+
+              <div>
+                <p><b class="font-semibold text-ink">第 5 题</b></p>
+                <p class="mt-1">实际待机电流 ≈ 5mA + 0.02mA = <b>5.02mA</b>。LDO 自己贡献了 5mA，是负载的 <b>251 倍</b>（5 / 0.02），约占实际待机电流的 <b>99.6%</b>。</p>
+                <p class="mt-1">改法：换成静态电流在 µA 级甚至 nA 级的低功耗 LDO 或 DC-DC。换过之后待机电流约 20~30µA，同样的电池续航能提升 200 倍以上。这道题说明：<b>低功耗设计里，「静态电流」这个参数比「输出电流能力」重要得多。</b></p>
+              </div>
+
+              <div>
+                <p><b class="font-semibold text-ink">第 6 题（易错）</b></p>
+                <p class="mt-1">470Ω 时，最坏情况（Vin = 11.4V，负载 20mA）下：</p>
+                <p class="mt-1">I<sub>R</sub> = (11.4 − 5.1) / 470 = 6.3 / 470 ≈ 13.4mA</p>
+                <p class="mt-1">I<sub>z</sub> = I<sub>R</sub> − I<sub>L</sub> = 13.4 − 20 = <b>−6.6mA</b>，是一个负数。</p>
+                <p class="mt-1">电流是负的，意味着<b>负载要的电流比电阻能提供的还多</b>：稳压管已经退出击穿区（不再导通），输出电压不再是 5.1V，而是随负载往下掉（此时整个电路退化成一个分压器）。</p>
+                <p class="mt-1">结论：470Ω 太大，超出了例题二算出的上限 252Ω。<b>这个电路的「上限」是硬约束——超了不是「性能差一点」，而是「完全不稳压」。</b></p>
+              </div>
+
+              <div>
+                <p><b class="font-semibold text-ink">第 7 题</b></p>
+                <p class="mt-1">可用容量：1000 × 0.85 = 850mAh。</p>
+                <p class="mt-1">电池侧电流：负载 200mA + LDO 静态 5mA = 205mA（LDO 的效率损耗已隐含在「输入电流≈输出电流」这个近似里，因为线性稳压器的输入输出电流基本相同，多余的能量以热的形式耗散）。</p>
+                <p class="mt-1">续航 ≈ 850 / 205 ≈ <b>4.1 小时</b>。</p>
+                <p class="mt-1">如果换成静态电流 10µA 的 LDO：850 / 200.01 ≈ 4.25 小时——只多了 9 分钟。可见<b>在大负载场合，静态电流不是主要矛盾；真正吃掉续航的是「负载本身 + 压差带来的效率损失」</b>。如果换成效率 90% 的 Buck-Boost（可用容量按 95% 计），电池侧电流约为 200 × 3.3 / (0.9 × 3.7) ≈ 198mA，续航 ≈ 950 / 198 ≈ 4.8 小时。</p>
+              </div>
+
+            </div>
+          </details>
+
+          <h3 id="sum-practice" class="mt-7 text-base font-semibold">动手练习（4 项）</h3>
+
+          <p class="mt-3">自测题是纸上的，练习是手上的。这四项做完，这一篇的知识就真正变成你的了。</p>
+
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>
+              <b class="font-semibold text-ink">给你的板子做一次电源体检。</b>找到板上的稳压芯片，放大镜读丝印确定型号，查手册拿到 Dropout、θ<sub>JA</sub>、静态电流三个参数。记录输入电压、输出电压、实测工作电流，然后用例题三的方法算出功耗与估算结温。最后满载跑 15 分钟，用手背测一下温度，<b>把估算值和手感对比</b>——这一步能帮你建立对 θ<sub>JA</sub> 数量级的直觉。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">用示波器测一次 DC-DC 的纹波，并验证测量方法的影响。</b>准备一个降压模块（MP1584 或类似）带一个电阻负载，探头接在输出电容两端。<b>做四次测量</b>：长地线 / 短地线（弹簧地针）各一次，20MHz 带宽限制开 / 关各一次。把四个波形截下来对比。你会发现测出来的「纹波」可能有十倍以上的差别——<b>这四次对比，比任何一段文字都更能说明「怎么测」有多重要。</b>
+            </li>
+            <li>
+              <b class="font-semibold text-ink">实测一个低功耗节点的三种电流。</b>在电池和板子之间串一个 0.1Ω 的采样电阻，用示波器（或用功耗分析仪）分别测量：<b>睡眠电流、工作电流、峰值电流</b>。记录波形和数值，然后按例题四的方法估算续航，最后让设备真的跑一段时间，<b>看看估算和实测差多少、差在哪里</b>。差别通常来自三处：睡眠时没关掉的外设、LED、以及调试器。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">（可选，有实验条件时做）搭一个桥式整流 + 电容滤波电路并验证公式。</b>用一只 9V 变压器、4 只 1N4007、一只 1000µF/25V 电解电容、一只可调负载电阻（或几个功率电阻）。用示波器测输出电压波形，记录峰峰值纹波；改变负载电流（比如 50mA、100mA、200mA），每种情况都记录纹波。然后把实测值画成曲线，和 ΔU ≈ I·Δt/C 的估算值对比，<b>看看误差有多大、在大电流时误差朝哪个方向偏</b>。做完这一项，你对「估算式什么时候准、什么时候不准」会有完全不同的理解。
+            </li>
+          </ol>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">下一步看什么</div>
+            <p><b>往回看</b>：<a class="text-brand-600 dark:text-brand-300" href="ee-circuit-ac.html">正弦稳态与频域入门</a>——本篇里的滤波、纹波、磁珠、电容的频段特性，都建立在那里的阻抗与频率响应概念之上。如果你对「为什么电容在高频段反而变差」还有疑问，回去补那一篇。</p>
+            <p class="mt-2"><b>往前看</b>：<a class="text-brand-600 dark:text-brand-300" href="ee-emc.html">电磁兼容与抗干扰基础</a>——本篇讲的是电源「供能」的一面，那一篇讲的是「抗扰」的一面：去耦电容怎么摆才真的有用、地为什么要单点、继电器为什么要加续流二极管、线缆为什么是天线。两篇合起来，你才算是把「电源与地」这件事看全了。</p>
+            <p class="mt-2"><b>动手方向</b>：如果你接下来要做自己的板子，建议从 <a class="text-brand-600 dark:text-brand-300" href="../stm32.html">STM32 HAL 库</a> 的专题里挑一块最小系统板来练手，把这一篇的「电源六眼检查表」用一遍；做电池设备的话，<a class="text-brand-600 dark:text-brand-300" href="../esp32.html">ESP32 物联网</a> 那一线里有大量低功耗与射频供电的实例。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">本篇的教材出处</div>
+            <p>本篇对应<b>童诗白、华成英《模拟电子技术基础》第 5 版 第 9 章</b>（并参考第 10 章）。教材里系统讲了整流、滤波、稳压电路的原理与波形分析，以及功率放大与效率的问题——上面所有公式都能在书里找到出处。</p>
+            <p class="mt-2">教材重推导，本篇重估算与选型，两者是互补的：<b>书上的波形图解释「为什么是这样」，这里的公式让你「五分钟判断一个方案行不行」</b>。建议你先按本篇把估算方法用熟，再回教材去补严格的波形推导和参数计算，顺序反过来会轻松很多。</p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="ee-circuit-ac.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">正弦稳态与频域入门</p>
+          </a>
+          <a href="ee-emc.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：电磁兼容与抗干扰基础 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">电磁兼容与抗干扰基础</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

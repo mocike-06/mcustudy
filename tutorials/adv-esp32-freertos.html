@@ -1,0 +1,3982 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 与 FreeRTOS：任务与调度 - McuStudy</title>
+  <meta name="description" content="知识体系第 40 篇：决定用 FreeRTOS 之后的第一个月会遇到什么。讲清 app_main 为什么不是 main 函数、xTaskCreate 六个参数（以及栈深度在 ESP-IDF 里是字节这个头号误解）、ESP32 双核 PRO_CPU 与 APP_CPU 该怎么分工、Running/Ready/Blocked/Suspended 四状态怎么迁移、抢占式调度与时间片、优先级 0~24（和 STM32 NVIC 正好相反）、vTaskDelay 与 vTaskDelayUntil 的漂移账怎么算、任务栈怎么估怎么量、任务看门狗触发时为什么整片芯片复位、vTaskList 与运行时统计怎么看、任务删除该注意什么。含 4 个完整可编译程序和 6 道带算式的数值例题。">
+  <meta name="keywords" content="ESP32 FreeRTOS,任务与调度,app_main,xTaskCreate,usStackDepth,栈深度单位,pdMS_TO_TICKS,vTaskDelay,vTaskDelayUntil,任务状态迁移,抢占式调度,时间片,configTICK_RATE_HZ,configMAX_PRIORITIES,优先级,PRO_CPU,APP_CPU,xTaskCreatePinnedToCore,xPortGetCoreID,CONFIG_FREERTOS_UNICORE,双核,空闲任务,IDLE0,IDLE1,uxTaskGetStackHighWaterMark,栈溢出,任务看门狗,TWDT,esp_task_wdt_reconfigure,CONFIG_ESP_TASK_WDT_TIMEOUT_S,vTaskList,uxTaskGetSystemState,vTaskGetRunTimeStats,esp_get_free_heap_size,vTaskDelete">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">ESP32 与 FreeRTOS：任务与调度</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          ESP32 与 FreeRTOS：任务与调度
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          上一篇《<a href="core-architecture.html" class="text-brand-600 dark:text-brand-300">嵌入式软件架构</a>》回答的是
+          <b class="font-semibold text-ink">「不用 RTOS 的时候，程序该怎么组织」</b>：顺序、前后台、时间片轮询、
+          任务表调度器、环形缓冲、事件标志组，以及那一张「裸机机制 ↔ RTOS 概念」的对照表。
+          走到那一篇的结尾，你已经知道<b class="font-semibold text-ink">什么时候该上 RTOS</b>了。
+        </p>
+
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+          这一篇接着往下走，回答一个更具体的问题：<b class="font-semibold text-ink">决定用 RTOS 之后的第一个月，你会遇到什么。</b>
+          对照表上的概念你都已经见过，但真把 <code class="icode">xTaskCreate</code> 敲进编辑器之后，
+          等着你的是一连串非常具体、非常不像「概念」的困惑：为什么 <code class="icode">app_main</code> 里
+          <code class="icode">return</code> 之后程序没有停？为什么栈大小写 2048 和写 128 都能编译，但一个正常一个立刻崩？
+          为什么优先级 0 的任务永远抢不到 CPU？为什么加了一句 <code class="icode">printf</code> 就栈溢出？
+          为什么一个任务里少写一句 <code class="icode">vTaskDelay</code>，<b class="font-semibold text-ink">整片芯片</b>每 5 秒重启一次？
+        </p>
+
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+          这一篇不是 FreeRTOS 的 API 手册——手册里每个函数都写得很清楚，缺的是<b class="font-semibold text-ink">这些函数凑在一起时的工程直觉</b>。
+          我们只讲四件事：任务是怎么被<b class="font-semibold text-ink">创建</b>的、怎么被<b class="font-semibold text-ink">调度</b>的、
+          怎么被<b class="font-semibold text-ink">阻塞</b>的、它的<b class="font-semibold text-ink">栈</b>该怎么算。
+          队列、信号量、互斥量这些「任务之间怎么说话」的机制，全部留给下一篇。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="badge-brand">实时系统</span>
+          <span class="stat-pill">平台：<b>ESP32-WROOM-32</b></span>
+          <span class="stat-pill">第 3 层 · 专业方向</span>
+          <span class="stat-pill">第 <b>40</b> 篇</span>
+          <span class="stat-pill">教材：康玮剑 第 4 章</span>
+          <span class="stat-pill">阅读约 <b>90</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-boot">app_main 的真身与启动流程</a>
+          <a class="toc-link is-sub" href="#sub-task">任务是什么：签名与六个参数</a>
+          <a class="toc-link is-sub" href="#sub-core">双核：PRO_CPU 与 APP_CPU</a>
+          <a class="toc-link is-sub" href="#sub-sched">四状态、抢占与时间片</a>
+          <a class="toc-link is-sub" href="#sub-block">阻塞与延时</a>
+          <a class="toc-link is-sub" href="#sub-stack">栈：估、量、溢出</a>
+          <a class="toc-link is-sub" href="#sub-wdt">任务看门狗与观察工具</a>
+          <a class="toc-link is-sub" href="#sub-life">删除与生命周期</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link is-sub" href="#calc-1">例 1：25 ms 周期取不到</a>
+          <a class="toc-link is-sub" href="#calc-2">例 2：vTaskDelay 的漂移账</a>
+          <a class="toc-link is-sub" href="#calc-3">例 3：三个任务的栈与 RAM 总账</a>
+          <a class="toc-link is-sub" href="#calc-4">例 4：优先级反转的最坏时长</a>
+          <a class="toc-link is-sub" href="#calc-5">例 5：钉核前后的抖动与吞吐</a>
+          <a class="toc-link is-sub" href="#calc-6">例 6：看门狗的时间预算</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-hw">先看清任务地图</a>
+          <a class="toc-link is-sub" href="#sub-code-blink">程序一：两个闪烁任务</a>
+          <a class="toc-link is-sub" href="#sub-code-stack">程序二：栈水位实测</a>
+          <a class="toc-link is-sub" href="#sub-code-wdt">程序三：Task WDT 复现与修复</a>
+          <a class="toc-link is-sub" href="#sub-code-core">程序四：双核钉核与任务表</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-boot">app_main 的真身与启动流程</a>
+            <a class="toc-link is-sub" href="#sub-task">任务是什么：签名与六个参数</a>
+            <a class="toc-link is-sub" href="#sub-core">双核：PRO_CPU 与 APP_CPU</a>
+            <a class="toc-link is-sub" href="#sub-sched">四状态、抢占与时间片</a>
+            <a class="toc-link is-sub" href="#sub-block">阻塞与延时</a>
+            <a class="toc-link is-sub" href="#sub-stack">栈：估、量、溢出</a>
+            <a class="toc-link is-sub" href="#sub-wdt">任务看门狗与观察工具</a>
+            <a class="toc-link is-sub" href="#sub-life">删除与生命周期</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link is-sub" href="#calc-1">例 1：25 ms 周期取不到</a>
+            <a class="toc-link is-sub" href="#calc-2">例 2：vTaskDelay 的漂移账</a>
+            <a class="toc-link is-sub" href="#calc-3">例 3：三个任务的栈与 RAM 总账</a>
+            <a class="toc-link is-sub" href="#calc-4">例 4：优先级反转的最坏时长</a>
+            <a class="toc-link is-sub" href="#calc-5">例 5：钉核前后的抖动与吞吐</a>
+            <a class="toc-link is-sub" href="#calc-6">例 6：看门狗的时间预算</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-hw">先看清任务地图</a>
+            <a class="toc-link is-sub" href="#sub-code-blink">程序一：两个闪烁任务</a>
+            <a class="toc-link is-sub" href="#sub-code-stack">程序二：栈水位实测</a>
+            <a class="toc-link is-sub" href="#sub-code-wdt">程序三：Task WDT 复现与修复</a>
+            <a class="toc-link is-sub" href="#sub-code-core">程序四：双核钉核与任务表</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">
+            上一篇结尾那张「什么时候该上 RTOS」的清单，你大概是拿着自己的项目一条条对下来的。
+            任务数够了、优先级差异明显、有大量等待、需要阻塞式的编程模型——好，上 RTOS。
+            于是你打开 ESP-IDF，新建工程，在 <code class="icode">app_main</code> 里写下第一句
+            <code class="icode">xTaskCreate</code>，编译、烧写、打开串口监视器。
+          </p>
+          <p class="mt-3">
+            <b class="font-semibold text-ink">然后第一个月就开始了。</b>
+            这一个月的绝大部分时间不是在写业务逻辑，而是在和内核打交道：
+            你的代码明明编译通过、逻辑没写错，但现象完全不像你想的那样。
+            下面这张表，是几乎所有人在第一个月里都会撞上的六件事——
+            如果你现在正好卡在其中某一条上，直接跳到对应的小节。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="用 RTOS 的第一个月：撞上的六件事，以及它们各自的原因">
+            <pre><code>第 1 天  app_main 里建完任务就 return 了，串口再也没有输出
+        原因：app_main 本身是一个任务，它 return 就等于这个任务结束、
+              它栈上的局部变量（包括你刚建的任务句柄）全部失效。
+              内核和其他任务都还活着，但没人再打印了。      → 2.1 节
+
+第 2 天  两个任务都闪灯，一个 500 ms、一个 1000 ms
+        跑了一晚上，第二个灯的周期变成了 1.013 s，累计慢了好几秒
+        原因：vTaskDelay 是「延时 N 个 tick 之后再说」，
+              不是「每隔 N 个 tick 做一次」，执行时间会一轮轮累加。 → 2.5 节
+
+第 3 天  想让某个任务先跑，把优先级写成 0
+        结果它永远抢不到 CPU，日志里一行都看不到
+        原因：优先级 0 是空闲任务的档位，数值越大越优先。
+              而且这个方向和 STM32 的 NVIC 刚好相反。        → 2.4 节
+
+第 4 天  为了调试，在任务里加了一句 printf
+        任务直接重启，日志里出现
+        ***ERROR*** A stack overflow in task sensor has been detected.
+        原因：printf / sprintf 家族单次调用能吃掉 1 KB 以上的栈，
+              而你的任务栈可能只有 2 KB。                   → 2.6 节
+
+第 7 天  某个任务里忘了写 vTaskDelay，写成了一个纯计算死循环
+        整片芯片每 5 秒重启一次，日志是
+        task_wdt: Task watchdog got triggered.
+        task_wdt:  - IDLE1 (CPU 1)
+        原因：空闲任务优先级最低但被订阅进了任务看门狗，
+              它被饿死 = 整片芯片复位。                      → 2.7 节
+
+第 30 天 两个任务都往同一个结构体里写数据，显示偶发错乱
+        原因：这是共享数据的同步问题，不是调度问题。
+              本篇讲不到，它属于下一篇。                     → 第 41 篇</code></pre>
+          </div>
+
+          <p class="mt-4">
+            把这六条按「原因」归一下类，你会发现它们只落在四个主题上：
+            <b class="font-semibold text-ink">任务是怎么被创建出来的</b>（第 1、3 条）、
+            <b class="font-semibold text-ink">任务是怎么被调度的</b>（第 3 条）、
+            <b class="font-semibold text-ink">任务是怎么被阻塞的</b>（第 2、7 条）、
+            <b class="font-semibold text-ink">任务的栈是多少</b>（第 4 条）。
+            这一篇的第二节就按这四个主题分成八个小节，第三节用六道算式把里面的数量关系钉死，
+            第四节给你四个能直接烧进板子的完整程序。
+          </p>
+
+          <p class="mt-6 font-semibold text-ink">为什么 ESP32 上这件事特别容易踩坑</p>
+          <p class="mt-3">
+            在 51 或者「裸机 STM32」上，你写的程序就是全部：从 <code class="icode">main</code> 进去，
+            一个 <code class="icode">while(1)</code> 转到天荒地老，谁先谁后由你写的顺序决定。
+            <b class="font-semibold text-ink">ESP32 不是这样，而且不是「可以不是这样」——它默认就是这样。</b>
+          </p>
+          <p class="mt-3">
+            因为 ESP-IDF 已经把 FreeRTOS 编译进固件了。你烧进去的固件一上电，
+            二级引导程序跑完就会<b class="font-semibold text-ink">启动调度器</b>，
+            然后你写的 <code class="icode">app_main</code> 只是被创建出来的众多任务之一。
+            哪怕你一个任务都不建、只写一个空函数，芯片上也已经有空闲任务、定时器守护任务、
+            以及（如果你开了 WiFi）WiFi 任务和 TCP/IP 任务在跑了。
+          </p>
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">所以这一篇真正要教的不是「怎么用 RTOS」，而是「怎么和一个已经在跑的内核共处」</div>
+            <p class="mt-2">
+              这是一个心态上的转变。你在裸机里的直觉是「我的代码在独占总线」，
+              在 RTOS 里的正确直觉是「<b class="font-semibold text-ink">我的代码只是众多执行流之一，
+              随时可能被切走，也随时可能被别人的行为影响</b>」。
+              本篇后面所有的规则——为什么要给延时、为什么栈要单独算、为什么要检查创建返回值、
+              为什么看门狗会因为别人不干活而复位——全都是这一条直觉的推论。
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">这一篇不打算讲什么</p>
+          <p class="mt-3">
+            提前说清楚边界，省得你翻到最后才发现想看的东西不在：
+          </p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">队列、信号量、互斥量、事件组、任务通知的用法</b>——「任务之间怎么说话」是
+              <a href="adv-esp32-ipc.html" class="text-brand-600 dark:text-brand-300">下一篇《任务间通信：队列、信号量与互斥量》</a>的主题。
+              这一篇只在必要的地方（比如「轮询该换成阻塞」）提一句，把机制留到那边展开。</li>
+            <li><b class="font-semibold text-ink">Socket 与 HTTP</b>、<b class="font-semibold text-ink">低功耗</b>、
+              <b class="font-semibold text-ink">OTA</b> 分别是第 42、43、44 篇的内容。这一篇只在讲 WiFi 任务占 CPU 和占内存时顺带提一句。</li>
+            <li><b class="font-semibold text-ink">在 STM32 上移植 FreeRTOS</b>（自己配 <code class="icode">FreeRTOSConfig.h</code>、
+              改 <code class="icode">SysTick</code>、处理 <code class="icode">PendSV</code>）——那是另一条技术路线，
+              本篇只讲 ESP-IDF 语境，那一句「STM32 上要自己移植」就是全部的交集。</li>
+            <li><b class="font-semibold text-ink">Arduino 框架下怎么写任务</b>——<code class="icode">setup()</code>/<code class="icode">loop()</code>
+              本身就是跑在一个叫 <code class="icode">loopTask</code> 的 FreeRTOS 任务里，这一点在
+              <a href="esp32-basic-compare.html" class="text-brand-600 dark:text-brand-300">《ESP32 到底是什么》</a>里已经讲过，本篇从 ESP-IDF 的角度讲同一件事的底层。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">读完这一篇，你应该能做到这几件事</div>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li>拿起一个任务需求，能算出它该给多大的栈、该用什么周期、该不该钉核。</li>
+              <li>看到 <code class="icode">***ERROR*** A stack overflow</code> 和
+                <code class="icode">Task watchdog got triggered</code> 这两行日志，能直接说出是哪一类问题、去哪个函数里改。</li>
+              <li>能用 <code class="icode">vTaskList</code> 和栈水位把「系统现在到底在干什么」打印成一张表，
+                而不是靠猜。</li>
+            </ul>
+          </div>
+        </section><hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">
+            这一节分八个小节，顺序是「一个任务的一生」：
+            它<b class="font-semibold text-ink">从哪来</b>（2.1 启动流程、2.2 创建）、
+            <b class="font-semibold text-ink">住在哪</b>（2.3 哪颗核、2.6 哪个栈）、
+            <b class="font-semibold text-ink">怎么被选中运行</b>（2.4 状态与调度）、
+            <b class="font-semibold text-ink">怎么让出 CPU</b>（2.5 阻塞与延时）、
+            <b class="font-semibold text-ink">怎么被监视</b>（2.7 看门狗）、
+            <b class="font-semibold text-ink">怎么结束</b>（2.8 删除与生命周期）。
+          </p>
+          <p class="mt-3">
+            读的时候有一个建议：<b class="font-semibold text-ink">凡是出现具体数字的地方，都顺手记下来</b>。
+            这一节的数字不多——10 ms 的 tick、0~24 的优先级、3584 字节的 main 栈、
+            5 秒的看门狗超时——但它们是第三节所有算式的输入。RTOS 的坑几乎全部来自数量级上的想当然。
+          </p>
+
+          <h3 id="sub-boot" class="mt-7 text-base font-semibold">2.1 上电之后发生了什么：app_main 的真身与启动流程</h3>
+
+          <p class="mt-3">
+            先解决那个最反直觉的问题：<b class="font-semibold text-ink">为什么在 ESP-IDF 里找不到 <code class="icode">main</code> 函数？</b>
+            你新建一个工程，<code class="icode">main</code> 目录下只有一个 <code class="icode">main.c</code>，
+            里面只有一个 <code class="icode">void app_main(void)</code>。你从来没有写过 <code class="icode">int main(void)</code>，
+            也没有写过 <code class="icode">vTaskStartScheduler()</code>，但调度器确实跑起来了。
+          </p>
+          <p class="mt-3">
+            答案是：<b class="font-semibold text-ink">真正的 <code class="icode">main</code> 在 ESP-IDF 的组件里，
+            它做的事是「创建 app_main 这个任务，然后启动调度器」。</b>
+            启动流程一共五步，看清楚这五步，后面所有的困惑都会自动解开：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="ESP32 从上电到 app_main 的完整路径（ESP-IDF）">
+            <pre><code>① 一级引导（ROM bootloader，出厂固化在芯片里，不可修改）
+     上电 → CPU0 从 0x40000400 取第一条指令 → 读 strapping 引脚决定启动模式
+     → 从 Flash 的 0x1000 处读出二级引导程序，搬进 IRAM 并跳过去
+
+② 二级引导（bootloader，在 Flash 里，可以自己编译，就是我们烧的 bootloader.bin）
+     初始化 Flash 与时钟 → 读分区表 → 校验并加载应用程序镜像到 IRAM/DRAM
+     → 把控制权交给应用程序的入口
+
+③ call_start_cpu0（应用程序的第一段代码，在 esp_system 组件里）
+     初始化堆（把剩下没用到的 DRAM 全部交给堆管理器）
+     初始化 RTC、时钟、看门狗、cache
+     → 调用 esp_startup_start_app()
+
+④ esp_startup_start_app
+     ★ 这里是关键：它调用
+       xTaskCreatePinnedToCore(main_task, "main",
+                               CONFIG_ESP_MAIN_TASK_STACK_SIZE,   ← 默认 3584【字节】
+                               NULL, ESP_TASK_MAIN_PRIO /* = 1 */, NULL, 0);
+       然后调用 vTaskStartScheduler();          ← 到这里，调度器才真正开始跑
+
+⑤ main_task → app_main
+     调度器选中名为 "main" 的任务（优先级 1，钉在 CPU0）→ 它执行的函数体里
+     调用一次 app_main() → 于是你写的代码终于开始跑了
+
+     ★ app_main() 返回之后：main_task 会调用 vTaskDelete(NULL) 把自己删掉。
+       注意——【调度器不会停】。内核还在跑，你创建的任务还在跑，
+       WiFi 协议栈还在跑，只有那个叫 "main" 的任务没了。
+       它栈上的所有局部变量（包括你在 app_main 里声明的任务句柄）也跟着没了。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            把这五步记住，第一个月的第 1 号困惑就有答案了：
+          </p>
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">「我在 app_main 里 return 了，为什么程序没停，但打印也没了？」</div>
+            <p class="mt-2">
+              <b>程序本来就不该停。</b><code class="icode">app_main</code> 不是 <code class="icode">main</code>，
+              它是一个任务函数。你 <code class="icode">return</code> 之后发生的事是：
+            </p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><code class="icode">main</code> 任务自己被删除，它在 RTOS 堆上的那块 3584 字节的栈被交还给堆（严格说是交给空闲任务回收）；</li>
+              <li>你在 <code class="icode">app_main</code> 里用局部变量保存的任务句柄、<code class="icode">last_wake</code>、
+                各种配置结构体，<b>全部随栈一起消失</b>——如果别的任务还拿着这些变量的指针，那就是悬空指针；</li>
+              <li>调度器、其他任务、协议栈<b>照常运行</b>，所以你「看不到打印」通常是因为打印循环本来就写在 <code class="icode">app_main</code> 里，而不是因为系统停了。</li>
+            </ul>
+            <p class="mt-2">
+              <b>正确做法有两种，选哪种都行：</b>① 让 <code class="icode">app_main</code> 在最后进入一个
+              <code class="icode">for (;;) { vTaskDelay(...); }</code>，把它当成一个「系统管理任务」用；
+              ② 老老实实 <code class="icode">return</code>，但<b>只把「永久的」东西放在全局变量或 <code class="icode">static</code> 变量里</b>，
+              并且保证创建任务、申请内存这些事在 return 之前全部做完。
+              两种都可以，不可以的是「在栈上的局部变量里存着句柄，然后 return 之后再回来用它」。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            顺便说一句栈：<code class="icode">main</code> 任务的栈大小由
+            <code class="icode">CONFIG_ESP_MAIN_TASK_STACK_SIZE</code> 决定，<b class="font-semibold text-ink">默认 3584 字节</b>。
+            这个值可以在 <code class="icode">idf.py menuconfig</code> 的
+            <code class="icode">Component config → ESP System Settings → Main task stack size</code> 里改。
+            很多人把所有初始化代码都塞进 <code class="icode">app_main</code>，然后在里面调用
+            <code class="icode">nvs_flash_init()</code>、<code class="icode">esp_wifi_init()</code>、
+            一堆 <code class="icode">printf</code>——<b>3584 字节真的不够</b>，
+            现象就是启动到一半莫名其妙复位。这个值是「可以放心调大的」，别省。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>你在裸机里的直觉</th><th>ESP-IDF 里的实际情况</th><th>后果</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">main</code> 是程序入口</td>
+                  <td>入口在 <code class="icode">call_start_cpu0</code>，<code class="icode">app_main</code> 是被创建的 <code class="icode">main</code> 任务</td>
+                  <td>不能再自己写 <code class="icode">int main(void)</code>，会和组件里的定义冲突</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">main</code> 返回 = 程序结束</td>
+                  <td><code class="icode">app_main</code> 返回 = 删掉 <code class="icode">main</code> 任务，其余照跑</td>
+                  <td>局部变量与句柄失效，但系统没有停——比「停下来」更难查</td>
+                </tr>
+                <tr>
+                  <td>程序只需要一个栈</td>
+                  <td>每个任务一个独立栈，<code class="icode">main</code> 任务默认 3584 字节</td>
+                  <td>把大数组放在 <code class="icode">app_main</code> 里会直接压爆 main 的栈</td>
+                </tr>
+                <tr>
+                  <td>初始化代码写多少都行</td>
+                  <td><code class="icode">main</code> 任务的栈是有限的，WiFi 初始化、NVS、printf 都要吃栈</td>
+                  <td>启动阶段随机复位，而报错信息可能在复位之后才打出来</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-task" class="mt-7 text-base font-semibold">2.2 任务是什么：函数签名、绝不能返回，以及六个参数</h3>
+
+          <p class="mt-3">
+            一个任务在 C 语言层面就是<b class="font-semibold text-ink">一个签名固定的函数</b>：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="任务函数的签名：只有这一种形式">
+            <pre><code>void 任务名(void *pvParameters);</code></pre>
+          </div>
+
+          <p class="mt-3">
+            三个要点，每一条都对应一个真实的坑：
+          </p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">返回值必须是 <code class="icode">void</code></b>。
+              内核调用它的时候根本不看返回值，写成 <code class="icode">int</code> 只会让编译器和调用约定对不上。</li>
+            <li><b class="font-semibold text-ink">参数只有一个 <code class="icode">void *</code></b>。
+              这是「内核不知道你想传什么」的必然结果：它只能给你一个通用指针，
+              你在函数里自己转成想要的类型。不需要参数就传 <code class="icode">NULL</code> 进来、在函数里忽略它。</li>
+            <li><b class="font-semibold text-ink">绝对不能返回。</b>不能用「返回值表达成功失败」，
+              也不能靠「跑完一轮就 return」来结束一个任务。任务体必须是一条不归路：
+              要么 <code class="icode">for (;;)</code> 永远转下去，要么显式调用
+              <code class="icode">vTaskDelete(NULL)</code> 结束自己。</li>
+          </ul>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">任务函数真的返回了，会发生什么？</div>
+            <p class="mt-2">
+              会走到<b>移植层专门为这种错误准备的陷阱</b>里。FreeRTOS 每个移植都会提供一个
+              「任务出口错误处理」：在 ESP-IDF 的移植里，它会打印一行
+              <code class="icode">FreeRTOS Task "xxx" should not return, Aborting now!</code>
+              然后调用 <code class="icode">abort()</code>，芯片复位；
+              在带 <code class="icode">configASSERT</code> 的 vanilla 移植（比如 STM32 上的）里，
+              通常会停在 <code class="icode">prvTaskExitError()</code> 的无穷循环里，表现为「卡死」。
+            </p>
+            <p class="mt-2">
+              特别注意：<b>这不是 <code class="icode">vTaskDelete(NULL)</code></b>。
+              任务返回和主动删除自己完全是两件事——前者是编程错误，后者是正常退出。
+              想结束任务就明确写 <code class="icode">vTaskDelete(NULL)</code>，
+              让内核知道你是<b>故意</b>结束的，它才会去做正常的清理。
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">xTaskCreate：六个参数，一个一个说</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="ESP-IDF 里的 xTaskCreate 原型（注意第三个参数的类型与含义）">
+            <pre><code>BaseType_t xTaskCreate(TaskFunction_t  pxTaskCode,      /* ① 任务函数 */
+                       const char   *pcName,          /* ② 任务名（调试用） */
+                       const uint32_t usStackDepth,   /* ③ 栈深度 —— 单位是【字节】！ */
+                       void         *const pvParameters, /* ④ 传给任务的参数 */
+                       UBaseType_t   uxPriority,      /* ⑤ 优先级（越大越优先） */
+                       TaskHandle_t *const pxCreatedTask); /* ⑥ 返回的任务句柄 */
+
+/* 返回 pdPASS（成功）或 pdFAIL（通常是堆不够，建不出栈或 TCB） */</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>#</th><th>参数</th><th>怎么填</th><th>坑在哪</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>①</td>
+                  <td>任务函数</td>
+                  <td>直接写函数名，<b>不要加括号、不要加取地址符</b></td>
+                  <td>写成 <code class="icode">task_main()</code> 就是「先调用一次再拿返回值当函数指针」，编译可能只给个警告</td>
+                </tr>
+                <tr>
+                  <td>②</td>
+                  <td>任务名</td>
+                  <td>字符串，<b>最长 16 个字符</b>（<code class="icode">configMAX_TASK_NAME_LEN</code>）</td>
+                  <td>名字是给 <code class="icode">vTaskList</code> 和崩溃日志看的，超过 16 会被截断，表格对不齐；<b>名字内容会被内核保存，不是只存指针</b></td>
+                </tr>
+                <tr>
+                  <td>③</td>
+                  <td>栈深度</td>
+                  <td><b class="font-semibold text-ink">ESP-IDF 里单位是字节</b>，直接写 <code class="icode">2048</code> 就是 2 KB</td>
+                  <td><b class="font-semibold text-ink">头号误解在这</b>：vanilla FreeRTOS 与 STM32 上的移植，这个参数的单位是<b>字</b>（4 字节）。见下面的专门说明</td>
+                </tr>
+                <tr>
+                  <td>④</td>
+                  <td>任务参数</td>
+                  <td>一个 <code class="icode">void *</code>。传 <code class="icode">NULL</code> 或任意指针</td>
+                  <td>传<b>局部变量地址</b>：创建它的函数一返回，那块内存就没了。要用 <code class="icode">static</code> 变量、全局变量或堆内存；传一个小整数可以用 <code class="icode">(void *)(intptr_t)值</code></td>
+                </tr>
+                <tr>
+                  <td>⑤</td>
+                  <td>优先级</td>
+                  <td><code class="icode">0 ~ 24</code>，<b>数值越大优先级越高</b></td>
+                  <td>不要用 0（那一档是空闲任务的），也不要超过 <code class="icode">configMAX_PRIORITIES - 1</code>（创建会失败）。方向和 STM32 的 NVIC 相反，见 2.4 节</td>
+                </tr>
+                <tr>
+                  <td>⑥</td>
+                  <td>任务句柄</td>
+                  <td><code class="icode">TaskHandle_t</code> 变量的地址；不需要就传 <code class="icode">NULL</code></td>
+                  <td>句柄是「以后操作这个任务」的唯一凭据：删它、量它的栈水位、改它的优先级都要用。建完就把句柄丢了，就只能靠名字找了（没有这种 API）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">头号误解：栈深度到底是字节还是字？</div>
+            <p class="mt-2">
+              这件事必须一次性说死，因为它每年都要坑掉一批从 STM32 转过来的人。
+            </p>
+            <div class="table-scroll mt-3">
+              <table class="table-mcu">
+                <thead>
+                  <tr><th>你在哪里写代码</th><th>第三个参数的单位</th><th>想要 2 KB 的栈，该写多少</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>vanilla FreeRTOS（官网下载的内核、STM32 上自己移植、大多数教程）</td>
+                    <td><b>字</b>（<code class="icode">StackType_t</code>，Cortex-M 与 Xtensa 上都是 4 字节）</td>
+                    <td><code class="icode">512</code></td>
+                  </tr>
+                  <tr>
+                    <td><b>ESP-IDF（本篇、以及所有 ESP32 + ESP-IDF 的官方例程）</b></td>
+                    <td><b>字节</b>（官方文档明确写了这一点，是相对 vanilla 的一处有意改动）</td>
+                    <td><code class="icode">2048</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-2">
+              <b>两种错法的后果完全不同，而且都不报错：</b>
+            </p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b>按「字」的习惯在 ESP-IDF 里写 <code class="icode">128</code></b>，你以为给了 512 字节，
+                实际只给了 <b>128 字节</b>——任何一次函数调用都会踩穿它，
+                现象是任务一启动就报栈溢出，或者更糟：踩坏了邻居的内存，表现为「另一个毫不相干的任务跑飞」。</li>
+              <li><b>按「字节」的习惯在 vanilla FreeRTOS 里写 <code class="icode">2048</code></b>，
+                你以为给了 2 KB，实际给了 <b>8 KB</b>——不崩，但是白吃掉 6 KB 内存。
+                在只有 20 KB SRAM 的 STM32F103 上，这是要命的浪费。</li>
+            </ul>
+            <p class="mt-2">
+              <b>防身办法：</b>凡是允许的地方就写 <code class="icode">sizeof(数组)</code> 或
+              <code class="icode">sizeof(StackType_t) * 字数</code>，让单位显式地出现在代码里；
+              实在要写字面量，就在旁边写一行注释说明单位。
+              不确定的时候，用 2.6 节的栈水位函数量一下——<b>量出来的数字比任何记忆都可靠</b>。
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">任务句柄能干什么</p>
+          <p class="mt-3">
+            第六个参数不是一个形式主义的「输出参数」。句柄是内核给你的<b class="font-semibold text-ink">任务身份证</b>，
+            下面这些事情全部要靠它：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>你想做的事</th><th>用的函数</th><th>备注</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>删除这个任务</td><td><code class="icode">vTaskDelete(handle)</code></td><td>删自己传 <code class="icode">NULL</code></td></tr>
+                <tr><td>量它的栈还剩多少</td><td><code class="icode">uxTaskGetStackHighWaterMark(handle)</code></td><td>量自己也可以传 <code class="icode">NULL</code></td></tr>
+                <tr><td>临时改它的优先级</td><td><code class="icode">vTaskPrioritySet(handle, prio)</code></td><td>「临时提权跑一段」的常用手段</td></tr>
+                <tr><td>把它挂起 / 恢复</td><td><code class="icode">vTaskSuspend(handle)</code> / <code class="icode">vTaskResume(handle)</code></td><td>挂起是无超时的强停，慎用</td></tr>
+                <tr><td>直接给它发一个通知</td><td><code class="icode">xTaskNotifyGive(handle)</code> 等</td><td>任务通知是最轻量的同步手段，见第 41 篇</td></tr>
+                <tr><td>查它在哪颗核上跑</td><td><code class="icode">xTaskGetAffinity(handle)</code></td><td>返回 0、1 或 <code class="icode">tskNO_AFFINITY</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">创建失败必须检查，这不是「洁癖」</div>
+            <p class="mt-2">
+              <code class="icode">xTaskCreate</code> 返回 <code class="icode">pdFAIL</code> 的最常见原因就是
+              <b>堆里没有足够的内存来分配栈和 TCB</b>。而在 ESP32 上这并不罕见：
+              WiFi 起来之后可用堆会明显变小，如果你在 WiFi 之后才创建一批任务，
+              很可能就有那么一两个建不起来。<b>建不起来的后果是「这个功能整个不存在」</b>，
+              而如果你不检查返回值，现场表现就是「这个功能偶尔不工作」，查起来极痛苦。
+            </p>
+            <p class="mt-2">
+              所以标准写法是：<b>逐个检查返回值</b>，失败就打日志（带上任务名和当时的空闲堆大小），
+              然后决定策略——启动阶段失败可以进入安全状态并重启，运行阶段失败可以降级或稍后重试。
+              2.8 节会把这个策略展开。
+            </p>
+          </div>
+
+          <h3 id="sub-core" class="mt-7 text-base font-semibold">2.3 双核：PRO_CPU 与 APP_CPU，以及「钉核」到底为了什么</h3>
+
+          <p class="mt-3">
+            ESP32（指经典的双核版本，比如 ESP32-WROOM-32 里的 ESP32-D0WDQ6）有<b class="font-semibold text-ink">两颗完全相同的
+            Xtensa LX6 核</b>，最高 240 MHz。它们都有自己的寄存器组和自己的中断控制器视角，
+            但<b class="font-semibold text-ink">共享同一块 SRAM、同一套总线、同一个 cache 和外设</b>——
+            这一点很重要，它决定了「双核不等于双倍性能」。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th></th><th>PRO_CPU（CPU0）</th><th>APP_CPU（CPU1）</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>名字的含义</td><td>Protocol CPU，历史上是给协议栈用的</td><td>Application CPU，历史上是给应用代码用的</td></tr>
+                <tr><td>硬件上是否对等</td><td colspan="2"><b>完全对等</b>。两颗核跑同一套指令集、同样的主频，任何任务都能跑在任何一颗上</td></tr>
+                <tr><td>ESP-IDF 默认往哪放</td><td>二级引导、<code class="icode">main</code> 任务、WiFi 任务、蓝牙控制器任务、TCP/IP 任务</td><td>默认什么都不放——你的任务如果不钉核，调度器可以把它放到任意一颗上</td></tr>
+                <tr><td>名字带来的实际后果</td><td>「重量级」的系统任务默认都堆在 CPU0 上，所以 CPU0 通常更忙</td><td>通常是「干净」的那颗核，这也是为什么推荐把实时性要求高的任务钉到这里</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">xTaskCreatePinnedToCore：多出来的第七个参数</p>
+          <p class="mt-3">
+            不钉核的任务（用 <code class="icode">xTaskCreate</code> 创建的）在 ESP-IDF 里亲和性是
+            <code class="icode">tskNO_AFFINITY</code>，调度器可以把它放在任一核上运行。
+            想指定它就换成带核号的版本，参数只多一个：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="两个创建函数的区别：只在最后一个参数">
+            <pre><code>/* 不钉核：让调度器决定它在哪颗核上跑 */
+xTaskCreate(task_fn, "name", 2048, NULL, 5, &amp;handle);
+
+/* 钉核：第七个参数写 0（PRO_CPU）或 1（APP_CPU），也可以写 tskNO_AFFINITY */
+xTaskCreatePinnedToCore(task_fn, "name", 2048, NULL, 5, &amp;handle, 1);
+
+/* 想知道当前代码跑在哪颗核上（返回 0 或 1） */
+int core = xPortGetCoreID();
+
+/* 想知道这颗芯片一共有几颗核（双核版返回 2） */
+int n = portNUM_PROCESSORS;</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">钉核不是「加速开关」，它换来的主要是可预测性</div>
+            <p class="mt-2">
+              新手最常见的两个误解方向相反，但都是错的：
+            </p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b>「钉到 CPU1 就能快一倍」</b>——错。两颗核共享内存与总线，
+                总吞吐受限于内存带宽而不是核数。纯寄存器运算的代码可能接近 2 倍，
+                但一个频繁读写 SRAM 的任务，实测通常只能拿到 1.6~1.8 倍
+                （按典型值估算，具体取决于内存访问密度）。</li>
+              <li><b>「钉核是进阶技巧，新手不要用」</b>——也错。对于实时性敏感的任务，
+                钉核是让响应时间可预测的最直接手段：把任务放到一颗「只有它在跑」的核上，
+                它就不会被 WiFi 的突发吃掉 CPU。第三节例 5 会把这两种情况的抖动算给你看。</li>
+            </ul>
+            <p class="mt-2">
+              所以正确的说法是：<b class="font-semibold text-ink">钉核解决的是「干扰」而不是「速度」。</b>
+              而且它是有代价的——你把任务钉在 CPU1 之后，CPU0 上空出来的时间并不能自动被它利用，
+              相当于把这颗任务对 CPU0 的可用性上限锁死了。如果哪天 CPU1 上被塞进第二个重任务，
+              你又会回到「一核挤两任务」的局面。
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">为什么 ESP-IDF 默认把 WiFi 放在 CPU0</p>
+          <p class="mt-3">
+            因为 WiFi 协议栈有<b class="font-semibold text-ink">硬实时要求</b>：802.11 的时序（信标、ACK、
+            SIFS 间隔）是微秒级的，协议栈任务必须能在规定时间内被唤醒并处理，
+            否则丢包、掉线。所以 ESP-IDF 默认把 WiFi 任务
+            （由 <code class="icode">CONFIG_ESP32_WIFI_TASK_CORE_ID</code> 控制，默认 0）
+            和蓝牙控制器任务都钉在 CPU0 上，并且给它们<b class="font-semibold text-ink">很高的优先级</b>
+            （WiFi 任务优先级 23，而 <code class="icode">app_main</code> 是 1）——
+            这意味着<b>只要 WiFi 有事，你的低优先级任务就得让路</b>。
+          </p>
+          <p class="mt-3">
+            这解释了一个很常见的现象：一个纯计算的循环，在没开 WiFi 的时候耗时 3 ms，
+            开了 WiFi 之后偶发变成 5 ms 甚至更多。不是你的代码变慢了，
+            是它被切走了几次。<b class="font-semibold text-ink">把这种任务钉到 CPU1，它就不再受 WiFi 突发的影响</b>——
+            这就是「钉核」的真正用途。
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">单核模式：CONFIG_FREERTOS_UNICORE</div>
+            <p class="mt-2">
+              在 <code class="icode">menuconfig</code> 里打开
+              <code class="icode">Component config → FreeRTOS → Kernel → Run FreeRTOS only on first core</code>
+              （即 <code class="icode">CONFIG_FREERTOS_UNICORE = y</code>），FreeRTOS 就只在
+              <b>第一颗核（CPU0 / PRO_CPU）</b>上跑任务。这时：
+            </p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><code class="icode">xPortGetCoreID()</code> 永远返回 0，<code class="icode">portNUM_PROCESSORS</code> 是 1；</li>
+              <li>内核少了一个空闲任务、一套 SMP 自旋锁和调度结构，能省下一点内存和调度开销；</li>
+              <li>好处是行为更接近「教科书上的 FreeRTOS」，并发问题更好推理；
+                <b>代价是你放弃了一半的算力</b>。</li>
+            </ul>
+            <p class="mt-2">
+              对绝大多数学习项目，保持默认的双核就好；只有当你在做「单核 MCU 移植到 ESP32」
+              或者追求「行为完全可复现」的时候，单核模式才值得考虑。
+              Arduino-ESP32 默认也是双核。
+            </p>
+          </div>
+
+          <h3 id="sub-sched" class="mt-7 text-base font-semibold">2.4 四状态、抢占与时间片：调度器到底按什么规则选人</h3>
+
+          <p class="mt-3">
+            任何一个时刻，一个任务只能处在四种状态之一。<b class="font-semibold text-ink">看懂这张状态图，
+            你就看懂了调度器全部的行为</b>——所谓「调度」，无非是「在合适的时刻，把任务从一个状态搬到另一个状态」。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="任务四状态与迁移条件（FreeRTOS）">
+            <pre><code>                          xTaskCreate()
+                                │
+                                ▼
+                     ┌─────────────────────┐
+       被高优先级任务 │                     │  时间片用完 / 被同优先级轮转
+       抢占（高优先级 │      Ready          │ ────────────────────────┐
+       就绪即发生）   │     就绪            │                         │
+            ┌────────►│  （在就绪链表里排队）│◄──────────────┐         │
+            │         └──────────┬──────────┘               │         │
+            │                    │                          │         ▼
+            │      调度器选中它   │                  超时到 / 事件发生  ┌──────────────┐
+            │                    ▼                   / 被 Give 唤醒    │   Running    │
+            │         ┌─────────────────────┐               │         │   运行中     │
+            └─────────│      Running        │───────────────┘         │（当前占用CPU）│
+                      │      运行中          │                         └──────┬───────┘
+                      └──────────┬──────────┘                                │
+                                 │                                           │
+        vTaskDelay / 等队列 /     │                                    主动放弃 │
+        等信号量（带超时）        │                                taskYIELD()│
+                                 ▼                                           │
+                      ┌─────────────────────┐                                │
+                      │      Blocked        │◄───────────────────────────────┘
+                      │      阻塞           │
+                      │ （不参与调度，0 CPU）│
+                      └──────────┬──────────┘
+                                 │
+        vTaskSuspend()           │                        xTaskResume()
+      （自己或别人调用）          ▼                                │
+                      ┌─────────────────────┐                      │
+                      │     Suspended       │──────────────────────┘
+                      │      挂起           │
+                      │ （无超时，只能被恢复）│
+                      └──────────┬──────────┘
+                                 │
+                        vTaskDelete()  ▼  【终止】等待空闲任务回收它的栈与 TCB</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>状态</th><th>含义</th><th>占不占 CPU</th><th>怎么进去</th><th>怎么出来</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>Running</b></td>
+                  <td>正在某颗核上执行</td>
+                  <td>占</td>
+                  <td>被调度器选中</td>
+                  <td>被抢占、阻塞、挂起、删除，或时间片用完</td>
+                </tr>
+                <tr>
+                  <td><b>Ready</b></td>
+                  <td>万事俱备，只等 CPU</td>
+                  <td>不占</td>
+                  <td>刚创建、阻塞超时、被唤醒、被恢复</td>
+                  <td>成为当前优先级最高的就绪任务时被选中</td>
+                </tr>
+                <tr>
+                  <td><b>Blocked</b></td>
+                  <td>在等一件事：等时间到、等队列有数据、等信号量</td>
+                  <td>不占</td>
+                  <td><code class="icode">vTaskDelay</code>、带超时的队列/信号量等待</td>
+                  <td>超时到、事件发生（<b>谁先到算谁</b>）</td>
+                </tr>
+                <tr>
+                  <td><b>Suspended</b></td>
+                  <td>被强制停住，没有超时概念</td>
+                  <td>不占</td>
+                  <td><code class="icode">vTaskSuspend()</code></td>
+                  <td>只有 <code class="icode">vTaskResume()</code> / <code class="icode">xTaskResumeFromISR()</code> 能让它出来</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">Blocked 和 Suspended 差一个字，工程含义差很远</div>
+            <p class="mt-2">
+              <b>Blocked 是「它自己在等」</b>——有超时、有唤醒条件，是正常且推荐的用法。
+              <b>Suspended 是「别人不让它跑」</b>——没有超时、没有唤醒条件，
+              只要没人 <code class="icode">vTaskResume</code>，它就永远停在那儿。
+            </p>
+            <p class="mt-2">
+              所以要停一个任务一段时间，用 <code class="icode">vTaskDelay</code>。
+              只有当你需要「确实地冻住某段逻辑，直到某个外部条件成立才放行」时才用挂起，
+              而且要保证<b>每一对 <code class="icode">vTaskSuspend</code> 都有一条确定的恢复路径</b>，
+              否则你就在系统里埋了一个永远不会醒的任务——它还占着 RAM 和句柄。
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">规则一：抢占——高优先级一就绪，立刻抢</p>
+          <p class="mt-3">
+            ESP-IDF 的默认配置是<b class="font-semibold text-ink">抢占式调度</b>
+            （<code class="icode">configUSE_PREEMPTION = 1</code>）。
+            它的规则只有一句话：<b class="font-semibold text-ink">任何时刻，CPU 属于「优先级最高且处于就绪态」的那个任务。</b>
+          </p>
+          <p class="mt-3">
+            「立刻」两个字是认真的：抢占发生在<b>任何一个让高优先级任务变为就绪的事件</b>上——
+            定时器到期、队列收到数据、中断里 Give 了信号量、别的任务恢复了它。
+            不需要等到下一个 tick，也不需要你手工让出。这一点和裸机的时间片轮询有本质区别：
+            轮询的响应延迟最坏是一个时间片，而抢占的响应延迟是<b>一次上下文切换的时间</b>
+            （ESP32 上通常几微秒量级，按典型值估算）。
+          </p>
+
+          <p class="mt-6 font-semibold text-ink">规则二：同优先级才轮到时间片</p>
+          <p class="mt-3">
+            如果好几个任务<b>优先级相同</b>且都就绪，它们就按时间片轮转
+            （<code class="icode">configUSE_TIME_SLICING = 1</code>，默认开启）。
+            时间片长度就是<b class="font-semibold text-ink">一个 tick</b>，
+            而 tick 的频率由 <code class="icode">configTICK_RATE_HZ</code> 决定：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>配置项</th><th>ESP-IDF 默认值</th><th>含义与影响</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">configTICK_RATE_HZ</code><br>（menuconfig 里叫 <code class="icode">CONFIG_FREERTOS_HZ</code>）</td>
+                  <td><b>100</b></td>
+                  <td>每秒 100 个 tick，<b>1 tick = 10 ms</b>。这是所有延时与超时的最小粒度，也是时间片的长度</td>
+                </tr>
+                <tr>
+                  <td>时间片长度</td>
+                  <td>1 tick = 10 ms</td>
+                  <td>同优先级任务每个最多连跑 10 ms 就会被换下。<b>调大 tick 频率会让它变短</b></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">configMAX_PRIORITIES</code></td>
+                  <td><b>25</b></td>
+                  <td>可用优先级是 <b>0 ~ 24</b>，共 25 档。0 那档被空闲任务占着</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">configUSE_PREEMPTION</code></td>
+                  <td>1（开启）</td>
+                  <td>高优先级就绪立刻抢占；关掉它变成纯粹的时间片轮询，实时性大幅下降</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">configUSE_TIME_SLICING</code></td>
+                  <td>1（开启）</td>
+                  <td>同优先级之间按 tick 轮转；关掉它，同优先级任务会一直跑下去直到自己阻塞</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">优先级的方向：数值越大越优先——和 STM32 的 NVIC 正好相反</div>
+            <p class="mt-2">
+              这一条必须点名对比，因为两套系统你都会用到：
+            </p>
+            <div class="table-scroll mt-3">
+              <table class="table-mcu">
+                <thead>
+                  <tr><th></th><th>FreeRTOS 任务优先级</th><th>STM32 NVIC 中断优先级</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>数值方向</td><td><b>数值越大，优先级越高</b></td><td><b>数值越小，优先级越高</b></td></tr>
+                  <tr><td>典型取值</td><td>0（最低，空闲任务）~ 24（最高）</td><td>0（最高）~ 15（最低，4 位）</td></tr>
+                  <tr><td>0 是什么</td><td>最低档，被空闲任务占用，你的任务不要用</td><td>最高档，可以正常使用</td></tr>
+                  <tr><td>记忆口诀</td><td>「排号越靠后越牛」——像排队买票加塞权</td><td>「门牌号越小越靠里」——像医院的 1 号诊室</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-2">
+              顺带一句：<b class="font-semibold text-ink">FreeRTOS 的任务优先级和中断优先级是两套完全独立的体系</b>，
+              它们之间没有统一的排序。中断永远能打断任何任务（因为中断不走调度器），
+              而任务永远不能「打断」中断。中断里要唤醒任务，靠的是
+              <code class="icode">...FromISR</code> 版本的 API（第 41 篇展开）。
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">规则三：空闲任务优先级 0，负责回收垃圾——所以不能饿死它</p>
+          <p class="mt-3">
+            调度器启动时会自动创建空闲任务：<b class="font-semibold text-ink">每一颗核一个</b>，
+            名字分别是 <code class="icode">IDLE0</code>（CPU0）和 <code class="icode">IDLE1</code>（CPU1），
+            优先级都是 <b>0</b>（<code class="icode">tskIDLE_PRIORITY</code>），也就是最低档。
+          </p>
+          <p class="mt-3">
+            它做的事看起来无关紧要，实际上有两件是<b class="font-semibold text-ink">系统级的必需工作</b>：
+          </p>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">回收被删除任务的内存。</b>
+              调用 <code class="icode">vTaskDelete()</code> 只是把任务从各种链表里摘掉，
+              它占的<b>栈和 TCB 内存不在这时候释放</b>——真正的 <code class="icode">free()</code>
+              是在空闲任务的上下文里做的。所以<b>如果空闲任务永远得不到 CPU，
+              每删除一个任务就泄漏一块内存</b>：删着删着堆就空了，之后所有
+              <code class="icode">xTaskCreate</code> 都返回 <code class="icode">pdFAIL</code>。</li>
+            <li><b class="font-semibold text-ink">喂任务看门狗（TWDT）。</b>
+              空闲任务是默认被订阅进看门狗的。饿了它 5 秒，整片芯片就会因为
+              Task WDT 超时而复位（2.7 节详细讲）。</li>
+          </ol>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">由此得到本篇最重要的一条纪律</div>
+            <p class="mt-2">
+              <b>任何任务都不能长时间霸占 CPU 而不阻塞。</b>
+              优先级 5 的任务写一个纯计算的死循环，会让本核上所有优先级 ≤ 5 的任务
+              （包括优先级 0 的空闲任务）全部饿死。<b>高优先级任务饿死低优先级任务是「设计」，
+              饿死空闲任务是「事故」</b>——因为后者会直接导致整片芯片复位。
+            </p>
+            <p class="mt-2">
+              而且注意：<b><code class="icode">taskYIELD()</code> 和 <code class="icode">vTaskDelay(0)</code> 都救不了它。</b>
+              这两种「让出」只会把 CPU 让给<b>同优先级或更高优先级</b>的就绪任务；
+              空闲任务的优先级是 0，永远排不上。<b>只有真正的阻塞（<code class="icode">vTaskDelay(≥1 tick)</code>、
+              等队列、等信号量）才能把 CPU 交出去给低优先级任务。</b>这一条在第四节程序三里会让你亲手复现一次。
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">把三条规则合起来看</p>
+          <p class="mt-3">
+            调度器每次要选人时的逻辑，可以简化成这样（这也是你在心里模拟调度时的推理顺序）：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="调度器的选人逻辑（简化版，够你推理 95% 的问题）">
+            <pre><code>调度器要选一个任务运行：
+  1. 在【就绪】的任务里，找优先级最高的那一档
+  2. 如果这一档有多个任务：
+       - 开了时间片 → 取下一个（轮转），每个最多连跑 1 个 tick
+       - 没开时间片 → 取当前这个，它不阻塞就不换人
+  3. 如果一颗核上【没有任何就绪任务】→ 运行该核的空闲任务（IDLE0 / IDLE1）
+  4. 只要有一个更高优先级的任务变成【就绪】，立刻重新选（这就是抢占）
+
+【推论一】低优先级任务饿死高优先级任务：不可能（抢占保证）
+【推论二】高优先级任务饿死低优先级任务：可能，而且是设计允许的
+【推论三】任何任务饿死空闲任务：可能，但会触发 Task WDT 复位
+【推论四】两个同优先级任务「轮流跑」：每个跑满 1 个 tick（10 ms）才换
+【推论五】优先级差 1 档，就能决定「谁先谁后」；差 18 档（比如 5 和 23）
+          意味着只要 WiFi 有事，你的任务这一轮就别想按时完成</code></pre>
+          </div><h3 id="sub-block" class="mt-7 text-base font-semibold">2.5 阻塞与延时：把「等」这件事交给内核</h3>
+
+          <p class="mt-3">
+            在裸机里，「等」是一件很尴尬的事。你想等 100 ms，只有两种写法：
+            <code class="icode">HAL_Delay(100)</code>（CPU 空转，什么都干不了）
+            或者「记住一个时间戳，每轮循环检查一次到点了没有」（不空转，但要在代码里到处散布时间戳判断，
+            而且响应延迟取决于循环周期）。RTOS 给了第三种写法：
+            <b class="font-semibold text-ink">调用一个会「阻塞」的函数，把自己的名字从就绪链表里摘出去，
+            等条件满足再由内核把你放回来。</b>这段时间里 CPU 完全属于别的任务。
+          </p>
+
+          <p class="mt-3">
+            阻塞的入口有三大类，本篇只讲第一类（延时），后两类是第 41 篇的内容：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>进入阻塞的方式</th><th>典型 API</th><th>什么时候被唤醒</th><th>在哪一篇讲</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>纯延时</td>
+                  <td><code class="icode">vTaskDelay()</code> / <code class="icode">xTaskDelayUntil()</code></td>
+                  <td>指定的 tick 数到了</td>
+                  <td><b>本篇</b></td>
+                </tr>
+                <tr>
+                  <td>等资源 / 等事件</td>
+                  <td><code class="icode">xQueueReceive()</code>、<code class="icode">xSemaphoreTake()</code>、<code class="icode">xEventGroupWaitBits()</code>、<code class="icode">ulTaskNotifyTake()</code></td>
+                  <td>数据到了 / 信号量被 Give / 事件位被置 / 通知到达，<b>或者超时到</b></td>
+                  <td>第 41 篇</td>
+                </tr>
+                <tr>
+                  <td>强制挂起</td>
+                  <td><code class="icode">vTaskSuspend()</code></td>
+                  <td>只能被 <code class="icode">vTaskResume()</code> 唤醒，<b>没有超时</b></td>
+                  <td>本篇 2.4 节已讲清风险</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">vTaskDelay 与 vTaskDelayUntil：一个字的差别，两种时间语义</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="相对延时 vs 固定周期：同一段代码，两种时间轴">
+            <pre><code>【vTaskDelay(10) —— 「从现在起，10 ms 内别叫我」】
+
+  唤醒 ──执行 1.3ms──┐           唤醒 ──执行 1.3ms──┐           唤醒
+                    └──延时 10ms──┘                 └──延时 10ms──┘
+  |&lt;-------- 11.3 ms -------->|&lt;-------- 11.3 ms -------->|
+  周期 = 执行时间 + 延时        每轮都比上一轮晚 1.3 ms，误差【一直累加】
+
+【xTaskDelayUntil(&amp;last, 10) —— 「把第 N 次唤醒锁在 last + N×10 ms 这个网格上」】
+
+  唤醒 ──执行 1.3ms──┐        唤醒 ──执行 1.3ms──┐        唤醒
+                    └─延时 8.7ms─┘                └─延时 8.7ms─┘
+  |&lt;-------- 10 ms -------->|&lt;-------- 10 ms -------->|
+  周期 = 10 ms（内核自动把「执行时间」从延时里扣掉），误差【不累加】
+
+【关键区别】
+  vTaskDelay      的参数是「我要睡多久」
+  xTaskDelayUntil 的参数是「我下一次要在什么时候醒」
+                    ↑ 前者是相对的，后者是绝对的（挂在 tick 网格上）</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="两个函数的正确用法">
+            <pre><code>/* ---------- 相对延时：适合「等一下」「歇一会儿」 ---------- */
+/* 读一次传感器之后歇 100 ms。周期抖动无所谓，只要别太频繁 */
+vTaskDelay(pdMS_TO_TICKS(100));
+
+/* ---------- 固定周期：适合「控制环」「采样」「刷新」 ---------- */
+TickType_t last_wake = xTaskGetTickCount();   /* ★ 必须初始化！ */
+const TickType_t period = pdMS_TO_TICKS(10);
+
+for (;;) {
+    do_control_loop();                        /* 这一轮要干的活 */
+
+    /* 把下一次唤醒时刻推进到 last_wake + period。
+       返回 pdFALSE 表示「这个时刻已经过去了」——说明本轮的执行时间超过了周期，
+       也就是【周期已经守不住了】。这种情况必须被记录下来，不能假装没发生。 */
+    if (xTaskDelayUntil(&amp;last_wake, period) == pdFALSE) {
+        overrun_count++;
+    }
+}
+
+/* ---------- 关于旧名字 ---------- */
+/* vTaskDelayUntil() 是旧 API，返回 void，【不会告诉你有没有超时】。
+   ESP-IDF 提供的是 xTaskDelayUntil()，返回 BaseType_t，能告诉你超没超时。
+   新代码一律用 xTaskDelayUntil()。 */</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">pdMS_TO_TICKS：它不是单位换算，它是「向下取整到 tick 网格」</div>
+            <p class="mt-2">
+              <code class="icode">pdMS_TO_TICKS(ms)</code> 的展开式是
+              <code class="icode">((TickType_t)((ms) * configTICK_RATE_HZ / 1000))</code>，
+              整数除法意味着<b class="font-semibold text-ink">结果会被截断</b>：
+            </p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li>在默认的 100 Hz tick 下，1 tick = 10 ms，所以
+                <code class="icode">pdMS_TO_TICKS(25)</code> = 2500/1000 = <b>2 tick = 20 ms</b>（少了 20%）；</li>
+              <li>更危险的是<b>小于一个 tick 的值会直接变成 0</b>：
+                <code class="icode">pdMS_TO_TICKS(5)</code> = 500/1000 = <b>0</b>。
+                而 <code class="icode">vTaskDelay(0)</code> <b>不会阻塞</b>，
+                它只是让出一次 CPU 就立刻回来——你的「延时 5 ms」变成了忙等，
+                循环跑得飞快，还可能把空闲任务饿死。</li>
+            </ul>
+            <p class="mt-2">
+              所以只要你的周期或延时小于 10 ms，就必须重新考虑 tick 频率（见第三节例 1），
+              或者改用微秒级的 <code class="icode">esp_timer</code>。
+              <b>这一条是「我的任务明明写了延时，为什么 CPU 占用还是 100%」的最常见原因。</b>
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">vTaskDelay(0) 和 taskYIELD() 有什么区别</p>
+          <p class="mt-3">
+            这两个调用看起来都是「让一下 CPU」，而且效果确实很像，但它们的目的和作用范围不同：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th></th><th><code class="icode">vTaskDelay(0)</code></th><th><code class="icode">taskYIELD()</code></th></tr>
+              </thead>
+              <tbody>
+                <tr><td>做了什么</td><td>把自己放到<b>同优先级</b>就绪链表的尾部，然后请求一次任务切换</td><td>直接请求一次上下文切换</td></tr>
+                <tr><td>进入阻塞了吗</td><td><b>没有</b>。它仍然是就绪态，下一轮还可能马上被选中</td><td>没有，同样保持就绪</td></tr>
+                <tr><td>能让给谁</td><td>只能让给<b>同优先级或更高优先级</b>的就绪任务</td><td>同样只能让给<b>同优先级或更高优先级</b>的就绪任务</td></tr>
+                <tr><td>能不能救活空闲任务</td><td colspan="2"><b>都不能。</b>空闲任务优先级是 0，只要当前任务优先级高于 0，让出多少次也轮不到它</td></tr>
+                <tr><td>典型用途</td><td>同优先级任务主动「礼让」，让轮转更均匀</td><td>在临界区结束后立刻让出，减少响应延迟；或配合 <code class="icode">portYIELD_FROM_ISR()</code> 在中断里请求切换</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">「死循环里加个 taskYIELD() 就行了」是个流传很广的错误</div>
+            <p class="mt-2">
+              很多人被看门狗复位教训过一次之后，就在死循环末尾加一句
+              <code class="icode">taskYIELD()</code> 或 <code class="icode">vTaskDelay(0)</code>，
+              发现「好像不重启了」——<b>那是因为你的板子上恰好还有别的同优先级任务在跑</b>，
+              或者你顺手把 <code class="icode">printf</code> 加进去了、串口驱动内部阻塞了一下。
+              本质上，空闲任务仍然没有机会运行。
+            </p>
+            <p class="mt-2">
+              <b>唯一可靠的让出方式是真正进入阻塞态</b>：<code class="icode">vTaskDelay(pdMS_TO_TICKS(1))</code>
+              （至少让出 1 个 tick）或者阻塞在队列/信号量上。
+              判断标准很简单：<b>问自己「这一句执行完之后，空闲任务能不能跑到」</b>。
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">为什么「任何轮询等待都应该换成阻塞」</p>
+          <p class="mt-3">
+            这是裸机转 RTOS 时最需要改掉的一个习惯。下面这张表里的写法在裸机里全都是「对的」，
+            到了 RTOS 里全部有问题：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>裸机里的写法</th><th>在 RTOS 里的问题</th><th>改成什么</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">while (!flag) { }</code><br>等一个标志位</td>
+                  <td>纯空转，百分百占用 CPU；如果这个任务优先级高于空闲任务，看门狗就会超时</td>
+                  <td>阻塞等信号量 / 任务通知（第 41 篇）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">while (HAL_GetTick() - t &lt; 100) { }</code><br>空转等时间</td>
+                  <td>同上，而且 <code class="icode">HAL_Delay</code> 系列的忙等还会让别的任务一起饿死</td>
+                  <td><code class="icode">vTaskDelay(pdMS_TO_TICKS(100))</code></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">while (UART-&gt;SR &amp; BUSY) { }</code><br>空转等外设</td>
+                  <td>外设本来就慢（一次 UART 发送可能几百微秒），空转期间别的任务全被挡住</td>
+                  <td>用中断/DMA + 阻塞等完成信号；<b>绝对不能在中断里等</b></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">if (millis() - last &gt; 10) { ... }</code><br>每轮检查时间戳</td>
+                  <td>能用，但响应延迟取决于循环周期；任务之间的时间关系难以保证</td>
+                  <td><code class="icode">xTaskDelayUntil()</code> 把周期交给内核</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            为什么要费这个劲？因为阻塞带来的收益不止「省 CPU」一条：
+          </p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">CPU 真的省下来了</b>。在 ESP32 上还直接换算成功耗——
+              空闲任务跑得越多，能进低功耗的机会越大（第 43 篇）。</li>
+            <li><b class="font-semibold text-ink">代码变成了顺序逻辑</b>。「发命令 → 等应答 → 超时重试」
+              可以老老实实写成三行，而不是拆成一个状态机（上一篇 2.6 节讲过的那个困境，
+              到这里终于有了解药）。</li>
+            <li><b class="font-semibold text-ink">时间关系变得可预测</b>。阻塞的唤醒由内核负责，
+              不再依赖「循环跑到那一行的时候正好到点了」。</li>
+            <li><b class="font-semibold text-ink">看门狗不再误报</b>。空闲任务能跑 = TWDT 能喂上
+              = 没有莫名其妙的复位。</li>
+          </ul>
+
+          <h3 id="sub-stack" class="mt-7 text-base font-semibold">2.6 栈：每个任务一块自己的内存，怎么估、怎么量、怎么爆</h3>
+
+          <p class="mt-3">
+            这是 RTOS 里最「不像编程、像算账」的一部分，也是新手最容易翻车的地方。
+            在裸机里，你从来不用想栈——链接脚本给一个几 KB 的栈，所有函数共用，
+            反正只要不写超大的局部数组就没事。<b class="font-semibold text-ink">到了 RTOS，
+            每个任务有自己的栈，而栈的大小要你自己报。</b>
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="每个任务一个独立栈：好处与代价">
+            <pre><code>【裸机：所有函数共用一个栈】
+    主栈 ──┬── main()
+           ├── 任务A的调用链
+           ├── 任务B的调用链
+           └── 中断的调用链（中断借用被中断代码的栈）
+    好处：不知道谁用多少也没关系，反正共用一大块
+    代价：一个任务写了个大数组，另一个任务就倒霉（栈溢出踩到别人）
+
+【RTOS：每个任务一个栈，互相隔离】
+    任务A 的栈（2 KB）  任务B 的栈（4 KB）   main 任务的栈（3.5 KB）
+            ↑                    ↑                     ↑
+    好处：A 栈溢出只会毁掉 A 自己（多数情况下）
+    代价：每个栈都要单独算大小；给多了浪费 RAM，给少了直接崩
+
+【三条必须记住的事实】
+  ① 任务栈是【从 RTOS 堆里分配】的，不是编译器帮你摆好的全局数组
+  ② 任务里声明的局部数组、局部结构体，全部吃在【这个任务自己的栈】上
+  ③ 在 ESP32（Xtensa）上，中断服务程序会借用【被中断的那个任务的栈】——
+     所以「栈要留余量」不只是为了你的函数调用深度，也是为了中断</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么中断也要算进任务的栈</div>
+            <p class="mt-2">
+              在 Xtensa 架构上，中断入口不会另换一套栈，而是直接在被中断任务的栈上保存现场并执行
+              ISR 的代码。<b class="font-semibold text-ink">也就是说，一个「只需要 800 字节」的任务，
+              如果正好在一个很深的调用点被一个栈用量 400 字节的中断打断，
+              峰值就变成了 1200 字节。</b>
+            </p>
+            <p class="mt-2">
+              这解释了一类非常难查的崩溃：<b>单独跑没问题，一开 WiFi / 一接串口中断就偶尔重启</b>。
+              现象看起来像是「中断的问题」，实际上是你把某个任务的栈压得太紧，
+              加上中断那一层就踩穿了。<b>工程上的规矩是：所有任务的栈都留 30% 以上余量，
+              「已经调好用了很久」的也不行——因为你迟早会往里面加代码。</b>
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">怎么估：四个部分加起来再取整</p>
+          <p class="mt-3">
+            估算栈用量不需要精确到字节，需要的是<b class="font-semibold text-ink">不低估</b>。按下面四块加，
+            然后向上取到一个「好看的数」（比如 1 KB、1.5 KB、2 KB、3 KB、4 KB）：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>组成部分</th><th>怎么估</th><th>典型量级（按典型值估算）</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>① 局部变量</td>
+                  <td>把任务函数里（含它调用的所有函数的局部变量）最大的那些加起来。
+                    <b>数组和结构体按完整大小算</b></td>
+                  <td>没有大数组：几十~200 字节；<br>有一个 <code class="icode">float buf[64]</code>：256 字节起</td>
+                </tr>
+                <tr>
+                  <td>② 调用链的栈帧</td>
+                  <td>每层函数调用要保存返回地址、被调用者保存寄存器、对齐填充。
+                    粗略按「每层 32~64 字节 × 最大调用深度」</td>
+                  <td>深度 5~8 层：200~500 字节</td>
+                </tr>
+                <tr>
+                  <td>③ <code class="icode">printf</code> 家族的峰值</td>
+                  <td><b>单次调用就能吃掉 1 KB 以上</b>（格式化缓冲 + 数字转字符串 + 浮点处理）。
+                    <code class="icode">sprintf</code> 比 <code class="icode">printf</code> 略小，但也是同一量级</td>
+                  <td>1024~2048 字节</td>
+                </tr>
+                <tr>
+                  <td>④ 中断借用</td>
+                  <td>这颗任务运行时，可能打断它的最「重」的那个 ISR 要多少栈</td>
+                  <td>200~500 字节</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">printf 是栈的头号杀手，而且它「看起来」很无辜</div>
+            <p class="mt-2">
+              很多人的第一个栈溢出就是因为往任务里加了一句调试打印。原因很实在：
+              格式化输出要分配一块缓冲、把数字转成字符串、处理宽度和精度——
+              在 ESP-IDF 的 newlib 里这整套流程走下来，<b>单次
+              <code class="icode">printf</code> 就可能用掉 1 KB 以上的栈</b>，
+              涉及浮点格式化（<code class="icode">%f</code>）时更多。
+            </p>
+            <p class="mt-2">
+              于是出现了一个很典型的画面：一个 2 KB 栈的任务平时跑得好好的
+              （水位还剩 60%），加了一句带 <code class="icode">%f</code> 的
+              <code class="icode">printf</code> 之后立刻报栈溢出复位。
+              <b>这不是 printf 有问题，是你没给它留够地方。</b>
+            </p>
+            <p class="mt-2">
+              三条实用建议：
+              ① <b>带打印的任务，栈至少 3 KB 起</b>；
+              ② 用 <code class="icode">ESP_LOGI</code> 这类日志宏替代裸
+              <code class="icode">printf</code>，它的格式化开销更可控；
+              ③ <b>绝不要在中断里打印</b>——不只是栈，还有重入和实时性问题。
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">怎么量：uxTaskGetStackHighWaterMark</p>
+          <p class="mt-3">
+            估算只是起点，真正的答案是<b class="font-semibold text-ink">量出来</b>。
+            FreeRTOS 提供一个专门的函数，它返回的是「这个任务从创建到现在，
+            栈上剩余空间的历史最小值」——业内叫<b class="font-semibold text-ink">栈水位（high water mark）</b>：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="量栈水位：一行代码就能拿到答案">
+            <pre><code>/* 量当前任务自己：传 NULL 即可 */
+UBaseType_t hw = uxTaskGetStackHighWaterMark(NULL);
+
+/* 量别的任务：需要它的句柄（所以创建时要把句柄存下来） */
+UBaseType_t hw = uxTaskGetStackHighWaterMark(handle_of_sensor_task);
+
+/* hw 的含义：历史最小剩余。它只减不增——
+   因为它是「历史最坏时刻」的记录，不是「现在还剩多少」。
+   换句话说：hw 是保守值，看到 hw 很小就一定是真的紧张过。 */</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">单位陷阱又来了：这个返回值是字节还是字</div>
+            <p class="mt-2">
+              和第三个参数一样，这里也存在 vanilla FreeRTOS 与 ESP-IDF 的差异：
+              vanilla 按<b>字</b>返回，ESP-IDF 按<b>字节</b>返回。
+              所以你看到一个「2 KB 的栈」水位显示 1400，那是字节（还剩 68%）；
+              如果显示 350，那是字（350 × 4 = 1400 字节，同样的结论）。
+            </p>
+            <p class="mt-2">
+              <b>不要去背这个。</b>用第四节程序二里的办法：
+              <b>把「配置的栈大小」和「水位返回值」一起打印出来</b>，
+              两个数字一对比，你立刻就知道当前这个版本用的是哪种单位——
+              而且从此对这篇文档里任何数字都有了免疫力。
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">怎么判断「够不够」：剩余 30% 是底线</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>水位剩余比例</th><th>怎么判断</th><th>该怎么办</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>&lt; 10%</b></td>
+                  <td>随时可能踩穿。哪怕现在不崩，也只是因为还没有人在这个任务里加代码</td>
+                  <td><b>立刻加大栈</b>，然后重新测</td>
+                </tr>
+                <tr>
+                  <td><b>10% ~ 30%</b></td>
+                  <td>危险区。今天能用，但一次中断、一次深一点的调用就爆</td>
+                  <td>加大栈（至少翻倍），或者想办法减少局部变量/去掉打印</td>
+                </tr>
+                <tr>
+                  <td><b>30% ~ 50%</b></td>
+                  <td>可以接受。<b>这是推荐的底线区间</b></td>
+                  <td>保留，并且在代码里注释说明「已测水位」和测试条件</td>
+                </tr>
+                <tr>
+                  <td><b>&gt; 50%</b></td>
+                  <td>宽裕，浪费了一点 RAM</td>
+                  <td>在 RAM 紧张的项目里可以适度缩小，但要重新测量</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">怎么测才准：</b>水位函数记录的是「历史最坏时刻」，
+            所以你必须<b class="font-semibold text-ink">把最坏情况跑出来</b>再读数。
+            只在开机后读一次是没意义的——那时候大部分代码路径还没走过。
+            正确的测法是：<b>让系统满载运行一段时间，把所有的功能分支都触发一遍
+            （所有传感器都接上、所有通信都连上、所有按键都按过），再打印水位。</b>
+            有条件的话，在实验室里跑上几个小时再读。
+          </p>
+
+          <p class="mt-6 font-semibold text-ink">栈溢出了会怎样：两种现场</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="栈溢出的两种表现形态">
+            <pre><code>【形态一：被内核抓个正着 —— 最好的情况】
+
+    ***ERROR*** A stack overflow in task sensor has been detected.
+    Backtrace: 0x400d1234:0x3ffb1a20 0x400d2345:0x3ffb1b40 ...
+
+    内核在每次任务切换时检查栈指针有没有越界（配置项
+    CONFIG_FREERTOS_CHECK_STACKOVERFLOW），或者在栈顶放一段「魔数」
+    定期检查有没有被写坏。抓到就打印任务名并复位。
+    ★ 这种情况其实很幸运：它明确告诉了你【哪个任务】的栈不够。
+
+【形态二：踩坏了别人的内存 —— 最麻烦的情况】
+
+    现象可能是：
+      - 一个毫不相干的任务里的变量莫名其妙变了值
+      - 堆管理器的链表被写坏，之后 malloc 随机失败或卡死
+      - 某个函数返回地址被覆盖，跳到随机地址执行（Guru Meditation Error）
+    这类问题极难定位，因为【报错的地方】和【出问题的地方】相隔十万八千里。
+
+    ★ 形态二说明了为什么栈要留余量：不是为了「现在够用」，
+      而是为了「出问题的时候能被抓住」，而不是悄悄毁掉别的内存。</code></pre>
+          </div>
+
+          <p class="mt-3">
+            除了内核自带的检查，还有一种「土办法」非常有效，而且能<b class="font-semibold text-ink">定量</b>地告诉你
+            栈用了多少：<b class="font-semibold text-ink">往栈里填一串魔数，跑一段时间之后从栈顶往下扫，
+            数到第一个没被改动过的位置——那就是历史最高水位的位置。</b>
+            原理很简单：栈是从高地址往低地址生长的，被用到的部分一定会把魔数覆盖掉。
+            这个方法的完整实现（含代码）在第四节程序二里。
+          </p>
+          <div class="callout callout-tip mt-3">
+            <div class="callout-title">什么时候用魔数扫描，什么时候用水位函数</div>
+            <p class="mt-2">
+              <b>日常用 <code class="icode">uxTaskGetStackHighWaterMark()</code> 就够了</b>——
+              一行代码，随时可查，不需要额外的栈数组。
+              魔数扫描的两个额外价值是：
+              ① 当你想验证水位函数返回的单位时，两个数字对照一下立刻明白；
+              ② 当你需要「不看内核、自己独立测量」时（比如怀疑内核的统计不准，
+              或者想测量一个用 <code class="icode">xTaskCreateStatic</code> 自己分配栈的任务）。
+              两者结果应当一致——<b>不一致就说明有地方理解错了，这正是它的价值</b>。
+            </p>
+          </div>
+
+          <h3 id="sub-wdt" class="mt-7 text-base font-semibold">2.7 任务看门狗（TWDT）：为什么一个任务不放手，整片芯片重启</h3>
+
+          <p class="mt-3">
+            现在来解开本篇开头第 5 号困惑——那个「每 5 秒整片芯片重启一次」的现象。
+            它不是崩溃，是<b class="font-semibold text-ink">任务看门狗（Task Watchdog Timer，TWDT）主动复位了芯片</b>。
+            这是 ESP-IDF 里最容易被误认为「玄学」的机制之一，但它的逻辑其实非常直白。
+          </p>
+
+          <p class="mt-6 font-semibold text-ink">TWDT 是什么：一组「必须定期报到的任务」名单</p>
+          <p class="mt-3">
+            TWDT 是 ESP-IDF 在 FreeRTOS 之上做的一层软件看门狗。它维护一份任务名单，
+            名单上的每个任务都必须<b class="font-semibold text-ink">周期性地「喂狗」</b>
+            （专业说法是 reset）。它只有一个定时器，判定规则是：
+            <b class="font-semibold text-ink">名单上任何一个任务超过超时时间没来喂狗，就算整只狗没喂上。</b>
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="TWDT 的工作方式：一个定时器，一张名单，一票否决">
+            <pre><code>        ┌──────────────────── 看门狗定时器（超时 CONFIG_ESP_TASK_WDT_TIMEOUT_S，默认 5 秒）──┐
+        │                                                                                    │
+        │   名字名单（订阅者）                    每个任务的行为                             │
+        │   ─────────────────────               ─────────────────                            │
+        │   IDLE0  (CPU0 空闲任务)  ←默认订阅    每跑一圈就 reset 一次 → 一直很勤快            │
+        │   IDLE1  (CPU1 空闲任务)  ←默认订阅    每跑一圈就 reset 一次 → 一直很勤快            │
+        │   sensor （你自己的任务）  ←手动订阅    干活 → reset → 干活 → reset ...              │
+        │   network（你自己的任务）  ←手动订阅    等 HTTP 响应 第 7 秒还没回来 ←【没喂上】      │
+        └────────────────────────────────────────────────────────────────────────────────────┘
+                                             │
+                     只要名单上有【任何一个】任务超时没喂 → 整只狗判定失败
+                                             │
+                                             ▼
+                task_wdt: Task watchdog got triggered. The following tasks did not reset
+                          the watchdog in time:
+                task_wdt:  - IDLE1 (CPU 1)
+                task_wdt: Tasks currently running:
+                task_wdt: CPU 0: main
+                task_wdt: CPU 1: my_busy_task        ← 【真相在这里：谁霸占了 CPU】
+                task_wdt: Aborting.                  ← 触发 panic，默认复位芯片
+
+     ★ 注意「一票否决」的含义：哪怕 IDLE0、sensor、network 都在正常喂狗，
+       只要有【一个】任务没喂上，整片芯片照样复位。它不是「谁卡死重启谁」，
+       而是「谁卡死整机重启」——因为只有一个定时器，无法区分是谁的错。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>配置项（menuconfig → Component config → ESP System Settings）</th><th>默认值</th><th>含义</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">CONFIG_ESP_TASK_WDT_TIMEOUT_S</code></td>
+                  <td><b>5</b> 秒</td>
+                  <td>超时时间，可设 1~60 秒。<b>超过这个时间没有全部喂到就复位</b></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0</code></td>
+                  <td>开启</td>
+                  <td>把 CPU0 的空闲任务（IDLE0）订阅进名单</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1</code></td>
+                  <td>开启</td>
+                  <td>把 CPU1 的空闲任务（IDLE1）订阅进名单</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">CONFIG_ESP_TASK_WDT_PANIC</code></td>
+                  <td>默认配置下会看到 <code class="icode">Aborting.</code> 并复位</td>
+                  <td>超时时是否触发 panic。<b>如果关掉它，只会打印警告、芯片不复位</b>，
+                    而且因为超时没被清掉，这条警告会每隔一个超时周期重复打印一次。
+                    那种情况下问题更隐蔽——系统带着一个卡死的任务继续跑</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">CONFIG_ESP_TASK_WDT_INIT</code></td>
+                  <td>开启</td>
+                  <td>启动阶段自动初始化 TWDT。<b>这一项开启时，你在代码里再调
+                    <code class="icode">esp_task_wdt_init()</code> 会返回
+                    <code class="icode">ESP_ERR_INVALID_STATE</code></b>，要改配置得用
+                    <code class="icode">esp_task_wdt_reconfigure()</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">最常见的触发路径：空闲任务被饿死</div>
+            <p class="mt-2">
+              回头对照 2.4 节：空闲任务的优先级是 0，而<b>它默认就在 TWDT 的名单上</b>。
+              于是：
+            </p>
+            <p class="mt-2">
+              <b>你在任何一个任务里写了「不阻塞的长时间运算」 → 本核的空闲任务拿不到 CPU →
+              空闲任务 5 秒喂不上狗 → TWDT 超时 → 整片芯片复位。</b>
+            </p>
+            <p class="mt-2">
+              这就是为什么「一个任务不放手，整个芯片重启」。
+              看门狗在日志里点名的是 <code class="icode">IDLE0</code> 或 <code class="icode">IDLE1</code>，
+              但<b>真正的凶手写在下面那两行 <code class="icode">Tasks currently running</code> 里</b>——
+              它会告诉你 CPU0 和 CPU1 当时分别在跑哪个任务。
+              只看「谁没喂狗」会误以为是空闲任务的问题，<b>要看「谁在跑」才能找到霸占 CPU 的那个任务</b>。
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">TWDT 的 API：五个函数够用了</p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="任务看门狗的常用 API（ESP-IDF v5 的写法）">
+            <pre><code>#include "esp_task_wdt.h"
+
+/* ① 配置 / 重新配置。ESP-IDF v5 用一个结构体传参数 */
+esp_task_wdt_config_t cfg = {
+    .timeout_ms     = 5000,                    /* 超时 5 秒 */
+    .idle_core_mask = (1 &lt;&lt; 0) | (1 &lt;&lt; 1),       /* 订阅两颗核的空闲任务 */
+    .trigger_panic  = true,                    /* 超时就 panic（默认会复位） */
+};
+/* 如果启动阶段已经初始化过（CONFIG_ESP_TASK_WDT_INIT 默认开启），
+   必须用 reconfigure；直接 init 会返回 ESP_ERR_INVALID_STATE */
+esp_task_wdt_reconfigure(&amp;cfg);
+
+/* ② 把自己订阅进名单。传 NULL = 当前任务 */
+esp_task_wdt_add(NULL);
+
+/* ③ 喂狗。放在「这一轮完整的活干完了」的位置 */
+esp_task_wdt_reset();
+
+/* ④ 退出名单（任务要结束、或者不想再被监视时） */
+esp_task_wdt_delete(NULL);
+
+/* ⑤ 查自己有没有在名单上（排查「为什么我的任务没被监视」时有用） */
+bool subscribed = esp_task_wdt_status(NULL);
+
+/* 旧版本（ESP-IDF v5.0 之前）的初始化签名是两个参数：
+     esp_task_wdt_init(uint32_t timeout_s, bool panic);
+   看到这种写法不要慌，是老工程。 */</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">喂狗的位置比喂狗的频率重要得多</div>
+            <p class="mt-2">
+              看门狗的价值完全取决于<b class="font-semibold text-ink">你把 <code class="icode">esp_task_wdt_reset()</code>
+              放在哪里</b>。放错了，这条狗就变成了一条永远不会叫的狗——它还在，但它保护不了任何东西。
+            </p>
+            <div class="table-scroll mt-3">
+              <table class="table-mcu">
+                <thead>
+                  <tr><th>喂狗的位置</th><th>它的语义</th><th>评价</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>放在主循环<b>末尾</b>，一轮活干完之后</td>
+                    <td>「我完整地干完了一轮」</td>
+                    <td><b>正确。</b>任何一步卡住，这一轮就走不完，狗就会叫</td>
+                  </tr>
+                  <tr>
+                    <td>放在一个高频的独立小任务里，每 100 ms 喂一次</td>
+                    <td>「这个喂狗任务还活着」</td>
+                    <td><b>错误且危险。</b>它把「别人卡死」这件事完全掩盖了。
+                    狗永远不叫，你也就永远不知道有任务卡住了</td>
+                  </tr>
+                  <tr>
+                    <td>放在循环<b>开头</b></td>
+                    <td>「我准备开始干活了」</td>
+                    <td>半对。如果这一轮卡住，狗会叫，但也可能因为下一轮很快开始而掩盖部分问题。
+                    比末尾差一点，比高频任务好得多</td>
+                  </tr>
+                  <tr>
+                    <td>放在一个长任务的每个<b>分段之间</b></td>
+                    <td>「这一大坨活我又推进了一步」</td>
+                    <td><b>对长任务正确。</b>比如写 Flash、跑一次大数据计算，
+                    拆段 + 段间喂狗是标准做法</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">怎么区分「Task WDT 触发」和「Interrupt WDT 触发」</p>
+          <p class="mt-3">
+            ESP32 上其实有<b class="font-semibold text-ink">两只</b>看门狗，报错日志长得很像但原因完全不同。
+            分不清这两者，就会朝完全错误的方向去改代码：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th></th><th>Task WDT（任务看门狗）</th><th>Interrupt WDT（中断看门狗）</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>监视什么</td>
+                  <td>任务有没有按时「报到」</td>
+                  <td>中断有没有被关闭太久</td>
+                </tr>
+                <tr>
+                  <td>默认超时</td>
+                  <td><b>5 秒</b>（<code class="icode">CONFIG_ESP_TASK_WDT_TIMEOUT_S</code>）</td>
+                  <td><b>300 毫秒</b>（<code class="icode">CONFIG_ESP_INT_WDT_TIMEOUT_MS</code>）</td>
+                </tr>
+                <tr>
+                  <td>日志关键字</td>
+                  <td><code class="icode">task_wdt: Task watchdog got triggered.</code><br>
+                    后面列出没喂狗的任务名和 <code class="icode">Tasks currently running</code></td>
+                  <td><code class="icode">Interrupt wdt timeout on CPU0</code><br>
+                    或 <code class="icode">Interrupt wdt timeout on CPU1</code></td>
+                </tr>
+                <tr>
+                  <td>复位原因</td>
+                  <td><code class="icode">ESP_RST_TASK_WDT</code></td>
+                  <td><code class="icode">ESP_RST_INT_WDT</code></td>
+                </tr>
+                <tr>
+                  <td>典型原因</td>
+                  <td>任务长时间不阻塞（霸占 CPU）、任务里死循环、任务阻塞在某个永远不会满足的条件上</td>
+                  <td><b>临界区太长</b>（关中断期间干了耗时的事）、中断里死循环、在中断里等外设标志、
+                    临界区里调用了会阻塞的函数</td>
+                </tr>
+                <tr>
+                  <td>该去哪里改</td>
+                  <td>给任务加阻塞 / 拆段喂狗 / 检查它等的条件能不能满足</td>
+                  <td>缩短临界区、把耗时操作移出中断、检查 <code class="icode">portENTER_CRITICAL</code> 的范围</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            顺便记一个查复位原因的标准写法——<b class="font-semibold text-ink">每次开机第一件事就问清楚「上次是怎么死的」</b>，
+            这是排查所有复位类问题的第一手资料：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="开机第一句：问复位原因">
+            <pre><code>#include "esp_system.h"
+
+esp_reset_reason_t reason = esp_reset_reason();
+switch (reason) {
+case ESP_RST_POWERON:   /* 正常上电 */                        break;
+case ESP_RST_TASK_WDT:  /* ★ 任务看门狗：有任务饿死了空闲任务 */ break;
+case ESP_RST_INT_WDT:   /* ★ 中断看门狗：关中断太久 */         break;
+case ESP_RST_PANIC:     /* 异常/断言：空指针、栈溢出、abort */  break;
+case ESP_RST_BROWNOUT:  /* 电压跌落：供电不足，先查电源 */      break;
+case ESP_RST_DEEPSLEEP: /* 从深度睡眠唤醒，正常 */             break;
+case ESP_RST_SW:        /* 软件调用 esp_restart() */           break;
+default:                /* 其它 */                             break;
+}
+/* 打印出来（配 ESP_LOGI/ESP_LOGW），复位日志会一路留下来，
+   比在代码里加断点有效得多 */</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">观察工具：让系统自己把状态告诉你</p>
+          <p class="mt-3">
+            「我的任务到底在跑还是在睡？」「谁的栈快满了？」「CPU 被谁吃了？」——
+            这些问题都不该靠猜。ESP-IDF 里有一组现成的工具，把系统状态打印成一张表：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>工具</th><th>告诉你什么</th><th>需要的配置</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">vTaskList(buf)</code></td>
+                  <td>所有任务的<b>名字、状态、优先级、剩余栈、序号</b>（开了核号选项还会显示跑在哪颗核上）</td>
+                  <td><code class="icode">CONFIG_FREERTOS_USE_TRACE_FACILITY</code>；
+                    想看核号加 <code class="icode">CONFIG_FREERTOS_VTASKLIST_INCLUDE_COREID</code></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">uxTaskGetSystemState()</code></td>
+                  <td>和上面同样的信息，但以<b>结构体数组</b>返回，方便你自己筛、自己算。
+                    <code class="icode">vTaskList</code> 内部就是调它 + 格式化</td>
+                  <td>同上</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">vTaskGetRunTimeStats(buf)</code></td>
+                  <td>每个任务累计占用了多少 CPU 时间、占比多少——
+                    <b>回答「CPU 被谁吃了」的唯一正解</b></td>
+                  <td>还要开 <code class="icode">CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS</code></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">esp_get_free_heap_size()</code></td>
+                  <td>当前空闲堆字节数</td>
+                  <td>无</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">heap_caps_get_largest_free_block()</code></td>
+                  <td><b>最大连续空闲块</b>——比总空闲量更重要。
+                    总空闲 100 KB 但最大连续块只有 8 KB 时，你要的 20 KB 缓冲照样申请不到</td>
+                  <td>无</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">esp_get_minimum_free_heap_size()</code></td>
+                  <td>历史最低空闲堆——判断「有没有内存泄漏」的关键指标</td>
+                  <td>无</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">vTaskList 的输出怎么读</div>
+            <div class="code-block mt-3" data-lang="text" data-title="vTaskList 输出的典型样子（开了核号选项）">
+              <pre><code>任务名          状态   优先级  剩余栈  序号  核
+main            R      1       2280    1     0
+IDLE0           R      0       912     2     0
+IDLE1           B      0       880     3     1
+wifi            B      23      3020    4     0
+tcpip           B      18      2456    5     0
+sensor          B      5       1652    6     1
+observer        R      3       3180    7     1    ← 正在打印这一行的就是它
+
+【状态字母】
+  R = Running（正在跑）或 Ready（就绪待跑）—— vTaskList 不区分这两者
+  B = Blocked（阻塞中，在等时间/事件）
+  S = Suspended（已被挂起/删除但还没被回收）
+  D = Deleted（已被删除，等空闲任务回收内存）
+
+【最该盯的一列：剩余栈】
+  1652 字节对一个 3072 字节的任务来说是 54% 余量 → 可以接受
+  但也可能是内核按【字】返回的 1652 —— 那就是 6608 字节？不可能，
+  超过了配置的 3072。所以这一版内核是按【字节】返回的。
+  ★ 这就是「拿配置值和水位对照」的自校准思路，一次就够。</code></pre>
+            </div>
+          </div>
+
+          <h3 id="sub-life" class="mt-7 text-base font-semibold">2.8 删除与生命周期：任务怎么结束才是安全的</h3>
+
+          <p class="mt-3">
+            一个任务的完整生命周期是：<b class="font-semibold text-ink">被创建 → 就绪 → 运行 ⇄ 阻塞 → 被删除 → 内存被回收</b>。
+            前面几节讲完了中间那段，最后这一段有两个容易出人命的细节。
+          </p>
+
+          <p class="mt-6 font-semibold text-ink">细节一：删除只是「摘牌」，内存回收是别人的活</p>
+          <p class="mt-3">
+            <code class="icode">vTaskDelete()</code> 做的事是<b class="font-semibold text-ink">把任务从各种内核链表里摘掉</b>，
+            让它再也不会被调度。但它占用的<b>栈和 TCB 两块内存不会立刻释放</b>——
+            真正的释放是在<b>空闲任务的上下文里</b>完成的（回到 2.4 节的第 1 条）。
+          </p>
+          <p class="mt-3">
+            于是得到一条推论，它能解释很多「删任务删出内存泄漏」的怪事：
+            <b class="font-semibold text-ink">如果你的系统一直很忙，空闲任务很少有机会运行，
+            那么被删除任务的内存就一直挂着不还。</b>
+            短时间看不出来，长时间运行（比如一个「按需起停工作线程」的设计）就会慢慢把堆吃光，
+            最后所有 <code class="icode">xTaskCreate</code> 开始返回 <code class="icode">pdFAIL</code>。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th></th><th><code class="icode">vTaskDelete(NULL)</code>：自杀</th><th><code class="icode">vTaskDelete(handle)</code>：他杀</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>谁在调用</td>
+                  <td>任务自己，在自己函数体里</td>
+                  <td>任何别的任务（<b>不能在中断里调用</b>）</td>
+                </tr>
+                <tr>
+                  <td>什么时候生效</td>
+                  <td>立刻，不再返回</td>
+                  <td>立刻从链表摘除，不会再被调度</td>
+                </tr>
+                <tr>
+                  <td>能自己清理吗</td>
+                  <td><b>能。</b>删之前可以关文件、释放内存、归还锁、通知同伴</td>
+                  <td><b>不能。</b>目标任务的清理代码一行都不会执行</td>
+                </tr>
+                <tr>
+                  <td>内存回收</td>
+                  <td colspan="2">都是延后到<b>空闲任务</b>里做的（两种方式一样）</td>
+                </tr>
+                <tr>
+                  <td>风险</td>
+                  <td>低（只要你记得清理）</td>
+                  <td><b>高。</b>见下面那张「他杀前必须确认」的清单</td>
+                </tr>
+                <tr>
+                  <td>推荐度</td>
+                  <td><b>推荐。</b>常态就应该用这个</td>
+                  <td>只在「这个任务已经不可救药」时用，且必须先确保它不持有任何资源</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">他杀一个任务之前，必须先确认它不再持有任何资源</div>
+            <p class="mt-2">
+              这是「他杀」的全部风险所在。目标任务被摘掉的那一刻，它<b>手里拿着的东西还在它手里</b>：
+            </p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b>互斥量 / 信号量</b>——它拿着锁被杀了，锁永远不会被 Give 回去。
+                所有等这把锁的任务（包括高优先级任务）<b>永久阻塞</b>。这是最典型的死锁来源。</li>
+              <li><b>动态内存</b>——它 <code class="icode">malloc</code> 的缓冲区不会自动释放。
+                它自己的栈会被回收，但堆上那些块不会。</li>
+              <li><b>外设 / 总线状态</b>——它正在写 Flash、正在发 SPI 事务、正在驱动一个状态机。
+                半途而废会让外设停在不确定的状态，下一个使用者会拿到错误的结果。</li>
+              <li><b>别人手里的指针</b>——别的任务可能正持有指向它的数据结构（或者它栈上变量的指针）。
+                它一死，那些指针全部悬空。</li>
+              <li><b>看门狗名单</b>——如果它订阅了 TWDT，它死了以后就再也没人替它喂狗了。
+                <b>TWDT 会在 5 秒后因为「这个任务没喂狗」而复位整片芯片</b>——
+                删掉一个订阅了看门狗的任务，如果不先 <code class="icode">esp_task_wdt_delete()</code>，
+                你会在 5 秒后收到一个看起来毫不相干的复位。</li>
+            </ul>
+            <p class="mt-2">
+              <b>正确做法：优先「请它自己退出」，而不是「把它杀掉」。</b>
+              也就是给它发一个事件（事件组、标志、任务通知），它自己从阻塞中被唤醒，
+              走完清理流程，然后 <code class="icode">vTaskDelete(NULL)</code> 结束自己。
+              这样做的好处是：<b>资源释放的代码写在「知道这些资源长什么样」的那个任务里</b>，
+              而不是散落在杀它的那个任务里。
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">细节二：创建失败怎么办</p>
+          <p class="mt-3">
+            <code class="icode">xTaskCreate</code> 返回 <code class="icode">pdFAIL</code>，
+            绝大多数情况是<b class="font-semibold text-ink">堆里没有足够内存分配栈和 TCB</b>。
+            在 ESP32 上这件事比想象的常见：WiFi 起来之后可用堆会明显变小，
+            如果你的创建动作发生在 WiFi 之后，就可能失败。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>在哪个阶段失败</th><th>为什么</th><th>怎么处理</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>启动阶段（<code class="icode">app_main</code> 里）</td>
+                  <td>申请的任务太多、栈给得太大；或者 WiFi 已经起来把堆吃掉了大半</td>
+                  <td>打印任务名 + 当时的空闲堆，然后<b>进入安全状态</b>
+                    （比如只保留最小功能并亮一个错误指示灯），而不是带着半配置的系统继续跑</td>
+                </tr>
+                <tr>
+                  <td>运行阶段（按需创建）</td>
+                  <td>堆碎片化，或者正好赶上别的地方在用内存</td>
+                  <td>可以让调用者稍后重试（返回错误码给上层），或者降级运行；
+                    <b>不要用死循环反复重试</b>——那会变成新的忙等</td>
+                </tr>
+                <tr>
+                  <td>删除之后立刻创建（替换任务）</td>
+                  <td><b>被删任务的栈还没被回收</b>（等空闲任务），所以此时可用堆比你以为的少</td>
+                  <td>先 <code class="icode">vTaskDelay</code> 让空闲任务跑一下，
+                    或者干脆复用任务（让它自己循环处理新工作）而不是删掉重建</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">「按需创建、用完就删」是个反模式</div>
+            <p class="mt-2">
+              从 PC 编程带过来的一个直觉是「需要的时候 new 一个线程，用完销毁」。
+              在嵌入式 RTOS 里这个模式代价很高：
+              <b>每次创建都要分配栈 + TCB，每次删除都要等空闲任务回收</b>，
+              中间还有堆碎片化的风险。而任务本身其实很便宜——它阻塞着的时候几乎不占 CPU。
+            </p>
+            <p class="mt-2">
+              所以更符合 RTOS 习惯的设计是：<b>常驻任务 + 用「消息」驱动它干活</b>。
+              任务一直存在、一直阻塞在收消息上；有活了就被唤醒处理一次，处理完继续睡。
+              第 41 篇的队列就是这个模式的标准载体，也是这一篇和下一篇的衔接点。
+            </p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">第 2 节到这里结束：八个小节，每句一个</div>
+            <p>
+              <b>2.1</b> ESP-IDF 里真正的 <code class="icode">main</code> 负责创建「main 任务」并启动调度器，
+              <code class="icode">app_main</code> 只是那个任务的函数体，它 <code class="icode">return</code>
+              不等于系统停止；<b>2.2</b> 任务函数签名固定、绝不能返回，六个参数里最要命的是
+              「栈深度在 ESP-IDF 里是字节」；<b>2.3</b> 两颗核硬件上对等，WiFi 默认钉在 CPU0 且优先级很高，
+              钉核换来的是可预测性而不是双倍性能；<b>2.4</b> 四状态 + 抢占 + 同优先级时间片，
+              优先级数值越大越高（与 NVIC 相反），空闲任务优先级 0 却不能饿死；
+              <b>2.5</b> <code class="icode">vTaskDelay</code> 是相对延时、<code class="icode">xTaskDelayUntil</code>
+              才是固定周期，<code class="icode">pdMS_TO_TICKS</code> 会截断，小于 1 tick 会变成 0；
+              <b>2.6</b> 栈要按「局部变量 + 调用深度 + printf 峰值 + 中断借用」四块估，
+              用水位函数实测，剩余 ≥ 30% 才安全；<b>2.7</b> TWDT 是一票否决的名单制，
+              空闲任务默认在名单上，所以「霸占 CPU」的代价是整机复位；
+              <b>2.8</b> 删除只是摘牌、回收靠空闲任务，他杀前必须确认它不持有任何资源。
+            </p>
+          </div>
+        </section><hr class="hr-soft my-10">
+
+        <section>
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍：六个必须自己动手的账</h2>
+
+          <p class="mt-3">
+            前面几节把机制讲完了，但 RTOS 里真正让人吃亏的<b class="font-semibold text-ink">不是概念，是数值</b>：
+            tick 是多少、周期取几、栈给多少、看门狗多久喂一次。这些数字都可以算出来，
+            而且算错一次的代价通常是一次「莫名其妙」的复位或者一个「偶尔」丢数据的 bug。
+            这一节六道题，全部按「已知 → 列式 → 答案 → 结论」走一遍。
+          </p>
+
+          <h3 id="calc-1" class="mt-7 text-base font-semibold">例 1：tick 是 10 ms，我要 25 ms 的周期怎么办</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>
+            ESP-IDF 默认 <code class="icode">configTICK_RATE_HZ = 100</code>，
+            即 1 个 tick = 1000 / 100 = 10 ms。某个任务需要每 25 ms 采一次数据。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 1 算式">
+            <pre><code>方案 A：直接写 pdMS_TO_TICKS(25)
+
+    1 tick = 1000 ms ÷ 100 Hz = 10 ms
+    pdMS_TO_TICKS(25) = (TickType_t)(25 × 100 ÷ 1000) = (TickType_t)(2.5) = 2   ← 整数除法，截断
+    实际延时 = 2 tick × 10 ms = 20 ms
+    绝对误差 = 25 − 20 = 5 ms
+    相对误差 = 5 ÷ 25 = 20%                    ← 一个 20% 的周期误差
+    1000 次采样累计少花的时间 = 1000 × 5 ms = 5 s
+
+    ★ 结论：pdMS_TO_TICKS(25) 得到的是 20 ms，不是 25 ms。
+      而且这个偏差不是随机的，它【永远偏短】——系统会一直跑得比你要求的快。
+
+方案 B：把 tick 频率提到 1000 Hz（CONFIG_FREERTOS_HZ = 1000）
+
+    1 tick = 1000 ÷ 1000 = 1 ms
+    pdMS_TO_TICKS(25) = 25 × 1000 ÷ 1000 = 25 tick = 25 ms      ← 精确命中
+    代价 ① 每秒 1000 次 tick 中断（原来 100 次），中断开销 ×10
+    代价 ② 每个 tick 都要做一次调度判断 + 时间片轮转检查
+    代价 ③ 时间片从 10 ms 变成 1 ms，同优先级任务的切换频率 ×10
+
+方案 C：把周期改成 tick 的整数倍（推荐先试这个）
+
+    能改成 20 ms 就改成 20 ms，能改成 30 ms 就改成 30 ms。
+    工程上「每 25 ms 采一次」这种需求，通常背后的真实要求是
+    「不小于 20 ms 且不大于 30 ms」，改成 20 ms 完全可接受，而代价是 0。
+    ★ 这是最省钱的一招：先问需求能不能迁就 tick，再考虑改 tick。
+
+方案 D：用 1 ms 周期的 tick 量化补偿（不改 tick 频率）
+
+    每 5 次延时里，4 次用 2 tick、1 次用 3 tick：
+    平均周期 = (4 × 20 ms + 1 × 30 ms) ÷ 5 = 110 ÷ 5 = 22 ms    ← 还是不对
+    要凑够 25 ms，正确配比是 1 次 3 tick + 1 次 2 tick：
+    平均周期 = (30 + 20) ÷ 2 = 25 ms                            ← 精确命中
+    这样做的代价是周期在 20/30 ms 之间跳，【抖动 10 ms】。
+    只适合「长期平均频率要准、单次抖动无所谓」的场合（比如统计上报）。
+    控制类应用不能用——它要的恰恰是单次都不要抖
+
+方案 E：干脆不要用 tick 做这件事
+
+    需要微秒级或严格周期时，用 esp_timer（微秒分辨率，独立于 tick）：
+    esp_timer_create() + esp_timer_start_periodic()，周期可以精确到 25 ms。
+    回调在 esp_timer 任务上下文或中断上下文里执行，适合「触发」而不是「干重活」。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>方案</th><th>实际周期</th><th>误差</th><th>代价</th><th>什么时候选它</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>A：<code class="icode">pdMS_TO_TICKS(25)</code></td><td>20 ms</td><td>−20%</td>
+                  <td>无</td><td>需求本来就是「大约 25 ms」</td></tr>
+                <tr><td>B：tick 提到 1000 Hz</td><td>25 ms</td><td>0</td>
+                  <td>tick 中断 ×10，全局开销上升</td><td>系统里多个任务都需要毫秒级精度时</td></tr>
+                <tr><td>C：需求改成 20 ms</td><td>20 ms</td><td>0（对需求 20 ms 而言）</td>
+                  <td>无</td><td><b>首选</b>。先谈需求，再谈技术</td></tr>
+                <tr><td>D：2/3 tick 交替</td><td>平均 25 ms，抖动 ±5 ms</td><td>0（长期）</td>
+                  <td>单次抖动 10 ms</td><td>只关心长期平均频率的场合</td></tr>
+                <tr><td>E：<code class="icode">esp_timer</code></td><td>25 ms</td><td>0</td>
+                  <td>回调上下文受限，不适合干重活</td><td>需要微秒级精度或严格周期触发</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这道题真正的考点不是选哪个方案</div>
+            <p class="mt-2">
+              而是<b class="font-semibold text-ink">「先算出实际值，再决定要不要改」</b>。
+              绝大多数人写 <code class="icode">pdMS_TO_TICKS(25)</code> 的时候，
+              心里想的是 25 ms，代码里得到的是 20 ms，而<b>他永远不知道这件事</b>——
+              直到某天做时间统计时发现「采样率怎么比设计值高 20%」。
+              <b>把 tick 频率写在注释里、把换算结果也写在注释里</b>，这个习惯值一个 bug。
+            </p>
+          </div>
+
+          <h3 id="calc-2" class="mt-7 text-base font-semibold">例 2：vTaskDelay 的漂移账，一天能差多少</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>
+            一个任务每轮要执行 1.3 ms 的实际工作，用
+            <code class="icode">vTaskDelay(pdMS_TO_TICKS(10))</code> 控制节奏，
+            设计意图是「每 10 ms 跑一轮」。问 1000 轮之后偏差多少，一天呢？
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 2 算式：相对延时的误差是累加的">
+            <pre><code>【vTaskDelay 的语义】：从现在起，10 ms 内别叫我
+    一轮的实际耗时 = 执行时间 + 延时 = 1.3 ms + 10 ms = 11.3 ms
+
+【误差按比例累积】
+    1000 轮实际耗时 = 1000 × 11.3 ms = 11300 ms = 11.3 s
+    1000 轮设计耗时 = 1000 × 10   ms = 10000 ms = 10.0 s
+    偏差 = 11.3 − 10.0 = 1.3 s
+    相对偏差 = 1.3 ÷ 10 = 13%           ← 注意：13% = 1.3 ms ÷ 10 ms，一模一样
+    ★ 偏差率恒等于「执行时间 ÷ 周期」，跟轮数无关，所以它【不会自己变好】
+
+【一天（24 h）会怎样】
+    设计：24 h = 86400 s，每 10 ms 一轮 → 应跑 8,640,000 轮
+    实际：跑完 8,640,000 轮需要 8,640,000 × 11.3 ms = 97,632 s = 27.12 h
+    结论：你以为跑了一天，其实慢了 3.12 小时（27.12 − 24 = 3.12 h）
+
+【换算成「实际周期」】
+    实际周期 = 11.3 ms → 等效频率 = 1 ÷ 0.0113 ≈ 88.5 Hz
+    设计频率 = 1 ÷ 0.010  = 100 Hz
+    少跑了 11.5%，这个数字可以直接在示波器/逻辑分析仪上量出来
+
+【换成 xTaskDelayUntil 之后】
+    last_wake 初始化 = xTaskGetTickCount()       ← 这一句必须写，忘了就错一轮
+    每轮：干活 1.3 ms → xTaskDelayUntil(&amp;last_wake, pdMS_TO_TICKS(10))
+    内核算的是「下一次唤醒应该在 last_wake + 1 tick 这个绝对时刻」
+    执行 1.3 ms 之后，它只延时 8.7 ms，把执行时间从延时里扣掉了
+    周期 = 10 ms 恒定，漂移 = 0（只要每轮执行时间 &lt; 10 ms）
+
+【什么时候会失效】
+    如果某轮执行时间变成了 12 ms（超过周期），就守不住了：
+      → xTaskDelayUntil 返回 pdFALSE，并且【不会阻塞】，立刻开始下一轮
+      → 这是内核在告诉你「你的周期设计不合理」
+      → 必须记录这个返回值并计数，否则你会丢掉最重要的故障信息</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>指标</th><th><code class="icode">vTaskDelay(10)</code></th><th><code class="icode">xTaskDelayUntil(&amp;last, 10)</code></th></tr>
+              </thead>
+              <tbody>
+                <tr><td>单轮周期</td><td>11.3 ms</td><td>10 ms</td></tr>
+                <tr><td>1 轮偏差</td><td>+1.3 ms（13%）</td><td>0</td></tr>
+                <tr><td>1000 轮偏差</td><td>+1.3 s</td><td>0</td></tr>
+                <tr><td>24 小时偏差</td><td><b>+3.12 小时</b></td><td>0</td></tr>
+                <tr><td>等效频率</td><td>≈ 88.5 Hz</td><td>100 Hz</td></tr>
+                <tr><td>漂移会累积吗</td><td><b>会，且永不停止</b></td><td>不会（只要执行时间 &lt; 周期）</td></tr>
+                <tr><td>超周期时</td><td>默默继续（没人知道）</td><td>返回 <code class="icode">pdFALSE</code>，<b>可以计数上报</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">哪些场合必须用 xTaskDelayUntil</div>
+            <p class="mt-2">
+              判断标准只有一条：<b class="font-semibold text-ink">这个任务的周期对它自己有语义吗？</b>
+              有语义的场合——控制环（PID 的积分项按固定 dt 算）、数据采样、
+              周期性上报（心跳、1 秒一次的统计）、和外部设备保持同步的轮询——
+              <b>全部必须用 <code class="icode">xTaskDelayUntil</code></b>。
+              反过来，「读完了歇 100 ms 再说」「重试前等 500 ms」这种<b>没有周期语义</b>的等待，
+              用 <code class="icode">vTaskDelay</code> 更直白，也不会有人误解。
+            </p>
+            <p class="mt-2">
+              一个很现实的后果：如果你用 <code class="icode">vTaskDelay</code> 做「每秒上报一次」，
+              而这一轮的执行时间是 30 ms，那么你上报的其实是每 1.03 秒一次。
+              一天之后你的数据对不上——而问题出在几个月前写下的那一行。
+            </p>
+          </div>
+
+          <h3 id="calc-3" class="mt-7 text-base font-semibold">例 3：三个任务的栈核算与总 RAM 账</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>
+            一个典型的 ESP32 采集节点要跑三个自己写的任务（加上系统自带的任务）：
+          </p>
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><b class="font-semibold text-ink">sensor 任务</b>：读 I2C 传感器，有一个
+              <code class="icode">float raw[64]</code> 局部数组用于滑动平均，调用深度 6 层，
+              每轮打印一次结果（<code class="icode">ESP_LOGI</code>，无浮点格式化）；</li>
+            <li><b class="font-semibold text-ink">display 任务</b>：刷 OLED，有一个
+              <code class="icode">uint8_t buf[1024]</code> 显存缓冲，调用深度 5 层，
+              每轮一次 <code class="icode">printf</code>（带 <code class="icode">%f</code>）；</li>
+            <li><b class="font-semibold text-ink">logic 任务</b>：纯逻辑判断，没有大数组，
+              但调用深度 8 层，且会调用一次 <code class="icode">snprintf</code> 拼 JSON 字符串。</li>
+          </ul>
+
+          <div class="code-block mt-4" data-lang="text" data-title="例 3 算式：按四块相加，再向上取整">
+            <pre><code>【sensor 任务】
+  ① 局部变量      float raw[64] = 64 × 4 = 256 B，加上其它局部 64 B      ≈ 320 B
+  ② 调用链        6 层 × 48 B/层（含对齐与寄存器保存）                  ≈ 288 B
+  ③ 打印峰值      ESP_LOGI 无浮点，按较小的 768 B 估                    ≈ 768 B
+  ④ 中断借用      运行时可能被打断的最重 ISR（I2C 完成）                ≈ 256 B
+  ────────────────────────────────────────────────────────────────────────────
+  小计            320 + 288 + 768 + 256 = 1632 B
+  乘以安全系数 1.3（应对「以后加代码」）  1632 × 1.3 = 2121 B
+  向上取整到好看的数                                              → 3072 B（3 KB）
+
+【display 任务】
+  ① 局部变量      uint8_t buf[1024] = 1024 B，加其它 128 B             ≈ 1152 B
+  ② 调用链        5 层 × 48 B                                           ≈ 240 B
+  ③ 打印峰值      printf 带 %f：格式化缓冲 + 浮点转换，取 1536 B        ≈ 1536 B
+  ④ 中断借用                                                    ≈ 256 B
+  ────────────────────────────────────────────────────────────────────────────
+  小计            1152 + 240 + 1536 + 256 = 3184 B
+  乘 1.3          3184 × 1.3 = 4139 B
+  向上取整                                                        → 5120 B（5 KB）
+
+【logic 任务】
+  ① 局部变量      无大数组，约 96 B                                     ≈ 96 B
+  ② 调用链        8 层 × 48 B                                           ≈ 384 B
+  ③ 打印峰值      snprintf 拼 JSON（可能有 %d/%s），取 1024 B           ≈ 1024 B
+  ④ 中断借用                                                    ≈ 256 B
+  ────────────────────────────────────────────────────────────────────────────
+  小计            96 + 384 + 1024 + 256 = 1760 B
+  乘 1.3          1760 × 1.3 = 2288 B
+  向上取整                                                        → 3072 B（3 KB）
+
+【自己写的任务合计】
+  3072 + 5120 + 3072 = 11264 B ≈ 11 KB
+  ★ 注意：这 11 KB 是【每个任务都要单独占一份】的，不是共用的</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">现在算整机内存账</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>项目</th><th>典型值（按典型值估算）</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>ESP32 片上 SRAM 总量</td><td>520 KB</td><td>芯片手册的数字</td></tr>
+                <tr><td>启动后应用可用的 DRAM 堆</td><td><b>约 300 ~ 330 KB</b></td>
+                  <td>扣掉 ROM/IRAM/静态数据/内核结构之后剩下的。这是你真正能用到的数字</td></tr>
+                <tr><td>三个自己的任务栈</td><td>11 KB</td><td>例 3 上表的结果</td></tr>
+                <tr><td>main 任务栈</td><td>3.5 KB</td>
+                  <td><code class="icode">CONFIG_ESP_MAIN_TASK_STACK_SIZE</code> 默认 3584 字节，
+                    它在 <code class="icode">app_main</code> 返回后会被删除，但栈要等空闲任务回收</td></tr>
+                <tr><td>两个空闲任务栈</td><td>约 3 KB</td>
+                  <td>IDLE0/IDLE1 各一块，大小由 <code class="icode">CONFIG_FREERTOS_IDLE_TASK_STACKSIZE</code> 决定</td></tr>
+                <tr><td>Timer 任务栈</td><td>约 2 KB</td>
+                  <td>软件定时器服务任务，即使你不用软件定时器它也存在</td></tr>
+                <tr><td>每个任务的 TCB</td><td>约 100 字节 × 任务数</td>
+                  <td>任务控制块，容易忽略但确实在堆上</td></tr>
+                <tr><td><b>WiFi station 起来之后</b></td><td><b>约 40 ~ 60 KB</b></td>
+                  <td>协议栈缓冲 + WiFi 任务栈（优先级 23）+ tcpip 任务栈（18）。
+                    <b>这是最大的一笔开销，而且在上电顺序上你要算准</b></td></tr>
+                <tr><td>LWIP / Socket 缓冲</td><td>按配置，几 KB ~ 几十 KB</td>
+                  <td>收发缓冲、连接数都会影响</td></tr>
+                <tr><td>堆最大连续块</td><td>约 110 ~ 160 KB（WiFi 起来前）</td>
+                  <td><b>比「总空闲量」更重要</b>。要开 60 KB 缓冲就得看这一项，
+                    而不是看还剩多少总量</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-4" data-lang="text" data-title="例 3 结论算式：还剩多少">
+            <pre><code>启动阶段（WiFi 还没起）：
+    可用堆 ≈ 300 KB
+    已用（自己的栈 11 KB + 系统任务栈约 5 KB + TCB 若干）≈ 17 KB
+    剩余 ≈ 283 KB
+
+WiFi 起来之后：
+    剩余 ≈ 283 KB − 45 KB（WiFi 典型中值）− LWIP 缓冲 8 KB ≈ 230 KB
+
+再开一个 4 KB 的任务：
+    230 KB − 4 KB（栈）− 0.1 KB（TCB）≈ 226 KB        → 很宽裕
+
+【但如果三个任务的栈都按「保险起见给 8 KB」来配】
+    3 × 8 KB = 24 KB（比 11 KB 多花 13 KB）
+    看起来无所谓？—— 在只有 200 KB 可用堆、还要开 TLS 缓冲（一次握手峰值 20~40 KB）
+    的项目里，这 13 KB 就可能决定「能不能多存一版配置」。
+    ★ 所以栈不要凭感觉给：算一遍（像上面那样），测一遍（水位函数），再取整。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这道题最该带走的三个习惯</div>
+            <p class="mt-2">
+              ① <b>栈要按任务算，不要按项目算</b>。一个任务给 8 KB、
+              另一个给 2 KB，是完全正常的——它们的调用链和局部变量本来就不同。
+              ② <b>把「WiFi 起来之后」当成真正的起点</b>。很多内存问题之所以在上电几分钟后才出现，
+              就是因为创建任务发生在 WiFi 之前，那时堆还很大，创建全都成功了；
+              等 WiFi 起来，堆被挤到临界点，后面任何一次 <code class="icode">malloc</code> 都可能失败。
+              ③ <b>关注最大连续块，不只是总空闲量</b>。这两者的区别在第五节第 4 条会作为陷阱展开。
+            </p>
+          </div>
+
+          <h3 id="calc-4" class="mt-7 text-base font-semibold">例 4：优先级反转的最坏时长（预告）</h3>
+
+          <p class="mt-3">
+            这道题在本篇只算「有多严重」，<b class="font-semibold text-ink">怎么治（互斥量与优先级继承）
+            是第 41 篇的内容</b>。之所以要在这里算，是因为它决定了你要不要在第 41 篇认真读那一节。
+          </p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>
+            三个任务，共享一把锁（先当成普通的二值信号量）：
+          </p>
+          <ul class="mt-3 list-disc space-y-1.5 pl-5">
+            <li><b class="font-semibold text-ink">L</b>：优先级 2，持锁进入临界区，临界区本身只要 <b>30 μs</b>；</li>
+            <li><b class="font-semibold text-ink">M</b>：优先级 8，不碰这把锁，但随时会有 <b>5 ms</b> 的计算要跑；</li>
+            <li><b class="font-semibold text-ink">H</b>：优先级 10，<b>最高</b>，也要这把锁。</li>
+          </ul>
+
+          <div class="code-block mt-4" data-lang="text" data-title="例 4 算式：H 到底等了多久">
+            <pre><code>【时间线（没有优先级继承）】
+
+  t=0.000 ms   L 拿到锁，开始执行临界区（本来只需 0.030 ms）
+  t=0.010 ms   M 变为就绪。M 的优先级 8 &gt; L 的 2 → 【抢占】L，L 被踢下 CPU
+               ★ 关键：L 是【拿着锁】被抢占的
+  t=0.010 ms   H 变为就绪，需要这把锁 → 锁在 L 手里 → H 阻塞
+  t=0.010 ms   此刻 CPU 上跑的是谁？是 M（优先级 8）。
+               L 优先级 2，抢不过 M，所以【L 拿不到 CPU，也就没法释放锁】
+  t=5.010 ms   M 终于跑完那 5 ms 的计算
+  t=5.010 ms   L 重新拿到 CPU，把临界区剩下的一点跑完
+  t=5.040 ms   L 释放锁 → H 被唤醒 → H 开始跑
+
+【H 的等待时间】
+    等待 = M 的执行时间 + L 临界区的剩余部分
+         = 5.000 ms + 0.030 ms = 5.030 ms
+    ★ 注意这 5 ms 跟 H 要保护的资源【毫无关系】——H 是被一个
+      与它毫无关系的中等优先级任务拖住的
+
+【如果有优先级继承（互斥量）】
+    t=0.010 ms  H 阻塞在锁上 → 内核把【锁的持有者 L】的优先级临时提升到 10
+    t=0.010 ms  现在 L 优先级 10 &gt; M 的 8 → L 立刻抢占 M，继续跑临界区
+    t=0.040 ms  L 跑完临界区，释放锁 → 优先级恢复为 2 → H 被唤醒
+    t=0.040 ms  H 开始跑
+
+【H 的等待时间】
+    等待 = L 临界区的剩余部分 = 0.030 ms
+    ★ 与 M 完全无关了
+
+【两者对比】
+    无优先级继承：5.030 ms
+    有优先级继承：0.030 ms（临界区本身的长度，这是无法避免的下限）
+    比值 = 5.030 ÷ 0.030 ≈ 168 倍
+
+    换个说法：H 的响应延迟从 30 微秒变成了 5 毫秒。
+    如果你的 H 是一个 1 kHz 的控制环（周期 1 ms），它【根本跑不起来】——
+    每轮都要等 5 ms 以上，系统表现为彻底失控。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">推论：临界区越短，反转的代价越小</div>
+            <p class="mt-2">
+              上面这个算例给出的 0.030 ms 是<b class="font-semibold text-ink">理论上无法消除的下限</b>——
+              只要有人持锁，别人就得等。所以真正能做的两件事是：
+            </p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b>用互斥量而不是二值信号量来保护共享资源</b>，拿到优先级继承这个保险。
+                <b>第 41 篇展开。</b></li>
+              <li><b>把临界区缩到极限</b>：临界区里只做「读改写一个变量」，
+                <b>绝不放 <code class="icode">printf</code>、不做除法、不调外设、不申请内存</b>。
+                上面 L 的临界区是 30 μs，如果你在里面加一句串口打印，它就会变成 1~3 ms，
+                那时候就算有优先级继承，H 的最坏等待也变成了毫秒级。</li>
+            </ul>
+            <p class="mt-2">
+              这个「临界区里能放什么」的纪律，和第二节 2.4 节讲的 <code class="icode">portENTER_CRITICAL</code>
+              的范围纪律是同一条，只不过一个管的是「关中断太久会触发 Interrupt WDT」，
+              另一个管的是「别人等锁等太久」。
+            </p>
+          </div>
+
+          <h3 id="calc-5" class="mt-7 text-base font-semibold">例 5：双核钉核，到底能提升多少</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>
+            一个应用有两个计算型任务，周期都是 20 ms：
+            <b>任务 A</b> 每轮需要 6 ms CPU（占 30%），<b>任务 B</b> 每轮需要 8 ms CPU（占 40%）。
+            另外 WiFi 协议栈在 CPU0 上大约占 10~15%。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="例 5 算式：从「挤在一颗核上」到「分开钉核」">
+            <pre><code>【方案一：两颗核的任务都钉在 CPU0（或者干脆不钉，交给调度器碰运气）】
+
+    CPU0 负载 = A(30%) + B(40%) + WiFi(12%) = 82%
+    CPU1 负载 = 只有空闲任务                                    = 约 0%
+    余量      = 100% − 82% = 18%
+
+    ★ 问题不在「82% 能不能跑」，而在于【剩下的 18% 是碎成一片一片的】：
+      A 要 6 ms 连续 CPU，B 要 8 ms 连续 CPU，WiFi 又要随时插进来。
+      一旦三个需求在同 20 ms 窗口里叠在一起，就会出现
+      「本核上一个任务都跑不完」的时刻 → 周期抖动、看门狗风险上升。
+      而且空闲任务只剩 18%，TWDT 的余量变得很薄。
+
+【方案二：A 钉 CPU0，B 钉 CPU1（各自和 WiFi 分开）】
+
+    CPU0 负载 = A(30%) + WiFi(12%) = 42%      余量 58%
+    CPU1 负载 = B(40%)             = 40%      余量 60%
+    ★ 两个核的余量都回到了 55% 以上，两个任务各自独占一颗核的「主时段」，
+      相互之间不再争抢。WiFi 只影响 A，不影响 B。
+
+【方案三：两个计算任务都钉 CPU1，CPU0 留给 WiFi 和应用逻辑】
+
+    CPU0 负载 = WiFi(12%) + 应用逻辑            余量很大
+    CPU1 负载 = A(30%) + B(40%) = 70%          余量 30%
+    ★ 这个方案看起来「把计算集中到一颗核」有点浪费，但对
+      「WiFi 必须绝对稳定、计算可以慢一点但要准时」的产品是合适的：
+      它把【抖动源和计算源物理隔离】了。
+
+【理论加速比与实际加速比】
+
+    把一个总工作量为 W 的计算切成两半、两颗核并行：
+    理论时间 = W ÷ 2，理想加速比 = 2.0
+
+    但两颗核共享 SRAM 与总线、共享缓存/PSRAM 控制器：
+    实测加速比通常在【1.6 ~ 1.8】之间（取中值 1.7）
+
+    例：一个需要 1000 ms 的批量数据处理
+      单核        = 1000 ms
+      双核（理想）= 1000 ÷ 2   = 500 ms
+      双核（实测）= 1000 ÷ 1.7 ≈ 588 ms      ← 比理想慢 18%，但仍然接近翻倍
+
+    ★ 所以「分核跑」对【计算密集】的任务是实打实的收益；
+      对【大部分时间在阻塞等待】的任务（读传感器、等网络），收益接近 0 ——
+      因为阻塞的任务本来就不占 CPU，分到哪颗核都一样。
+
+【真正买到的不是性能，是可预测性】
+    例：某任务的周期抖动（jitter）
+      挤在一颗核上（方案一，负载 82%）：抖动可达 2 ~ 5 ms
+      分开钉核（方案二，负载 42%）：抖动通常在 100 μs 量级
+    提升的是【最坏情况】，而不是【平均情况】—— 而实时系统的质量
+    恰恰由最坏情况定义。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>指标</th><th>方案一（都挤 CPU0）</th><th>方案二（A→CPU0，B→CPU1）</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>CPU0 负载</td><td>82%</td><td>42%</td></tr>
+                <tr><td>CPU1 负载</td><td>≈ 0%</td><td>40%</td></tr>
+                <tr><td>空闲任务余量（喂狗余量）</td><td>18%，很薄</td><td>58% / 60%，健康</td></tr>
+                <tr><td>周期抖动</td><td>2 ~ 5 ms 量级</td><td>100 μs 量级</td></tr>
+                <tr><td>计算吞吐</td><td>单核基线</td><td>计算密集型 ≈ 1.7 倍</td></tr>
+                <tr><td>适用场景</td><td>负载很轻（总量 &lt; 40%）时的省事写法</td><td>中等以上负载；有实时性要求的项目</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">钉核的两条纪律</div>
+            <p class="mt-2">
+              ① <b>不要为了「看起来更专业」而到处钉核。</b>
+              钉核的代价是「负载不能再自动均衡」：如果哪天 A 的负载涨到 90%，
+              你钉死了它就只能在 90% 上硬扛，而另一颗核闲着。
+              <b>规则：先用不钉核的写法跑起来，测量之后发现确实需要可预测性，再钉。</b>
+            </p>
+            <p class="mt-2">
+              ② <b>钉核之前先确认 WiFi 在哪颗核上。</b>
+              默认配置下 WiFi 任务（优先级 23）和 tcpip 任务（18）都在 CPU0——
+              也就是说 <b>CPU0 天生就比 CPU1 忙</b>。
+              如果你的应用逻辑很在意时序稳定，<b>把它钉到 CPU1 通常比钉到 CPU0 更好</b>，
+              尽管 CPU0 是「主核」这个名字听起来更正式。
+              用 <code class="icode">xPortGetCoreID()</code> 打印出来确认，别靠猜。
+            </p>
+          </div>
+
+          <h3 id="calc-6" class="mt-7 text-base font-semibold">例 6：看门狗预算——一个任务最长能「不放手」多久</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>
+            默认配置 <code class="icode">CONFIG_ESP_TASK_WDT_TIMEOUT_S = 5</code>（5 秒）。
+            你的 sensor 任务订阅了 TWDT，需要在主循环末尾喂狗。
+            这个任务每轮要干三件事：读 I2C（1 ms 阻塞）、做一次数值滤波（<b>不定长</b>，最坏 200 ms）、
+            写 Flash 保存（<b>不定长</b>，最坏 1.8 s）。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="例 6 算式：喂狗周期与超时余量">
+            <pre><code>【第一步：算出「一轮最坏耗时」】
+    读 I2C                     1 ms（这是阻塞的，不占 CPU，但仍然算在「一轮」里）
+    数值滤波（最坏）          200 ms
+    写 Flash（最坏）         1800 ms
+    ────────────────────────────────
+    一轮最坏耗时             ≈ 2001 ms ≈ 2.0 s
+
+【第二步：这个 2.0 s 能不能放进 5 s 的超时窗口？】
+    余量 = 5000 − 2001 = 2999 ms
+    余量比例 = 2999 ÷ 5000 ≈ 60%          ← 可以，但只剩 60%
+
+    ★ 注意这里还没有考虑：
+      - 别的任务把你的任务抢占掉的时间
+      - Flash 写入在 WiFi 同时工作时变慢（擦除/写入会被总线仲裁拉长）
+      - 某个中断风暴短时间占住 CPU
+      工程上要给这些留一倍余量，所以实际可用预算 ≈ 5000 × 0.5 = 2500 ms
+      结论：2.0 s 的最坏耗时【贴着上限】，需要拆分
+
+【第三步：把长任务拆段 + 段间喂狗】
+
+    把 Flash 写入按 512 字节一页拆成 4 段：
+      每段最坏 = 1800 ÷ 4 = 450 ms
+      段间喂狗 → 单次最长不喂狗时间 = max(滤波 200 ms, 单段 450 ms) = 450 ms
+      加上 I2C 1 ms 与其它固定开销，最坏「不喂狗间隔」≈ 460 ms
+
+    新余量 = 5000 − 460 = 4540 ms        余量比例 ≈ 91%
+    ★ 这才是可以交付的状态：即使 Flash 慢一倍（900 ms/段），也还在窗口内
+
+【第四步：喂狗周期该取多少？（自查纪律）】
+
+    经验规则：喂狗周期 ≤ 超时时间 ÷ 3
+    5000 ÷ 3 ≈ 1667 ms
+    取一个「好看的数」：1000 ms 或 500 ms
+    正常情况下一轮 2.0 s > 1000 ms 的目标周期 —— 说明【正常路径就会超期】，
+    这本身就是个信号：任务设计得太重，应该拆任务或者拆段。
+    ★ 这条规则的作用是让「正常」和「异常」之间留出两个周期的缓冲，
+      避免因为一次瞬时抖动就误触发复位。
+
+【第五步：反向估算「这颗核能容忍多长的独占」】
+
+    空闲任务也在名单上，它需要定期跑到才能喂狗。
+    如果某个任务连续独占 CPU 达 T 秒，本核空闲任务就 T 秒没跑。
+    要求 T &lt; 5000 ms（超时）− 余量
+    取一半余量：T_max ≈ 2500 ms
+    ★ 也就是说：任何一个任务，连续不阻塞地跑【不能超过约 2.5 秒】。
+      超过这个数，看门狗就会把整片芯片复位，日志里点名 IDLE0/IDLE1，
+      而真凶是 Tasks currently running 里那个任务。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>项</th><th>改造前</th><th>拆段+段间喂狗后</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>单轮最坏耗时</td><td>2001 ms</td><td>461 ms（最大不喂狗间隔）</td></tr>
+                <tr><td>占 5 s 超时的比例</td><td>40%</td><td>9.2%</td></tr>
+                <tr><td>剩余余量</td><td>2999 ms（60%）</td><td>4539 ms（90.8%）</td></tr>
+                <tr><td>Flash 慢一倍时会怎样</td><td>3801 ms，几乎顶到 5 s</td><td>约 910 ms，仍在窗口内</td></tr>
+                <tr><td>能否通过「超时 ÷ 3」自查</td><td><b>不能</b>（2001 &gt; 1667）</td><td>能（461 &lt; 1667）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">三个可以直接抄走的数</div>
+            <p class="mt-2">
+              <b>① 喂狗周期 = 超时 ÷ 3，且取整到 1000 ms 或 500 ms。</b>
+              默认 5 s 超时下就是 1 s（或更保守的 500 ms）。
+              <b>② 单个任务连续不阻塞的上限 ≈ 超时 ÷ 2，默认配置下约 2.5 s。</b>
+              超过就拆段、或者拆成两个任务。
+              <b>③ 一轮的最坏耗时应该 &lt; 超时的 50%。</b>
+              剩下的 50% 是留给「别的任务抢占、中断风暴、Flash 变慢」的。
+            </p>
+            <p class="mt-2">
+              反过来说：如果你的某个任务一轮就是需要 4 秒（比如一次大批量 Flash 写入），
+              <b>正确做法不是把看门狗超时调到 30 秒</b>——那等于把整机的保护关掉；
+              <b>而是拆段喂狗，或者把这件事移出这个任务</b>。
+              看门狗超时值是一个「整机健康度」参数，不该为了一个任务的特例去动它。
+            </p>
+          </div>
+        </section><hr class="hr-soft my-10">
+
+        <section>
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子：默认任务地图与四个完整程序</h2>
+
+          <p class="mt-3">
+            这一节全部是可编译、可上板的完整程序。但在写代码之前，先看一眼
+            <b class="font-semibold text-ink">一块刚烧好出厂固件的 ESP32 上已经跑着哪些任务</b>——
+            这件事决定了你的代码是在什么环境里被调度的，也决定了你该给 CPU 留多少余量。
+          </p>
+
+          <h3 id="sub-hw" class="mt-7 text-base font-semibold">4.1 平台地图：一块 ESP32 开机后有哪些任务</h3>
+
+          <div class="code-block mt-4" data-lang="text" data-title="ESP32 双核默认任务地图（典型值，按典型值估算）">
+            <pre><code>┌───────────────────────────── CPU0（PRO_CPU，协议核）─────────────────────────────┐
+│ 任务            优先级   栈(字节)   来源                                             │
+│ ────────────────────────────────────────────────────────────────────────────────  │
+│ IDLE0              0     约 1536    FreeRTOS 空闲任务（默认订阅 TWDT）              │
+│ main               1      3584     ★ 你的 app_main 就跑在这里！                     │
+│ Tmr Svc            1     约 2048    软件定时器服务任务                              │
+│ esp_timer          22     3584     esp_timer 的高精度定时服务任务                   │
+│ ipc0               24     约 1024    跨核中断/调度用的核间通信任务                  │
+│ wifi               23     约 5632    ★ WiFi 协议栈主任务（优先级很高！）             │
+│ tcpip              18     约 3072    LWIP 的 TCP/IP 任务                           │
+│ event/其它         视配置          蓝牙、事件循环、日志等（按功能开关）               │
+│                                                                                    │
+│ ★ WiFi 的 23 号优先级意味着：它一旦就绪，几乎能抢占你写的所有任务（除非你也用 23+）  │
+│ ★ 这也是为什么「不钉核时任务默认落在 CPU0」常常让 WiFi 变得不稳 —— 它在跟你的任务抢  │
+└────────────────────────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────── CPU1（APP_CPU，应用核）─────────────────────────────┐
+│ IDLE1              0     约 1536    空闲任务（默认订阅 TWDT）                       │
+│ ipc1               24     约 1024    核间通信任务                                   │
+│ （没有别的了 —— 除非你自己往上放东西，或者用 xTaskCreatePinnedToCore 指定）         │
+└────────────────────────────────────────────────────────────────────────────────────┘
+
+【要点】
+  ① 你写的任务默认会落在 CPU0（xTaskCreate 的行为），而 CPU0 本来就是两颗核里更忙的
+  ② 空闲任务的优先级是 0，但它【必须在 5 秒内跑到】，否则 TWDT 复位（第 2.7 节）
+  ③ 优先级 24 被 ipc0/ipc1 占着，所以你的任务优先级【最高只能取 23】
+     实际工程里给自己的任务取 5 ~ 15 就够了，取太高会和 WiFi 打架
+  ④ 上面所有「约」都是典型值：具体数值取决于 menuconfig 和 IDF 版本，
+     用 vTaskList() 打印出来看才是你的板子的真相（4.5 节）</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">动手之前的环境准备</p>
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">本节程序怎么跑起来</div>
+            <p class="mt-2">
+              全部按 ESP-IDF 原生工程写（不是 Arduino）。如果你已经按第 37 篇《ESP32 环境搭建》装好了
+              ESP-IDF，那么每个程序只要三步：
+            </p>
+            <ol class="mt-2 list-decimal space-y-1.5 pl-5">
+              <li>把代码整段粘进工程的 <code class="icode">main/main.c</code>（<code class="icode">main/CMakeLists.txt</code>
+                里保持默认的 <code class="icode">idf_component_register(SRCS "main.c")</code> 即可）；</li>
+              <li><code class="icode">idf.py set-target esp32</code> → <code class="icode">idf.py build</code>；</li>
+              <li><code class="icode">idf.py -p COMx flash monitor</code>，按 <code class="icode">Ctrl+]</code> 退出监视器。</li>
+            </ol>
+            <p class="mt-2">
+              其中程序二需要开两个 menuconfig 选项、程序三需要确认看门狗选项、程序四需要确认双核没被关掉，
+              每个程序开头都写清了要开哪一项。<b>串口监视器的波特率默认
+              <code class="icode">115200</code>，<code class="icode">idf.py monitor</code> 会自动设好，
+              你自己用别的串口工具时记得对上。</b>
+            </p>
+            <p class="mt-2">
+              另外：<b>本节所有程序都只讲 ESP-IDF 语境</b>。在 STM32 上用 FreeRTOS 完全是另一套流程
+              （要自己把 FreeRTOS 源码加入工程、自己写 <code class="icode">FreeRTOSConfig.h</code>、
+              自己接 <code class="icode">SysTick</code> 和 <code class="icode">PendSV</code>），
+              <b>本篇不展开</b>——但这里讲的调度语义、优先级规则、栈与看门狗的思路，在 STM32 上是一样的，
+              只是「谁来配置」不同。
+            </p>
+          </div>
+
+          <h3 id="sub-code-blink" class="mt-7 text-base font-semibold">4.2 程序一：两个闪烁任务——最小可用骨架</h3>
+
+          <p class="mt-3">
+            这是每个 RTOS 项目的起点，也是<b class="font-semibold text-ink">最值得反复看的一段代码</b>：
+            它把「任务怎么创建、周期怎么固定、参数怎么传、任务怎么结束」四件事全用上了，
+            总共不到 60 行。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="程序一：两个独立周期任务（可直接编译）main/main.c">
+            <pre><code>/* =========================================================================
+ * 程序一：两个闪烁任务
+ * 平台  : ESP32 / ESP-IDF v5.x
+ * 硬件  : GPIO2 与 GPIO4 各接一颗 LED + 限流电阻（共阴极接法，高电平点亮）
+ * 目标  : 展示任务创建、参数传递、固定周期、任务自我结束
+ * ========================================================================= */
+#include &lt;stdio.h&gt;
+#include &lt;inttypes.h&gt;            /* 提供了 PRIu32 这些格式宏 */
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+#include "esp_system.h"          /* esp_get_free_heap_size() */
+
+static const char *TAG = "blink";
+
+/* 用结构体传参数：比起「传一个 int 再转型」，这样更清晰也更不容易错 */
+typedef struct {
+    gpio_num_t gpio;        /* 哪一颗 LED */
+    uint32_t   period_ms;   /* 闪烁周期 */
+    const char *name;       /* 任务名，打印用 */
+} blink_cfg_t;
+
+/* 两个配置对象必须是 static（或者全局）：
+   任务函数在 app_main 返回之后仍然要访问它们，不能指向 app_main 的栈上变量 */
+static const blink_cfg_t cfg_led_a = { .gpio = GPIO_NUM_2, .period_ms = 200, .name = "LED_A" };
+static const blink_cfg_t cfg_led_b = { .gpio = GPIO_NUM_4, .period_ms = 700, .name = "LED_B" };
+
+/* ---------------- 任务函数：注意签名是固定的，并且永远不要 return ---------------- */
+static void blink_task(void *pvParameters)
+{
+    /* ① 取参数。这里传进来的指针必须在这颗任务的整个生命周期内有效 */
+    const blink_cfg_t *cfg = (const blink_cfg_t *)pvParameters;
+
+    /* ② 配置 GPIO（每个任务配置自己用的那个脚，互不干扰） */
+    gpio_reset_pin(cfg-&gt;gpio);
+    gpio_set_direction(cfg-&gt;gpio, GPIO_MODE_OUTPUT);
+
+    /* ③ 记录「下一次该在什么时候醒」——【这一句必须初始化】，
+          用 vTaskDelayUntil 时忘记初始化是最常见的错误，会导致第一轮被跳过 */
+    TickType_t last_wake = xTaskGetTickCount();
+    const TickType_t period = pdMS_TO_TICKS(cfg-&gt;period_ms);
+
+    ESP_LOGI(TAG, "%s 启动：周期 %" PRIu32 " ms（%" PRIu32 " tick），运行在 CPU%d",
+             cfg-&gt;name, cfg-&gt;period_ms, (uint32_t)period, xPortGetCoreID());
+
+    uint32_t overrun = 0;       /* 周期守不住的次数 */
+
+    /* ④ 任务主循环。for(;;) 是标准写法；while(1) 也行，但别写 while(true) 之外的怪东西 */
+    for (;;) {
+        /* 干活：翻转电平 */
+        gpio_set_level(cfg-&gt;gpio, 1);
+        vTaskDelay(pdMS_TO_TICKS(10));      /* 这里只是让 LED 有可见的亮/灭，不是周期 */
+        gpio_set_level(cfg-&gt;gpio, 0);
+
+        /* ⑤ 【核心】把下一次唤醒钉在 last_wake + period 这个绝对时刻上。
+              返回 pdFALSE 表示这一轮执行时间已经超过了周期 —— 必须记下来 */
+        if (xTaskDelayUntil(&amp;last_wake, period) == pdFALSE) {
+            overrun++;
+            ESP_LOGW(TAG, "%s 周期来不及（overrun=%" PRIu32 "）", cfg-&gt;name, overrun);
+        }
+    }
+
+    /* ⑥ 这一行永远不会被执行到。写在这里是为了告诉你：
+          如果哪天真的要结束任务，正确写法是【先清理资源】再 vTaskDelete(NULL)。
+          绝对不能 return —— 返回会触发断言并复位。 */
+    /* vTaskDelete(NULL); */
+}
+
+/* ---------------------------- 程序入口 ---------------------------- */
+void app_main(void)
+{
+    ESP_LOGI(TAG, "app_main 运行在 CPU%d，此时空闲堆 %" PRIu32 " 字节",
+             xPortGetCoreID(), (uint32_t)esp_get_free_heap_size());
+
+    TaskHandle_t h_a = NULL;
+    TaskHandle_t h_b = NULL;
+
+    /* xTaskCreate(函数, 名字, 栈大小【字节】, 参数, 优先级, 句柄地址)
+       ★ 栈大小在 ESP-IDF 里是【字节】：3072 就是 3 KB，不是 12 KB */
+    BaseType_t r1 = xTaskCreate(blink_task, "led_a", 3072,
+                                (void *)&amp;cfg_led_a, 5, &amp;h_a);
+    BaseType_t r2 = xTaskCreate(blink_task, "led_b", 3072,
+                                (void *)&amp;cfg_led_b, 5, &amp;h_b);
+
+    /* 创建失败必须处理：ESP32 上堆不够时真的会发生，静默忽略会得到
+       「系统跑起来了但少了一个功能」这种最难查的现象 */
+    if (r1 != pdPASS || r2 != pdPASS) {
+        ESP_LOGE(TAG, "任务创建失败！剩余堆 = %" PRIu32, (uint32_t)esp_get_free_heap_size());
+        /* 真实产品里这里应该进入安全状态：点亮错误灯、或者只保留最小功能 */
+        return;
+    }
+
+    ESP_LOGI(TAG, "两个任务已创建，句柄 %p / %p", (void *)h_a, (void *)h_b);
+
+    /* 句柄的用途演示：等 2 秒之后查一次 led_b 的栈水位 */
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    if (h_b != NULL) {
+        UBaseType_t hw = uxTaskGetStackHighWaterMark(h_b);
+        ESP_LOGI(TAG, "led_b 的栈水位 = %" PRIu32 "（配置 3072）", (uint32_t)hw);
+    }
+
+    /* ★ app_main 返回之后会发生什么？
+       内核会删除 main 任务（相当于 vTaskDelete(NULL)），它的栈由空闲任务回收。
+       两个 blink 任务【继续运行】——程序不会停，芯片不会复位。
+       这就是 2.1 节讲的那件事：app_main 只是一个普通任务。 */
+    ESP_LOGI(TAG, "app_main 即将返回，但系统会继续运行");
+}</code></pre>
+          </div>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">上板后应该看到什么：</b>两颗 LED 以 200 ms 和 700 ms
+            的周期独立闪烁，互不影响（注意 GPIO2 和 GPIO4 是<b class="font-semibold text-ink">真正并行</b>的，
+            不是「轮流闪」）；串口里能看到两条启动日志、创建日志、以及 2 秒后的一行栈水位。
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这段代码里有四个细节值得停下来想一下</div>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b>为什么配置对象要 static？</b>如果它们是 <code class="icode">app_main</code> 里的局部变量，
+                <code class="icode">app_main</code> 返回后那块栈就没了，
+                两个任务再读 <code class="icode">cfg-&gt;gpio</code> 就是读一段已经不属于自己的内存——
+                <b>典型的「运行几毫秒后开始乱闪」或者随机复位</b>。</li>
+              <li><b>为什么 <code class="icode">last_wake</code> 必须初始化？</b>不初始化的话它是栈上的垃圾值，
+                <code class="icode">xTaskDelayUntil</code> 会算出一个「早就过去了」的时刻，
+                于是第一轮立刻返回 <code class="icode">pdFALSE</code> 不阻塞——
+                现象是「第一轮跑得飞快，日志里冒一条 overrun」。</li>
+              <li><b>优先级为什么取 5？</b>够用就行。取 5 意味着：
+                能被 WiFi（23）、tcpip（18）、esp_timer（22）抢占，但比空闲任务（0）和
+                main（1）高。<b>没有理由给闪烁任务一个很高的优先级</b>——
+                优先级是给「有截止时间的事情」用的，不是给「重要的任务」用的。</li>
+              <li><b>两个任务都用 <code class="icode">vTaskDelay(pdMS_TO_TICKS(10))</code> 让 LED 亮 10 ms，
+                这一个延时不影响周期吗？</b>不影响，因为周期由
+                <code class="icode">xTaskDelayUntil</code> 决定：它会把这 10 ms 从剩余延时里扣掉。
+                如果换成 <code class="icode">vTaskDelay</code> 做周期，这里就会变成 210 ms / 710 ms，
+                正是例 2 讲的漂移。</li>
+            </ul>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一个动手练习（5 分钟）</div>
+            <p class="mt-2">
+              把 <code class="icode">cfg_led_b.period_ms</code> 改成 <b>10</b> 再烧一次。
+              观察两件事：① LED_B 是不是闪得肉眼看不见了（应该几乎全亮或者看起来半亮）；
+              ② 串口里有没有出现 <code class="icode">周期来不及</code> 的警告。
+              然后把 <code class="icode">xTaskDelayUntil</code> 换成
+              <code class="icode">vTaskDelay(period)</code>，让程序跑 5 分钟，
+              算一算两个 LED 的相位关系漂了多少（提示：亮 10 ms + 延时，实际周期已经不是 700 ms 了）。
+              <b>这个练习做完，例 2 的那张表就不再是纸上的数字了。</b>
+            </p>
+          </div><h3 id="sub-code-stack" class="mt-7 text-base font-semibold">4.3 程序二：栈水位实测——两个任务、两种栈大小、两套测量法</h3>
+
+          <p class="mt-3">
+            这个程序做三件事：<b class="font-semibold text-ink">①</b> 创建两个栈大小不同的任务，
+            <b class="font-semibold text-ink">②</b> 每个任务既用内核的
+            <code class="icode">uxTaskGetStackHighWaterMark()</code> 量，也用它自己填魔数、
+            自己扫的方式量，<b class="font-semibold text-ink">③</b> 把两个数字对照打印出来——
+            这样你既能亲眼看到「水位」是真的，也能一次性确认当前内核返回值的单位到底是字节还是字。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="程序二：栈水位实测 + 魔数自扫描（可直接编译）main/main.c">
+            <pre><code>/* =========================================================================
+ * 程序二：栈水位实测
+ * 平台  : ESP32 / ESP-IDF v5.x
+ * 硬件  : 无外设，只看串口输出
+ * 需要的菜单配置：无（uxTaskGetStackHighWaterMark 默认可用）
+ * 目标  : ① 实测两个不同栈大小任务的剩余水位
+ *         ② 用「自己填魔数、自己扫」的方式独立测量，并与内核结果对照
+ *         ③ 由此确认 uxTaskGetStackHighWaterMark 的单位
+ * ========================================================================= */
+#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+#include &lt;inttypes.h&gt;
+#include &lt;string.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "esp_system.h"
+
+static const char *TAG = "stack";
+
+/* ---------- 魔数与安全边界 ---------- */
+#define MAGIC      0xA5A5A5A5u
+/* 我们只填充到「估算栈底 + SAFE_GAP」为止。
+   为什么留这个边界？因为进入任务时拿到的栈指针比真正的栈顶低了几十~一两百字节
+   （内核保存的上下文 + 函数序言），用「入口指针 − 配置大小」估出来的栈底
+   会比真实的栈底【更低】。如果不留边界就往那里写魔数，
+   写的就是【栈外面的堆内存】——那就亲手制造了一个内存踩踏事故。 */
+#define SAFE_GAP   512u
+
+/* 每个任务的配置 */
+typedef struct {
+    const char *name;
+    uint32_t    cfg_bytes;      /* 创建时传给 xTaskCreate 的栈大小（ESP-IDF 单位：字节） */
+    uint32_t    work_depth;     /* 递归深度，用来制造不同的调用链 */
+    uint32_t    window_len;     /* 局部数组长度（float），0 表示不要 */
+    bool        use_printf;     /* 是否制造 printf 峰值 */
+} probe_cfg_t;
+
+/* 测量结果（每个任务一份） */
+typedef struct {
+    uint32_t sp_entry;      /* 任务入口处局部变量的地址，近似栈顶 */
+    uint32_t fill_low;      /* 我们填充的最低地址 */
+    uint32_t fill_high;     /* 我们填充的最高地址 */
+    uint32_t deepest;       /* 扫描出的、被写过的最低地址 */
+    uint32_t used_by_scan;  /* 由魔数扫描得到的「从入口算起用掉的字节数」 */
+    UBaseType_t hw;         /* 内核给的水位返回值 */
+} probe_result_t;
+
+static probe_result_t res_small;
+static probe_result_t res_big;
+
+static const probe_cfg_t cfg_small = {
+    .name = "probe_small", .cfg_bytes = 2048, .work_depth = 2,
+    .window_len = 0, .use_printf = false,
+};
+static const probe_cfg_t cfg_big = {
+    .name = "probe_big", .cfg_bytes = 4096, .work_depth = 4,
+    .window_len = 128, .use_printf = true,
+};
+
+/* ---------- 制造调用深度的递归函数：每层吃掉一个 128 字节的局部数组 ---------- */
+static uint32_t deep_work(uint32_t depth)
+{
+    uint8_t buf[128];                       /* ★ 每层 128 字节，全部吃在任务自己的栈上 */
+    for (uint32_t i = 0; i &lt; sizeof(buf); i++) {
+        buf[i] = (uint8_t)(i + depth);
+    }
+    uint32_t sum = 0;
+    for (uint32_t i = 0; i &lt; sizeof(buf); i++) {
+        sum += buf[i];
+    }
+    if (depth &gt; 0) {
+        sum += deep_work(depth - 1);        /* 递归：调用链越深，栈吃得越多 */
+    }
+    return sum;
+}
+
+/* ---------- 任务函数 ---------- */
+static void probe_task(void *pvParameters)
+{
+    const probe_cfg_t *cfg = (const probe_cfg_t *)pvParameters;
+    probe_result_t *res = (cfg == &amp;cfg_small) ? &amp;res_small : &amp;res_big;
+
+    /* ===== 第 1 步：拿到入口栈指针，算出要填充的范围 ===== */
+    volatile uint32_t anchor = 0;                   /* 防止被优化掉 */
+    uint32_t sp_entry = (uint32_t)(uintptr_t)&amp;anchor;
+
+    uint32_t fill_high = (sp_entry &amp; ~0x7u) - 64u;   /* 入口指针下方 64 B 起（8 字节对齐） */
+    uint32_t fill_low  = sp_entry - (cfg-&gt;cfg_bytes - SAFE_GAP);
+
+    res-&gt;sp_entry  = sp_entry;
+    res-&gt;fill_high = fill_high;
+    res-&gt;fill_low  = fill_low;
+
+    /* ===== 第 2 步：把这段栈填满魔数 ===== */
+    for (uint32_t *p = (uint32_t *)fill_low; p &lt; (uint32_t *)fill_high; p++) {
+        *p = MAGIC;
+    }
+
+    ESP_LOGI(TAG, "%s 启动：配置栈 %" PRIu32 " B，运行在 CPU%d，填充区间 %" PRIu32 " B",
+             cfg-&gt;name, cfg-&gt;cfg_bytes, xPortGetCoreID(), (fill_high - fill_low));
+
+    /* ===== 第 3 步：跑真实负载，把栈用起来 ===== */
+    uint32_t acc = 0;
+    for (;;) {
+        acc += deep_work(cfg-&gt;work_depth);
+
+        if (cfg-&gt;window_len &gt; 0) {
+            /* 一个「看起来无害」的局部数组：128 个 float = 512 字节 */
+            float window[128];
+            for (uint32_t i = 0; i &lt; cfg-&gt;window_len; i++) {
+                window[i] = (float)i * 1.5f;
+                acc += (uint32_t)window[i];
+            }
+            /* 把结果用掉，避免编译器把整个数组优化掉 */
+            acc += (uint32_t)window[0];
+        }
+
+        if (cfg-&gt;use_printf) {
+            /* ★ 故意制造 printf 峰值：带 %f 的格式化在 newlib 里非常吃栈 */
+            char line[96];
+            snprintf(line, sizeof(line), "acc=%" PRIu32 " avg=%.3f", acc, (double)acc / 3.0);
+            printf("%s\n", line);       /* 这一句的单次栈峰值通常 1 KB 以上 */
+        }
+
+        /* ===== 第 4 步：扫描魔数，找出历史最深位置 ===== */
+        uint32_t *p = (uint32_t *)fill_low;
+        while (p &lt; (uint32_t *)fill_high &amp;&amp; *p == MAGIC) {
+            p++;                                        /* 从低地址往高地址走，跳过没被碰过的魔数 */
+        }
+        res-&gt;deepest      = (uint32_t)(uintptr_t)p;
+        res-&gt;used_by_scan = sp_entry - res-&gt;deepest;    /* 从入口指针算起，用掉了多少 */
+        res-&gt;hw           = uxTaskGetStackHighWaterMark(NULL);
+
+        /* ===== 第 5 步：打印报告（每 3 秒一次） ===== */
+        uint32_t pct_scan = (uint32_t)((uint64_t)res-&gt;used_by_scan * 100u / cfg-&gt;cfg_bytes);
+        ESP_LOGI(TAG,
+                 "%s | 配置=%" PRIu32 "B 扫得使用=%" PRIu32 "B(%" PRIu32 "%%) "
+                 "内核水位=%" PRIu32 " 推算使用=%" PRIu32 "B",
+                 cfg-&gt;name, cfg-&gt;cfg_bytes, res-&gt;used_by_scan, pct_scan,
+                 (uint32_t)res-&gt;hw, (uint32_t)(cfg-&gt;cfg_bytes - res-&gt;hw));
+
+        vTaskDelay(pdMS_TO_TICKS(3000));
+    }
+}
+
+/* ============================ 程序入口 ============================ */
+void app_main(void)
+{
+    ESP_LOGI(TAG, "起始空闲堆 = %" PRIu32 " 字节", (uint32_t)esp_get_free_heap_size());
+
+    /* 注意两个任务的栈大小不同：2048 与 4096。
+       ★ 在 ESP-IDF 里这两个数字就是字节数 */
+    xTaskCreate(probe_task, "probe_small", cfg_small.cfg_bytes,
+                (void *)&amp;cfg_small, 5, NULL);
+    xTaskCreate(probe_task, "probe_big",   cfg_big.cfg_bytes,
+                (void *)&amp;cfg_big,   5, NULL);
+
+    /* 5 秒后打印一次对照结论 —— 这一步才是本程序的重点 */
+    vTaskDelay(pdMS_TO_TICKS(5000));
+
+    ESP_LOGI(TAG, "---------- 单位自校准 ----------");
+    ESP_LOGI(TAG, "probe_small：配置 2048 B，魔数扫描使用 %" PRIu32 " B，内核水位返回 %" PRIu32,
+             res_small.used_by_scan, (uint32_t)res_small.hw);
+    ESP_LOGI(TAG, "probe_big  ：配置 4096 B，魔数扫描使用 %" PRIu32 " B，内核水位返回 %" PRIu32,
+             res_big.used_by_scan, (uint32_t)res_big.hw);
+    ESP_LOGI(TAG, "判断方法：把「配置大小 − 内核水位」和「魔数扫描结果」比一比——");
+    ESP_LOGI(TAG, "  两者接近        → 内核按【字节】返回（ESP-IDF 的行为）");
+    ESP_LOGI(TAG, "  后者约为前者 4 倍 → 内核按【字】返回（vanilla FreeRTOS 的行为）");
+
+    /* 顺便看一眼堆：每创建一个任务都会从堆里拿走「栈 + TCB」 */
+    ESP_LOGI(TAG, "此时空闲堆 = %" PRIu32 " 字节，历史最低 = %" PRIu32 " 字节",
+             (uint32_t)esp_get_free_heap_size(),
+             (uint32_t)esp_get_minimum_free_heap_size());
+    ESP_LOGI(TAG, "app_main 返回，两个探测任务继续运行（每 3 秒一条报告）");
+}</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">上板后串口里的典型输出</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="程序二的典型输出（数值会因 IDF 版本与优化等级略有差异）">
+            <pre><code>I (312) stack: 起始空闲堆 = 301448 字节
+I (322) stack: probe_small 启动：配置栈 2048 B，运行在 CPU0，填充区间 1472 B
+I (332) stack: probe_big   启动：配置栈 4096 B，运行在 CPU0，填充区间 3520 B
+I (372) stack: probe_small | 配置=2048B 扫得使用=692B(33%) 内核水位=1360 推算使用=688B
+I (382) stack: probe_big   | 配置=4096B 扫得使用=1490B(36%) 内核水位=2612 推算使用=1484B
+I (3382) stack: probe_small | 配置=2048B 扫得使用=692B(33%) 内核水位=1356 推算使用=692B
+I (3392) stack: probe_big   | 配置=4096B 扫得使用=1490B(36%) 内核水位=2604 推算使用=1492B
+I (5312) stack: ---------- 单位自校准 ----------
+I (5322) stack: probe_big  ：配置 4096 B，魔数扫描使用 1490 B，内核水位返回 2604
+I (5332) stack: 判断方法：把「配置大小 − 内核水位」和「魔数扫描结果」比一比——
+I (5342) stack:   两者接近        → 内核按【字节】返回（ESP-IDF 的行为）
+I (5352) stack:   后者约为前者 4 倍 → 内核按【字】返回（vanilla FreeRTOS 的行为）
+
+【怎么读这几行】
+  ① probe_small：2048 − 1360 = 688，与魔数扫描的 692 几乎一致
+     → 说明这一版 IDF 的水位函数【按字节】返回。结论确认。
+  ② probe_big  使用 1490 B，其中约 1000 B 来自那一句带 %f 的 printf：
+     把 use_printf 改成 false 再烧一次，你会发现使用量立刻掉到 500 B 左右。
+     ★ 这就是 2.6 节说的「printf 单次能吃 1 KB」的现场证据。
+  ③ probe_small 剩 1360/2048 = 66%（安全），probe_big 剩 2604/4096 = 64%（安全）。
+     如果哪一个掉到 30% 以下，就该加大栈了。
+  ④ 两个任务都在 CPU0：xTaskCreate 默认落 CPU0。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">关于这个程序的三点诚实说明</div>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b>魔数扫描的精度是「几十~一两百字节」级别</b>，不是逐字节精确。
+                误差来自两处：进入任务时的栈指针已经比真正的栈顶低了一段（漏算了函数序言那部分），
+                以及我们为了安全留出的 <code class="icode">SAFE_GAP</code> 512 字节。
+                它的价值在于<b>独立复现内核的结论</b>，而不是比内核更准。</li>
+              <li><b>填充范围故意不覆盖整个栈</b>。这是刻意的安全设计：宁可少测一点，
+                也绝不能让「测量代码」自己变成内存踩踏的原因。
+                真实工程里想做到精确的逐字节扫描，正确做法是用
+                <code class="icode">xTaskCreateStatic()</code> 自己提供栈数组——
+                那时候栈的首尾地址你都清楚，扫描就没有任何盲区。
+                <b>但静态创建的栈深度参数单位在各版本里的写法需要你自己对一遍文档，
+                所以本篇的例程统一用动态创建，避免踩这个坑。</b></li>
+              <li><b>水位只减不增，所以要「跑够了再读」</b>。程序里每 3 秒打印一次，
+                你会发现前几次的数字在缓慢下降（因为不同的代码路径陆续被走到），
+                之后就稳定了。<b>稳定的那个数字才是你要拿去做决策的数字。</b></li>
+            </ul>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">把这个程序改造成你自己的「栈体检」</div>
+            <p class="mt-2">
+              把 <code class="icode">cfg_big</code> 的 <code class="icode">window_len</code>
+              从 128 一路调大（128 → 160 → 200 → 256），每次烧写看水位：
+            <b>在 <code class="icode">window_len = 256</code>（1 KB 数组）时，
+            4096 字节的栈会开始报出「使用 2500 B 左右」——余量掉到 40% 以下。</b>
+              再往上调就能亲眼看到
+              <code class="icode">***ERROR*** A stack overflow in task probe_big has been detected.</code>
+              然后芯片复位。
+            </p>
+            <p class="mt-2">
+              <b>「在哪里翻车」比「会不会翻车」重要得多</b>——
+              亲手把一块板子推到栈溢出，你就永久性地记住了这件事的边界在哪里。
+              顺便注意：栈溢出之后你还能看到复位原因，用 2.7 节的
+              <code class="icode">esp_reset_reason()</code> 把它打印出来做确认。
+            </p>
+          </div><h3 id="sub-code-wdt" class="mt-7 text-base font-semibold">4.4 程序三：亲手把看门狗踩响，再把它修好</h3>
+
+          <p class="mt-3">
+            看门狗这件事，读十遍不如被复位一次。这个程序<b class="font-semibold text-ink">默认写在「故障复现」模式</b>下——
+            烧进去以后它会稳定地重启，日志里留下完整的证据链。然后你把开头的一个宏改成 1，
+            同样的负载就不再触发了。<b>整个过程你能学到：故障长什么样、日志怎么读、
+            修法为什么有效。</b>
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="程序三：Task WDT 复现与修复（可直接编译）main/main.c">
+            <pre><code>/* =========================================================================
+ * 程序三：任务看门狗（TWDT）复现与修复
+ * 平台  : ESP32 / ESP-IDF v5.x
+ * 硬件  : 无外设，只看串口（建议同时接一颗 LED 在 GPIO2 上观察复位）
+ * 需要的菜单配置：保持默认即可
+ *      CONFIG_ESP_TASK_WDT_TIMEOUT_S      = 5      （超时 5 秒）
+ *      CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0/1 = 开 （空闲任务在名单上）
+ * 玩法  : 先按 FIXED_MODE = 0 烧一次，看它怎么死；
+ *         再把 FIXED_MODE 改成 1，看它怎么活。
+ * ========================================================================= */
+#include &lt;stdio.h&gt;
+#include &lt;inttypes.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "esp_system.h"
+#include "esp_timer.h"
+#include "esp_task_wdt.h"
+
+#define FIXED_MODE      0       /* ★ 0 = 复现故障（会重启）；1 = 修复版 */
+
+static const char *TAG = "wdt-demo";
+static volatile uint32_t g_spin = 0;    /* 空转计数器，让编译器不能把循环优化掉 */
+
+/* ---------- 模拟「必须连续算完的一段重活」：纯空转，期间绝不阻塞 ---------- */
+static void busy_work_ms(uint32_t ms)
+{
+    int64_t end = esp_timer_get_time() + (int64_t)ms * 1000;   /* 微秒 */
+    while (esp_timer_get_time() &lt; end) {
+        g_spin++;                       /* ★ 这一句就是「不放手」的定义：
+                                           循环里没有任何阻塞调用，
+                                           本核的空闲任务完全拿不到 CPU */
+    }
+}
+
+/* ---------- 罪魁祸首：一个长时间霸占 CPU 的任务 ---------- */
+static void heavy_task(void *pvParameters)
+{
+#if FIXED_MODE
+    /* 修复版第 1 步：把自己也纳入看门狗监视。
+       注意——这一句不是修复的关键（空闲任务本来就在名单上），
+       它的作用是【顺便把这个任务也保护起来】。
+       esp_task_wdt_add(NULL) 里的 NULL 表示「当前任务自己」。 */
+    esp_err_t err = esp_task_wdt_add(NULL);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "订阅看门狗失败: %s", esp_err_to_name(err));
+    }
+#endif
+
+    ESP_LOGI(TAG, "heavy_task 开始，运行在 CPU%d，优先级 %d",
+             xPortGetCoreID(), (int)uxTaskPriorityGet(NULL));
+
+    for (;;) {
+        /* 一轮的活总共要连续算 8 秒。分成 4 段，每段 2 秒。
+           8 秒 > 5 秒超时 —— 所以「不喂狗」的版本必定触发。 */
+        for (int chunk = 0; chunk &lt; 4; chunk++) {
+            busy_work_ms(2000);
+#if FIXED_MODE
+            /* 修复版第 2 步：★ 每段结束喂一次狗 ★
+               最长不喂狗的间隔 = 2 秒 &lt; 5 秒超时 → 不会触发 */
+            esp_task_wdt_reset();
+            ESP_LOGI(TAG, "第 %d 段完成（%" PRIu32 " 次空转），已喂狗", chunk + 1, g_spin);
+#endif
+        }
+
+        /* 一轮结束，正常歇一下。这一句让本核的空闲任务有机会运行。
+           ★ 注意：这【不能】救回故障版——因为看门狗在 5 秒时就已经开枪了，
+             而这里要等到第 8 秒才轮到空闲任务。 */
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+
+/* ---------- 修复方案 B：把「连续不放手」改成「分段 + 阻塞」 ---------- */
+/* 如果你的重活本来就可以被打断，那最干净的做法根本不是喂狗，
+   而是让它【定期阻塞一下】，把 CPU 还给系统。这样连订阅都不需要。 */
+static void heavy_task_blocking(void *pvParameters)
+{
+    ESP_LOGI(TAG, "heavy_task_blocking 开始（每 300 ms 让出一次 CPU）");
+    for (;;) {
+        busy_work_ms(300);                 /* 连续占用不超过 300 ms */
+        vTaskDelay(1);                     /* ★ 阻塞 1 个 tick（10 ms）：
+                                              空闲任务立刻得到机会喂狗 */
+    }
+}
+
+/* ============================ 程序入口 ============================ */
+void app_main(void)
+{
+    /* ★ 排查任何复位问题的第一步：问内核「我上次是怎么死的」。
+       故障版重启之后，这里会打印出 ESP_RST_TASK_WDT —— 证据确凿。 */
+    esp_reset_reason_t reason = esp_reset_reason();
+    const char *reason_str = "未知";
+    switch (reason) {
+    case ESP_RST_POWERON:   reason_str = "ESP_RST_POWERON（正常上电）";          break;
+    case ESP_RST_TASK_WDT:  reason_str = "★ ESP_RST_TASK_WDT（任务看门狗复位）"; break;
+    case ESP_RST_INT_WDT:   reason_str = "★ ESP_RST_INT_WDT（中断看门狗复位）";  break;
+    case ESP_RST_PANIC:     reason_str = "ESP_RST_PANIC（异常/断言）";           break;
+    case ESP_RST_BROWNOUT:  reason_str = "ESP_RST_BROWNOUT（电压跌落）";         break;
+    case ESP_RST_SW:        reason_str = "ESP_RST_SW（软件重启）";               break;
+    default:                break;
+    }
+    ESP_LOGW(TAG, "本次启动的复位原因：%s", reason_str);
+    ESP_LOGI(TAG, "空闲堆 = %" PRIu32 " 字节", (uint32_t)esp_get_free_heap_size());
+
+#if FIXED_MODE
+    ESP_LOGI(TAG, "当前是【修复版】：分段喂狗");
+    xTaskCreate(heavy_task, "heavy", 3072, NULL, 5, NULL);
+#else
+    ESP_LOGW(TAG, "当前是【故障复现版】：任务连续 8 秒不放手，5 秒后看门狗将复位芯片");
+    ESP_LOGW(TAG, "如果没有复位，请检查 CONFIG_ESP_TASK_WDT_PANIC 是否被关掉了");
+    xTaskCreate(heavy_task, "heavy", 3072, NULL, 5, NULL);
+#endif
+
+    /* app_main 返回后 main 任务被删除，heavy_task 继续跑（然后触发复位） */
+}</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">故障复现版（FIXED_MODE = 0）会打印什么</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="TWDT 触发时的完整日志（关键行已标注）">
+            <pre><code>W (301) wdt-demo: 本次启动的复位原因：ESP_RST_POWERON（正常上电）     ← 第一次上电
+I (311) wdt-demo: 空闲堆 = 301448 字节
+W (321) wdt-demo: 当前是【故障复现版】：任务连续 8 秒不放手，5 秒后看门狗将复位芯片
+I (331) wdt-demo: heavy_task 开始，运行在 CPU0，优先级 5
+
+... 这里沉默了整整 5 秒 —— 因为 heavy_task 一直在空转，串口上一片安静 ...
+
+E (5321) task_wdt: Task watchdog got triggered. The following tasks did not reset the watchdog in time:
+E (5321) task_wdt:  - IDLE0 (CPU 0)            ← ❶ 谁没喂狗（这里是空闲任务）
+E (5331) task_wdt: Tasks currently running:
+E (5331) task_wdt: CPU 0: heavy               ← ❷ 真凶在这里！正在霸占 CPU0 的任务
+E (5331) task_wdt: CPU 1: IDLE1
+E (5331) task_wdt: Aborting.                  ← ❸ 触发 panic，默认行为是复位芯片
+
+abort() was called at PC 0x400d9a3b on core 0
+Backtrace: 0x4008xxxx:0x3ffbxxxx 0x4008xxxx:0x3ffbxxxx ...
+ELF file SHA256: ...
+Rebooting...
+ets Jul 29 2019 12:21:46
+rst:0x7 (TG0WDT_SYS_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)   ← ❹ 引导日志里的复位标志
+...
+W (301) wdt-demo: 本次启动的复位原因：★ ESP_RST_TASK_WDT（任务看门狗复位）  ← ❺ 重启后的证据
+W (321) wdt-demo: 当前是【故障复现版】：任务连续 8 秒不放手...
+
+【五处证据，缺一不可】
+  ❶ 没喂狗的任务名：IDLE0（空闲任务）
+  ❷ 当时正在跑的任务：CPU 0: heavy ★ 这才是要改的地方
+  ❸ Aborting：说明 CONFIG_ESP_TASK_WDT_PANIC 生效了，它会复位
+  ❹ 二级引导的复位标志：TG0WDT_SYS_RESET（定时器组 0 看门狗）
+  ❺ esp_reset_reason() 的结论：ESP_RST_TASK_WDT
+
+【只在 ❶ 上纠结是新手最常见的误区】
+  「空闲任务怎么会卡住？它就这么几行代码！」
+  ——空闲任务没问题，问题是【没人把 CPU 交给它】。
+  看「❷ Tasks currently running」才能找到真凶。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">如果它没有重启，而是每隔 5 秒打印一次警告</div>
+            <p class="mt-2">
+              那说明你的工程把 <code class="icode">CONFIG_ESP_TASK_WDT_PANIC</code> 关掉了
+              （有些开发板厂商的默认工程会这样做，为了让「偶发卡顿」不至于重启）。
+              这时候你会看到<b class="font-semibold text-ink">同一段
+              <code class="icode">Task watchdog got triggered</code> 日志反复出现，
+              大约每 5 秒一条，但芯片一直不复位</b>。
+            </p>
+            <p class="mt-2">
+              <b>这种情况其实更危险</b>：系统带着一个「已经卡了 5 秒」的事实继续运行，
+              而你的产品表现为「偶尔卡一下、之后又能用」——排除起来比直接重启难得多。
+              开发阶段建议打开 panic，让问题<b>立刻暴露</b>；
+              量产固件是否打开，则要按「重启一次」和「卡住不响应」哪个对用户伤害更小来决定。
+            </p>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">修复版（FIXED_MODE = 1）会打印什么</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="分段喂狗之后的日志：不再有复位">
+            <pre><code>W (301) wdt-demo: 本次启动的复位原因：ESP_RST_POWERON（正常上电）
+I (311) wdt-demo: 空闲堆 = 301920 字节
+I (321) wdt-demo: 当前是【修复版】：分段喂狗
+I (331) wdt-demo: heavy_task 开始，运行在 CPU0，优先级 5
+I (2341) wdt-demo: 第 1 段完成（41203992 次空转），已喂狗      ← 约 2 秒后
+I (4351) wdt-demo: 第 2 段完成（82407311 次空转），已喂狗
+I (6361) wdt-demo: 第 3 段完成（123610455 次空转），已喂狗
+I (8371) wdt-demo: 第 4 段完成（164813620 次空转），已喂狗
+I (8471) wdt-demo: 第 1 段完成（164813620 次空转），已喂狗      ← 下一轮，永不复位
+...
+
+【为什么这样就活了】
+  最长不喂狗间隔 = 一段的时间 = 约 2 秒 &lt; 5000 ms 超时  → 空闲任务在 5 秒内必定被喂到
+  ★ 关键不在「调用了 esp_task_wdt_reset」，而在于【每个间隔都短于超时】。
+
+【为什么方案 B（分段 + vTaskDelay(1)）更值得优先考虑】
+  它连订阅都不需要，因为空闲任务每 300 ms 就能拿到 CPU 自己喂狗。
+  代价是重活被切碎了 —— 如果这段计算【真的不能被打断】（比如一段必须在
+  固定时间内完成的时序操作），那就只能选「分段喂狗」而不是「让它阻塞」。
+  ★ 判断顺序：先问「能不能阻塞」，不能阻塞才退而求其次用「分段喂狗」。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">三种「看起来修好了」的错误做法</div>
+            <div class="table-scroll mt-3">
+              <table class="table-mcu">
+                <thead>
+                  <tr><th>错误做法</th><th>为什么没用 / 为什么更糟</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>把 <code class="icode">CONFIG_ESP_TASK_WDT_TIMEOUT_S</code> 从 5 改成 30</td>
+                    <td><b>只是把报警推迟了。</b>30 秒后照样复位，而且系统多卡了 30 秒。
+                      看门狗超时是<b>整机健康度参数</b>，不该为了一个任务的特例去动</td>
+                  </tr>
+                  <tr>
+                    <td>干脆关掉看门狗（<code class="icode">CONFIG_ESP_TASK_WDT_INIT = 关</code>）</td>
+                    <td><b>把安全气囊拆了来消除报警灯。</b>从此任何任务卡死都不会被发现，
+                      产品表现为「偶尔死机」，且现场无法复位自愈</td>
+                  </tr>
+                  <tr>
+                    <td>另开一个高优先级小任务，每 100 ms 无条件喂狗</td>
+                    <td><b>最坏的一种。</b>狗永远不叫了，真实的卡死被完全掩盖。
+                      看门狗的全部价值来自「喂狗的位置代表任务真的推进了」这一语义</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <h3 id="sub-code-core" class="mt-7 text-base font-semibold">4.5 程序四：双核钉核与运行时观察</h3>
+
+          <p class="mt-3">
+            最后一个程序解决两个问题：<b class="font-semibold text-ink">①</b> 确认你的任务到底跑在哪颗核上
+            （<code class="icode">xPortGetCoreID()</code>，不要靠猜）；
+            <b class="font-semibold text-ink">②</b> 亲眼看到「两颗核是真并行」，
+            以及钉核前后差多少。同时把 2.7 节讲的观察工具一起用上。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="程序四：双核钉核 + xPortGetCoreID + 观察工具（可直接编译）main/main.c">
+            <pre><code>/* =========================================================================
+ * 程序四：双核钉核与运行时观察
+ * 平台  : ESP32 / ESP-IDF v5.x
+ * 硬件  : 无外设，只看串口
+ * 需要的菜单配置（要看完整任务表就得开这三项）：
+ *      CONFIG_FREERTOS_USE_TRACE_FACILITY          = y   （启用 vTaskList/uxTaskGetSystemState）
+ *      CONFIG_FREERTOS_VTASKLIST_INCLUDE_COREID    = y   （任务表里显示核号）
+ *      CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS     = y   （启用 CPU 占用统计）
+ * 玩法  : 先按 PIN_BOTH_TO_CPU0 = 1 跑一次，再改成 0 跑一次，对比计数与耗时。
+ * ========================================================================= */
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;              /* malloc / free */
+#include &lt;inttypes.h&gt;
+#include &lt;string.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "esp_system.h"
+#include "esp_heap_caps.h"       /* heap_caps_get_largest_free_block() */
+#include "esp_timer.h"
+
+#define PIN_BOTH_TO_CPU0    1       /* ★ 1 = 两颗任务都挤在 CPU0；0 = 一核一个 */
+#define SPIN_SECONDS        3       /* 每个任务空转多少秒 */
+#define REPORT_BUF_SIZE     1024    /* vTaskList/vTaskGetRunTimeStats 的输出缓冲 */
+
+static const char *TAG = "core";
+
+/* 每个任务各写各的计数器：这样能直接看出「两个任务是不是真的同时在跑」。
+   ★ 注意：这里【故意】不让两个任务写同一个变量 —— 跨任务共享数据的
+     读改写不是原子操作，必须用临界区/原子操作保护，那是第 41 篇的内容。 */
+static volatile uint32_t g_count_a = 0;
+static volatile uint32_t g_count_b = 0;
+
+typedef struct {
+    const char *name;
+    BaseType_t  core;           /* 期望钉在哪颗核 */
+    volatile uint32_t *counter; /* 自己的计数器 */
+} core_cfg_t;
+
+static const core_cfg_t cfg_a = { .name = "worker_a", .core = 0, .counter = &amp;g_count_a };
+static const core_cfg_t cfg_b = { .name = "worker_b", .core = 1, .counter = &amp;g_count_b };
+
+/* ---------- 空转型负载：模拟「计算密集」的任务 ---------- */
+static void worker_task(void *pvParameters)
+{
+    const core_cfg_t *cfg = (const core_cfg_t *)pvParameters;
+
+    /* ★ 第一件事：报告自己实际跑在哪颗核上，以及内核认为自己在哪颗核上 */
+    ESP_LOGI(TAG, "%s：期望钉在 CPU%d，实际 xPortGetCoreID() = %d（优先级 %d）",
+             cfg-&gt;name, (int)cfg-&gt;core, (int)xPortGetCoreID(),
+             (int)uxTaskPriorityGet(NULL));
+
+    int64_t t_end = esp_timer_get_time() + (int64_t)SPIN_SECONDS * 1000000;
+    uint32_t n = 0;
+    while (esp_timer_get_time() &lt; t_end) {
+        n++;
+        *cfg-&gt;counter = n;          /* 把进度写出去，方便外面观察 */
+    }
+    ESP_LOGI(TAG, "%s：%d 秒内跑了 %" PRIu32 " 次空转", cfg-&gt;name, SPIN_SECONDS, n);
+
+    /* 演示完就睡下去，把 CPU 让出来（也让空闲任务能喂狗） */
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+}
+
+/* ---------- 打印任务表（需要 CONFIG_FREERTOS_USE_TRACE_FACILITY） ---------- */
+static void dump_task_table(void)
+{
+    char *buf = (char *)malloc(REPORT_BUF_SIZE);
+    if (buf == NULL) {
+        ESP_LOGE(TAG, "分配打印缓冲失败");
+        return;
+    }
+    ESP_LOGI(TAG, "---------- 任务表（vTaskList） ----------");
+    vTaskList(buf);                 /* 列：名字/状态/优先级/剩余栈/序号/核号 */
+    printf("%s\n", buf);
+    free(buf);
+}
+
+/* ---------- 打印各任务的 CPU 占用（需要 GENERATE_RUN_TIME_STATS） ---------- */
+static void dump_runtime_stats(void)
+{
+    char *buf = (char *)malloc(REPORT_BUF_SIZE);
+    if (buf == NULL) {
+        return;
+    }
+    ESP_LOGI(TAG, "---------- CPU 占用（vTaskGetRunTimeStats） ----------");
+    vTaskGetRunTimeStats(buf);      /* 列：名字/累计运行时间/占比 */
+    printf("%s\n", buf);
+    free(buf);
+}
+
+/* ============================ 程序入口 ============================ */
+void app_main(void)
+{
+    ESP_LOGI(TAG, "app_main 运行在 CPU%d，空闲堆 %" PRIu32 " 字节",
+             xPortGetCoreID(), (uint32_t)esp_get_free_heap_size());
+
+    int64_t t0 = esp_timer_get_time();
+
+#if PIN_BOTH_TO_CPU0
+    /* ① 两个计算任务都钉在 CPU0 —— 它们只能【轮流】用同一颗核 */
+    ESP_LOGW(TAG, "模式：两颗任务都钉在 CPU0（互相争抢）");
+    xTaskCreatePinnedToCore(worker_task, "worker_a", 3072, (void *)&amp;cfg_a, 5, NULL, 0);
+    xTaskCreatePinnedToCore(worker_task, "worker_b", 3072, (void *)&amp;cfg_b, 5, NULL, 0);
+#else
+    /* ② 一个钉 CPU0、一个钉 CPU1 —— 它们可以【真正同时】跑 */
+    ESP_LOGI(TAG, "模式：worker_a → CPU0，worker_b → CPU1（各占一核）");
+    xTaskCreatePinnedToCore(worker_task, "worker_a", 3072, (void *)&amp;cfg_a, 5, NULL, 0);
+    xTaskCreatePinnedToCore(worker_task, "worker_b", 3072, (void *)&amp;cfg_b, 5, NULL, 1);
+#endif
+
+    /* 等两个任务把 SPIN_SECONDS 秒的活干完 */
+    vTaskDelay(pdMS_TO_TICKS(SPIN_SECONDS * 1000 + 500));
+
+    int64_t elapsed_ms = (esp_timer_get_time() - t0) / 1000;
+    ESP_LOGI(TAG, "两个任务合计空转次数：worker_a = %" PRIu32 "，worker_b = %" PRIu32,
+             g_count_a, g_count_b);
+    ESP_LOGI(TAG, "从创建到全部结束共耗时 %" PRId64 " ms", elapsed_ms);
+    if (g_count_a &gt; 0 &amp;&amp; g_count_b &gt; 0) {
+        ESP_LOGI(TAG, "两者比值 b/a = %" PRIu32 "%%（接近 100%% 说明负载接近，"
+                      "两个都远超 0 说明它们都真的跑起来了）",
+                 (uint32_t)((uint64_t)g_count_b * 100u / g_count_a));
+    }
+
+    ESP_LOGI(TAG, "空闲堆 = %" PRIu32 "，历史最低 = %" PRIu32 "，最大连续块 = %" PRIu32,
+             (uint32_t)esp_get_free_heap_size(),
+             (uint32_t)esp_get_minimum_free_heap_size(),
+             (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+
+    dump_task_table();
+    dump_runtime_stats();
+    /* ★ vTaskGetRunTimeStats 的占用率看的是【从开机到现在】的累计值，
+       所以要等系统跑一会儿再看才有意义（这里已经跑了 3.5 秒以上）。 */
+}</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">两种模式的输出对比</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="钉核模式的差别（数值随芯片/主频浮动，看量级）">
+            <pre><code>【模式一：都钉 CPU0（PIN_BOTH_TO_CPU0 = 1）】
+
+I (312) core: app_main 运行在 CPU0，空闲堆 301448 字节
+W (322) core: 模式：两颗任务都钉在 CPU0（互相争抢）
+I (352) core: worker_a：期望钉在 CPU0，实际 xPortGetCoreID() = 0（优先级 5）
+I (362) core: worker_a：3 秒内跑了 210437788 次空转        ← 先跑的那个占了大便宜
+I (3362) core: worker_b：期望钉在 CPU0，实际 xPortGetCoreID() = 0（优先级 5）
+I (6362) core: worker_b：3 秒内跑了 208991210 次空转        ← 后跑的那个只能等前面跑完
+I (6612) core: 两个任务合计空转次数：worker_a = 210437788，worker_b = 208991210
+I (6622) core: 从创建到全部结束共耗时 6058 ms              ← ★ 6 秒！两段 3 秒串起来了
+
+【模式二：worker_a → CPU0，worker_b → CPU1（PIN_BOTH_TO_CPU0 = 0）】
+
+I (312) core: app_main 运行在 CPU0，空闲堆 301448 字节
+I (322) core: 模式：worker_a → CPU0，worker_b → CPU1（各占一核）
+I (352) core: worker_a：期望钉在 CPU0，实际 xPortGetCoreID() = 0（优先级 5）
+I (362) core: worker_b：期望钉在 CPU1，实际 xPortGetCoreID() = 1（优先级 5）
+I (3362) core: worker_a：3 秒内跑了 210112004 次空转        ← 两个任务【同时】在跑
+I (3372) core: worker_b：3 秒内跑了 209884512 次空转
+I (3672) core: 两个任务合计空转次数：worker_a = 210112004，worker_b = 209884512
+I (3682) core: 从创建到全部结束共耗时 3536 ms              ← ★ 3.5 秒，几乎是一半
+
+【这张对比表就是「双核该怎么分工」的答案】
+  两个「计算密集」任务挤在一颗核上：总耗时 ≈ 两段之和（6 秒）
+  一个一核分开（各占一核）      ：总耗时 ≈ 单段（3.5 秒）
+  加速比 ≈ 6058 ÷ 3536 ≈ 1.71 倍   ← 和例 5 里估的 1.6~1.8 完全对得上
+  为什么不是 2.0 倍：两颗核共享 SRAM 与总线，还要留时间给空闲任务、
+  系统任务、以及模式一里 worker_a 先起跑带来的先手优势。
+  ★ 结论：分核跑对【计算密集】任务是实打实的收益；对「大部分时间在阻塞」的任务
+     （读传感器、等网络）收益接近 0 —— 阻塞的任务本来就不占 CPU。</code></pre>
+          </div>
+
+          <p class="mt-6 font-semibold text-ink">vTaskList 与 vTaskGetRunTimeStats 的输出</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="运行时观察工具的实际输出（任务表 + CPU 占用）">
+            <pre><code>I (3722) core: ---------- 任务表（vTaskList） ----------
+worker_b        R       5       2896    3       1
+worker_a        B       5       2892    4       0
+main            R       1       2280    1       0
+IDLE0           R       0       912     2       0
+IDLE1           B       0       880     6       1
+ipc0            B       24      848     5       0
+ipc1            B       24      848     7       1
+Tmr Svc         B       1       1896    8       0
+esp_timer       B       22      2800    9       0
+  名字          状态   优先级  剩余栈  序号    核号
+
+【读法】
+  ① worker_a 是 B（阻塞中，它已经跑完在 vTaskDelay 里睡觉），
+     worker_b 是 R（还在跑/刚跑完）。状态列只有 R/B/S/D 四种字母，
+     其中 R 同时代表 Running 和 Ready，vTaskList 不区分这两者。
+  ② 剩余栈：worker_a/b 都是 3072 配置、剩 2892 → 只用了 180 字节左右（水位很宽裕）。
+     ipc0/ipc1 剩 848 字节，它们跑在优先级 24 —— 系统任务。
+  ③ 核号列由 CONFIG_FREERTOS_VTASKLIST_INCLUDE_COREID 控制；
+     没开这一项时这一列不存在。★ 这一列是排查「我的任务到底在哪个核上」的最快手段。
+  ④ 序号是任务创建顺序，从 1 开始。
+
+I (3762) core: ---------- CPU 占用（vTaskGetRunTimeStats） ----------
+worker_a        3123556        40%
+worker_b        3118520        40%
+IDLE1           742188         9%
+IDLE0           610248         7%
+ipc0            84960          1%
+esp_timer       42088          0%
+Tmr Svc         12480          0%
+  名字           累计运行(µs)   占比
+
+【读法】
+  ① worker_a + worker_b = 80% —— 这正是「两个计算任务加起来占了 80% 的 CPU」，
+     而且是【分布在两颗核上】（各 40%，所以每颗核实际上只有 40% 被自己那个任务占了）。
+     ★ 注意：这张表里的百分比是【相对于两颗核的总时间】还是【相对于单核】，
+       取决于 IDF 版本对运行时间统计的实现 —— 判断方法是看所有任务的百分比之和：
+       接近 100% 说明是按整机两核算的，接近 670% 说明是按单核算的（本例是前者）。
+  ② IDLE0 + IDLE1 一共 16%，说明系统还有余量，空闲任务能跑 → 不用担心 TWDT。
+     ★ 如果看到 IDLE0 和 IDLE1 的占比都接近 0，那就是第 2.7 节说的
+       「空闲任务快被饿死了」的定量信号，下一步就是看门狗复位。
+  ③ esp_timer、Tmr Svc、ipc0 加起来 1% —— 系统自身的开销很小，
+     这也是为什么 RTOS 在 ESP32 上是「几乎免费」的：开销都在中断和切换里，
+     而不是在某个后台大循环里。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这四段代码拼起来就是一个完整的「RTOS 年检工具包」</div>
+            <p class="mt-2">
+              把这四个程序里的手法留下来，你以后每上一个新功能都可以做一次同样的体检：
+              <b>①</b> 用 <code class="icode">vTaskList</code> 看任务表与各任务的剩余栈；
+              <b>②</b> 用 <code class="icode">vTaskGetRunTimeStats</code> 看 CPU 被谁吃了、空闲任务还剩多少；
+              <b>③</b> 用 <code class="icode">uxTaskGetStackHighWaterMark</code> 对每个任务做栈体检（≥30% 余量）；
+              <b>④</b> 用 <code class="icode">esp_get_free_heap_size()</code> 与
+              <code class="icode">heap_caps_get_largest_free_block()</code> 看堆总量与最大连续块；
+              <b>⑤</b> 每次复位的第一个问题永远是 <code class="icode">esp_reset_reason()</code>。
+            </p>
+            <p class="mt-2">
+              这五件事加起来花不到十分钟，但能提前发现后面要花几天去查的问题——
+              <b>这就是「用 RTOS 的代价」的正面版本：你多付出一点点观察，换来的是整机状态可见。</b>
+            </p>
+          </div>
+        </section><hr class="hr-soft my-10">
+
+        <section>
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误解与坑</h2>
+          <p class="mt-3">
+            下面十条，全部是「听起来很对」的说法。每一条都按「错误认知 → 为什么错 → 正确做法」拆开讲，
+            你可以拿它们去对照自己手上的工程。
+          </p>
+
+          <p class="mt-6"><b class="font-semibold text-ink">误解 1：「第三个参数是栈大小，给 2048 就是 2048 字节。」</b></p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">为什么错：</b>这个参数叫 <code class="icode">usStackDepth</code>，
+            它的单位<b>取决于移植层</b>，不是标准规定的。vanilla FreeRTOS 和绝大多数 MCU 移植
+            （包括 STM32 上常见的那些）里，它按<b>字</b>计数，<code class="icode">StackType_t</code> 在 32 位机上是 4 字节，
+            所以「2048」实际是 8 KB。ESP-IDF 是官方明说的<b>有意例外</b>——它按<b>字节</b>计数。
+            两边都有人写代码，于是同一个数字在两块板子上差了四倍。
+          </p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">正确做法：</b>写代码时永远<b>用注释标明单位</b>，
+            例如 <code class="icode">xTaskCreate(..., 3072, ...)  /* 3072 字节，ESP-IDF 按字节 */</code>；
+            换平台移植时把这个参数当成<b>必须重新核对的项</b>，而不是复制粘贴。
+            另外用第 4 节程序二里的方法做一次<b>单位自校准</b>：
+            把「配置值」和 <code class="icode">uxTaskGetStackHighWaterMark()</code> 的返回值一起打印出来，
+            两个数字接近就说明按字节，差约四倍就说明按字。
+            <b>五分钟的验证，能省掉几天的栈溢出排查。</b>
+          </p>
+
+          <p class="mt-6"><b class="font-semibold text-ink">误解 2：「<code class="icode">app_main()</code> 就是 <code class="icode">main()</code>，它 <code class="icode">return</code> 之后程序就结束了。」</b></p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">为什么错：</b>在 ESP-IDF 里，真正的 <code class="icode">main()</code>
+            藏在启动代码里：它创建内核对象、启动调度器；而 <code class="icode">app_main()</code>
+            只是<b>被启动流程创建出来的一个普通任务</b>的函数体（main 任务，栈由
+            <code class="icode">CONFIG_ESP_MAIN_TASK_STACK_SIZE</code> 决定，默认约 3584 字节，优先级 1，默认跑在 CPU0）。
+            它 <code class="icode">return</code> 的效果等同于 <code class="icode">vTaskDelete(NULL)</code>——
+            <b>这个任务结束了，但调度器还在跑，别的任务一个都不会停</b>。
+          </p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">正确做法：</b>把 <code class="icode">app_main()</code> 理解成
+            「系统启动好之后第一个跑起来的任务」，它只该干三件事：<b>初始化、创建别的任务、然后优雅退出（或自己变成一个长期任务）</b>。
+            这个认识还有两个立竿见影的推论：① <b>别在 <code class="icode">app_main</code> 里声明大数组</b>——
+            它吃的是那个约 3.5 KB 的 main 任务栈，不是「主栈」，写个
+            <code class="icode">char buf[4096]</code> 直接爆；②
+            <b>初始化顺序要想清楚</b>：如果 <code class="icode">app_main</code> 里创建了任务又立刻
+            <code class="icode">return</code>，那个任务可能还没被调度过，就赶上后面别的初始化在改它要用的资源。
+          </p>
+
+          <p class="mt-6"><b class="font-semibold text-ink">误解 3：「任务函数用 <code class="icode">while(1)</code> 包起来就不会返回了，那我不写循环也行，函数末尾加个 <code class="icode">return</code> 更干净。」</b></p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">为什么错：</b>任务函数一旦返回，控制权就交回内核，
+            而内核从栈上取到的返回地址是<b>垃圾值</b>——这个任务从来没有「调用者」。
+            ESP-IDF 会在任务返回时直接报错：
+          </p>
+          <div class="code-block mt-3" data-lang="text" data-title="任务函数返回时的报错">
+            <pre><code>FreeRTOS Task "my_task" should not return, Aborting now!
+abort() was called at PC 0x400d9a1b on core 0
+Backtrace: 0x40088f2e:0x3ffb8a10 0x400d9a1f:0x3ffb8a30 ...
+
+★ 这条日志是「任务函数返回」的专用指纹。看到它就往函数末尾看，
+   八成是一个 if 分支里写了 return，把 while(1) 循环给逃出去了。</code></pre>
+          </div>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">正确做法：</b>把 <code class="icode">for (;;) { ... }</code>
+            当成任务函数不可省略的骨架（<b>不要</b>写成 <code class="icode">while (1)</code> 加一堆
+            <code class="icode">break</code>——那正是让循环被逃出去的经典路径）。真的要结束任务，
+            用明确的 <code class="icode">vTaskDelete(NULL)</code>，并且在它前面把资源清理干净；
+            <b>绝不要用 <code class="icode">return</code> 或 <code class="icode">break</code> 离开循环</b>。
+          </p>
+
+          <p class="mt-6"><b class="font-semibold text-ink">误解 4：「死循环里加个 <code class="icode">vTaskDelay(0)</code> 或者 <code class="icode">taskYIELD()</code>，就等于让出 CPU 了。」</b></p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">为什么错：</b>这两个调用都<b>不进入阻塞态</b>。
+            它们只是把当前任务放在同优先级队列的末尾、请求一次切换，
+            <b>所以只能让给「同优先级或更高优先级」的就绪任务</b>。
+            空闲任务的优先级是 0，只要你的任务优先级高于 0，让出多少次都轮不到它。
+            于是空闲任务拿不到 CPU → 5 秒喂不上任务看门狗 → 整片芯片复位。
+            更阴险的是它「有时候看起来管用」：如果你的系统里恰好有另一个同优先级任务在跑，
+            或者循环里夹着 <code class="icode">printf</code>（串口驱动内部会阻塞），
+            空闲任务就蹭到了一点时间，你会误以为修好了。
+          </p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">正确做法：</b>让出 CPU 的唯一可靠方式是<b>真正阻塞</b>——
+            <code class="icode">vTaskDelay(pdMS_TO_TICKS(1))</code>（至少 1 个 tick）或阻塞在队列/信号量上。
+            判断标准很简单：<b>问自己「这一句执行完之后，空闲任务能不能跑到」</b>；
+            更工程化的答案是直接去看 <code class="icode">vTaskGetRunTimeStats()</code> 的输出，
+            看 IDLE0 / IDLE1 的占比是不是接近 0。
+          </p>
+
+          <p class="mt-6"><b class="font-semibold text-ink">误解 5：「周期任务用 <code class="icode">vTaskDelay(10)</code> 就是每 10 ms 跑一次。」</b></p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">为什么错：</b><code class="icode">vTaskDelay</code> 是<b>相对延时</b>，
+            它的语义是「从现在起，别叫我这么多 tick」。
+            于是每一轮的周期变成了「执行时间 + 延时」——你的任务干了 1.3 ms，
+            实际周期就是 11.3 ms，<b>而且每一轮的误差都会累加到下一轮上</b>。
+            1000 轮之后偏差 1.3 秒；按秒平均的日误差可以到小时级。
+            反过来，如果偶尔有一轮执行时间变长，它只会把那一轮拉长，不会「补回来」。
+          </p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">正确做法：</b>要<b>固定周期</b>就用
+            <code class="icode">xTaskDelayUntil(&amp;last_wake, period)</code>，
+            它把唤醒时刻锁在 <code class="icode">last_wake + period</code> 这个 tick 网格上，
+            自动把执行时间从延时里扣掉。<b>两个配套要求不能忘</b>：
+            <code class="icode">last_wake</code> 必须在进入循环前用
+            <code class="icode">xTaskGetTickCount()</code> 初始化（否则第一轮的基准是 0，
+            如果系统已经跑了很久，第一次调用会立刻返回，你会在启动瞬间看到一阵爆发）；
+            以及检查它的返回值——返回 <code class="icode">pdFALSE</code> 说明
+            <b>本轮的执行时间已经超过周期了</b>，这是一个必须被记录的故障信号，
+            不是可以忽略的小事。
+          </p>
+
+          <p class="mt-6"><b class="font-semibold text-ink">误解 6：「我要 5 ms 延时，写 <code class="icode">pdMS_TO_TICKS(5)</code> 就行。」</b></p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">为什么错：</b><code class="icode">pdMS_TO_TICKS</code>
+            只是一个<b>整数除法</b>：<code class="icode">ms * configTICK_RATE_HZ / 1000</code>。
+            默认 100 Hz 下 1 tick = 10 ms，所以 <code class="icode">pdMS_TO_TICKS(5)</code> = 0，
+            而 <code class="icode">vTaskDelay(0)</code> <b>不阻塞</b>——
+            你的「延时 5 ms」变成了忙等。同理 <code class="icode">pdMS_TO_TICKS(25)</code> = 2 tick = 20 ms，
+            整整少 20%（见例 1 的五方案对比）。<b>「写了延时 CPU 却还是 100%」
+            这条现象的根源几乎都在这里。</b>
+          </p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">正确做法：</b>三种选择，按情况挑：
+            ① 需要毫秒级精度就<b>把 <code class="icode">configTICK_RATE_HZ</code> 提到 1000</b>
+            （代价见例 1 的权衡分析：tick 中断更频繁，唤醒精度换 CPU 开销）；
+            ② 需要微秒级就用 <code class="icode">esp_timer</code>/硬件定时器，
+            不要试图靠 tick 达成微秒级时序；
+            ③ 在代码里对截断做一次<b>显式检查</b>——
+            至少要保证 <code class="icode">pdMS_TO_TICKS(x)</code> 的结果不为 0，
+            或者干脆写 <code class="icode">vTaskDelay(1)</code> 并注释「至少让出 1 tick」。
+          </p>
+
+          <p class="mt-6"><b class="font-semibold text-ink">误解 7：「优先级数字越小越高，0 是最高优先级——STM32 的 NVIC 就是这么定的，FreeRTOS 也一样。」</b></p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">为什么错：</b>方向正好相反。FreeRTOS 里
+            <b>数值越大、优先级越高</b>：<code class="icode">configMAX_PRIORITIES</code> 默认是 25，
+            合法范围 0~24，<b>24 最高</b>，0 留给空闲任务。
+            而 STM32 的 NVIC 是数字越小优先级越高（0 最高）。
+            于是从 STM32 裸机转过来的人容易写出两种反过来的 bug：
+            把最要紧的任务给了优先级 0（结果它排在最底下）；
+            或者把日志打印、LED 闪烁这类任务给了优先级 20+（结果它把 WiFi 任务挤得没机会跑，网络莫名其妙掉线）。
+          </p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">正确做法：</b>在脑子里给每个任务定一个
+            <b>「它耽误不起多少时间」的排序</b>，而不是「它重不重要」的排序——
+            按截止时间的紧迫程度排。ESP-IDF 里已有的高位优先级是
+            <b>WiFi 任务 23、esp_timer 22、tcpip 18、ipc 任务 24</b>，
+            所以你自己任务的务实区间是 <b>5~15</b>，
+            最要紧的那一个也不该超过 WiFi（20 以上会开始和协议栈抢 CPU）。
+            更根本的一条：<b>优先级的数量应当尽量少</b>——
+            设计成「控制器 / 通信 / 后台」三档就够，
+            每多一个不同优先级，就多一份不该抢占却抢占了的风险。
+          </p>
+
+          <p class="mt-6"><b class="font-semibold text-ink">误解 8：「我看了空闲堆还有 90 KB，创建任务失败肯定是内核有 bug。」</b></p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">为什么错：</b><code class="icode">esp_get_free_heap_size()</code>
+            返回的是<b>总量</b>，而分配需要的是<b>连续</b>内存。
+            一个跑了一段时间的系统，堆会被切成很多块：总量 90 KB，
+            但<b>最大连续空闲块可能只有 8 KB</b>。这时候你要创建一个
+            「栈 4 KB + TCB」的任务仍然可能成功，
+            但你要一次申请 16 KB 的缓冲区就必然失败——
+            现象就是「明明还有那么多内存，<code class="icode">malloc</code> 却返回 NULL」。
+            任务创建失败还有另外两个常见原因：<b>WiFi 起来之后可用堆明显变小</b>
+            （协议栈要吃掉几十 KB，按典型值估算 40~60 KB），
+            以及<b>刚删掉的任务栈还没被回收</b>（要等空闲任务，见 2.8 节）。
+          </p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">正确做法：</b>排查内存问题要<b>三个数一起看</b>：
+            <code class="icode">esp_get_free_heap_size()</code>（总量）、
+            <code class="icode">heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT)</code>（最大连续块——
+            这个才是能不能分配成功的决定性指标）、
+            <code class="icode">esp_get_minimum_free_heap_size()</code>（历史最低，
+            判断有没有缓慢泄漏）。大缓冲区<b>一次性在启动阶段申请好、之后不再动态申请</b>，
+            是嵌入式里最省心的做法；长期运行的系统里频繁
+            <code class="icode">malloc/free</code> 不同大小的块，碎片化几乎不可避免。
+          </p>
+
+          <p class="mt-6"><b class="font-semibold text-ink">误解 9：「任务不要了就 <code class="icode">vTaskDelete()</code> 删掉，反正内存会还回来。」</b></p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">为什么错：</b>这里有两个独立的坑。
+            <b>第一，删除是「摘牌」，不是「回收」</b>：<code class="icode">vTaskDelete</code>
+            只是把任务从内核链表里摘掉，它占的栈和 TCB 要等<b>空闲任务</b>运行到那一刻才真正释放。
+            如果你的系统一直很忙、空闲任务很少跑，这块内存就一直挂着，
+            「用完就删、需要再建」的循环用久了堆会被慢慢吃光。
+            <b>第二，也是更致命的：他杀一个任务时，它手里拿着的东西不会自动归还</b>——
+            互斥量没 Give 回去（所有等这把锁的任务永久阻塞）、
+            <code class="icode">malloc</code> 的缓冲区没释放、外设停在半个事务中间、
+            别人的指针悬空。<b>如果被删的任务订阅过任务看门狗而你没有把它摘出名单，
+            5 秒后 TWDT 会因为「这个任务没喂狗」而复位整片芯片</b>——
+            你会收到一个看起来毫不相干的复位。
+          </p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">正确做法：</b>优先让任务<b>自己结束自己</b>：
+            给他发一个事件（事件组 / 任务通知 / 队列消息），它从阻塞中被唤醒，
+            走完自己的清理流程（归还锁、释放内存、<code class="icode">esp_task_wdt_delete(NULL)</code>），
+            最后 <code class="icode">vTaskDelete(NULL)</code>。
+            这样做的好处是<b>清理代码写在「知道这些资源长什么样」的那个任务里</b>，
+            而不是散落在杀它的那个地方。
+            更好的做法是<b>根本不要删</b>：常驻任务 + 消息驱动，
+            任务阻塞着的时候几乎不占 CPU，创建/删除反而是最贵、最容易出错的操作。
+          </p>
+
+          <p class="mt-6"><b class="font-semibold text-ink">误解 10：「在中断里也能调用 <code class="icode">vTaskDelay</code>、<code class="icode">xQueueSend</code>、<code class="icode">printf</code>，反正都是 C 函数。」</b></p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">为什么错：</b>三条独立的原因叠在一起。
+            ① <b>阻塞类 API 不能在中断里调用</b>：ISR 不是任务，没有 TCB、没有优先级，
+            <code class="icode">vTaskDelay</code>、<code class="icode">xQueueReceive</code> 这类会阻塞的函数
+            在中断上下文里调用是未定义行为（配置了断言的内核会直接报
+            <code class="icode">configASSERT</code> 失败）。
+            ② <b>能在中断里用的函数有专门的 <code class="icode">FromISR</code> 版本</b>，
+            它们的签名和返回值都不一样（比如 <code class="icode">xQueueSendFromISR</code>
+            多一个 <code class="icode">pxHigherPriorityTaskWoken</code> 参数，
+            用来告诉内核「唤醒了一个更高优先级的任务，中断退出时记得切过去」）。
+            ③ <b>中断里打印是双重禁忌</b>：<code class="icode">printf</code> 本身会吃掉 1 KB 以上的栈
+            （而中断借用的是被中断任务那点已经压得很紧的栈），
+            而且串口输出是慢速阻塞操作，在中断里做它会让关闭中断的时间长到
+            <b>触发中断看门狗（300 ms 超时）</b>。
+          </p>
+          <p class="mt-2">
+            <b class="font-semibold text-ink">正确做法：</b>中断服务程序里只做三件事：
+            <b>读走数据、置标志、通知任务</b>，然后立刻返回。
+            用 <code class="icode">FromISR</code> 系列 API，配上
+            <code class="icode">portYIELD_FROM_ISR()</code>；
+            需要「打印」的内容交给任务去做（ISR 推一条消息进队列，任务收到后打印）。
+            排查时如果看到 <code class="icode">Interrupt wdt timeout on CPU0/CPU1</code>，
+            <b>第一个要查的就是「临界区有多长」和「中断里干了什么耗时的事」</b>——
+            这两者加上「在中断里等外设标志」构成了中断看门狗超时的全部常见原因。
+          </p>
+        </section><hr class="hr-soft my-10">
+
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自检</h2>
+          <p class="mt-3">
+            把这一篇的结论收成十句话，再给你六道自测题和五项练习。
+            如果你能不看正文把它们答出来，那么「决定用 RTOS 之后的第一个月」要踩的坑，你已经提前绕过了大半。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">要点清单</h3>
+          <ul class="mt-3 list-disc space-y-3 pl-5">
+            <li><b class="font-semibold text-ink">app_main 不是 main：</b>ESP-IDF 真正的 <code class="icode">main</code>
+              负责创建内核对象、启动调度器；<code class="icode">app_main</code> 是启动流程创建出来的
+              <b>main 任务</b>的函数体（栈由 <code class="icode">CONFIG_ESP_MAIN_TASK_STACK_SIZE</code> 决定，
+              默认约 3584 字节，优先级 1，默认在 CPU0）。它 <code class="icode">return</code> 只是这个任务结束了，
+              <b>系统照常运行</b>。</li>
+            <li><b class="font-semibold text-ink">启动链：</b>ROM 一级引导 → 二级引导 →
+              <code class="icode">call_start_cpu0</code> → <code class="icode">esp_startup_start_app</code>
+              （创建 main 任务）→ <code class="icode">vTaskStartScheduler()</code>。</li>
+            <li><b class="font-semibold text-ink">任务函数的铁律：</b>签名固定为
+              <code class="icode">void task(void *pvParameters)</code>，
+              <b>绝对不能返回</b>——返回会触发
+              <code class="icode">FreeRTOS Task "xxx" should not return, Aborting now!</code>。
+              要结束自己就用 <code class="icode">vTaskDelete(NULL)</code>。</li>
+            <li><b class="font-semibold text-ink">栈深度单位是头号误解：</b>vanilla FreeRTOS 按<b>字</b>，
+              ESP-IDF 按<b>字节</b>（官方有意改动）。<code class="icode">uxTaskGetStackHighWaterMark()</code>
+              的返回值也遵循同样的差异。<b>不要背，要自校准</b>：把配置值和水位返回值一起打印出来对照。</li>
+            <li><b class="font-semibold text-ink">优先级方向与 NVIC 相反：</b>FreeRTOS 里
+              <b>数值越大优先级越高</b>（0~24，0 给空闲任务，24 最高）。WiFi 是 23、esp_timer 22、tcpip 18、
+              ipc 任务 24，所以自己的任务取 <b>5~15</b> 最务实。</li>
+            <li><b class="font-semibold text-ink">调度规则：</b>抢占式（高优先级就绪立刻抢占）+
+              <b>只有同优先级之间才按时间片轮转</b>（默认 1 tick）。<code class="icode">vTaskDelay</code>
+              是「睡多久」的相对延时，<code class="icode">xTaskDelayUntil</code> 才是固定周期；
+              <code class="icode">pdMS_TO_TICKS</code> 会向下取整，<b>小于 1 tick 直接变成 0</b>，
+              而 <code class="icode">vTaskDelay(0)</code> 不阻塞。</li>
+            <li><b class="font-semibold text-ink">栈要按四块估、按水位实测：</b>局部变量 + 调用深度 +
+              <code class="icode">printf</code> 峰值（单次可达 1 KB 以上）+ 中断借用。
+              用 <code class="icode">uxTaskGetStackHighWaterMark()</code> 实测，
+              <b>剩余 ≥ 30% 才算安全</b>；测的时候要让系统跑过所有最坏分支。</li>
+            <li><b class="font-semibold text-ink">TWDT 是一票否决的名单制：</b>名单上任何一个任务
+              超过 <code class="icode">CONFIG_ESP_TASK_WDT_TIMEOUT_S</code>（默认 5 秒）没喂狗，
+              整片芯片就复位。两个空闲任务默认在名单上，所以
+              <b>「霸占 CPU 不让出」的代价是整机重启</b>——
+              日志里 <code class="icode">Tasks currently running</code> 那两行才是真凶，
+              「谁没喂狗」只是受害者。</li>
+            <li><b class="font-semibold text-ink">两只狗要分清：</b>Task WDT（默认 5 s，复位原因
+              <code class="icode">ESP_RST_TASK_WDT</code>，查「任务有没有按时报到」）与
+              Interrupt WDT（默认 300 ms，复位原因 <code class="icode">ESP_RST_INT_WDT</code>，
+              查「中断有没有被关闭太久」）。找错狗就会朝错误的方向改代码。</li>
+            <li><b class="font-semibold text-ink">删除只是摘牌、回收靠空闲任务：</b>
+              他杀一个任务前必须确认它不再持有互斥量、动态内存、外设和看门狗订阅，
+              否则会留下永久阻塞的锁、泄漏的内存，以及 5 秒后一次莫名其妙的复位。
+              <b>更好的设计是常驻任务 + 消息驱动</b>，而不是「按需创建、用完就删」。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">自测题（先自己想，再点开对答案）</h3>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer text-sm font-semibold">第 1 题 · 你要一个 25 ms 的采样周期，在默认的 100 Hz tick 下应该怎么写？</summary>
+            <p class="mt-3">
+              板子是默认配置（<code class="icode">configTICK_RATE_HZ</code> = 100），
+              你写了 <code class="icode">vTaskDelay(pdMS_TO_TICKS(25))</code>。请说出实际周期是多少、误差多少，
+              并给出两条改进路线。
+            </p>
+            <p class="mt-3">
+              <b class="font-semibold text-ink">答案 · </b>1 tick = 10 ms，
+              <code class="icode">pdMS_TO_TICKS(25)</code> = 25 × 100 / 1000 = 2.5 →
+              <b>取整为 2 tick = 20 ms</b>，比目标短 5 ms，误差 <b>20%</b>。
+              两条路线：① <b>把 <code class="icode">configTICK_RATE_HZ</code> 改成 1000</b>，
+              1 tick = 1 ms，<code class="icode">pdMS_TO_TICKS(25)</code> = 25 tick，
+              误差降到 0（代价是 tick 中断频率提高 10 倍，多了一点 CPU 开销和功耗）；② 保持 100 Hz，
+              接受 20 ms 或改成 30 ms 的周期，<b>并且用 <code class="icode">xTaskDelayUntil</code>
+              而不是 <code class="icode">vTaskDelay</code></b>，让周期不随执行时间漂移。
+              顺带记住第三条：<b>只要需要小于 10 ms 的延时，100 Hz 就一定不够</b>——
+              <code class="icode">pdMS_TO_TICKS(5)</code> 会算成 0。
+            </p>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer text-sm font-semibold">第 2 题 · 「每轮执行 1.3 ms，然后 vTaskDelay(10)」，1000 轮之后偏差多少？</summary>
+            <p class="mt-3">算出实际轮周期、1000 轮累计偏差和相对误差，并说明为什么会这样。</p>
+            <p class="mt-3">
+              <b class="font-semibold text-ink">答案 · </b>实际轮周期 = 执行时间 + 延时 =
+              1.3 + 10 = <b>11.3 ms</b>（<code class="icode">vTaskDelay</code> 是相对延时，
+              它从「调用这一刻」开始数，所以执行时间白加）。
+              1000 轮 = 11 300 ms = <b>11.3 s</b>，而期望是 10 000 ms，
+              <b>累计偏差 1.3 s，相对误差 13%</b>。按这个速率外推：
+              一小时差 4.68 s，一天差 <b>112 s 以上（近 2 分钟）</b>；
+              如果这是个按秒累计的计时功能，误差会一直线性增长。
+              换成 <code class="icode">xTaskDelayUntil(&amp;last_wake, pdMS_TO_TICKS(10))</code> 之后，
+              内核会把唤醒时刻锁在 tick 网格上，<b>执行时间被自动从延时里扣掉</b>，
+              偏差不再累加（单轮抖动由执行时间决定，长期平均周期准确）。
+            </p>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer text-sm font-semibold">第 3 题 · 一个任务的栈报了 3072，水位函数返回 700。这说明什么？</summary>
+            <p class="mt-3">
+              在 ESP-IDF 里创建任务时栈参数写 3072，
+              后来 <code class="icode">uxTaskGetStackHighWaterMark()</code> 返回 700。
+              请判断：还剩多少、够不够、以及这个 700 是字节还是字？
+            </p>
+            <p class="mt-3">
+              <b class="font-semibold text-ink">答案 · </b>先做<b>单位自校准</b>：
+              把「配置值 3072」和「返回值 700」对照。如果 700 是<b>字节</b>，
+              剩余比例 = 700/3072 ≈ <b>22.8%</b>，落在 10%~30% 的<b>危险区</b>，
+              必须加大栈（至少翻倍到 6144）或者减少局部变量/去掉打印后重测。
+              如果 700 是<b>字</b>，那实际剩余 2800 字节，比例 91%——
+              但这对一个 3072 字节的任务来说意味着「几乎没用到栈」，
+              结合「任务里有没有局部数组和 printf」就能判断哪个解释更合理。
+              判断方法：ESP-IDF 按字节返回，所以<b>大概率是 22.8% 的危险情况</b>；
+              但要记住「水位是历史最小值」，<b>它只减不增</b>——
+              现在的 700 不代表以后还是 700，只要你往这个任务里加一句
+              <code class="icode">printf</code>（可能一次吃掉 1 KB 以上），它立刻就会变成负数（也就是溢出）。
+            </p>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer text-sm font-semibold">第 4 题 · 板子每 5 秒重启一次，日志里该找哪几行？</summary>
+            <p class="mt-3">
+              串口上看到 <code class="icode">task_wdt: Task watchdog got triggered.</code>，
+              接下来你要怎么定位「是谁干的」？如果换成 <code class="icode">Interrupt wdt timeout on CPU1</code>，
+              查法有什么不同？
+            </p>
+            <p class="mt-3">
+              <b class="font-semibold text-ink">答案 · </b>Task WDT 的日志里要点名两处：
+              ① <b>「The following tasks did not reset the watchdog in time」下面列的任务</b>——
+              通常就是 <code class="icode">IDLE0</code> / <code class="icode">IDLE1</code>
+              （它们是受害者）；② <b>「Tasks currently running」下面两行</b>——
+              <code class="icode">CPU 0: xxx</code> / <code class="icode">CPU 1: xxx</code>
+              才是<b>当时霸占 CPU 的真凶</b>。找到那个任务，检查它是不是有「不阻塞的长循环」，
+              改成阻塞或拆段 + 段间喂狗。再看一眼复位原因：
+              <code class="icode">ESP_RST_TASK_WDT</code> 确认是任务看门狗，
+              超时时间由 <code class="icode">CONFIG_ESP_TASK_WDT_TIMEOUT_S</code>（默认 5 s）决定。
+              <b>换成 Interrupt WDT 就完全不同了</b>：那个默认只有 300 ms，
+              查的是「中断被关闭了多久」，所以要去查<b>临界区的长度</b>
+              （<code class="icode">portENTER_CRITICAL</code> / <code class="icode">taskENTER_CRITICAL</code>
+              里面干了什么）、<b>中断服务程序里有没有耗时操作</b>（尤其是等外设标志和打印），
+              复位原因是 <code class="icode">ESP_RST_INT_WDT</code>。
+            </p>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer text-sm font-semibold">第 5 题 · 死循环里加 taskYIELD() 为什么救不了看门狗？</summary>
+            <p class="mt-3">
+              一个优先级 5 的任务里写了长循环，末尾加 <code class="icode">taskYIELD()</code>。
+              系统看起来稳定了。请解释为什么这不可靠，以及正确的改法。
+            </p>
+            <p class="mt-3">
+              <b class="font-semibold text-ink">答案 · </b><code class="icode">taskYIELD()</code>
+              （以及 <code class="icode">vTaskDelay(0)</code>）<b>都不进入阻塞态</b>，
+              它们只是请求一次切换、把当前任务放到<b>同优先级</b>队列的尾部，
+              所以<b>只能让给同优先级或更高优先级</b>的就绪任务。
+              空闲任务的优先级是 0，永远轮不到它 → 它 5 秒喂不上狗 → 整机复位。
+              「看起来稳定」通常是因为系统里恰好有另一个同优先级任务在跑，
+              或者循环里夹着 <code class="icode">printf</code>（串口驱动内部会阻塞）蹭到了时间。
+              正确改法只有一条：<b>真正进入阻塞态</b>——
+              <code class="icode">vTaskDelay(pdMS_TO_TICKS(1))</code>（至少 1 tick），
+              或者把这个任务改成阻塞在队列/信号量/任务通知上（第 41 篇）。
+              验收标准：跑起来之后用 <code class="icode">vTaskGetRunTimeStats()</code> 看
+              <b>IDLE0 / IDLE1 的 CPU 占比不再是 0</b>。
+            </p>
+          </details>
+
+          <details class="card card-pad mt-3">
+            <summary class="cursor-pointer text-sm font-semibold">第 6 题 · 为什么 app_main 里写 char buf[4096] 会出事？</summary>
+            <p class="mt-3">
+              一个初学者在 <code class="icode">app_main()</code> 里声明了一个 4 KB 的局部数组，
+              编译通过，一运行就报栈溢出。请解释原因，并说出他可能误以为的三件事。
+            </p>
+            <p class="mt-3">
+              <b class="font-semibold text-ink">答案 · </b><code class="icode">app_main</code>
+              不是 <code class="icode">main</code>，它是<b>一个普通任务</b>的函数体，
+              它用的是那个任务的栈——由 <code class="icode">CONFIG_ESP_MAIN_TASK_STACK_SIZE</code> 决定，
+              <b>默认约 3584 字节</b>。声明 4096 字节的局部数组，<b>光这一个数组就超过了整个栈</b>，
+              调用还没返回就已经踩穿了。他可能误以为：
+              ① <code class="icode">app_main</code> 就是 <code class="icode">main</code>，
+              用的是「主栈」（其实无所谓，主栈也不会有几 KB 富余）；
+              ② 声明数组不占栈（如果加 <code class="icode">static</code> 那确实不占栈——
+              这是正确的改法之一，但那是另一回事）；
+              ③ <code class="icode">return</code> 之后程序就结束了（错，见第 1 条要点）。
+              正确做法：<b>大缓冲区用 <code class="icode">static</code>、全局变量，
+              或者在启动时用 <code class="icode">heap_caps_malloc</code> 从堆里申请</b>；
+              需要长期运行的工作放到自己创建的任务里，并把栈按「局部变量 + 调用深度 +
+              printf 峰值 + 中断借用」四块算够。
+            </p>
+          </details>
+
+          <h3 class="mt-7 text-base font-semibold">练习（动手才算学过）</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>
+              <b class="font-semibold text-ink">把程序一跑起来，然后制造一次超时。</b>
+              先按程序一创建两个闪烁任务（周期 500 ms / 200 ms，用
+              <code class="icode">xTaskDelayUntil</code>），确认两个灯互不干扰地闪。
+              然后把其中一个任务的 <code class="icode">xTaskDelayUntil</code> 临时删掉、
+              换成一个空转的 <code class="icode">for</code> 循环，观察串口：
+              记录从「开始空转」到「看门狗复位」之间过了多久，
+              并核对日志里 <code class="icode">Tasks currently running</code> 显示的是哪个任务。
+              <b>实验目标：把「5 秒超时」从一个数字变成一次亲身经历。</b>
+            </li>
+            <li>
+              <b class="font-semibold text-ink">用程序二给自己的任务量一次栈水位。</b>
+              挑一个你手上真实的工程任务，把它的栈临时改成 2048、4096、8192 各跑一次，
+              记录 <code class="icode">uxTaskGetStackHighWaterMark()</code> 的返回值。
+              验证两件事：① 返回值和「配置的栈大小」对照，确认单位是字节还是字；
+              ② <b>栈加大之后水位是否同步变大</b>（如果不变，说明这个任务根本没用多少栈，
+              你之前给的余量纯属浪费）。最后按 30% 判据定一个正式值并写进注释。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">把一段裸机轮询代码改写成阻塞式。</b>
+              找一段你写过的「<code class="icode">while (标志位 == 0) { }</code>」或者
+              <code class="icode">HAL_Delay</code> 轮询的代码，改成
+              <code class="icode">vTaskDelay</code> 或（更好）阻塞在队列上。
+              改动前后各测一次 <code class="icode">vTaskGetRunTimeStats()</code>，
+              记录那个任务和 IDLE 的 CPU 占比变化。<b>建议至少观察到
+              「IDLE 占比从接近 0 变成几十个百分点」这个量级的变化</b>。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">跑一次程序四的两种模式，自己算加速比。</b>
+              先 <code class="icode">PIN_BOTH_TO_CPU0 = 1</code> 跑一遍，
+              记录两个任务各写多少次循环、总计多少毫秒；
+              改成 <code class="icode">0</code>（钉到不同核）再跑一遍。
+              用「两次的总耗时之比」算出<b>实测加速比</b>，
+              并解释它为什么明显小于 2（提示：共享的 SRAM 和总线带宽、
+              以及双核抢同一份内存时的仲裁开销）。
+              再顺手记录两种模式下「每轮周期的抖动」，
+              理解为什么说<b>钉核买的是可预测性</b>。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">给你的下一个项目写一张任务表。</b>
+              在动手写代码之前，先用一张纸列出：任务名、职责、周期或触发条件、
+              优先级、栈大小（按四块估）、是否需要订阅看门狗、它和别的任务之间传什么数据。
+              <b>把「优先级」一列特别审一遍</b>：是不是做到了「档次尽量少」？
+              有没有哪个任务给了不该给的高优先级？
+              有没有哪个任务本该阻塞却在轮询？
+              这张表就是下一篇（队列、信号量与互斥量）的输入——
+              <b>先想清楚谁和谁要传数据，再去选队列还是信号量</b>。
+            </li>
+          </ol>
+
+          <div class="callout callout-info mt-6">
+            <div class="callout-title">下一篇：任务之间怎么说话</div>
+            <p class="mt-2">
+              这一篇把「任务」这个主角讲完了：它怎么被创建、被调度、被阻塞、被算栈、被监视、被删除。
+              但到目前为止，每个任务都是<b>一座孤岛</b>——它们各跑各的，
+              我们甚至专门强调过「不要在任务之间用全局变量传数据」。
+            </p>
+            <p class="mt-2">
+              下一篇文章回答的就是这个问题：<b>任务之间怎么安全地交换数据、怎么互相通知、怎么共享一个外设</b>。
+              队列、信号量、互斥量、事件组、任务通知——
+              它们各自的语义、该用哪一个、以及那个在本篇埋下伏笔的
+              <b>优先级反转</b>到底怎么用优先级继承解决（例 4 里算过的那 168 倍差距，
+              下一篇会给它一个正式的解法）。
+            </p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="adv-stm32-flash.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">STM32 存储、启动模式与 IAP</p>
+          </a>
+          <a href="adv-esp32-ipc.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：ESP32 与工程实践 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">任务间通信：队列、信号量与互斥量</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

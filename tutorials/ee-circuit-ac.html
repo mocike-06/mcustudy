@@ -1,0 +1,2191 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>正弦稳态与频域入门 - McuStudy</title>
+  <meta name="description" content="电路理论第五篇：把正弦量讲成三要素，把三要素讲成相量，把相量讲成阻抗，把阻抗讲成波特图。有效值与峰峰值的关系、超前与滞后、R/L/C 的阻抗表达式、RLC 串联谐振与品质因数、并联谐振、低通高通带通、傅里叶级数为什么说方波含高次谐波，以及它们在 PWM 转模拟量、抗混叠滤波、晶振负载电容、开关电源 EMI 和示波器测量上的真实落点。">
+  <meta name="keywords" content="正弦稳态,三要素,有效值,RMS,峰峰值,相位差,超前滞后,相量法,阻抗,导纳,RLC串联谐振,谐振频率,品质因数Q,通频带,并联谐振,频率响应,波特图,低通滤波器,高通滤波器,带通,傅里叶级数,方波谐波,PWM转模拟量,抗混叠滤波,采样定理,晶振负载电容,开关电源EMI,示波器测占空比,真有效值">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">正弦稳态与频域入门</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          正弦稳态与频域入门
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你让 TIM 输出一个 20kHz、占空比 50% 的 PWM。它是数字信号，只有 3.3V 和 0V 两种状态，看起来再简单不过。可是当你把万用表接上去，同一根线上能读出<b class="font-semibold text-ink">四个互不相同的数字</b>：DC 档 1.650V，普通表的 AC 档 1.832V，真有效值表的 AC 档 1.650V，AC+DC 档 2.332V。<b class="font-semibold text-ink">四个数字没有一个是错的</b>，它们只是在对这根线问四个不同的问题。这一篇就是把「问的是哪个问题」讲清楚——从正弦量的三要素开始，到相量、阻抗、谐振、波特图，最后到傅里叶级数，回答那个看似玄学的问题：<b class="font-semibold text-ink">一个只有高低两态的数字信号，为什么可以用 RC 滤波变成任意模拟电压</b>。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="badge-brand">第 1 层 · 学科基础</span>
+          <span class="stat-pill">电路理论 第 <b>5</b> 篇</span>
+          <span class="stat-pill">第 1 层 · 电路理论</span>
+          <span class="stat-pill">教材：<b>邱关源《电路》第 5 版 第 8、9、11 章</b></span>
+          <span class="stat-pill">阅读约 <b>38</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-sine">正弦量的三要素</a>
+          <a class="toc-link is-sub" href="#sub-rms">有效值 RMS 与峰峰值</a>
+          <a class="toc-link is-sub" href="#sub-phase">相位差：超前与滞后</a>
+          <a class="toc-link is-sub" href="#sub-phasor">相量法：把正弦量变成复数</a>
+          <a class="toc-link is-sub" href="#sub-impedance">阻抗与导纳：R、L、C 的脾气</a>
+          <a class="toc-link is-sub" href="#sub-resonance">谐振：串联、并联与品质因数</a>
+          <a class="toc-link is-sub" href="#sub-bode">频率响应与波特图</a>
+          <a class="toc-link is-sub" href="#sub-fourier">傅里叶级数：正弦的叠加</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-sine">正弦量的三要素</a>
+            <a class="toc-link is-sub" href="#sub-rms">有效值 RMS 与峰峰值</a>
+            <a class="toc-link is-sub" href="#sub-phase">相位差：超前与滞后</a>
+            <a class="toc-link is-sub" href="#sub-phasor">相量法：把正弦量变成复数</a>
+            <a class="toc-link is-sub" href="#sub-impedance">阻抗与导纳：R、L、C 的脾气</a>
+            <a class="toc-link is-sub" href="#sub-resonance">谐振：串联、并联与品质因数</a>
+            <a class="toc-link is-sub" href="#sub-bode">频率响应与波特图</a>
+            <a class="toc-link is-sub" href="#sub-fourier">傅里叶级数：正弦的叠加</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              这一篇是《电路》系列的第 5 篇。前面四篇讲的是直流和动态过程，
+              从这里开始，我们把「时间」换成「频率」，用一副新眼镜看同一块电路。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先说清这一篇要解决什么困惑。你已经会算欧姆定律、会用 <code class="icode">τ = RC</code> 算充放电时间，那套工具的前提是<b class="font-semibold text-ink">电压和电流都不随时间变</b>（直流）或者<b class="font-semibold text-ink">只关心一个瞬间</b>（动态过程）。可是单片机板子上跑得最多的信号，既不是直流、也不是一次性跳变，而是<b class="font-semibold text-ink">周期性地来回变化</b>的信号：PWM、时钟、晶振、开关电源的开关波形、串口线上的电平跳变。对这类信号，你原来的工具会突然失灵——不是算错，而是<b class="font-semibold text-ink">根本不知道该算哪个数</b>。</p>
+
+          <p class="mt-3">最典型的就是开头那个例子。你在 <code class="icode">TIM2_CH1</code> 上输出 20kHz、占空比 50%、幅值 3.3V 的 PWM，然后把万用表接到这根线上：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="同一根 PWM 线上的四个数字（占空比 50%，幅值 3.3V）">
+            <pre><code>【电路】STM32 TIM2_CH1 ────┬──── 一根线，什么也没接
+                          │
+                        万用表（红表笔）
+
+【读数】你会看到四个都不一样的数字，而且都对：
+
+   万用表档位                            读数       这个数字的物理含义
+   ─────────────────────────────────────────────────────────────────────
+   DC 电压档（直流）                    1.650V     波形的【平均值】= 直流分量
+   普通表 AC 档（平均值响应 + 隔直）     1.832V     ✗ 不是这个信号的有效值
+   真有效值表 AC 档（隔直电容后）        1.650V     交流分量的有效值
+   真有效值表 AC+DC 档                   2.332V     整个波形的【总有效值】
+   示波器看 Vpp                          3.300V     峰峰值
+
+【四个数字怎么来的？】
+
+   Vdc   = 3.3V × 50%              = 1.650V   ← 占空比 D 乘幅值，一次乘法
+   Vrms  = 3.3V × √50%  = 3.3×0.7071 = 2.332V   ← 注意是 √D，不是 D
+   Vrms_ac = √(Vrms² − Vdc²) = √(2.332² − 1.650²) = 1.650V
+   普通表 AC 档 = Vdc × 1.11（它偷偷乘了正弦的波形因数）
+                = 1.650 × 1.11 = 1.832V   ← 对正弦准，对 PWM 错 11%
+
+【为什么这四个数字要命？】
+
+   · 你要用 PWM + RC 滤波做一个 0~3.3V 的模拟输出 → 关心的是 Vdc（平均值）
+   · 你要算这个信号在电阻上的发热功率 P = U²/R     → 必须用 Vrms（总有效值）
+   · 你要用万用表判断「这个 PWM 是不是真的有输出」   → 必须知道普通表 AC 档
+                                                     在非正弦下会骗你
+   · 你要用 ADC 采样这个信号并算它的功率            → 算法必须是平方和开方，
+                                                     不能取平均
+
+   一根线上四个数字，四个都对，只是回答的问题不同。
+   【频域】这套知识，就是教你分清「在问哪个问题」。</code></pre>
+          </div>
+
+          <p class="mt-3">这四个数字只是开胃菜。真正让人卡住的是下面这些场景——它们的共同点是：<b class="font-semibold text-ink">用直流的直觉怎么想都想不通，换成频率的视角一眼就明白了</b>。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>你会遇到的现象</th><th>直流视角下想不通的地方</th><th>真正的原因（本篇哪一节讲）</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>PWM 加 RC 滤波，能做出一块「DAC」输出任意电压</td>
+                  <td>输入只有 0V 和 3.3V 两个值，输出怎么能是 1.23V 这种连续值？</td>
+                  <td>PWM 的傅里叶级数里有一个直流分量 <b>正好等于 D×幅值</b>，RC 把其余交流分量滤掉了 → <a class="text-brand-600 dark:text-brand-300" href="#sub-fourier">傅里叶级数</a></td>
+                </tr>
+                <tr>
+                  <td>改一下占空比，输出要等半秒才稳定；电容加大，等得更久</td>
+                  <td>「电压到位」应该是瞬间的事</td>
+                  <td>滤波器的<b>截止频率</b>和<b>时间常数</b>是一枚硬币的两面：<code class="icode">fc = 1/(2πRC)</code>，纹波越小、响应越慢 → <a class="text-brand-600 dark:text-brand-300" href="#sub-bode">波特图</a></td>
+                </tr>
+                <tr>
+                  <td>ADC 读数一直在跳，示波器上能看到 20kHz 的锯齿</td>
+                  <td>传感器输出明明是平的</td>
+                  <td>PWM 的高次谐波耦合进来了，而 ADC 前面没有<b>抗混叠低通</b> → <a class="text-brand-600 dark:text-brand-300" href="#sub-fourier">采样与抗混叠</a></td>
+                </tr>
+                <tr>
+                  <td>两个一模一样的晶振电路，其中一个串口总有偶发乱码</td>
+                  <td>晶振频率不是印在上面吗？8MHz 就是 8MHz</td>
+                  <td>晶振实际频率由<b>负载电容</b>决定，电容差几 pF，频率差几十 ppm，波特率就偏了 → <a class="text-brand-600 dark:text-brand-300" href="#sub-resonance">谐振</a></td>
+                </tr>
+                <tr>
+                  <td>开关电源一工作，旁边收音机就沙沙响；EMI 测试总在某个频点超标</td>
+                  <td>开关频率才 500kHz，收音机是几十 MHz，怎么会互相干扰？</td>
+                  <td>方波的谐波一直延伸到很高的频率，上限由<b>上升时间</b>决定，不是开关频率 → <a class="text-brand-600 dark:text-brand-300" href="#sub-fourier">方波为什么含高次谐波</a></td>
+                </tr>
+                <tr>
+                  <td>高频信号必须走短线，长一点的杜邦线 SPI 就出错</td>
+                  <td>导线电阻接近 0，压降可以忽略</td>
+                  <td>导线有<b>寄生电感</b>，阻抗是 <code class="icode">ωL</code>，随频率上升；频率越高越像「断路」→ <a class="text-brand-600 dark:text-brand-300" href="#sub-impedance">阻抗</a></td>
+                </tr>
+                <tr>
+                  <td>继电器一吸合，单片机就复位；加个 RC 吸收就好了</td>
+                  <td>「加电容就好了」是玄学</td>
+                  <td>触点和线圈产生的<b>宽频谱尖峰</b>，RC 吸收的本质是给高频分量一条低阻抗通路 → <a class="text-brand-600 dark:text-brand-300" href="#sub-impedance">阻抗</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一篇在整个知识体系里的位置</div>
+            <p>《电路》系列前四篇铺的路是这样的：<b>基尔霍夫定律与元件约束</b>（第 1 篇）让你会列方程；<b>等效与定理</b>（第 3 篇）让你会化简网络；<b>一阶动态电路</b>（第 4 篇）让你第一次面对「随时间变化」，但只处理了一次性的跳变。</p>
+            <p class="mt-2">这一篇要换一副眼镜：<b>不再盯着时间轴看波形，而是看这个电路对不同频率的信号分别做了什么</b>。这套语言就是「频域」。它是后面所有模拟电路的地基——滤波器、运放、电源、EMC，全部建立在阻抗和频率响应这两个概念上。所以这一篇值得慢慢读，尤其是<a class="text-brand-600 dark:text-brand-300" href="#sub-phasor">相量法</a>和<a class="text-brand-600 dark:text-brand-300" href="#sub-bode">波特图</a>这两节。</p>
+          </div>
+
+          <p class="mt-3">这一篇的路线是：先用<a class="text-brand-600 dark:text-brand-300" href="#sub-sine">三要素</a>把「正弦量」描述清楚，再用<a class="text-brand-600 dark:text-brand-300" href="#sub-rms">有效值</a>解决「到底该看哪个数字」，然后用<a class="text-brand-600 dark:text-brand-300" href="#sub-phasor">相量法</a>把三角函数变成复数（这是全篇最关键的思维跳跃），接着用<a class="text-brand-600 dark:text-brand-300" href="#sub-impedance">阻抗</a>让 R、L、C 都变成「广义的电阻」，于是<a class="text-brand-600 dark:text-brand-300" href="#sub-resonance">谐振</a>和<a class="text-brand-600 dark:text-brand-300" href="#sub-bode">波特图</a>就都成了简单代数。最后用<a class="text-brand-600 dark:text-brand-300" href="#sub-fourier">傅里叶级数</a>把这一切接回数字信号，解释 PWM、时钟和 EMI 的真实行为。</p>
+
+          <p class="mt-3">读的时候请把一句话记在脑子里：<b class="font-semibold text-ink">电路对不同的频率，反应是不一样的；而任何信号，都可以拆成一群不同频率的正弦。</b>这两句话合起来，就是频域分析的全部思想。</p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+          <p class="mt-4">这一节是全篇的主体，八个知识点一环扣一环。<b class="font-semibold text-ink">建议按顺序读</b>：三要素是描述正弦量的「坐标系」，有效值是它的「计价单位」，相位差是「两个正弦怎么比较」，相量法把这三件事打包成复数，阻抗让 R/L/C 都能用复数表示，于是谐振和波特图只是代数运算，傅里叶级数则把这套工具从「一个频率」推广到「所有频率」。</p>
+
+          <h3 id="sub-sine" class="mt-7 text-base font-semibold">正弦量的三要素：幅值、角频率、初相</h3>
+          <p class="mt-3">正弦交流电的标准表达式长这样，请把它当成一个「模板」，后面所有公式都是往里面填参数：</p>
+          <p class="mt-3"><code class="icode">u(t) = Um · sin(ωt + φ)</code></p>
+          <p class="mt-3">这个式子里的三个参数，就是<b class="font-semibold text-ink">正弦量的三要素</b>。知道了它们三个，这条曲线在任意时刻的值就完全确定了；反过来，只要你说清了这三个数，就等于说清了整条曲线——这一点是相量法能成立的根基。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="正弦量的三要素：一条曲线上的三个参数">
+            <pre><code>            u(t) = Um · sin(ωt + φ)
+
+        u ▲
+          │            ╭──╮                      ╭──╮
+     Um ──┼─ ─ ─ ─ ─╭─╯  ╰─╮─ ─ ─ ─ ─ ─ ─ ─ ─╭─╯  ╰─╮─ ─ ← ① 幅值 Um
+          │        ╭─╯      ╰─╮              ╭─╯      ╰─╮     （最高点的高度）
+          │      ╭─╯          ╰─╮          ╭─╯          ╰─╮
+      0 ──┼────╯────────────────╰──╮──────╯────────────────╰──► t
+          │                       ╰─╮  ╭─╯
+    −Um ──┼─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─╰──╯─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+          │
+          │◄────────── T = 1/f ──────────►│                  ② 周期 T
+          │  （相邻两个同方向过零点的距离）                     ω = 2π/T = 2πf
+
+          t = 0 这一刻波形离「刚过零点向上」的位置差多少，
+          就是 ③ 初相 φ（单位 rad 或 度）。差一个相位 = 差一段时间：
+                   时间偏移 = φ / ω = φ · T / (2π)
+
+【逐个说清楚，含单位】
+
+  ① 幅值 Um   单位 V（电压）或 A（电流）
+      · 又叫「峰值」「振幅」。它是曲线离开横轴的最大距离，永远取正值。
+      · 峰值 Um 和峰峰值 Vpp 差一倍：Vpp = 2Um。示波器上量到的通常是 Vpp。
+
+  ② 角频率 ω  单位 rad/s（弧度每秒）
+      · 它描述「转多快」。一个完整周期对应 2π 弧度，所以 ω = 2πf = 2π/T。
+      · 频率 f 单位 Hz，周期 T 单位 s。三个量知道一个就知道其余两个。
+      · 容易混：ω 是弧度制，f 是圈数制，差一个 2π。凡是和 ω 相乘的
+        一定是 rad，凡是和 f 相乘的一定是 Hz。工程算错十有八九是这里。
+
+  ③ 初相 φ    单位 rad 或 °
+      · 它描述「起点在哪」，不是「起点多高」。同一个起点高度对应两个相位
+        （上升段和下降段各一个），所以只报高度不能确定相位。
+      · 工程上常把 φ 限制在 −180° ~ +180°（或 0 ~ 360°），超出的部分加/减
+        360° 即可，因为正弦是周期函数。
+      · φ = 0 时波形从零点向上起步，这就是「标准正弦 sin(ωt)」。</code></pre>
+          </div>
+
+          <p class="mt-3">举两个你天天在用的例子，把三要素落到位：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>信号</th><th>幅值 Um</th><th>频率 f / 角频率 ω</th><th>初相 φ</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>市电插座（中国）</td>
+                  <td>311V（注意：铭牌上的 220V 是有效值，不是幅值）</td>
+                  <td>f = 50Hz，ω = 2π×50 = <b>314 rad/s</b></td>
+                  <td>参考量，约定 φ = 0</td>
+                </tr>
+                <tr>
+                  <td>无源晶振 8MHz 的振荡波形（近似正弦）</td>
+                  <td>约 1V 峰峰值（按 STM32 的 HSE 典型驱动能力估算，具体看芯片）</td>
+                  <td>f = 8MHz，ω = 2π×8×10<sup>6</sup> ≈ <b>5.03×10<sup>7</sup> rad/s</b></td>
+                  <td>由起振过程决定，稳态下是固定值</td>
+                </tr>
+                <tr>
+                  <td>音频测试信号 1kHz</td>
+                  <td>1V（单端 2Vpp）</td>
+                  <td>f = 1kHz，ω = 2π×1000 = <b>6283 rad/s</b></td>
+                  <td>通常取 φ = 0 作参考</td>
+                </tr>
+                <tr>
+                  <td>50Hz 工频干扰（从电源线耦合进来的）</td>
+                  <td>几 mV ~ 几百 mV，取决于耦合路径</td>
+                  <td>f = 50Hz，ω = 314 rad/s</td>
+                  <td>与你电路的相位关系不确定，会漂移</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一个你会用一辈子的换算：10ms 的周期是多少频率？</div>
+            <p>中国市电是 50Hz，周期 <code class="icode">T = 1/50 = 0.02s = 20ms</code>。所以一秒钟 50 个周期，<b>半个周期正好 10ms</b>。这就是为什么很多单片机项目里出现「10ms 定时中断」——它天然地和工频同步，可以方便地做「整数个工频周期」的测量，从而把 50Hz 干扰平均掉。反过来，如果你在代码里看到有人用 20ms 做 AD 采样间隔，那不是随手写的，那是<b>一个工频周期</b>。</p>
+          </div>
+
+          <h3 id="sub-rms" class="mt-7 text-base font-semibold">有效值 RMS 与峰峰值：为什么是 0.707 倍</h3>
+          <p class="mt-3">先解决那个最基础也最容易含糊的问题：<b class="font-semibold text-ink">「220V 交流电」里的 220V，指的是什么？</b>不是峰值（峰值是 311V），也不是平均值（一个完整周期的平均值是 0V），而是<b class="font-semibold text-ink">有效值</b>（RMS，Root Mean Square，均方根）。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">有效值的定义（从物理效果出发，别背公式）：</b>如果一个交流电压加在电阻上产生的发热功率，和某个直流电压加在同一个电阻上产生的发热功率相等，那么这个直流电压的数值就叫该交流电压的有效值。所以有效值是<b class="font-semibold text-ink">一个「等价直流」的数值</b>——它存在的唯一意义就是「能和直流对比」，因为功率计算、器件选型、绝缘耐压全都按这一套来。</p>
+          <p class="mt-3">顺着这个定义往下推，就得到计算公式。发热功率正比于电压的<b class="font-semibold text-ink">平方</b>，所以要先把瞬时值平方，再在一个周期内取平均（得到平均功率），最后开方还原回电压量纲。这三步就是名字里的三个字：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="有效值的推导：平方 → 平均 → 开方">
+            <pre><code>【定义式】    Vrms = √( (1/T) ∫₀ᵀ v(t)² dt )      ← 平方、平均、开方
+
+【为什么正弦出来是 1/√2 ≈ 0.707】
+
+   设 v(t) = Um · sin(ωt)，先平方：
+
+       v(t)² = Um² · sin²(ωt)
+
+   用三角恒等式 sin²x = (1 − cos2x) / 2 展开：
+
+       v(t)² = Um² · [ 1 − cos(2ωt) ] / 2
+             = Um²/2  −  (Um²/2)·cos(2ωt)
+               └──┬──┘    └────────┬────────┘
+            恒定不变的直流     一个两倍频率的正弦
+            （平均值就是它）   （一整周期平均 = 0）
+
+   对一个周期取平均：
+
+       平均值(v²) = Um²/2
+
+   再开方：
+
+       Vrms = √(Um²/2) = Um/√2 = 0.7071 · Um      ★ 结论
+
+【关键点：sin² 的平均值是 1/2】
+
+   直觉上「正弦有正有负，平均是 0」，但【平方之后永远是正的】，
+   所以平方的平均值不是 0，而是峰值平方的一半。
+   这就是 0.707 这个数字的全部来源 —— 它来自 sin² 的平均值，
+   是一个纯粹的数学结论，不掺任何工程修正。
+
+【三个电压量的关系（只对正弦成立）】
+
+   峰值  Um     = √2 · Vrms  = 1.414 · Vrms
+   有效值 Vrms  = Um / √2    = 0.707 · Um
+   峰峰值 Vpp   = 2 · Um     = 2√2 · Vrms = 2.828 · Vrms
+
+   ⚠ 这三个换算关系【只对正弦波成立】。方波、三角波、PWM 各有各的
+     系数，第 3 节会给你算 PWM 的（是 √D，不是 0.707）。</code></pre>
+          </div>
+
+          <p class="mt-3">把它代入你关心的几个数字，做一张随身可查的换算表：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>信号</th><th>有效值</th><th>峰值</th><th>峰峰值</th><th>备注</th></tr></thead>
+              <tbody>
+                <tr><td>中国市电</td><td><b>220V</b></td><td>311V</td><td>622V</td><td>选耐压元件要按峰值 311V 算，不是 220V</td></tr>
+                <tr><td>欧洲市电</td><td>230V</td><td>325V</td><td>650V</td><td>同理</td></tr>
+                <tr><td>单电源 3.3V 供电、偏置在 1.65V 的正弦</td><td><b>1.167V</b></td><td>1.65V</td><td>3.3V</td><td>这是 3.3V 系统里能产生的最大正弦：摆幅被电源轨卡死</td></tr>
+                <tr><td>1Vrms 音频测试信号</td><td>1.000V</td><td>1.414V</td><td>2.828V</td><td>需要 ±5V 以上的电源才能不失真</td></tr>
+                <tr><td>幅值 3.3V、占空比 50% 的 PWM（方波）</td><td><b>2.332V</b></td><td>3.3V</td><td>3.3V</td><td>⚠ 不适用 0.707，方波用 Vrms = Um·√D</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">两个必须分清的「平均值」</div>
+            <p><b>① 正弦量的平均值是 0，但「整流后的平均值」不是 0。</b>测量仪器里说的「平均值响应」指的是<b>先整流（取绝对值）再平均</b>。正弦全波整流后的平均值是 <code class="icode">0.637·Um</code>，而它的有效值是 <code class="icode">0.707·Um</code>，两者之比 <code class="icode">0.707/0.637 = 1.11</code> 就是正弦波的<b>波形因数</b>。</p>
+            <p class="mt-2"><b>② 廉价万用表的 AC 档是「平均值响应 + 按正弦标定」。</b>它内部的电路只做「整流后取平均」，但表盘上的刻度是乘了 1.11 的，好让它对正弦读数正确。所以只要波形不是正弦，它的读数就是错的——对占空比 50% 的 PWM 会多报 11%（1.832V 而不是 1.650V）。要测非正弦的真有效值，必须用带「True RMS」标识的表，它的芯片是真的在做平方和开方。</p>
+          </div>
+
+          <h3 id="sub-phase" class="mt-7 text-base font-semibold">相位差：超前与滞后到底在说什么</h3>
+          <p class="mt-3">三要素里的初相 φ，单独看没什么意思——单独一个正弦量的初相取决于你把 t=0 定在哪里，换个起点 φ 就变了。它的价值在<b class="font-semibold text-ink">比较</b>：同一电路里，电压和电流是两个同频率的正弦量，它们之间的相位之差是<b class="font-semibold text-ink">由电路元件决定的、不随你选的起点变化的</b>量。这个差值就叫相位差。</p>
+          <p class="mt-3"><code class="icode">φ = φ_u − φ_i</code>（单位：度或弧度）</p>
+          <p class="mt-3">注意一个前提：<b class="font-semibold text-ink">相位差只对同频率的两个正弦量有定义</b>。一个 50Hz 的电压和一个 20kHz 的电流之间谈「相差多少度」是没有意义的，因为它们之间的时间差在不停地变（等效相位差每秒变 19950 个周期）。这是新手最容易忽略的前提。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="超前与滞后：相位差 φ 的三种情况">
+            <pre><code>【直觉】相位差 = 两条曲线的「错位量」，用角度衡量，一个周期 = 360°
+
+     u, i
+      ▲
+      │      ╭──╮ u（电压，参考，φ_u = 0°）
+      │    ╭─╯  ╰─╮
+      │  ╭─╯      ╰─╮
+    0 ┼─╯───────────╰─╮──────────╭──╮─────────► t
+      │  ╭──╮         ╰─╮      ╭─╯  ╰─╮
+      │ ╯  ╰─╮ i（电流） ╰─╮  ╭─╯      ╰─╮
+      │      ╰─╮          ╰──╯          ╰──
+      │        ╰──╯
+      │◄ T/4 ►│
+      │
+      └─ i 的波峰比 u 的波峰【早】出现 T/4，即 90°
+         → 我们说「电流超前电压 90°」（或「电压滞后电流 90°」）
+
+【三种情况的说法】
+
+   ① 同相    φ = 0°     两个量的波峰波谷同时到达
+                        （纯电阻电路：u 和 i 同相）
+
+   ② 超前    φ &gt; 0°     电压的波峰【先】到，电流的波峰后到
+                        「电压超前电流 φ 度」
+                        纯电感电路：u 超前 i 90°
+
+   ③ 反相    φ = 180°   一个到波峰时另一个正好到波谷
+                        （相位差 180° 就是完全反过来）
+
+   补充：φ 的正负号和「谁是参考」有关。工程上习惯把电压当参考，
+        所以常说「电流超前电压」「电流滞后电压」。
+        说「电感上电压超前电流 90°」和「电感上电流滞后电压 90°」
+        是同一句话，两句话都常见，别被绕晕。
+
+【「超前」是时间上的提前，不是数值上的更大】
+
+   φ_u = +90°、φ_i = 0°
+   → 电压在 t = 0 时已经处在「相位 90°」的状态（波峰），
+     电流要到 t = T/4 才到波峰。
+   → 所以电压在时间上【早】了 T/4。这就是「超前」的全部含义。
+
+【相位差换时间差】Δt = (φ/360°) × T
+
+   例：50Hz 电压与电流相差 30°（T = 20ms）
+       Δt = (30/360) × 20ms = 1.667ms
+   例：8MHz 时钟与数据相差 45°（T = 125ns）
+       Δt = (45/360) × 125ns = 15.6ns
+       ← 这就是 SPI 的时钟极性与相位（CPOL/CPHA）在讨论的东西！</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么「相位」在数字电路里也绕不开</div>
+            <p>你可能觉得相位差是模拟电路的事。其实 SPI 的四种模式（Mode 0~3）就是由 <code class="icode">CPOL</code>（时钟空闲电平）和 <code class="icode">CPHA</code>（在第几个边沿采样）两个位决定的——翻译成模拟语言，这就是<b>数据相对时钟的相位关系</b>。采样点落在时钟的上升沿还是下降沿、数据提前半个周期还是滞后半个周期，本质就是 0° 还是 90°/180° 的差别。所以「超前/滞后」这套语言，在你调 SPI、I2C 时序时天天在用，只是换了个名字。</p>
+          </div>
+
+          <h3 id="sub-phasor" class="mt-7 text-base font-semibold">相量法：把正弦量变成复数</h3>
+          <p class="mt-3">到这里，我们已经能完整描述一个正弦量了。但要做运算就麻烦了：两个同频率的正弦量相加，你得用积化和差把 <code class="icode">A·sin(ωt+φ₁) + B·sin(ωt+φ₂)</code> 展开成一堆三角函数——算一次还行，算一个电路里十几个回路就完全没法做了。</p>
+          <p class="mt-3">相量法就是为了解决这件事。它的核心观察只有一句话：<b class="font-semibold text-ink">在同一个电路里，所有正弦量的角频率 ω 都是同一个（电源给的），所以在运算过程中 ω 其实是个「公共因子」，可以暂时不写。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="相量法为什么成立：旋转向量与它的投影">
+            <pre><code>【几何图像】一个正弦量 = 一个匀速旋转的向量，在某个轴上的投影
+
+                     Im
+                      ▲
+                      │         ● U̇ = Um∠φ   （t = 0 时的位置）
+                      │       ╱
+                      │     ╱   Um（向量的长度 = 幅值）
+                      │   ╱
+                      │ ╱ φ（与实轴的夹角 = 初相）
+            ──────────┼────────────────────► Re
+                      │
+                      │  ← 这个向量以 ω 的角速度【逆时针匀速旋转】
+
+   旋转过程中，它在虚轴上的投影随时间的变化就是 Um·sin(ωt + φ)。
+   （同一个向量在实轴上的投影是 Um·cos(ωt + φ)，所以工程上也常用 cos 定义，
+     两者只差 90°，不影响任何计算。）
+
+【为什么可以「不写 ω」】
+
+   设 u₁(t) = Um₁·sin(ωt + φ₁)，u₂(t) = Um₂·sin(ωt + φ₂)
+
+   用旋转向量表示：
+        u₁(t) = Im{ Um₁ · e^{j(ωt + φ₁)} } = Im{ (Um₁·e^{jφ₁}) · e^{jωt} }
+                                        └──────┬──────┘  └───┬───┘
+                                        只和幅值/初相有关  所有信号【都一样】
+        u₂(t) = Im{ (Um₂·e^{jφ₂}) · e^{jωt} }
+
+   求 u₁ + u₂：
+        u₁ + u₂ = Im{ [ Um₁·e^{jφ₁} + Um₂·e^{jφ₂} ] · e^{jωt} }
+
+   注意 e^{jωt} 是公共因子，加完之后还在那里，一步都没参与运算。
+   于是问题从「三角函数的加法」变成了「两个复数的加法」。
+
+【相量的记法与约定】
+
+   余弦/正弦量              →     相量（复数）
+   ────────────────────────────────────────────────────────
+   u(t) = Um·sin(ωt + φ)          U̇m = Um∠φ      （幅值相量）
+   u(t) = √2U·sin(ωt + φ)         U̇  = U∠φ       （有效值相量，工程常用）
+
+   两种相量只差一个 √2 的倍数，只要【全篇用同一种】就不会错。
+   本书和大多数教材用【有效值相量】，因为它和功率计算直接对应。
+   写法上：U̇ = U∠φ = U·(cos φ + j·sin φ) = a + jb
+   三角形式 ↔ 指数形式 ↔ 代数形式，三者随时互换。
+
+【三条铁律，违反必错】
+
+   ① 只有【同频率】的正弦量才能画在同一张相量图上做加减。
+      频率不同 → 公共因子约不掉 → 相量法直接失效。
+
+   ② 相量是复数，不是向量。它有大小有方向，但要按复数规则运算
+      （乘除用模和角，加减用实部虚部）。不要拿中学的向量点积去套。
+
+   ③ 相量只携带【幅值和初相】两个信息，ω 被「藏起来」了。
+      所以做完运算写回时间表达式时，记得把 ωt 补回去。
+
+【微分变乘法：这是相量法最值钱的一条】
+
+   时域里最难算的是微分和积分。相量域里它们变成了乘除：
+
+        d
+        ── [Um·e^{j(ωt+φ)}] = jω · Um·e^{j(ωt+φ)}
+        dt
+        ↑ 每求一次导，就多乘一个因子 jω；积分则除以 jω
+
+   【物理意义】jω 就是「频率的记账员」：
+       · 高频信号（ω 大）经过微分，被放大得厉害
+       · 低频信号经过微分，几乎不变
+   这正是后面电感、电容阻抗公式的来源 ——
+   u = L·di/dt 在相量域直接写成 U̇ = jωL·İ，微分方程变成了代数方程。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">相量法给你的最大礼物：不用解微分方程了</div>
+            <p>回忆上一篇《一阶动态电路》，求 RC 电路的响应要列微分方程、求特解、求通解、代初值，四步下来半页纸。用相量法，同一个电路只需要：把电容写成 <code class="icode">1/(jωC)</code>，把它当成一个「电阻」，然后照用欧姆定律和分压公式——一次代数运算就得到稳态响应。</p>
+            <p class="mt-2">代价是：<b>相量法只给稳态解，不给暂态过程</b>。它假设电源已经接通很久了，所有「刚上电那几毫秒」的信息都在被约掉的 <code class="icode">e^{jωt}</code> 里丢掉了。所以工程上的分工是：<b>看稳态（能通过多少信号、相位差多少）用相量法；看暂态（多快建立、过冲多大）用时间常数和拉普拉斯变换</b>。这一篇只管稳态，暂态在上一篇。</p>
+          </div>
+
+          <h3 id="sub-impedance" class="mt-7 text-base font-semibold">阻抗与导纳：R、L、C 各自的表情</h3>
+          <p class="mt-3">有了相量，就可以定义整个电路分析里最有用的一个量了。<b class="font-semibold text-ink">阻抗</b>就是相量形式的「电压除以电流」：</p>
+          <p class="mt-3"><code class="icode">Z = U̇ / İ = |Z|·∠φ</code>（单位 Ω）</p>
+          <p class="mt-3">阻抗是一个复数，它同时携带两个信息：<b class="font-semibold text-ink">模 |Z| 告诉你「对电流的阻碍有多大」，幅角 φ 告诉你「电压比电流超前多少」</b>。所以阻抗是欧姆定律的升级版——它不只回答「多少」，还回答「差多少度」。它的倒数叫<b class="font-semibold text-ink">导纳</b> <code class="icode">Y = 1/Z</code>（单位 S，西门子），在并联电路里更好用。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>元件</th><th>时域关系</th><th>阻抗 Z</th><th>模 |Z|</th><th>幅角</th><th>电压 vs 电流</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>电阻 R</b></td>
+                  <td class="font-mono text-xs">u = R·i</td>
+                  <td class="font-mono text-xs">Z = R</td>
+                  <td class="font-mono text-xs">R</td>
+                  <td class="font-mono text-xs">0°</td>
+                  <td><b>同相</b>。不随频率变化，纯耗能</td>
+                </tr>
+                <tr>
+                  <td><b>电感 L</b></td>
+                  <td class="font-mono text-xs">u = L·di/dt</td>
+                  <td class="font-mono text-xs">Z = jωL</td>
+                  <td class="font-mono text-xs">ωL</td>
+                  <td class="font-mono text-xs">+90°</td>
+                  <td><b>电压超前电流 90°</b>。频率越高阻碍越大（通低频、阻高频）</td>
+                </tr>
+                <tr>
+                  <td><b>电容 C</b></td>
+                  <td class="font-mono text-xs">i = C·du/dt</td>
+                  <td class="font-mono text-xs">Z = 1/(jωC) = −j/(ωC)</td>
+                  <td class="font-mono text-xs">1/(ωC)</td>
+                  <td class="font-mono text-xs">−90°</td>
+                  <td><b>电流超前电压 90°</b>（即电压滞后）。频率越高阻碍越小（通高频、隔直流）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="相量图：三种元件的电压电流关系">
+            <pre><code>【画法约定】把电流 İ 画在水平方向（实轴上）当参考，
+            再看电压 U̇ 落在哪里。夹角就是相位差。
+
+  ① 电阻：U̇ 与 İ 同方向，夹角 0°
+
+             ▲ Im
+             │
+             │
+      ───────┼──────●───► Re     U̇ 与 İ 重合
+             │      İ, U̇
+             │
+      → 电流流过的瞬间，电压就已经建立。同相。
+      → 能量一去不回，全部变成热：这是【耗能】元件。
+
+  ② 电感：U̇ 超前 İ 90°（逆时针转 90°）
+
+             ▲ Im
+             │   ● U̇
+             │   │
+             │   │ 90°
+      ───────┼───┴──●───► Re
+             │      İ
+             │
+      → İ 想变化时，L 用感应电动势「顶住」，所以电流【滞后】。
+        口诀：【电感电流不能突变】，所以电流慢半拍，电压先行。
+      → 一个周期内能量先进去再吐出来，净耗能为 0：这是【储能】元件。
+
+  ③ 电容：U̇ 滞后 İ 90°（顺时针转 90°）
+
+             ▲ Im
+             │
+             │
+      ───────┼───┬──●───► Re
+             │   │ 90°  İ
+             │   ● U̇
+             │
+      → 电压想变化时，C 用充电电流「顶住」，所以电压【滞后】。
+        口诀：【电容电压不能突变】，所以电压慢半拍，电流先行。
+      → 同样是储能元件，净耗能为 0。
+
+【一句话记住感容的差别】
+
+   电感：电流滞后电压 ——「电流懒得动」   → 对高频是【大阻碍】
+   电容：电压滞后电流 ——「电压懒得动」   → 对高频是【小阻碍】
+
+   所以：想挡高频 → 串电感（或磁珠）；想放高频过去 → 并电容到地。
+   你板子上每一个去耦电容、每一颗磁珠，用的都是这个结论。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">串并联怎么算？规则和直流完全一样，只是改成复数运算：</b></p>
+          <p class="mt-3"><code class="icode">串联：Z = Z₁ + Z₂ + …</code>　　<code class="icode">并联：1/Z = 1/Z₁ + 1/Z₂ + …</code></p>
+          <p class="mt-3">RLC 串联电路的阻抗合起来是 <code class="icode">Z = R + j(ωL − 1/(ωC))</code>。请你盯着这个式子看几秒：<b class="font-semibold text-ink">实部永远是正的（电阻），虚部可以是正、可以是负、还可以是零</b>。虚部为零的那一刻，电路表现得像一个纯电阻——这就是下一节的谐振。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>频率</th><th>ωL 与 1/(ωC) 谁大</th><th>虚部符号</th><th>电路呈什么性</th><th>电流相对电压</th></tr></thead>
+              <tbody>
+                <tr><td>很低（接近直流）</td><td>1/(ωC) 远大于 ωL</td><td>负（−j 主导）</td><td><b>容性</b></td><td>电流超前电压</td></tr>
+                <tr><td>谐振点 ω₀</td><td>两者相等</td><td><b>0</b></td><td><b>纯电阻性</b></td><td>电流与电压同相</td></tr>
+                <tr><td>很高</td><td>ωL 远大于 1/(ωC)</td><td>正（+j 主导）</td><td><b>感性</b></td><td>电流滞后电压</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">最常见的错误：把阻抗的模直接代数相加</div>
+            <p>一个 R = 30Ω 的电阻和一个 |X<sub>L</sub>| = 40Ω 的电感串联，总阻抗<b>不是</b> 30 + 40 = 70Ω，而是 <code class="icode">|Z| = √(30² + 40²) = 50Ω</code>。因为两者相位差 90°，要按直角三角形合成（勾股定理），而不是简单相加。这个错误在算 LC 滤波器的插入损耗、算谐振电流时会让你差出百分之几十。记住：<b>只有复数能直接加，模不能直接加。</b></p>
+            <p class="mt-2">顺带记住几个特殊角度：30Ω + j40Ω → 50∠53.1°；R = X 时模是 R 的 √2 倍、角是 45°；纯电容和纯电感串联（X<sub>L</sub> = X<sub>C</sub>）时模为 0——这就是串联谐振的短路点。</p>
+          </div>
+
+          <h3 id="sub-resonance" class="mt-7 text-base font-semibold">谐振：串联谐振、并联谐振与品质因数</h3>
+          <p class="mt-3">谐振不是什么神秘现象，它就是<b class="font-semibold text-ink">感抗和容抗在某个频率上正好抵消</b>的那个状态。定义很简单：</p>
+          <p class="mt-3"><code class="icode">ω₀L = 1/(ω₀C)</code>　→　<code class="icode">ω₀ = 1/√(LC)</code>　→　<code class="icode">f₀ = 1/(2π√(LC))</code></p>
+          <p class="mt-3"><b class="font-semibold text-ink">串联谐振</b>（R、L、C 串成一条路）：谐振时虚部抵消，总阻抗只剩电阻，即 <code class="icode">Z = R</code>，是<b class="font-semibold text-ink">整个频率范围内阻抗最小</b>的点，因此电流达到最大 <code class="icode">I₀ = U/R</code>。此时电感电压和电容电压的模都是 <code class="icode">I₀·ω₀L</code>，两者大小相等、方向相反，互相抵消——但它们各自相对电源电压可能非常大，是电源电压的 Q 倍。这就是<b class="font-semibold text-ink">串联谐振过电压</b>，电力系统里要严防的事故。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">品质因数 Q</b> 衡量这个谐振「尖锐」到什么程度，它是谐振时电感（或电容）上的电压与电源电压之比：</p>
+          <p class="mt-3"><code class="icode">Q = ω₀L / R = 1/(ω₀CR) = (1/R)·√(L/C)</code>（串联电路）</p>
+          <p class="mt-3">这三个写法是等价的，用哪个方便就用哪个。<code class="icode">√(L/C)</code> 有电阻的量纲，叫<b class="font-semibold text-ink">特性阻抗 ρ</b>，它是谐振电路里一个很关键的常数。Q 越大，谐振峰越尖，选频能力越强；同时通频带越窄。</p>
+          <p class="mt-3"><code class="icode">通频带 BW = f₀ / Q</code>（单位 Hz，指幅值降到 0.707 倍之间的频率范围）</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="串联谐振的电流幅频特性：Q 值决定峰有多尖">
+            <pre><code>【曲线】横轴频率（对数刻度），纵轴是电流相对于谐振电流的倍数
+
+    I / I₀
+      ▲
+    1 ┤             ╭╮                     ← Q 大：又高又窄，选频好
+      │            ╱  ╲                       （L=10mH, C=100nF, R=10Ω
+      │           ╱    ╲                        → Q = 31.6）
+  0.707┤─ ─ ─ ─ ─╱─ ─ ─╲─ ─ ─ ─ ─ ─ ─ ─ ─  ← 半功率线（−3dB）
+      │        ╱        ╲
+      │      ╱            ╲
+      │    ╱                ╲╭──╮           ← Q 小：又矮又宽
+      │  ╱                    ╲  ╰─╮           （同 L、C，R 改成 100Ω
+      │╱                       ╲   ╰──╮         → Q = 3.16）
+      ┼────────────┬───────────╲──────╰──────► f
+      │           f₀            ╲
+      │        5.03kHz            ╲
+      │                             ╲
+      │  f₁       ◄── BW ──►      f₂
+      └──┴──────────────────────────┴──
+         BW = f₀/Q：Q = 31.6 时约 159Hz，Q = 3.16 时约 1592Hz
+
+【三个频率点各发生了什么】
+
+   · f &lt; f₀：容抗占主导 → 电路呈容性 → 电流超前电压
+   · f = f₀：感抗 = 容抗，虚部为 0 → 电路纯电阻性 → 电流最大，与电压同相
+   · f &gt; f₀：感抗占主导 → 电路呈感性 → 电流滞后电压
+
+【能量的视角：谐振时电路内部发生了什么】
+
+   谐振时，电感里的磁场能量和电容里的电场能量以 2f₀ 的频率互相转换：
+        电容放电 → 电流灌进电感（电场能 → 磁场能）
+        电感放能 → 电流给电容充电（磁场能 → 电场能）
+   两者之和恰好【保持恒定】，电源只需要补充电阻 R 消耗的那一点点。
+   所以谐振电路的「高压」不是凭空来的，是能量在 L 和 C 之间来回倒腾积累的。
+
+【并联谐振：结论正好反过来】
+
+   把 R、L、C 改成并联（或者电感与电容并联）：
+
+        理想情况（L、C 都没有损耗）：
+            谐振时并联阻抗 → 无穷大，总电流 → 0
+            （L 里的电流和 C 里的电流大小相等、方向相反，在回路里自己转圈，
+              不需要电源提供电流）
+
+        实际情况（电感线圈总有电阻）：
+            谐振时并联阻抗【最大】，总电流【最小】
+
+   ★ 记忆方法：
+        【串联看阻抗最小、电流最大；并联看阻抗最大、电流最小】
+        两者都是「L 和 C 互相抵消」的结果，只是串并联的观察角度不同。
+
+   为什么这很重要？因为它解释了两个你会天天遇到的东西：
+
+   ① 晶振。石英晶体的等效电路就是一个 RLC 串联支路再并联一个 C₀：
+             ┌──── Rm ──── Lm ──── Cm ────┐
+             │                            │
+             └──────────── C₀ ────────────┘
+      它的 Q 值可以做到几万到几十万（普通 LC 谐振最多几百），
+      所以频率极其稳定 —— 这就是为什么单片机的时钟要用晶振，
+      而不是用 LC 振荡电路。
+
+   ② 陷波与选频。收音机的选台、电源线上的 EMI 滤波器，
+      用的都是「在某个频率上阻抗特别大 / 特别小」这个特性。</code></pre>
+          </div>
+
+          <h3 id="sub-bode" class="mt-7 text-base font-semibold">频率响应与波特图：低通、高通、带通</h3>
+          <p class="mt-3">前面都是在问「某个频率下电路怎么样」。真正有用的问题是反过来问：<b class="font-semibold text-ink">这个电路，对各个频率的信号分别做了什么？</b>回答这个问题的工具叫<b class="font-semibold text-ink">频率响应</b>，画出来就是<b class="font-semibold text-ink">波特图</b>。</p>
+          <p class="mt-3">定义：<code class="icode">H(jω) = U̇out / U̇in</code>，叫<b class="font-semibold text-ink">传递函数</b>（或网络函数）。它也是一个复数，于是自然地分成两部分：</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">幅频特性 |H|</b>——输出幅度是输入的多少倍。用 <b>分贝（dB）</b> 表示：<code class="icode">dB = 20·lg|H|</code>。</li>
+            <li><b class="font-semibold text-ink">相频特性 ∠H</b>——输出相对输入相移了多少度。</li>
+          </ul>
+          <p class="mt-3">为什么要用 dB？因为放大器、滤波器常常是<b class="font-semibold text-ink">级联</b>的：多级串联时，总增益是各级增益相乘；取对数之后，乘法变成加法，直接在图上「叠加」就行。而且人耳对音量的感受、工程上对「差不多大」的判断，本来就是对数尺度的。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>|H|（倍数）</th><th>dB</th><th>通俗说法</th><th>典型用途</th></tr></thead>
+              <tbody>
+                <tr><td>1.000</td><td><b>0 dB</b></td><td>不增不减</td><td>通带的平坦区</td></tr>
+                <tr><td>0.707</td><td><b>−3.01 dB</b></td><td>半功率点（功率减半）</td><td><b>截止频率的定义点</b></td></tr>
+                <tr><td>0.500</td><td>−6.02 dB</td><td>幅度减半</td><td>一阶滤波器的 2 倍截止频率处</td></tr>
+                <tr><td>0.100</td><td>−20 dB</td><td>降到十分之一</td><td>一阶滤波器在 10 倍截止频率处</td></tr>
+                <tr><td>0.010</td><td>−40 dB</td><td>降到百分之一</td><td>二阶滤波器在 10 倍截止频率处</td></tr>
+                <tr><td>31.6</td><td>+30 dB</td><td>放大 31.6 倍</td><td>谐振峰（Q = 31.6 时的峰高）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="波特图怎么读：一阶 RC 低通（R = 1kΩ，C = 100nF，fc = 1.59kHz）">
+            <pre><code>【幅频特性】纵轴 dB，横轴频率（对数刻度）
+
+    |H| (dB)
+      ▲
+    0 ┤━━━━━━━━━━━━━━╮                    ← 通带：0dB，信号原样通过
+      │              │
+      │              │
+   −3 ┤─ ─ ─ ─ ─ ─ ─ ╳ ─ ─ ─ ─ ─ ─ ─ ─  ← ★ fc = 1.59kHz（−3dB 拐点）
+      │               ╲
+      │                ╲
+   −6 ┤                 ╲  ← 2fc = 3.18kHz，−6dB
+      │                  ╲
+      │                   ╲
+  −20 ┤                    ╲
+      │                     ╲  ← −20dB/十倍频（单极点特征斜率）
+  −40 ┤                      ╲
+      └──┬──────┬───────┬──────╲──┬──────┬─────► f
+       100Hz   fc     10fc   100fc  1kHz·10
+              1.59k  15.9k  159k
+      │         │
+      │   ◄─────┼──── 一个十倍频程下降 20dB，即 −6dB/倍频程
+      │         │
+      │   ★ 竖着看：每把频率乘以 10，纵轴就下降 20dB
+      │   ★ 横着看：斜率决定了这是「几阶」滤波
+      │         · −20 dB/十倍频 → 一阶（RC，一个储能元件）
+      │         · −40 dB/十倍频 → 二阶（LC 或两级 RC）
+      │         · −60 dB/十倍频 → 三阶
+
+【相频特性】纵轴 度，横轴同样是 log f
+
+    ∠H (°)
+      ▲
+    0 ┤━━━━━━━━╮
+      │         ╰──╮
+  −45 ┤─ ─ ─ ─ ─ ─ ╳ ─ ─ ─ ─ ─ ─ ─ ─     ← fc 处正好 −45°
+      │             ╰──╮
+  −90 ┤                ╰─────────────     ← 高频段渐近到 −90°
+      └──┬────┬────┬────┬────┬────┬───► f
+      0.1fc  fc  10fc 100fc
+      │
+      └─ 规律：一阶电路在 fc 处相移 −45°，
+         每远离 fc 十倍频，相移再走约 ±45°，
+         但【永远不到 −90°】（只能无限接近）。
+
+【读波特图的三步法（拿到任何一张图都这么做）】
+
+   第一步：看平坦区。低频段（或中频段）那条水平线的 dB 值就是通带增益。
+           0dB 表示不增不减；如果低频段是 −20dB，说明这是个衰减器或高通。
+
+   第二步：找 −3dB 拐点。从这个点垂直往下读频率，就是截止频率 fc。
+           拐点【不止一个】——LC 电路会有两个，两级 RC 也有两个。
+
+   第三步：看斜率判阶数。在远离拐点的区域量斜率的 dB/十倍频，
+           ÷20 就是阶数 n。斜率越陡，滤波越干净，但相移越大、越容易自激。
+
+【三种基本滤波器：看平坦区在哪边】
+
+   低通 LP                 高通 HP                 带通 BP
+   |H|                     |H|                     |H|
+    │━━━━━━━╮              │        ╭━━━━━━━       │      ╭╮
+    │       ╲              │      ╱                │    ╱  ╲
+    │        ╲             │    ╱                  │  ╱      ╲
+    └─────────╲──► f       └──╱──────────► f       └╱──────────╲──► f
+     低频通过，高频挡住      高频通过，低频挡住        只有中间一段通过
+
+   · 低通：RC 中电容并在【输出】侧  →  ADC 抗混叠、PWM 转模拟、去耦
+   · 高通：RC 中电容串在【输入】侧  →  隔直电容、交流耦合、去工频偏置
+   · 带通：低通 + 高通级联，或 RLC 谐振 → 选频、收音机、锁相环
+
+   还有第四种【带阻】（陷波）：只挡住中间一段，例如专门滤掉 50Hz 工频干扰。</code></pre>
+          </div>
+
+          <p class="mt-3">一阶 RC 滤波器的两个公式值得背下来，它们是你做滤波设计时的全部家当：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>类型</th><th>电路特征</th><th>截止频率</th><th>幅频 |H|</th><th>相频 ∠H</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>低通</b></td>
+                  <td>C 并在输出端（R 在前、C 在后）</td>
+                  <td class="font-mono text-xs">fc = 1/(2πRC)</td>
+                  <td class="font-mono text-xs">1/√(1+(f/fc)²)</td>
+                  <td class="font-mono text-xs">−arctan(f/fc)</td>
+                </tr>
+                <tr>
+                  <td><b>高通</b></td>
+                  <td>C 串在输入端（C 在前、R 在后）</td>
+                  <td class="font-mono text-xs">fc = 1/(2πRC)</td>
+                  <td class="font-mono text-xs">(f/fc)/√(1+(f/fc)²)</td>
+                  <td class="font-mono text-xs">90° − arctan(f/fc)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">怎么一眼看出是低通还是高通？</div>
+            <p>不用背。问自己一个问题：<b>「把频率想成 0Hz（直流），这个电路还通不通？」</b>通，就是低通；不通，就是高通。因为电容在直流下的阻抗是无穷大（相当于断路），只凭这一条就能判断：</p>
+            <p class="mt-2"><b>电容串在信号路上 → 直流过不去 → 高通（隔直电容）。</b>这就是为什么音频耦合、示波器 AC 档都用串联电容。</p>
+            <p class="mt-2"><b>电容并在信号对地上 → 直流照样过（电容断路，不影响）→ 低通。</b>这就是为什么去耦、抗混叠滤波都是「电容对地」。</p>
+            <p class="mt-2">再用「频率想成无穷大」验算一遍：电容相当于短路。串在路上的电容短路 → 信号直通（高通 ✓）；并在对地的电容短路 → 信号被拉到地（低通 ✓）。两个极端一验，电路性质绝不会搞错。</p>
+          </div>
+
+          <h3 id="sub-fourier" class="mt-7 text-base font-semibold">傅里叶级数：任何周期信号都是正弦的叠加</h3>
+          <p class="mt-3">到这里，你已经会算「一个正弦经过电路会变成什么样」。可是单片机线上的信号根本不是正弦——是方波、是 PWM、是时钟。怎么办？</p>
+          <p class="mt-3">傅里叶给了答案：<b class="font-semibold text-ink">任何周期信号，不管它的波形多奇怪，都可以分解成一个直流分量加上一族正弦波，这些正弦波的频率是原信号频率的整数倍（叫基波、二次谐波、三次谐波……），而且分解方式唯一。</b></p>
+          <p class="mt-3"><code class="icode">v(t) = a₀ + Σ Aₙ·sin(nωt + φₙ)</code>　（n = 1, 2, 3, …）</p>
+          <p class="mt-3">这个式子的物理意义，比它的数学形式重要得多。它意味着两件事：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="傅里叶级数的物理意义：把复杂信号拆成一群正弦">
+            <pre><code>【思想】把「一个复杂波形」换成「一群简单正弦的加法」
+
+   时域视角                          频域视角（同一个信号，换一种画法）
+   ───────────────────────────────  ─────────────────────────────────
+   一条方波，看起来不可分析          一根根竖线，每根代表一个频率的正弦分量
+                                    高度 = 该频率分量的幅值
+
+      ┌────┐                            Aₙ
+   ┌──┘    └──┐                         │
+   │          │──┐                  2.1V ┤  █
+   │             └────┐                 │  █
+                        └────┘          │  █        █
+                                        │  █   █    █   █   █
+                                        └──█───█────█───█───█──► f
+                                          f₀  3f₀  5f₀ 7f₀ 9f₀
+                                         （只有奇次！幅度按 1/n 衰减）
+
+【为什么「分解」这件事对工程这么有用？】
+
+   因为电路是【线性】的。线性系统有一个极强的性质（叠加定理）：
+
+       · 输入 = 分量1 + 分量2 + 分量3 + …
+       · 输出 = 电路对分量1的响应 + 对分量2的响应 + 对分量3的响应 + …
+       · 而且【各分量之间互不干扰】—— 一个频率的正弦进去，出来的还是
+         同一个频率的正弦，只是幅度和相位变了（由 H(jω) 决定）。
+
+   ★ 所以完整的分析流程变成三步：
+       ① 把输入信号分解成各个频率的正弦（傅里叶级数）
+       ② 用第 2 节的阻抗法，分别算出电路对每个频率的 H(jω)
+       ③ 把各频率的输出【叠加】起来，就得到输出波形
+
+   ★ 这就是【频域分析】的全部内容。前面学的相量、阻抗、波特图，
+     全都是为了走通第 ② 步。傅里叶级数负责第 ① 步，叠加负责第 ③ 步。
+
+【所以「滤波」这件事的准确含义是】
+
+   滤波器不产生新频率，也不消灭信号的「形状」，
+   它只是对【不同的频率分量给出不同的放大倍数】。
+
+   · 低通滤波器 = 对低频分量放大 1 倍，对高频分量放大 0（近似）
+   · 一个方波经过低通之后，高次谐波被削掉，
+     所以波形的「角」变圆了 —— 这在示波器上看起来就是边沿变缓、
+     幅度变小、甚至变成近似三角波或正弦波
+   · 一个正弦经过理想的线性电路，永远是同频率的正弦，只是幅度和相位变了
+     （★ 如果输出出现了新的频率，说明电路是非线性的，比如二极管检波、
+       过载削顶、或磁芯饱和 —— 这是一个很重要的诊断线索）</code></pre>
+          </div>
+
+          <p class="mt-3">现在来看方波。方波的傅里叶级数有一个非常干净的结果：<b class="font-semibold text-ink">只含奇次谐波，幅度按 1/n 衰减</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="方波的傅里叶级数：为什么含高次谐波">
+            <pre><code>【0 ~ V 的单极性方波（占空比 50%，例如 3.3V 的 50% PWM）】
+
+                          V
+                        ┌────┐
+                        │    │
+                        │    │
+                    0   ┘    └────
+   v(t) = V/2  +  (2V/π)·[ sin(ωt) + (1/3)·sin(3ωt) + (1/5)·sin(5ωt) + … ]
+           └─┬─┘         └─────────────────┬────────────────────────────┘
+        直流分量                       所有谐波（只有奇次）
+
+   代入 V = 3.3V（f = 20kHz）：
+
+   分量            频率        幅值          占比       物理效果
+   ─────────────────────────────────────────────────────────────────
+   直流           0Hz         1.650V        —          ★ 就是 D × V，一次乘法
+   基波（1 次）   20kHz       2.101V        100%       主要交流成分
+   3 次谐波       60kHz       0.700V        33%        ┐
+   5 次谐波      100kHz       0.420V        20%        │ 这些高次谐波
+   7 次谐波      140kHz       0.300V        14%        │ 决定了边沿有多陡
+   9 次谐波      180kHz       0.233V        11%        │ 也是 EMI 的来源
+   11 次谐波     220kHz       0.191V         9%        ┘
+   …             …            …              …
+   理论上【无限多项】，幅度按 1/n 衰减，永不截止
+
+【为什么方波需要无穷多谐波？】
+
+   因为方波的边沿是【垂直】的：du/dt = ∞。
+   而正弦的导数是有界的（最大 Um·ω）。
+   有限个正弦加起来，导数一定是有界的 —— 所以永远拼不出绝对垂直的边沿。
+
+   这是个数学必然：波形跳变越陡，需要的高频分量越多。
+   反过来，削掉高次谐波 = 把边沿变缓。两者是一回事。
+
+【有限项叠加长什么样（吉布斯现象）】
+
+   只取 1 项：        取到 3 项：         取到 9 项：        取到 ∞：
+        ╭──╮             ╭──╮             ┌──┐             ┌────┐
+      ╭─╯  ╰─╮         ╭─╯  ╰─╮        ╭──┘  └──╮       ┌──┘    └──┐
+    ──╯      ╰──      ─╯      ╰─      ──╯        ╰──    ──┘        └──
+     （正弦）          （有点方了）     （很方了）        （理想方波）
+
+   ★ 注意最后两张图：叠加项越多，波形越方，但在跳变点附近
+     总是【多出来一个过冲】，而且这个过冲不会随着项数增加而消失
+     （只会越来越窄），峰值稳定在跳变幅度的约 9%。
+     这叫【吉布斯现象】。
+
+     你在示波器上看到的时钟波形过冲，一部分来自传输线反射，
+     另一部分就是带宽受限造成的这种「拼不完整」的效果。
+
+【最关键的一条工程结论：数字信号的频率上限由上升时间决定】
+
+   理想的垂直边沿不存在。真实信号的上升时间是有限的 tr
+   （STM32 的 GPIO 在 3.3V 下，典型约 2~10ns；开漏 + 上拉能到 µs 级）。
+
+   工程上把「高次谐波衰减到不再重要」的那个频率叫【拐点频率】：
+
+                    f_knee ≈ 0.35 / tr
+
+   例：tr = 10ns   →  f_knee ≈ 0.35 / 10ns = 35MHz
+   例：tr = 100ns  →  f_knee ≈ 0.35 / 100ns = 3.5MHz
+   例：tr = 1µs    →  f_knee ≈ 0.35 / 1µs  = 350kHz
+
+   ★ 所以：一个 20kHz 的 PWM，它的有效频谱宽度是【几十 MHz】，
+     不是 20kHz！
+   ★ 所以你走的每一根线、每一个连接器、每一个过孔，
+     都要按【几十 MHz】去考虑，而不是按 20kHz。
+   ★ 所以「信号频率低就不需要管走线」是彻头彻尾的误解 ——
+     示波器探头的地线太长会看到振铃，原因就在这里。
+   ★ 所以让边沿变缓（串电阻、选压摆率低的驱动器）能显著改善 EMI，
+     因为 f_knee 被压下来了。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">一句话把全篇串起来</div>
+            <p><b>任何信号都可以拆成一群正弦（傅里叶）；电路对不同频率的正弦有不同的增益和相移（波特图）；用复数算这件事最省事（相量 + 阻抗）；而 R、L、C 的「不同增益」来源于它们各自的阻抗表达式（jωL 和 1/(jωC)）。</b></p>
+            <p class="mt-2">于是 PWM 加 RC 能变模拟量这件事就不再神秘了：<b>PWM 的傅里叶展开里第一项就是直流分量 D×V，RC 低通的通带只保留直流、把 20kHz 以上的所有谐波都压下去，剩下的当然就是那个直流电压。</b>下一节我们把这个过程算成具体数字，再看它在真实板子上长什么样。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+<!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+          <p class="mt-4">这一节四道题，全部用真实元件值和真实芯片参数。<b class="font-semibold text-ink">建议你拿张纸跟着算一遍</b>——频域这东西，看别人算十遍不如自己按一遍计算器。算完你会发现，所有公式其实只有三四个，剩下的都是代入。</p>
+
+          <h3 class="mt-7 text-base font-semibold">例题一：L = 10mH、C = 100nF 的串联谐振电路，谐振频率、Q 值和通频带</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>一个 RLC 串联电路，L = 10mH，C = 100nF，线圈和导线的总电阻 R = 10Ω。求谐振频率 f₀、谐振时的感抗、品质因数 Q、通频带 BW。如果把 R 换成 100Ω（比如电源内阻变大），Q 和 BW 变成多少？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题一解答：串联谐振的四个数字">
+            <pre><code>【第一步】写下三个公式，别的都不用记
+
+   谐振频率   ω₀ = 1/√(LC)            f₀ = ω₀/(2π)
+   品质因数   Q  = ω₀L/R = (1/R)·√(L/C)
+   通频带     BW = f₀/Q
+
+【第二步】算 LC 的乘积（这一步最容易算错数量级）
+
+   L = 10mH  = 10 × 10⁻³ H  = 10⁻² H
+   C = 100nF = 100 × 10⁻⁹ F = 10⁻⁷ F
+
+   LC = 10⁻² × 10⁻⁷ = 10⁻⁹ s²
+   √(LC) = √(10⁻⁹) = 3.162 × 10⁻⁵ s
+
+   （验算数量级：√(LC) 的单位是秒。10⁻⁵ s = 10µs，
+     对应的频率在几 kHz 量级 —— 和结果一致，说明没算错。）
+
+【第三步】谐振频率
+
+   ω₀ = 1 / (3.162 × 10⁻⁵ s) = 31623 rad/s
+   f₀ = 31623 / (2 × 3.1416) = 31623 / 6.2832 = 5032.9 Hz
+
+   ★ f₀ ≈ 5.03 kHz
+
+【第四步】谐振时的感抗和容抗（两者必然相等，用来验算）
+
+   XL = ω₀L = 31623 × 10⁻² = 316.2 Ω
+   XC = 1/(ω₀C) = 1 / (31623 × 10⁻⁷) = 1 / (3.1623 × 10⁻³) = 316.2 Ω
+                                            ↑ 相等 ✓ 说明 f₀ 算对了
+
+   顺便记住这个数：√(L/C) = √(10⁻²/10⁻⁷) = √(10⁵) = 316.2 Ω
+   它叫【特性阻抗 ρ】，和上面的 XL、XC 是同一个数。
+   谐振电路的很多结论都能用它一眼看出来。
+
+【第五步】品质因数与通频带（R = 10Ω 的情况）
+
+   Q = ω₀L / R = 316.2 / 10 = 31.6
+   BW = f₀ / Q = 5032.9 / 31.6 = 159.3 Hz
+
+   上下限频率（高 Q 时按 ±BW/2 估算）：
+       f₁ ≈ 5032.9 − 79.6 = 4953 Hz
+       f₂ ≈ 5032.9 + 79.6 = 5113 Hz
+   （精确公式 f₁,₂ = f₀·[√(1+1/(4Q²)) ∓ 1/(2Q)] 给出的结果
+     与估算值差不到 0.1%，工程上直接用 ±BW/2 即可。）
+
+   ★ Q = 31.6，BW ≈ 159 Hz —— 非常尖锐的选频特性
+
+【第六步】换成 R = 100Ω 会怎样？
+
+   Q  = 316.2 / 100 = 3.16
+   BW = 5032.9 / 3.16 = 1592.7 Hz
+
+   ★ Q 降到 1/10，通频带宽度涨到 10 倍
+   ★ 注意 f₀ 一点没变 ——【谐振频率只由 L 和 C 决定，与 R 无关】。
+     R 只改变峰的【高度和宽度】，不改变它【在哪个频率上】。
+
+【第七步：这道题真正的重点 —— 谐振过电压】
+
+   假设电源电压是 3.3V（有效值），R = 10Ω：
+
+       谐振电流 I₀ = U/R = 3.3V / 10Ω = 330mA
+
+       电感上的电压 UL = I₀ × XL = 0.33A × 316.2Ω = 104.3 V
+       电容上的电压 UC = I₀ × XC = 104.3 V（大小相等，相位相反）
+
+   ⚠⚠ 一个 3.3V 的电源，在电容两端产生了 104V 的电压！
+        整整放大了 31.6 倍 —— 正好等于 Q。
+
+   所以：串联谐振时 UL = UC = Q × U，这是【必背结论】。
+
+   【工程后果】如果你用 3.3V 的 PWM 去激励一个高 Q 的 LC 串联谐振电路
+   （比如做超声换能器驱动、无线充电线圈、或者不小心让 LC 谐振在工作频率上），
+   电容和电感的【耐压必须按 Q × U 选】。选 16V 的电容上去，
+   通电瞬间就可能击穿 —— 而且因为 Q 高、电流大，炸起来很响。
+   这是电力系统里"谐振过电压"烧设备的同一套原理。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">从这道题里抠出来的三条工程直觉</div>
+            <p><b>① f₀ 只跟 LC 有关，Q 只跟 R 有关。</b>想改频率就改 L 或 C（改一个，频率按 √ 变化：C 加倍，f₀ 变成原来的 1/√2 = 0.707 倍）；想改峰的尖钝就改 R。<b>两者互不干扰</b>，这是设计 LC 滤波器时最有用的一条解耦关系。</p>
+            <p class="mt-2"><b>② 谐振时电容和电感上的电压可以远大于电源电压。</b>放大倍数就是 Q。反过来，如果你想做「升压」，一个高 Q 的 LC 谐振回路就能做到——无线充电、超声驱动都是这个原理。</p>
+            <p class="mt-2"><b>③ 通频带和 Q 是一对矛盾。</b>Q 高 → 选频准，但只能通过很窄的一段频率（通信里的「窄带」）；Q 低 → 通带宽，但选频能力差。工程上要哪个，取决于你的目标是「只听一个台」还是「尽量不失真地传送一段频谱」。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例题二：R = 1kΩ、C = 100nF 的 RC 低通，截止频率与几个关键频点</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>一个 RC 低通滤波器，R = 1kΩ，C = 100nF。求：① 时间常数 τ；② 截止频率 f<sub>c</sub>；③ f<sub>c</sub> 处的幅度衰减和相移；④ 100Hz、15.9kHz、20kHz 三个频点各衰减多少 dB；⑤ 斜率的含义。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题二解答：一阶 RC 低通的全部数据">
+            <pre><code>【第一步】时间常数（和上一篇《一阶动态电路》同一个 τ）
+
+   τ = RC = 1000Ω × 100 × 10⁻⁹ F = 1 × 10⁻⁴ s = 100 µs
+
+【第二步】截止频率 —— 注意它和 τ 的关系是固定的
+
+   fc = 1/(2πRC) = 1/(2π × 10⁻⁴) = 1/6.2832×10⁻⁴ = 1591.5 Hz
+
+   ★ fc ≈ 1.59 kHz
+
+   记住这个换算：【fc = 1/(2πτ) = 0.159/τ】。
+   反过来说，τ = 100µs 的电路，截止频率一定在 1.59kHz，不需要重新算，
+   因为 fc 和 τ 是同一个东西的两种说法（一个是频域、一个是时域）。
+
+【第三步】fc 这一点的两个数字（定义点，必须记住）
+
+   幅度：|H| = 1/√(1 + (f/fc)²) = 1/√(1+1) = 1/√2 = 0.7071
+        → 20·lg(0.7071) = −3.01 dB      ★ 这就是「−3dB 点」的来历
+
+   相位：∠H = −arctan(f/fc) = −arctan(1) = −45°    ★ 恰好一半
+
+   物理含义：功率 = U²/R，电压降到 0.707 倍，功率正好降到 1/2。
+             所以 −3dB 点又叫【半功率点】。
+
+【第四步】三个频点（公式：|H| = 1/√(1+(f/fc)²)，dB = 20·lg|H|）
+
+   ① f = 100 Hz（比 fc 低 15.9 倍）
+        f/fc = 100/1591.5 = 0.0628
+        |H| = 1/√(1 + 0.00395) = 0.9980
+        dB  = 20·lg(0.9980) = −0.017 dB      → 几乎不衰减，原样通过
+        相移 = −arctan(0.0628) = −3.6°
+
+   ② f = 15.9 kHz（10 倍 fc）
+        f/fc = 10
+        |H| = 1/√(1 + 100) = 1/√101 = 0.0995
+        dB  = 20·lg(0.0995) = −20.04 dB      → 衰减到 1/10
+        相移 = −arctan(10) = −84.3°           → 已经很接近 −90°
+
+   ③ f = 20 kHz（要滤掉的 PWM 基波）
+        f/fc = 20000/1591.5 = 12.57
+        |H| = 1/√(1 + 157.9) = 1/12.61 = 0.0793
+        dB  = 20·lg(0.0793) = −22.0 dB       → 衰减到 1/12.6
+        相移 = −arctan(12.57) = −85.5°
+
+   ⚠ 注意 ③ 这个数字很关键：只有 −22dB，也就是只压到 1/12.6。
+     3.3V 的 PWM 基波幅值约 2.1V，除以 12.6 还剩 167mV 的纹波！
+     如果你要用它做 PWM 转模拟量，这个滤波器【远远不够】
+     （见第 4 节的取舍表）。这说明一个道理：
+     【判断滤波器够不够，要看具体频率上的衰减量，不能只看 fc】
+
+【第五步】斜率的含义
+
+   在 f 远大于 fc 的区域：|H| ≈ fc/f
+       频率乘以 10 → |H| 除以 10 → dB 减少 20
+   ★ 所以一阶 RC 滤波器的渐近斜率是【−20 dB / 十倍频】
+
+   换个说法：−20dB/十倍频 = −6dB/倍频程（频率加倍，衰减多 6dB）。
+   两个说法都对，看你的横轴习惯用哪种。
+
+   这条斜率还告诉你【阶数】：÷20 就是阶数。
+       −20 dB/十倍频 → 1 阶（一个 RC）
+       −40 dB/十倍频 → 2 阶（两级 RC，或一个 LC）
+       −60 dB/十倍频 → 3 阶
+   想更陡，就得加阶数 —— 代价是相移更大、元件更多、成本更高。
+
+【验算：时域和频域必须对得上】
+
+   τ = 100µs 意味着：阶跃输入下，输出上升到 63.2% 需要 100µs，
+   上升到 99% 需要 4.6τ = 460µs。
+
+   频域这边：100Hz 的信号周期是 10ms，远大于 460µs，
+   所以它能「跟得上」输入的变化 → 通过 ✓
+   而 20kHz 的周期是 50µs，远小于 τ = 100µs，
+   电路根本来不及响应 → 被滤掉 ✓
+
+   ★ 这就是「时间常数」和「截止频率」是同一件事的证据：
+     一个从时域看、一个从频域看，结论必须一致。</code></pre>
+          </div>
+
+          <p class="mt-3">把这道题的结论整理成一张表，以后设计 RC 滤波可以直接查这种结构：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>频率</th><th>f / f<sub>c</sub></th><th>|H| 倍数</th><th>dB</th><th>相移</th><th>这个频点上的信号会怎样</th></tr></thead>
+              <tbody>
+                <tr><td>0.1 f<sub>c</sub>（159Hz）</td><td>0.1</td><td>0.995</td><td>−0.04 dB</td><td>−5.7°</td><td>原样通过</td></tr>
+                <tr><td>0.5 f<sub>c</sub>（796Hz）</td><td>0.5</td><td>0.894</td><td>−0.97 dB</td><td>−26.6°</td><td>略微衰减</td></tr>
+                <tr><td><b>f<sub>c</sub>（1.59kHz）</b></td><td>1</td><td><b>0.707</b></td><td><b>−3.01 dB</b></td><td><b>−45°</b></td><td>半功率点，定义点</td></tr>
+                <tr><td>2 f<sub>c</sub>（3.18kHz）</td><td>2</td><td>0.447</td><td>−6.99 dB</td><td>−63.4°</td><td>衰减到 1/2.2</td></tr>
+                <tr><td>10 f<sub>c</sub>（15.9kHz）</td><td>10</td><td>0.0995</td><td>−20.0 dB</td><td>−84.3°</td><td>衰减到 1/10</td></tr>
+                <tr><td>100 f<sub>c</sub>（159kHz）</td><td>100</td><td>0.010</td><td>−40.0 dB</td><td>−89.4°</td><td>衰减到 1/100</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一阶 RC 的「速算三档」</div>
+            <p>工程上不需要每次都按计算器，记住这三档就够用：<b>0.1f<sub>c</sub> 处基本不衰减（−0.04dB）；f<sub>c</sub> 处 −3dB（0.707 倍）；10f<sub>c</sub> 处 −20dB（1/10）。</b>再往上的频点按每十倍频 −20dB 外推即可。</p>
+            <p class="mt-2">反过来的用法更重要：<b>如果你需要某个干扰频率至少衰减到 1/N，一阶 RC 需要把 f<sub>c</sub> 做到干扰频率的 1/N。</b>要衰减到 1/100，f<sub>c</sub> 就得是干扰频率的 1/100 —— 这就是一阶滤波器在强干扰场合常常不够用的原因，也是下一题要算的事。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例题三：3.3V PWM 的有效值、平均值，和万用表上的四个数字</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>STM32 输出 3.3V 幅值、20kHz 的 PWM。占空比取 50%、25%、10% 时，分别求：① 平均值 V<sub>dc</sub>；② 总有效值 V<sub>rms</sub>；③ 交流分量的有效值；④ 一块「平均值响应」的普通万用表 AC 档会读到多少；⑤ 误差有多大。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题三解答：方波（PWM）的三个电压量">
+            <pre><code>【第一步】先写三个公式 —— 方波和正弦用的是【不同】的公式
+
+   设 PWM 幅值为 V，占空比为 D（0 ~ 1）：
+
+       平均值（直流分量）    Vdc  = V × D
+       总有效值（真有效值）  Vrms = V × √D        ← ★ 是 √D，不是 D！
+       交流分量有效值        Vrms_ac = √(Vrms² − Vdc²)
+
+【为什么方波是 √D？从定义推一遍】
+
+   有效值 = 平方 → 平均 → 开方
+
+   v(t) 只有两个取值：占 D 的时间是 V，占 (1−D) 的时间是 0
+
+       平方后：            占 D 的时间是 V²，占 (1−D) 的时间是 0
+       取平均：            V² × D + 0 × (1−D) = V²·D
+       开方：              √(V²·D) = V·√D        ★ 结论
+
+   【对比正弦】正弦的 sin² 平均值是 1/2，所以 Vrms = Vm/√2 = 0.707·Vm。
+   方波的「平方平均值」是 D，所以 Vrms = V·√D。
+   两者形式一样（都是"峰值 × 一个系数"），系数不同而已。
+   ⚠ 所以【把 0.707 用到方波上是错的】，这是最常见的错误之一。
+
+【第二步】D = 50%（V = 3.3V）
+
+   Vdc  = 3.3 × 0.50 = 1.650 V
+   Vrms = 3.3 × √0.50 = 3.3 × 0.7071 = 2.332 V
+   Vrms_ac = √(2.332² − 1.650²) = √(5.438 − 2.723) = √2.716 = 1.648 V
+
+   普通万用表 AC 档（先整流取平均，再乘正弦的波形因数 1.11）：
+       交流波形是：D 的时间在 +1.65V，其余时间在 −1.65V
+       整流后的平均值 = 1.65V
+       表读数 = 1.65 × 1.1111 = 1.833 V
+       而真实交流有效值是 1.648 V
+       → 误差 = (1.833 − 1.648)/1.648 = +11.2%    ❌ 读数偏高
+
+【第三步】换成 D = 25% 和 D = 10%
+
+   通用式子（可以自己推一遍）：
+       整流后平均值 = 2·V·D·(1−D)
+       普通表读数   = 2·V·D·(1−D) × 1.1111 = 6.6·V·D·(1−D) / 3.3 ...
+                     （代入 V = 3.3V 化简得 7.3333 × D × (1−D)）
+
+   ┌────────┬──────────┬──────────┬──────────┬───────────┬─────────┐
+   │ 占空比 │ 平均值   │ 总有效值 │ 交流有效 │ 普通表 AC │ 误差    │
+   │   D    │  Vdc     │  Vrms    │  Vrms_ac │ 档读数    │         │
+   ├────────┼──────────┼──────────┼──────────┼───────────┼─────────┤
+   │  50%   │ 1.650 V  │ 2.332 V  │ 1.648 V  │  1.833 V  │ +11.2%  │
+   │  25%   │ 0.825 V  │ 1.650 V  │ 1.429 V  │  1.375 V  │  −3.8%  │
+   │  10%   │ 0.330 V  │ 1.044 V  │ 0.990 V  │  0.660 V  │ −33.3%  │
+   └────────┴──────────┴──────────┴──────────┴───────────┴─────────┘
+
+   ★ 注意误差不是固定的！D = 50% 时偏高 11%，D = 10% 时偏低 33%。
+     因为普通表假设"波形是正弦"，而占空比越偏离 50%，
+     PWM 的波形离正弦就越远，假设错得越厉害。
+
+   ★ 这也说明：普通万用表的 AC 档读数【只能用来判断"有没有交流分量"，
+     绝对不能用来算功率、算发热、做标定】。
+
+【第四步：算功率的时候必须用总有效值】
+
+   假设这个 3.3V、D = 50% 的 PWM 直接加在一个 100Ω 的电阻上：
+
+       用总有效值算：P = Vrms²/R = 2.332²/100 = 0.0544 W = 54.4 mW
+       用平均值算：  P = 1.650²/100 = 0.0272 W = 27.2 mW     ❌ 错了一半！
+       直接按定义算：P = D × V²/R = 0.5 × 3.3²/100 = 0.0545 W = 54.5 mW   ✓ 对上了
+
+   ★ 发热永远跟着【有效值】走，不跟平均值走。
+     这就是为什么选电阻功率、算三极管发热、算保险丝，
+     都要用真有效值 —— 用平均值会严重低估，然后把东西烧掉。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">一个能救你一块表的提醒：AC 档的「带宽」</div>
+            <p>上面算出的「普通表读 1.833V」有一个前提：<b>这块表能响应 20kHz</b>。而多数几十块钱的万用表，AC 档的带宽只有 <b>40Hz ~ 400Hz</b>（说明书上写 <code class="icode">AC bandwidth: 40Hz~400Hz</code>）。20kHz 远远超出它的能力范围，表内部电路根本跟不上，此时它显示的数字既不是平均值也不是有效值，<b>是一个没有物理意义的数</b>。</p>
+            <p class="mt-2">所以正确的做法是：<b>用示波器测</b>（它的带宽通常是 100MHz 量级），或者用带 <b>True RMS</b> 标识并且写清带宽的表。判断一个表能不能测你的信号，永远先看两件事：<b>是不是真有效值、带宽够不够</b>。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例题四：采样率 1kHz 时，950Hz 的干扰会跑到哪里去</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>你用定时器每 1ms 触发一次 ADC（采样率 f<sub>s</sub> = 1kHz），采一个变化很慢的温度信号。板子上有 20kHz 的 PWM 在跑，附近还有约 950Hz 的开关噪声，耦合到 ADC 引脚上的幅值约 100mV。求：① 这两个干扰采样后会变成什么频率；② 要把 950Hz 的干扰压到 1 个 LSB 以下，抗混叠低通的截止频率最多能取多少；③ 给出 R、C 的取值；④ 有什么副作用。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题四解答：混叠频率与抗混叠滤波器的设计">
+            <pre><code>【第一步】采样定理和混叠公式
+
+   采样定理：fs &gt; 2 × fmax（最高信号频率），否则就会【混叠】
+             这个 2×fmax 叫奈奎斯特频率，fs/2 叫奈奎斯特极限
+
+   本题：fs = 1kHz → 奈奎斯特极限 = 500Hz
+         也就是说，采样后所有信息都被「折叠」进 0 ~ 500Hz 这个区间
+
+   混叠频率公式：  f_alias = | f − k·fs |     k 取使结果落在 0~fs/2 的整数
+
+【第二步】算两个干扰的落点
+
+   ① 20kHz 的 PWM 干扰：
+        f/fs = 20000/1000 = 20  → 正好是整数倍！
+        f_alias = | 20000 − 20×1000 | = 0 Hz
+
+      ⚠⚠ 落到了【直流】上！
+      这意味着：每次采样都采在 20kHz 波形的【同一个相位】上，
+      采到的永远是一个固定的偏置值。在数据上看起来就像
+      「温度整体偏高了 2℃」—— 你会去怀疑传感器，而不是怀疑 PWM。
+
+      ★ 而且【无论采多少次、怎么平均都去不掉】，因为它是直流。
+        这是最阴险的一种干扰：采样率恰好是干扰频率的整数倍。
+        对策：让 fs 和干扰频率【不是整数倍关系】，比如故意用
+        1037Hz 这种"不整齐"的采样率，干扰就会变成交流分量，
+        后面用数字平均可以压下去。
+
+   ② 950Hz 的开关噪声：
+        f_alias = | 950 − 1×1000 | = 50 Hz
+
+      ⚠ 变成了 50Hz —— 和真实的工频干扰【完全无法区分】。
+      如果这个系统还要测温度变化趋势，50Hz 的假信号会被
+      当成工频干扰去处理，然后你就永远找不到根源。
+
+【第三步】要压到 1 个 LSB，需要多少衰减？
+
+   12 位 ADC，参考 3.3V：1 LSB = 3.3V/4096 = 0.806 mV
+
+   干扰幅值 100mV，要压到 0.806mV 以下：
+
+        需要 |H| ≤ 0.806mV / 100mV = 0.00806
+        即 20·lg(0.00806) = −41.9 dB
+
+   ★ 至少需要 −42 dB 的衰减
+
+【第四步】反推 fc（一阶 RC：|H| = 1/√(1+(f/fc)²)）
+
+   在 f = 950Hz 处要求 |H| = 0.00806：
+
+        (f/fc)² = 1/0.00806² − 1 = 15396 − 1 = 15395
+        f/fc = 124.1
+        fc = 950 / 124.1 = 7.66 Hz
+
+   ★ 截止频率必须做到 7.7Hz 以下 —— 比要滤的干扰低了 124 倍
+
+   【这就是一阶滤波器的代价】fc 每往下降一个数量级，体积/成本就上一档，
+   而它只能换来 −20dB。如果干扰是 100kHz 的开关噪声（而不是 950Hz），
+   要 −42dB 就得把 fc 做到 800Hz —— 那就轻松多了。
+   ★ 结论：抗混叠滤波器好不好做，取决于【干扰频率和信号带宽差多远】。
+
+【第五步】取 R 和 C
+
+   fc = 1/(2πRC) = 7.66 Hz
+
+   方案 A：C = 1µF，R = 1/(2π × 7.66 × 10⁻⁶) = 20.8 kΩ → 取 20kΩ
+           验算 fc = 1/(2π × 20000 × 10⁻⁶) = 7.96 Hz
+           950Hz 处 |H| = 1/√(1+(950/7.96)²) = 1/119.3 = 0.0084
+           残留 = 100mV × 0.0084 = 0.84 mV  （略高于 1 LSB，勉强）
+
+   方案 B：C = 2.2µF，R = 20kΩ
+           fc = 1/(2π × 20000 × 2.2×10⁻⁶) = 3.62 Hz
+           950Hz 处 |H| = 1/262.7 = 0.0038
+           残留 = 100mV × 0.0038 = 0.38 mV  ✓ 稳在半个 LSB 以内
+
+   ★ 两个方案里 R 都是 20kΩ，而 C 是那个"要凑"的量。
+
+【第六步】副作用 —— 这是这道题真正的坑
+
+   ① 【源阻抗太大，ADC 采不准】
+      STM32 的 ADC 在采样瞬间要把内部采样电容充满，
+      要求外部源阻抗足够小（数据手册在最短采样时间 1.5 个周期下给出的
+      建议值约 0.4kΩ；采样时间拉长到 13.5 个周期约 11.4kΩ、55.5 个周期到手册上限 50kΩ（再长的 71.5／239.5 周期手册不给保证值，见《3.3V 电平与硬件安全》那一篇）。
+      而这里 R = 20kΩ，超标十几倍 → 采样不充分 → 读数偏低且不稳。
+
+      ✅ 正确做法：把 RC 输出先送到一个【运放电压跟随器】
+         （如 MCP6001、LMV321），运放输出阻抗只有几十毫欧，
+         再用它驱动 ADC 引脚。运放输入阻抗高、不吃电流，
+         所以 RC 的滤波特性不受影响。
+
+   ② 【有用的信号也被滤弱了】
+      fc = 3.62Hz 意味着：如果温度信号里有 1Hz 的波动，能通过；
+      但如果你原本想看 20Hz 的振动，它会被衰减 5.5 倍。
+      ✅ 所以【先用过采样提高 fs】往往比一味降低 fc 更聪明：
+         把 fs 提到 10kHz，奈奎斯特极限变成 5kHz，
+         950Hz 的干扰就不再混叠，抗混叠滤波器只要 fc &lt; 5kHz 即可，
+         一个 fc = 1kHz 的 RC（R=1kΩ、C=160nF）就够了。
+         然后靠数字平均（10 次平均 → 等效 1kHz）把噪声压下去。
+
+   ③ 【先滤波还是先放大？】
+      一般顺序是：传感器 → 放大/缓冲 → 抗混叠低通 → ADC。
+      把滤波器放在 ADC 引脚【最近】的地方，让它把前面所有环节
+      引入的高频噪声一起滤掉。如果放在运放之前，运放自身的
+      噪声和带宽外的高频就会被 ADC 采到。
+
+【一句话总结这道题】
+
+   抗混叠滤波器不是"可选的优化"，而是"采样系统的必要组成部分"：
+   一旦混叠发生，【任何数字手段都无法挽回】，因为信息在采样那一刻
+   就已经被不可逆地折叠了。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">过采样为什么能提精度，但它不能代替抗混叠</div>
+            <p><b>过采样 + 平均</b>（比如 ADC 以 100kHz 连续采 1000 次求平均，等效得到 100Hz 的采样率）确实能提高分辨率：理论上采样率每提高 4 倍，有效位数增加 1 位。这套方法在 STM32 上很好用，因为 ADC 本身很快（1µs 级），而传感器很慢。</p>
+            <p class="mt-2">但请注意它<b>防不住混叠</b>：混叠发生在 100kHz 的 ADC 采样瞬间，一个 260kHz 的干扰在那一刻就已经被折叠成 60kHz 的假信号了；后面的平均只是把这个假信号一起平均进去，<b>并不会把它变回高频</b>。所以正确的组合是：<b>模拟抗混叠滤波（在 ADC 之前）+ 过采样 + 数字平均（在 ADC 之后）</b>，三者各管一段，缺一不可。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+<!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+          <p class="mt-4">这一节把前面所有概念落到你板子上真实存在的东西：PWM 引脚、ADC 输入、晶振的两个负载电容、开关电源的开关节点、示波器的探头。<b class="font-semibold text-ink">读完这一节，你应该能在自己的原理图上指出「这里为什么是这个值」。</b></p>
+
+          <h3 class="mt-7 text-base font-semibold">PWM 是方波，为什么经 RC 滤波能变成模拟量</h3>
+          <p class="mt-3">这是全篇最重要的一次「打通」。你在代码里只写了两个数：<code class="icode">ARR = 3599</code>、<code class="icode">CCR = 1800</code>，于是引脚上出现了一个 20kHz、占空比 50% 的方波。<b class="font-semibold text-ink">它只有 3.3V 和 0V 两种状态</b>，凭什么在滤波之后能得到 1.650V、0.825V 这样的连续值？</p>
+          <p class="mt-3">答案就是傅里叶级数：<b class="font-semibold text-ink">这个方波的频谱里，第一根柱子是直流分量，而它的高度恰好等于 D × V。滤波器的任务就是把其余所有柱子砍掉，只留第一根。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三步看懂：PWM → RC 低通 → 模拟量">
+            <pre><code>【第一步】PWM 波形在频域里长什么样（f = 20kHz，D = 50%，V = 3.3V）
+
+   时域：                          频域：每一根柱子代表一个频率分量
+                                          （只有奇次谐波）
+      3.3V ┌────┐                     Aₙ
+           │    │                 2.10V ┤  █
+           │    │                       │  █
+       0   ┘    └────                  │  █        █
+                                       │  █   █    █   █   █
+                                       └──█───█────█───█───█───█──► f
+                                         DC  20k  60k 100k 140k 180k
+                                       1.65V  ← 基波
+                                              ← 幅度按 1/n 衰减
+                                                3 次 0.70V
+                                                5 次 0.42V
+                                                7 次 0.30V
+                                                9 次 0.23V
+   ★ 关键：直流那一根的高度 = 3.3V × 50% = 1.650V
+     【它就是我们想要的那个"模拟量"，它从一开始就在频谱里】
+
+【第二步】接上一阶 RC 低通（R = 1kΩ，C = 10µF → fc = 15.9Hz）
+
+   滤波器的幅频特性                       各个分量被衰减后的结果
+     |H| (dB)
+      0 ┤━╮                              直流 0Hz：   ×1      → 1.650V  ✓ 保留
+        │ ╰─╮                            20kHz 基波：×1/1256 → 1.67mV 峰
+    −20 ┤   ╰───╮                        60kHz 3次： ×1/3770 → 0.19mV 峰
+        │       ╰────╮                   100kHz 5次：×1/6283 → 0.07mV 峰
+    −40 ┤            ╰─────╮             ……
+        │                  ╰──────╮     ★ 所有交流分量都被压到了 mV 级
+    −62 ┤                        ╰──★20kHz 处 −62dB
+        └───┬────────┬───────┬─────╰──► f（对数）
+          15.9Hz   159Hz   1.59kHz  20kHz
+
+   输出端剩下什么？
+       · 一个 1.650V 的直流（正是 D × V）
+       · 叠加一个约 3.3mV 峰峰的高频纹波（基波为主）
+      → 这就是"模拟量"。它确实是模拟的：连续、可调、由 D 线性控制。
+
+【第三步】为什么这样可以当 DAC 用
+
+   输出 = D × V，是一个【严格的线性关系】：
+        D = 0%    → 0.000V
+        D = 25%   → 0.825V
+        D = 50%   → 1.650V
+        D = 75%   → 2.475V
+        D = 100%  → 3.300V
+
+   所以只要改变 CCR 寄存器，就能连续调输出电压。
+
+   ★ 这就是 PWM-DAC 的全部原理。没有魔法，只有两条：
+      ① PWM 的直流分量 = D × 幅值（傅里叶级数的第一项）
+      ② RC 低通把其余分量滤掉（频域里做减法）
+
+【第四步】分辨率和纹波的取舍（真实数字）
+
+   PWM 频率和定时器分辨率是矛盾的。STM32F103 的 TIM2 挂在 72MHz：
+
+       20kHz PWM  → ARR = 72MHz/20kHz − 1 = 3599
+                    → 占空比有 3600 级 ≈ 11.8 位分辨率
+                    → 每一级对应 3.3V/3600 = 0.917mV
+                    （和 12 位 ADC 的 1 LSB = 0.806mV 是同一量级）
+
+       100kHz PWM → ARR = 719，只有 720 级 ≈ 9.5 位
+                    → 每一级 3.3V/720 = 4.58mV，精度明显变差
+
+   ★ 所以「PWM 频率越高越容易滤波」和「PWM 频率越低分辨率越高」是一对
+     必须权衡的矛盾。20kHz 是一个很常见的折中点：既能被 RC 压得住，
+     又刚好超出人耳听觉上限（避免电机/电感啸叫），分辨率也够用。
+
+   ★ 一个实用技巧：用两个定时器、或者用定时器的【中央对齐模式】，
+     可以在同样的时钟下获得更高的等效分辨率（相当于把 PWM 频率减半、
+     分辨率加倍）。代价还是纹波变大 —— 又是同一个矛盾。</code></pre>
+          </div>
+
+          <p class="mt-3">下面是真正能跑的代码。注意 <code class="icode">pwm_dac_set_mv()</code> 里那行占空比换算——<b class="font-semibold text-ink">它就是把「傅里叶第一项」这个结论写成了一行算术</b>。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="pwm_dac.c：用 TIM2_CH1 输出 20kHz PWM，并当 DAC 用">
+            <pre><code>/* pwm_dac.c —— 用 PWM + RC 低通做一路 0~3.3V 可调模拟输出
+ *
+ * 硬件：PA0 (TIM2_CH1) ──[ R = 1kΩ ]──┬── 模拟输出（0~3.3V）
+ *                                     │
+ *                                 [ C = 10µF ]
+ *                                     │
+ *                                    GND
+ * 注意：输出端不能带负载！后级电流流过 R 会产生压降。
+ *       要带负载必须加运放电压跟随器（见下面注释）。
+ *
+ * 时钟：SYSCLK = 72MHz，TIM2 挂在 APB1 上但定时器时钟为 72MHz
+ *       PWM 频率 = 72MHz / (PSC+1) / (ARR+1)
+ */
+#include "stm32f1xx_hal.h"
+#include &lt;stdint.h&gt;
+
+#define PWM_FREQ_HZ     20000u        /* 20kHz：超出音频范围，避免啸叫 */
+#define TIMER_CLK_HZ    72000000u     /* TIM2 的计数时钟 */
+#define VREF_MV         3300u         /* 满幅电压，单位毫伏 */
+
+static TIM_HandleTypeDef htim2;
+
+/* ---------- 初始化：算出 ARR，配置 PWM 通道 ---------- */
+void pwm_dac_init(void)
+{
+    /* 72MHz / 20kHz = 3600 个计数 → ARR = 3599
+     * 这 3600 级就是占空比的分辨率（约 11.8 位） */
+    uint32_t arr = TIMER_CLK_HZ / PWM_FREQ_HZ - 1u;
+
+    htim2.Instance               = TIM2;
+    htim2.Init.Prescaler         = 0u;                   /* 不分频，72MHz 计数 */
+    htim2.Init.CounterMode       = TIM_COUNTERMODE_UP;
+    htim2.Init.Period            = arr;                  /* ARR = 3599 */
+    htim2.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
+    htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+    if (HAL_TIM_PWM_Init(&amp;htim2) != HAL_OK) {
+        Error_Handler();
+    }
+
+    TIM_OC_InitTypeDef oc = {0};
+    oc.OCMode     = TIM_OCMODE_PWM1;
+    oc.Pulse      = (arr + 1u) / 2u;                     /* 初始 50% → 1.65V */
+    oc.OCPolarity = TIM_OCPOLARITY_HIGH;
+    oc.OCFastMode = TIM_OCFAST_DISABLE;
+    if (HAL_TIM_PWM_ConfigChannel(&amp;htim2, &amp;oc, TIM_CHANNEL_1) != HAL_OK) {
+        Error_Handler();
+    }
+
+    HAL_TIM_PWM_Start(&amp;htim2, TIM_CHANNEL_1);
+}
+
+/* ---------- 设定输出电压：想输出多少 mV，就传多少 ---------- */
+void pwm_dac_set_mv(uint16_t vout_mv)
+{
+    if (vout_mv &gt; VREF_MV) {
+        vout_mv = VREF_MV;                               /* 钳位，防止越界 */
+    }
+
+    uint32_t arr = __HAL_TIM_GET_AUTORELOAD(&amp;htim2);
+
+    /* ★ 这一行就是整篇文章的落点：
+     *   占空比 D = 目标电压 / 满幅电压
+     *   因为【输出 = D × 幅值】，这是傅里叶级数第一项给出的线性关系。
+     *   不要写成 ccr = vout_mv（那是把电压当成计数值，是新手最常见的错）*/
+    uint32_t ccr = ((uint32_t)vout_mv * (arr + 1u)) / VREF_MV;
+
+    __HAL_TIM_SET_COMPARE(&amp;htim2, TIM_CHANNEL_1, ccr);
+}
+
+/* ---------- 使用示例 ----------
+ *
+ *   pwm_dac_init();
+ *   pwm_dac_set_mv(1650);     // 输出 1.65V（D = 50%）
+ *   pwm_dac_set_mv(825);      // 输出 0.825V（D = 25%）
+ *
+ * 【为什么输出端不能直接带负载？】
+ *   假设后级电路吸收 1mA 电流，这 1mA 必须从 PWM 引脚
+ *   经过 R = 1kΩ 流过来，于是 R 上产生压降：
+ *       U_drop = 1mA × 1kΩ = 1.0V
+ *   输出从 1.65V 掉到 0.65V —— 完全不能用了。
+ *
+ * 【正确做法】RC 节点 → 运放电压跟随器（同相端）→ 输出
+ *   运放输入阻抗在 MΩ 以上，几乎不取电流，压降可忽略；
+ *   输出阻抗只有几十 mΩ，可以放心带负载。
+ *   选型：MCP6001 / LMV321 / TLV9061（都能 3.3V 单电源工作）。
+ *
+ * 【另一个思路】把 R 减小到 100Ω，同时把 C 加大到 100µF：
+ *   同样的 fc，但 1mA 只产生 0.1V 压降。
+ *   代价是 100µF 电解电容容差 ±20%、漏电流大、体积大，
+ *   而且开机建立时间从 46ms 变成 460ms。工程上一般还是选运放。</code></pre>
+          </div>
+
+          <p class="mt-3">RC 低通的参数怎么选？下面这张表把三种电容值的后果都算出来了（PWM 固定 20kHz、D = 50%，R 固定 1kΩ）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>C（电容）</th><th>τ = RC</th><th>f<sub>c</sub></th><th>20kHz 处增益</th><th>输出纹波（峰峰）</th><th>建立到 99%</th><th>评价</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>1µF</td><td>1ms</td><td>159Hz</td><td>−42dB（1/126）</td><td><b>41.3mV</b></td><td>4.6ms</td>
+                  <td>响应快，但纹波大（约 51 个 LSB），只能当粗调</td>
+                </tr>
+                <tr>
+                  <td><b>10µF</b></td><td>10ms</td><td>15.9Hz</td><td>−62dB（1/1256）</td><td><b>4.13mV</b></td><td>46ms</td>
+                  <td><b>★ 推荐折中点</b>：纹波约 5.1 个 LSB，响应也在几十 ms 量级</td>
+                </tr>
+                <tr>
+                  <td>100µF</td><td>100ms</td><td>1.59Hz</td><td>−82dB（1/12570）</td><td><b>0.41mV</b></td><td>460ms</td>
+                  <td>纹波小于半个 LSB，但改一次设定值要等半秒，且电解电容容差大</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">想又快又稳？提高 PWM 频率比加大电容划算</div>
+            <p>纹波与滤波器的衰减成正比，而衰减在 fc 远低于干扰频率时约等于 <code class="icode">fc/f</code>。<b>所以把 PWM 频率从 20kHz 提到 100kHz，同样的 RC 就能把纹波再压到 1/5</b>（4.13mV → 0.83mV），而响应速度完全不变。</p>
+            <p class="mt-2">代价有两个：<b>①</b> 定时器分辨率下降（72MHz 下 ARR 只有 719，约 9.5 位，每级 4.58mV）；<b>②</b> 开关噪声频谱更高，更容易通过寄生电容耦合出去，对布线和去耦的要求提高。所以「提高 PWM 频率」不是免费的，只是把困难从模拟侧转移到了数字侧和 EMC 侧。</p>
+            <p class="mt-2">还有一个两全其美的办法：<b>两级 RC 级联</b>。同样的总电容，两级能得到 −40dB/十倍频的斜率，纹波压得更狠，而每一级的 fc 可以留得高一些，响应速度反而更好。代价是第二级会让输出阻抗更高（更依赖缓冲运放），并且两级之间要避免互相加载（后一级的 R 要远大于前一级的 R）。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">晶振：一个 Q 值几万的谐振电路</h3>
+          <p class="mt-3">上一篇讲时间常数时你已经见过晶振，这里从谐振的角度把它彻底看透。石英晶体的等效电路<b class="font-semibold text-ink">就是一个 RLC 串联支路再并联一个电容</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="石英晶体的等效电路、两条谐振曲线与负载电容">
+            <pre><code>【等效电路】
+
+                ┌───────[ Rm ]───[ Lm ]───[ Cm ]───────┐
+                │                                       │
+                │                  C0                   │
+                └───────────────────────────────────────┘
+                                                  （两端接振荡器）
+
+   Rm：动态电阻（等效串联电阻 ESR），典型几十 Ω ~ 几百 Ω
+   Lm：动态电感，典型【几十 mH ~ 几百 mH】—— 大得离谱
+   Cm：动态电容，典型【几 fF ~ 几十 fF】（10⁻¹⁵ F 量级）—— 小得离谱
+   C0：静态电容，几 pF，来自电极、支架和封装的寄生电容
+
+【Q 值为什么能到几万？】
+
+   Q = (1/Rm)·√(Lm/Cm)
+
+   代入典型值 Lm = 50mH、Cm = 20fF、Rm = 50Ω（按典型参数估算）：
+       √(Lm/Cm) = √(0.05 / 2×10⁻¹⁴) = √(2.5×10¹²) = 1.58×10⁶
+       Q = 1.58×10⁶ / 50 = 31600
+
+   ★ Q ≈ 3 万！普通 LC 谐振电路（用现成的电感和电容）Q 最多几百，
+     差了两个数量级。这就是【为什么时钟必须用晶振而不是 LC 振荡器】：
+     高 Q 意味着谐振频率对元件漂移极不敏感，频率就准、就稳。
+
+【两个谐振点，只差 0.1% 左右】
+
+   fs = 1/(2π√(Lm·Cm))            串联谐振：阻抗【最小】（≈ Rm）
+   fp = fs · √(1 + Cm/C0)         并联谐振：阻抗【最大】
+   两者之间只有很窄的一段是【感性】的 —— 振荡器就工作在感性区
+
+   例：Lm = 50mH，Cm = 20fF
+       fs = 1/(2π√(50×10⁻³ × 20×10⁻¹⁵)) = 1/(2π√(10⁻¹⁵))
+          = 1/(2π × 3.162×10⁻⁸) = 5.03 MHz
+
+       —— 你看，又是 √(LC) 那个式子，和例题一完全一样。
+       （这是"标称 5MHz 附近的晶振"，实际值由厂家调整到 8.000MHz。）
+
+【负载电容决定了实际振荡频率 —— 这是最实用的一条】
+
+   皮尔斯（Pierce）振荡器在两个引脚上各挂一个电容 C1、C2 到地，
+   晶振工作的等效负载电容是：
+
+        CL = (C1 × C2)/(C1 + C2) + Cs        Cs 是杂散电容，约 3~5pF
+
+   晶振规格书会给出它的标称负载电容（常见 12pF、20pF）。
+   【只有实际 CL 等于规格值时，频率才等于标称值】。
+
+   算例（按典型值估算）：C1 = C2 = 20pF，Cs = 4pF
+        CL = (20×20)/(20+20) + 4 = 10 + 4 = 14pF
+        → 比规格值 20pF 小了 6pF → 频率会【偏高】
+
+   偏高多少？AT 切割晶振的频率牵引灵敏度大约 10~30 ppm/pF
+   （按典型值估算，具体看晶振型号）：
+        偏 6pF × 20ppm/pF ≈ +120 ppm
+
+   验算一下这个偏差意味着什么：
+        · 8MHz 变成 8.000960 MHz
+        · 计时上：120ppm = 每秒钟差 0.12ms → 一天差 10.4 秒
+        · 高精度场合（频率计、同步采集、无线频偏）必须校正
+
+【⚠ 三条实操提醒】
+
+   ① 【负载电容不对，最常见的后果不是频率偏，而是"不起振"】。
+      振荡器要维持振荡，放大器的负阻必须大于晶振的等效电阻
+      （ST 在 AN2867 里给了完整的 gm_crit 计算）。电容取值不当、
+      或者用了 ESR 过大的杂牌晶振，板子焊完就是不跑。
+      遇到"换了个电容就好了"的现象，就是这个原因。
+
+   ② 【不要用示波器直接碰晶振引脚】。探头有 10~15pF 的输入电容，
+      接上去就把 CL 改了，频率被拉偏，严重时直接停振，
+      而且从"跑得好好的"变成"板子不启动"，你会以为是探头坏了。
+      ✅ 正确做法：配置 MCO（时钟输出）把 HSE 或 SYSCLK 输出到
+         一个空闲引脚（比如 PA8），再在那里测。STM32 的
+         HAL_RCC_MCOConfig() 一行就能搞定。
+
+   ③ 【示波器用 10:1 探头】。1:1 探头的电容约 100pF，10:1 只有
+      约 15pF。测任何高于几百 kHz 的信号，都应该用 10:1。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">ADC 采样前串的 RC 低通，和它挡不住的东西</h3>
+          <p class="mt-3">很多 STM32 的最小系统板上，每个 ADC 输入脚前面都有一颗电阻串着、一颗电容接着地。很多人以为那是「分压」或者「随便加的」，其实它就是<b class="font-semibold text-ink">抗混叠低通滤波器</b>——而它的取值是两个互相矛盾的要求折中出来的：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>要求</th><th>它希望 R 和 C 怎样</th><th>为什么</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>滤掉高频干扰</b>（抗混叠）</td>
+                  <td>R 大、C 大 → f<sub>c</sub> 低</td>
+                  <td>要压住的干扰频率可能比有用信号高几十上百倍，fc 必须做得很低（例题四算出 7.7Hz）</td>
+                </tr>
+                <tr>
+                  <td><b>ADC 采得准</b></td>
+                  <td>R 要小（数据手册：最短采样 1.5 个周期只有 0.4kΩ；拉长采样时间最多放宽到 50kΩ —— 这是手册的 R<sub>AIN</sub> 绝对上限，见《3.3V 电平与硬件安全》）</td>
+                  <td>ADC 采样瞬间要给内部采样电容充电（典型几 pF），源阻抗太大会充不满，读数偏低且不稳定</td>
+                </tr>
+                <tr>
+                  <td><b>响应要快</b></td>
+                  <td>C 要小</td>
+                  <td>τ = RC 直接决定建立时间，C 大了响应就慢</td>
+                </tr>
+                <tr>
+                  <td><b>多通道切换后要稳</b></td>
+                  <td>C 要够大</td>
+                  <td>切换通道时，电容要能「扛住」前一通道残留的电荷串扰</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">工程上最常见的解法是：<b class="font-semibold text-ink">R 取 100Ω ~ 1kΩ，C 取 10nF ~ 100nF，凑出几 kHz ~ 几十 kHz 的 fc；如果干扰更狠，就在前面再加一级 RC，或者加运放跟随器把滤波和驱动分开。</b>以 R = 1kΩ、C = 100nF 为例，fc = 1.59kHz（就是例题二那个电路），对 20kHz 的 PWM 干扰衰减 −22dB。<b>它挡不住强干扰</b>——所以如果干扰确实造成了问题，就要按例题四的思路把 fc 一路降下去，同时补一个缓冲运放。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="adc_rms.c：等间隔采样 + 真有效值计算">
+            <pre><code>/* adc_rms.c —— 用 ADC 算一个交流信号的真有效值（True RMS）
+ *
+ * 硬件：信号 → 抗混叠 RC（R=1kΩ, C=100nF）→ PA1 (ADC1_IN1)
+ *       如果要滤更强的干扰，把 RC 加大，并在前面加运放跟随器。
+ *
+ * 【三个必须注意的地方】
+ *   ① 采样必须【等间隔】：用定时器触发 + DMA，不要在主循环里随手读。
+ *      不等间隔的采样点在频域里没有意义，算出来的有效值也是错的。
+ *   ② 累计平方和要用 64 位：4095² × 256 = 4.29×10⁹，已经贴到
+ *      uint32 的上限（4.295×10⁹），留不出任何余量就会溢出。
+ *   ③ 采样率至少是信号频率的 20 倍，工程上常取 50~100 倍，
+ *      否则一个周期内的样点太少，有效值算不准。
+ */
+#include "stm32f1xx_hal.h"
+#include &lt;math.h&gt;
+#include &lt;stdint.h&gt;
+
+#define RMS_SAMPLES   256u
+#define ADC_FULL      4095.0f      /* 12 位 ADC 满量程读数 */
+#define VREF_V        3.3f         /* 参考电压 */
+
+extern ADC_HandleTypeDef hadc1;
+
+/* 【顺序不能反】平方 → 平均 → 开方，这三个字就是 RMS 的全称 */
+float adc_read_true_rms(void)
+{
+    uint64_t sum_square = 0u;      /* ★ 必须 64 位，理由见文件头注释 ② */
+    uint32_t sum_raw    = 0u;
+    uint32_t raw;
+    uint32_t i;
+
+    for (i = 0u; i &lt; RMS_SAMPLES; i++) {
+        HAL_ADC_Start(&amp;hadc1);
+        HAL_ADC_PollForConversion(&amp;hadc1, 10u);
+        raw = HAL_ADC_GetValue(&amp;hadc1);
+        HAL_ADC_Stop(&amp;hadc1);
+
+        sum_raw    += raw;                          /* 为了算平均值 */
+        sum_square += (uint64_t)raw * (uint64_t)raw; /* ① 平方 */
+        HAL_Delay(1u);                              /* 简化写法：实际应用请改成
+                                                       定时器触发的等间隔采样 */
+    }
+
+    /* ② 平均（用 float 避免整数截断带来的系统偏差） */
+    float mean_square = (float)sum_square / (float)RMS_SAMPLES;
+    float mean_raw    = (float)sum_raw    / (float)RMS_SAMPLES;
+
+    /* ③ 开方，得到 ADC 刻度的有效值 */
+    float raw_rms = sqrtf(mean_square);
+
+    /* 只要交流分量（去掉直流偏置）时用这一行：
+     *   交流有效值 = √(总有效值² − 平均值²)
+     * 这是"隔直电容后测有效值"的软件等价做法。 */
+    float raw_rms_ac = sqrtf(mean_square - mean_raw * mean_raw);
+
+    (void)raw_rms_ac;                                /* 本例返回总有效值 */
+
+    /* 换算成电压：读数 × 3.3V / 4095 */
+    return raw_rms * VREF_V / ADC_FULL;
+}
+
+/* ---------- 对比：如果你写成"取平均值"会差多少 ----------
+ *
+ * 一个 3.3V、占空比 50% 的方波，峰峰值 3.3V：
+ *     正确的总有效值 = 3.3 × √0.5      = 2.332 V
+ *     如果误用"平均值"  = 3.3 × 0.5     = 1.650 V
+ *     误差 = (1.650 − 2.332)/2.332 = −29.2%
+ *
+ * 对纯正弦，这个错误是 −10.0%（平均值 0.637Vm vs 有效值 0.707Vm）。
+ * 结论：算功率、算发热、算传感器标定，一律用平方和开方，
+ *       永远不要用求和取平均代替。
+ */</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">混叠：唯一一种「事后无法挽回」的误差</div>
+            <p>ADC 的分辨率误差、噪声、失调，都可以用校准、平均、滤波在软件里补救。<b>但混叠不行。</b>信息在采样那一瞬间就被折叠了，一旦落进 0~f<sub>s</sub>/2 这个区间，软件再也无法区分它到底是「真的低频信号」还是「高频信号折叠过来的影子」。</p>
+            <p class="mt-2">所以判断一个采样系统好不好，第一件事不是看它用了几位 ADC，而是问两个问题：<b>① 采样率是多少？② ADC 前面有没有抗混叠滤波器？</b>没有抗混叠滤波器的高分辨率 ADC，在强干扰环境下可能连 8 位有效精度都达不到。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">示波器测占空比和测有效值，是两件完全不同的事</h3>
+          <p class="mt-3">回到开头那个 PWM。你想知道它的占空比，也想给它算功耗，于是拿仪器去测——但这两件事需要的方法完全不同。<b class="font-semibold text-ink">占空比是时间域的量，有效值是幅度域的量</b>，用错方法就会得到看似合理、实则错误的数字。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>你要量什么</th><th>怎么量</th><th>20kHz、50%、3.3V 的读数</th><th>关键注意事项</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>占空比 D</b></td>
+                  <td>时间测量：高电平时间 / 周期</td>
+                  <td>50.0%</td>
+                  <td>与幅值无关。<b>带宽不足会让边沿变缓，测出的高电平时间偏大</b>，占空比读数偏高。用示波器的自动测量（Duty）比用光标手量准</td>
+                </tr>
+                <tr>
+                  <td><b>频率 f</b></td>
+                  <td>周期测量后取倒数，或自动测量</td>
+                  <td>20.00kHz</td>
+                  <td>即使探头带宽不够导致波形失真，<b>频率读数通常仍然是准的</b>（过零点位置没变）</td>
+                </tr>
+                <tr>
+                  <td><b>峰峰值 V<sub>pp</sub></b></td>
+                  <td>垂直光标或自动测量</td>
+                  <td>3.30V</td>
+                  <td>1:1 探头有约 100pF 电容，会明显拖慢上升沿；测高频方波务必用 <b>10:1</b> 探头</td>
+                </tr>
+                <tr>
+                  <td>高电平 V<sub>OH</sub></td>
+                  <td>高电平区间中点取值</td>
+                  <td>3.3V（空载）</td>
+                  <td>带载时会掉。STM32 输出 8mA 时 V<sub>OH</sub> 可能只有 2.9V</td>
+                </tr>
+                <tr>
+                  <td><b>平均值 V<sub>dc</sub></b></td>
+                  <td>示波器的 MEAN 测量项</td>
+                  <td>1.650V</td>
+                  <td>有的示波器 MEAN 是对整屏做平均（包含没点亮的区域），要用门控（Gating）限定在波形上；万用表 DC 档也可信，因为双积分 ADC 本身就在求平均</td>
+                </tr>
+                <tr>
+                  <td><b>真有效值 V<sub>rms</sub></b></td>
+                  <td>示波器的 RMS 测量项（必须标注 True RMS）</td>
+                  <td>2.332V</td>
+                  <td><b>带宽不足会低估 RMS</b>，因为高次谐波被砍掉了。测 20kHz 方波至少要 20MHz 以上带宽才能算准</td>
+                </tr>
+                <tr>
+                  <td>交流分量有效值</td>
+                  <td>RMS − DC，或 AC 耦合后的 RMS</td>
+                  <td>1.648V</td>
+                  <td>AC 耦合会引入低频失真，测低频信号时结果不可靠。有些示波器直接提供 AC RMS 测量项</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">三个最坑的读数陷阱</div>
+            <p><b>① 用「Vpp ÷ 2 ÷ 1.414」当有效值。</b>这是把正弦的换算关系硬套到方波上，对 D = 50% 的 3.3V PWM 会算出 1.167V，而真值是 2.332V，<b>差一倍</b>。方波必须用 <code class="icode">V·√D</code>。</p>
+            <p class="mt-2"><b>② 用示波器的 Vavg 当有效值去算功率。</b>对 D = 50% 的 PWM，用 1.650V 算出的功率只有真值的一半，于是「明明算出来只有 2.7W」的电阻在实际的 5.4W 下慢慢发烫变色。</p>
+            <p class="mt-2"><b>③ 探头用 1:1 档去量 PWM 的边沿。</b>1:1 探头约 100pF 的输入电容和信号源内阻构成一个额外的 RC 低通，你会看到一个慢得离谱的边沿，然后去改代码里的「输出速度」寄存器——其实问题在探头。<b>养成习惯：只要频率超过几百 kHz，或者要看边沿，就换 10:1。</b></p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">开关电源的开关频率，和它为什么会产生 EMI</h3>
+          <p class="mt-3">最后回到傅里叶最实用的一个推论。一块 500kHz 的 Buck 电源，开关节点上的电压波形是一个方波。按前面算过的结论：<b class="font-semibold text-ink">它的频谱从 500kHz 一直延伸到几十 MHz，上限由上升时间决定，而不是由开关频率决定。</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>上升时间 t<sub>r</sub></th><th>拐点频率 f = 0.35/t<sub>r</sub></th><th>典型场景</th><th>后果</th></tr></thead>
+              <tbody>
+                <tr><td>100ns</td><td>3.5MHz</td><td>老的、慢速的开关管</td><td>频谱窄，EMI 好过，但开关损耗大、效率低</td></tr>
+                <tr><td>20ns</td><td>17.5MHz</td><td>常见的同步 Buck</td><td>开关损耗和 EMI 的常见折中点</td></tr>
+                <tr><td>5ns</td><td>70MHz</td><td>氮化镓（GaN）等高速器件</td><td>效率高、体积小，但 EMI 极难处理，PCB 布局要求苛刻</td></tr>
+                <tr><td>2ns</td><td>175MHz</td><td>STM32 的 GPIO 在 3.3V 下的典型边沿（按典型值估算）</td><td>一根 10cm 的杜邦线就变成一个天线</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张表解释了你在板子上看到的很多「玄学」：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>现象</th><th>频域解释</th><th>对策</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>开关电源一工作，旁边收音机就沙沙响</td>
+                  <td>500kHz 方波的高次谐波一直延伸到调幅波段（530kHz~1.6MHz）</td>
+                  <td>缩短开关回路面积、加输入输出滤波、屏蔽电感</td>
+                </tr>
+                <tr>
+                  <td>EMI 测试在 30MHz 附近超标</td>
+                  <td>辐射发射测试从 30MHz 起测，正好落在拐点频率附近，谐波能量还很强</td>
+                  <td>减小开关节点铜皮面积、加 RC 吸收（snubber）把边沿变缓</td>
+                </tr>
+                <tr>
+                  <td>电源有「啸叫」，或电感在响</td>
+                  <td>开关频率落在 20Hz~20kHz 的可听范围内，或者轻载时进入「打嗝」模式</td>
+                  <td>把开关频率提到 20kHz 以上；检查是不是间歇工作模式引起的</td>
+                </tr>
+                <tr>
+                  <td>100nF 去耦电容在某个频点后就不管用了</td>
+                  <td>电容有寄生电感，存在自谐振频率（100nF 约 10~20MHz），超过后呈<b>感性</b>，阻抗回升</td>
+                  <td>大电容 + 小电容并联，覆盖不同频段；高频段改用更小的容值或专用高频电容</td>
+                </tr>
+                <tr>
+                  <td>去耦电容放在板子另一头就失效了</td>
+                  <td>路径长度 = 寄生电感（约 1nH/mm），在几十 MHz 下 <code class="icode">ωL</code> 已经不可忽略</td>
+                  <td>电容必须贴近引脚（5mm 以内），回路面积越小越好</td>
+                </tr>
+                <tr>
+                  <td>串个磁珠就能压住高频噪声</td>
+                  <td>磁珠在某个频段呈<b>电阻性</b>（吸收能量变成热），在低频段呈感性（几乎不衰减）</td>
+                  <td>按噪声频率选磁珠型号（看它的阻抗-频率曲线），不要随便抓一颗</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">「滤波」和「旁路」在频域里是同一件事</div>
+            <p>你在板子上会看到两种接法，术语不同，但用阻抗一看就明白：</p>
+            <p class="mt-2"><b>滤波（串联）：</b>在信号路径上串电感或磁珠。它的阻抗 <code class="icode">ωL</code> 随频率升高，于是高频分量在它上面产生压降，过不去。<b>这是「挡」。</b></p>
+            <p class="mt-2"><b>旁路（并联）：</b>在信号对地并电容。它的阻抗 <code class="icode">1/(ωC)</code> 随频率降低，于是高频分量被短路到地。<b>这是「放」——给高频一条低阻抗的回家路。</b></p>
+            <p class="mt-2">两者常常一起用：<b>串一个磁珠挡，再并一个电容放</b>，就构成了一个 LC 低通（或者叫 EMI 滤波器）。理解了「挡」和「放」这两个字，你就再也不用背「这里为什么要加电容」了。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+<!-- ---------------------------- 5. 常见误区 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误区</h2>
+          <p class="mt-4">下面八个坑，是初学者在频域问题上踩得最多、而且<b class="font-semibold text-ink">踩了还很难自己发现</b>的。它们的共同点是：算出来的数字看着都挺合理，仪器也在正常显示，只是结论是错的。每一条我都按「错误认知 → 为什么错 → 正确做法」写，你可以当成一份检查清单。</p>
+
+          <h3 class="mt-7 text-base font-semibold">误区一：把「有效值」和「平均值」当成一回事</h3>
+          <p class="mt-3"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>万用表测出来的那个电压就是有效值，算功率直接 P = U²/R 一代就完事。</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>这两个量的定义完全不同。<b>平均值</b>回答的是「这个波形里有多少直流成分」；<b>有效值</b>回答的是「它发热相当于多大的直流」。对纯正弦，两者只差 11%（0.637V<sub>m</sub> 对 0.707V<sub>m</sub>），感觉差不多，所以很多人误以为是一回事。但对方波（PWM）差距会大到离谱：D = 50% 的 3.3V PWM，平均值 1.650V、总有效值 2.332V，代错那个算功率会得到 27.2mW，而真值是 54.4mW —— 差整整一半，电阻会慢慢发烫变色。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>算功率、算发热、选电阻功率、选保险丝，<b>一律用总有效值</b>。想读平均值就明确地说「我要平均值」（万用表 DC 档、示波器 MEAN 测量项）。并且养成先看波形再选公式的习惯：正弦用 0.707V<sub>m</sub>，PWM 方波用 V·√D。</p>
+
+          <h3 class="mt-7 text-base font-semibold">误区二：峰峰值除以 2 就是有效值</h3>
+          <p class="mt-3"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>示波器上读到 V<sub>pp</sub> = 3.3V，于是有效值 = 3.3/2 = 1.65V。</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>漏掉了 √2。正弦的有效值是 V<sub>rms</sub> = V<sub>m</sub>/√2 = (V<sub>pp</sub>/2)/√2 = V<sub>pp</sub>/2.828，<b>3.3V 峰峰的正弦有效值是 1.167V，不是 1.65V</b>。而且波形不同公式就不同，把正弦的换算套到别处会错得更离谱。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>先认波形，再代公式。下面这张表建议直接记住（都以峰峰值 3.3V 为例）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>波形</th><th>有效值公式</th><th>V<sub>pp</sub> = 3.3V 时的有效值</th><th>和「V<sub>pp</sub>/2」差多少</th></tr></thead>
+              <tbody>
+                <tr><td>正弦波</td><td>V<sub>pp</sub>/(2√2) = V<sub>pp</sub>/2.828</td><td><b>1.167V</b></td><td>低 29.3%</td></tr>
+                <tr><td>双极性方波（±V<sub>pp</sub>/2）</td><td>V<sub>pp</sub>/2</td><td><b>1.650V</b></td><td>正好相等（唯一巧合的一种）</td></tr>
+                <tr><td>单极性 PWM（0 ~ V<sub>pp</sub>，占空比 D）</td><td>V<sub>pp</sub>·√D</td><td>D = 50% → <b>2.332V</b></td><td>高 41.3%</td></tr>
+                <tr><td>三角波 / 锯齿波</td><td>V<sub>pp</sub>/(2√3) = V<sub>pp</sub>/3.464</td><td><b>0.953V</b></td><td>低 42.3%</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">注意双极性方波那一行：<b class="font-semibold text-ink">它是唯一一种「V<sub>pp</sub>/2 恰好等于有效值」的波形</b>，因为它在两个电平上各待一半时间，平方后还是同一个值。很多人就是因为先学了这一条，然后错误地推广到了所有波形。</p>
+
+          <h3 class="mt-7 text-base font-semibold">误区三：把阻抗的模直接相加</h3>
+          <p class="mt-3"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>一个 30Ω 的电阻串一个感抗 40Ω 的电感，总阻抗就是 30 + 40 = 70Ω。</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>电阻上的电压和电感上的电压<b>相位差 90°</b>，两个相位不同的正弦量不能代数相加，必须矢量相加（就像直角三角形的两条直角边）。正确结果是 |Z| = √(30² + 40²) = <b>50Ω</b>。按 70Ω 算，电流会算小 40%，于是你会以为驱动能力不够、或者误判电路带不动负载，其实电路工作得好好的。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>先把每个元件的阻抗写成复数（R → R，L → jωL，C → −j/(ωC)），按复数规则<b>实部加实部、虚部加虚部</b>，最后再取模。30-40-50 是一组很常见的直角三角形，看到这两个数就该条件反射地想到 50。顺带记住相位角：φ = arctan(40/30) = 53.1°，表示电流滞后电压 53.1°。</p>
+
+          <h3 class="mt-7 text-base font-semibold">误区四：串联谐振阻抗最大、并联谐振阻抗最小</h3>
+          <p class="mt-3"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>「谐振」听起来像是能量最强、阻抗最大的状态，所以串联谐振时阻抗最大。</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>正好搞反了。<b>串联谐振</b>时 X<sub>L</sub> 和 X<sub>C</sub> 大小相等、相位相反，两者上的电压互相抵消，总阻抗只剩下 R —— 是<b>最小</b>，所以电流达到最大。<b>并联谐振</b>时两条支路的电流互相抵消，总电流最小 —— 所以阻抗是<b>最大</b>。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>四个字记住「<b>串小并大</b>」（阻抗极值），配套记「<b>串流大、并流小</b>」（电流极值）。再加一条容易漏的：串联谐振时电感和电容上的电压是电源电压的 Q 倍（例题一里 3.3V 变成了 104V），所以设计时电容的耐压必须按 Q × U 来选，不能按电源电压选。</p>
+
+          <h3 class="mt-7 text-base font-semibold">误区五：滤波电容越大越好</h3>
+          <p class="mt-3"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>纹波大就换更大的电容，10µF 不行上 100µF，100µF 不行上 1000µF。</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>电容一大，τ = RC 跟着变大，<b>建立时间会线性变长</b>：第 4 节的表里，10µF 要等 46ms，100µF 要等 460ms。如果你用这路 PWM-DAC 做闭环控制的给定值，半秒的延迟足够让整个控制环路振荡起来。而且大容量电解电容还有三个副作用：容差 ±20%（设计值靠不住）、漏电流大、ESR 高，并且因为有寄生电感，超过自谐振频率后它其实呈<b>感性</b>，对高频纹波的效果反而不如一颗小电容。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>先把两个指标算清楚 —— <b>允许多大纹波、允许多长建立时间</b> —— 再选参数，不要凭感觉加大。如果两个指标打架，按优先顺序试这几招：<b>①</b> 提高 PWM 频率（纹波按比例下降，响应速度不变，代价是占空比分辨率下降）；<b>②</b> 用两级 RC 级联（同样的电容能得到 −40dB/十倍频）；<b>③</b> 大电容并小电容，让高频段也有低阻抗通路。</p>
+
+          <h3 class="mt-7 text-base font-semibold">误区六：ADC 前面不用抗混叠滤波器，靠软件滤波补救</h3>
+          <p class="mt-3"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>硬件上传感器直接连到 ADC 引脚就行，采样回来在软件里做滑动平均、中值滤波，什么噪声都能压下去。</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>混叠发生在<b>采样那一瞬间</b>，属于信息层面的不可逆损坏。例题四里 950Hz 的干扰变成了 50Hz，软件看到的就是一个 50Hz 的信号，它没有任何办法知道这到底是真实的 50Hz 还是 950Hz 折叠过来的影子 —— 这两个假设在数据上完全等价。更糟的是当采样率恰好是干扰频率的整数倍时（比如 fs = 1kHz、干扰 20kHz），干扰会变成<b>直流偏置</b>，无论平均多少次都去不掉，只会让你去怀疑传感器校准。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>顺序永远是「<b>模拟抗混叠低通 → 采样 → 数字滤波</b>」，三者各管一段，缺一不可。抗混叠滤波器要尽量贴近 ADC 引脚放置，让前面所有环节引入的高频噪声一起被滤掉。注意源阻抗限制（数据手册：最短采样 1.5 个周期只有 0.4kΩ；拉长采样时间最多放宽到 50kΩ —— 这是手册的 R<sub>AIN</sub> 绝对上限），R 太大就在中间加一级运放电压跟随器。另外，让采样率和主要干扰频率<b>不是整数倍关系</b>，可以把「变成直流」这种最难处理的情况转成「变成交流」，后面用数字平均就能压下去。</p>
+
+          <h3 class="mt-7 text-base font-semibold">误区七：相信仪表读数就是真值</h3>
+          <p class="mt-3"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>万用表 AC 档显示 1.832V，示波器显示 V<sub>pp</sub> = 3.3V，那就把这几个数字抄进测试报告。</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>仪表读出来的是「<b>它的电路能测到的值</b>」，不是真值。至少有三个限制在等着你：<b>① 带宽</b> —— 廉价万用表 AC 档常常只有 40Hz~400Hz，拿它测 20kHz 方波完全超出能力范围，此时显示的数字没有物理意义；<b>② 检波方式</b> —— 平均值响应的表内部按正弦的波形因数 1.11 换算，测 PWM 的误差从 +11% 一直到 −33%，取决于占空比；<b>③ 探头与输入电容</b> —— 1:1 探头约 100pF，会拖慢边沿、让占空比读数偏大，接在晶振引脚上甚至能把振荡拉停。另外带宽不足还会<b>低估</b>有效值，因为高次谐波被砍掉了。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>用任何仪表之前先看两个参数：<b>带宽</b>和<b>是不是 True RMS</b>。超出带宽就换仪器（示波器通常有 100MHz 量级带宽）。养成交叉验证的习惯：示波器读到的 V<sub>rms</sub> 应该和理论值 V·√D 对得上，对不上就先怀疑测量方法而不是怀疑电路。测晶振这类高阻节点时，用 MCO 把时钟输出到空闲引脚再测。</p>
+
+          <h3 class="mt-7 text-base font-semibold">误区八：方波就是单一频率；上升沿越陡越好</h3>
+          <p class="mt-3"><b class="font-semibold text-rose-600 dark:text-rose-400">错误认知：</b>20kHz 的 PWM 就只是 20kHz 的事，跟 MHz 没关系；边沿当然越快越好，能多快就多快。</p>
+          <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>方波含有无穷多奇次谐波，幅度按 1/n 衰减，频谱一直延伸到拐点频率 f<sub>knee</sub> ≈ 0.35/t<sub>r</sub>。20ns 的边沿对应 17.5MHz，2ns 的边沿对应 175MHz。<b>频谱越宽，EMI 越难处理</b>：一根 10cm 的杜邦线在几十 MHz 上就是一根相当不错的天线。很多「莫名其妙的干扰」「换个走线就好了」的现象，根源就是某个 GPIO 的陡边沿。</p>
+          <p class="mt-2"><b class="font-semibold text-brand-600 dark:text-brand-300">正确做法：</b>把「边沿速度」当成一个<b>设计参数</b>，只在需要的地方拉满。SPI、时钟、高速接口当然要用最快速率；而驱动继电器、LED、蜂鸣器、对外接口时，主动降速（STM32 的 GPIO 有 2/10/50MHz 输出速度配置，CubeMX 里就能选）。必要时串一个小电阻（22~100Ω）或加磁珠、RC 把边沿变缓。记住 f<sub>knee</sub> ≈ 0.35/t<sub>r</sub> 这个式子 —— 它把时域的「边沿有多陡」和频域的「频谱有多宽」直接连成了一条线。</p>
+        </section>
+
+        <hr class="hr-soft my-10">
+<!-- ---------------------------- 6. 小结与自测 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自测</h2>
+
+          <h3 class="mt-7 text-base font-semibold">要点清单</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>正弦量的三要素是<b>幅值、角频率、初相</b>；ω = 2πf，初相的正负决定它是超前还是滞后。</li>
+            <li>相位差换算成时间：<b>Δt = (Δφ/360°) × T</b>。同一个相位差，频率越高对应的时间越短。</li>
+            <li>有效值 = <b>平方 → 平均 → 开方</b>。正弦 V<sub>rms</sub> = 0.707V<sub>m</sub> = V<sub>pp</sub>/2.828；方波 V<sub>rms</sub> = V·√D。发热只跟有效值有关。</li>
+            <li>相量法把正弦量变成复数，从而把微分方程变成代数方程。你不需要解微分方程，只需要做复数的加减乘除。</li>
+            <li>jω 可以理解成「<b>频率的记账员</b>」：每遇到一个电感就乘一次 jω，每遇到一个电容就除一次 jω。</li>
+            <li>阻抗：R 就是 R；L 是 jωL（电压超前电流 90°）；C 是 −j/(ωC)（电压滞后电流 90°）。电感「通直阻交」，电容「隔直通交」。</li>
+            <li>阻抗是复数，<b>模不能直接相加</b>。电阻和电抗差 90°，要用勾股定理：|Z| = √(R² + X²)。</li>
+            <li>谐振 f₀ = 1/(2π√(LC))，Q = (1/R)·√(L/C)，通频带 BW = f₀/Q。<b>f₀ 只由 LC 决定，Q 只由 R 决定</b>，两者互不干扰。</li>
+            <li><b>串联谐振阻抗最小、并联谐振阻抗最大</b>；串联谐振时电感和电容上的电压是电源电压的 Q 倍。</li>
+            <li>一阶 RC：f<sub>c</sub> = 1/(2πRC) = 0.159/τ，f<sub>c</sub> 处 −3dB（0.707 倍）且相移 −45°，斜率 −20dB/十倍频。<b>斜率的绝对值除以 20 就是阶数。</b></li>
+            <li>任何周期信号 = 直流分量 + 各次谐波之和（傅里叶级数）。方波只有奇次谐波，幅度按 1/n 衰减。</li>
+            <li>频域里「滤波」就是给不同频率乘不同的系数。电感串联是<b>挡</b>，电容并联是<b>放</b>。</li>
+            <li>PWM 的直流分量 = D × 幅值，所以 RC 滤波之后可以当 DAC 用；总有效值 = V·√D，交流有效值 = √(V²D − V²D²)。</li>
+            <li>采样定理 f<sub>s</sub> &gt; 2f<sub>max</sub>。<b>混叠不可逆</b>，抗混叠滤波器必须在 ADC 之前。</li>
+            <li>上升时间决定频谱宽度：f<sub>knee</sub> ≈ 0.35/t<sub>r</sub>。这是「时域边沿」和「频域干扰」之间的桥。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">自测题</h3>
+          <p class="mt-3">先自己写答案，再往下对。有算不出来的，回到对应小节看例题。</p>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>
+              <b class="font-semibold text-ink">一个 3.3V、20kHz、占空比 25% 的 PWM，它的平均值、总有效值、交流分量有效值分别是多少？</b>
+              <p class="mt-2 text-muted">答：平均值 V<sub>dc</sub> = 3.3 × 0.25 = <b>0.825V</b>；总有效值 V<sub>rms</sub> = 3.3 × √0.25 = <b>1.650V</b>；交流分量 = √(1.650² − 0.825²) = √(2.7225 − 0.680625) = √2.041875 = <b>1.429V</b>。注意总有效值里已经包含了那个 0.825V 的直流分量。</p>
+            </li>
+            <li>
+              <b class="font-semibold text-ink">相位差怎么换算成时间？50Hz 的信号，电压超前电流 90°，相当于超前多少毫秒？</b>
+              <p class="mt-2 text-muted">答：Δt = (Δφ/360°) × T。50Hz 的周期 T = 1/50 = 20ms，所以 90° 对应 20ms × 90/360 = <b>5ms</b>。同一个 90°，如果换成 20kHz（T = 50µs），就只对应 12.5µs。</p>
+            </li>
+            <li>
+              <b class="font-semibold text-ink">L = 10mH、C = 100nF 的串联谐振电路，谐振频率是多少？R = 10Ω 时 Q 和通频带各是多少？谐振时电容上的电压是电源电压的几倍？</b>
+              <p class="mt-2 text-muted">答：√(LC) = √(10⁻⁹) = 3.162×10⁻⁵ s，ω₀ = 31623 rad/s，f₀ = <b>5032.9Hz ≈ 5.03kHz</b>；谐振时 X<sub>L</sub> = X<sub>C</sub> = 316.2Ω；Q = 316.2/10 = <b>31.6</b>；BW = 5032.9/31.6 ≈ <b>159Hz</b>；电容上的电压是电源电压的 Q 倍，即 <b>31.6 倍</b>（3.3V 会变成 104.3V，选耐压时必须按这个来）。</p>
+            </li>
+            <li>
+              <b class="font-semibold text-ink">一阶 RC 低通，R = 1kΩ、C = 100nF。求 τ、f<sub>c</sub>，以及 10 倍 f<sub>c</sub> 处的衰减量。为什么 f<sub>c</sub> 那一点叫「−3dB 点」？</b>
+              <p class="mt-2 text-muted">答：τ = RC = <b>100µs</b>；f<sub>c</sub> = 1/(2πτ) = <b>1591.5Hz ≈ 1.59kHz</b>；10 倍 f<sub>c</sub> 处 |H| = 1/√101 = 0.0995，即 <b>−20dB</b>（衰减到 1/10）。f<sub>c</sub> 处电压降到 0.707 倍，而功率正比于电压的平方，所以功率降到 1/2；用功率算分贝就是 10·lg(0.5) = −3.01dB，因此叫 −3dB 点，又叫半功率点。</p>
+            </li>
+            <li>
+              <b class="font-semibold text-ink">采样率 1kHz 时，一个 1800Hz 的干扰会混叠到多少 Hz？为什么软件滤波救不回来？</b>
+              <p class="mt-2 text-muted">答：1800/1000 = 1.8，取最近的整数 2，混叠频率 = |1800 − 2×1000| = <b>200Hz</b>（也可以理解为 1800Hz 相对 2×f<sub>s</sub> = 2000Hz 差了 200Hz，被折回 200Hz）。软件救不回来是因为混叠发生在采样瞬间：数据里那个 200Hz 的假信号和一个真实的 200Hz 信号<b>在数值上完全一样</b>，任何数字算法都无法区分它们，所以必须在 ADC 之前用模拟低通把它挡掉。</p>
+            </li>
+            <li>
+              <b class="font-semibold text-ink">同样标称 8MHz，为什么晶振的频率稳定度远高于 LC 振荡器？</b>
+              <p class="mt-2 text-muted">答：因为晶振的等效 Q 值极高。Q = (1/R<sub>m</sub>)·√(L<sub>m</sub>/C<sub>m</sub>)，代入典型参数 L<sub>m</sub> = 50mH、C<sub>m</sub> = 20fF、R<sub>m</sub> = 50Ω（按典型值估算），Q ≈ <b>3×10⁴</b>，而用现成电感和电容做的 LC 振荡器 Q 只有几百。Q 越高，谐振频率对元件参数漂移越不敏感，频率就越准、越稳。</p>
+            </li>
+            <li>
+              <b class="font-semibold text-ink">一张波特图的斜率是 −40dB/十倍频，这是几阶滤波器？要 −60dB/十倍频呢？如果想把某个干扰频率压到 1/1000，一阶、二阶、三阶分别需要把 f<sub>c</sub> 做到该频率的几分之一？</b>
+              <p class="mt-2 text-muted">答：−40dB/十倍频 = <b>二阶</b>；−60dB/十倍频 = <b>三阶</b>（斜率的绝对值除以 20 就是阶数）。要压到 1/1000（−60dB）：一阶需要 f<sub>c</sub> = 该频率的 <b>1/1000</b>（因为 |H| ≈ f<sub>c</sub>/f）；二阶只需要 <b>1/32</b>（因为 |H| ≈ (f<sub>c</sub>/f)²，而 √1000 ≈ 31.6）；三阶只需要 <b>1/10</b>。这就是「用阶数换 f<sub>c</sub> 余量」的思路 —— 多一级滤波，往往比把电容加大十倍更划算。</p>
+            </li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>
+              <b class="font-semibold text-ink">算一对「同频率、不同阻抗」的元件。</b>求 L = 1mH、C = 1µF 的串联谐振频率和特性阻抗 ρ = √(L/C)，并解释：为什么它的谐振频率和例题一（10mH + 100nF）完全相同，而特性阻抗却差了 10 倍？
+              <p class="mt-2 text-muted">提示：两组的 LC 乘积都是 10⁻⁹，所以 f₀ 都是 5.03kHz —— <b>频率只认 LC 的乘积</b>；但 ρ 一个是 316.2Ω、一个是 31.6Ω。这说明「频率」和「阻抗水平」是两个独立的设计维度：先用 L 和 C 的<b>比例</b>定阻抗水平，再用它们的<b>乘积</b>定频率。</p>
+            </li>
+            <li>
+              <b class="font-semibold text-ink">检查你手上板子的 ADC 输入。</b>在原理图里找出每个 ADC 引脚前面的 RC（如果有），写出 R、C 的值，算出 f<sub>c</sub>，并估计它对 20kHz PWM 干扰的衰减量（dB = −20·lg(f/f<sub>c</sub>)）。如果原图上根本没有这颗元件，按例题四的方法给自己设计一组参数，并说明要不要加运放跟随器。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">实测一次 PWM 的三个数字。</b>让 STM32 输出 3.3V、20kHz、占空比 25% 的 PWM，用示波器测出占空比、平均值（MEAN）、真有效值（RMS），和理论值 25% / 0.825V / 1.650V 对照，算一下误差。然后把探头切到 1:1 再看一遍：边沿、V<sub>pp</sub>、RMS 各有什么变化？为什么？
+            </li>
+            <li>
+              <b class="font-semibold text-ink">算一算你的晶振负载电容。</b>在原理图上找到晶振的两个负载电容 C1、C2，用 CL = (C1·C2)/(C1+C2) + C<sub>s</sub>（C<sub>s</sub> 按 3~5pF 估算）算出实际负载电容，和晶振规格书上的 CL 对照，判断实际振荡频率是偏高还是偏低。再想一个问题：如果这块板子插上示波器探头就死机，你会先怀疑什么？
+            </li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">延伸阅读</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><a href="ee-circuit-dynamic.html" class="nav-link">一阶动态电路：RC 充放电与时间常数</a> —— 时间常数 τ 和截止频率 f<sub>c</sub> 是同一件事的两种说法，两篇对着看最有效。</li>
+            <li><a href="ee-power-supply.html" class="nav-link">电源与功率：整流滤波、LDO 与 DC-DC</a> —— 续接本篇的开关频率、纹波与 EMI，看它们在真实电源里的样子。</li>
+            <li><a href="../knowledge.html" class="nav-link">知识体系总览</a> —— 电路理论全篇的排列顺序，以及后面还会讲到什么。</li>
+            <li><a href="../index.html" class="nav-link">McuStudy 首页</a> —— 按学习路线看其他系列（MCU、通信、工具）。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-6">
+            <div class="callout-title">最后一句</div>
+            <p>频域不是一门新学问，它只是换了一个坐标看同一件事。你在时域里看到的是「波形怎么随时间变化」，在频域里看到的是「这个波形由哪些频率组成、每一条频率成分被电路改成了什么样」。<b>一旦你能在两个坐标之间自由切换，很多以前觉得「玄」的工程经验 —— 为什么要加磁珠、为什么要走短线、为什么电容要贴着引脚放、为什么开关电源会干扰收音机 —— 都会变成能算出来的必然结果。</b></p>
+          </div>
+        </section>
+
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="ee-circuit-dynamic.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 font-semibold text-ink transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">一阶动态电路：RC 充放电与时间常数</p>
+            <p class="mt-1 text-[13px] leading-relaxed text-muted">电容和电感的充放电、τ = RC 与暂态过程 —— 本篇的时域基础。</p>
+          </a>
+          <a href="ee-power-supply.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 font-semibold text-ink transition-colors group-hover:text-brand-600 dark:group-hover:text-brand-300">电源与功率：整流滤波、LDO 与 DC-DC</p>
+            <p class="mt-1 text-[13px] leading-relaxed text-muted">从 220V 到 3.3V 中间发生了什么，以及纹波、效率与发热。</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

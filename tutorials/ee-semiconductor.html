@@ -1,0 +1,1917 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>半导体器件：二极管、稳压管、三极管与 MOS 管 - McuStudy</title>
+  <meta name="description" content="知识体系 · 模拟电子系列：单片机 IO 只有 3.3V、几毫安，怎么去驱动 5V 继电器、12V 灯带、几百毫安的电机？从本征半导体与 PN 结讲起，把二极管、稳压管、LED、三极管、MOS 管全部按「当开关怎么用」讲一遍：开启电压、正向压降、反向漏电、齐纳击穿与限流电阻、β 与饱和条件、基极电阻计算、RDS(on) 与栅极驱动、米勒效应，含 IO 直驱 LED、三极管驱动继电器（完整电路图 + 续流二极管）、MOS 管低边开关、稳压管做 ADC 保护、肖特基在开关电源里的作用、光耦隔离，以及 4 道数值例题。">
+  <meta name="keywords" content="半导体,PN结,本征半导体,杂质半导体,二极管,开启电压,0.7V,肖特基,快恢复二极管,反向漏电,稳压二极管,齐纳击穿,限流电阻,LED,VF,限流电阻计算,续流二极管,三极管,BJT,放大倍数,β,截止,放大,饱和,基极电阻,S8050,MOS管,RDS(on),VGS(th),AO3400,栅极电阻,米勒效应,光耦,PC817,可控硅,ADC输入保护">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">半导体器件：二极管、稳压管、三极管与 MOS 管</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          半导体器件：二极管、稳压管、三极管与 MOS 管
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          单片机的一只 IO 只能给出 <b class="font-semibold text-ink">3.3V、几毫安</b>；可现实世界里的负载是 5V 的继电器、12V 的灯带、几百毫安的电机，而且它们断电的瞬间还会反弹出上百伏的尖峰。<b class="font-semibold text-ink">中间那座桥，就是这一篇要讲的四种器件</b>：二极管（单向阀）、稳压管（电压钳）、三极管（电流控制开关）、MOS 管（电压控制开关）。这一篇不讲放大器的 h 参数模型、不讲内部载流子方程，只讲一件事——<b class="font-semibold text-ink">把它们当开关用的时候，每一个电阻该怎么算出来</b>。看完它，你手里那些「照着教程抄的电路」会第一次变成你自己算出来的电路。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">层级：<b>第 1 层 · 学科基础 → 模拟电子（第 8 篇）</b></span>
+          <span class="stat-pill">教材：<b>童诗白、华成英《模拟电子技术基础》第 5 版 第 1 章</b></span>
+          <span class="stat-pill">阅读约 <b>34</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-intrinsic">本征半导体与杂质半导体</a>
+          <a class="toc-link is-sub" href="#sub-pn">PN 结：单向导电性的物理来源</a>
+          <a class="toc-link is-sub" href="#sub-diode-vi">二极管的伏安特性与开启电压</a>
+          <a class="toc-link is-sub" href="#sub-zener">稳压二极管：故意工作在击穿区</a>
+          <a class="toc-link is-sub" href="#sub-led">发光二极管：VF 与限流</a>
+          <a class="toc-link is-sub" href="#sub-bjt">三极管：β 与三个工作区</a>
+          <a class="toc-link is-sub" href="#sub-mos">MOS 管：RDS(on) 与栅极驱动</a>
+          <a class="toc-link is-sub" href="#sub-family">二极管家族的分工与续流</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-mcu-led">IO 直驱 LED</a>
+          <a class="toc-link is-sub" href="#sub-mcu-relay">IO 到继电器：完整电路</a>
+          <a class="toc-link is-sub" href="#sub-mcu-mos">大电流为什么换 MOS 管</a>
+          <a class="toc-link is-sub" href="#sub-mcu-clamp">稳压管给 ADC 做保护</a>
+          <a class="toc-link is-sub" href="#sub-mcu-schottky">肖特基与光耦</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-intrinsic">本征半导体与杂质半导体</a>
+            <a class="toc-link is-sub" href="#sub-pn">PN 结：单向导电性的物理来源</a>
+            <a class="toc-link is-sub" href="#sub-diode-vi">二极管的伏安特性与开启电压</a>
+            <a class="toc-link is-sub" href="#sub-zener">稳压二极管：故意工作在击穿区</a>
+            <a class="toc-link is-sub" href="#sub-led">发光二极管：VF 与限流</a>
+            <a class="toc-link is-sub" href="#sub-bjt">三极管：β 与三个工作区</a>
+            <a class="toc-link is-sub" href="#sub-mos">MOS 管：RDS(on) 与栅极驱动</a>
+            <a class="toc-link is-sub" href="#sub-family">二极管家族的分工与续流</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-mcu-led">IO 直驱 LED</a>
+            <a class="toc-link is-sub" href="#sub-mcu-relay">IO 到继电器：完整电路</a>
+            <a class="toc-link is-sub" href="#sub-mcu-mos">大电流为什么换 MOS 管</a>
+            <a class="toc-link is-sub" href="#sub-mcu-clamp">稳压管给 ADC 做保护</a>
+            <a class="toc-link is-sub" href="#sub-mcu-schottky">肖特基与光耦</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先看三个真实发生过的现场。你在实验室里，几乎一定会遇到其中一个。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三个现场：都是「让 IO 直接去扛负载」惹的祸">
+            <pre><code>【现场 A】LED 不加电阻，直接接在 3.3V 和 IO 之间
+
+   同学的想法：「LED 是 3V 的，板子是 3.3V 的，差不多，直接接。」
+   上电结果：LED 亮了一下，非常刺眼，两三秒后熄灭 —— 再也不亮了。
+   万用表测：这一只 IO 已经不能输出高电平了（引脚内部 MOS 管烧毁）。
+
+   → 原因：LED 的伏安特性极其陡峭，电压高 0.1V，电流可能翻倍。
+     没有限流元件时，电流不是「由你决定」，而是「由 LED 自己决定」，
+     它会一路涨到把自己和引脚一起烧掉的数值。
+
+【现场 B】5V 裸继电器，线圈直接挂在 IO 上
+
+   电路：5V ──[继电器线圈 70Ω]── PA1（IO 输出低电平，想让它吸合）
+   程序：HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
+   上电结果：继电器「嗒」了一声，然后板子每隔几秒重启一次。
+   串口打印：每次都是从头开始跑（说明芯片复位了）。
+
+   → 原因：线圈电流 = 5V / 70Ω ≈ 71mA，是单只 IO 上限 20mA 的 3.5 倍。
+     大电流把 3.3V 电源瞬间拉低，低于 2.0V 时芯片欠压复位。
+     更糟的是：继电器断电瞬间，线圈的自感会反弹出上百伏的反向尖峰。
+
+【现场 C】三极管驱动继电器，但基极电阻按「放大」的思路算
+
+   同学的想法：「β=100，我要 70mA，所以基极给 0.7mA 就够，用 4.7kΩ。」
+   上电结果：继电器不吸合（或者「嗡嗡」抖），三极管摸上去烫手，几分钟后烧掉。
+
+   → 原因：β=100 是数据手册上的【典型值】，而且是放大区的参数。
+     0.7mA 的基极电流下，三极管停在放大区而不是饱和区，
+     VCE 从 0.2V 涨到几伏，线圈只拿到两三伏（不够吸合），
+     剩下的电压全部变成三极管上的热：P = VCE × IC。</code></pre>
+          </div>
+
+          <p class="mt-3">这三个现场的共同点是：<b class="font-semibold text-ink">它们都不是软件问题，但也都不难，难的是没人把「为什么」讲给你听</b>。你抄到的电路图是对的，可一旦要换继电器、换 LED 颜色、换电源电压，你就不知道哪个电阻该跟着改、改成多少。</p>
+
+          <p class="mt-3">所以这一篇的定位很明确：<b class="font-semibold text-ink">把单片机和现实世界之间那一层「器件层」讲透</b>。你的 IO 能做的事非常有限，剩下的全都要靠器件去放大、去扛、去隔离：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="从一只 IO 到 220V：中间隔着的四层">
+            <pre><code>【IO 的能力边界】
+   · 电压：3.3V（STM32F103 数据手册：VDD 范围 2.0V ~ 3.6V）
+   · 单脚电流：最大 20mA（长期工作建议 ≤ 8~10mA）
+   · PC13 / PC14 / PC15：只有 3mA
+   · 整片所有 IO 加起来：150mA
+   · 输出高电平带 8mA 时：VOH ≥ VDD − 0.4V ≈ 2.9V（不再是 3.3V）
+
+【要驱动的现实】
+   · 一颗 LED：3~20mA，1.8V~3.4V          ← 勉强能直驱（要算电阻）
+   · 5V 继电器线圈：约 70mA，感性负载       ← 必须加驱动 + 续流二极管
+   · 直流小电机：100mA ~ 1A，强干扰         ← 必须 MOS 管 + 吸收电路
+   · 12V / 24V 灯带：几百毫安到几安          ← 必须 MOS 管，且要高边/低边想清楚
+   · 220V 交流负载：几安，还带市电          ← 继电器或可控硅 + 光耦隔离
+
+【于是就有了这一条链】
+
+   STM32 IO ──► 三极管 / MOS 管 ──► 继电器 ──► 220V 负载
+      3.3V          开关器件          电→机械        市电
+      几 mA         扛电流            隔离高低压
+
+   每一级都在做同一件事：用【小的】去控制【大的】。
+   而每一级的接口，都是一个「电阻该怎么算」的问题。</code></pre>
+          </div>
+
+          <p class="mt-3">这一篇要回答的，就是下面这六个具体问题。如果你现在答不上来，那这一篇正好是为你写的：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>为什么二极管接反了就不通？「单向导电」在物理上到底是什么在挡着电流？</li>
+            <li>都说硅管导通压降 0.7V——那为什么肖特基是 0.3V、蓝光 LED 是 3.2V？这个 0.7V 到底能不能改？</li>
+            <li>稳压二极管为什么要串一个电阻？这个电阻取 1kΩ 和取 100Ω 有什么区别？</li>
+            <li>三极管做开关时，基极电阻到底按 β 算还是按别的算？算出来差 10 倍会怎样？</li>
+            <li>MOS 管栅极「不耗电」，那为什么还要串一个栅极电阻？直接接 IO 不行吗？</li>
+            <li>继电器线圈旁边那个二极管，方向接反了会怎样？为什么它叫「续流」二极管？</li>
+          </ul>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">这一篇和教材第 1 章的关系</div>
+            <p>童诗白、华成英《模拟电子技术基础》第 5 版第 1 章讲的是「常用半导体器件」，从本征半导体、PN 结的载流子运动讲起，一直到三极管的 h 参数模型和特性曲线。<b>这一篇保留它的物理基础（前两节），但从第三节开始就拐弯了</b>：教材后面要用三极管做放大器，需要算静态工作点、算电压放大倍数、算输入输出电阻；而单片机工程师 95% 的场合只需要它做一件事——<b>当开关</b>。</p>
+            <p class="mt-2">所以我们只取「开关」这一个用法，把它算到能直接画进原理图的精度。<b>放大的部分留给第 9 篇《基本放大电路》</b>，那里再补静态工作点和三种组态。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">读这一篇的正确姿势</div>
+            <p>第 2 节的概念部分，第一次读只需要记住三件事：<b>二极管看方向和压降、三极管看饱和、MOS 管看 RDS(on) 和 VGS 够不够</b>。剩下的细节等你要动手时才回来查。</p>
+            <p class="mt-2">第 3 节的四道例题务必自己拿笔算一遍——<b>这四道题覆盖了 90% 的驱动电路设计</b>，算过一遍之后，你看别人的原理图就会开始「验算」而不是「抄」。</p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section class="mt-14">
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节按「从材料到器件」的顺序走：先看硅为什么能导电、再看不一样的硅拼在一起会发生什么，然后依次是二极管、稳压管、LED、三极管、MOS 管。<b class="font-semibold text-ink">前两节是物理基础，帮你理解「为什么是这样」；从第三节开始全是工程参数和用法</b>。</p>
+
+          <h3 id="sub-intrinsic" class="mt-7 text-base font-semibold">本征半导体与杂质半导体：为什么要在硅里「掺东西」</h3>
+
+          <p class="mt-3">硅是四价元素，一个硅原子最外层有 4 个价电子。在硅晶体里，每个硅原子和周围 4 个邻居<b class="font-semibold text-ink">各共用一对电子，形成共价键</b>。低温下所有的价电子都被共价键锁住，没有可以自由移动的电荷——所以纯净的硅在接近绝对零度时是绝缘体。</p>
+
+          <p class="mt-3">但常温下热运动会给一部分共价键「松绑」：一个电子挣脱出来变成<b class="font-semibold text-ink">自由电子</b>（带负电，可以移动），同时它原来的位置留下一个空位，叫作<b class="font-semibold text-ink">空穴</b>。空穴本身不是粒子，它是「附近共价键上的电子跳过来填补」这一连串动作的等效描述——从宏观上看，就像有一个带正电的载流子在朝反方向移动。</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">本征半导体：</b>完全没有杂质、晶格完整的硅。它的自由电子和空穴永远成对出现，数量相等。室温下硅的本征载流子浓度 n<sub>i</sub> ≈ 1.5 × 10<sup>10</sup> /cm³（教材典型值），这个数字小得可怜，所以本征硅的导电能力很差，而且随温度剧烈变化（<b>这正是「半导体怕热」的根源</b>）。</li>
+            <li><b class="font-semibold text-ink">N 型半导体：</b>在硅里掺入五价元素（磷、砷）。五个价电子里多出来的那一个很容易挣脱，成为自由电子。这类杂质叫<b>施主杂质</b>。N 型半导体里<b>自由电子是多子</b>，空穴是少子。</li>
+            <li><b class="font-semibold text-ink">P 型半导体：</b>在硅里掺入三价元素（硼）。三个价电子只够和 3 个邻居成键，留下一个空位，很容易被邻近电子填补，等效于产生一个可移动的空穴。这类杂质叫<b>受主杂质</b>。P 型半导体里<b>空穴是多子</b>，自由电子是少子。</li>
+          </ul>
+
+          <p class="mt-3">掺杂浓度通常在 10<sup>15</sup> ~ 10<sup>20</sup> /cm³ 量级，<b class="font-semibold text-ink">比本征载流子浓度高了 5 到 10 个数量级</b>。这就是为什么工艺上要掺杂：掺进去多少、掺什么，直接决定了这块硅的导电类型和电阻率。<b>整个半导体工业，本质上就是在硅上「精确地掺东西」和「精确地拼图形」。</b></p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">一个必须纠正的直觉：P 型半导体不带正电</div>
+            <p>「P 型多子是空穴，空穴带正电，所以 P 型半导体带正电」——<b>这是错的。</b>硼原子接受一个电子变成空穴时，自己也变成了一个固定在晶格里的负离子；空穴是正电性的载流子，但固定离子是负电性的，两者数量相等。<b>整块 P 型半导体在宏观上仍然是电中性的</b>（N 型同理）。</p>
+            <p class="mt-2">记住这一点，你才不会在后面对「耗尽层里为什么会有电场」感到莫名其妙——<b>那块电场恰恰是因为离子被固定住了、载流子被赶走了才出现的</b>，如果整块材料带电，故事就完全不一样了。</p>
+          </div>
+
+          <h3 id="sub-pn" class="mt-7 text-base font-semibold">PN 结：单向导电性的物理来源</h3>
+
+          <p class="mt-3">把一块 P 型硅和一块 N 型硅做到同一个晶片上，交界面处就会发生接下来这件事——<b class="font-semibold text-ink">这就是二极管全部秘密的来源</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="PN 结的形成：四步看懂耗尽层">
+            <pre><code>【第一步】接触瞬间，浓度差驱动多子扩散
+
+   P 区（空穴多）          交界面          N 区（自由电子多）
+   ○ ○ ○ ○ ○                             ● ● ● ● ●
+   ○ ○ ○ ○ ○  ──── 空穴 → ────►           ● ● ● ●
+   ○ ○ ○ ○ ○  ◄──── 电子 ← ────          ● ● ● ● ●
+   ○ ○ ○ ○ ○                             ● ● ● ● ●
+
+   空穴从 P 往 N 跑，电子从 N 往 P 跑。这叫【多子扩散】。
+
+【第二步】跑过去的载流子复合掉了，留下不能动的离子
+
+   P 区                    耗尽层                    N 区
+   ○ ○ ○        ⊖ ⊖ ⊖  |  ⊕ ⊕ ⊕        ● ● ●
+   ○ ○ ○    ← 受主负离子 | 施主正离子 →    ● ● ●
+   ○ ○ ○        （固定不动）|（固定不动）     ● ● ●
+
+   空穴跑到 N 区后和电子复合消失，但硼原子留下的负离子动不了；
+   电子跑到 P 区后同理，磷原子留下的正离子也动不了。
+   结果：交界两侧出现了【一层由固定离子构成的空间电荷区】。
+
+【第三步】这层电荷产生内建电场，方向从 N 指向 P，阻止扩散继续
+
+   P 区  ⊖ ⊖ ⊖  |  ← ← 内建电场 E ← ←  |  ⊕ ⊕ ⊕  N 区
+
+   电场把多子往回推（空穴被推向 P 区，电子被推向 N 区），
+   同时把少子往对面拉（漂移）。扩散与漂移在某个宽度上达到平衡，
+   耗尽层宽度就固定下来（硅的势垒电压约 0.7V，锗约 0.3V）。
+
+【第四步】外加电压来了：这个平衡是可以被打破的
+
+   正偏（P 接电源正极、N 接负极）：
+       外加电场方向与内建电场【相反】→ 耗尽层变窄 → 势垒降低
+       → 多子扩散重新占上风 → 电流迅速增大。这就是【导通】。
+
+   反偏（P 接电源负极、N 接正极）：
+       外加电场与内建电场【同向】→ 耗尽层变宽 → 势垒更高
+       → 多子完全过不去，只剩少子漂移 → 只有极小的电流。这就是【截止】。
+
+   ⚠ 注意最后这句：反偏时电流不是「零」，而是「很小」。
+     硅管大约 nA 级，肖特基大约 µA~mA 级。
+     这个「小电流」叫【反向饱和电流 I_S】，它几乎不随电压变，
+     但随温度变化极快 —— 温度每升高 10°C 大约翻一倍。</code></pre>
+          </div>
+
+          <p class="mt-3">把上面这段翻译成一句工程语言：<b class="font-semibold text-ink">二极管的单向导电性，来自「耗尽层的宽度和势垒高度可以被外加电压调节」</b>。正偏把它削弱，电流就能过；反偏把它加强，电流就过不去。</p>
+
+          <p class="mt-3">这里要强调一个新手最容易忽略的事实：<b class="font-semibold text-ink">正偏导通之后，二极管两端的电压并不会随着电流线性增加。</b>因为电流是指数增长的，电流从 1mA 涨到 100mA（100 倍），压降可能只从 0.6V 涨到 0.75V。这就是后面「0.7V 是个约定俗成的近似」的由来，也是 LED 必须串限流电阻的原因。</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">「单向阀」这个比喻会在哪里骗你</div>
+            <p>把二极管想成水管里的单向阀很好记，但会带来两个错误推论：<b>① 以为反接时完全不通</b>——实际上有漏电，而且漏电随温度指数增长，在高阻电路里足以毁掉你的测量精度；<b>② 以为反接时不会坏</b>——实际上只要反向电压超过它的耐压值（VRRM），它会突然击穿导通，而普通二极管在击穿后<b>直接烧毁</b>（稳压管则被专门设计成能长期工作在击穿区，见下一节）。</p>
+          </div>
+
+          <h3 id="sub-diode-vi" class="mt-7 text-base font-semibold">二极管的伏安特性与开启电压：0.7V 是怎么来的</h3>
+
+          <p class="mt-3">把二极管的电流和电压画成一张图，就是它的<b class="font-semibold text-ink">伏安特性曲线</b>。这张图形状很怪：第三象限几乎贴着横轴，第一象限却陡得像一堵墙。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="硅二极管的伏安特性曲线（示意，非等比例）">
+            <pre><code>                    I (mA)
+                      │
+                      │            ╱  ← 正向：指数上升，
+                      │          ╱       电压稍高一点，电流暴涨
+                      │        ╱
+                      │      ╱
+                      │    ╱
+                      │  ╱
+                      │╱
+   ───────┬───────────┼────────────────────────► V (V)
+   击穿区 │      0.5V 0.7V
+          │         ↑     ↑
+          │    开启电压  工程上用 0.7V
+          │   （死区边缘） 作为导通压降
+          │
+          │  ← 反向：几乎贴着横轴
+          │     硅管 nA 级、肖特基 µA 级
+          │
+    ┌─────┘
+    │ ← 反向击穿点（VRRM）：普通二极管到这里就坏了；
+    │    稳压管则是【故意】工作在这一段
+    │
+
+【读图要点】
+ ① 正向 0 ~ 0.5V：电流极小，工程上叫「死区」。
+ ② 0.5V 之后电流开始明显增长，0.6~0.8V 之间是「导通压降」的
+    正常工作范围。教材和老师口中的 0.7V，就是这个范围的
+    一个方便记忆的代表值，不是精确常数。
+ ③ 电流越大，压降越高，但增长很慢（对数关系）：
+      1N4007 在 1mA 时约 0.6V，在 1A 时接近 1V（数据手册典型值）。
+ ④ 温度越高，同一电流下的压降越低：硅二极管约 −2mV/°C。
+    这就是为什么功率电路要关心「热了之后电流会变大」。
+ ⑤ 反向漏电会随温度急剧增加，硅管每升 10°C 约翻一倍，
+    肖特基的漏电比硅管大 3 个数量级左右，且更怕热。</code></pre>
+          </div>
+
+          <p class="mt-3">「开启电压」这个概念要说准一点：<b class="font-semibold text-ink">它不是一条硬开关线，而是一个工程上的约定</b>。真实的二极管从 0V 开始就有电流，只是小到可以忽略；电压升到某个值之后电流增长快到你必须正视它。所以：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">做定性判断时</b>（导通还是不导通）：硅管按 0.7V 判断，肖特基按 0.3V 判断，足够用。</li>
+            <li><b class="font-semibold text-ink">算电流、算功耗时</b>：要看具体型号的数据手册里那条 V<sub>F</sub>-I<sub>F</sub> 曲线，因为 0.6V 和 1.0V 在 1A 下差了 0.4W 的功耗。</li>
+            <li><b class="font-semibold text-ink">做精密电路时</b>（比如用小信号二极管做钳位、做对数变换）：必须考虑漏电和温度漂移，别指望一个 0.7V 的常数模型。</li>
+          </ul>
+
+          <p class="mt-3">下面这张表把常见的几种「导通压降」摆在一起。<b class="font-semibold text-ink">它们之间的差别不是玄学，而是材料和结构决定的</b>，你只要记住数值和对应的使用场合就够了：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>器件</th><th>典型导通压降</th><th>怎么理解这个数</th><th>单片机场景里的典型用途</th></tr></thead>
+              <tbody>
+                <tr><td>硅 PN 结二极管<br><span class="font-mono text-xs">1N4148 / 1N4007</span></td><td><b>0.6V ~ 0.8V</b><br>（小电流 0.6V，1A 时约 1V）</td><td>PN 结内建势垒的直接体现，教科书里的 0.7V 就是它</td><td>防反接、信号钳位、小功率续流</td></tr>
+                <tr><td>肖特基二极管<br><span class="font-mono text-xs">1N5819 / SS34 / BAT54</span></td><td><b>0.3V ~ 0.5V</b><br>（1N5819 在 1A 时典型 0.45V）</td><td>金属-半导体结，没有 PN 结的那一层势垒，所以压降低</td><td>开关电源续流、防反接、低压大电流整流</td></tr>
+                <tr><td>锗二极管<br><span class="font-mono text-xs">2AP 系列（已淘汰）</span></td><td><b>0.2V ~ 0.3V</b></td><td>锗的势垒比硅低，但漏电大、怕热，现在基本被肖特基取代</td><td>只在老电路和教材里出现</td></tr>
+                <tr><td>发光二极管<br><span class="font-mono text-xs">红 / 黄 / 蓝 / 白</span></td><td><b>1.8V ~ 3.4V</b><br>（红色 1.8~2.2V，蓝白 2.8~3.4V）</td><td>压降由发光材料的禁带宽度决定，所以颜色不同压降不同</td><td>指示灯、照明、光耦内部的发射端</td></tr>
+                <tr><td>稳压二极管（正向用）</td><td>同普通硅管 0.7V</td><td>它正向就是个普通二极管，「特殊」只在反向</td><td>很少正向用它，但知道这点能避免接线错误</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">工程口诀：先判方向，再查压降，最后算电流</div>
+            <p>拿到任何一个二极管，按这三步走就不会错：<b>① 方向</b>——阳极（无环/正极）电位高于阴极（有环/负极）才导通，差 0.3~0.7V 起；<b>② 压降</b>——查它的型号属于哪一类（硅 / 肖特基 / LED），取对应数量级；<b>③ 电流</b>——剩下的电压除以回路里的限流电阻。三步之外的细节（反向恢复、漏电、结电容），等你的电路频率上到几十 kHz、或者精度要求到 mV 级时再回来处理。</p>
+          </div>
+
+          <h3 id="sub-zener" class="mt-7 text-base font-semibold">稳压二极管：故意工作在击穿区</h3>
+
+          <p class="mt-3">上一节说「普通二极管反向击穿就坏了」。稳压二极管（也叫齐纳二极管、Zener）恰恰相反：<b class="font-semibold text-ink">它被专门设计成可以长期工作在反向击穿区，而且击穿电压做得很准、很稳</b>。它的符号就是普通二极管加两个「折角」的阴极，提醒你「这里会拐弯」。</p>
+
+          <p class="mt-3">为什么击穿可以「不坏」？因为击穿本身是一种<b class="font-semibold text-ink">可逆</b>的电学现象，只要功耗不超标，撤掉电压它就恢复原状。真正烧管子的不是「击穿」这两个字，而是<b class="font-semibold text-ink">击穿之后的电流失控带来的热</b>。稳压管和普通二极管的区别在于：它被设计成击穿电压低而准、能承受一定的击穿功耗；而普通二极管击穿电压高、一旦击穿往往电流就大到你控制不住。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两种击穿机制：齐纳击穿与雪崩击穿">
+            <pre><code>【齐纳击穿】击穿电压低（大约 5V 以下）
+
+   重掺杂 → 耗尽层很薄 → 很小的反向电压就能在耗尽层里建立
+   极强的电场（量级 10^6 V/cm）→ 直接把共价键里的价电子
+   「拉」出来，产生大量电子-空穴对 → 电流骤增。
+
+   ★ 特点：电压低、温度系数为【负】（温度升高，击穿电压降低）。
+
+【雪崩击穿】击穿电压高（大约 7V 以上）
+
+   轻掺杂 → 耗尽层厚 → 载流子在电场中被加速到很高的速度，
+   撞击共价键把电子撞出来（碰撞电离）→ 撞出来的电子又被加速
+   去撞下一个 → 像雪崩一样连锁倍增 → 电流骤增。
+
+   ★ 特点：电压高、温度系数为【正】（温度升高，击穿电压升高）。
+
+【两者的共同点，也是你只要记住的一点】
+   1. 都是可逆的：功耗不超标，撤掉电压就恢复。
+   2. 击穿后电压几乎不再随电流变化 —— 曲线在这一段【几乎垂直】。
+      这就是它能「稳压」的全部原因：
+      电流在很大范围里变化，管子两端的电压几乎不动。
+   3. 一旦电流大到功耗超过额定值 P_Z，管子就真的烧了，
+      而且往往是【短路】失效 —— 短路之后它会把电源直接拉到地，
+      连带烧掉前面的电路。所以限流电阻不是可选项。</code></pre>
+          </div>
+
+          <p class="mt-3">它的典型接法只有一种：<b class="font-semibold text-ink">反向并联在负载两端，再串一个限流电阻</b>。注意方向——稳压管的阴极接电源正极一侧，阳极接地（如果接反了，它就变成一个 0.7V 的普通二极管，你还以为「这管子坏了」）。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="稳压管的基本接法与电流分配">
+            <pre><code>                 ┌──[ R 限流 ]──┬──────────────┐
+                 │              │              │
+   Vin ──────────┘              │              │
+                            稳压管(反向)      负载
+                          ┌──── 阴极         (或后级电路)
+                          │      │
+                          │     阳极
+                          │      │
+   GND ───────────────────┴──────┴──────────────┘
+
+   ★ 三个电流的关系永远是这一条（基尔霍夫）：
+        I_R = I_Z + I_L
+
+     I_R  ：流过限流电阻的电流，由 (Vin − VZ) / R 决定
+     I_Z  ：流过稳压管的电流，是「多余的那部分」
+     I_L  ：负载真正拿走的电流
+
+   ★ 设计时要保证【两种极端情况】都安全：
+
+     情况一：负载最重（I_L 最大）时，I_Z 仍然【大于拐点电流 I_ZK】
+             否则稳压管退出击穿区，电压会掉下去，稳不住。
+
+     情况二：负载最轻（I_L = 0，比如后级没接或高阻）时，
+             全部电流灌进稳压管，I_Z 不超过【额定电流 / 功耗上限】。
+
+   这就是为什么「稳压管一定要串电阻」，以及为什么这个电阻不能随便取。</code></pre>
+          </div>
+
+          <p class="mt-3">选稳压管时要看的参数有六个，其中前三个决定了你能不能算出那个电阻：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>参数</th><th>含义</th><th>典型值举例</th><th>设计时怎么用</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">V<sub>Z</sub></td><td>额定稳压值（在测试电流 I<sub>ZT</sub> 下测得）</td><td>BZX55C5V1：4.8V ~ 5.4V<br>（标称 5.1V）</td><td>先定你要几伏。注意它是<b>一个范围</b>，不是一个点</td></tr>
+                <tr><td class="font-mono text-xs">I<sub>ZT</sub></td><td>测试电流，手册标 V<sub>Z</sub> 时的电流</td><td>BZX55C5V1：5mA<br>1N4733A（1W/5.1V）：49mA</td><td>设计时让工作电流落在这附近最稳</td></tr>
+                <tr><td class="font-mono text-xs">I<sub>ZK</sub></td><td>拐点电流，低于它电压开始「软」</td><td>BZX55 系列：约 1mA</td><td><b>最重负载时 I<sub>Z</sub> 必须大于它</b>，否则稳压失效</td></tr>
+                <tr><td class="font-mono text-xs">P<sub>Z</sub></td><td>最大耗散功率</td><td>BZX55 系列 0.5W<br>1N47xx 系列 1W</td><td>P<sub>Z</sub> = V<sub>Z</sub> × I<sub>Z</sub>，算完要留一倍余量</td></tr>
+                <tr><td class="font-mono text-xs">r<sub>Z</sub></td><td>动态电阻，击穿段的斜率</td><td>BZX55C5V1：几十 Ω 量级</td><td>越小越「硬」。它决定了负载变化时电压波动多少</td></tr>
+                <tr><td class="font-mono text-xs">温度系数</td><td>温度每变 1°C，V<sub>Z</sub> 变多少</td><td>5V 以下为负、7V 以上为正，<b>5.6V 附近接近 0</b></td><td>要做基准就选 <b>5.6V</b> 这一档，温度漂移最小</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">工程上的小知识：为什么老工程师偏爱 5.6V 稳压管</div>
+            <p>因为齐纳击穿的负温度系数和雪崩击穿的正温度系数在 <b>5.6V 附近正好抵消</b>，这一档的稳压管温度漂移接近零。如果你要做一个简单的过压参考（比如给比较器定阈值），选 5.6V 比选 5.1V 或 6.2V 都更稳。<b>这个「挑一档电压来抵消温度效应」的思路，在模拟电路里会反复出现。</b></p>
+          </div>
+
+          <h3 id="sub-led" class="mt-7 text-base font-semibold">发光二极管 LED：VF 由颜色决定，电流必须由你决定</h3>
+
+          <p class="mt-3">LED 就是一个正向导通时会发光的 PN 结。它的正向特性比普通二极管更陡，压降也更高——<b class="font-semibold text-ink">因为发光需要能量，而发出什么颜色的光，直接决定了这个压降是多少</b>。光的波长越短（越偏蓝），单个光子能量越高，需要的压降就越大。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>颜色</th><th>典型 V<sub>F</sub>（20mA 时）</th><th>3.3V 供电直驱的余量</th><th>结论</th></tr></thead>
+              <tbody>
+                <tr><td>红（AlGaInP）</td><td><b>1.8V ~ 2.2V</b></td><td>3.3 − 1.9 = 约 1.4V</td><td>余量充足，最适合用 3.3V 直驱</td></tr>
+                <tr><td>黄</td><td><b>2.0V ~ 2.2V</b></td><td>约 1.2V</td><td>可以直驱</td></tr>
+                <tr><td>黄绿（传统）</td><td><b>2.1V ~ 2.4V</b></td><td>约 1.0V</td><td>可以直驱</td></tr>
+                <tr><td>翠绿 / 纯绿（InGaN）</td><td><b>2.9V ~ 3.4V</b></td><td>0.4V 甚至更少</td><td>勉强，电流随温度波动很大，不建议</td></tr>
+                <tr><td>蓝</td><td><b>2.8V ~ 3.4V</b></td><td>0.5V 甚至更少</td><td>3.3V 直驱不可靠，亮度忽明忽暗</td></tr>
+                <tr><td>白（蓝光 + 荧光粉）</td><td><b>3.0V ~ 3.4V</b></td><td>常常不足 0.3V</td><td><b>不要用 3.3V 直驱</b>，需要 5V 或恒流驱动</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">为什么「余量小」就是「不能用」？因为 LED 的伏安特性太陡了。<b class="font-semibold text-ink">没有限流元件时，电流不是由你决定的，而是由器件自己决定的。</b>下面这个估算能让你看清差距有多大：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="为什么 LED 必须串限流电阻（用斜率电阻估算）">
+            <pre><code>【估算模型】把 LED 在导通后近似成「一个固定压降 + 一个很小的斜率电阻」
+   红色 LED：VF ≈ 1.85V，斜率电阻 r ≈ 15Ω（同批次的典型量级）
+
+【情况一】正确接法：串一个 180Ω 限流电阻
+   回路总电阻 = 180 + 15 = 195Ω
+   外加电压 3.3V，减去 LED 的等效压降 1.85V
+        I = (3.3 − 1.85) / 195 ≈ 7.4mA    ✅ 舒服
+
+【情况二】错误接法：不串电阻，直接把 LED 接在 3.3V 上
+   回路总电阻只有 LED 自己的 15Ω
+        I = (3.3 − 1.85) / 15 ≈ 97mA
+
+   而一颗普通 5mm 指示 LED 的额定电流只有 20mA。
+   97mA 意味着功耗约 0.18W，远超它能承受的范围（通常 60~100mW），
+   于是：亮度刺眼 → 结温升高 → 压降下降 → 电流进一步增大
+   → 十来秒内烧毁，同时把引脚一起带走。
+
+【结论】
+   限流电阻的作用不是「分掉一点电压」，而是【把决定电流大小的
+   权力从器件手里拿回到你手里】。有电阻时，电流由 (V − VF)/R 决定，
+   环境温度变化几十度，电流变化在可接受范围内；
+   没电阻时，电流由 LED 自己决定，你只能等着看结果。</code></pre>
+          </div>
+
+          <p class="mt-3">还有两个关于 LED 的直觉要建立起来：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">亮度与电流近似成正比，但人眼是对数感知。</b>电流从 10mA 降到 5mA，亮度确实减半，但你看起来只觉得「暗了一点点」。所以指示灯的电流可以放心取小（2~5mA 都很亮），既省电又给 IO 留余量。</li>
+            <li><b class="font-semibold text-ink">多颗 LED 并联时，每颗都要有自己的限流电阻。</b>因为同型号 LED 的 VF 也有 ±0.1V 的离散，并联时压降低的那一颗会抢走大部分电流，先烧掉。正确做法是「一灯一电阻」，或者把 LED 串联起来共用一个电阻（此时电流相同，但需要更高的供电电压）。</li>
+          </ul>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">亮度怎么调？别用「改电阻」的办法</div>
+            <p>用电阻调亮度，你需要不停换电阻；而且当供电电压变动时亮度也跟着变。<b>正确做法是用 PWM：固定电流（固定电阻），用占空比控制平均亮度。</b>STM32 的定时器可以直接输出 PWM，改一个 <code class="icode">CCR</code> 寄存器的值就能调光，而且 LED 始终工作在额定的峰值电流上，颜色不会随亮度偏移。具体做法见《定时器与 PWM》那一篇。</p>
+          </div>
+
+          <h3 id="sub-bjt" class="mt-7 text-base font-semibold">三极管 BJT：β、三个工作区，以及「故意让它饱和」</h3>
+
+          <p class="mt-3">双极型三极管（BJT）是「三明治」结构：两块同型的半导体夹一块异型的薄层。以 NPN 为例，它的三个区不是随便分的，各有各的任务：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="NPN 三极管的结构与电流关系">
+            <pre><code>【结构：为什么基区必须又薄又轻掺杂】
+
+        ┌─────────────┬─────────┬─────────────┐
+        │  N 发射区    │ P 基区  │  N 集电区    │
+        │（重掺杂）    │（很薄、 │（面积大）    │
+        │  载流子多    │ 轻掺杂）│              │
+        └─────────────┴─────────┴─────────────┘
+             ▲             ▲            ▲
+             │             │            │
+         发射极 E       基极 B       集电极 C
+
+   · 发射区重掺杂 → 有大量载流子可以「发射」出去
+   · 基区又薄又轻掺杂 → 载流子穿过时来不及复合（复合掉 1%~5%）
+   · 集电区面积大 → 方便收集载流子，也方便散热
+
+【电流关系：发射极电流去哪儿了】
+
+       I_E = I_B + I_C          （基尔霍夫，永远成立）
+       β   = I_C / I_B          （共射电流放大系数）
+
+   以 β = 100 为例：
+       如果基极电流 I_B = 0.7mA，那么 I_C ≈ 70mA、I_E ≈ 70.7mA。
+       也就是说：从发射区发射出来的载流子里，约 99% 被集电极收走，
+       只有约 1% 从基极流出去。
+
+   ★ 一定要理解这句话：三极管【不是】凭空放大电流的器件。
+     I_C 的能量全部来自集电极那一路的电源，基极电流只是
+     「允许」这个大电流通过的信号。把它想成水龙门的把手：
+     你手上用的力很小，但闸门放过去的水可以很大。
+     把手需要的力，就是基极电流。</code></pre>
+          </div>
+
+          <p class="mt-3">三极管只有两个 PN 结：<b class="font-semibold text-ink">发射结</b>（B-E 之间）和<b class="font-semibold text-ink">集电结</b>（B-C 之间）。这两个结各自正偏还是反偏，就把三极管的工作状态分成了三个区——<b class="font-semibold text-ink">这张表是这一节的绝对核心，请把它记住</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>工作区</th><th>发射结</th><th>集电结</th><th>电流关系</th><th>V<sub>CE</sub></th><th>当开关时的角色</th></tr></thead>
+              <tbody>
+                <tr><td><b>截止区</b></td><td>反偏<br>（V<sub>BE</sub> &lt; 0.5V）</td><td>反偏</td><td>I<sub>C</sub> ≈ 0<br>（只有漏电）</td><td>≈ 电源电压</td><td><b>断开（开关的「关」）</b></td></tr>
+                <tr><td><b>放大区</b></td><td>正偏<br>（V<sub>BE</sub> ≈ 0.7V）</td><td>反偏</td><td>I<sub>C</sub> = β × I<sub>B</sub><br>（由 I<sub>B</sub> 决定）</td><td>几伏 ~ 十几伏</td><td><b>不要停在这里</b>：管子会发热</td></tr>
+                <tr><td><b>饱和区</b></td><td>正偏<br>（V<sub>BE</sub> ≈ 0.7~0.8V）</td><td><b>也正偏</b></td><td>I<sub>C</sub> &lt; β × I<sub>B</sub><br>（由外部电路决定）</td><td><b>0.1V ~ 0.3V</b></td><td><b>接通（开关的「开」）</b></td></tr>
+                <tr><td>倒置区</td><td>反偏</td><td>正偏</td><td>β 极小（个位数）</td><td>很小</td><td>没有实用价值，把 C、E 接反时就是它</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">请特别注意放大区和饱和区的区别，这是新手最容易搞混的地方：<b class="font-semibold text-ink">在放大区，I<sub>C</sub> 由基极电流「说了算」；在饱和区，I<sub>C</sub> 由外部电路「说了算」，基极电流给再多也没用。</b></p>
+
+          <p class="mt-3">做开关时，我们要的是这两个状态：<b class="font-semibold text-ink">要么截止（I<sub>C</sub> ≈ 0，管子几乎不耗电），要么深度饱和（V<sub>CE</sub> ≈ 0.1~0.3V，管子也几乎不耗电）</b>。最怕的就是停在放大区——那时 V<sub>CE</sub> 有几伏，电流又有几十毫安，功耗 P = V<sub>CE</sub> × I<sub>C</sub> 全变成热，几分钟就能把 TO-92 的小管子烤糊。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="NPN 做低边开关：电路、电流方向、两个结的偏置">
+            <pre><code>【截止：IO 输出低电平（0V）】
+
+              5V
+               │
+            [ 负载 ]
+               │
+               C
+   IO(0V) ─[R_B]─ B        V_BE ≈ 0V → 发射结反偏 → 无基极电流
+               E          → I_C ≈ 0 → 负载两端几乎没有电压
+               │          → 负载不工作，三极管不发热
+              GND
+
+【饱和：IO 输出高电平（3.3V）】
+
+              5V
+               │
+            [ 负载 ]      ← 电流方向：5V → 负载 → C → E → GND
+               │             （约 70mA，由负载自己决定）
+               C
+   IO(3.3V)─[R_B]─ B       V_BE ≈ 0.7V（钳位住）
+               E           I_B = (3.3 − 0.7) / R_B
+               │          V_CE ≈ 0.1~0.3V（饱和压降）
+              GND          → 负载拿到 5V − 0.2V ≈ 4.8V，正常工作
+                           → 三极管功耗 = 0.2V × 70mA = 14mW，不烫
+
+【关键结论】
+   三极管开关的「开」，靠的不是让它导通，而是让它【饱和】。
+   饱和的条件：I_B 要足够大，大到 I_C 想涨也涨不上去。</code></pre>
+          </div>
+
+          <p class="mt-3">那么「足够大」是多少？理论上只要 <b class="font-semibold text-ink">I<sub>B</sub> ≥ I<sub>C</sub> / β</b> 就能进入饱和。但工程上不能这么掐着算，原因有三个：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">β 的离散性极大。</b>同一型号、同一批次的 S8050，数据手册给的 h<sub>FE</sub> 范围就是 85 ~ 300（不同厂家还分档），你手上这颗具体是多少，只有测了才知道。按「典型值 100」算出来的基极电流，遇到一颗 β=250 的管子——还好；遇到 β=85 的管子就偏小。</li>
+            <li><b class="font-semibold text-ink">β 随温度、电流变化。</b>温度升高 β 会变大，大电流下 β 会下降。手册上还有一条曲线专门画这个关系。</li>
+            <li><b class="font-semibold text-ink">临界饱和时 V<sub>CE</sub> 还不够低。</b>即使 I<sub>C</sub> 刚好等于 β·I<sub>B</sub>，管子也还在放大区和饱和区的边界上，V<sub>CE</sub> 可能有 1V 以上。要让 V<sub>CE</sub> 真正降到 0.2V，必须给它<b>过量的</b>基极电流。</li>
+          </ul>
+
+          <p class="mt-3">所以工程上的做法是：<b class="font-semibold text-ink">按 I<sub>C</sub> 的 1/10 ~ 1/20 来给基极电流</b>（相当于「假设这颗管子的 β 只有 10~20」）。这叫<b>过驱动</b>，代价只是基极多消耗几毫安，换来的是：不管手上这颗 β 是 85 还是 300，它都稳稳地饱和。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么「按 β 算」和「按 I_C/10 算」能差 10 倍</div>
+            <p>因为这两个算法的目的不一样：<b>按 β 算，是为了让管子工作在放大区（做放大器时用）</b>，那里 I<sub>C</sub> = β·I<sub>B</sub> 是设计目标；<b>按 I<sub>C</sub>/10 算，是为了让管子深度饱和（做开关时用）</b>，那里 β 是被「浪费」掉的。教材第 1 章讲 β 是为了第 2、3 章的放大器做铺垫，而单片机工程师用的是后一种算法。<b>这一篇里所有的三极管计算，都用 I<sub>C</sub>/10 这个思路。</b></p>
+          </div>
+
+          <h3 id="sub-mos" class="mt-7 text-base font-semibold">MOS 管：RDS(on) 与栅极驱动</h3>
+
+          <p class="mt-3">MOS 管（场效应管，MOSFET）和三极管解决的是同一个问题——用小信号控制大电流——但工作原理完全不同。<b class="font-semibold text-ink">三极管是「电流控制电流」，MOS 管是「电压控制电流」</b>。这个差别来自一个结构上的关键：栅极和沟道之间隔着一层绝缘的二氧化硅。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="N 沟道增强型 MOS 管：沟道是怎么形成的">
+            <pre><code>【结构剖面】
+
+                  G（栅极）
+                   │
+          ┌────────┴────────┐
+          │  金属 / 多晶硅   │
+          ══════════════════   ← SiO2 绝缘层（关键中的关键）
+     N+ ──┬────────────────┬── N+     ← 源区、漏区（都是重掺杂 N 型）
+          │   P 型衬底      │
+          │                 │
+          S                 D
+          │                 │
+        （衬底 B 通常与源极 S 内部短接）
+
+【V_GS = 0：没有沟道】
+
+     G 上加 0V → 表面没有电场 → P 型衬底表面还是 P 型
+     → S 和 D 之间隔着两个背靠背的 PN 结 → 不通
+     （只有体二极管在特定方向下会导通，见下面的注意点）
+
+【V_GS 大于阈值 V_GS(th)：反型层出现】
+
+          ┌────────┴────────┐
+          ══════════════════
+     N+ ──┬────────────────┬── N+
+          │▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓│   ← 栅极正电压把电子吸到表面，
+          │  电子聚集层      │      形成一层 N 型「反型层」
+          │ （就是沟道）      │      S 和 D 被这层 N 型区连通了
+          S                 D
+
+     V_GS 越大 → 表面电子越多 → 沟道越厚 → 导通电阻越小。
+
+【三个必须记住的工程结论】
+
+ ① 栅极电流：稳态时几乎是 0（只有 pA~nA 级漏电）。
+    因为中间隔着绝缘层，栅极像电容的一个极板，不是 PN 结。
+    → 所以 MOS 管【不消耗持续的驱动电流】，这和三极管完全不同。
+
+ ② 但开关瞬间要充电：栅极是个电容（参数叫 C_iss，或用电荷量 Q_g 表示）。
+    例：AO3400 的 Q_g 大约几 nC 量级，要在很短时间内充满，
+    瞬态电流可能达到几百 mA —— 所以栅极必须串一个小电阻（后面细说）。
+
+ ③ 导通时 D-S 之间等效成一个电阻 R_DS(on)。
+    导通损耗 P = I² × R_DS(on)，这是选型时第一个要算的数。
+    它不是一个固定值：V_GS 越小、温度越高，R_DS(on) 越大。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">选 MOS 管，第一眼要看的不是电流，而是「这颗管子能不能被你手上的电压驱动」。</b>因为 R<sub>DS(on)</sub> 严重依赖 V<sub>GS</sub>，而数据手册里标称的那个漂亮数字（比如 28mΩ）通常是在 V<sub>GS</sub> = 10V 下测的，你的 IO 只有 3.3V。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>型号</th><th>封装 / 耐压</th><th>R<sub>DS(on)</sub> 标称</th><th>V<sub>GS(th)</sub></th><th>3.3V IO 能直驱吗</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">AO3400</td><td>SOT-23 / 30V</td><td>≤ 28mΩ @ V<sub>GS</sub>=10V<br>≤ 39mΩ @ V<sub>GS</sub>=4.5V</td><td>0.6V ~ 1.4V</td><td><b>可以</b>。属于「逻辑电平」管；3.3V 下手册没有保证值，按典型 50mΩ 量级估算</td></tr>
+                <tr><td class="font-mono text-xs">SI2302</td><td>SOT-23 / 20V</td><td>≤ 60mΩ @ V<sub>GS</sub>=4.5V</td><td>0.65V ~ 1.5V</td><td><b>可以</b>。小模块上最常见的一颗</td></tr>
+                <tr><td class="font-mono text-xs">IRLZ44N</td><td>TO-220 / 55V</td><td>25mΩ @ V<sub>GS</sub>=5V</td><td>1.0V ~ 2.0V</td><td><b>勉强可以</b>（5V 驱动是它的设计点）；3.3V 时电阻会明显变大</td></tr>
+                <tr><td class="font-mono text-xs">IRF540N</td><td>TO-220 / 100V</td><td>44mΩ @ V<sub>GS</sub>=10V</td><td>2.0V ~ 4.0V</td><td><b>不行</b>。它是为 10V 驱动设计的；3.3V 下 R<sub>DS(on)</sub> 可能超过 1Ω，一安培就是 1W 的发热</td></tr>
+                <tr><td class="font-mono text-xs">2N7002</td><td>SOT-23 / 60V</td><td>1.2Ω ~ 几 Ω 量级</td><td>1.0V ~ 2.5V</td><td>可以，但只能带<b>小负载</b>（0.3A 量级），大电流会烫</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">看到这里你应该建立一个判断习惯：<b class="font-semibold text-ink">买 MOS 管时，先找数据手册里「V<sub>GS</sub> = 4.5V 或 2.5V 那一行的 R<sub>DS(on)</sub>」</b>。有这一行，说明厂家保证它在低压驱动下也导通得不错；只有 10V 那一行，说明它是给工业 12V 驱动用的，你必须加一级栅极驱动电路才能用。</p>
+
+          <p class="mt-3">接下来是三极管和 MOS 管的正面比较。这张表解释了「为什么现在大电流场合几乎全是 MOS 管」：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>三极管 BJT（S8050）</th><th>MOS 管（AO3400）</th></tr></thead>
+              <tbody>
+                <tr><td>驱动方式</td><td><b>电流驱动</b>：基极必须持续灌入 I<sub>B</sub></td><td><b>电压驱动</b>：栅极稳态电流接近 0</td></tr>
+                <tr><td>持续驱动功耗</td><td>I<sub>B</sub> 始终在消耗（70mA 负载要 3~7mA）</td><td>几乎为 0（只有漏电）</td></tr>
+                <tr><td>导通压降</td><td>V<sub>CE(sat)</sub> ≈ 0.1~0.3V（<b>基本固定</b>）</td><td>I × R<sub>DS(on)</sub>（<b>与电流成正比</b>）</td></tr>
+                <tr><td>1A 时的导通压降</td><td>约 0.3~0.5V → 功耗 0.3~0.5W，很烫</td><td>约 0.05V（按 50mΩ）→ 功耗 0.05W，几乎不热</td></tr>
+                <tr><td>驱动电压不够时</td><td>I<sub>B</sub> 不够 → 停在放大区 → 发热</td><td>V<sub>GS</sub> 不够 → R<sub>DS(on)</sub> 剧增 → 发热</td></tr>
+                <tr><td>开关速度</td><td>有少子存储效应，关断有延迟（µs 量级）</td><td>无少子存储，快得多（但受栅极电容和米勒效应限制）</td></tr>
+                <tr><td>并联使用</td><td>负温度系数，容易一个管子抢电流 → 一般不并联</td><td>R<sub>DS(on)</sub> 正温度系数，自动均流 → 可以并联</td></tr>
+                <tr><td>成本与门槛</td><td>几分钱，接法简单，适合 &lt; 500mA</td><td>也只要几毛钱，但选型要看 V<sub>GS</sub>，适合 &gt; 500mA</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">知道了原理，再看接法。MOS 管做开关有两种位置，各有各的麻烦：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="低边开关与高边开关：为什么新手只用低边">
+            <pre><code>【低边开关：N-MOS 放在负载和地之间】★ 推荐，简单可靠
+
+            12V
+             │
+          [ 负载 ]
+             │
+             D
+   IO ─[R_G]─ G   N-MOS（AO3400）
+             S        ※ 源极直接接地，栅极电压以地为参考
+             │
+            GND
+
+   导通条件：V_GS = V_IO − 0 = 3.3V 大于 V_GS(th) → 导通。
+   优点：栅极参考点是地，IO 的 3.3V 直接就是完整的驱动电压。
+   缺点：负载不接地（负载的「负极」变成了被开关的节点）。
+        如果你要测量负载电压、或者负载必须接地，就不能这么接。
+
+【高边开关：P-MOS 放在电源和负载之间】
+
+            12V ──────── S
+                         │
+                        G ──[R_G]── 驱动电路（注意！）
+                         │
+                        D
+                         │
+                      [ 负载 ]
+                         │
+                        GND
+
+   导通条件：V_GS 必须足够【负】（对 P-MOS 是 V_G 比 V_S 低足够多）。
+   问题：源极接在 12V 上，你要把栅极拉到 12V − 4.5V = 7.5V 以下才导通。
+        IO 只能给 3.3V，而 3.3V 相对 12V 是 −8.7V —— 看起来够，
+        但【关断】时栅极必须是 12V（V_GS = 0 才关断），IO 给不出 12V。
+   → 所以高边开关通常需要：三极管做电平转换、或者专用高边驱动芯片。
+   → 新手做高边，最省事的方案是用【继电器】或者【成品高边开关模块】。
+
+【一句话建议】
+   能用低边就用低边。只有当负载必须接地（比如传感器、共地的信号线）
+   或者需要做 H 桥时，才去碰高边驱动。</code></pre>
+          </div>
+
+          <p class="mt-3">最后是栅极那一圈「看起来多余、其实必须有」的元件：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="栅极电路：串一个电阻、加一个下拉">
+            <pre><code>              ┌──[ R_G ]──┐
+   IO ────────┤  22Ω ~ 100Ω ├──── G
+              └──[ R_PD ]──┘      │
+                  10kΩ            │
+                   │            N-MOS
+                  GND             │
+                                  S → GND
+
+【R_G（栅极串联电阻）为什么必须有】
+
+   栅极等效成一个电容 C_iss。IO 直接接栅极时，这个电容充电的
+   瞬间电流 = 3.3V / IO 内阻。IO 内阻只有几十欧，峰值电流可能
+   达到几十甚至上百毫安 —— 远超 IO 的 20mA 额定值。
+   串上 22Ω 以上，峰值电流被限制在 3.3V/22Ω ≈ 150mA 以下，
+   而且栅极回路的振铃（LC 振荡）被阻尼掉，EMI 明显改善。
+
+   取值：22Ω ~ 100Ω 是安全区。
+     太小 → 没有限流作用，边沿陡但振铃
+     太大 → 开关变慢，开关损耗增大（尤其 PWM 调光/调速时明显发烫）
+
+【R_PD（栅极下拉电阻）为什么必须有】
+
+   MCU 复位期间、或者还没烧程序时，IO 是高阻态，
+   栅极处于悬空状态 —— 一根悬空的栅极就像一根天线，
+   周围一点干扰就可能让它误导通，负载自己动起来。
+
+   10kΩ 下拉到 GND，保证「没人驱动时 = 关断」，这是默认安全态。
+
+【米勒效应：为什么栅极电压会出现一个「平台」】
+
+   MOS 管内部有一个 C_gd（栅漏电容）跨在栅极和漏极之间。
+   开关瞬间，漏极电压剧烈变化（比如从 12V 掉到 0V），
+   这个变化通过 C_gd 耦合回栅极，把栅极电压「顶住」，
+   于是栅极电压在曲线上出现一段平台（叫米勒平台）：
+
+       V_GS
+        │        ┌───────────  ← 平台结束，栅极继续上升
+        │    ┌───┘
+        │  ┌─┘   ← 【米勒平台】：漏极电压正在变化，
+        │┌─┘        驱动电流全部被 C_gd 抽走
+        └┴────────────────────► t
+
+   平台期间管子正好停在「半开」状态：电压高、电流大 → 损耗最大。
+   频率越高（PWM 调速、调光），平台占的时间比例越大，发热越严重。
+
+   对策（按性价比排序）：
+     ① 选 Q_g 小、C_gd 小的管子（AO3400 这类小封装管就比 IRF540 快得多）
+     ② 栅极电阻取小一点（但要兼顾振铃）
+     ③ 高频大电流场合用专用栅极驱动芯片（能给出 1A 以上的驱动电流）
+     ④ 在合理范围内降低开关频率</code></pre>
+          </div>
+
+          <h3 id="sub-family" class="mt-7 text-base font-semibold">二极管家族的分工与续流二极管</h3>
+
+          <p class="mt-3">「二极管」不是一个器件，而是一整个家族。它们的外形可能一样（都是黑色小圆柱），但内部结构决定了各自的用途。<b class="font-semibold text-ink">选错型号的后果不是不工作，而是「用一阵子就烧」或者「效率莫名很低」</b>。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>类别</th><th>典型型号</th><th>耐压 / 电流</th><th>正向压降</th><th>反向恢复时间 t<sub>rr</sub></th><th>主要用途</th></tr></thead>
+              <tbody>
+                <tr><td><b>普通整流</b></td><td class="font-mono text-xs">1N4001~1N4007</td><td>50V~1000V / 1A</td><td>约 0.9~1.1V @ 1A</td><td>约 2µs（很长）</td><td>工频（50Hz）整流、电源防反接</td></tr>
+                <tr><td><b>快恢复</b></td><td class="font-mono text-xs">FR107 / UF4007</td><td>1000V / 1A</td><td>约 1.3V</td><td>150ns ~ 500ns</td><td>开关电源次级整流、高频续流</td></tr>
+                <tr><td><b>肖特基</b></td><td class="font-mono text-xs">1N5819 / SS34 / BAT54</td><td>20V~40V / 0.2~3A</td><td><b>0.3~0.5V</b>（最低）</td><td>几乎为零</td><td>低压大电流整流、开关电源续流、低压防反接</td></tr>
+                <tr><td><b>开关二极管</b></td><td class="font-mono text-xs">1N4148</td><td>100V / 300mA 量级</td><td>约 0.7V（小电流时 0.6V）</td><td><b>4ns</b>（很快）</td><td>信号处理、小功率续流（继电器线圈吸收）</td></tr>
+                <tr><td><b>稳压管</b></td><td class="font-mono text-xs">BZX55C5V1 / 1N4733A</td><td>0.5W / 1W</td><td>正向 0.7V，反向 V<sub>Z</sub></td><td>—</td><td>简单基准、过压钳位、ADC 输入保护</td></tr>
+                <tr><td><b>TVS</b></td><td class="font-mono text-xs">SMAJ5.0A / P6KE6.8A</td><td>按型号（几 V ~ 几百 V）</td><td>平时不导通</td><td>响应纳秒级</td><td>吸收浪涌、ESD、感性负载尖峰（比稳压管能扛）</td></tr>
+                <tr><td><b>发光二极管</b></td><td class="font-mono text-xs">按颜色分</td><td>—</td><td>1.8V ~ 3.4V</td><td>—</td><td>指示、照明、光耦发射端</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">表里那一列 <b class="font-semibold text-ink">反向恢复时间 t<sub>rr</sub></b> 值得单独解释一句，因为它是「整流管」和「快恢复管」唯一的分界线：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="反向恢复时间：为什么整流管不能用在开关电源里">
+            <pre><code>【二极管从「导通」切换到「截止」的瞬间发生了什么】
+
+   导通时：P 区注入了大量电子、N 区注入了大量空穴（叫「少子存储」）。
+   想关断时：这些储存的电荷必须先被抽走，管子才能真正截止。
+
+        电流
+          │  正向电流
+          │  ─────────┐
+          │           │
+   ───────┼───────────┴────┬──────────────► t
+          │                │
+          │   ← 反向电流 ──┘  ← 这段时间就是 t_rr
+          │     （电荷被抽走）
+
+【结论】
+   · t_rr 越长，关断瞬间的反向电流持续时间越长。
+   · 在 50Hz 工频下，t_rr = 2µs 完全可以忽略。
+   · 在 100kHz 的开关电源里，一个周期只有 10µs，
+     2µs 的反向电流意味着巨大的开关损耗和电磁干扰 —— 必须换快恢复或肖特基。
+   · 肖特基是多数载流子器件，没有少子存储效应，t_rr 几乎为零，
+     所以它是高频低压场合的首选。</code></pre>
+          </div>
+
+          <p class="mt-3">接下来是本篇里最常被问到、也最容易被接错的一个元件：<b class="font-semibold text-ink">续流二极管</b>。它几乎只出现在一类电路里——<b class="font-semibold text-ink">驱动感性负载</b>（继电器线圈、电机、电磁阀、蜂鸣器）。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="续流二极管：为什么少了它，三极管必死">
+            <pre><code>【感性负载的脾气：电流不能突变】
+
+   继电器线圈、电机绕组本质都是电感。电感有一个铁律：
+        U = L × di/dt
+   意思是：想让电流「突然」变化，就必须在它两端加一个巨大的电压；
+   反过来，如果你强行切断电流，电感就会自己【造出】一个高电压来反抗。
+
+【没有续流二极管：关断瞬间发生了什么】
+
+   三极管导通时：线圈电流 70mA，方向 5V → 线圈 → C → E → GND
+   三极管关断时：电流想在一瞬间从 70mA 变成 0。
+
+   假设线圈电感 L = 50mH，关断时间 1µs：
+        U = L × di/dt = 0.05H × (0.07A / 1µs) = 3500V
+
+   这个尖峰直接加在已经关断的三极管 C-E 之间。
+   S8050 的 V_CEO 只有 25V —— 尖峰会把它击穿，
+   然后线圈的电流继续从被击穿的管子里流过，管子烧毁。
+
+   ⚠ 现实中最常见的表现不是「立刻烧」，
+     而是「用几天之后莫名其莫妙就不工作了」——因为每次关断都在
+     轻微损伤它，直到某一次彻底失效。
+
+【加续流二极管：尖峰被钳在 5.7V】
+
+             5V ──────┬──────────┐
+                      │          │
+                  [ 线圈 ]   [ 续流二极管 ]
+                      │       阴极↑ 朝 5V
+                      │          │
+                      └──────────┘
+                      │
+                     C
+   IO ─[R_B]─ B     S8050
+                     E
+                     │
+                    GND
+
+   关断瞬间：线圈的电流「想继续流」→ 它找到了一条新路：
+   线圈 → 二极管 → 回到 5V 电源 → 再回到线圈。
+   （电流方向不变，只是不再经过三极管）
+   线圈两端的电压被钳制在 V_F + 5V ≈ 5.7V，三极管 C-E 上
+   最多承受 5.7V，远低于 25V 的耐压。✅
+
+   电流按 L/R 时间常数衰减：τ = 50mH / 70Ω ≈ 0.71ms，
+   几毫秒内电流降到接近零（继电器释放时间也是这个量级），
+   不会影响继电器动作速度。
+
+【三个必须记住的细节】
+   ① 二极管的【阴极（有环的那一端）】必须朝电源正极（5V）。
+      接反 = 上电瞬间 5V 通过二极管直接短路到地 → 二极管烧、电源烧。
+   ② 型号用 1N4148（小线圈、电流 &lt; 200mA）或 1N4007（大一点的负载）。
+      高频 PWM 驱动电机时要用肖特基或快恢复，普通管的 t_rr 会造成额外损耗。
+   ③ 续流二极管只解决「关断尖峰」，不解决「电流太大」的问题。
+      70mA 的线圈照样需要三极管去驱动，二极管不能省掉三极管。</code></pre>
+          </div>
+
+          <p class="mt-3">最后两个器件只点到概念，因为它们在单片机项目里通常以<b class="font-semibold text-ink">成品模块</b>的形式出现，你暂时不需要自己设计：</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">光耦（光电耦合器）：</b>把一个 LED 和一个光敏三极管封在一个不透明的壳子里，中间隔着透明的绝缘层。<b>信号只能靠光传过去，两侧电路在电气上完全隔离</b>（常见耐压 3.75kV ~ 5kV）。它的用法很固定：MCU 侧 —— IO 串限流电阻接内部 LED（阳极）；负载侧 —— 光敏三极管集电极经上拉电阻接电源，发射极接地，输出从集电极取（注意：这样取出来是<b>反相</b>的）。常见型号 PC817（低速、便宜）、6N137（高速，10Mbit/s 量级）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">可控硅（晶闸管 SCR / 双向可控硅 Triac）：</b>三个极——阳极、阴极、门极。<b>它的特点是「触发之后就失控」</b>：门极只要给一个脉冲把它点着，即使撤掉门极信号，它也会一直导通，直到流过它的电流降到「维持电流」以下才关断（交流电每半周自然过零一次，就是它关断的时机）。所以它只能做「相位控制」（调节市电每半周的导通角，用来调光、调温、调转速），不能像 MOS 管那样随时关断。市电侧驱动通常用 MOC3021 / MOC3063 这类光耦 + 双向可控硅的组合。</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">碰 220V 之前，先把这三句话读完</div>
+            <p><b>① 市电侧不是「电压高一点」而已，它是能要命的。</b>实验台上永远用隔离变压器，一只手操作，不要两只手同时碰板子两侧。<b>② 光耦两侧千万不要共地。</b>很多人接光耦时顺手把两侧的 GND 连在一起「图个方便」——那样隔离就完全失效了，光耦只剩下一个「贵一点的三极管」的作用，市电侧的干扰和故障会直接打到你的 MCU 上。<b>③ 第一次做市电项目，用成品模块</b>（固态继电器 SSR、带光耦的继电器模块）。自己搭市电电路，等你能说清每一根线的电位之后再说。</p>
+          </div>
+
+        </section>
+
+        <section class="mt-14">
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-3">原理讲完了，接下来把四道题从头算到尾。<b class="font-semibold text-ink">这四道题就是本篇的全部计算量</b>：LED 限流电阻、三极管基极电阻、稳压管限流电阻、MOS 管发热校核。你能独立算出这四个数，这一篇就过关了。</p>
+
+          <h3 class="mt-7 text-base font-semibold">例 1 · 3.3V 的 IO 点亮一颗红色 LED，要多大的限流电阻？</h3>
+
+          <p class="mt-3"><b>题目：</b>用 STM32 的一个普通 IO（推挽输出，高电平 3.3V）点亮一颗红色 LED，已知这颗 LED 的正向压降 V<sub>F</sub> = 1.9V，希望工作电流为 8mA。求限流电阻的阻值，并校核 IO 和电阻是否安全。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 1 解题过程">
+            <pre><code>【第 1 步：画回路，确认电流路径】
+
+   3.3V(IO) ──[ R ]──▶|── GND
+                      LED
+   电流方向：从 IO 流出 → 经 R → 经 LED（阳极→阴极）→ 回到 GND
+
+【第 2 步：对回路列电压关系（基尔霍夫电压定律）】
+
+   电源电压 = 电阻上的电压 + LED 上的电压
+   V_IO = U_R + V_F
+   U_R  = 3.3V − 1.9V = 1.4V      ← 电阻「分到」的电压
+
+   ※ 这一步是全部关键：LED 拿走 1.9V 是它自己说了算的，
+     剩下的才是电阻的。所以电阻不能按 3.3V 算，只能按 1.4V 算。
+
+【第 3 步：欧姆定律求电阻】
+
+   R = U_R / I = 1.4V / 0.008A = 175Ω
+
+【第 4 步：取标称值（E24 系列有 160Ω / 180Ω）】
+
+   取 180Ω（取大不取小：电流小一点更安全，亮度差别肉眼几乎看不出）
+   实际电流 I = 1.4V / 180Ω = 7.8mA  ✅ 接近目标的 8mA
+
+【第 5 步：校核三件事】
+
+   ① IO 电流：7.8mA &lt; 20mA（单脚上限）✅
+      但注意：7.8mA &gt; 3mA → 【不能接 PC13/PC14/PC15】❌
+   ② IO 高电平会掉一点：手册规定带 8mA 时 V_OH ≥ VDD − 0.4V = 2.9V。
+      用最坏情况重算：I = (2.9 − 1.9) / 180 = 5.6mA
+      → 亮度大约降到原来的七成，肉眼仍正常 ✅
+   ③ 电阻功耗：P = I²R = (0.0078)² × 180 ≈ 0.011W = 11mW
+      → 1/8W（125mW）的贴片电阻绰绰有余 ✅
+
+【第 6 步：如果换成蓝色 LED（V_F ≈ 3.0V）】
+
+   U_R = 3.3 − 3.0 = 0.3V → 只有 0.3V 可以分给电阻！
+   要 8mA 就得 R = 0.3 / 0.008 = 37.5Ω
+   此时 V_F 只要波动 0.1V，电流就会从 8mA 涨到 10.7mA 或降到 5.3mA
+   —— 【电流对 V_F 极其敏感】，这就是「3.3V 驱动蓝光 LED 很不稳」的原因。
+   正确做法：改用 5V 供电、或者用恒流驱动芯片/WS2812 这类内置驱动的灯珠。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>限流电阻</th><th>电流（按 V<sub>F</sub>=1.9V、V<sub>IO</sub>=3.3V）</th><th>亮度观感</th><th>适用场合</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">100Ω</td><td>14.0mA</td><td>很亮</td><td>不推荐：接近 IO 上限，只适合偶尔闪一下的场合</td></tr>
+                <tr><td class="font-mono text-xs">180Ω</td><td>7.8mA</td><td>亮</td><td><b>推荐</b>：指示灯首选</td></tr>
+                <tr><td class="font-mono text-xs">330Ω</td><td>4.2mA</td><td>够看</td><td>省电、多灯同时亮</td></tr>
+                <tr><td class="font-mono text-xs">470Ω</td><td>3.0mA</td><td>偏暗但清楚</td><td>夜间指示灯、暗环境产品</td></tr>
+                <tr><td class="font-mono text-xs">1kΩ</td><td>1.4mA</td><td>很暗</td><td>只要求「有个点」、极省电</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例 2 · 用 S8050 驱动 5V/70mA 继电器，基极电阻取多少？</h3>
+
+          <p class="mt-3"><b>题目：</b>继电器线圈额定 5V、直流电阻 70Ω，用 S8050（NPN，手册 h<sub>FE</sub> 分档 85~300）做低边开关，基极由 3.3V 的 IO 经电阻驱动。求基极电阻，并判断这个 IO 是否吃得消。要求三极管工作在深度饱和状态。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 2 解题过程">
+            <pre><code>【第 1 步：先算集电极电流（负载要多少）】
+
+   I_C = 5V / 70Ω = 71.4mA ≈ 71mA
+
+   注意：这里【不能用 β 去反推】，负载要多少电流是线圈电阻决定的，
+   三极管只能决定「给不给得起」。
+
+【第 2 步：先看看「按 β 算」会算成什么样（错误示范）】
+
+   如果同学按 β = 100 算：I_B = I_C / β = 71mA / 100 = 0.71mA
+   再取 R_B = (3.3 − 0.7) / 0.71mA = 3.66kΩ → 手边有 4.7kΩ，就用它了。
+
+   实际基极电流 = (3.3 − 0.7) / 4.7kΩ = 0.55mA
+   想让管子饱和，需要 β ≥ 71mA / 0.55mA = 129。
+
+   而手册标的是 h_FE 最小 85、典型 100~250。
+   → 碰到一颗 β = 100 的管子（很常见），它就【饱和不了】：
+     停在放大区，V_CE 从 0.2V 涨到几伏，线圈只拿到两三伏，吸合无力；
+     剩下的电压乘以 71mA 全变成热，几十分钟就能烤糊 TO-92。
+   → 这就是 sec-why 里「现场 C」的完整算术。
+
+【第 3 步：正确算法 —— 开关用 I_C/10 的过驱动】
+
+   设计目标：I_B = I_C / 10 = 71mA / 10 = 7.1mA
+   （为什么除以 10 而不是除以 β？因为 β 是离散的、随温度和电流变化的，
+     除以 10 相当于留了 8~10 倍余量，保证【任何一颗】管子都深度饱和。）
+
+   R_B = (V_IO − V_BE(sat)) / I_B = (3.3V − 0.7V) / 7.1mA = 366Ω
+   取标称值 330Ω（取小不取大：宁可基极电流大一点，也不要饱和不够）
+
+【第 4 步：校核实际基极电流】
+
+   I_B = (3.3 − 0.7) / 330Ω = 7.9mA
+   过驱动倍数 = 7.9mA / 71mA ≈ 1/9 → 深度饱和 ✅
+   此时 V_CE(sat) ≈ 0.1~0.3V，三极管功耗 = 0.3V × 71mA ≈ 21mW（几乎不热）✅
+   对比错误示范：若停在 V_CE = 3V，功耗 = 3V × 71mA = 213mW → 10 倍，发烫。
+
+【第 5 步：校核 IO 是否吃得消 —— 这一步最容易被跳过】
+
+   ① 7.9mA &lt; 20mA（单脚上限）✅
+   ② 但 7.9mA &gt; 3mA → 【不能接 PC13/PC14/PC15】❌ 这些脚只有 3mA
+   ③ 整片 IO 总电流上限 150mA：同时驱动多个继电器时要加起来算
+   ④ 最坏情况：IO 高电平只有 2.9V 时，I_B = (2.9 − 0.7)/330 = 6.7mA
+      → 过驱动倍数仍有 1/10.6，依然饱和 ✅
+
+【第 6 步：如果 IO 电流不够用，怎么办】
+
+   方案 A：把 R_B 加大到 1kΩ → I_B = 2.6mA
+          需要 β ≥ 71/2.6 = 27 → 只要管子是好的就一定饱和，余量 3 倍以上。
+          这颗 2.6mA 已经能安全挂在普通 IO 上。
+   方案 B：用 MOS 管代替三极管（栅极稳态电流≈0），IO 只出瞬态电流。
+   方案 C：用达林顿管或继电器驱动芯片（ULN2003 一类的成品模块），
+          它内部已经集成了基极电阻和续流二极管，IO 只需要灌入 1mA 量级。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这两道题算完，请记住三个「基数」</div>
+            <p><b>① V<sub>BE</sub> 一律按 0.7V 算</b>（硅管，饱和时可能到 0.8V，按 0.7V 算偏保守，安全）。<b>② 三极管做开关，I<sub>B</sub> 取 I<sub>C</sub> 的 1/10</b>。看到「按 β 算基极电阻」这几个字，你就知道这份资料要打折扣了。<b>③ LED 的电阻按 (V<sub>电源</sub> − V<sub>F</sub>) 算</b>，不是按电源电压算——初学者一半的错误都出在这一步。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例 3 · 用稳压管做 5.1V 基准，限流电阻怎么取？</h3>
+
+          <p class="mt-3"><b>题目：</b>手头有 12V 电源和一个 1N4733A（1W、V<sub>Z</sub> = 5.1V）；要给它供给一个电流不超过 2mA 的小负载（比如给运放做参考、给比较器做阈值）。求限流电阻，并校核稳压管在任何负载情况下都不会「失稳压」。已知 1N4733A 的测试电流 I<sub>ZT</sub> = 49mA，拐点电流约 1mA，额定功耗 1W。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 3 解题过程">
+            <pre><code>【电路形态：串联限流，负载与稳压管并联】
+
+      12V ──[ R ]──┬──▶ 到负载（I_L ≤ 2mA）
+                   │
+                 稳压管（阴极朝上，反向接）
+                   │
+                  GND
+
+   电流关系（基尔霍夫电流定律）：
+        I_R = I_Z + I_L
+   R 上的电流，一部分流过稳压管，一部分流给负载。
+
+【第 1 步：选一个「设计工况」】
+
+   稳压管要正常工作，必须始终有电流流过它，且大于拐点电流。
+   工程上取 I_Z = 5mA 作为设计点（远大于 1mA 拐点，离 49mA 也很远）。
+
+   负载最大时最危险（流入负载的电流会「抢走」稳压管的电流），
+   所以按 I_L = 2mA（最大）来算所需的 I_R：
+
+        I_R = I_Z + I_L = 5mA + 2mA = 7mA
+
+【第 2 步：求限流电阻】
+
+   R = (V_S − V_Z) / I_R = (12V − 5.1V) / 7mA = 6.9V / 0.007A = 986Ω
+   取标称值 820Ω（取小一点，让稳压管电流更充裕）
+
+【第 3 步：校核两种极端情况】
+
+   情况①：负载电流满额 2mA
+        I_R = 6.9V / 820Ω = 8.4mA → I_Z = 8.4 − 2 = 6.4mA
+        6.4mA 远大于拐点 1mA，稳压管牢牢钉在 5.1V ✅
+
+   情况②：负载断开（电流为 0）
+        I_Z = 8.4mA（全部流过稳压管）
+        8.4mA &lt; 49mA 额定测试电流，功耗 = 5.1V × 8.4mA = 43mW ≪ 1W ✅
+
+   情况③：如果负载吃掉了 9mA（超出题目假设会怎样）
+        I_Z = 8.4 − 9 = −0.6mA → 稳压管没电流了，退出击穿区，
+        输出电压塌陷成 12V × R_L/(R+R_L) → 【完全没有稳压作用】
+        → 这就是这种电路的根本限制：它能提供的电流 = I_R 量级。
+
+【第 4 步：校核电阻自身的功耗】
+
+   P_R = U_R² / R = (6.9)² / 820 ≈ 58mW
+   → 1/4W（250mW）电阻足够；但如果你把 R 取成 100Ω 图「电流大」，
+     功耗会变成 (6.9)²/100 = 476mW，1/4W 电阻直接烧掉。
+
+【结论与适用边界】
+
+   · 这套「电阻 + 稳压管」方案只适合【几毫安】量级的轻负载。
+   · 负载电流超过十几毫安，限流电阻上的功耗就会失控，
+     必须换成 LDO（比如 AMS1117-5.0）或 DC-DC。
+   · 在单片机系统里，它的正确用法不是「供电」，
+     而是「钳位」「做参考」「做保护」——见第 4 节的 ADC 输入保护。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例 4 · 2A 的负载，为什么必须用 MOS 管？算给你看</h3>
+
+          <p class="mt-3"><b>题目：</b>需要开关一条 12V、2A 的负载（比如 LED 灯带）。方案 A 用 AO3400（N-MOS，SOT-23 封装），栅极由 3.3V 的 IO 经 22Ω 驱动；方案 B 用达林顿管 TIP122（TO-220）。分别估算导通损耗和温升，并检查栅极会不会把 IO 拉爆。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 4 解题过程">
+            <pre><code>【方案 A：AO3400 低边开关】
+
+   第 1 步：确定 3.3V 驱动下的 R_DS(on)
+        手册标称：≤ 39mΩ @ V_GS = 4.5V（更低的 2.5V 档没有保证值）
+        我们的 V_GS 只有 3.3V，且管子会发热（R_DS(on) 有正温度系数）
+        → 按典型值 50mΩ 估算（这是估算，不是手册保证值）
+
+   第 2 步：导通损耗
+        P = I² × R_DS(on) = (2A)² × 0.05Ω = 4 × 0.05 = 0.2W
+
+   第 3 步：温升
+        SOT-23 在小焊盘上的热阻 R_θJA 约 200°C/W 量级
+        ΔT = 0.2W × 200°C/W = 40°C
+        → 环境 25°C 时结温约 65°C，低于 125°C 上限，但余量不大
+        → 把焊盘铺铜面积加大（或在漏极铺一块铜），R_θJA 能降到
+          约 100°C/W 量级，温升只剩 20°C，非常凉。
+
+   第 4 步：栅极会不会拉爆 IO？
+        栅极串 22Ω，峰值电流 = 3.3V / 22Ω ≈ 150mA
+        但这个电流只持续纳秒~微秒级（把栅极电容充满就结束了），
+        稳态电流 ≈ 0（只有 pA~nA 级漏电）。
+        平均到毫秒尺度上，IO 的负担几乎为零 ✅
+        （严格做法：查手册的 Q_g，用 I = Q_g / t_开关 估算平均电流）
+
+【方案 B：TIP122 达林顿，同一个负载】
+
+   · 达林顿的 V_CE(sat) 很大：手册在几安培时约 2V 量级
+   · P = V_CE(sat) × I_C = 2V × 2A = 4W
+   · TO-220 不加散热片的热阻约 60~70°C/W → ΔT = 4W × 65 = 260°C
+     → 结论：必须加散热片，否则几秒钟就过热
+   · 而且它还需要持续的基极电流（达林顿约 1/1000 的 I_C，即 2mA 量级）
+
+【对比结论】
+
+   同一个 2A 负载：
+        AO3400（MOS）   ：0.2W，SOT-23 米粒大的封装，不烫
+        TIP122（达林顿）：4W，TO-220 大封装 + 散热片
+   损耗相差 20 倍。这不是「MOS 更先进」，而是：
+        MOS 的压降 = I × R_DS(on)，电流越大压降才越大，而且可以
+        通过选更小 R_DS(on) 的管子继续往下压；
+        三极管的 V_CE(sat) 基本是个固定值（0.3V~2V），
+        电流一大，这个固定值乘上大电流就变成灾难。
+
+【补充：那 S8050 呢？】
+
+   S8050 的集电极电流上限只有 500mA 量级 —— 2A 连「考虑」的资格都没有，
+   直接超额定值，属于「接上去就烧」。选型的第一步永远是
+   【确认器件能不能扛住这个电流】，第二步才是算热。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">四道题的通用模板</div>
+            <p>把上面的过程抽象出来，你以后遇到任何「IO 驱动某个东西」的问题，都按这五步走：<b>① 确定负载真正需要多少电压和电流</b>（查数据手册，不要猜）→ <b>② 画出回路，列出电压关系</b>（哪个器件的压降是固定的，剩下的才是电阻的）→ <b>③ 用欧姆定律算出电阻，就近取标称值</b>（LED、稳压管取大一点；三极管基极取小一点）→ <b>④ 校核三件事</b>：IO 电流有没有超 20mA（PC13 只有 3mA）、电阻功耗、器件自身功耗 → <b>⑤ 检查最坏情况</b>：电源波动 10%、IO 高电平掉到 2.9V、器件参数的离散和温漂。第 ④⑤ 步是业余和专业的分界线。</p>
+          </div>
+        </section>
+
+        <section class="mt-14">
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-3">前面所有原理，最终都要落到「一块板子上的一根线接在哪里」。这一节给你五个可以直接抄进自己项目的完整电路，每个都标出电流方向和关键压降。</p>
+
+          <h3 id="sub-mcu-led" class="mt-7 text-base font-semibold">IO 直驱 LED</h3>
+
+          <p class="mt-3">这是最简单、也最值得较真的一根线。同样是点一颗 LED，接法有两种，效果并不一样：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两种接法：拉电流（IO 出电流）与灌电流（IO 吃电流）">
+            <pre><code>【接法 A：拉电流 / 高电平点亮（source）】
+
+                   3.3V
+                    │
+                 [ 180Ω ]  ← 压降 1.4V
+                    │
+                    ▼  I = 7.8mA
+                LED（阳极）  压降 V_F = 1.9V
+                LED（阴极）
+                    │
+                   PA5（IO 输出高电平 3.3V）
+                    │
+                   GND（经芯片内部）
+
+   电流方向：IO 引脚 → 电阻 → LED（阳极→阴极）→ GND
+   计算依据：I = (V_OH − V_F) / R = (3.3 − 1.9) / 180 = 7.8mA
+   风险：V_OH 会随电流下降（带 8mA 时可能只有 2.9V），亮度略降。
+
+【接法 B：灌电流 / 低电平点亮（sink）★ 常见于最小系统板】
+
+                   3.3V
+                    │
+                 [ 470Ω ]
+                    │
+                    ▼  I
+                LED（阳极 → 阴极）
+                    │
+                   PC13（IO 输出低电平 ≈ 0.1~0.4V）
+                    │
+                   GND
+
+   电流方向：3.3V → 电阻 → LED → IO 引脚 → 芯片内部到 GND
+   计算依据：I = (3.3 − V_F − V_OL) / R = (3.3 − 1.9 − 0.3) / 470 ≈ 2.3mA（PC13 这组引脚最大只能灌 3mA，所以电阻必须取 470Ω，不能取 180Ω）
+   为什么很多板子用它：
+     ① 多数 MCU 的【灌电流能力比拉电流强】，V_OL 也比拉高时的压降更稳定
+     ② 上电复位期间 IO 默认是高阻态 → LED 不亮，是安全的默认态
+        （接法 A 在复位期间 IO 高阻，同样不亮；但如果你加了下拉，情况会变）
+
+【⚠ 最小系统板上的 LED 为什么那么暗？】
+
+   蓝丸（Blue Pill）板上的 PC13 LED 阳极接 3.3V、阴极接 PC13，
+   属于接法 B —— 但 PC13 这一组的引脚【最大只能灌 3mA】，
+   而板上的限流电阻通常是 470Ω ~ 1kΩ：
+
+       I = (3.3 − 1.9 − 0.3) / 470 ≈ 2.3mA   ← 只有 2.3mA！
+
+   这解释了「为什么板载 LED 比我自己接的暗」——
+   不是你的错觉，也不是灯坏了，是 PC13 被限制了 3mA。
+   想要亮，就换一个普通 IO（PA0 之类）自己接一颗。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="main.c · 推挽输出与 PWM 调光（HAL 库）">
+            <pre><code>/* ① 普通推挽输出：高低电平点灯 */
+static void LED_GPIO_Init(void)
+{
+    GPIO_InitTypeDef gpio = {0};
+    __HAL_RCC_GPIOA_CLK_ENABLE();          /* 别忘了开时钟，否则寄存器写不进去 */
+
+    gpio.Pin   = GPIO_PIN_5;               /* PA5，普通 IO，不用 PC13 */
+    gpio.Mode  = GPIO_MODE_OUTPUT_PP;      /* 推挽输出：能拉高也能拉低 */
+    gpio.Pull  = GPIO_NOPULL;              /* 外部已有明确的回路，不要开内部上下拉 */
+    gpio.Speed = GPIO_SPEED_FREQ_LOW;      /* 点灯不需要高速，低速可减小 EMI */
+    HAL_GPIO_Init(GPIOA, &amp;gpio);
+
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);  /* 上电先灭，安全默认态 */
+}
+
+/* ② PWM 调光：占空比决定平均亮度，IO 峰值电流不变 */
+/*    TIM3_CH1 映射到 PA6；频率取 1kHz（高于人眼闪烁感知，低于三极管/MOS 的开关极限） */
+static void LED_PWM_Init(void)
+{
+    /* 省略时钟与引脚复用配置，只强调三个参数： */
+    /* 预分频 + 自动重装值 = 72MHz / 1kHz = 72000 */
+    /* 占空比 = CCR / (ARR + 1)，写 CCR 就是改亮度 */
+    __HAL_TIM_SET_COMPARE(&amp;htim3, TIM_CHANNEL_1, 360);   /* 约 50% 亮度 */
+}
+
+/* ⚠ 调光的三个坑：
+ *   1) 频率别取太高（&lt; 20kHz 直驱 MOS），否则开关损耗和栅极驱动跟不上；
+ *   2) 亮度是【对数感知】的：占空比 50% 看起来只有 70% 亮，做呼吸灯要查表；
+ *   3) 用 PWM 时【限流电阻照旧要有】，PWM 只改变平均电流，不改变峰值电流。 */</code></pre>
+          </div>
+
+          <h3 id="sub-mcu-relay" class="mt-7 text-base font-semibold">IO 到继电器：完整电路</h3>
+
+          <p class="mt-3">这是本篇最该背下来的一个电路。<b class="font-semibold text-ink">它包含了所有「用小信号控制大负载」的要素：限流、过驱动、续流、默认安全态。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="完整电路：3.3V IO → S8050 → 5V 继电器（含续流二极管与状态灯）">
+            <pre><code>                         +5V（继电器电源，与 MCU 同源但走线分开）
+                          │
+              ┌───────────┼────────────────────┐
+              │           │                    │
+        ┌─────┴─────┐     │              ┌─────┴─────┐
+        │ 线圈 70Ω  │     │              │ 1N4148    │  续流二极管
+        │ 5V/71mA   │     │              │ ▲ 阴极朝上 │  平时【反偏不导通】
+        └─────┬─────┘     │              └─────┬─────┘
+              │           │                    │
+              │           └────[ 1kΩ ]────┐    │
+              │                状态灯 LED │    │
+              │               （可选，指示）│    │
+              │                            │    │
+              ▼ I_C = 71mA                 ▼    │
+              ├────────────────────────────┴────┘
+              │
+              C（集电极）
+             ┌┴┐
+   PA1 ─[330Ω]─ B   S8050（NPN）        V_CE(sat) ≈ 0.2V
+             └┬┘                        三极管功耗 = 0.2V × 71mA = 14mW
+              E（发射极）
+              │
+             GND
+
+【电流方向（吸合时）】
+   +5V → 线圈 → 集电极 C → 发射极 E → GND
+   基极支路：PA1（3.3V）→ 330Ω → B → E → GND，I_B = (3.3−0.7)/330 = 7.9mA
+
+【关断瞬间（吸合 → 释放）】
+   线圈电流「想继续流」→ 走二极管：线圈下端 → 二极管 → +5V → 回线圈
+   线圈两端被钳在 V_F + 5V ≈ 5.7V，三极管承受的电压从「上千伏尖峰」降到 5.7V
+   ⚠ 二极管【阴极（有黑环的一端）朝 +5V】，接反 = 上电短路
+
+【元件清单与取值理由】
+   三极管 S8050        71mA 远小于 500mA 上限，TO-92 散热足够
+   基极电阻 330Ω       I_B = 7.9mA ≈ I_C/9，保证深度饱和；不能挂 PC13
+   续流二极管 1N4148    71mA 远小于 300mA 上限，几十毫秒内泄放完线圈能量
+   状态灯 + 1kΩ        约 1.4mA，指示「程序让继电器吸合了」
+
+【三个必须做的设计判断】
+   ① 默认态：上电复位时 IO 是高阻态，三极管截止 → 继电器【释放】。
+      如果你的设备要求「上电就必须处于工作状态」，那就要用常闭触点（NC），
+      而不是靠程序去保证 —— 程序可能跑飞。
+   ② 继电器电源要与 MCU 电源分开走线，并在线圈两端就近放 100µF 电解 + 0.1µF 瓷片。
+      71mA 的突变会在细导线上产生压降，串进 MCU 电源就是复位。
+   ③ 触点侧与线圈侧是两个世界：线圈是 5V 直流、几十毫安；
+      触点侧可能是 220V 交流、几安培。【触点容量看继电器铭牌】
+      （常见 10A/250VAC），而线圈只要 71mA —— 别把这两件事搞混。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="relay.c · 上电安全默认态与吸合时序">
+            <pre><code>/* 继电器控制：低电平吸合（IO 拉低 → 三极管导通）还是高电平吸合？
+ * 这里采用【高电平吸合】，因此复位期间 IO 高阻 = 继电器释放，是安全态。 */
+#define RELAY_PORT   GPIOA
+#define RELAY_PIN    GPIO_PIN_1
+
+static void Relay_Init(void)
+{
+    GPIO_InitTypeDef gpio = {0};
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    gpio.Pin   = RELAY_PIN;
+    gpio.Mode  = GPIO_MODE_OUTPUT_PP;
+    gpio.Pull  = GPIO_PULLDOWN;      /* 高阻期间被内部下拉钉在低电平，双保险 */
+    gpio.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(RELAY_PORT, &amp;gpio);
+    Relay_Off();                     /* 初始化完成的第一件事：先关掉 */
+}
+
+void Relay_On(void)  { HAL_GPIO_WritePin(RELAY_PORT, RELAY_PIN, GPIO_PIN_SET);   }
+void Relay_Off(void) { HAL_GPIO_WritePin(RELAY_PORT, RELAY_PIN, GPIO_PIN_RESET); }
+
+/* ⚠ 机械继电器的三个时间参数，写程序时必须考虑：
+ *   吸合时间 约 5~10ms，释放时间 约 5~10ms，弹跳 约 1~2ms
+ *   → 吸合后至少延时 20ms 再去读状态或切换下一次动作；
+ *   → 不要用 1ms 的循环去反复开关，触点会被弹跳电弧烧蚀（寿命从 10 万次掉到几千次）。 */</code></pre>
+          </div>
+
+          <h3 id="sub-mcu-mos" class="mt-7 text-base font-semibold">大电流为什么换 MOS 管</h3>
+
+          <p class="mt-3">当负载从 71mA 的继电器线圈，变成 2A 的 LED 灯带、3A 的加热片、5A 的直流电机时，三极管方案就会开始烫手。<b class="font-semibold text-ink">原因在例 4 里算得很清楚：三极管的 V<sub>CE(sat)</sub> 是个固定值，MOS 管的压降与电流成正比，可以靠选型继续往下压。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="12V/2A 灯带的低边 MOS 开关（含 PWM 调速接口）">
+            <pre><code>                        +12V（负载电源，独立于 MCU 的 3.3V）
+                          │
+                    ┌─────┴─────┐
+                    │  LED 灯带  │  2A
+                    └─────┬─────┘
+                          │
+                          D（漏极）
+             ┌────────────┴────────────┐
+   PA6 ─[22Ω]─┬── G                   │  AO3400
+              │                       │  R_DS(on) ≈ 50mΩ（3.3V 驱动，典型估算）
+            [10kΩ]                    │
+              │                       │
+             GND                      S（源极）
+                                      │
+                                     GND
+
+【电流方向】+12V → 灯带 → 漏极 D → 源极 S → GND（低边开关，源极接地）
+【导通损耗】P = I² × R_DS(on) = 4 × 0.05 = 0.2W → 微温，不用散热片
+【栅极电路】22Ω 限流防振铃；10kΩ 下拉保证「无人驱动时关断」
+【PWM 调速】PA6 接 TIM 的 PWM 输出，1~20kHz 都行；
+           频率高则开关损耗大，频率低于 200Hz 会看到灯带闪。
+
+【为什么不用 S8050（三极管）】
+   · I_C 上限只有 500mA 量级，2A 直接超额定值 → 不是热的问题，是「不允许」
+【为什么不用 TIP122（达林顿）】
+   · V_CE(sat) ≈ 2V @ 2A → 4W 发热，必须加散热片；还要 2mA 持续基极电流
+【为什么不用 IRF540N（很常见的 MOS，但不行）】
+   · V_GS(th) = 2~4V、标称 R_DS(on) 是在 V_GS = 10V 下测的；
+     3.3V 驱动时它工作在「半开」状态，R_DS(on) 可能超过 1Ω
+     → 2A 时压降 2V、功耗 4W，和达林顿一样烫。这是新手最常踩的选型坑。
+
+【体二极管（N-MOS 内部天然存在，不用外接）】
+     N-MOS 的衬底与源极相连，于是 S 和 D 之间寄生一个二极管：
+          阳极 = 源极 S，阴极 = 漏极 D
+     · 低边开关中：负载接在 D 上、S 接地，体二极管【反偏】，不导通，正常。
+     · 但如果负载带反电动势（电机断电、H 桥），它可能导通 ——
+       有时这是好事（相当于内置续流），有时会让电路「关不断」，
+       所以电机正反转（H 桥）必须专门设计死区与续流路径。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="mos_pwm.c · 直流电机/灯带 PWM 的三个要点">
+            <pre><code>/* 用 MOS 管做 PWM 调速时，代码只有几行，难点全在「频率」和「软启动」 */
+
+/* ① 频率选择：
+ *    灯带（LED）：1kHz ~ 5kHz 足够，人眼看不到闪，开关损耗小
+ *    直流电机  ：8kHz ~ 20kHz，避开人耳可听范围（否则电机会「啸叫」）
+ *    加热片    ：1Hz ~ 100Hz 都行（热惯性大，不需要快） */
+#define PWM_FREQ_HZ   1000u
+
+/* ② 占空比限制：
+ *    电机启动瞬间电流是额定值的 5~8 倍（堵转电流），
+ *    直接给 100% 占空比等于让 MOS 管扛一次涌流。
+ *    → 用「软启动」：占空比从 0 在 200ms 内爬到目标值。 */
+static void Motor_SoftStart(uint8_t target_percent)
+{
+    for (uint8_t p = 0; p &lt;= target_percent; p++) {
+        __HAL_TIM_SET_COMPARE(&amp;htim3, TIM_CHANNEL_1, p * 10);  /* ARR = 1000 */
+        HAL_Delay(4);                                          /* 200ms 爬完 */
+    }
+}
+
+/* ③ 关断顺序：
+ *    先关 PWM（占空比 0）→ 保持几十毫秒让电流衰减 → 再拉低使能引脚。
+ *    直接断电源会让感性负载产生尖峰，虽然有体二极管兜底，但没必要冒险。 */</code></pre>
+          </div>
+
+          <h3 id="sub-mcu-clamp" class="mt-7 text-base font-semibold">稳压管给 ADC 做保护</h3>
+
+          <p class="mt-3">ADC 引脚是很脆弱的：STM32 的手册规定，引脚电压不能超过 V<sub>DD</sub> + 0.3V 量级，注入电流也有毫安级的限制。<b class="font-semibold text-ink">而它要面对的可能是几米长的传感器线、一个误接的 12V、或者人体静电。</b>稳压管在这里的角色不是「稳压」，而是「钳位」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="4~20mA/0~10V 传感器接到 3.3V ADC 的钳位保护电路">
+            <pre><code>【方案一：串联限流 + 稳压管钳位（最常用、最便宜）】
+
+   传感器信号 ──[ R1 = 1kΩ ]──┬───────────► PA0（ADC 输入）
+   （0~10V，可能误接到 12V）  │
+                             │
+                        ┌────┴────┐
+                        │ 3.6V    │  稳压管（阴极朝上，反向接）
+                        │ 稳压管  │  ⚠ 选 3.6V 而不是 3.3V！
+                        └────┬────┘
+                             │
+                            GND
+
+   【为什么稳压管要选 3.6V 而不是 3.3V】
+       如果选 3.3V 的管子：正常信号到 3.3V 时它已经开始导通，
+       会把【正常信号也削掉】，ADC 读数永远卡在 3.3V 以下。
+       选 3.6V（或 3.9V）：正常信号（≤3.3V）它完全不导通，
+       只有异常高压时它才导通钳位 —— 这才是保护该有的样子。
+
+【误接 12V 时算一遍（保护是否够用）】
+   · 稳压管电压 V_Z ≈ 3.6V
+   · 流过 R1 的电流 = (12 − 3.6) / 1kΩ = 8.4mA
+   · 稳压管功耗 = 3.6V × 8.4mA = 30mW ≪ 500mW（BZX55 的 1/2W 额定）✅
+   · R1 的功耗 = (8.4mA)² × 1kΩ = 71mW → 1/4W 电阻够用 ✅
+   · ADC 引脚电压被钉在 3.6V 左右，略高于 V_DD，
+     剩下的余量由芯片内部的 ESD 保护二极管继续分流（有注入电流，但很小）✅
+
+【代价：RC 时间常数会拖慢信号】
+   · 稳压管的结电容 C_j 有几十 ~ 几百 pF；ADC 引脚自身也有几 pF
+   · 假设总电容 C = 100pF，R1 = 1kΩ：
+         τ = R1 × C = 1kΩ × 100pF = 100ns
+   · 对「1kHz 采样的慢变量」完全无影响（100ns ≪ 1ms）✅
+   · 对「1MSPS 高速采样」就是灾难：信号还没稳定就被采样，
+     读数会偏低且不稳定 ❌ → 高速场合不要用这种钳位。
+
+【重要：R1 不能无限加大】
+   ADC 采样时需要从外部电路「取电」给内部采样电容充电，
+   源阻抗太大会导致采样不足。经验上源阻抗控制在几 kΩ 以内，
+   1kΩ 是安全区；10kΩ 以上就要延长采样时间或加运放缓冲。
+
+【方案二：肖特基双二极管钳位到电源轨（更精确，适合高速）】
+
+   传感器 ──[ 1kΩ ]──┬────────► ADC
+                     │
+              ┌──────┴──────┐
+              │ BAT54S      │  双肖特基：一个阳极接 GND，
+              │ （共阴极）   │  一个阴极接 3.3V
+              └──┬───────┬──┘
+                GND     3.3V
+
+   信号高于 3.3V + 0.3V → 上面的肖特基导通，把电压泄放到 3.3V 轨
+   信号低于 −0.3V      → 下面的肖特基导通，把电压泄放到 GND
+   好处：钳位电压精确（3.6V 以内），并且【把电流送回电源轨】而不是烧掉
+   代价：要占用一个器件、需要电源轨能吸收这部分电流
+
+【方案三（工业标准做法）：先分压、再跟随、最后进 ADC】
+   10V 信号 → 电阻分压到 3.0V → 运放电压跟随器（高输入阻抗、低输出阻抗）
+   → 串 100Ω + 加钳位。这是「电压超出 ADC 量程」时的正解，
+   分压电阻要选 1% 精度，并在分压点并 0.1µF 滤波。</code></pre>
+          </div>
+
+          <h3 id="sub-mcu-schottky" class="mt-7 text-base font-semibold">肖特基与光耦</h3>
+
+          <p class="mt-3">最后两个器件在单片机项目里各有一个「不可替代」的位置：肖特基在开关电源的环路里，光耦在需要电气隔离的那道墙上。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="肖特基在开关电源里的作用（以 Buck 降压为例）">
+            <pre><code>【Buck 电路的骨架：开关 + 电感 + 续流二极管】
+
+      +12V ──[ 开关管（MOS）]──┬──[ 电感 L ]──┬── +5V 输出
+        (PWM 开关，几十~几百 kHz) │              │
+                              ┌─┴─┐          [ C ]
+                              │ ▲ │ 续流二极管 [ C ] 100µF
+                              │   │ (阴极朝左)  │
+                              └─┬─┘            │
+                               GND            GND
+
+   开关管导通：12V → 电感 → 输出（电感储能，电流上升）
+   开关管关断：电感电流【必须继续流】→ 走续流二极管 → 回到电感
+                （这条回路就是「续流」，和继电器线圈是同一个道理，
+                  只是它每秒要重复几万次）
+
+【为什么这里的二极管必须是肖特基（或快恢复）？】
+
+   以 5V/1A 输出（5W）为例，比较两种二极管：
+
+   ① 1N4007（普通整流管）
+      正向压降 ≈ 1.0V → 导通期间损耗 = 1.0V × 1A = 1.0W
+      反向恢复时间 ≈ 2µs → 在 100kHz（周期 10µs）下，
+                          每个周期有 2µs 在「反向导通」，
+                          额外的开关损耗和电磁干扰无法接受
+      → 效率损失超过 20%，二极管几秒钟就烫手 ❌
+
+   ② SS34（肖特基，40V/3A）
+      正向压降 ≈ 0.5V → 损耗 = 0.5V × 1A = 0.5W（已经好一半）
+      没有少子存储效应，t_rr 几乎为零 → 开关损耗极小 ✅
+      → 这就是「低压大电流的整流/续流，一律先想肖特基」的来源。
+
+【肖特基的软肋：反向漏电与耐压】
+   · 反向漏电比普通管大得多（µA ~ mA 量级，且随温度指数上升）
+     → 高阻、微功耗电路里慎用；电池长期待机的防反接要算清漏电
+   · 耐压普遍偏低（20V/40V/60V 常见，100V 以上又贵又漏）
+     → 12V 系统选 40V，24V 系统至少选 60V，留一倍余量
+
+【防反接的两种做法（顺便比较）】
+   做法 A：串一个肖特基（如 SS34）
+       优点：简单、便宜、只有两只脚
+       缺点：正常工作时一直有 0.5V 压降 → 1A 就白扔 0.5W
+   做法 B：P-MOS 理想二极管（源漏反接 + 栅极钳位）
+       优点：压降 ≈ I × R_DS(on)，1A 时可能只有 0.05V，几乎不发热
+       缺点：电路复杂一点，需要栅极钳位保护
+   → 小电流用 A，大电流/电池供电用 B。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="光耦隔离：完整电路与电阻计算（PC817）">
+            <pre><code>【左侧：单片机侧（3.3V 域）】          【右侧：负载侧（5V/12V 域）】
+
+   3.3V                                  5V（负载侧电源）
+    │                                     │
+    │                                   [ 4.7kΩ ]  上拉电阻
+    │                                     │
+    │                                     ├──────────► 输出到负载侧电路
+    │                                     │            （低电平有效，见下方说明）
+   [ 470Ω ]                             C │
+    │                                   ┌─┴─┐
+    │        ▼ I_F = 4.5mA              │ ◁ │ 光敏三极管
+   [LED]────┤ 内部发光二极管             └─┬─┘
+    │       │   V_F ≈ 1.2V               E │
+   PA2 ─────┘   （IO 输出低电平点亮，      │
+    │           即 IO 灌电流）            GND
+   GND
+        ║
+        ║  ← 中间是【绝缘层】，只有光能过去，没有电气连接
+        ║     耐压 3.75kV ~ 5kV（看型号）
+        ║
+   ┌────┴────┐
+   │  两侧的 GND 【绝对不能连在一起】  │
+   └─────────┘
+
+【发射端限流电阻计算（左侧）】
+   I_F = (V_IO_high − V_F) / R = (3.3V − 1.2V) / 470Ω = 4.5mA
+   · 4.5mA 落在 PC817 的推荐工作区（典型 5~20mA）内
+   · 灌电流接法：IO 输出低电平时电流从 3.3V → 470Ω → LED → IO → GND
+     （这样 IO 不需要输出高电平，避免 V_OH 下降影响 I_F）
+
+【接收端设计与 CTR 的关系（右侧）】
+   CTR（电流传输比）= I_C / I_F，PC817 按档位不同约 50% ~ 600%
+   · 取最保守的 CTR = 50%：I_C 最大 = 4.5mA × 50% = 2.25mA
+   · 上拉 4.7kΩ 需要的电流 = 5V / 4.7kΩ = 1.06mA（输出拉低时）
+     1.06mA &lt; 2.25mA ✅ 有余量，输出能可靠拉低
+   · 若上拉取 1kΩ：需要 5mA &gt; 2.25mA ❌ 输出拉不到低电平，
+     表现为「光耦时好时坏」——这是光耦电路最常见的故障原因！
+   · 老化和高温会让 CTR 下降，设计时留 2 倍以上余量，不要卡着算。
+
+【相位关系（新手最容易搞错的地方）】
+   本电路输出【反相】：左侧 IO 输出低电平（点亮 LED）→ 右侧三极管导通
+   → 输出被拉到低电平。所以「左边 0，右边 0；左边 1，右边 1」
+   看起来不反相 —— 但这是【两次反相】凑出来的结果：
+       左边 LED 由低电平点亮（1 次反相）
+       右边输出从集电极取（1 次反相）
+   换一种接法（比如输出从发射极取、LED 由高电平点亮）就会反相。
+   → 结论：光耦的反相/同相取决于【具体接法】，接之前一定画一遍电流路径。
+
+【光耦的能力边界（什么时候不该用它）】
+   · 速度：PC817 的传输延迟在十几 µs 量级 → 只适合开关量、低速串口（9600）
+     需要高速（隔离 CAN、隔离 USB、10Mbit/s）要用 6N137 这类高速光耦
+   · 驱动能力：接收端只是一个光敏三极管，I_C 只有 mA 级
+     → 要驱动继电器/电机，后面还要再加一级三极管或 MOS
+   · 不能传递「共地」的信号：如果两侧本来就共地，光耦只增加了成本和延迟，
+     没有任何隔离收益 —— 这种场合应该用普通三极管电平转换，而不是光耦。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">把「隔离」两个字真正落地</div>
+            <p>光耦的价值全部押在一件事上：<b>两侧的 GND 和电源必须独立</b>。这意味着你需要两套电源（比如 MCU 用一个 3.3V 适配器，负载侧用另一个 5V 适配器，或者用隔离 DC-DC 模块从同一路电源变出第二路）。如果你的板子上只有一路电源，光耦就只是一个「贵一点的普通三极管」。<b>判断标准很简单：拿万用表量两侧的 GND，如果是通的（0Ω），说明你的隔离设计是假的。</b></p>
+          </div>
+        </section>
+
+        <section class="mt-14">
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误解与坑</h2>
+
+          <p class="mt-3">下面八条，全部是我在同学的项目里真实见过的。<b class="font-semibold text-ink">它们的共同点是：电路能画出来、板子能焊上、甚至能工作一会儿</b>——然后在某个你没预料到的时刻坏掉。</p>
+
+          <h3 class="mt-6 text-base font-semibold">① 「二极管压降就是 0.7V，估着用就行」</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>0.7V 只是「硅二极管在 1mA ~ 10mA 量级」的近似值。电流变大时压降会上升（1A 时可能 1.0V 以上），肖特基是 0.3~0.5V，大电流的整流管可能到 1.2V。而且它还有约 −2mV/°C 的温度系数：<b>温度每升高 1°C，正向压降下降约 2mV</b>。这意味着在温度变化大的场合，按 0.7V 硬算会越来越偏。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>做「大概判断」时用 0.7V 没问题；但一旦要算电流、算功耗、算保护余量，就去数据手册找一个<b>接近你实际电流</b>的那一行 V<sub>F</sub>。做钳位和精密场合更要看曲线图，不要用单点值。</p>
+
+          <h3 class="mt-6 text-base font-semibold">② 「LED 不用限流电阻，IO 自己会限流」</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>IO 引脚内部<b>没有恒流源</b>，它只是一对导通电阻很小的 MOS 管。真正限制电流的只有回路里所有电阻之和：LED 的斜率电阻（约 15Ω）+ 导线 + 电源内阻 + IO 内阻，加起来可能只有几十欧。按 3.3V 和 V<sub>F</sub> = 1.9V 算，电流就是 (3.3−1.9)/30Ω ≈ 47mA —— 这已经超过 IO 的 20mA 上限两倍多。而且 LED 的伏安特性极陡，电压再高 0.1V，电流还会继续暴涨，最终烧 IO 或者烧 LED。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>任何 LED 都必须串限流电阻（或使用内置恒流驱动的灯珠，比如 WS2812）。把电阻写在图上、写进 BOM，不要靠「IO 会保护自己」这种侥幸。</p>
+
+          <h3 class="mt-6 text-base font-semibold">③ 「三极管做开关，基极电阻按 β 算」</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>β 是<b>放大区</b>的参数，而且离散极大（同一型号手册给 85~300）。按 I<sub>C</sub>/β 算出来的基极电流，只能让管子停在放大区和饱和区的边界：I<sub>C</sub> 稍微大一点、或者碰上 β 偏小的那颗管子，它就退回放大区，V<sub>CE</sub> 从 0.2V 涨到几伏，功耗翻十倍。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>做开关一律取 <b>I<sub>B</sub> = I<sub>C</sub> / 10</b>（过驱动），让管子深度饱和。β 这个参数在开关电路里唯一的用处，是帮你确认「余量够不够大」。</p>
+
+          <h3 class="mt-6 text-base font-semibold">④ 「IO 直接带继电器/电机，反正我加了续流二极管」</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>续流二极管解决的是<b>关断瞬间的电压尖峰</b>，完全不解决<b>导通期间的电流</b>。5V/70Ω 的线圈要 71mA，是单脚上限 20mA 的 3.5 倍，这个电流会一直存在。轻则电源被拉低导致 MCU 复位，重则 IO 长期过流而永久损坏。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>只要负载电流超过 10mA 量级，就不要挂在 IO 上。用三极管/MOS 做中间级，或者用 ULN2003、继电器模块这类成品（它们内部已经把基极电阻和续流二极管做好了）。</p>
+
+          <h3 class="mt-6 text-base font-semibold">⑤ 「续流二极管方向随便接，反正只是个二极管」</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>接反的后果不是「没效果」，而是<b>上电瞬间电源通过二极管直接短路到地</b>（线圈几乎没有直流电阻，70Ω 在这个回路里根本挡不住短路电流）。轻则电源进保护，重则二极管炸裂、铜箔烧断。这是新手最容易造成「第一次上电就见烟」的一个错。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>记住一句话——<b>二极管的阴极（有黑色环的那一端）朝电源正极</b>。焊接前用万用表的二极管档确认一遍：红表笔接阳极、黑表笔接阴极时读数 0.5~0.7V，反过来不导通。线圈两端就近摆放，引线越短越好。</p>
+
+          <h3 class="mt-6 text-base font-semibold">⑥ 「MOS 管是电压驱动，栅极不用管」</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>「稳态电流≈0」被误读成了「随便接」。栅极是一个电容：IO 直连栅极时，充电瞬间的峰值电流由 3.3V 除以 IO 内阻决定，可能上百毫安；栅极悬空时它像一根天线，周围的干扰足以让 MOS 管误导通，负载会自己动起来。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>栅极<b>串 22~100Ω</b>（限流 + 阻尼振铃），栅极到源极<b>并 10kΩ 下拉</b>（保证无人驱动时关断）。做高频 PWM 时再按 Q<sub>g</sub> 和开关时间估算平均驱动电流，必要时加专用栅极驱动芯片。</p>
+
+          <h3 class="mt-6 text-base font-semibold">⑦ 「MOS 管电流够大就能用，不用管 V<sub>GS</sub>」</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>R<sub>DS(on)</sub> 强烈依赖 V<sub>GS</sub>，而手册首页那个漂亮数字（比如 44mΩ）往往是在 V<sub>GS</sub> = 10V 下测的。用 3.3V 的 IO 直接驱动 IRF540N 这类「10V 驱动」的管子，它其实停在半开状态：R<sub>DS(on)</sub> 可能超过 1Ω，2A 时压降 2V、功耗 4W，比三极管还烫。同理，2N7002 这类小信号管 R<sub>DS(on)</sub> 有几欧姆，只能带小负载。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>选型时直接翻手册的 R<sub>DS(on)</sub> 表格，<b>找「V<sub>GS</sub> = 4.5V 或 2.5V」那一行</b>；有这一行才说明它是逻辑电平管。同时按最坏情况校核：手册没有 3.3V 那一行时，用 4.5V 的值再放大 20~30% 估（还要考虑温度升高带来的正温度系数）。</p>
+
+          <h3 class="mt-6 text-base font-semibold">⑧ 「光耦两侧共地没关系，反正只传信号」</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>光耦的全部价值在于<b>两侧电气隔离</b>。一旦共地，隔离层就成了摆设：负载侧的干扰、地弹、甚至故障高压都会顺着那根共地线直接灌进 MCU，你会遇到「莫名其妙复位」「ADC 读数乱跳」「一接电机就死机」这类玄学问题，而光耦本身还在正常工作，让你完全找不到方向。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>两侧用独立电源（或用隔离 DC-DC 模块变出第二路），布线时两边的 GND 铜皮严格分开、只在光耦下方保留绝缘间距。验收时用万用表量两侧 GND 之间的电阻，<b>必须是不通（开路）</b>；如果是 0Ω，隔离就是假的。</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">最后一条，和安全有关</div>
+            <p>以上八条最坏的结果是烧器件、烧板子、浪费一周时间。但只要你开始接触<b>市电（220V）</b>，问题的性质就变了：<b>那是会伤人的。</b>请务必：① 用隔离变压器；② 电路带电时只用一只手操作、并且戴绝缘手套；③ 断电后用万用表确认储能电容已放电（大电容上可能有几百伏残压）；④ 第一次做市电项目，直接买成品固态继电器（SSR）或带光耦隔离的继电器模块。<b>能算清每一根线的电位，再考虑自己搭。</b></p>
+          </div>
+        </section>
+
+        <section class="mt-14">
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自检</h2>
+
+          <p class="mt-3">这一篇我们从「一块硅片里掺了什么」讲到了「IO 上应该串多大的电阻」。下面把必须带走的东西列成清单。</p>
+
+          <p class="mt-4"><b class="font-semibold text-ink">必须记住的 12 条</b></p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">PN 结是单向导电的唯一来源</b>：正偏时耗尽层变薄、扩散电流大；反偏时耗尽层变宽、只剩极小的反向饱和电流。反向饱和电流随温度大约每升高 10°C 翻一倍。</li>
+            <li><b class="font-semibold text-ink">开启电压</b>：硅二极管约 0.7V（工程值 0.6~0.8V），肖特基约 0.3V，锗管约 0.2V。低于它基本不导通，高于它电流按「(V − V<sub>F</sub>)/R」上涨。</li>
+            <li><b class="font-semibold text-ink">二极管不是「0.7V 稳压器」</b>：压降随电流上升、随温度下降（约 −2mV/°C）。算功耗必须用实际电流下的 V<sub>F</sub>。</li>
+            <li><b class="font-semibold text-ink">反向漏电</b>是很小的电流（nA~µA 量级，肖特基大得多），但它是「关不断」的根源：高阻、微功耗电路里必须算它。</li>
+            <li><b class="font-semibold text-ink">稳压管故意工作在击穿区</b>：必须串限流电阻，且保证 I<sub>Z</sub> 始终大于拐点电流（约 1mA）；负载电流必须远小于 I<sub>R</sub>。它是「钳位/参考」器件，不是「供电」器件。</li>
+            <li><b class="font-semibold text-ink">LED 必须限流</b>，R = (V<sub>电源</sub> − V<sub>F</sub>)/I。亮度是对数感知的，靠电阻微调亮度不划算——用 PWM。多个 LED 并联时每个都要有独立电阻。</li>
+            <li><b class="font-semibold text-ink">二极管的家族分工看两个参数</b>：正向压降 V<sub>F</sub> 和反向恢复时间 t<sub>rr</sub>。工频整流用 1N400x，高频低压用肖特基，高压高频用快恢复，信号用 1N4148。</li>
+            <li><b class="font-semibold text-ink">感性负载必须加续流二极管</b>，阴极朝电源正极、就近并联在线圈两端。没有它，关断瞬间的 L·di/dt 尖峰足以击穿三极管（同一个道理也适用于 Buck 电源里的续流回路）。</li>
+            <li><b class="font-semibold text-ink">三极管是「电流控制电流」</b>：I<sub>C</sub> = β·I<sub>B</sub>（放大区），做开关时必须让它进饱和区，R<sub>B</sub> = (V<sub>IO</sub> − 0.7V) / (I<sub>C</sub>/10)。停在放大区 = 发热。</li>
+            <li><b class="font-semibold text-ink">MOS 管是「电压控制电流」</b>：栅极稳态电流≈0，导通损耗是 I²·R<sub>DS(on)</sub>，而 R<sub>DS(on)</sub> 随 V<sub>GS</sub> 增大而减小。选型第一眼要确认它在你的驱动电压下有保证值。</li>
+            <li><b class="font-semibold text-ink">大电流用 MOS 不是因为它先进</b>，而是因为三极管的 V<sub>CE(sat)</sub> 是固定值（0.3~2V），乘上大电流就变成几瓦的热；MOS 的压降与电流成正比，可以靠选型继续压低。</li>
+            <li><b class="font-semibold text-ink">隔离必须是电气上的真隔离</b>：光耦（PC817 低速 / 6N137 高速）两侧用独立电源和独立 GND，验收标准是量 GND 不通。可控硅「触发后失控」，靠交流过零关断，只能做相位控制。</li>
+          </ul>
+
+          <p class="mt-6"><b class="font-semibold text-ink">自测题（先自己答，再看答案）</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="7 道自测题与答案">
+            <pre><code>【1】硅二极管和肖特基二极管的开启电压大约各是多少？为什么肖特基更低？
+
+答：硅 PN 结约 0.7V，肖特基约 0.3V。
+    肖特基不是 PN 结，而是「金属—半导体」结，导通时没有少子存储效应，
+    势垒更低，所以开启电压更低、反向恢复时间几乎为零；
+    代价是反向漏电大、耐压普遍偏低。
+
+【2】PN 结为什么能单向导电？「反向饱和电流」是什么？
+
+答：正偏时外加电压削弱内建电场，耗尽层变薄，多子扩散形成较大的正向电流；
+    反偏时耗尽层变宽，多子无法越过，只有少子漂移形成极小的反向电流
+    ——这就是反向饱和电流（与外加电压基本无关，但随温度每 10°C 约翻一倍）。
+
+【3】三极管做开关为什么用 I_C/10 而不是 I_C/β 算基极电阻？
+
+答：β 是放大区参数，离散大（85~300）、随温度和电流变化。
+    按 I_C/β 算只有「边界饱和」，碰到 β 偏小的管子或电流偏大时就退回放大区，
+    V_CE 升高、功耗猛增。取 I_C/10 相当于留了 8~10 倍余量，保证深度饱和。
+
+【4】3.3V 的 IO 点亮一颗红 LED（V_F = 1.9V），希望 6mA，限流电阻取多少？
+
+答：R = (3.3 − 1.9) / 0.006 = 233Ω → 取标称 240Ω。
+    实际电流 = 1.4V / 240Ω = 5.8mA，落在目标附近。
+    电阻功耗 = (0.0058)² × 240 ≈ 8mW，1/8W 电阻足够。
+    若这个 IO 是 PC13（上限 3mA），则必须改用更大电阻或换引脚。
+
+【5】续流二极管接反了会怎样？它为什么必须并在线圈两端？
+
+答：接反后，上电瞬间电源经二极管直接对地短路（线圈的 70Ω 挡不住），
+    轻则电源保护、重则二极管和铜箔烧毁。
+    之所以并在线圈两端，是因为关断瞬间要靠它给电感电流提供一条回路，
+    把线圈电压钳在 V_F + 电源电压；路径离线圈越近，寄生电感越小，钳位越干净。
+
+【6】IRF540N 用 3.3V 的 IO 直接驱动，带 2A 负载，会发生什么？为什么？
+
+答：手册的 44mΩ 是在 V_GS = 10V 下测的，它属于「10V 驱动」的管子。
+    3.3V 时它没有完全开通，R_DS(on) 可能超过 1Ω，
+    2A 下压降 2V、功耗 4W → 严重发热（甚至热失控）。
+    正确做法：改用逻辑电平管（如 AO3400 这类有 4.5V/2.5V 保证值的），
+    或者加一级栅极驱动把电平抬到 10V 以上。
+
+【7】光耦两侧共地会怎样？为什么稳压管给 ADC 保护时不选 3.3V 的？
+
+答：共地后隔离失效，负载侧的干扰/地弹/故障电压直接进入 MCU，
+    表现为随机复位、ADC 乱跳；正确做法是两侧独立电源，量 GND 不通。
+    稳压管选 3.6V 或 3.9V 而不是 3.3V：3.3V 的管子会在正常信号达到满量程时
+    就开始导通，把正常信号削掉，ADC 读数永远偏低甚至卡住。</code></pre>
+          </div>
+
+          <p class="mt-6"><b class="font-semibold text-ink">练习（做完这四道，你就真的会用了）</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="4 道练习（附思路提示）">
+            <pre><code>【练习 1】用 5V 的 IO 驱动一颗绿色 LED（V_F = 2.0V），希望 10mA。
+          求限流电阻（取标称值）、实际电流、电阻功耗。
+
+   提示：R = (5 − 2.0) / 0.01 = 300Ω → 取 300Ω（E24 有这一档）或 330Ω。
+        用 300Ω 时 I = 3.0/300 = 10mA，P_R = (0.01)² × 300 = 30mW。
+        若取 330Ω：I = 9.1mA，P_R = 27mW。两者都可以，330Ω 更常见。
+
+【练习 2】用 AO3400（按 3.3V 驱动、R_DS(on) 典型 50mΩ 估算）开关 5V/1A
+          的负载，算导通损耗；再把电流换成 3A 算一次，判断 SOT-23 封装
+          是否需要铺铜或用更大封装（小焊盘热阻按 200°C/W 估）。
+
+   提示：1A → P = 1² × 0.05 = 0.05W → ΔT = 10°C，很凉。
+        3A → P = 9 × 0.05 = 0.45W → ΔT = 90°C，环境 25°C 时结温 115°C，
+        已经贴近 125°C 上限 → 必须加大铺铜（热阻降到约 100°C/W），
+        或者换 SO-8/TO-252 这类散热更好的封装，或者选 R_DS(on) 更小的管子。
+        顺便注意：3A 也接近 AO3400 的电流上限，选型要看手册的连续漏极电流。
+
+【练习 3】一个 24V 的传感器信号要进 3.3V 的 ADC：先分压到 3.0V 左右，
+          再做钳位保护。设计分压电阻、稳压管电压，并说明分压点的输出阻抗
+          对 ADC 采样有什么影响。
+
+   提示：分压比 3.0/24 = 0.125 → R2/(R1+R2) = 1/8 → R1 = 7×R2。
+        取 R2 = 3kΩ、R1 = 20kΩ → 输出 24 × 3/23 = 3.13V，通流 1.04mA，
+        R1 功耗约 22mW（1/4W 足够）。
+        输出阻抗 = 3k ∥ 20k ≈ 2.6kΩ —— 在 7.5 周期档（上限 5.9kΩ）之内，但余量不大；
+        要求高时加运放跟随器（工业标准做法）；要么减小电阻（功耗变大）。
+        钳位稳压管选 3.6V；再串 100Ω 进 ADC 引脚。
+
+【练习 4】用 PC817 做一路 5V 域 → 3.3V 域的隔离输入：发射端 I_F 取 5mA，
+          接收端上拉电阻接 3.3V。求发射端限流电阻（左）和上拉电阻（右），
+          并按 CTR = 50% 校核输出能否可靠拉低。
+
+   提示：左侧 R = (5 − 1.2) / 0.005 = 760Ω → 取 750Ω（实际 5.07mA）。
+        右侧：I_C（最小）= 5.07mA × 50% = 2.5mA，
+        要拉低到 ≤ 0.4V，上拉电阻上的电流必须小于 2.5mA：
+        R_pull &gt; (3.3 − 0.4) / 2.5mA = 1.16kΩ → 取 4.7kΩ（电流 0.62mA），
+        余量 4 倍以上 ✅。若取 1kΩ，需要 2.9mA &gt; 2.5mA，输出拉不低，
+        会出现「时好时坏」的经典故障。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">下一篇会用到这一篇的什么</div>
+            <p>下一篇《基本放大电路：静态工作点与三种组态》会正式进入教材的主线：三极管不再当开关，而是<b>工作在放大区</b>，用 β 去放大一个微弱的信号。那时你会发现，这一篇里被我们「浪费掉」的 β、被我们拼命躲开的放大区，恰恰是放大器的设计目标——<b>同一个器件，两种完全不同的用法</b>。先把「开关的直觉」和「放大的直觉」分开，你就不会再把两者搞混。</p>
+          </div>
+
+          <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+            <a href="ee-emc.html" class="card card-pad card-hover group sm:max-w-[48%]">
+              <span class="text-2xs text-faint">← 上一篇</span>
+              <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">电磁兼容与抗干扰基础</p>
+            </a>
+            <a href="ee-amplifier.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+              <span class="text-2xs text-faint">下一篇：基本放大电路：静态工作点与三种组态 →</span>
+              <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">基本放大电路：静态工作点与三种组态</p>
+            </a>
+          </nav>
+        </section>
+
+        </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>开发环境搭建 - McuStudy</title>
+  <meta name="description" content="51 单片机开发环境搭建全流程：Keil C51（μVision）的安装与注册、新建工程七步、Target 晶振频率为什么必须改成 11.0592MHz 或 12MHz、STC-ISP 下载要点（选对 COM 口、冷启动断电再上电），以及为什么必须勾选 Create HEX File。">
+  <meta name="keywords" content="Keil C51安装,μVision新建工程,Create HEX File,STC-ISP下载,冷启动,STC89C52RC,51单片机入门">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="mcu51" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../mcu51.html" class="hover:text-brand-600 dark:hover:text-brand-300">51单片机</a>
+          <span>/</span>
+          <span class="text-muted">开发环境搭建</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          开发环境搭建
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          从零把「写代码 → 编译 → 下载 → 芯片跑起来」这条链路打通：安装 Keil C51、新建工程七步、设置晶振频率、
+          勾选 Create HEX File、用 STC-ISP 冷启动下载。这一篇不写任何复杂程序，目标只有一个——
+          让开发板上第一颗 LED 按你的代码闪起来，并且你清楚每一步为什么必须这么做。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">芯片：<b>STC89C52RC</b></span>
+          <span class="stat-pill">工具：<b>Keil C51 + STC-ISP</b></span>
+          <span class="stat-pill">阅读约 <b>12</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>这一篇会反复出现「编译」「HEX 文件」「烧录」这些词，而且要求你亲手写出第一个 C 程序。 如果下面这几件事你还没有概念，先花十几分钟补一下，后面每一步都会更清楚。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-toolchain.html">从源码到芯片：编译、HEX 与烧录</a> —— 本篇讲的整条链路（预处理 → 编译 → 链接 → HEX → 烧录）在那里有完整拆解</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-c.html">C 语言基础</a> —— 你会写出第一个 <code class="icode">main()</code>，知道 <code class="icode">#include</code> 在做什么就不会只是照抄</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-register.html">单片机内部结构与寄存器</a> —— 搞清楚「程序烧进芯片之后存在哪里、从哪开始执行」</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-chain">工具链：为什么是两个软件</a>
+          <a class="toc-link is-sub" href="#sub-hex">HEX 文件与 Create HEX File</a>
+          <a class="toc-link is-sub" href="#sub-clock">晶振频率为什么必须填对</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-seven">新建工程七步</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-chain">工具链：为什么是两个软件</a>
+            <a class="toc-link is-sub" href="#sub-hex">HEX 文件与 Create HEX File</a>
+            <a class="toc-link is-sub" href="#sub-clock">晶振频率为什么必须填对</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-seven">新建工程七步</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            学单片机遇到的第一个认知落差是：<b class="font-semibold text-ink">你写的代码不在你的电脑上运行</b>。
+            在 PC 上写 Python，保存后双击就能跑；而单片机没有硬盘、没有操作系统，
+            它只会从自己的 Flash 存储器里逐条取出机器码执行。所以「把 .c 文件变成芯片能执行的东西」
+            中间必须经过三步翻译，这就是开发环境存在的全部理由：
+          </p>
+
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">编译（Compile）</b>——Keil 的 C51 编译器把你的 <code class="icode">.c</code> 源文件翻译成 51 汇编，再汇编成机器码目标文件 <code class="icode">.obj</code>。</li>
+            <li><b class="font-semibold text-ink">链接（Link）</b>——链接器把所有 <code class="icode">.obj</code> 和启动代码拼起来，按 51 的存储空间（CODE 从 0000H 开始）绝对定位，产出可烧写文件。</li>
+            <li><b class="font-semibold text-ink">下载（Download / 烧写）</b>——STC-ISP 通过串口把这段机器码写进 STC89C52RC 片内的 Flash，断电也不会丢。</li>
+          </ol>
+
+          <p class="mt-4">
+            这三步里，Keil 负责前两步，STC-ISP 负责第三步。理解这个分工，
+            后面所有「编译过了但下载失败」「下载成功了但灯不亮」的问题，你都能立刻判断该去哪个软件里查。
+          </p>
+
+          <h3 id="sub-chain" class="mt-7 text-base font-semibold">工具链：为什么是两个软件</h3>
+          <p class="mt-3">
+            新手最容易混的地方是把 Keil 当成「下载器」。它不是——Keil 编译完就下班了，
+            它根本不知道你的板子插在哪个 USB 口上。真正和硬件打交道的是 STC-ISP，
+            它靠一根 USB 转串口线（CH340 / PL2303 芯片）与单片机的 P3.0 / P3.1 通信。
+          </p>
+
+          <div class="mt-6 grid gap-6 sm:grid-cols-3">
+            <div class="mini-step">
+              <span class="step-num">1</span>
+              <div>
+                <h3 class="text-[15px] font-semibold">Keil µVision C51</h3>
+                <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                  编辑器 + 编译器 + 链接器。只负责把 .c 变成 .hex，与硬件无关，装完不需要联网。
+                </p>
+              </div>
+            </div>
+            <div class="mini-step">
+              <span class="step-num">2</span>
+              <div>
+                <h3 class="text-[15px] font-semibold">STC-ISP 下载软件</h3>
+                <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                  把 .hex 文件通过串口写进芯片 Flash。STC 官方免费提供，换芯片型号时记得选对型号。
+                </p>
+              </div>
+            </div>
+            <div class="mini-step">
+              <span class="step-num">3</span>
+              <div>
+                <h3 class="text-[15px] font-semibold">USB 转串口驱动</h3>
+                <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                  CH340 或 PL2303 驱动。没装驱动时设备管理器里会出现带感叹号的未知设备，STC-ISP 里也找不到 COM 口。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">安装 Keil 时的三个关键选择</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold">一定要装 C51 版本</b>（安装包名里带 <code class="icode">C51</code>），
+                不是 MDK-ARM。ARM 版本里没有 <code class="icode">reg52.h</code>，也没有 51 的芯片库，
+                工程一建就报找不到头文件。
+              </li>
+              <li>
+                <b class="font-semibold">安装路径不要带中文和空格</b>，例如用 <code class="icode">D:\Keil_v5</code>。
+                编译器和链接器对路径里的非 ASCII 字符处理得不好，容易出现莫名的链接失败。
+              </li>
+              <li>
+                <b class="font-semibold">用管理员身份安装</b>，注册（License）时也用管理员身份打开 µVision，
+                否则写不进 License 信息。未注册的评估版有 2KB 代码上限，点灯这类小程序够用，
+                但代码一变大就会撞上 <code class="icode">L250</code> 报错。请使用学校提供的正版授权或官方评估版。
+              </li>
+            </ul>
+          </div>
+
+          <h3 id="sub-hex" class="mt-7 text-base font-semibold">HEX 文件与 Create HEX File</h3>
+          <p class="mt-3">
+            编译成功后，Keil 在 <code class="icode">Objects\</code> 目录里生成的是
+            <code class="icode">.obj</code>、<code class="icode">.lst</code>、<code class="icode">.m51</code> 这些
+            <b class="font-semibold text-ink">中间文件</b>——它们是给链接器和调试器看的，不是给芯片的。
+            真正能被 STC-ISP 识别的只有 <b class="font-semibold text-ink">Intel HEX 格式的 .hex 文件</b>：
+            它用纯 ASCII 文本记录「往哪个地址写哪些字节」，还自带校验和，因此能通过串口这种容易出错的链路安全传输。
+          </p>
+
+          <p class="mt-3">
+            而 Keil 出于历史原因，<b class="font-semibold text-ink">默认不生成 HEX</b>——
+            当年芯片多用编程器烧写 .obj，HEX 是可选项。所以你必须手动勾上
+            <code class="icode">Options for Target → Output → Create HEX File</code>。
+            这一勾没勾，现象非常典型：编译 0 错误 0 警告，看起来一切正常，
+            但 STC-ISP 打开文件时发现没有 .hex，或者你打开的是上一次实验留下的旧 .hex，
+            于是「下载成功、现象却是上一次的程序」。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="一个 Keil 工程目录里到底有哪些文件">
+            <pre><code>Test1\                        ← 工程文件夹
+├─ Test1.uvproj               ← Keil 工程文件（老版本；新版为 .uvprojx），记录芯片型号与所有选项
+├─ main.c                     ← 你写的源文件
+├─ STARTUP.A51                ← 启动代码，Keil 自动加入，负责清零内存、跳到 main
+└─ Objects\                   ← 所有中间产物与最终产物
+   ├─ main.obj                ← 编译产物（机器码 + 未定位的符号）
+   ├─ Test1.lst               ← 汇编清单：能看到 C 语句对应的汇编，调时序时很有用
+   ├─ Test1.m51               ← 链接映射文件：能看到每个函数占了多少字节
+   └─ Test1.hex               ← ★ 最终烧写文件，勾了 Create HEX File 才会出现</code></pre>
+          </div>
+
+          <h3 id="sub-clock" class="mt-7 text-base font-semibold">晶振频率为什么必须填对</h3>
+          <p class="mt-3">
+            <code class="icode">Options for Target → Target → Xtal (MHz)</code> 这个框填的是
+            <b class="font-semibold text-ink">你板子上真实焊的那颗晶振的频率</b>，
+            它不是「随便写一个就行」的形式参数，而是会直接影响程序的三个东西：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>
+              <b class="font-semibold text-ink">软件延时</b>——Keil 的 <code class="icode">_nop_()</code>
+              和某些库延时按这个频率换算，更重要的是：你手写的空循环延时的实际时长，
+              取决于每秒执行多少条指令，而指令速度由晶振决定。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">定时器初值</b>——12MHz 时一个机器周期是 1µs，11.0592MHz 时是 1.085µs。
+              同一组 <code class="icode">TH0/TL0</code> 初值，在两种晶振下的实际定时长度差 8.5%。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">串口波特率</b>——波特率由定时器溢出率推导，频率填错或晶振选错，
+              串口收到的就是乱码。这也正是 11.0592MHz 这个「奇怪数字」存在的原因。
+            </li>
+          </ul>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>晶振</th>
+                  <th>1 个机器周期</th>
+                  <th>方式 1 定时器最大定时</th>
+                  <th>9600bps 串口能否整除</th>
+                  <th>什么时候选它</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">12.000MHz</td>
+                  <td class="font-mono text-xs">1.000µs</td>
+                  <td class="font-mono text-xs">65.536ms</td>
+                  <td>不能，误差约 8.5%</td>
+                  <td>只学 IO、定时器，要「1µs 一个好算」时</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">11.0592MHz</td>
+                  <td class="font-mono text-xs">1.085µs</td>
+                  <td class="font-mono text-xs">71.11ms</td>
+                  <td>能，误差 0%</td>
+                  <td>要用串口通信（几乎所有实训项目都会用到）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            本教程后续统一按 <b class="font-semibold text-ink">11.0592MHz</b> 讲解，
+            因为从串口那一节开始它省事得多；如果你的板子是 12MHz，把 Xtal 改成 12 并沿用本文的初值计算即可，
+            只是串口那几节的波特率需要另算。想快速验证某个初值到底定多久，可以用
+            <a class="text-brand-600 dark:text-brand-300" href="../tools.html#tool-delay">51 延时计算器</a> 现场对一下。
+          </p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            这一节分两部分：先在电脑上把软件装好，再把板子和电脑用一根 USB 转串口线连起来。
+            下载通路只有三根线，但接错任何一根都会卡在「正在检测目标单片机」，
+            所以下面这张接线表要照着逐根核对。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">环境准备清单</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>项目</th>
+                  <th>规格 / 版本</th>
+                  <th>作用</th>
+                  <th>注意事项</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Keil µVision</td>
+                  <td class="font-mono text-xs">C51 版（v9.x）</td>
+                  <td>编辑、编译、链接，生成 HEX</td>
+                  <td>必须装 C51 而不是 MDK-ARM</td>
+                </tr>
+                <tr>
+                  <td>STC-ISP</td>
+                  <td class="font-mono text-xs">v6.8x 以上</td>
+                  <td>通过串口把 HEX 写进芯片</td>
+                  <td>型号列表要能在「单片机型号」里找到 STC89C52RC</td>
+                </tr>
+                <tr>
+                  <td>USB 转串口驱动</td>
+                  <td class="font-mono text-xs">CH340 或 PL2303</td>
+                  <td>让电脑认出一个虚拟 COM 口</td>
+                  <td>按你线上芯片的实际型号装，装错认不到口</td>
+                </tr>
+                <tr>
+                  <td>USB 转 TTL 模块</td>
+                  <td class="font-mono text-xs">CH340 模块 / 下载线</td>
+                  <td>电脑 USB ↔ 单片机串口</td>
+                  <td>要选 <b>3.3V/5V 可选</b>的，拨到 5V</td>
+                </tr>
+                <tr>
+                  <td>开发板 / 最小系统板</td>
+                  <td class="font-mono text-xs">STC89C52RC</td>
+                  <td>被下载的目标</td>
+                  <td>板上最好已带 11.0592MHz 或 12MHz 晶振</td>
+                </tr>
+                <tr>
+                  <td>杜邦线</td>
+                  <td class="font-mono text-xs">母对母 ×3</td>
+                  <td>连接串口与单片机</td>
+                  <td>一定要 3 根：TXD、RXD、GND</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">下载线接线表（关键）</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>USB 转 TTL 模块</th>
+                  <th>连接到单片机</th>
+                  <th>对应引脚号</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">TXD（发送）</td>
+                  <td class="font-mono text-xs">P3.0 / RXD</td>
+                  <td>第 10 脚</td>
+                  <td><b>必须交叉</b>：模块的发接单片机的收</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">RXD（接收）</td>
+                  <td class="font-mono text-xs">P3.1 / TXD</td>
+                  <td>第 11 脚</td>
+                  <td>接反的典型现象：一直停在「正在检测目标单片机」</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">GND（地）</td>
+                  <td class="font-mono text-xs">GND</td>
+                  <td>第 20 脚</td>
+                  <td><b>最容易漏接的一根</b>，不共地必然握手失败</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">5V / VCC</td>
+                  <td class="font-mono text-xs">VCC（可选）</td>
+                  <td>第 40 脚</td>
+                  <td>开发板已独立供电时<b>不要接</b>，避免两个电源打架</td>
+                </tr>
+                <tr>
+                  <td>电源开关</td>
+                  <td>—</td>
+                  <td>—</td>
+                  <td>冷启动下载要求你能「断电 → 再上电」</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意图</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="下载通路示意（三根线）">
+            <pre><code>   电脑                                 USB 转 TTL 模块                STC89C52RC
+ ┌────────┐                            ┌──────────────┐            ┌──────────────┐
+ │  USB   │──── USB 线 ───────────────►│  CH340 芯片  │            │              │
+ │  口    │                            │              │            │              │
+ └────────┘                            │  TXD ●───────┼────────────┼──► P3.0 RXD  │ 第 10 脚
+                                       │  RXD ●◄──────┼────────────┼─── P3.1 TXD  │ 第 11 脚
+   设备管理器里                          │  GND ●───────┼────────────┼─── GND       │ 第 20 脚
+   出现 COM3 / COM4 …                    │  5V  ○  (空) │            │              │
+                                       └──────────────┘            └──────┬───────┘
+                                                                          │
+                                                                   板上电源开关
+                                                                 （下载时断电再上电）
+
+  要点：TXD 与 RXD 交叉连接；GND 必须共地；5V 视供电情况决定接不接
+  → 三根线接对，STC-ISP 才能识别到芯片并进入下载模式</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">下载前必查（三条都查过再点下载）</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>模块上的电压跳线帽是不是拨在 <b class="font-semibold">5V</b>（51 单片机是 5V 系统，3.3V 电平可能识别不稳）。</li>
+              <li>TXD / RXD 是否交叉、GND 是否共地——这两条占了下载失败原因的八成。</li>
+              <li>串口助手、Proteus、其他 STC-ISP 窗口是否还开着占用 COM 口，全部关掉。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            环境搭好后不要急着写复杂程序，先用下面这段「环境验证程序」把链路跑通：
+            它开机慢闪 3 次（证明程序真的跑起来了），然后进入 1Hz 心跳闪烁（证明主循环与延时都在工作）。
+            灯闪得起来，说明 Keil、HEX、STC-ISP、接线、晶振、复位全部正确。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— 环境验证程序（开机闪 3 次 + 1Hz 心跳）">
+            <pre><code>#include &lt;reg52.h&gt;              /* 51 单片机标准头文件：P0~P3、TMOD 等寄存器都在里面定义 */
+
+/* ------------------------------------------------------------------
+ * sbit：位定义。
+ * 51 的 P1 口可以按位访问（P1.0~P1.7），sbit 就是把某一位单独取个名字，
+ * 之后写 LED = 0 就等于把 P1.0 拉低，比整个字节赋值更好读。
+ * 注意：P1 ^ 0 的 ^ 是「第几位」的意思，不是异或运算，这是 Keil 的语法。
+ * ------------------------------------------------------------------ */
+sbit LED = P1 ^ 0;              /* 把 P1.0 命名为 LED，对应板上的第一颗灯 */
+
+/* ------------------------------------------------------------------
+ * 软件延时函数：靠 CPU 空转消耗时间
+ * 12MHz 晶振、默认 12T 模式下，内层 j 循环约 1ms
+ * 它不精确：换晶振、改 Keil 优化等级（Options for Target → C51 → Level）
+ * 都会让实际时间变化，所以只用来做「肉眼可见的节拍」
+ * ------------------------------------------------------------------ */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;                  /* 51 的 int 是 16 位，最大 65535，够数到 65 秒 */
+    for (i = ms; i &gt; 0; i--)            /* 外层：重复 ms 次 */
+        for (j = 110; j &gt; 0; j--);      /* 内层：空循环，约 1ms */
+}
+
+void main(void)
+{
+    unsigned char i;
+
+    P1 = 0xFF;                      /* 先让 8 颗灯全灭（灌电流接法：引脚输出低电平才亮） */
+
+    /* ---------- 开机自检：慢闪 3 次 ---------- */
+    for (i = 0; i &lt; 3; i++)
+    {
+        LED = 0;                    /* 输出低电平 → 灯亮 */
+        Delay_ms(300);              /* 亮 300ms */
+        LED = 1;                    /* 输出高电平 → 灯灭 */
+        Delay_ms(300);              /* 灭 300ms */
+    }
+
+    /* ---------- 主循环：1Hz 心跳 ---------- */
+    while (1)                       /* 单片机程序不退出，必须写成死循环 */
+    {
+        LED = 0;
+        Delay_ms(500);              /* 亮 0.5s */
+        LED = 1;
+        Delay_ms(500);              /* 灭 0.5s，一个完整周期约 1s */
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-seven" class="mt-7 text-base font-semibold">新建工程七步</h3>
+          <p class="mt-3">
+            代码只是原料，工程才是容器。下面七步是每次新建实验都要走的固定流程，
+            顺序不能颠倒（尤其是第 5 步和第 6 步，颠倒了就白编译一次）：
+          </p>
+
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li>
+              <b class="font-semibold text-ink">Project → New µVision Project</b>，
+              新建一个空文件夹（例如 <code class="icode">D:\MCU\Test1</code>）保存工程。
+              一个实验一个文件夹，别把多个实验塞在一起。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">选芯片</b>：在器件库里找
+              <code class="icode">Atmel → AT89C52</code>，或者如果你装了 STC 的器件库就选
+              <code class="icode">STC MCU Database → STC89C52RC</code>。
+              STC89C52RC 与 AT89C52 的内核、寄存器完全兼容，选 AT89C52 编译出来的代码一样能在 STC 上跑
+              （区别只是 STC 片内有 8KB Flash、支持 ISP 下载）。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">新建 .c 源文件</b>：
+              File → New，写代码后 <b>Ctrl+S 保存为 <code class="icode">main.c</code></b>。
+              ⚠️ 常见坑：保存时必须手动补上 <code class="icode">.c</code> 后缀，
+              否则会存成 <code class="icode">main.c.txt</code> 或没有后缀，Keil 不会把它当源文件。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">加入 Group</b>：左侧 Project 窗口里右键
+              <code class="icode">Source Group 1 → Add Files to Group…</code>，
+              文件类型选 <code class="icode">C Source file (*.c)</code>，选中 main.c 点 Add。
+              加对了左边会出现 <code class="icode">main.c</code> 这一行；加错了（比如加了 previous 实验的文件）
+              就会报重复定义。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">Target 选项</b>：点击工具栏的魔术棒图标
+              （或 Project → Options for Target），在 <code class="icode">Target</code> 页把
+              <code class="icode">Xtal (MHz)</code> 改成 <b class="font-semibold">11.0592</b> 或 <b class="font-semibold">12</b>，
+              与板上晶振一致；同一页确认 Memory Model 是 <code class="icode">Small</code>、
+              Code Rom Size 是 <code class="icode">Large</code>。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">勾选 Create HEX File</b>：切到
+              <code class="icode">Output</code> 页，勾上 <code class="icode">Create HEX File</code>，
+              格式选 <code class="icode">HEX-80</code>。这一步不勾，Objects 目录里永远没有 .hex 文件。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">编译（F7 / Build Target）</b>，
+              在下方 Build Output 窗口看到
+              <code class="icode">0 Error(s), 0 Warning(s).</code> 和
+              <code class="icode">creating hex file from ".\Objects\Test1"...</code> 才算成功。
+              然后打开 STC-ISP：选型号 → 选 COM 口 → 打开 .hex → 点「下载/编程」 → <b>给板子断电再上电</b>。
+            </li>
+          </ol>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">sbit LED = P1 ^ 0;</code>——这里有两个新手必踩的点：
+              一是 <code class="icode">^</code> 在 Keil C51 里表示「第几位」而非异或；
+              二是 <code class="icode">sbit</code> 只能用于<b>可位寻址</b>的存储区，
+              P0~P3 的每一位地址都能被 8 整除，所以可以用；
+              而 <code class="icode">TMOD</code>（地址 0x89）就不行，这也是后面定时器一节必须整体赋值的原因。
+            </li>
+            <li>
+              <code class="icode">P1 = 0xFF;</code>——开机第一件事是让所有灯灭。
+              为什么是 0xFF（全 1）而不是 0x00？因为灌电流接法下低电平才亮，
+              全 1 表示所有引脚都是高电平，灯自然全灭。这也是 51 上电后的默认状态。
+            </li>
+            <li>
+              <code class="icode">unsigned int i, j;</code>——延时循环里变量用
+              <code class="icode">unsigned int</code> 而不是 <code class="icode">int</code>：
+              无符号比较在 51 上生成的汇编更短更快，延时也更容易估算；
+              另外 <code class="icode">i &gt; 0</code> 在无符号下等价于 <code class="icode">i != 0</code>，编译出来就是一条判零指令。
+            </li>
+            <li>
+              <code class="icode">for (j = 110; j &gt; 0; j--);</code>——分号就是空循环体。
+              这个 110 是<b>实测凑出来的经验值</b>，不同晶振、不同优化等级都要重调，
+              记住「软件延时是估的，定时器才是准的」。
+            </li>
+            <li>
+              <code class="icode">void main(void)</code>——51 的 main 不需要返回值也不需要参数，
+              程序运行到 <code class="icode">while (1)</code> 就再也不会离开，
+              单片机的「关机」只有断电。
+            </li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">验证 HEX 到底生成了没有</div>
+            <p>
+              打开工程文件夹里的 <code class="icode">Objects\</code> 目录，
+              找修改时间最新的那个 <code class="icode">.hex</code>。
+              如果时间对不上，说明这次编译没生成新文件，
+              回头检查 Create HEX File 有没有勾、以及 Build Output 里最后一行到底是
+              <code class="icode">creating hex file</code> 还是 <code class="icode">Target not created</code>。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            环境搭建的成功标准不是「没报错」，而是<b class="font-semibold text-ink">每一步都有可验证的实物回执</b>。
+            下面把整条链路拆成五个检查点：前三个在电脑屏幕上，后两个在板子上。
+            任何一步对不上，就在那一步停下排查，不要往下走。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象（按顺序出现）</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>编译结束，Build Output 最后两行是 <code class="icode">0 Error(s), 0 Warning(s).</code> 与 <code class="icode">creating hex file from ".\Objects\Test1"...</code>。</li>
+            <li><code class="icode">Objects\</code> 目录里出现新的 <code class="icode">Test1.hex</code>，修改时间是刚刚。</li>
+            <li>STC-ISP 点「下载/编程」后，右侧提示区依次出现：<code class="icode">正在检测目标单片机 ...</code> → <code class="icode">单片机型号 : STC89C52RC</code> → 进度条 → <code class="icode">操作成功 !</code>。</li>
+            <li>给板子断电再上电的瞬间，接 P1.0 的那颗灯慢闪 3 次（亮 300ms、灭 300ms，肉眼能一颗一颗数）。</li>
+            <li>随后进入 1Hz 心跳：亮 0.5 秒、灭 0.5 秒，用秒表量 10 个完整周期约 10 秒。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Build Output 显示 <code class="icode">0 Error(s)</code>，但 Objects 里没有 .hex</td>
+                  <td>编译通过了，只是没让 Keil 输出烧写文件</td>
+                  <td>Options for Target → Output → 勾 Create HEX File，重新编译</td>
+                </tr>
+                <tr>
+                  <td>STC-ISP 一直停在「正在检测目标单片机」</td>
+                  <td>电脑与芯片没握上手</td>
+                  <td>按顺序查：COM 口选错 → 串口被占用 → TXD/RXD 没交叉 → 没有冷启动</td>
+                </tr>
+                <tr>
+                  <td>下载成功，但灯亮的是<b>上一次实验</b>的现象</td>
+                  <td>下载的是旧的 .hex 文件</td>
+                  <td>STC-ISP 里重新「打开程序文件」，选 Objects 目录下刚生成的那个</td>
+                </tr>
+                <tr>
+                  <td>灯完全不亮，也不闪</td>
+                  <td>程序没进 main：晶振没起振 / 复位异常 / EA 脚没接高</td>
+                  <td>先量 VCC 是否 5V，再量 XTAL2 有没有振荡，最后查第 31 脚 EA</td>
+                </tr>
+                <tr>
+                  <td>闪得飞快（几乎像常亮），慢闪 3 次也看不清</td>
+                  <td>板上晶振频率与 Keil 里 Xtal 填的不一致（例如板子是 12MHz，却以为延时是 1ms）</td>
+                  <td>把 Xtal 改成板上真实晶振频率，或按实际频率重算延时循环次数</td>
+                </tr>
+                <tr>
+                  <td>10 个周期实测 13 秒左右（偏慢 30%）</td>
+                  <td>延时循环被编译器优化或晶振偏低，属于软件延时的正常误差</td>
+                  <td>记录实测值即可，要精确计时请改用定时器（见下一篇之后的定时器教程）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">顺手记录实验数据</div>
+            <p>
+              环境搭建这一步就值得记一张表：<b>理论值 vs 实测值</b>。
+              例如理论心跳周期 1.0s，实测 10 个周期 10.3s；
+              把「晶振频率、Xtal 设置、编译器优化等级、实测周期」四项一起写进实验报告，
+              后面讲到定时器时，这张表就是「为什么必须用硬件定时器」最有力的证据。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            下面六条是环境搭建阶段出现频率最高的报错，按
+            「报错原文 → 原因 → 解决」组织，可以直接用报错信息里的关键词搜索定位。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">编译报错：main.c(1): fatal error C318: can't open file 'reg52.h'</div>
+            <p><b class="font-semibold">原因：</b>装的是 MDK-ARM 版本，或者装的是 C51 但器件选了 ARM 系列。ARM 的器件库里没有 51 的寄存器头文件路径。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>卸载后重装 Keil <b>for C51</b>；在 Options for Target → Device 里把芯片换成 Atmel AT89C52 或 STC89C52RC，重新编译。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">编译报错：main.c(5): error C202: 'P1': undefined identifier</div>
+            <p><b class="font-semibold">原因：</b>漏写 <code class="icode">#include &lt;reg52.h&gt;</code>，或者头文件名写错（写成 <code class="icode">reg52.H</code>、<code class="icode">REG52.H</code> 在部分环境下不区分大小写但路径不对）。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>在文件第一行补上 <code class="icode">#include &lt;reg52.h&gt;</code>。注意它用的是尖括号（去系统的 INC 目录找），不是双引号。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">链接报错：*** ERROR L104: MULTIPLE PUBLIC DEFINITIONS  /  或 L104: MULTIPLE PUBLIC DEFINITIONS 指向两个 main</div>
+            <p><b class="font-semibold">原因：</b>一个工程里加了两个包含 <code class="icode">main()</code> 的 .c 文件——最典型的是「把上一次实验的文件也 Add 进了 Source Group 1」。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>在左侧工程树里右键多余的文件 → <code class="icode">Remove File</code>（只从工程移除，不会删硬盘上的文件）。一个工程只留一个 main。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">编译报错：*** FATAL ERROR L250: CODE SIZE LIMIT IN RESTRICTED VERSION EXCEEDED</div>
+            <p><b class="font-semibold">原因：</b>Keil 评估版（未注册）有 2KB 代码上限，链接时超了。点灯、流水灯这类程序通常没超，一旦加入 LCD、多个库函数就容易撞上。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>使用学校提供的正版授权（用管理员身份运行 µVision，在 File → License Management 里填入并 Add LIC）；或在学习阶段换用 SDCC 等免费工具链。请勿使用来源不明的注册机。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">下载失败：一直停在「正在检测目标单片机 ...」，最后提示「请给 MCU 上电」</div>
+            <p><b class="font-semibold">原因：</b>按可能性排序——① COM 口被串口助手/另一个 STC-ISP 窗口占用；② 选错 COM 号；③ TXD/RXD 没交叉或 GND 没共地；④ <b>没有冷启动</b>：STC 芯片只在「上电复位那一刻」的极短时间里检测下载命令，程序已经在跑的芯片是不会响应下载的。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>先关掉所有占用串口的软件；在设备管理器确认 CH340 对应的 COM 号并在 STC-ISP 里选它；核对三根线；然后<b>先点「下载/编程」，再给板子断电、重新上电</b>，顺序不能反。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">下载失败：握手失败 / 提示「此芯片无法识别，请检查型号」/ 下载到一半中断</div>
+            <p><b class="font-semibold">原因：</b>下载波特率设得太高（USB 转串口模块与劣质杜邦线在高波特率下信号质量差），或者板子由 USB 模块的 5V 供电时电流不足（下载瞬间电流冲高导致芯片掉电复位）。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>在 STC-ISP 里把「最高波特率」从 115200 逐级降到 9600 甚至 4800 再试；换短一点、质量好一点的杜邦线；给开发板接独立电源，避免下载瞬间掉电。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">没有报错但就是不对</div>
+            <p>
+              「零报错零警告但现象不对」时，先做三件事：
+              ① 确认 STC-ISP 打开的 .hex 是刚生成的那个（看文件时间）；
+              ② 确认 Xtal 填的频率与板上晶振一致；
+              ③ 按一下板子的复位键看现象有没有重新从头开始（能重新开始说明程序在跑，是逻辑问题；没反应说明硬件没工作）。
+              这三条能把问题范围缩小一半以上。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇讲的其实是一条单向流水线：<b class="font-semibold text-ink">.c → 编译 → .hex → 串口下载 → 芯片 Flash → 执行</b>。
+            需要刻在脑子里的只有三件事：Keil 只编译不下载、Create HEX File 不勾就没有烧写文件、
+            STC 下载必须冷启动。把这三条记住，环境问题基本就只剩接线问题了。
+          </p>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b>验证「软件延时不准」</b>：把 <code class="icode">Delay_ms(500)</code> 改成 <code class="icode">Delay_ms(1000)</code>，
+                用手机秒表量 10 个完整周期的实际耗时，和理论值 20 秒对比，把误差百分比记下来。
+              </li>
+              <li>
+                <b>验证晶振设置的影响</b>：把 Options for Target → Target 里的 Xtal 从 11.0592 改成 24，
+                重新编译下载（代码一个字都不改），观察灯闪的快慢有没有变化，并解释为什么。
+              </li>
+              <li>
+                <b>故意制造一次失败并读报错</b>：取消勾选 Create HEX File 后重新编译，
+                记下 Build Output 少了一行什么内容、Objects 目录里少了哪个文件、
+                STC-ISP 这时会给你什么提示。把这次「报错原文」抄进实验报告——
+                以后在实验室遇到同样提示，你能一眼定位。
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-min-system.html">51 最小系统电路原理</a>——搞清楚板子上除了芯片还有什么，以及为什么少了任何一部分程序都跑不起来。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-led.html">IO 口输出：LED 流水灯</a>——用 P1 口驱动 8 颗 LED，讲透灌电流接法与循环移位。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="../route.html">学习路线</a>——看看这一步在整个嵌入式学习路径里的位置。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="../mcu51.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 返回目录</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">51 单片机全部教程</p>
+          </a>
+          <a href="mcu51-min-system.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">51 最小系统电路原理</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

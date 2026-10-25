@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arduino 框架与 ESP-IDF：你写的代码经历了什么 - McuStudy</title>
+  <meta name="description" content="把 Arduino 是什么、ESP32 Arduino Core 处在哪一层、setup/loop 与 main 的关系、点「上传」之后依次发生的事、esptool 的作用、ESP-IDF 与 app_main、库版本不兼容怎么处理、开发板型号为什么必须选对，一次讲清。附同一个闪灯的 Arduino 版与 IDF 版对照，以及编译输出体积解读。">
+  <meta name="keywords" content="ESP32,Arduino IDE,ESP32 Arduino Core,ESP-IDF,setup,loop,app_main,esptool.py,编译烧录流程,库管理器,platformio.ini,开发板型号选错,Failed to connect to ESP32,任务看门狗">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="esp32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资源下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../esp32.html" class="hover:text-brand-600 dark:hover:text-brand-300">ESP32</a>
+          <span>/</span>
+          <span class="text-muted">Arduino 框架与 ESP-IDF</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          Arduino 框架与 ESP-IDF：你写的代码经历了什么
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你按下「上传」，几秒钟后灯就闪了。这几秒里发生的事，比你想的多得多：
+          代码先被编译成机器码，再被 <code class="icode">esptool.py</code> 通过串口写进 Flash，
+          然后芯片复位、FreeRTOS 启动、系统创建任务、最后才轮到你的 <code class="icode">setup()</code> 和
+          <code class="icode">loop()</code>。这一篇把这条链路完整拆开，
+          顺便讲清 Arduino 与 ESP-IDF 的关系、库版本为什么会打架、板子型号选错为什么直接编译不过。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">芯片：<b>ESP32-WROOM-32</b></span>
+          <span class="stat-pill">前置：<b>装好 Arduino IDE</b></span>
+          <span class="stat-pill">阅读约 <b>22</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-what-arduino">Arduino 到底是什么</a>
+          <a class="toc-link is-sub" href="#sub-core">ESP32 Arduino Core</a>
+          <a class="toc-link is-sub" href="#sub-setup-loop">setup 与 loop 到底执行几次</a>
+          <a class="toc-link is-sub" href="#sub-build">点「上传」之后依次发生什么</a>
+          <a class="toc-link is-sub" href="#sub-idf">ESP-IDF 是什么</a>
+          <a class="toc-link is-sub" href="#sub-choose">Arduino 还是 ESP-IDF</a>
+          <a class="toc-link is-sub" href="#sub-library">库管理与版本冲突</a>
+          <a class="toc-link is-sub" href="#sub-board-config">开发板配置为什么关键</a>
+          <a class="toc-link" href="#sec-hardware">硬件准备与下载电路</a>
+          <a class="toc-link is-sub" href="#sub-usb-cable">USB 数据线还是充电线</a>
+          <a class="toc-link is-sub" href="#sub-driver">串口驱动</a>
+          <a class="toc-link is-sub" href="#sub-boot-en">BOOT 与 EN 键</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-blink">Arduino 版闪灯</a>
+          <a class="toc-link is-sub" href="#sub-code-idf">ESP-IDF 版闪灯</a>
+          <a class="toc-link is-sub" href="#sub-code-size">编译输出的体积解读</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-what-arduino">Arduino 到底是什么</a>
+            <a class="toc-link is-sub" href="#sub-core">ESP32 Arduino Core</a>
+            <a class="toc-link is-sub" href="#sub-setup-loop">setup 与 loop 到底执行几次</a>
+            <a class="toc-link is-sub" href="#sub-build">点「上传」之后依次发生什么</a>
+            <a class="toc-link is-sub" href="#sub-idf">ESP-IDF 是什么</a>
+            <a class="toc-link is-sub" href="#sub-choose">Arduino 还是 ESP-IDF</a>
+            <a class="toc-link is-sub" href="#sub-library">库管理与版本冲突</a>
+            <a class="toc-link is-sub" href="#sub-board-config">开发板配置为什么关键</a>
+            <a class="toc-link" href="#sec-hardware">硬件准备与下载电路</a>
+            <a class="toc-link is-sub" href="#sub-usb-cable">USB 数据线还是充电线</a>
+            <a class="toc-link is-sub" href="#sub-driver">串口驱动</a>
+            <a class="toc-link is-sub" href="#sub-boot-en">BOOT 与 EN 键</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-blink">Arduino 版闪灯</a>
+            <a class="toc-link is-sub" href="#sub-code-idf">ESP-IDF 版闪灯</a>
+            <a class="toc-link is-sub" href="#sub-code-size">编译输出的体积解读</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            学 51 的时候，工具链是透明的：你写完 C，Keil 编译，烧录器把 hex 写进芯片，
+            芯片从 <code class="icode">main()</code> 第一行开始跑。ESP32 不一样——
+            中间隔着一层 Arduino 框架和一层 ESP-IDF，而这两层恰好是最容易让人困惑的地方：
+            「我写的 <code class="icode">setup()</code> 到底是被谁调用的？」
+            「为什么装了库还要选板子？」「为什么同样的代码在别人的电脑上编译不过？」
+            本节就回答这些问题。
+          </p>
+
+          <h3 id="sub-what-arduino" class="mt-7 text-base font-semibold">Arduino 到底是什么</h3>
+
+          <p class="mt-3">
+            最常见的误解是把 Arduino 当成「一种芯片」或者「一门语言」。都不是。
+            <b class="font-semibold text-ink">Arduino 是一套让嵌入式变简单的抽象层</b>，它包含三部分：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold">一套约定</b>：一个程序必须提供 <code class="icode">setup()</code> 和 <code class="icode">loop()</code> 两个函数。</li>
+            <li><b class="font-semibold">一套 API</b>：<code class="icode">digitalWrite()</code>、<code class="icode">analogRead()</code>、<code class="icode">Serial.print()</code> 这些函数，把底层寄存器操作包成人话。</li>
+            <li><b class="font-semibold">一套工具链</b>：Arduino IDE、编译器、烧录脚本，点一个按钮就把这一串跑完。</li>
+          </ul>
+
+          <p class="mt-3">
+            语言上，你写的是 <b class="font-semibold">C++</b>（C 是它的子集），只是被限制了写法：
+            不写 <code class="icode">main()</code>，不自己管理启动流程。所以「Arduino 语言」严格说不存在，
+            它就是 C++ 加一层框架。你在 51 上写的 C 代码，绝大多数可以直接搬进来（除了 <code class="icode">reg51.h</code> 那些寄存器定义）。
+          </p>
+
+          <h3 id="sub-core" class="mt-7 text-base font-semibold">ESP32 Arduino Core</h3>
+
+          <p class="mt-3">
+            ESP32 不是 Arduino 官方做的芯片，那为什么能在 Arduino IDE 里开发？
+            因为 Espressif（乐鑫）官方维护了一个移植层，叫
+            <b class="font-semibold text-ink">ESP32 Arduino Core</b>（在开发板管理器里显示为
+            「esp32 by Espressif Systems」）。它的工作就是：把 ESP-IDF 的功能包装成 Arduino API。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="四层结构：从你的代码到芯片寄存器">
+            <pre><code>┌──────────────────────────────────────────────────────────────┐
+│  第 4 层：你的代码                                            │
+│    void setup() { Serial.begin(115200); }                    │
+│    void loop()  { digitalWrite(2, HIGH); delay(1000); }      │
+└───────────────────────────┬──────────────────────────────────┘
+                            │ 你写的 API 调用
+┌───────────────────────────▼──────────────────────────────────┐
+│  第 3 层：Arduino API（ESP32 Arduino Core 提供）              │
+│    pinMode / digitalWrite / analogRead / Serial / WiFi        │
+│    —— 把参数翻译成 IDF 的调用，并做一些人性化封装             │
+└───────────────────────────┬──────────────────────────────────┘
+                            │ C 函数调用
+┌───────────────────────────▼──────────────────────────────────┐
+│  第 2 层：ESP-IDF（乐鑫官方 SDK）                             │
+│    driver/gpio.c、esp_wifi、freertos、nvs、lwip …             │
+│    —— 真正干活的代码，FreeRTOS 内核就在这一层                 │
+└───────────────────────────┬──────────────────────────────────┘
+                            │ 读写寄存器
+┌───────────────────────────▼──────────────────────────────────┐
+│  第 1 层：硬件寄存器                                          │
+│    GPIO_OUT_W1TS_REG、IO_MUX_GPIO2_REG …                      │
+└──────────────────────────────────────────────────────────────┘
+
+  出问题时按这个层次「自下而上」排查：
+  硬件接线 → IDF 报错（串口日志）→ Arduino API 用法 → 你的逻辑。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么这件事对你很重要</div>
+            <p>
+              因为 Arduino API 不是万能的：某些功能（精细的定时器、DMA、任务优先级、省电模式）
+              它没有封装，你必须直接调 ESP-IDF 的函数。
+              知道了层次关系，你就知道「Arduino 里怎么用 IDF 的功能」——直接
+              <code class="icode">#include</code> 对应的 IDF 头文件调就行，两者本来就在同一个工程里。
+              本页后面的 ESP-IDF 版闪灯就是活例子。
+            </p>
+          </div>
+
+          <h3 id="sub-setup-loop" class="mt-7 text-base font-semibold">setup 与 loop 到底执行几次</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>函数</th><th>执行次数</th><th>什么时候执行</th><th>该放什么</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">setup()</code></td><td>1 次</td><td>芯片复位并启动完成后</td><td>初始化：串口、引脚模式、连 WiFi、初始化传感器</td></tr>
+                <tr><td><code class="icode">loop()</code></td><td>无限次</td><td><code class="icode">setup()</code> 返回后立刻开始，一次结束马上再来一次</td><td>主逻辑：读传感器、判断、输出</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            关键点在于：<b class="font-semibold text-ink">框架在你背后生成了一个 <code class="icode">main()</code></b>。
+            它大概长这样（简化版，真实代码在 core 里）：
+          </p>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="Arduino Core 内部的 main.cpp（简化，看懂即可，不要自己写）">
+            <pre><code>// 这是 ESP32 Arduino Core 内部的骨架，你不需要写，但要理解
+extern void setup();
+extern void loop();
+
+void loopTask(void *pvParameters) {
+    setup();                 // ① 只调用一次
+    for (;;) {               // ② 无限循环
+        loop();              //    每次 loop() 返回就再调一次
+        // 这里还会做一些系统维护（例如喂看门狗、让出 CPU）
+    }
+}
+
+extern "C" void app_main() {             // ESP-IDF 的入口
+    // ... IDF 的初始化：NVS、WiFi 协议栈、事件循环 ...
+    xTaskCreatePinnedToCore(loopTask,    // 把 loopTask 变成一个 FreeRTOS 任务
+                            "loopTask",
+                            8192,        // 栈大小
+                            NULL, 1, NULL,
+                            1);          // 固定在 Core1 上运行
+}</code></pre>
+          </div>
+
+          <p class="mt-3">
+            所以真实的调用链是：
+            <code class="icode">app_main()</code> → 创建 loopTask → <code class="icode">setup()</code> →
+            <code class="icode">while(1) { loop(); }</code>。这解释了四件事：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold">为什么 loop 里不能写死循环</b>：<code class="icode">while(1);</code> 会让这个任务永远不让出 CPU，系统的其他任务（WiFi、看门狗）都会饿死。</li>
+            <li><b class="font-semibold">为什么 loop 里可以放心用 delay</b>：<code class="icode">delay()</code> 内部是 <code class="icode">vTaskDelay()</code>，它会把 CPU 让给别的任务，不是 51 那种「空转耗时间」。</li>
+            <li><b class="font-semibold">为什么变量能保持</b>：<code class="icode">loop()</code> 是同一个任务反复调用，局部 <code class="icode">static</code> 变量和全局变量都不会重置；但普通局部变量每次进入都是新的。</li>
+            <li><b class="font-semibold">为什么你的代码跑在 Core1</b>：<code class="icode">xTaskCreatePinnedToCore(..., 1)</code> 最后那个参数就是核心编号，WiFi 协议栈在 Core0。</li>
+          </ul>
+
+          <h3 id="sub-build" class="mt-7 text-base font-semibold">点「上传」之后依次发生什么</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="从点按钮到灯闪起来：完整链路">
+            <pre><code>你点「上传 (→)」
+      │
+      ▼
+① 预处理 + 编译：把 .ino 复制成 .cpp，编译所有源文件（你的代码 + core + 库）
+      │            产物：一堆 .o 目标文件
+      ▼
+② 链接：把所有 .o 和预编译库链成 firmware.elf
+      │
+      ▼
+③ 生成 bin：从 elf 里提取出几个二进制镜像
+      │        bootloader.bin（启动引导）、partitions.bin（分区表）、
+      │        firmware.bin（你的程序）
+      ▼
+④ 调用 esptool.py：Arduino IDE 在背后自动运行这个 Python 脚本
+      │
+      ▼
+⑤ 复位进下载模式：esptool 通过串口的 DTR / RTS 两条控制线，
+      │              拉低 EN 与 GPIO0（等价于「按住 BOOT 再点一下 EN」）
+      │              芯片重启后停在 ROM bootloader，等串口送数据
+      ▼
+⑥ 写入 Flash：按地址把三个 bin 写到 0x1000 / 0x8000 / 0x10000
+      │          写完后校验（Hash of data verified）
+      ▼
+⑦ 复位运行：esptool 释放控制线，芯片重新启动，从 Flash 里跑你的程序
+      │
+      ▼
+   app_main() → loopTask → setup() → loop() 不停循环</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">esptool.py 是什么</div>
+            <p>
+              它是 Espressif 官方的<b class="font-semibold">串口烧录工具</b>，一个 Python 脚本，
+              负责「通过串口把 bin 写进 Flash」这件事。
+              Arduino IDE 只是替你调用它，并把过程打印在下面的输出窗口里——
+              你在输出里看到的 <code class="icode">esptool.py v4.5.1</code>、
+              <code class="icode">Chip is ESP32-D0WD-V3</code>、<code class="icode">Hash of data verified.</code>
+              都是它打印的。理解了这一步，以后看到上传报错就知道该往哪儿找原因。
+            </p>
+          </div>
+
+          <h3 id="sub-idf" class="mt-7 text-base font-semibold">ESP-IDF 是什么</h3>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">ESP-IDF（Espressif IoT Development Framework）是乐鑫的官方 SDK</b>，
+            也是 ESP32 的「原生开发方式」。它比 Arduino 底层得多，也更强大、更啰嗦。
+            最直观的区别是入口函数：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>对比项</th><th>Arduino（ESP32 Arduino Core）</th><th>ESP-IDF</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>程序入口</td><td><code class="icode">setup()</code> + <code class="icode">loop()</code></td><td><code class="icode">app_main()</code></td></tr>
+                <tr><td>循环方式</td><td>框架替你写 <code class="icode">while(1)</code></td><td>自己写，或用 FreeRTOS 任务</td></tr>
+                <tr><td>点灯</td><td><code class="icode">pinMode</code> + <code class="icode">digitalWrite</code></td><td><code class="icode">gpio_set_direction</code> + <code class="icode">gpio_set_level</code></td></tr>
+                <tr><td>延时</td><td><code class="icode">delay(1000)</code></td><td><code class="icode">vTaskDelay(pdMS_TO_TICKS(1000))</code></td></tr>
+                <tr><td>构建系统</td><td>Arduino IDE 一键</td><td>CMake + <code class="icode">idf.py build</code></td></tr>
+                <tr><td>配置方式</td><td>IDE 菜单里选板子</td><td><code class="icode">idf.py menuconfig</code>（上千个配置项）</td></tr>
+                <tr><td>上手难度</td><td>低，十分钟点灯</td><td>高，先要装工具链、理解工程结构</td></tr>
+                <tr><td>控制精度</td><td>够用（教学、原型）</td><td>完全控制（任务优先级、内存分区、省电、DMA）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            要特别注意：<b class="font-semibold">Arduino 不是「另一种 ESP32」，它就是 IDF 的封装</b>。
+            你在 Arduino 里能 <code class="icode">#include "driver/gpio.h"</code> 直接用 IDF 的 API，
+            因为 core 本来就是基于 IDF 编译的。所以「学 Arduino 还是学 IDF」并不是非此即彼，
+            而是「从哪一层开始」。
+          </p>
+
+          <h3 id="sub-choose" class="mt-7 text-base font-semibold">Arduino 还是 ESP-IDF</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>你的情况</th><th>建议</th><th>理由</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>刚学完 51/STM32，做课程实验</td><td><b class="font-semibold">Arduino</b></td><td>把精力放在「硬件与时序」上，而不是构建系统上</td></tr>
+                <tr><td>做毕设/竞赛原型，要快速出功能</td><td><b class="font-semibold">Arduino</b></td><td>海量现成库：传感器、显示屏、MQTT 全都有</td></tr>
+                <tr><td>需要精确的任务优先级、双核调度</td><td>Arduino 起步，局部用 IDF</td><td>Arduino 里可以直接调 FreeRTOS 的 <code class="icode">xTaskCreatePinnedToCore()</code></td></tr>
+                <tr><td>做量产产品，要求最小体积/最低功耗</td><td><b class="font-semibold">ESP-IDF</b></td><td>能裁掉用不到的组件、精细配置电源管理与分区</td></tr>
+                <tr><td>要用 ESP32 的高级外设（DMA、LCD、I2S 细节）</td><td>ESP-IDF</td><td>这些在 Arduino API 里覆盖不全</td></tr>
+                <tr><td>公司/项目组已有 IDF 代码库</td><td>ESP-IDF</td><td>不要为了「简单」重写一遍</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">给学生的实际建议</div>
+            <p>
+              先用 Arduino 把「电、时序、协议」这些东西做熟，等你开始抱怨
+              「Arduino 这个功能不给我用」的时候，就是转向 IDF 的时机。
+              本站 ESP32 方向的教程都走 Arduino 路线，需要时再指出对应的 IDF 写法——
+              就像本页的闪灯对比那样。
+            </p>
+          </div>
+
+          <h3 id="sub-library" class="mt-7 text-base font-semibold">库管理与版本冲突</h3>
+
+          <p class="mt-3">
+            Arduino 的「库」就是别人写好的代码包。三种来源，装的位置不同：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>来源</th><th>怎么装</th><th>装在哪</th><th>特点</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>库管理器</td><td>IDE 左侧「库管理器」图标，搜名字点安装</td><td>用户目录下的 <code class="icode">Arduino/libraries</code></td><td>最推荐，能一键切换版本</td></tr>
+                <tr><td>手动 ZIP</td><td>「项目 → 加载库 → 添加 .ZIP 库」</td><td>同上</td><td>装 GitHub 上的新版或小众库时用</td></tr>
+                <tr><td>开发板核心自带</td><td>装 ESP32 core 时一起装</td><td>core 安装目录里</td><td><code class="icode">WiFi.h</code>、<code class="icode">Wire.h</code>、<code class="icode">SPI.h</code> 属于这一类，不用单独装</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            用户库目录在 Windows 上通常是
+            <code class="icode">C:\Users\你的用户名\Documents\Arduino\libraries</code>。
+            如果两个库重名，IDE 会优先用用户目录里的那个，而且会弹警告——
+            <b class="font-semibold">这是「改了库但没生效」的常见原因</b>。
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">版本冲突的典型样子（务必记住这个案例）</div>
+            <p>
+              ESP32 Arduino Core 从 2.x 升到 3.x 时，LEDC（PWM）的 API 变了：
+              旧写法是 <code class="icode">ledcSetup(通道, 频率, 分辨率)</code> +
+              <code class="icode">ledcAttachPin(引脚, 通道)</code>，
+              新写法合并成 <code class="icode">ledcAttach(引脚, 频率, 分辨率)</code>。
+              于是你在网上抄的教程代码可能直接报
+              <code class="icode">error: 'ledcSetup' was not declared in this scope</code>。
+              这不是你写错了，是 core 版本与教程不匹配。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 在「开发板管理器」里把 esp32 降到教程对应的版本（比如 2.0.17）；
+              ② 或者查新 API 文档改写代码（推荐，长期看更省事）；
+              ③ 记住一条铁律：<b class="font-semibold">照着教程装同版本的 core，能省掉一半的报错</b>。
+            </p>
+          </div>
+
+          <h3 id="sub-board-config" class="mt-7 text-base font-semibold">开发板配置为什么关键</h3>
+
+          <p class="mt-3">
+            选「ESP32 Dev Module」还是「ESP32-WROOM-DA Module」看起来无所谓，实际上 IDE 会用它决定一大串参数：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>参数</th><th>典型值（ESP32 Dev Module）</th><th>选错的后果</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Flash 大小</td><td>4MB</td><td>选成 2MB 会写出错误的分区表，程序可能启动不了</td></tr>
+                <tr><td>分区表方案</td><td>Default 4MB with spiffs</td><td>决定 APP 分区大小，选错会「Flash 溢出」或浪费空间</td></tr>
+                <tr><td>上传速度</td><td>921600</td><td>线材差时改 115200 更稳</td></tr>
+                <tr><td>CPU 频率</td><td>240MHz</td><td>降低会变慢（但更省电）</td></tr>
+                <tr><td>Flash 模式</td><td>QIO</td><td>少数模组需要 DIO，选错会启动失败</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            另外还有个更基础的错误：<b class="font-semibold">根本没装 ESP32 core，板子列表里只有 Arduino Uno</b>。
+            这时候编译 <code class="icode">#include &lt;WiFi.h&gt;</code> 会报「No such file or directory」，
+            因为 Uno 的 core 里没有 WiFi 库（Uno 也没有 WiFi 硬件）。
+            遇到这个报错先看板子选对没有，比看代码快得多。
+          </p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件准备 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件准备与下载电路</h2>
+
+          <p class="mt-4">
+            「代码没问题、板子没问题，就是上传不了」——这类问题九成出在线、驱动、和下载模式这三件事上。
+          </p>
+
+          <h3 id="sub-usb-cable" class="mt-7 text-base font-semibold">USB 数据线还是充电线</h3>
+
+          <p class="mt-3">
+            USB 线里其实有 4 根（或 5 根）线：<code class="icode">VBUS</code>（5V）、<code class="icode">GND</code>、
+            <code class="icode">D+</code>、<code class="icode">D-</code>。
+            便宜的「充电线」为了省成本，<b class="font-semibold text-ink">只焊了 VBUS 和 GND，里面根本没有数据线</b>。
+            表现就是：板子上的电源灯亮着，但电脑的端口列表里没有新串口，或者有端口却上传失败。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两种线的区别与判别方法">
+            <pre><code>数据线（能烧录）                        充电线（只能供电）
+  ┌────────────┐                          ┌────────────┐
+  │ VBUS  ─────┼── 5V                     │ VBUS  ─────┼── 5V
+  │ D-    ─────┼── 数据                    │ D-    ────╳   （没接）
+  │ D+    ─────┼── 数据                    │ D+    ────╳   （没接）
+  │ GND   ─────┼── 地                      │ GND   ─────┼── 地
+  └────────────┘                          └────────────┘
+
+判别方法：
+ ① 最可靠：换一根你确定用来传过文件的线，一试就知道；
+ ② 看电脑：插上后「设备管理器 → 端口」有没有新出现的 COM 口；
+ ③ 看线径/做工：数据线通常更粗一点，但这个不可靠；
+ ④ 摸温度：劣质充电线长时间供电会发热（内阻大），也解释了你
+    为什么一连 WiFi 就重启——见上一篇的峰值电流。</code></pre>
+          </div>
+
+          <h3 id="sub-driver" class="mt-7 text-base font-semibold">串口驱动</h3>
+
+          <p class="mt-3">
+            ESP32 开发板上有一颗「USB 转串口」芯片，把 USB 信号变成串口给 ESP32 用。
+            电脑要认它，就得装对应驱动。常见三种：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>芯片</th><th>常见于</th><th>驱动</th><th>认出来的名字</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>CP2102 / CP2104</td><td>官方 DevKitC 开发板</td><td>Silicon Labs CP210x 驱动</td><td>Silicon Labs CP210x USB to UART Bridge (COMx)</td></tr>
+                <tr><td>CH340 / CH9102</td><td>多数廉价国产开发板</td><td>沁恒 CH341SER 驱动</td><td>USB-SERIAL CH340 (COMx)</td></tr>
+                <tr><td>FT232RL</td><td>老式模块、部分自制板</td><td>FTDI VCP 驱动</td><td>USB Serial Port (COMx)</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            装没装好看「设备管理器 → 端口 (COM 和 LPT)」：
+            正常会有 <code class="icode">COM3</code> 之类的条目；没装驱动则会出现在
+            「其他设备」下面，带黄色感叹号，名字是 <code class="icode">USB2.0-Serial</code> 之类。
+            <b class="font-semibold">Arduino IDE 的端口菜单是灰的、点不动，就是这个原因</b>，
+            装完驱动（或换一根数据线）端口才会出现。
+          </p>
+
+          <h3 id="sub-boot-en" class="mt-7 text-base font-semibold">BOOT 与 EN 键</h3>
+
+          <p class="mt-3">
+            板子上那两个小按钮，是「手动进下载模式」用的：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>按键</th><th>接到芯片哪里</th><th>按下去的意义</th><th>什么时候用</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>EN（有的板标 RST）</td><td>CHIP_PU 复位脚</td><td>让芯片重新启动</td><td>上传后程序没跑起来、想重新开始</td></tr>
+                <tr><td>BOOT</td><td>GPIO0</td><td>按住 = 把 GPIO0 拉低。芯片上电时若 GPIO0 为低，就停在下载模式等串口</td><td>自动下载失败时手动进下载模式</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            正常情况下你不需要按它们，因为板上有自动下载电路：esptool 会通过串口的 DTR/RTS
+            自动完成「按住 BOOT → 点 EN → 松开 BOOT」这个动作。
+            当自动电路不起作用（比如 GPIO0 被外设拉低、串口芯片不支持、某些精简板没有这两条控制线）时，
+            就手动来一遍：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="手动进入下载模式的标准手法">
+            <pre><code>① 按住 BOOT 不放
+② 点一下 EN（RST），松开 EN     &lt;- 这一步让芯片在 GPIO0 为低的情况下重新启动
+③ 松开 BOOT
+④ 立刻在 IDE 里点「上传」
+
+上传完成后程序会自动运行（esptool 会做一次硬复位）。
+如果上传完没反应，按一下 EN 即可。
+
+反例：只在按下 BOOT 时上传、却没点 EN —— 芯片还在跑旧程序，看不到下载模式。</code></pre>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            同一个功能（GPIO2 上的板载 LED 闪灯）写两遍：
+            第一遍用 Arduino API，第二遍用 ESP-IDF API。对照着看，你就明白「框架包装了什么」。
+          </p>
+
+          <h3 id="sub-code-blink" class="mt-7 text-base font-semibold">Arduino 版闪灯</h3>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="esp32-basic-arduino-blink.ino —— Arduino API 写法">
+            <pre><code>/*
+ * ESP32 基础篇 / Arduino 框架与 ESP-IDF
+ * 程序一：Arduino API 闪灯
+ *
+ * 硬件：ESP32-WROOM-32 开发板，板载 LED 接在 GPIO2
+ *       （不同板子可能接在 GPIO2 或 GPIO5，用 LED_BUILTIN 最保险）
+ */
+
+#define LED_PIN 2
+
+void setup() {
+  Serial.begin(115200);
+  delay(300);
+
+  pinMode(LED_PIN, OUTPUT);          // 配置为输出
+
+  Serial.println("========================================");
+  Serial.println("Arduino 版闪灯");
+  Serial.println("你应该看到：GPIO2 上的 LED 每秒闪一次");
+  Serial.println("同时本行下方每秒打印一次计数");
+  Serial.println("========================================");
+}
+
+void loop() {
+  static unsigned long count = 0;
+  count++;
+
+  digitalWrite(LED_PIN, HIGH);       // 点亮
+  delay(500);
+  digitalWrite(LED_PIN, LOW);        // 熄灭
+  delay(500);
+
+  Serial.printf("第 %lu 次闪烁 | 运行 %lu 秒 | 空闲堆 %u 字节\n",
+                count, millis() / 1000, ESP.getFreeHeap());
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-idf" class="mt-7 text-base font-semibold">ESP-IDF 版闪灯</h3>
+
+          <p class="mt-3">
+            下面这段是 ESP-IDF 工程里的 <code class="icode">main/main.c</code>，
+            在 IDF 里用 <code class="icode">idf.py build flash monitor</code> 编译烧录。
+            如果你只想在 Arduino IDE 里体会 IDF 的写法，可以把文件后半部分原样贴进
+            <code class="icode">loop()</code>——因为 ESP32 Arduino Core 就是 IDF。
+          </p>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="ESP-IDF 工程 main/main.c —— 同样的闪灯，IDF 写法">
+            <pre><code>/*
+ * 程序二：ESP-IDF API 闪灯（与上面完全等价的功能）
+ * 工程结构：
+ *   blink/
+ *     CMakeLists.txt
+ *     main/CMakeLists.txt
+ *     main/main.c        &lt;-- 本文件
+ */
+
+#include &lt;stdio.h&gt;
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+
+#define LED_PIN GPIO_NUM_2
+
+void app_main(void)                 // IDF 的入口，代替 setup()
+{
+    // ① 复位引脚，清掉上电时的默认状态（Arduino 的 pinMode 内部会做这件事）
+    gpio_reset_pin(LED_PIN);
+
+    // ② 配置为输出（对应 Arduino 的 pinMode(LED_PIN, OUTPUT)）
+    gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
+
+    printf("ESP-IDF 版闪灯启动\n");
+
+    unsigned long count = 0;
+
+    // ③ while(1) 就是 Arduino 的 loop()，只是这里要自己写
+    while (1) {
+        gpio_set_level(LED_PIN, 1);                     // 点亮（对应 digitalWrite(HIGH)）
+        vTaskDelay(pdMS_TO_TICKS(500));                 // 延时（对应 delay(500)）
+
+        gpio_set_level(LED_PIN, 0);                     // 熄灭
+        vTaskDelay(pdMS_TO_TICKS(500));
+
+        count++;
+        printf("第 %lu 次闪烁 | 运行 %lu 秒\n",
+               count, (unsigned long)(esp_log_timestamp() / 1000));
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-size" class="mt-7 text-base font-semibold">编译输出的体积解读</h3>
+
+          <p class="mt-3">
+            上传时 Arduino IDE 会在下面输出两行关键数字。很多人从来不看他，但它能提前告诉你
+            「程序是不是快装不下了」「内存是不是快用完了」：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="Arduino IDE 编译输出（关键行）">
+            <pre><code>项目使用了 273940 字节，占用了 (20%) 程序存储空间。最大为 1310720 字节。
+全局变量使用了22096字节，(6%)的动态内存，余留305584字节局部变量。最大为327680字节。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>数字</th><th>含义</th><th>怎么理解</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>273940 字节</td>
+                  <td>你的程序编译后的大小（代码 + 只读数据）</td>
+                  <td>放在 Flash 的 APP 分区里。带 WiFi 的空程序大约 250~300KB，加一个 MQTT 库会到 400KB 以上</td>
+                </tr>
+                <tr>
+                  <td>最大 1310720 字节</td>
+                  <td>APP 分区的大小（1280KB）</td>
+                  <td><b class="font-semibold">不是 4MB</b>。4MB Flash 还要分给 bootloader、分区表、NVS、SPIFFS。想给程序更大空间，去改 Partition Scheme</td>
+                </tr>
+                <tr>
+                  <td>20%</td>
+                  <td>占用率</td>
+                  <td>超过 90% 就该考虑裁库或换分区方案了；100% 直接报错</td>
+                </tr>
+                <tr>
+                  <td>全局变量 22096 字节</td>
+                  <td>静态分配的 RAM（全局变量、static 变量）</td>
+                  <td>这部分编译时就要占好，不由堆分配</td>
+                </tr>
+                <tr>
+                  <td>余留 305584 字节</td>
+                  <td>还能给「局部变量 + 运行时堆」用</td>
+                  <td>ESP32 总共约 320KB DRAM 可用，剩下这些是动态内存的上限参考</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">最容易误读的一点</div>
+            <p>
+              「最大为 327680 字节」这行里的 327680 ≈ 320KB，
+              <b class="font-semibold">不等于芯片有 520KB SRAM 的那 520KB</b>。
+              因为一部分 SRAM 被 IDF 内核、WiFi 协议栈缓冲区、DMA 描述符提前占掉了，
+              这个数字是「编译器视角里可用的一部分」。想知道真实剩余内存，
+              要在运行时用 <code class="icode">ESP.getFreeHeap()</code> 打印（见本页代码）。
+            </p>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>Arduino 写法</th><th>ESP-IDF 对应</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">setup()</code></td><td><code class="icode">app_main()</code> 的前半段</td><td>都是只执行一次的初始化代码</td></tr>
+                <tr><td><code class="icode">loop()</code></td><td><code class="icode">while(1)</code> 循环体 / FreeRTOS 任务</td><td>Arduino 帮你写了 <code class="icode">while(1)</code>，IDF 要自己写</td></tr>
+                <tr><td><code class="icode">pinMode(pin, OUTPUT)</code></td><td><code class="icode">gpio_reset_pin()</code> + <code class="icode">gpio_set_direction()</code></td><td>IDF 还要求先复位引脚，清掉复用功能</td></tr>
+                <tr><td><code class="icode">digitalWrite(pin, HIGH)</code></td><td><code class="icode">gpio_set_level(pin, 1)</code></td><td>语义完全一样</td></tr>
+                <tr><td><code class="icode">delay(500)</code></td><td><code class="icode">vTaskDelay(pdMS_TO_TICKS(500))</code></td><td>都把 CPU 让出去；<code class="icode">pdMS_TO_TICKS</code> 负责毫秒到系统节拍的换算</td></tr>
+                <tr><td><code class="icode">Serial.begin(115200)</code></td><td><code class="icode">uart_driver_install()</code> 等一串</td><td>Arduino 一行顶 IDF 十几行，这就是抽象层的价值</td></tr>
+                <tr><td><code class="icode">Serial.printf(...)</code></td><td><code class="icode">printf(...)</code> / <code class="icode">ESP_LOGI</code></td><td>IDF 默认把 printf 输出到串口 0</td></tr>
+                <tr><td><code class="icode">ESP.getFreeHeap()</code></td><td><code class="icode">esp_get_free_heap_size()</code></td><td>Arduino 的 ESP 对象就是 IDF 函数的包装</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            下面是「点上传 → 看到灯闪」的完整过程，以及每一步你该在屏幕上看到什么。
+            建议第一次上传时把 IDE 下面的输出窗口拉大，逐行对照。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">上传流程步骤表</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>步骤</th><th>你做什么</th><th>屏幕上出现什么</th><th>大约耗时</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>1</td><td>插上 USB 线，选好端口和板子</td><td>「工具 → 端口」里出现 COMx</td><td>—</td></tr>
+                <tr><td>2</td><td>点「验证（✓）」先编译</td><td><code class="icode">项目使用了 273940 字节…</code></td><td>首次 30~90 秒，之后 10 秒左右</td></tr>
+                <tr><td>3</td><td>点「上传（→）」</td><td><code class="icode">正在编译项目...</code> 然后 <code class="icode">esptool.py v4.5.1</code></td><td>3~8 秒</td></tr>
+                <tr><td>4</td><td>什么都不做（等自动复位）</td><td><code class="icode">Connecting.....</code> 后跟 <code class="icode">Chip is ESP32-D0WD-V3</code></td><td>1~3 秒</td></tr>
+                <tr><td>5</td><td>等写入完成</td><td><code class="icode">Writing at 0x00010000... (100 %)</code>、<code class="icode">Hash of data verified.</code></td><td>2~6 秒</td></tr>
+                <tr><td>6</td><td>看到 <code class="icode">Hard resetting via RTS pin...</code></td><td>上传结束，板子自动重启</td><td>—</td></tr>
+                <tr><td>7</td><td>打开串口监视器（右上角放大镜图标）</td><td>看到程序打印的日志</td><td>—</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">上传过程日志（节选关键行）</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="Arduino IDE 输出窗口：一次正常上传的完整日志">
+            <pre><code>esptool.py v4.5.1
+Serial port COM3
+Connecting.....
+Chip is ESP32-D0WD-V3 (revision v3.0)
+Features: WiFi, BT, Dual Core, 240MHz, VRef calibration in efuse, Coding Scheme None
+Crystal is 40MHz
+MAC: 24:6f:28:a1:b3:c4
+Uploading stub...
+Running stub...
+Stub running...
+Changing baud rate to 921600
+Changed.
+Configuring flash size...
+Flash will be erased from 0x00001000 to 0x00005fff...
+Compressed 17296 bytes to 11867...
+Writing at 0x00001000... (100 %)
+Wrote 17296 bytes (11867 compressed) at 0x00001000 in 0.3 seconds...
+Hash of data verified.
+Leaving...
+Hard resetting via RTS pin...</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>日志行</th><th>含义</th><th>出问题时看什么</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">Serial port COM3</code></td><td>用的是哪个串口</td><td>和你选的端口不一致 → 选错端口</td></tr>
+                <tr><td><code class="icode">Connecting.....</code></td><td>正在让芯片进下载模式</td><td>卡在这里不动、最后报 Failed to connect → 见报错第 1 条</td></tr>
+                <tr><td><code class="icode">Chip is ESP32-D0WD-V3</code></td><td>认出了芯片型号</td><td>显示成别的型号 → 板子/模组不对</td></tr>
+                <tr><td><code class="icode">Changing baud rate to 921600</code></td><td>上传时临时提速</td><td>这一步报错 → 把「上传速度」降到 115200</td></tr>
+                <tr><td><code class="icode">Hash of data verified.</code></td><td>写入内容校验通过</td><td>没有这一行 → 写入不完整，重新上传</td></tr>
+                <tr><td><code class="icode">Hard resetting via RTS pin...</code></td><td>复位并开始运行新程序</td><td>之后串口没输出 → 波特率不对或程序没打印</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">串口监视器该看到什么</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="Arduino 版闪灯：串口应有输出（波特率 115200）">
+            <pre><code>========================================
+Arduino 版闪灯
+你应该看到：GPIO2 上的 LED 每秒闪一次
+同时本行下方每秒打印一次计数
+========================================
+第 1 次闪烁 | 运行 1 秒 | 空闲堆 311224 字节
+第 2 次闪烁 | 运行 2 秒 | 空闲堆 311224 字节
+第 3 次闪烁 | 运行 3 秒 | 空闲堆 311224 字节
+第 4 次闪烁 | 运行 4 秒 | 空闲堆 311224 字节</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">为什么串口监视器要选 115200</div>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b class="font-semibold">它是 ESP32 的「默认语言」</b>：芯片内部的 ROM bootloader 上电后就用 115200 打印启动信息，你的程序若用别的波特率，前面那段启动日志会变成乱码，看不到复位原因——而复位原因恰恰是排错最需要的信息。</li>
+              <li><b class="font-semibold">足够快又不挑线</b>：115200 下每毫秒约 11 个字节，打印调试信息绰绰有余；而 921600 在劣质 USB 线上容易丢字符，所以上传用它提速、监视器用 115200 稳。</li>
+              <li><b class="font-semibold">教程与库的默认值</b>：几乎所有示例都写 <code class="icode">Serial.begin(115200)</code>，跟着写能少一类「我这没输出」的问题。</li>
+            </ul>
+            <p class="mt-2">
+              波特率是「双方约定」：代码 <code class="icode">Serial.begin(115200)</code>、
+              监视器也选 115200，两边一致才有可读输出。
+              <b class="font-semibold">数值不一致的典型现象就是满屏乱码。</b>
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            下面九条按「报错原文 → 原因 → 解决」写。前四条几乎是每个 ESP32 新手都会遇到的，
+            建议直接记住报错原文，以后一眼就能定位。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">报错原文：A fatal error occurred: Failed to connect to ESP32: Timed out waiting for packet header</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              芯片没有进入下载模式，esptool 喊了半天没人应。常见四种：
+              ① USB 线是充电线（没有数据线）；
+              ② 串口被别的软件占用（另一个串口监视器、串口调试助手）；
+              ③ 自动下载电路不起作用（GPIO0 被外设拉低、板子没引出 DTR/RTS）；
+              ④ 选了错误的端口。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 换一根确定能传数据的数据线；
+              ② 关掉所有可能占用串口的软件（包括 Arduino IDE 自己开着的串口监视器）；
+              ③ <b class="font-semibold">手动进下载模式</b>：按住 BOOT → 点一下 EN → 松开 BOOT → 立刻点上传；
+              ④ 拔掉 GPIO0/GPIO2/GPIO12/GPIO15 上的所有外接电路再试；
+              ⑤ 把「上传速度」从 921600 降到 115200。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：串口监视器里全是乱码，例如 ets Jul 29 2019 12:21:46 后面跟一堆问号和方块</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              波特率不匹配。芯片（或其 ROM bootloader）用 115200 发数据，
+              而监视器用了 9600 或 74880 之类的值，收到的字节被错误地切成字符。
+              少数情况是代码里 <code class="icode">Serial.begin()</code> 写了别的值，
+              或者模块晶振不是 40MHz（山寨板）。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 把监视器右下角波特率改成 <b class="font-semibold">115200</b>；
+              ② 检查代码里的 <code class="icode">Serial.begin()</code> 是不是也是 115200；
+              ③ 只有启动那几行乱码、后面正常：说明你的程序波特率不是 115200 而 ROM 日志是，
+              两边统一成 115200 即可；
+              ④ 全篇都乱码且换波特率无效：怀疑板子晶振/Flash 模式问题，试着把 Flash Mode 从 QIO 改成 DIO。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：error: 'ledcSetup' was not declared in this scope（或某个库函数找不到、重复定义）</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              库/core 版本与代码不匹配。最典型的就是 ESP32 Arduino Core 3.x 改了 LEDC 的 API
+              （<code class="icode">ledcSetup</code> + <code class="icode">ledcAttachPin</code>
+              合并成 <code class="icode">ledcAttach</code>），而你抄的教程是 2.x 时代的代码。
+              也可能是同一功能装了两个库（比如两个 MQTT 库都定义了同名类）。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 打开「开发板管理器」看 esp32 的版本，把它换成教程对应的版本（常见 2.0.17）；
+              ② 或者按新版 API 改写这几行（长期更推荐）；
+              ③ 重复定义：把多余的库删掉，只留一个，注意用户库目录优先于 core 自带库；
+              ④ 养成习惯：拿到示例代码先看它要求的 core 版本和库版本。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：项目使用了 1500000 字节，占用了 (114%) 程序存储空间。最大为 1310720 字节。 / text section exceeds available space in board</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              程序比 APP 分区还大，装不下。诱因通常是：板子型号选错（选了 2MB Flash 的板子，
+              分区表给 APP 的空间更小）、分区方案选错、或者塞进了太多库。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 确认板子选的是 <b class="font-semibold">ESP32 Dev Module</b>、Flash 大小 <b class="font-semibold">4MB</b>；
+              ② 「Partition Scheme」改成 <code class="icode">Huge APP (3MB No OTA/1MB SPIFFS)</code>
+              这类给 APP 更大空间的方案；
+              ③ 精简库：一个项目里不要同时装多个同类库（比如三个 JSON 库）；
+              ④ 打开「编译时显示详细输出」看究竟是哪些库把体积撑大了。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：端口菜单是灰的 / 列表里没有 COM 口（设备管理器里是「其他设备 USB2.0-Serial」并带黄色感叹号）</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              串口驱动没装。板上的 USB 转串口芯片（CH340、CP2102、FT232）需要对应驱动，
+              新装的 Windows 系统默认不带 CH340 驱动；也可能是数据线只有供电线。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 看板子上 USB 口旁边那颗小芯片的丝印，确定是 CH340 还是 CP2102；
+              ② 装对应驱动（沁恒 CH341SER / Silicon Labs CP210x），装完重新插拔；
+              ③ 设备管理器里出现 <code class="icode">COMx</code> 才算成功；
+              ④ 还是不行就换一根数据线、换一个 USB 口，排除线的问题。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：Task watchdog got triggered. The following tasks did not reset the watchdog in time: IDLE0 / rst:0x7 (TG0WDT_SYS_RESET)</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              <b class="font-semibold">某个任务长时间霸占 CPU 不让出</b>，导致系统的空闲任务（IDLE0）得不到执行，
+              任务看门狗超时后强制复位。最常见的是这种写法：
+              <code class="icode">while (digitalRead(pin) == HIGH);</code>（等按键），
+              或者 <code class="icode">while(1){ /* 干重活，没有 delay */ }</code>。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 在任何等待循环里加 <code class="icode">delay(1)</code> 或 <code class="icode">vTaskDelay(1)</code>，
+              给系统留出让出 CPU 的机会；
+              ② 把「等一个事件」改成状态机：用 <code class="icode">millis()</code> 定时检查，而不是死等；
+              ③ 顺带纠正一个常见误解：<b class="font-semibold">单独的 <code class="icode">delay(15000)</code> 不会触发任务看门狗</b>
+              ——它内部是 <code class="icode">vTaskDelay</code>，会让出 CPU。
+              但它会让你的程序 15 秒内不响应任何输入、WiFi 心跳也可能受影响，
+              所以长延时同样要用「状态机 + millis()」代替。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：A fatal error occurred: Could not open port COM3, the port is busy / Access is denied</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              串口被占用了。最经典的情形：你刚用串口监视器看完日志，没关就点上传；
+              或者后台还开着串口调试助手、Python 脚本、另一个 Arduino 窗口。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 关掉串口监视器窗口（右上角放大镜图标再点一次）再上传；
+              ② 关掉所有可能读串口的软件：串口助手、PuTTY、VSCode 的串口插件、上一轮脚本；
+              ③ 还占用就在设备管理器里禁用再启用该端口，或者拔插一次 USB；
+              ④ 养成交替习惯：<b class="font-semibold">监视器和上传不能同时进行</b>。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：fatal error: WiFi.h: No such file or directory（或 Wire.h、PubSubClient.h 找不到）</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              两种：① 板子型号选的根本不是 ESP32（比如选了 Arduino Uno，它的 core 里没有 WiFi 库）；
+              ② 没有安装 ESP32 Arduino Core，或者库没装进库目录。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 先看「工具 → 开发板」是不是 ESP32 系列（ESP32 Dev Module）；
+              ② 没有 ESP32 选项 → 在「首选项 → 附加开发板管理器网址」里加上乐鑫的 JSON 地址，
+              再到开发板管理器搜 <code class="icode">esp32</code> 安装；
+              ③ 是第三方库找不到 → 用库管理器搜索安装同名库；
+              ④ 确认库名拼写与大小写完全一致（Windows 下大小写不敏感，但 Linux/macOS 上敏感，代码要保持一致）。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：上传成功、日志也显示 Hash of data verified，但串口什么都没有，程序像没跑</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              ① 程序里压根没有 <code class="icode">Serial.begin()</code>（没有初始化串口就没有输出）；
+              ② 串口监视器波特率不是 115200；
+              ③ 上传后芯片仍在下载模式（少见，多见于手动下载后忘了复位）；
+              ④ 程序卡在 <code class="icode">setup()</code> 里的某个等待（例如连 WiFi 又没设超时）。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 确认代码第一行有 <code class="icode">Serial.begin(115200);</code>，后面至少有一句
+              <code class="icode">Serial.println("boot ok");</code>；
+              ② 监视器波特率改成 115200；
+              ③ 按一下板上的 EN 键重新启动；
+              ④ 在 <code class="icode">setup()</code> 每一段之前加一句打印，用「最后看到哪句」定位卡在哪。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <h3 class="mt-7 text-base font-semibold">这一页要你记住的六件事</h3>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>Arduino 是<b class="font-semibold">抽象层 + 约定 + 工具链</b>，不是芯片也不是语言；语言就是 C++。</li>
+            <li>层次关系：<b class="font-semibold">你的代码 → Arduino API → ESP-IDF → 寄存器</b>，所以 Arduino 里可以直接调 IDF。</li>
+            <li>框架在你背后生成了 <code class="icode">main()</code>：<code class="icode">setup()</code> 一次，<code class="icode">loop()</code> 被 <code class="icode">while(1)</code> 反复调用，跑在 Core1 的任务里。</li>
+            <li>点上传 = 编译 → 链接 → 生成 bin → <code class="icode">esptool.py</code> 复位进下载模式 → 串口写 Flash → 复位运行。</li>
+            <li>体积那两行数字决定你会不会「Flash 溢出」：APP 分区默认只有 1280KB，不是 4MB。</li>
+            <li>报错优先看三处：<b class="font-semibold">端口有没有</b>（线/驱动）、<b class="font-semibold">能不能进下载模式</b>（BOOT/EN、GPIO0）、<b class="font-semibold">版本对不对</b>（core、库、板子型号）。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">自检题</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>用你自己的话说明：<code class="icode">setup()</code> 和 <code class="icode">loop()</code> 分别被执行几次？谁在调用它们？</li>
+            <li>为什么 <code class="icode">loop()</code> 里写 <code class="icode">while(1);</code> 会让 WiFi 掉线甚至触发看门狗，而写 <code class="icode">delay(10000)</code> 不会触发看门狗？</li>
+            <li>ESP32 Arduino Core 与 ESP-IDF 是什么关系？在 Arduino 工程里能调用 IDF 的函数吗？举例说明。</li>
+            <li>「最大为 1310720 字节」这个数字是怎么来的？如果程序超过它，有哪两种解决办法？</li>
+            <li>同学说他上传时一直报 Failed to connect to ESP32，请给出至少四条排查建议，并说明原理。</li>
+            <li>为什么串口监视器建议选 115200？如果把监视器设成 9600 会发生什么？</li>
+            <li>手动进下载模式的正确按键顺序是什么？为什么必须先按 BOOT 再点 EN？</li>
+            <li>「全局变量使用了 22096 字节，余留 305584 字节」——这两个数字分别是哪部分内存？运行时想知道真实剩余内存该调用什么？</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>
+              <b class="font-semibold">亲手走一遍完整流程</b>：编译 Arduino 版闪灯，把 IDE 输出的
+              「程序占用 / 全局变量」两行抄进实验报告，然后打开「编译时显示详细输出」，
+              数一数总共编译了多少个源文件，感受一下「你的一页代码 + 一整个 SDK」的差别。
+            </li>
+            <li>
+              <b class="font-semibold">复现一次版本冲突</b>：在开发板管理器里把 esp32 core 从一个版本切到另一个版本，
+              编译同一份使用 <code class="icode">ledcSetup()</code> 的代码，观察报错原文。
+              以后看到类似报错就知道是版本问题，而不是自己的逻辑错。
+            </li>
+            <li>
+              <b class="font-semibold">做一次「手动下载」演练</b>：按住 BOOT → 点 EN → 松开 BOOT → 点上传，
+              对比自动下载的区别，并把两种流程写进实验报告。
+              这是以后遇到「死活连不上」时唯一可靠的后手。
+            </li>
+          </ol>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">下一步</div>
+            <p>
+              工具链搞清楚了，接下来要补的是「语法关」：Arduino 生态里到处是类、对象、<code class="icode">String</code>，
+              你只学过 C，看到 <code class="icode">Serial.print()</code> 里的点号会发懵。
+              下一篇 <a href="esp32-basic-cpp.html" class="text-brand-600 dark:text-brand-300">C++ 与 Arduino API 基础</a>
+              用三个完整程序把这些补齐，顺便告诉你为什么在 ESP32 上乱用 <code class="icode">String</code> 会导致重启。
+            </p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="esp32-basic-level.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">3.3V 供电与 GPIO 安全</p>
+          </a>
+          <a href="esp32-basic-cpp.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">C++ 与 Arduino API 基础</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

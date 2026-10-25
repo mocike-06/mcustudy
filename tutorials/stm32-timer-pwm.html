@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>定时器与 PWM 输出 - McuStudy</title>
+  <meta name="description" content="STM32F103C8T6 定时器与 PWM 完整教程：PSC 预分频与 ARR 自动重装寄存器的含义、溢出频率公式 f = 72MHz / ((PSC+1)*(ARR+1))、占空比 = CCR/(ARR+1)、HAL_TIM_PWM_Start 启动输出、__HAL_TIM_SET_COMPARE 动态改占空比，以及为什么 PWM 调光要用 1kHz 以上、驱动舵机要用 50Hz。附 TIM2 CH1 输出到 PA0 的呼吸灯完整 HAL 代码。">
+  <meta name="keywords" content="STM32 定时器,PWM,呼吸灯,PSC,ARR,CCR,占空比,TIM2,PA0,HAL_TIM_PWM_Start,__HAL_TIM_SET_COMPARE,舵机 50Hz,PWM 调光,蓝药丸">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="stm32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资源下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../stm32.html" class="hover:text-brand-600 dark:hover:text-brand-300">STM32</a>
+          <span>/</span>
+          <span class="text-muted">教程正文</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          定时器与 PWM 输出
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          从「数数」讲到「调光」：定时器其实就是一个会自动归零的计数器，
+          PSC 与 ARR 决定它数多快、数到多少；把计数器和比较寄存器一组合，就得到了 PWM。
+          这一篇会推清 <code class="icode">f = 72MHz / ((PSC+1)*(ARR+1))</code> 的来龙去脉，
+          讲明白 APB1 上那个「定时器时钟要乘 2」的经典陷阱，
+          最后用 TIM2 CH1 → PA0 做一个真正的硬件呼吸灯。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-hard">进阶</span>
+          <span class="stat-pill">芯片：<b>STM32F103C8T6</b></span>
+          <span class="stat-pill">外设：<b>TIM2 CH1 → PA0</b></span>
+          <span class="stat-pill">阅读约 <b>16</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>PWM 的核心是「一个计数器 + 两个比较值」，先把时钟和计数器的关系搞清楚。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-clock.html">时钟系统：为什么第一件事是配时钟</a> —— 预分频系数直接决定 PWM 的频率</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-hal.html">寄存器、标准库与 HAL</a> —— 句柄与 <code class="icode">MspInit</code> 在这一篇里会反复出现</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-c.html">C 语言进阶：指针、结构体与回调</a> —— 改比较值用到的宏、强制类型转换与位运算</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-counter">定时器就是一个会数数的计数器</a>
+          <a class="toc-link is-sub" href="#sub-clock">定时器时钟从哪来：APB1 的那个 ×2</a>
+          <a class="toc-link is-sub" href="#sub-formula">PSC 与 ARR：频率公式怎么推出来</a>
+          <a class="toc-link is-sub" href="#sub-pwm">PWM 是怎么产生的：比较寄存器 CCR</a>
+          <a class="toc-link is-sub" href="#sub-freq">调光为什么用 1kHz、舵机为什么用 50Hz</a>
+          <a class="toc-link is-sub" href="#sub-api">HAL 的四个关键 API</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link is-sub" href="#sub-wiring">接线表与示意图</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-servo">同一份代码改成舵机驱动</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-counter">定时器就是一个会数数的计数器</a>
+            <a class="toc-link is-sub" href="#sub-clock">定时器时钟从哪来：APB1 的那个 ×2</a>
+            <a class="toc-link is-sub" href="#sub-formula">PSC 与 ARR：频率公式怎么推出来</a>
+            <a class="toc-link is-sub" href="#sub-pwm">PWM 是怎么产生的：比较寄存器 CCR</a>
+            <a class="toc-link is-sub" href="#sub-freq">调光为什么用 1kHz、舵机为什么用 50Hz</a>
+            <a class="toc-link is-sub" href="#sub-api">HAL 的四个关键 API</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link is-sub" href="#sub-wiring">接线表与示意图</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-servo">同一份代码改成舵机驱动</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            定时器和 GPIO、串口有个本质区别：
+            <b class="font-semibold text-ink">它一旦启动，就和 CPU 无关了</b>。
+            你只要把参数配好、按下开关，它就在后台按自己的节奏数数、翻转引脚，
+            CPU 可以继续干别的事。这就是「硬件定时」与「软件循环延时」的根本差别，
+            也是呼吸灯不用 <code class="icode">HAL_Delay()</code> 也能平滑变化的原因。
+          </p>
+
+          <h3 id="sub-counter" class="mt-7 text-base font-semibold">定时器就是一个会数数的计数器</h3>
+          <p class="mt-3">
+            STM32F103C8T6 里面有四个通用/高级定时器可用：
+            <b class="font-semibold text-ink">TIM1</b>（高级，挂 APB2）、
+            <b class="font-semibold text-ink">TIM2、TIM3、TIM4</b>（通用，挂 APB1）。
+            它们内部的核心结构简单得让人意外，只有三个东西：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="定时器的核心结构（通用定时器，16 位）">
+            <pre><code>   时钟源                预分频器               计数器                自动重装寄存器
+  TIMxCLK ──▶ [ PSC 预分频 ] ──▶ CK_CNT ──▶ [ CNT 计数器 ] ──▶ 数到 ARR 就归零
+   72MHz        ÷ (PSC+1)        计数时钟      0 → 1 → 2 → ...     并把更新事件标志置 1
+                                                                            │
+                                                    比较寄存器 CCR ◀─────────┤
+                                                                            ▼
+                                                              OCxREF ──▶ 输出到引脚（PWM）
+                                                            （CNT 与 CCR 比较的结果）
+
+  三个寄存器的分工：
+    PSC（Prescaler，预分频器）——「数多快」。把 72MHz 降到自己需要的计数频率
+    CNT（Counter，计数器）——「数到几了」。这个值每来一个计数脉冲就加 1
+    ARR（Auto-Reload Register，自动重装）——「数到多少归零」。它决定了周期
+    CCR（Capture/Compare Register，比较/捕获）——「翻转到哪」。它决定了占空比
+
+  为什么叫「自动重装」：CNT 数到 ARR 之后，硬件自动把 CNT 清零并重新开始，
+  整个过程不需要 CPU 参与 —— 所以 PWM 一旦启动就能一直输出，CPU 卡死也不影响。</code></pre>
+          </div>
+
+          <h3 id="sub-clock" class="mt-7 text-base font-semibold">定时器时钟从哪来：APB1 上那个「×2」</h3>
+          <p class="mt-3">
+            这是定时器这一篇最容易被忽略、又最容易算错的地方。
+            上一篇我们知道：<code class="icode">AHB = 72MHz</code>，
+            <code class="icode">APB1 = 36MHz</code>，<code class="icode">APB2 = 72MHz</code>。
+            TIM2/3/4 挂在 APB1 上，那它们的时钟是不是 36MHz？
+            <b class="font-semibold text-ink">不是，是 72MHz。</b>
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">规则：APB 预分频不为 1 时，定时器时钟 = APB 时钟 × 2</div>
+            <p>
+              STM32 参考手册里的原话是：如果 APB 预分频系数为 1，定时器时钟等于 APB 时钟；
+              <b>否则定时器时钟等于 APB 时钟的两倍</b>。
+              我们的配置里 <code class="icode">APB1CLKDivider = RCC_HCLK_DIV2</code>，
+              所以 TIM2/3/4 的时钟是 <code class="icode">36MHz × 2 = 72MHz</code>；
+              而 APB2 预分频是 1，所以 TIM1 的时钟正好也是 72MHz。
+            </p>
+            <p class="mt-2">
+              这个设计是为了补偿分频带来的损失，让定时器在常见配置下都能拿到 72MHz。
+              但它同时也是一个经典的「算错频率」陷阱：
+              如果按 36MHz 去算 PSC，实际输出频率会是计算值的两倍，
+              现象就是「呼吸灯节奏比预想快一倍」或者「舵机疯狂抖动」。
+            </p>
+          </div>
+
+          <p class="mt-3">
+            一句话结论：<b class="font-semibold text-ink">本文涉及的所有定时器（TIM1~TIM4）在 72MHz 主频配置下，
+            计数源时钟都是 72MHz</b>。CubeMX 的时钟树界面里也会在旁边标出这个值，配置时可以直接核对。
+          </p>
+
+          <h3 id="sub-formula" class="mt-7 text-base font-semibold">PSC 与 ARR：频率公式怎么推出来</h3>
+          <p class="mt-3">
+            公式不要死记，推一遍就永远忘不掉。整个过程只有两步分频：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="从 72MHz 推出 PWM 频率（两步分频）">
+            <pre><code>第一步：预分频器把 72MHz 降成「计数时钟」
+                        72MHz
+        CK_CNT  =  ─────────────            （PSC 是 16 位寄存器，取值 0~65535）
+                       PSC + 1
+
+  为什么是 PSC+1：PSC 写 0 表示「不分频」（÷1），写 71 表示「÷72」。
+  所以分频系数永远是 PSC+1，这是新手最容易漏掉的那个 1。
+
+第二步：计数器从 0 数到 ARR，一共数 ARR+1 个脉冲才算一个完整周期
+        （0,1,2,...,ARR —— 数一数就知道是 ARR+1 个数）
+
+                     CK_CNT          72MHz
+        f_PWM  =  ───────────  =  ───────────────────
+                    ARR + 1        (PSC+1) × (ARR+1)
+
+  ────────────────────────── 反过来用 ──────────────────────────
+  要 PWM 频率 f，只需要把 (PSC+1)×(ARR+1) 安排成 72MHz / f 就行。
+  习惯做法：先固定计数时钟为 1MHz（PSC = 71），这样每个计数就是 1µs，
+            周期用 µs 直接读出来，最好算。
+
+  例：要 1kHz 的 PWM（周期 1ms = 1000µs）
+      PSC = 71        → CK_CNT = 72MHz / 72 = 1MHz（1 个计数 = 1µs）
+      ARR = 1000 - 1  → 1000µs / 1µs = 1000 个计数，ARR = 999
+      验证：f = 72MHz / (72 × 1000) = 1000Hz ✔
+      分辨率：CCR 可以取 0~1000，也就是 0.1% 的调节精度
+
+  例：要 50Hz 的舵机信号（周期 20ms = 20000µs）
+      PSC = 71        → 同样 1MHz
+      ARR = 20000 - 1 → ARR = 19999
+      验证：f = 72MHz / (72 × 20000) = 50Hz ✔
+      好处：CCR 的数值直接就是脉宽微秒数，1.5ms 就写 1500，非常直观</code></pre>
+          </div>
+
+          <p class="mt-4">
+            顺带说一句：同一个定时器还能当「精确秒表」用。把 ARR 设成长周期、打开更新中断，
+            每溢出一次进一次中断，就得到一个和主频严格挂钩的定时——
+            这正是替代 <code class="icode">HAL_Delay()</code> 的正规做法：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="另一种用法：用同一个定时器做 500ms 精确定时中断">
+            <pre><code>/* 配置：1MHz 计数时钟，ARR = 49999 → 每 50ms 溢出一次 */
+htim3.Init.Prescaler = 71;          /* CK_CNT = 1MHz */
+htim3.Init.Period    = 49999;       /* 50000 个计数 × 1µs = 50ms */
+
+HAL_TIM_Base_Init(&amp;htim3);
+HAL_TIM_Base_Start_IT(&amp;htim3);      /* 注意是 Base_Start_IT，不是 PWM_Start */
+
+/* 每 50ms 自动进来一次。这个回调运行在中断里，只做最轻的事 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  static uint8_t cnt = 0;
+  if (htim-&gt;Instance == TIM3)
+  {
+    if (++cnt &gt;= 10)                /* 10 × 50ms = 500ms */
+    {
+      cnt = 0;
+      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);   /* 每 500ms 翻转一次 LED */
+    }
+  }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-pwm" class="mt-7 text-base font-semibold">PWM 是怎么产生的：比较寄存器 CCR</h3>
+          <p class="mt-3">
+            PWM（Pulse Width Modulation，脉冲宽度调制）说白了就是
+            <b class="font-semibold text-ink">在固定的周期里，控制高电平占多长时间</b>。
+            周期由 ARR 定死，高电平长度由 CCR 决定——硬件每一刻都在做同一件事：
+            <b>比较 CNT 和 CCR 的大小，然后决定引脚输出高还是低</b>。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="PWM 模式 1 的波形（ARR = 999，CCR = 300）">
+            <pre><code>  CNT  0 ──────────▶ 300 ──────────▶ 999 ──▶ 归零，重新开始
+       │              │                │
+       │   CNT &lt; CCR  │  CNT ≥ CCR     │
+       ▼              ▼                ▼
+   ┌───────────────┐                ┌───────────────┐
+   │   高电平      │    低电平      │   高电平      │    ← PWM 模式 1：CNT &lt; CCR 时输出有效电平
+   └───────────────┘                └───────────────┘
+   │◀── 300 ──────▶│◀──── 700 ────▶│
+       高电平时间        低电平时间
+   └────────────────── 1000 ──────────────────────┘
+                     一个周期（ARR+1 = 1000 个计数）
+
+  占空比（Duty Cycle）= 高电平时间 / 周期 = CCR / (ARR + 1)
+  本例：300 / 1000 = 30%
+
+  ★ 为什么分母是 ARR+1 而不是 ARR：
+    因为 CNT 是 0~ARR 共 ARR+1 个状态，这是同一个「差一」问题，
+    和前面 PSC+1 是同一个道理。
+
+  ★ 极值行为：
+    CCR = 0        → CNT 永远不会小于 0 → 输出恒为低 → 0%（全灭）
+    CCR = ARR+1    → CNT 永远小于 CCR   → 输出恒为高 → 100%（全亮）
+    所以想让 LED 全亮，CCR 写 1000（ARR=999 时）比写 999 更好，后者还差一点点。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            改用「PWM 模式 2」就是把上面两个电平对调（<code class="icode">CNT &lt; CCR</code> 时输出低电平）；
+            再加上输出极性设置 <code class="icode">TIM_OCPOLARITY_HIGH / LOW</code>，
+            一共有四种组合。实际项目里 99% 的情况用
+            <b class="font-semibold text-ink">PWM 模式 1 + 高极性</b>就够了，
+            记住「占空比越大越亮」这条直觉即可。
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">LED 为什么能被 PWM 调光</div>
+            <p>
+              因为 LED 只有「亮」和「灭」两种状态，它调亮度的方式不是降低电压，
+              而是<b>快速开关、控制开的时间比例</b>。
+              只要开关频率高于人眼的临界闪烁频率（约 60~90Hz），
+              人眼看到的就是「平均亮度」——这就是 PWM 调光的全部原理。
+              同样的思路还能控制电机转速（平均电压）、加热功率（平均功率）。
+            </p>
+          </div>
+
+          <h3 id="sub-freq" class="mt-7 text-base font-semibold">调光为什么用 1kHz 以上、舵机为什么用 50Hz</h3>
+          <p class="mt-3">
+            PWM 频率的选择完全取决于「负载的惯性」：负载反应越快，频率就得越高。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>应用</th>
+                  <th>推荐频率</th>
+                  <th>为什么是这个值</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>LED 调光 / 呼吸灯</td>
+                  <td><b>&gt; 1kHz</b>（本文用 1kHz）</td>
+                  <td>人眼临界闪烁频率约 60~90Hz，只要高于它就不觉得闪。但低频 PWM 在<b>快速移动视线或头部</b>时会出现频闪条纹（频闪效应），手机摄像头拍摄会出现滚动黑带。取 1kHz 以上可以彻底避免，成本只是分辨率从 20000 档降到 1000 档，对调光完全够用</td>
+                </tr>
+                <tr>
+                  <td>直流电机调速</td>
+                  <td>1kHz ~ 20kHz</td>
+                  <td>太低会有可听噪声和转矩脉动；取 20kHz 以上（高于人耳上限）可以消除啸叫，代价是开关损耗上升</td>
+                </tr>
+                <tr>
+                  <td>舵机（SG90 / MG996R）</td>
+                  <td><b>严格 50Hz</b>（周期 20ms）</td>
+                  <td>舵机内部是一颗专用控制芯片，它按「每 20ms 收到一个脉冲」来解析角度。<b>脉宽 0.5~2.5ms 对应 0°~180°</b>。频率偏离太多（比如给 1kHz）会让内部电路无法识别，表现为抖动、抽风或完全不动</td>
+                </tr>
+                <tr>
+                  <td>蜂鸣器发声</td>
+                  <td>音频范围 200Hz ~ 5kHz</td>
+                  <td>此时 PWM 频率<b>就是音调本身</b>，占空比固定 50% 时声音最响（方波能量最大）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            舵机的角度与脉宽对应关系（这也是实训报告里可以直接抄的标定表）：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>目标角度</th>
+                  <th>脉宽</th>
+                  <th>PSC=71 / ARR=19999 时的 CCR 值</th>
+                  <th>占空比</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>0°</td><td class="font-mono text-xs">0.5 ms</td><td class="font-mono text-xs">500</td><td>2.5%</td></tr>
+                <tr><td>45°</td><td class="font-mono text-xs">1.0 ms</td><td class="font-mono text-xs">1000</td><td>5%</td></tr>
+                <tr><td>90°（中位）</td><td class="font-mono text-xs">1.5 ms</td><td class="font-mono text-xs">1500</td><td>7.5%</td></tr>
+                <tr><td>135°</td><td class="font-mono text-xs">2.0 ms</td><td class="font-mono text-xs">2000</td><td>10%</td></tr>
+                <tr><td>180°</td><td class="font-mono text-xs">2.5 ms</td><td class="font-mono text-xs">2500</td><td>12.5%</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">看出来了：舵机根本不吃「占空比」这一套</div>
+            <p>
+              舵机看的是<b>绝对脉宽（毫秒数）</b>，而不是占空比百分比。
+              所以驱动舵机时千万别用「设置占空比 7.5%」这种思路——
+              一旦你把频率从 50Hz 改成 100Hz，同样的 7.5% 占空比脉宽就变成了 0.75ms，
+              舵机转到的角度完全变了。
+              <b>先把周期定成 20ms，再直接用 CCR 写微秒数</b>，这才是舵机的正确用法。
+            </p>
+          </div>
+
+          <h3 id="sub-api" class="mt-7 text-base font-semibold">HAL 的四个关键 API</h3>
+          <p class="mt-3">
+            PWM 输出的整个流程只需要记住四个函数，顺序不能乱：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="HAL 定时器 PWM 的四个关键 API">
+            <pre><code>/* ① 初始化时基单元：把 PSC / ARR / 计数模式写进寄存器
+ *    CubeMX 生成的 MX_TIM2_Init() 里就调用了它 */
+HAL_StatusTypeDef HAL_TIM_PWM_Init(TIM_HandleTypeDef *htim);
+
+/* ② 配置输出通道：设置 PWM 模式、极性、初始 CCR、是否预装载
+ *    没有这一步，引脚不会有任何波形 —— 这是最常被漏掉的一步 */
+HAL_StatusTypeDef HAL_TIM_PWM_ConfigChannel(TIM_HandleTypeDef *htim,
+                                            TIM_OC_InitTypeDef *sConfig,
+                                            uint32_t Channel);
+
+/* ③ 启动输出：使能计数器 + 打开对应通道的输出
+ *    ★ 一旦调用，硬件就开始自己跑了，CPU 不再参与 */
+HAL_StatusTypeDef HAL_TIM_PWM_Start(TIM_HandleTypeDef *htim, uint32_t Channel);
+
+/* ④ 动态改占空比：只改 CCR，周期不受影响，变化立刻生效
+ *    这是一个宏，直接写寄存器，所以它能在中断里安全、快速地调用 */
+__HAL_TIM_SET_COMPARE(&amp;htim2, TIM_CHANNEL_1, 300);   /* CCR = 300 */
+
+/* 配套的几个宏，调试时很有用 */
+__HAL_TIM_GET_COMPARE(&amp;htim2, TIM_CHANNEL_1);        /* 读回当前 CCR */
+__HAL_TIM_SET_AUTORELOAD(&amp;htim2, 19999);             /* 改周期（会改变频率） */
+__HAL_TIM_SET_PRESCALER(&amp;htim2, 71);                 /* 改预分频 */
+
+/* 需要停止输出时（比如做「关灯」动作） */
+HAL_TIM_PWM_Stop(&amp;htim2, TIM_CHANNEL_1);</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">配置和启动是两件事，缺一不可</div>
+            <p>
+              <code class="icode">HAL_TIM_PWM_ConfigChannel()</code> 只是「告诉它怎么输出」，
+              真正的开关是 <code class="icode">HAL_TIM_PWM_Start()</code>。
+              只配置不启动，现象就是「一切看起来都对，示波器上却是一条直线」。
+              反过来，只启动不配置通道，那条线会一直是低电平。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            先强调一件很容易踩坑的事：
+            <b class="font-semibold text-ink">板载 LED（PC13）不能用来做 PWM。</b>
+            PC13 不属于任何一个定时器的输出通道，它只能当普通 GPIO 用。
+            所以这个实验必须外接一只 LED 到 <b class="font-semibold text-ink">PA0</b>——
+            它正好是 <b class="font-semibold text-ink">TIM2 的通道 1（TIM2_CH1）</b>。
+          </p>
+
+          <h3 id="sub-wiring" class="mt-7 text-base font-semibold">引脚与元件接线表</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>元件</th>
+                  <th>引脚 / 规格</th>
+                  <th>连接到</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>外接 LED ×1</td>
+                  <td>正极（长脚）</td>
+                  <td>经限流电阻接 <b>PA0</b></td>
+                  <td>PA0 是高电平有效，占空比越大越亮。<b>不能接 PC13</b>，PC13 没有定时器通道</td>
+                </tr>
+                <tr>
+                  <td>限流电阻 ×1</td>
+                  <td class="font-mono text-xs">220Ω ~ 1kΩ</td>
+                  <td>串在 PA0 与 LED 正极之间</td>
+                  <td>220Ω 时电流约 6mA，亮度充足且不超过引脚能力</td>
+                </tr>
+                <tr>
+                  <td>LED 负极（短脚）</td>
+                  <td>—</td>
+                  <td>GND</td>
+                  <td>共地，别忘了</td>
+                </tr>
+                <tr>
+                  <td>（可选）舵机 SG90</td>
+                  <td>信号线（橙 / 黄）</td>
+                  <td>PA0</td>
+                  <td>与 LED 复用同一引脚，做舵机实验时把 LED 拔掉</td>
+                </tr>
+                <tr>
+                  <td>（可选）舵机电源</td>
+                  <td>红线 VCC</td>
+                  <td><b>外部 5V 电源</b></td>
+                  <td>★ 舵机堵转电流可达 700mA 以上，绝不能从板子的 3.3V 取电，否则电压被拉低、板子反复复位</td>
+                </tr>
+                <tr>
+                  <td>（可选）舵机地线</td>
+                  <td>棕线 GND</td>
+                  <td>与单片机 GND 相连</td>
+                  <td>★ 外部电源必须和单片机共地，否则 PWM 信号没有参考电平，舵机会乱抖</td>
+                </tr>
+                <tr>
+                  <td>（可选）示波器 / 逻辑分析仪</td>
+                  <td>探头</td>
+                  <td>PA0 + GND</td>
+                  <td>能直接量出周期和脉宽，是验证参数算得对不对的最快手段</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意图</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="接线示意（TIM2_CH1 → PA0 驱动 LED）">
+            <pre><code>        STM32F103C8T6 蓝药丸
+      ┌───────────────────────────┐
+      │                      PA0 ─┼──[220Ω]──▶│ LED │──┐
+      │                           │        （正极朝 PA0）│
+      │                      GND ─┼──────────────────────┘
+      │                           │
+      │                     PC13 ─┼── 板载 LED（本实验用不到，因为它没有定时器通道）
+      └───────────────────────────┘
+
+  TIM2 的四个通道分别默认在（不需要重映射）：
+      TIM2_CH1 → PA0      ← 本实验用这个
+      TIM2_CH2 → PA1
+      TIM2_CH3 → PA2
+      TIM2_CH4 → PA3
+
+  PA0 的引脚配置必须是「复用推挽输出」GPIO_MODE_AF_PP：
+  因为它不再由 CPU 直接控制，而是把输出权交给定时器外设。
+
+  舵机接法（选做）：
+      舵机橙线 ──▶ PA0
+      舵机红线 ──▶ 外部 5V 电源正极 （不要接板子的 3.3V！）
+      舵机棕线 ──▶ 外部电源负极 ──┬── 单片机 GND（必须共地）
+                                 └── 不能省略这条线</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">上电前必查</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><b>确认 LED 接在 PA0 而不是 PC13。</b>接 PC13 上，代码再对也不会有 PWM——那是最容易被误判成「程序没跑起来」的情况。</li>
+              <li><b>LED 方向别插反。</b>PWM 输出的是高电平有效的方波，正极接 PA0。</li>
+              <li><b>必须串限流电阻。</b>PWM 输出高电平时电流由电阻决定，省掉电阻会让引脚长期超载。</li>
+              <li><b>接舵机时一定不要用板子的 3.3V 供电。</b>舵机启动和堵转的电流远超板载稳压器的能力，典型现象是「舵机一动，单片机就复位」。</li>
+              <li><b>PA0 还是 WKUP（唤醒）引脚。</b>本实验它只做 PWM 输出，不受影响；但如果以后要用待机唤醒功能，记得这个引脚被占用了。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            功能：<b class="font-semibold text-ink">TIM2 通道 1 在 PA0 上输出 1kHz 的 PWM，
+            占空比从 0% 到 100% 平滑来回变化，形成呼吸灯效果</b>。
+            参数：<code class="icode">PSC = 71</code>（计数时钟 1MHz）、
+            <code class="icode">ARR = 999</code>（周期 1ms，即 1kHz）、
+            <code class="icode">CCR</code> 在 0~1000 之间来回变化。
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">关于工程文件的一点说明</div>
+            <p>
+              这份 <code class="icode">main.c</code> 把 <code class="icode">htim2</code> 和
+              <code class="icode">MX_TIM2_Init()</code> 都写在了一起，方便独立阅读。
+              如果你是 CubeMX 生成的工程，<code class="icode">htim2</code> 默认定义在
+              <code class="icode">tim.c</code> 里，直接粘贴会出现
+              <code class="icode">Symbol htim2 multiply defined</code> 的链接错误——
+              把工程里的 <code class="icode">tim.c</code> 移除（或删掉其中重复的定义）即可。
+              PA0 的复用功能配置由 CubeMX 生成在
+              <code class="icode">stm32f1xx_hal_msp.c</code> 的 <code class="icode">HAL_TIM_PWM_MspInit()</code> 里，
+              注意 CubeMX 在配 PWM 通道时会把 GPIO 初始化写在
+              <code class="icode">HAL_TIM_MspPostInit()</code>（位于 <code class="icode">tim.c</code> 末尾），
+              两者的分工是：MspInit 开时钟，MspPostInit 配引脚模式。
+            </p>
+          </div>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.h —— 句柄声明">
+            <pre><code>#ifndef __MAIN_H
+#define __MAIN_H
+
+#include "stm32f1xx_hal.h"
+
+/* 定时器句柄：在 main.c 里定义，这里 extern 声明，
+ * 好让 stm32f1xx_it.c 里的中断服务函数也能引用它 */
+extern TIM_HandleTypeDef htim2;
+
+void Error_Handler(void);
+
+#endif /* __MAIN_H */</code></pre>
+          </div>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— TIM2 CH1 输出 1kHz PWM，PA0 呼吸灯">
+            <pre><code>/* ============================================================================
+ * main.c —— STM32F103C8T6 定时器 PWM 示例：PA0 呼吸灯
+ * 功能：TIM2_CH1 在 PA0 输出 1kHz PWM，占空比 0% → 100% → 0% 循环变化
+ * 参数：PSC = 71  → 计数时钟 = 72MHz / 72 = 1MHz（1 个计数 = 1µs）
+ *       ARR = 999 → 周期 = 1000µs = 1ms → f = 1kHz
+ *       CCR ∈ [0, 1000]，占空比 = CCR / 1000
+ * 硬件：PA0 --[220Ω]-- LED 正极，LED 负极 -- GND
+ * ============================================================================ */
+
+#include "main.h"
+
+/* 呼吸灯的速度：每 5ms 改变一次占空比，每次变化 8 个计数单位 */
+#define BREATH_STEP_MS   5U
+#define BREATH_STEP_VAL  8
+
+/* ------------------------------ 全局变量 ------------------------------ */
+TIM_HandleTypeDef htim2;        /* TIM2 句柄：main.h 里已 extern 声明 */
+
+/* ------------------------------ 私有函数声明 ------------------------------ */
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_TIM2_Init(void);
+void Error_Handler(void);
+
+/* ============================================================================
+ * main()：程序入口
+ * ============================================================================ */
+int main(void)
+{
+  int16_t duty = 0;             /* 当前占空比对应的 CCR 值，用有符号数方便做减法 */
+  int16_t step = BREATH_STEP_VAL;   /* 变化方向：正数变亮、负数变暗 */
+
+  HAL_Init();                   /* 初始化 HAL（含 SysTick 1ms 中断） */
+  SystemClock_Config();         /* 时钟 72MHz —— PSC/ARR 的推算全部基于这个值 */
+  MX_GPIO_Init();               /* 配置 PA0 为复用推挽输出 */
+  MX_TIM2_Init();               /* 配置 TIM2：PSC=71, ARR=999，通道 1 为 PWM 模式 1 */
+
+  /* ★ 关键一步：启动 PWM 输出。
+   * 没有这一句，前面的配置全部只是「写好了寄存器但没打开开关」，
+   * 示波器上什么都看不到 */
+  HAL_TIM_PWM_Start(&amp;htim2, TIM_CHANNEL_1);
+
+  /* 先把占空比设成 0，避免上电瞬间 LED 突然全亮一下 */
+  __HAL_TIM_SET_COMPARE(&amp;htim2, TIM_CHANNEL_1, 0);
+
+  while (1)
+  {
+    /* ---------- 1. 更新占空比 ---------- */
+    duty += step;                             /* 朝当前方向走一步 */
+
+    if (duty &gt;= 1000)                         /* 到达 100%（ARR+1 = 1000） */
+    {
+      duty = 1000;
+      step = -step;                           /* 掉头，开始变暗 */
+    }
+    if (duty &lt;= 0)                            /* 到达 0% */
+    {
+      duty = 0;
+      step = -step;                           /* 掉头，开始变亮 */
+    }
+
+    /* ---------- 2. 立刻生效：只改 CCR，周期不变 ---------- */
+    __HAL_TIM_SET_COMPARE(&amp;htim2, TIM_CHANNEL_1, (uint32_t)duty);
+
+    /* ---------- 3. 控制变化速度 ----------
+     * 这里其实用 HAL_Delay 也没问题，因为我们只是「隔一段时间改一次 CCR」，
+     * 真正产生 PWM 的是硬件，不受这个延时精度影响。
+     * 但如果要同时做别的事情（按键、串口），就该换成前面讲的定时中断了 */
+    HAL_Delay(BREATH_STEP_MS);
+  }
+}
+
+/* ============================================================================
+ * TIM2 初始化：1kHz PWM
+ * ============================================================================ */
+static void MX_TIM2_Init(void)
+{
+  TIM_ClockConfigTypeDef  sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig      = {0};
+  TIM_OC_InitTypeDef      sConfigOC          = {0};
+
+  __HAL_RCC_TIM2_CLK_ENABLE();          /* ★ 第一句永远是时钟使能：TIM2 挂 APB1 */
+
+  htim2.Instance               = TIM2;                  /* 使用 TIM2 */
+  htim2.Init.Prescaler         = 71;                    /* PSC = 71 → 72MHz / (71+1) = 1MHz */
+  htim2.Init.CounterMode       = TIM_COUNTERMODE_UP;    /* 向上计数：0 → ARR */
+  htim2.Init.Period            = 999;                   /* ARR = 999 → 1000 个计数 = 1ms 周期 */
+  htim2.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;/* 数字滤波器用的死区时钟分频，本实验无关 */
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;  /* 改 ARR 立即生效，方便调试 */
+  if (HAL_TIM_Base_Init(&amp;htim2) != HAL_OK)              /* 初始化时基单元（PSC/ARR/计数模式） */
+  {
+    Error_Handler();
+  }
+
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;   /* 用内部时钟，不走外部引脚 */
+  if (HAL_TIM_ConfigClockSource(&amp;htim2, &amp;sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  if (HAL_TIM_PWM_Init(&amp;htim2) != HAL_OK)               /* ★ 初始化 PWM 模式（必调） */
+  {
+    Error_Handler();
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;   /* 主从模式：本实验不用触发别的外设 */
+  sMasterConfig.MasterSlaveMode     = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&amp;htim2, &amp;sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* ---------------- 配置 PWM 输出通道 ---------------- */
+  sConfigOC.OCMode     = TIM_OCMODE_PWM1;          /* PWM 模式 1：CNT &lt; CCR 时输出有效电平 */
+  sConfigOC.Pulse      = 0;                        /* 初始 CCR = 0 → 0%，即上电全灭 */
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;      /* 有效电平为高：CCR 越大越亮 */
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;    /* 互补通道极性（TIM2 没有互补通道，写默认值） */
+  sConfigOC.OCFastMode  = TIM_OCFAST_DISABLE;      /* 快速模式关闭，标准用法 */
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;   /* 空闲状态电平（调试暂停时的行为） */
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&amp;htim2, &amp;sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();          /* ★ 没有这一步，PA0 永远是低电平 */
+  }
+}
+
+/* ============================================================================
+ * GPIO 初始化：PA0 配置为复用推挽输出
+ * ★ 复用（Alternate Function）的含义：这个引脚不再由 CPU 写 ODR 控制，
+ *   而是把输出权交给 TIM2 这个外设
+ * ============================================================================ */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  __HAL_RCC_GPIOA_CLK_ENABLE();             /* 不开 GPIOA 时钟，引脚配置无效 */
+
+  GPIO_InitStruct.Pin   = GPIO_PIN_0;             /* PA0 = TIM2_CH1 */
+  GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;        /* ★ 复用推挽输出：PWM 必须是这个模式 */
+  GPIO_InitStruct.Pull  = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;   /* PWM 边沿较陡，用高速档信号更干净 */
+  HAL_GPIO_Init(GPIOA, &amp;GPIO_InitStruct);
+}
+
+/* ============================================================================
+ * 时钟配置：HSE(8MHz) → PLL ×9 → SYSCLK = 72MHz
+ * ★ 定时器的所有频率都从这里推出来，这一段错了，PWM 频率就会整体偏移
+ * ============================================================================ */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState       = RCC_HSE_ON;
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+  RCC_OscInitStruct.HSIState       = RCC_HSI_ON;
+  RCC_OscInitStruct.PLL.PLLState   = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource  = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLMUL     = RCC_PLL_MUL9;      /* 8MHz × 9 = 72MHz */
+  if (HAL_RCC_OscConfig(&amp;RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+                              | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider  = RCC_SYSCLK_DIV1;   /* HCLK  = 72MHz */
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;     /* PCLK1 = 36MHz → TIM2CLK = 36×2 = 72MHz */
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;     /* PCLK2 = 72MHz */
+  if (HAL_RCC_ClockConfig(&amp;RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/* ============================================================================
+ * 出错处理
+ * ============================================================================ */
+void Error_Handler(void)
+{
+  __disable_irq();
+  while (1)
+  {
+  }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-servo" class="mt-7 text-base font-semibold">同一份代码改成舵机驱动</h3>
+          <p class="mt-3">
+            只要改三个数字，这份代码就变成了舵机控制器。
+            这也顺便验证了你是否真的理解了 PSC / ARR / CCR 三者的关系：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="改动清单：1kHz 调光 → 50Hz 舵机">
+            <pre><code>/* ---------- ① 改时基：从 1kHz 改成 50Hz ---------- */
+htim2.Init.Prescaler = 71;        /* 不变：计数时钟仍是 1MHz，1 个计数 = 1µs */
+htim2.Init.Period    = 19999;     /* 由 999 改成 19999：20000µs = 20ms 周期 = 50Hz */
+
+/* ---------- ② 改主循环：不再扫 CCR，而是直接给角度 ---------- */
+__HAL_TIM_SET_COMPARE(&amp;htim2, TIM_CHANNEL_1, 500);    /* 0.5ms → 0°   */
+HAL_Delay(1000);
+__HAL_TIM_SET_COMPARE(&amp;htim2, TIM_CHANNEL_1, 1500);   /* 1.5ms → 90°  */
+HAL_Delay(1000);
+__HAL_TIM_SET_COMPARE(&amp;htim2, TIM_CHANNEL_1, 2500);   /* 2.5ms → 180° */
+HAL_Delay(1000);
+
+/* ---------- ③ 封装成一个按角度设置的函数，写起来更直观 ---------- */
+/* angle: 0 ~ 180（度） */
+void Servo_SetAngle(uint8_t angle)
+{
+  /* 把 0~180° 线性映射到 500~2500µs。
+   * 因为计数时钟是 1MHz，CCR 的数值恰好就是微秒数，所以不需要再做换算 */
+  uint32_t ccr = 500 + ((uint32_t)angle * 2000) / 180;
+  __HAL_TIM_SET_COMPARE(&amp;htim2, TIM_CHANNEL_1, ccr);
+}
+
+/* 用法：Servo_SetAngle(90);   → 转到中位 */</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">为什么选 1MHz 计数时钟是个好习惯</div>
+            <p>
+              注意上面这两个例子：调光时 <code class="icode">CCR</code> 的满量程是 1000，
+              舵机时 <code class="icode">CCR</code> 直接就是微秒数。
+              之所以都这么顺，是因为我们把计数时钟固定成了 <b>1MHz</b>——
+              一个计数正好 1µs，于是「时间」和「计数值」在数值上相等，
+              省掉了所有换算。工程上这叫「选一个好算的基准」，
+              比每次心算 <code class="icode">72 / (PSC+1)</code> 有效得多。
+            </p>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;</code>——
+              如果这里误写成 <code class="icode">GPIO_MODE_OUTPUT_PP</code>，
+              引脚就还归 CPU 管，定时器的 PWM 信号根本出不来。
+              现象是「示波器量不到波形，但程序其他部分都正常」。
+              <b>凡是外设占用引脚（PWM、串口、SPI），一律复用模式。</b>
+            </li>
+            <li>
+              <code class="icode">int16_t duty</code>——用有符号类型是为了让
+              <code class="icode">duty += step</code> 在 <code class="icode">step</code> 为负时能正常递减，
+              判断 <code class="icode">duty &lt;= 0</code> 也才有意义。
+              如果用 <code class="icode">uint16_t</code>，减到 0 之后再减就会绕回到 65535，
+              现象是「呼吸灯刚到最暗就突然全亮」。
+            </li>
+            <li>
+              <code class="icode">__HAL_TIM_SET_COMPARE()</code> 是宏而不是函数调用，
+              它直接往 <code class="icode">CCR1</code> 寄存器写值，开销极小，
+              所以可以放心地放在定时中断里每毫秒调用一次——那才是做呼吸灯的正规方式。
+            </li>
+            <li>
+              <code class="icode">HAL_TIM_Base_Init()</code> 与 <code class="icode">HAL_TIM_PWM_Init()</code>
+              都调用了。前者配置时基（PSC/ARR/计数模式），后者配置 PWM 工作模式，
+              两个函数内部都会调用 MspInit，所以合起来用是标准写法。
+              漏掉 <code class="icode">HAL_TIM_PWM_Init()</code>，通道配置就无效。
+            </li>
+            <li>
+              <code class="icode">sConfigOC.Pulse = 0;</code>——初始 CCR 写 0，
+              配合主循环开头的 <code class="icode">__HAL_TIM_SET_COMPARE(..., 0)</code>，
+              保证上电时 LED 是灭的。如果不设，CCR 的复位默认值是 0，
+              但如果被上一次运行的残留值影响，就可能出现「上电瞬间闪一下」。
+            </li>
+            <li>
+              想用 TIM2 的重映射通道（<code class="icode">TIM2_CH1_ETR → PA15</code>）时，
+              必须先关闭 JTAG：调用 <code class="icode">__HAL_AFIO_REMAP_SWJ_NOJTAG()</code>。
+              因为 PA15 默认被 JTAG 占用，不禁用它，你的 PWM 就会被调试接口抢走。
+              用默认的 PA0 则完全没有这个问题——这也是本实验选 PA0 的原因之一。
+            </li>
+          </ul>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>下载完成后，PA0 上的 LED 从熄灭开始<b class="font-semibold text-ink">逐渐变亮</b>，到最亮后<b class="font-semibold text-ink">逐渐变暗</b>，如此循环。</li>
+            <li>变亮和变暗各约 0.6 秒，一个完整的呼吸周期约 1.3 秒，节奏均匀、没有突跳。</li>
+            <li>整个过程中 <b>CPU 可以做别的事</b>——在 <code class="icode">while(1)</code> 里加一句串口打印，串口输出照样准时，LED 呼吸也完全不受影响。这就是硬件 PWM 与软件模拟的本质区别。</li>
+            <li>如果有示波器，量 PA0 对 GND，能看到周期 <b>1ms</b>（1kHz）的方波，高电平宽度从 0µs 连续变到 1000µs，再变回来。</li>
+            <li>如果改成舵机版本（ARR = 19999），能听到舵机转到 0°、90°、180° 三个位置并在每个位置稳定停留 1 秒。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>LED 一直不亮，或一直全亮</td>
+                  <td>PWM 没有真正输出，或 CCR 停在极值</td>
+                  <td>确认 <code class="icode">HAL_TIM_PWM_Start()</code> 被调用、<code class="icode">HAL_TIM_PWM_ConfigChannel()</code> 没漏、PA0 配的是 <code class="icode">GPIO_MODE_AF_PP</code>、<code class="icode">__HAL_RCC_TIM2_CLK_ENABLE()</code> 有使能</td>
+                </tr>
+                <tr>
+                  <td>LED 亮度能变，但变化极快、像在闪</td>
+                  <td>PWM 频率太低（跌进了人眼可感知的范围）</td>
+                  <td>核对 <code class="icode">ARR</code> 是不是写成了 99 而不是 999；确认主循环里的 <code class="icode">HAL_Delay(BREATH_STEP_MS)</code> 没被删掉</td>
+                </tr>
+                <tr>
+                  <td>呼吸节奏比预期快一倍</td>
+                  <td>按 PCLK1 = 36MHz 算了 PSC，忘了「APB1 分频不为 1 时定时器时钟 ×2」</td>
+                  <td>把 PSC 从 35 改回 71；在 Watch 里确认定时器时钟确实是 72MHz</td>
+                </tr>
+                <tr>
+                  <td>频率偏差约 10%（示波器量到 900Hz 而不是 1000Hz）</td>
+                  <td>HSE 晶振没起振，时钟回退到内部 HSI：HSI ÷ 2 = 4MHz 经 PLL ×16 = 64MHz（而不是 HSE 8MHz × 9 = 72MHz），定时器时钟跟着变成 64MHz</td>
+                  <td>Watch 里加 <code class="icode">SystemCoreClock</code> 看是不是 72000000</td>
+                </tr>
+                <tr>
+                  <td>LED 亮度只有大小两档、中间很突兀</td>
+                  <td>人眼对亮度的感知是非线性的（近似 gamma 2.2）</td>
+                  <td>把线性递增的 <code class="icode">duty</code> 换成平方或查表输出，见下面的提示</td>
+                </tr>
+                <tr>
+                  <td>舵机抖动、抽风或者完全不动</td>
+                  <td>频率不是 50Hz，或脉宽超出 0.5~2.5ms，或电源功率不够</td>
+                  <td>确认 <code class="icode">ARR = 19999</code>、PSC = 71；确认舵机用外部 5V 供电并与单片机共地；把 CCR 限制在 500~2500 之间</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">让呼吸更自然：给占空比加一层 gamma 校正</div>
+            <p>
+              线性地改变占空比，给人的感觉是「中间那段变化特别快，两端变化很慢」——
+              因为人眼对亮度的响应近似 <b>gamma 2.2</b> 的幂函数。
+              修正办法很简单：内部仍按 0~1000 线性扫描，但写入 CCR 之前先做个平方：
+            </p>
+            <div class="code-block mt-3" data-lang="c" data-title="gamma 校正（平方近似）">
+              <pre><code>/* duty 是 0~1000 的线性值，映射成 0~1000 的感知亮度值 */
+uint32_t ccr = ((uint32_t)duty * (uint32_t)duty) / 1000U;
+__HAL_TIM_SET_COMPARE(&amp;htim2, TIM_CHANNEL_1, ccr);</code></pre>
+            </div>
+            <p class="mt-3">
+              改完再对比一次，你会发现呼吸的「中间段」变慢了、两端变快了，
+              整体观感反而更接近真正的呼吸。这类「物理量线性、感知量非线性」的修正
+              在蜂鸣器音量、电机调速、加热控制里都会遇到，是很通用的工程思维。
+            </p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">顺手记录实验数据</div>
+            <p>
+              用示波器或逻辑分析仪测三组数据并列表：
+              <b>① 周期</b>（应为 1000µs）、<b>② 最小/最大脉宽</b>（应为 0µs 和 1000µs）、
+              <b>③ 完整呼吸周期时长</b>（理论 = 125 步 × 2 × 5ms = 1250ms）。
+              再把实测频率和公式 <code class="icode">72MHz / (72 × 1000)</code> 对一下，
+              误差通常在 0.1% 以内。这份「公式算 → 仪器测 → 误差分析」的三段式记录，
+              是实训报告里最有说服力的部分，也是电子类岗位面试常问的内容。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            PWM 的排错有个高效套路：
+            <b class="font-semibold text-ink">先用示波器（或万用表直流档）确认引脚有没有在动，再怀疑参数</b>。
+            有波形但频率不对，是计算和时钟的问题；压根没波形，就是配置和启动的问题。
+            下面五条按出现频率排序。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">现象：编译下载都成功，PA0 上却一点波形都没有</div>
+            <p><b class="font-semibold">原因：</b>按可能性排序——① <code class="icode">HAL_TIM_PWM_Start()</code> 没调用（配置了但没打开开关）；② <code class="icode">HAL_TIM_PWM_ConfigChannel()</code> 没调用（通道没配成 PWM 模式）；③ <code class="icode">__HAL_RCC_TIM2_CLK_ENABLE()</code> 没使能，所有配置被静默丢弃；④ PA0 配成了 <code class="icode">GPIO_MODE_OUTPUT_PP</code> 而不是 <code class="icode">GPIO_MODE_AF_PP</code>，输出权还归 CPU；⑤ 引脚接错（接在 PC13 上，那里根本没有定时器通道）。</p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>按上面五条逐一核对。最快的验证办法是把 <code class="icode">__HAL_TIM_SET_COMPARE(&amp;htim2, TIM_CHANNEL_1, 500)</code> 固定成 50% 占空比，
+              然后用万用表直流电压档量 PA0 对 GND——
+              正确时应读到约 <b>1.65V</b>（3.3V 的 50%）。
+              这个「占空比 = 平均电压」的技巧非常好用，万用表也能测 PWM。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：PWM 频率是设定值的两倍或一半</div>
+            <p><b class="font-semibold">原因：</b>定时器时钟算错了。最常见的就是忘了「APB1 预分频不为 1 时，定时器时钟 = PCLK1 × 2」：
+              TIM2/3/4 挂在 APB1（36MHz）上，但实际计数源是 <b>72MHz</b>。
+              按 36MHz 去算 PSC，得到的分频系数就少了一半，输出频率自然翻倍。</p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>统一按 <b>72MHz</b> 计算，回归公式
+              <code class="icode">f = 72MHz / ((PSC+1) × (ARR+1))</code>。
+              另外要检查是不是漏掉了那个 <code class="icode">+1</code>：
+              <code class="icode">PSC = 71</code> 是 <b>÷72</b> 而不是 ÷71，ARR 同理，
+              这两个 +1 造成的误差通常在 1%~1.5%，容易在示波器上看出来。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">编译报错：Error: L6200E: Symbol htim2 multiply defined (by tim.o and main.o)</div>
+            <p><b class="font-semibold">原因：</b>把本教程的 main.c 直接粘进了 CubeMX 生成的工程，而工程里的 <code class="icode">tim.c</code> 也定义了 <code class="icode">htim2</code>，同一个全局变量被定义了两遍。</p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>只保留一份。要么把工程里的 <code class="icode">tim.c</code> 从工程中移除
+              （右键 → Remove File），要么把 main.c 里的 <code class="icode">TIM_HandleTypeDef htim2;</code> 删掉、
+              改用 <code class="icode">tim.h</code> 里的 <code class="icode">extern</code> 声明。
+              注意初始化函数 <code class="icode">MX_TIM2_Init()</code> 也只能保留一份。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：LED 在闪而不是在「呼吸」，肉眼能看到明显的通断</div>
+            <p><b class="font-semibold">原因：</b>PWM 频率太低，跌到了人眼可感知的范围（低于 60~90Hz 就会觉得闪）。
+              可能是 <code class="icode">ARR</code> 写小了一个数量级（比如写成 99），
+              也可能是把 <code class="icode">/</code> 和 <code class="icode">*</code> 搞混、
+              算出来的周期比预期大得多。还有一种隐蔽情况：<code class="icode">PSC</code> 写成了 719，
+              计数时钟变成 100kHz，1kHz 的 PWM 需要 ARR=99，此时分辨率只剩 100 档，
+              亮度变化会有台阶。</p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>把 <code class="icode">PSC = 71</code>、<code class="icode">ARR = 999</code>
+              这对参数原样抄回去，先用示波器确认周期是 1ms，再谈亮度效果。
+              记住那条经验规则：<b>调光频率 ≥ 1kHz，并且分辨率至少 100 档</b>。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：舵机一上电就疯狂抖动，或者转动角度完全对不上</div>
+            <p><b class="font-semibold">原因：</b>① PWM 频率不是 50Hz（舵机内部芯片按 20ms 周期解析，给 1kHz 它无法识别）；
+              ② 脉宽超出了 0.5~2.5ms 的有效范围（CCR 给了 0 或 19999，等于一直低或一直高）；
+              ③ 舵机电源功率不足，一动就把电压拉低导致单片机复位；
+              ④ 外部电源与单片机没共地，PWM 信号没有共同参考点。</p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>确认 <code class="icode">PSC = 71</code>、<code class="icode">ARR = 19999</code>；
+              把 CCR 严格限制在 500~2500，并在代码里加一句
+              <code class="icode">if (ccr &lt; 500) ccr = 500; if (ccr &gt; 2500) ccr = 2500;</code> 做保护；
+              舵机单独用 5V/2A 电源供电，并且把它和单片机的 GND 接在一起。
+            </p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">另外一类：TIM1 输出没波形，但 TIM2 同样的代码却正常</div>
+            <p>
+              因为 TIM1 是<b>高级定时器</b>，它的 PWM 输出多了一道总闸——
+              <code class="icode">BDTR</code> 寄存器里的 <b>MOE（主输出使能）</b>位。
+              MOE 不置位，通道配得再对也没有任何输出。
+              好消息是 <code class="icode">HAL_TIM_PWM_Start()</code> 内部会为高级定时器自动置位 MOE，
+              所以用 HAL 通常不会遇到；但如果你看到某个寄存器版教程只写了
+              <code class="icode">TIM_CtrlPWMOutputs(TIM1, ENABLE)</code> 之类的手动使能，
+              那就是在补 MOE 这一刀。
+              <b>记住结论：高级定时器比通用定时器多一个「主输出使能」开关。</b>
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            定时器是 STM32 里最「值钱」的外设：PWM、输入捕获测频、编码器接口、
+            精确定时、DMA 触发，全都建立在同一套时基之上。
+            这一篇需要带走的结论有五条：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">PSC 管「数多快」，ARR 管「数到几」，CCR 管「翻转到哪」</b>——三个寄存器的分工要能一口说出来。</li>
+            <li><b class="font-semibold text-ink">f = 72MHz / ((PSC+1) × (ARR+1))</b>，两个 +1 一个都不能漏；占空比 = CCR / (ARR+1)。</li>
+            <li><b class="font-semibold text-ink">APB 分频不为 1 时，定时器时钟是 APB 时钟的两倍</b>——TIM2/3/4 在 72MHz 主频下拿到的也是 72MHz。</li>
+            <li><b class="font-semibold text-ink">配置 ≠ 启动</b>：<code class="icode">HAL_TIM_PWM_ConfigChannel()</code> 之后必须 <code class="icode">HAL_TIM_PWM_Start()</code>。</li>
+            <li><b class="font-semibold text-ink">频率由负载决定</b>：调光 ≥ 1kHz，舵机严格 50Hz（脉宽 0.5~2.5ms），电机 1~20kHz。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b>把频率改成 2kHz 并验证：</b>要求计数时钟仍是 1MHz，算出 <code class="icode">ARR</code> 应该是多少，
+                改完下载，用示波器或万用表确认（提示——ARR = 499）。
+                再用 50% 占空比量一次 PA0 的直流电压，应该还是约 1.65V。
+                想一想：为什么频率改了、占空比不变，平均电压就不变？
+              </li>
+              <li>
+                <b>用定时中断代替 HAL_Delay 做呼吸灯：</b>把 TIM3 配成每 1ms 中断一次
+                （PSC = 71、ARR = 999），在 <code class="icode">HAL_TIM_PeriodElapsedCallback()</code> 里
+                每 8 次中断改一次 TIM2 的 CCR。做完之后在主循环里加一个按键扫描，
+                验证「按键响应不再被呼吸灯的延时拖慢」。
+              </li>
+              <li>
+                <b>做一个双通道呼吸灯：</b>让 TIM2_CH1（PA0）亮的时候 TIM2_CH2（PA1）暗、反之亦然，
+                两个 LED 交替呼吸。提示——两个通道共用同一个 ARR，
+                所以周期是一致的，你只需要让两个 CCR 满足 <code class="icode">ccr1 + ccr2 = ARR + 1</code>
+                这个互补关系；想清楚这为什么会让总电流保持恒定（这在实际产品里是降低电源纹波的手段）。
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-env.html">Keil MDK 环境搭建与芯片包安装</a>——如果 PWM 的频率总是对不上，回到时钟树那一节重新核对 HSE 与 PLL。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-usart.html">USART 串口通信</a>——把「运行中」的计数和当前的 CCR 一起打印出来，调试时比示波器更直观。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="../stm32.html#c-adc">STM32 全部教程目录</a>——接下来可以看 ADC（把旋钮电压读进来，做手动调光），或者输入捕获（用定时器测量外部信号频率）。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="stm32-usart.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">USART 串口通信</p>
+          </a>
+          <a href="stm32-adc.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">返回目录 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">ADC 模拟采集</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

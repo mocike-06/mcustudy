@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MQTT 接入物联网平台 - McuStudy</title>
+  <meta name="description" content="ESP32 用 PubSubClient 接入公共 MQTT Broker 的完整教程：讲透发布/订阅模型为什么比 HTTP 轮询省电、Broker 与 Topic 分层、QoS 0-1-2 与 keepAlive、遗嘱消息 LWT，附订阅指令控制 LED 并定时上报状态的完整可编译代码与掉线排查。">
+  <meta name="keywords" content="ESP32,MQTT,PubSubClient,Broker,Topic,QoS,遗嘱消息,keepAlive,物联网,Arduino">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="esp32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../esp32.html" class="hover:text-brand-600 dark:hover:text-brand-300">ESP32</a>
+          <span>/</span>
+          <span class="text-muted">教程正文</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          MQTT 接入物联网平台
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          上一篇让 ESP32 连上了 WiFi，但连上之后没人跟它说话。这一篇解决「真正上云」：
+          用 PubSubClient 库把 ESP32 接到公共 MQTT Broker 上，手机或电脑发一条消息就能控制板上的 LED，
+          板子也会定时把自己的状态报回去。前置知识只有一项——ESP32 已经会用 Arduino IDE 烧程序、能连上 2.4GHz 的 WiFi。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="stat-pill">芯片：<b>ESP32-WROOM-32</b></span>
+          <span class="stat-pill">工具：<b>Arduino IDE + PubSubClient</b></span>
+          <span class="stat-pill">阅读约 <b>14</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>MQTT 看着只是几行 <code class="icode">publish</code> / <code class="icode">subscribe</code>，背后却是一整套网络概念。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-network.html">网络基础：IP、TCP 与 MQTT</a> —— Broker、Topic、QoS、端口分别是什么，连不上时该查哪一环</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-cpp.html">C++ 与 Arduino API 基础</a> —— 回调函数怎么写，以及为什么滥用 <code class="icode">String</code> 会出问题</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-level.html">3.3V 供电与 GPIO 安全</a> —— 长时间联网对供电稳定性的要求更高</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-why">为什么物联网用 MQTT 而不是 HTTP</a>
+          <a class="toc-link is-sub" href="#sub-model">Broker 与发布 / 订阅模型</a>
+          <a class="toc-link is-sub" href="#sub-topic">Topic 分层与通配符</a>
+          <a class="toc-link is-sub" href="#sub-qos">QoS、keepAlive 与遗嘱消息</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-why">为什么物联网用 MQTT 而不是 HTTP</a>
+            <a class="toc-link is-sub" href="#sub-model">Broker 与发布 / 订阅模型</a>
+            <a class="toc-link is-sub" href="#sub-topic">Topic 分层与通配符</a>
+            <a class="toc-link is-sub" href="#sub-qos">QoS、keepAlive 与遗嘱消息</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              本页代码依赖 <code class="icode">PubSubClient</code> 库，
+              烧录前先在库管理器里安装。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            先说结论：<b class="font-semibold text-ink">MQTT 是一套为「设备之间隔着不可靠网络、还要省电」而设计的消息协议。</b>
+            它不关心你传的是温度还是开关命令，只负责把一小段字节从 A 送到 B。
+            ESP32 在这里的角色叫 <b class="font-semibold text-ink">客户端（Client）</b>，
+            中间那台负责转发的服务器叫 <b class="font-semibold text-ink">Broker（代理）</b>。
+            你的板子只要跟 Broker 保持一条 TCP 长连接，就能既发数据、又收指令，
+            完全不需要知道对方是谁、IP 是多少。
+          </p>
+
+          <h3 id="sub-why" class="mt-7 text-base font-semibold">为什么物联网用 MQTT 而不是 HTTP</h3>
+          <p class="mt-3">
+            你可能会想：我直接用 HTTP 请求一个网址把数据 POST 上去不行吗？当然行，很多云平台也支持 HTTP。
+            问题出在「<b class="font-semibold text-ink">谁主动</b>」这件事上。
+            HTTP 是<b class="font-semibold text-ink">拉（Pull）</b>模型：设备不主动问，服务器就没机会说话。
+            所以设备想接收控制指令，只能不停地问：「有我的新指令吗？没有。有我的新指令吗？没有。」
+            这种写法叫<b class="font-semibold text-ink">轮询（Polling）</b>，代价是双份的：
+            问得太慢，指令延迟高；问得太快，射频和 CPU 一直在醒着，电池撑不住。
+          </p>
+          <p class="mt-3">
+            MQTT 是<b class="font-semibold text-ink">推（Push）</b>模型：设备跟 Broker 保持一条常连接，
+            有消息 Broker 直接推过来。空闲时双方只交换一个 2 字节的心跳包，
+            设备的数据只在「真的变了」的时候才发出去。对一块用电池供电、要跑几个月的节点来说，这个差别是决定性的。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th>HTTP 轮询（每 10 秒问一次）</th>
+                  <th>MQTT（长连接）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>通信方向</td>
+                  <td>只能设备主动请求，服务器无法主动通知</td>
+                  <td>双向，Broker 可随时把消息推给设备</td>
+                </tr>
+                <tr>
+                  <td>指令延迟</td>
+                  <td>平均半个轮询周期，本例约 5 秒</td>
+                  <td>毫秒级，收到即转发</td>
+                </tr>
+                <tr>
+                  <td>单次协议开销</td>
+                  <td>请求头通常 200~800 字节</td>
+                  <td>固定头最少 2 字节，主题名另算</td>
+                </tr>
+                <tr>
+                  <td>一天的流量（粗算）</td>
+                  <td>8640 次请求，光请求头就 2~7 MB</td>
+                  <td>约 5760 次心跳 × 2 字节 ≈ 11 KB，加上真实数据</td>
+                </tr>
+                <tr>
+                  <td>一对多分发</td>
+                  <td>每台设备各自去问一次</td>
+                  <td>一条消息同时送达所有订阅者</td>
+                </tr>
+                <tr>
+                  <td>适合的场景</td>
+                  <td>网页、一次性查询、几分钟才上传一次的场合</td>
+                  <td>遥测上报、远程控制、设备状态同步</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一句话记住区别</div>
+            <p>
+              HTTP 是<b class="font-semibold">你打电话去问</b>，MQTT 是<b class="font-semibold">你留了个地址，有事邮局直接送到你家</b>。
+              这个「邮局」就是 Broker。
+            </p>
+          </div>
+
+          <h3 id="sub-model" class="mt-7 text-base font-semibold">Broker 与发布 / 订阅模型</h3>
+          <p class="mt-3">
+            MQTT 里没有「客户端 A 直连客户端 B」这种用法，所有消息都经过 Broker 转发。为什么非要绕一下？
+            因为真实的物联网设备大多躲在路由器后面（NAT），IP 是动态的，还经常休眠。
+            让手机去直连一块 NAT 后面的 ESP32，几乎做不到；但让 ESP32 主动连上一台公网 Broker，再让手机也连上同一台 Broker，就非常简单。
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">Publisher（发布者）</b>——往某个 Topic 发消息的一方。发布者不知道也不关心谁在听。</li>
+            <li><b class="font-semibold text-ink">Subscriber（订阅者）</b>——订阅了某个 Topic 的一方。Broker 会把匹配的消息投递给它。</li>
+            <li><b class="font-semibold text-ink">Topic（主题）</b>——消息的「信箱地址」，用斜杠分层的字符串，例如 <code class="icode">home/livingroom/led/set</code>。</li>
+            <li><b class="font-semibold text-ink">Client ID（客户端标识）</b>——连接时提交的身份证。<b class="font-semibold">全网必须唯一</b>，重复会被踢。</li>
+            <li><b class="font-semibold text-ink">Payload（载荷）</b>——真正的内容，MQTT 不规定格式，纯文本、JSON、二进制都行。</li>
+          </ul>
+
+          <p class="mt-4">
+            这套模型的工程价值叫<b class="font-semibold text-ink">解耦</b>：写单片机的人只管往
+            <code class="icode">.../led/set</code> 发 <code class="icode">ON</code>，
+            做手机 App 的人只管订阅同一个主题。<b class="font-semibold">双方甚至不需要同时在线</b>——
+            设备掉线时消息可以留在 Broker 上（配合 retained 或会话保持），等它回来再收。
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">本页用哪个 Broker</div>
+            <p>
+              学习阶段不用自己搭服务器，用公共测试 Broker 就够了。本页代码默认连
+              <code class="icode">broker.emqx.io</code> 的 <code class="icode">1883</code> 端口；
+              也可以换成 <code class="icode">test.mosquitto.org</code>。
+              注意这两台都是<b class="font-semibold">公开免费、任何人可读写</b>的测试服务器，
+              别往上发隐私数据，也别指望它 7×24 稳定。将来上生产环境时，换成自己搭的
+              EMQX / Mosquitto，或者阿里云、腾讯云、OneNET 这类平台给的接入地址即可，代码结构完全一样。
+            </p>
+          </div>
+
+          <h3 id="sub-topic" class="mt-7 text-base font-semibold">Topic 分层与通配符</h3>
+          <p class="mt-3">
+            Topic 用 <code class="icode">/</code> 分层，像文件夹路径。分层的意义是让订阅可以「按范围」而不是「按名字」：
+            你可以只订阅客厅的灯，也可以一次订阅整栋楼所有的灯。
+          </p>
+          <p class="mt-3">
+            建议的分层习惯是 <code class="icode">项目/设备/功能/动作</code>，例如：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><code class="icode">mcustudy-a1b2/led/set</code>——下行控制：别人发给我，我按这个动作执行。</li>
+            <li><code class="icode">mcustudy-a1b2/status</code>——上行状态：我告诉别人我现在什么样。</li>
+            <li><code class="icode">mcustudy-a1b2/sensor/temp</code>——只上报温度，将来加湿度就再开一个同级的主题。</li>
+          </ul>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>写法</th>
+                  <th>含义</th>
+                  <th>能否用于发布</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">mcustudy-a1b2/led/set</td>
+                  <td>精确匹配这一个主题</td>
+                  <td>可以</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">mcustudy-a1b2/+/set</td>
+                  <td><code class="icode">+</code> 匹配<b class="font-semibold">一层</b>，如 led、lamp、fan</td>
+                  <td>不可以，只能用来订阅</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">mcustudy-a1b2/#</td>
+                  <td><code class="icode">#</code> 匹配<b class="font-semibold">剩下所有层</b>，必须放在末尾</td>
+                  <td>不可以，只能用来订阅</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">mcustudy-a1b2/led/set/</td>
+                  <td>末尾多一个斜杠，是<b class="font-semibold">另一个</b>主题了</td>
+                  <td>可以，但不建议</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">三个新手必踩的主题坑</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>Topic <b class="font-semibold">大小写敏感</b>：订阅 <code class="icode">Led/Set</code>，发布到 <code class="icode">led/set</code>，一辈子也收不到。</li>
+              <li>不要以 <code class="icode">/</code> 开头。以斜杠开头是合法的，但会产生一个空的第一层，和别人的主题体系对不上。</li>
+              <li>在公共 Broker 上，主题前缀一定要加自己的唯一标识（本页代码用芯片 ID 生成）。否则你发到 <code class="icode">led/set</code>，全世界测试的人都收到了。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-qos" class="mt-7 text-base font-semibold">QoS、keepAlive 与遗嘱消息</h3>
+          <p class="mt-3">
+            <b class="font-semibold text-ink">QoS（服务质量）</b>决定了这条消息「送到」的严格程度。
+            它不是越高越好——等级越高，网络往返次数越多、延迟越大、对设备资源占用也越多：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>等级</th>
+                  <th>叫法</th>
+                  <th>一次投递的往返</th>
+                  <th>会丢吗</th>
+                  <th>会重复吗</th>
+                  <th>典型用途</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">0</td>
+                  <td>至多一次</td>
+                  <td>1 次（发完就不管）</td>
+                  <td>可能丢</td>
+                  <td>不会</td>
+                  <td>高频传感器数据，丢一两个点无所谓</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">1</td>
+                  <td>至少一次</td>
+                  <td>2 次（PUBLISH → PUBACK）</td>
+                  <td>不丢</td>
+                  <td>可能重复</td>
+                  <td>控制指令、状态上报，最常用的一档</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">2</td>
+                  <td>恰好一次</td>
+                  <td>4 次握手</td>
+                  <td>不丢</td>
+                  <td>不会</td>
+                  <td>计费、开关柜动作等绝对不能重复的场景</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            注意 QoS 1 的「至少一次」意味着你的处理函数<b class="font-semibold text-ink">可能收到重复指令</b>。
+            对「开灯 / 关灯」这种幂等操作无所谓，但如果指令是「余额扣 1 元」，就必须自己做去重。
+          </p>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">keepAlive（保活间隔）</b>解决的是「怎么发现对方已经死了」。
+            长连接上双方都不说话时，谁也不知道对面是还在待命还是已经断电。
+            MQTT 的约定是：客户端在 keepAlive 时间内必须至少发一次包（没有业务数据就发 2 字节的
+            <code class="icode">PINGREQ</code> 心跳），Broker 只要在
+            <b class="font-semibold">1.5 倍 keepAlive</b> 的时间里没收到任何东西，就判定客户端掉线并断开连接。
+            PubSubClient 里这个值是宏 <code class="icode">MQTT_KEEPALIVE</code>，默认 <b>15 秒</b>，
+            也就是说你只要超过 <b>22.5 秒</b>没让库跑起来收发，就会被 Broker 踢掉。
+          </p>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">遗嘱消息（LWT, Last Will and Testament）</b>是给「设备猝死」准备的后事。
+            连接时就把一份消息寄存在 Broker 上，声明「如果我不正常掉线了，请帮我把它发出去」。
+            典型用法是遗嘱主题 = 状态主题、内容 = <code class="icode">offline</code>，
+            这样监控端能立刻知道设备不是主动下线的，而是掉电或断网了。
+            配合 <b class="font-semibold text-ink">retained（保留消息）</b>，
+            后加入的订阅者一连上就能立刻拿到设备的最后状态，不用傻等下一次上报。
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">遗嘱消息的触发条件，很多人理解错</div>
+            <p>
+              遗嘱只在<b class="font-semibold">异常断开</b>时由 Broker 代发：拔电源、断网、死机、心跳超时。
+              设备主动调用 <code class="icode">client.disconnect()</code> 正常下线时，
+              Broker 认为它是体面离开的，<b class="font-semibold">不会</b>发遗嘱。
+              所以调试时拔 USB 线能看到 <code class="icode">offline</code>，正常关串口却看不到，这是对的，不是 bug。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            MQTT 走的是 WiFi，<b class="font-semibold text-ink">本身不需要任何新增接线</b>——
+            只要能连上 2.4GHz 路由器的 ESP32 开发板就行。这一节主要是把「用来验证的 LED」和几根容易接错的线说清楚，
+            顺便强调几个 ESP32 特有的引脚约束。接线错了，代码再对也看不到现象。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">元件与接线表</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>元件</th>
+                  <th>引脚 / 规格</th>
+                  <th>连接到</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>ESP32-WROOM-32 开发板</td>
+                  <td class="font-mono text-xs">USB 口</td>
+                  <td>电脑 USB / 5V 电源</td>
+                  <td>必须用能传数据的 USB 线，只有充电功能的线不会出现串口</td>
+                </tr>
+                <tr>
+                  <td>板载 LED（首选）</td>
+                  <td class="font-mono text-xs">GPIO2</td>
+                  <td>板上已接好</td>
+                  <td>高电平点亮，不接线就能跑通整篇代码</td>
+                </tr>
+                <tr>
+                  <td>外接 LED（可选）</td>
+                  <td>长脚（阳极）</td>
+                  <td>经 220Ω 电阻接 GPIO4</td>
+                  <td>ESP32 是 3.3V 逻辑，必须串限流电阻</td>
+                </tr>
+                <tr>
+                  <td>外接 LED</td>
+                  <td>短脚（阴极）</td>
+                  <td>GND</td>
+                  <td>插反了不亮，但不会烧坏器件</td>
+                </tr>
+                <tr>
+                  <td>限流电阻</td>
+                  <td class="font-mono text-xs">220Ω ~ 1kΩ</td>
+                  <td>串在 GPIO4 与 LED 之间</td>
+                  <td>3.3V + 220Ω 约 5~6mA，亮度足够也安全</td>
+                </tr>
+                <tr>
+                  <td>按键（可选）</td>
+                  <td class="font-mono text-xs">GPIO0 ↔ GND</td>
+                  <td>按下即接地</td>
+                  <td>GPIO0 是启动模式引脚，上电瞬间别按住</td>
+                </tr>
+                <tr>
+                  <td>路由器</td>
+                  <td class="font-mono text-xs">2.4GHz</td>
+                  <td>—</td>
+                  <td>ESP32 <b class="font-semibold">不支持 5GHz</b>，双频路由器请确认连的是 2.4G 那个 SSID</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意图</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="接线示意（ESP32-WROOM-32 开发板）">
+            <pre><code>        ESP32-WROOM-32 开发板
+        ┌──────────────────────┐
+        │                 3V3 ─┼── (本页不需要外接电源)
+        │                 GND ─┼──┬─────────────┐
+        │                      │  │             │
+        │   GPIO2（板载 LED）──┼──┘（板上已接好）│
+        │                      │                │
+        │   GPIO4 ──[220Ω]── LED 长脚           │
+        │                      LED 短脚 ────────┘
+        │                      │
+        │   GPIO0 ── 按键 ──── GND   （可选，上电时别按）
+        │                      │
+        │              USB ────┼── 电脑（供电 + 串口 + 烧录）
+        └──────────────────────┘
+                   │
+                   │  WiFi 2.4GHz（无需接线）
+                   ▼
+        ┌──────────────────────────────┐
+        │  路由器                       │
+        └──────────────┬───────────────┘
+                       ▼
+        ┌──────────────────────────────┐
+        │  Broker: broker.emqx.io:1883 │
+        └──────────────┬───────────────┘
+                       ▲
+                       │  WiFi / 4G
+        ┌──────────────┴───────────────┐
+        │  手机 / 电脑上的 MQTT 客户端   │
+        └──────────────────────────────┘
+
+要点：
+1. GPIO2 上已经有板载 LED，先用它验证程序，成功率最高。
+2. 外接 LED 时，限流电阻串在 GPIO 和 LED 长脚之间，短脚接 GND。
+3. ESP32 的 GPIO6~GPIO11 内部接了 Flash，任何时候都不能拿来当普通 IO 用。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线与上电顺序建议</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>先什么都不接，直接插 USB，确认设备管理器里出现了串口（CP2102 或 CH340）。</li>
+            <li>烧一个最简单的 Blink 确认板子和工具链都正常，再开始接外设——把「环境问题」和「接线问题」分开。</li>
+            <li>接外接 LED 时先断电，接完用万用表确认 GPIO4 与 GND 之间没有短路。</li>
+            <li>最后再上电，打开串口监视器看日志。日志是这一篇最重要的观察手段。</li>
+          </ol>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">上电前必查</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>USB 线是不是数据线。现象是「板子亮了但电脑里没有串口」，换线即可。</li>
+              <li>有没有把 5V 引脚当成 3.3V 用。ESP32 的 IO 是 <b class="font-semibold">3.3V 耐受，不耐 5V</b>，直接把 5V 信号接进 GPIO 会烧引脚。</li>
+              <li>GPIO2 是启动模式相关引脚，但正常启动（<code class="icode">GPIO0=1</code> → SPI Boot Mode）时它取任意值、不被检查；只有进串口/联合下载模式（GPIO0=0）才要求 GPIO2=0。芯片内部默认下拉，板载 LED 就接在这里。</li>
+              <li>烧录时如果串口一直报 <code class="icode">Failed to connect</code>，按住 BOOT 键再点上传可以强制进下载模式。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            在 Arduino IDE 里先装库：<b class="font-semibold text-ink">工具 → 管理库</b>，搜索
+            <code class="icode">PubSubClient</code>，安装 Nick O'Leary 那个版本（2.8 或更高）。
+            <code class="icode">WiFi.h</code> 是随 ESP32 板包自带的，不用单独装。
+            然后把下面的代码整段复制进 <code class="icode">.ino</code> 文件，
+            只需修改开头三行 WiFi 名称、密码和（可选的）Broker 地址。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="esp32_mqtt_led.ino —— 订阅指令控制 LED + 定时上报状态">
+            <pre><code>/* =====================================================================
+ * esp32_mqtt_led.ino
+ * 功能：ESP32 连接 MQTT Broker，订阅控制主题点灯 / 灭灯，并定时上报状态
+ * 硬件：ESP32-WROOM-32 开发板（板载 LED 在 GPIO2，高电平点亮）
+ * 依赖：PubSubClient（Arduino 库管理器安装，作者 Nick O'Leary）
+ * ===================================================================== */
+
+#include &lt;WiFi.h&gt;            // ESP32 的 WiFi 库，随板包自带
+#include &lt;PubSubClient.h&gt;    // MQTT 客户端库，需要自己装
+
+/* ------------------------- 需要你改的地方 ------------------------- */
+const char* WIFI_SSID = "你的WiFi名称";     // 只能 2.4GHz，ESP32 不认 5GHz
+const char* WIFI_PASS = "你的WiFi密码";
+const char* MQTT_HOST = "broker.emqx.io";   // 公共测试 Broker，也可换 test.mosquitto.org
+
+/* ----------------------------- 常量 ----------------------------- */
+const uint16_t MQTT_PORT = 1883;     // 明文端口；8883 是 TLS 加密端口，本页不用
+const uint8_t  LED_PIN   = 2;        // 板载 LED 接在 GPIO2
+const uint32_t REPORT_MS = 10000;    // 状态上报间隔：10 秒
+const uint32_t RETRY_MS  = 3000;     // 断线后每 3 秒尝试重连一次
+
+WiFiClient   espClient;              // 底层 TCP 连接（MQTT 跑在 TCP 之上）
+PubSubClient client(espClient);      // MQTT 客户端对象，构造时绑定这条 TCP 连接
+
+String topicPrefix;                  // 本机专属主题前缀，避免和公共 Broker 上别人的主题撞车
+String topicLedSet;                  // 下行：别人发指令给我
+String topicStatus;                  // 上行：我上报自己的状态
+char   clientId[40];                 // 客户端 ID，必须全网唯一
+
+bool     ledState   = false;         // 当前 LED 状态，true = 点亮
+uint32_t lastReport = 0;             // 上次上报的时刻
+uint32_t lastRetry  = 0;             // 上次尝试重连的时刻
+
+/* ---------------------------------------------------------------------
+ * 【第一部分】收到订阅消息时的回调
+ * 注意：payload 不是以 '\0' 结尾的字符串，长度由 length 给出，
+ *      必须自己按长度拼成 String，不能直接当 C 字符串用。
+ * ------------------------------------------------------------------- */
+void onMqttMessage(char* topic, byte* payload, unsigned int length) {
+  String msg;
+  for (unsigned int i = 0; i &lt; length; i++) {
+    msg += (char)payload[i];         // 逐字节还原成文本
+  }
+  msg.trim();                        // 去掉首尾空白，手机端很容易多打空格
+  msg.toUpperCase();                 // 统一转大写，ON / on / On 都能识别
+
+  Serial.printf("[收到] 主题=%s 内容=%s\n", topic, msg.c_str());
+
+  if (msg == "ON" || msg == "1") {
+    ledState = true;
+  } else if (msg == "OFF" || msg == "0") {
+    ledState = false;
+  } else {
+    Serial.println("[忽略] 只认 ON / OFF / 1 / 0");
+    return;                          // 未知指令不改状态
+  }
+
+  digitalWrite(LED_PIN, ledState ? HIGH : LOW);   // 真正执行动作
+
+  // 执行完立刻回报一次，retained = true：
+  // 后订阅的人一连上就能看到最新状态，不用等下一次定时上报
+  client.publish(topicStatus.c_str(), ledState ? "led=on" : "led=off", true);
+}
+
+/* ---------------------------------------------------------------------
+ * 连接 WiFi：只在 setup() 里调用一次
+ * 此时还没进主循环，用阻塞等待是可以接受的
+ * ------------------------------------------------------------------- */
+void connectWiFi() {
+  Serial.printf("[WiFi] 正在连接 %s", WIFI_SSID);
+  WiFi.mode(WIFI_STA);                        // 站点模式：像手机一样去连路由器
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+
+  while (WiFi.status() != WL_CONNECTED) {     // 没连上就一直等
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.printf("\n[WiFi] 连接成功，IP = %s\n", WiFi.localIP().toString().c_str());
+}
+
+/* ---------------------------------------------------------------------
+ * 连接 MQTT Broker：断线时会被反复调用
+ * ------------------------------------------------------------------- */
+void reconnect() {
+  if (WiFi.status() != WL_CONNECTED) {        // WiFi 都断了，先别谈 MQTT
+    Serial.println("[MQTT] WiFi 未连接，等待自动重连");
+    return;
+  }
+
+  Serial.printf("[MQTT] 正在连接 %s:%u ...", MQTT_HOST, MQTT_PORT);
+
+  // connect(id, 用户名, 密码, 遗嘱主题, 遗嘱QoS, 遗嘱retain, 遗嘱内容)
+  // 遗嘱消息 LWT：只有「异常掉线」（拔电、断网、死机）时由 Broker 代发，
+  // 正常调用 client.disconnect() 不会触发。
+  bool ok = client.connect(clientId, NULL, NULL,
+                           topicStatus.c_str(), 1, true, "offline");
+
+  if (!ok) {
+    // client.state() 返回负数就是失败原因，排查时很有用
+    Serial.printf(" 失败，client.state()=%d\n", client.state());
+    return;
+  }
+
+  Serial.println(" 成功");
+  client.publish(topicStatus.c_str(), "online", true);   // 上线通告
+  client.subscribe(topicLedSet.c_str(), 1);              // 订阅控制主题，QoS 1
+  Serial.printf("[MQTT] 已订阅 %s\n", topicLedSet.c_str());
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(300);                                 // 等 USB 串口稳定，否则前几行日志会丢
+
+  pinMode(LED_PIN, OUTPUT);                   // GPIO2 设为输出
+  digitalWrite(LED_PIN, LOW);                 // 上电默认灭
+
+  connectWiFi();
+
+  // 用芯片 MAC 生成唯一的 clientId 和主题前缀。
+  // 同一个 clientId 被两个客户端同时使用，Broker 会把先连上的那个踢下线。
+  uint64_t chipId = ESP.getEfuseMac();
+  snprintf(clientId, sizeof(clientId), "mcustudy-%04X",
+           (unsigned int)(chipId &amp; 0xFFFF));
+
+  topicPrefix = String("mcustudy/") + clientId;
+  topicLedSet = topicPrefix + "/led/set";     // 例如 mcustudy/mcustudy-1A2B/led/set
+  topicStatus = topicPrefix + "/status";
+
+  client.setServer(MQTT_HOST, MQTT_PORT);
+  client.setCallback(onMqttMessage);          // 注册回调：订阅主题来消息时执行它
+
+  reconnect();
+  lastReport = millis();
+}
+
+void loop() {
+  /* ---------- 【第二部分】维持连接：这一段的写法决定你会不会掉线 ---------- */
+  if (!client.connected()) {
+    if (millis() - lastRetry &gt;= RETRY_MS) {   // 限流，别把 Broker 打爆
+      lastRetry = millis();
+      reconnect();
+    }
+  } else {
+    client.loop();   // ★ 最关键的一行：收发心跳、处理下行消息全靠它
+  }
+
+  /* ---------- 【第三部分】定时上报状态 ---------- */
+  // 用 millis() 做非阻塞定时。绝不能用 delay(10000)：
+  // delay 期间 loop() 不执行，client.loop() 也就不会跑，
+  // 超过 1.5 倍 keepAlive（默认 22.5 秒）就会被 Broker 判定掉线。
+  if (client.connected() &amp;&amp; millis() - lastReport &gt;= REPORT_MS) {
+    lastReport = millis();
+
+    char buf[80];
+    snprintf(buf, sizeof(buf), "{\"led\":\"%s\",\"rssi\":%d,\"uptime\":%lu}",
+             ledState ? "on" : "off", WiFi.RSSI(), millis() / 1000);
+
+    client.publish(topicStatus.c_str(), buf, true);   // retained，便于新订阅者立刻看到
+    Serial.printf("[上报] %s\n", buf);
+  }
+
+  delay(10);   // 很短的让步，给 WiFi 协议栈留出干活的时间
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">PubSubClient client(espClient);</code>——MQTT 库本身不实现网络，
+              它只负责协议打包，底层收发交给 <code class="icode">WiFiClient</code>。
+              所以断网时 MQTT 一定会失败，<code class="icode">reconnect()</code> 里第一件事就是查 WiFi 状态。
+            </li>
+            <li>
+              <code class="icode">msg += (char)payload[i];</code>——为什么不能直接
+              <code class="icode">String(payload)</code>？因为回调给的是一段<b class="font-semibold">没有结束符的字节区</b>，
+              直接当字符串用会一路读到内存里的垃圾数据。按 <code class="icode">length</code> 逐字节还原才是正确写法。
+            </li>
+            <li>
+              <code class="icode">client.loop();</code>——整篇最重要的调用。它做两件事：
+              把收到的下行数据交给协议栈解析并触发回调；在空闲时按 keepAlive 发送 PINGREQ 心跳。
+              <b class="font-semibold text-ink">它必须在 loop() 里被高频调用</b>，
+              一秒钟几十次毫无压力，但绝对不能几秒钟才轮到一次。
+            </li>
+            <li>
+              <code class="icode">client.connect(clientId, NULL, NULL, topicStatus.c_str(), 1, true, "offline");</code>——
+              连接时就顺便把遗嘱登记好：一旦异常掉线，Broker 会往状态主题发一条 retained 的
+              <code class="icode">offline</code>，监控端立刻知道设备失联了。
+            </li>
+            <li>
+              <code class="icode">client.subscribe(topicLedSet.c_str(), 1);</code>——
+              订阅要在<b class="font-semibold">连接成功之后</b>调用。写在 <code class="icode">setup()</code> 里、
+              连接之前，第一次能收到消息是运气，重连之后就永远收不到了。
+            </li>
+            <li>
+              <code class="icode">snprintf(clientId, ...)</code> 用 MAC 生成唯一 ID——
+              手工写死一个 <code class="icode">"esp32"</code> 是新手最痛的一课：
+              第二块板子一上电，第一块就被踢下线，两块板子轮流掉线，看起来像「WiFi 不稳定」。
+            </li>
+            <li>
+              <code class="icode">millis() - lastReport &gt;= REPORT_MS</code>——
+              这种「记录上次时刻 + 比较差值」的写法叫非阻塞定时。
+              它的好处是这段时间里 <code class="icode">client.loop()</code> 依然在跑，连接不会因为忙别的而断掉。
+            </li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">怎么在没有手机 App 的情况下先验证</div>
+            <p>
+              先用电脑端客户端把链路跑通，再考虑手机。推荐
+              <b class="font-semibold">MQTTX</b>（跨平台桌面客户端）或 EMQX 提供的在线 Web 客户端：
+              填入地址 <code class="icode">broker.emqx.io</code>、端口 <code class="icode">1883</code>，
+              订阅主题 <code class="icode">mcustudy/#</code>，就能看到板子发的每一条状态和遗嘱消息；
+              再往 <code class="icode">mcustudy/&lt;你的clientId&gt;/led/set</code> 发一条
+              <code class="icode">ON</code>，板载 LED 就会亮。
+              把串口监视器里的 clientId 抄下来，别拼错。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            这一节用来自查：串口日志里的每一行都有明确的含义，
+            现象对上了说明链路是通的；现象不对，也能根据停在哪一步直接定位。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>上电后串口以 115200 打印 <code class="icode">[WiFi] 正在连接 ...</code>，几秒内出现 <code class="icode">[WiFi] 连接成功，IP = 192.168.x.x</code>。</li>
+            <li>紧接着打印 <code class="icode">[MQTT] 正在连接 broker.emqx.io:1883 ... 成功</code>，再打印一行 <code class="icode">[MQTT] 已订阅 mcustudy/.../led/set</code>。</li>
+            <li>每 10 秒出现一行 <code class="icode">[上报] {"led":"off","rssi":-55,"uptime":30}</code>，<code class="icode">uptime</code> 每次加 10 左右。</li>
+            <li>在电脑端 MQTT 客户端订阅 <code class="icode">mcustudy/#</code>，能立刻收到一条 retained 的 <code class="icode">online</code>，之后每 10 秒收到一次状态。</li>
+            <li>向 <code class="icode">.../led/set</code> 发送 <code class="icode">ON</code>，板载 LED 在<b class="font-semibold text-ink">一秒内</b>点亮，串口打印 <code class="icode">[收到] 主题=... 内容=ON</code>，同时客户端收到 <code class="icode">led=on</code>。</li>
+            <li>发送 <code class="icode">off</code>（小写）也能关灯——因为代码里做了 <code class="icode">toUpperCase()</code>。</li>
+            <li>发送 <code class="icode">HELLO</code> 这类未知内容，串口打印 <code class="icode">[忽略]</code>，灯的状态不变。</li>
+            <li>拔掉 USB 线约 22 秒后（keepAlive 超时），电脑端能通过订阅 <code class="icode">.../status</code> 收到 Broker 代发的 <code class="icode">offline</code>。</li>
+            <li>重新上电，一切自动恢复，不需要手动干预。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>串口一直停在 <code class="icode">[WiFi] 正在连接 .....</code></td>
+                  <td>还没进入 MQTT 环节</td>
+                  <td>WiFi 账号密码、是不是连了 5GHz、路由器有没有开 MAC 过滤</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">[MQTT] 正在连接 ... 失败，client.state()=-2</code></td>
+                  <td>TCP 连不上 Broker（地址错、端口被封、DNS 失败）</td>
+                  <td>电脑上 <code class="icode">ping broker.emqx.io</code>；换 <code class="icode">test.mosquitto.org</code> 试</td>
+                </tr>
+                <tr>
+                  <td>连接成功后大约每 20 多秒掉一次，反复重连</td>
+                  <td>心跳没有按时发出去——<code class="icode">client.loop()</code> 没在主循环里跑，或被长 <code class="icode">delay()</code> 挡住</td>
+                  <td>确认 <code class="icode">loop()</code> 里有且只有一处 <code class="icode">client.loop()</code>，并删掉所有超过 1 秒的 delay</td>
+                </tr>
+                <tr>
+                  <td>灯能被控制，但 MQTT 客户端收不到状态</td>
+                  <td>上报和发布用的是不同主题，或主题拼错</td>
+                  <td>对比串口打印的主题名与客户端订阅的主题名，注意大小写</td>
+                </tr>
+                <tr>
+                  <td>电脑端发 <code class="icode">ON</code> 完全没反应，串口也没有 <code class="icode">[收到]</code></td>
+                  <td>订阅失败或主题不匹配</td>
+                  <td>确认 <code class="icode">client.subscribe()</code> 在连接成功之后执行；订阅方用通配符 <code class="icode">mcustudy/#</code> 先验证</td>
+                </tr>
+                <tr>
+                  <td>两块板子同时上电就轮流掉线</td>
+                  <td>clientId 重复，互相把对方踢下线</td>
+                  <td>确认 clientId 由 MAC 生成而不是写死的字符串</td>
+                </tr>
+                <tr>
+                  <td>上报偶尔中断一两分钟又自己恢复</td>
+                  <td>网络抖动或公共 Broker 负载高</td>
+                  <td>公共测试 Broker 的正常表现，观察是否自动重连即可，不必改代码</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">顺手记录实验数据</div>
+            <p>
+              做课设或毕设时，这里有两个很值得量化记录的指标：
+              一是<b class="font-semibold">控制延迟</b>——从客户端点击发送到 LED 亮起的时间差（可以用手机录屏逐帧看，一般在 100~400ms）；
+              二是<b class="font-semibold">长时间运行稳定性</b>——让板子连续跑 8 小时，统计串口里出现
+              <code class="icode">[MQTT] 正在连接</code> 的次数。把这两个数字和「HTTP 轮询每 5 秒问一次」的方案对比一下，
+              你的报告就有了真正的工程量，而不只是「我做了一个灯」。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            下面这六条覆盖了 MQTT 入门阶段九成以上的卡点，
+            按「报错原文 → 原因 → 解决」组织，方便你直接按串口里看到的那一行搜索。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">连接失败：[MQTT] 正在连接 broker.emqx.io:1883 ... 失败，client.state()=-2</div>
+            <p><b class="font-semibold">原因：</b><code class="icode">-2</code> 是 <code class="icode">MQTT_CONNECT_FAILED</code>，意思是 TCP 层压根没连上：Broker 域名写错（多了个空格、拼成 <code class="icode">.com</code>）、端口写错，或者所在网络（校园网、公司网）封了 1883 出站端口。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>先用电脑在同一个 WiFi 下 <code class="icode">ping broker.emqx.io</code> 看域名解析是否正常；再换成 <code class="icode">test.mosquitto.org</code> 试一次，如果两台都连不上，基本就是网络出口限制了 1883，可用手机热点验证。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">连上几十秒就掉线：串口反复出现 [MQTT] 正在连接 ... 成功，然后 state()=-3</div>
+            <p><b class="font-semibold">原因：</b>这是本文最想让你避开的一个坑。<b class="font-semibold">主循环里没有调用 <code class="icode">client.loop()</code></b>，或者某处用了 <code class="icode">delay(5000)</code>、<code class="icode">while</code> 死等之类的阻塞代码，导致心跳 PINGREQ 发不出去。Broker 在 1.5 倍 keepAlive（默认 22.5 秒）没收到任何包，就单方面断开连接。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>确认 <code class="icode">loop()</code> 每次循环都会执行到 <code class="icode">client.loop()</code>；把所有长延时改成 <code class="icode">millis()</code> 差值判断；确认没有在 <code class="icode">loop()</code> 里出现 <code class="icode">while(1)</code> 之类的死循环。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">两块板子轮流掉线：A 连上几秒后 B 掉，然后 B 又连上、A 掉</div>
+            <p><b class="font-semibold">原因：</b>两块板子用了同一个 <b class="font-semibold">clientId</b>。MQTT 规范要求 Broker 发现相同 clientId 的新连接时，必须把旧连接断掉——所以它们会互相「踢下线」。同理，电脑端 MQTTX 如果填了和板子一样的 clientId，也会把板子踢掉。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>用芯片 MAC 派生唯一 ID（本页代码的 <code class="icode">ESP.getEfuseMac()</code> 就是这么做的），每台设备都不一样；客户端软件的 clientId 也让它自动生成。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">编译报错：fatal error: PubSubClient.h: No such file or directory</div>
+            <p><b class="font-semibold">原因：</b>库没有安装，或者装到了别的路径下（比如手动下载压缩包解压到了错误目录）。Arduino 只会搜索「项目文件夹/libraries」和系统的 sketchbook 库目录。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>用 <b class="font-semibold">工具 → 管理库</b>搜索 <code class="icode">PubSubClient</code> 在线安装，装完重启 IDE。如果坚持手动安装，解压后的文件夹名必须是 <code class="icode">PubSubClient</code>，不能是 <code class="icode">PubSubClient-master</code> 这种带后缀的名字。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">发布失败：publish() 返回 false，串口显示发送不出去（上报忽有忽无）</div>
+            <p><b class="font-semibold">原因：</b>PubSubClient 内部有一块固定大小的收发缓冲，宏 <code class="icode">MQTT_MAX_PACKET_SIZE</code> 默认只有 <b class="font-semibold">256 字节</b>。你发的 JSON 一旦超过这个长度，库会直接拒绝发送并返回 <code class="icode">false</code>。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>优先精简 payload（去掉多余的字段名）；确实需要长报文时，在 <code class="icode">setup()</code> 里调用 <code class="icode">client.setBufferSize(512);</code>（PubSubClient 2.7 以上支持），并注意这会多占宝贵的 RAM。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">订阅了却收不到消息：客户端订阅 mcustudy/# 一条都没有</div>
+            <p><b class="font-semibold">原因：</b>按可能性排序——一是 <code class="icode">subscribe()</code> 写在了连接成功之前，或者只在 <code class="icode">setup()</code> 里调用一次、重连之后忘了重新订阅；二是主题大小写或层级不一致；三是订阅时用了 <code class="icode">#</code> 但发布端发到了以 <code class="icode">/</code> 开头的主题上，空的第一层让通配符匹配不到。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>把 <code class="icode">subscribe()</code> 放进 <code class="icode">reconnect()</code> 里（每次连上都订阅一遍）；在串口里把发布和订阅的主题名都打印出来逐字符对比；先统一去掉主题开头的斜杠。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">公共 Broker 本身的不确定性</div>
+            <p>
+              如果你已经排除了上面所有可能，仍然每隔几十分钟断一次，那大概率不是你的问题：
+              <code class="icode">broker.emqx.io</code> 和 <code class="icode">test.mosquitto.org</code>
+              是给全世界练手用的公共服务器，会重启、会限流、偶尔丢包。
+              正确的做法不是加长重连逻辑去硬扛，而是<b class="font-semibold">承认它不可靠</b>：
+              代码里只要有「检测断线 + 限流重连 + 重连后重新订阅」这三件套，就能自愈。
+              做正式项目时，请换成自己部署的 EMQX / Mosquitto 或商业云平台的接入点。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇把 ESP32 从「连上 WiFi 的孤岛」变成了「能被远程控制的节点」。
+            核心链路只有四步：连 WiFi → 连 Broker → 订阅主题 → 在主循环里持续跑
+            <code class="icode">client.loop()</code>。
+            真正需要记住的知识点有三个：<b class="font-semibold text-ink">MQTT 是推模型，比轮询省电</b>；
+            <b class="font-semibold text-ink">Topic 决定谁能收到，clientId 决定谁在线</b>；
+            以及 <b class="font-semibold text-ink">client.loop() 不跑，连接必掉</b>。
+          </p>
+
+          <p class="mt-3">
+            排错时也有一套固定顺序：先看 WiFi 有没有通（串口第一行），再看 MQTT 有没有连上（<code class="icode">client.state()</code>），
+            再看订阅有没有成功，最后才怀疑业务代码。这个顺序能帮你跳过大半的无效折腾。
+          </p>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold">把状态改成 retained + 上电即读。</b>
+                现在的代码已经用 retained 发布状态了，请验证它：先把板子断电，在电脑端订阅
+                <code class="icode">mcustudy/#</code> 并等待，你会发现一连上就立刻收到最后一条
+                <code class="icode">led=on</code>——这条消息不是板子发的，而是 Broker 保存下来补发的。
+                想清楚：这个特性适合解决什么实际问题（提示：手机 App 打开时不知道灯是开还是关）。
+              </li>
+              <li>
+                <b class="font-semibold">加一个本地按键，做双向同步。</b>
+                在 GPIO0 上接一个按键到 GND，按下时翻转 LED，并立刻把新状态
+                <code class="icode">publish</code> 到状态主题。然后用电脑端观察：远程控制和本地按键会不会打架？
+                想一想 real-world 里怎么处理这种「两边同时改一个状态」的冲突。
+              </li>
+              <li>
+                <b class="font-semibold">做一次 QoS 对比实验。</b>
+                把订阅和发布的 QoS 分别改成 0 和 1，在发送指令的瞬间拔掉 ESP32 的电源再插回，
+                统计各 20 次里有多少次指令没有生效。用数据回答：控制指令该用哪个等级？
+                顺便试试 QoS 2，看看延迟有没有肉眼可见的变化。
+              </li>
+              <li>
+                <b class="font-semibold">（进阶）用遗嘱消息做一个在线状态面板。</b>
+                保持遗嘱内容为 <code class="icode">offline</code>、上线通告为 <code class="icode">online</code>，
+                都发到同一个主题；写一个简单的电脑端脚本或使用在线客户端，统计 5 分钟内板子的上下线次数。
+                如果次数异常多，回到排错表里找原因——这本身就是一套真实可用的设备健康监测。
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-sensor.html">DHT11 / DS18B20 传感器读取</a>——给这个 MQTT 节点装上「感官」，上报的就不再是假状态，而是真实温度。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-remote.html">综合项目：ESP32 蓝牙遥控器</a>——不用路由器、不用 Broker，手机直连即可控制的另一条链路。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="../esp32.html#c-wifi">WiFi 连接与 STA 模式</a>——如果前面的配网步骤还不熟，先回去补这一节。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="esp32-bt.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">蓝牙串口通信</p>
+          </a>
+          <a href="esp32-sensor.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">DHT11 / DS18B20 传感器读取</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

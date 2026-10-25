@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARM Cortex-M 与 STM32 架构 - McuStudy</title>
+  <meta name="description" content="STM32 基础地基第一篇：ARM 只设计内核不生产芯片的授权模式、Cortex-M3 内核与 Thumb-2 指令集、AHB/APB1/APB2 总线矩阵、4GB 存储器映射为什么外设也是一个地址、STM32F103C8T6 资源清单、中断向量表与启动流程，以及与 51 的关键差异对照。">
+  <meta name="keywords" content="ARM是什么,Cortex-M3,STM32架构,存储器映射,总线矩阵,AHB APB,中断向量表,启动流程,Reset_Handler,STM32F103C8T6,与51区别">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="stm32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../stm32.html" class="hover:text-brand-600 dark:hover:text-brand-300">STM32</a>
+          <span>/</span>
+          <span class="text-muted">ARM 架构与存储器映射</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          ARM Cortex-M 与 STM32 架构
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          从 51 转到 STM32，第一件让人发懵的事是：手册里写着「使能 GPIOC 时钟」，可 GPIOC 到底是什么？它在哪？为什么写一个地址就能点亮一盏灯？这一篇把 STM32 的「地基」铺出来——ARM 公司卖的是内核不是芯片、Cortex-M3 内核里有什么、AHB/APB 总线各挂谁、4GB 地址空间怎么切块、外设为什么是「映射到地址上的」、复位后 CPU 第一条指令从哪取。学完这一篇，再看 CubeMX 生成的那些代码，你会知道每一行背后动的是哪块硬件。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">芯片：<b>STM32F103C8T6</b></span>
+          <span class="stat-pill">工具：<b>Keil MDK5 + CubeMX</b></span>
+          <span class="stat-pill">阅读约 <b>18</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-what-is-arm">ARM 到底是什么公司</a>
+          <a class="toc-link is-sub" href="#sub-cortex-m3">Cortex-M3 内核里有什么</a>
+          <a class="toc-link is-sub" href="#sub-bus">总线矩阵：AHB / APB1 / APB2</a>
+          <a class="toc-link is-sub" href="#sub-memory-map">存储器映射（重点）</a>
+          <a class="toc-link is-sub" href="#sub-peripheral">外设概览与资源清单</a>
+          <a class="toc-link is-sub" href="#sub-vector">中断向量表与 NVIC</a>
+          <a class="toc-link is-sub" href="#sub-boot">上电启动流程</a>
+          <a class="toc-link is-sub" href="#sub-vs-51">与 51 的关键差异</a>
+          <a class="toc-link" href="#sec-hardware">硬件资源说明</a>
+          <a class="toc-link is-sub" href="#sub-board">蓝药丸最小系统板</a>
+          <a class="toc-link is-sub" href="#sub-boot-pin">BOOT0 / BOOT1 跳线</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-vector-code">启动文件里的向量表</a>
+          <a class="toc-link is-sub" href="#sub-reg-code">纯寄存器点灯</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-what-is-arm">ARM 到底是什么公司</a>
+            <a class="toc-link is-sub" href="#sub-cortex-m3">Cortex-M3 内核里有什么</a>
+            <a class="toc-link is-sub" href="#sub-bus">总线矩阵：AHB / APB1 / APB2</a>
+            <a class="toc-link is-sub" href="#sub-memory-map">存储器映射（重点）</a>
+            <a class="toc-link is-sub" href="#sub-peripheral">外设概览与资源清单</a>
+            <a class="toc-link is-sub" href="#sub-vector">中断向量表与 NVIC</a>
+            <a class="toc-link is-sub" href="#sub-boot">上电启动流程</a>
+            <a class="toc-link is-sub" href="#sub-vs-51">与 51 的关键差异</a>
+            <a class="toc-link" href="#sec-hardware">硬件资源说明</a>
+            <a class="toc-link is-sub" href="#sub-board">蓝药丸最小系统板</a>
+            <a class="toc-link is-sub" href="#sub-boot-pin">BOOT0 / BOOT1 跳线</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-vector-code">启动文件里的向量表</a>
+            <a class="toc-link is-sub" href="#sub-reg-code">纯寄存器点灯</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">先给这一篇定个位置。你已经会用 51 单片机：知道 <code class="icode">P1 = 0xFE</code> 能让某个引脚变低，知道寄存器就是「芯片里存着的一个字节」。STM32 让人不适应的地方在于——它的手册不再提 <code class="icode">P1</code> 这种好记的名字，而是满篇的 <code class="icode">0x40011000</code>、<code class="icode">RCC-&gt;APB2ENR</code>、<code class="icode">AHB</code>、<code class="icode">NVIC</code>。这些词看着吓人，其实背后只有一句话：</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">一句话概括 STM32 的硬件结构</div>
+            <p>STM32 = <b class="font-semibold">一颗 ARM 设计的内核</b> + <b class="font-semibold">ST 公司自己加的一堆外设</b>，它们全部挂在几条总线上，每个外设的每个寄存器都占有内存地址空间里的一个位置，你写 C 代码的「赋值」，硬件上就是往那个地址写了一个数。</p>
+          </div>
+
+          <h3 id="sub-what-is-arm" class="mt-7 text-base font-semibold">ARM 到底是什么公司：只卖图纸，不卖芯片</h3>
+          <p class="mt-3">这是新手最容易误会的一点。你手里那块印着 <b>STM32F103C8T6</b> 的芯片，<b class="font-semibold text-ink">不是 ARM 公司生产的</b>，是 ST（意法半导体）生产的。那 ARM 做了什么？</p>
+          <p class="mt-3">用造车打个比方：ARM 是一家<b class="font-semibold text-ink">只设计发动机图纸</b>的公司，它自己不建工厂、不卖整车。它把发动机图纸授权给全世界的车厂：ST 拿去做成 STM32，NXP 拿去做成 LPC，兆易创新拿去做成 GD32，树莓派基金会拿去做成 RP2040。所以你会看到一批「内核都是 ARM、外设各不相同」的芯片，它们互相不能直接跑对方的代码，但内核那一层的规则是一样的。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="内核 vs 外设：谁做了什么">
+            <pre><code>┌──────────────────────────────────────────────────────────────┐
+│                     一块 STM32F103C8T6                        │
+│                                                              │
+│   ┌────────────────────────┐   ┌──────────────────────────┐  │
+│   │  ARM 提供的「内核」      │   │  ST 提供的外设            │  │
+│   │  Cortex-M3 core         │   │  GPIO / USART / TIM ...   │  │
+│   │                        │   │                          │  │
+│   │  · 运算器 ALU           │   │  · 每个外设 = 一堆寄存器   │  │
+│   │  · 通用寄存器 R0~R15    │◄──┤  · 挂在 AHB / APB 总线上  │  │
+│   │  · 指令译码与执行        │总线│  · 引脚电平由它驱动       │  │
+│   │  · NVIC 中断控制器       │   │  · 数据手册是 ST 写的      │  │
+│   │  · SysTick 系统滴答      │   │                          │  │
+│   │  · 总线接口 BusMatrix   │   │                          │  │
+│   └────────────────────────┘   └──────────────────────────┘  │
+│                                                              │
+│   内核手册叫《Cortex-M3 权威指南》（ARM 出的）                  │
+│   外设手册叫《STM32F10xxx 参考手册 RM0008》（ST 出的）          │
+│   ——两份手册，两拨人写，这解释了为什么资料看起来是两套体系        │
+└──────────────────────────────────────────────────────────────┘</code></pre>
+          </div>
+
+          <p class="mt-3">理解这一点有两个实际好处：① 以后查资料时，凡是讲「中断优先级分组、SysTick、内核寄存器」的，一定在 ARM 那份文档里；凡是讲「GPIO 模式、串口波特率」的，一定在 ST 那份文档里。② 你换一颗同样是 Cortex-M3 的芯片（比如 GD32F103），内核相关的知识完全可迁移，只需重新学外设。</p>
+
+          <h3 id="sub-cortex-m3" class="mt-7 text-base font-semibold">Cortex-M3 内核里有什么：72MHz、哈佛结构、流水线、Thumb-2</h3>
+          <p class="mt-3">STM32F103 系列用的内核叫 <b class="font-semibold text-ink">Cortex-M3</b>，最高主频 <b>72MHz</b>。下面四个词是手册里的高频词，逐个解释：</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">32 位</b>——内核一次能处理 32 个二进制位（4 字节）的数据。51 是 8 位的，一次只能处理 8 位，要算一个 32 位数得拆成 4 次，这是 STM32 快的根本原因之一。</li>
+            <li><b class="font-semibold text-ink">哈佛结构</b>——指的是「指令」和「数据」走两条不同的总线，可以同时取。对比 51 那类「冯·诺依曼结构」：它取指令和读数据共用一条通道，同一时刻只能干一件事。打个比方，哈佛结构像图书馆同时开了「借书窗口」和「还书窗口」，冯·诺依曼只有一个窗口要排队。Cortex-M3 实际采用改进的哈佛结构：内核通过 I-Code 总线取指令、通过 D-Code 总线读数据，两者可并行，所以同一个时钟周期里能「一边取下一条指令、一边读操作数」。</li>
+            <li><b class="font-semibold text-ink">指令流水线</b>——把「取指令 → 译码 → 执行」拆成三级流水线，像工厂流水线一样，第一条指令在执行时，第二条正在译码，第三条已经在取了。结果是绝大多数指令能做到平均每个时钟周期执行一条（接近 1 MIPS/MHz）。51 完成一条指令平均要 12 个时钟周期，这就是差距的来源。</li>
+            <li><b class="font-semibold text-ink">Thumb-2 指令集</b>——ARM 有两种指令编码：32 位宽的 ARM 指令和 16 位宽的 Thumb 指令。Thumb-2 把两者混在一起用：常用的简单指令编成 16 位（省 Flash 空间），复杂指令用 32 位（功能全）。你不需要手写汇编，但要知道：<b class="font-semibold">Keil 编译出来的机器码里，大部分指令只占 2 字节</b>，所以 64KB Flash 能装下的代码比你想的多。</li>
+          </ul>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">72MHz 到底比 51 的 12MHz 快多少</div>
+            <p>不能只比频率数字，要乘上「每个时钟周期能干多少活」。51（STC89C52RC，12MHz 晶振）：大多数指令要 12 个时钟周期，折合 <b>约 1 MIPS</b>（每秒一百万条指令）。STM32F103（72MHz，Cortex-M3）：多数指令 1 个周期，折合 <b>约 72 MIPS</b>。再乘上「一条指令能处理的数据宽度」——51 是 8 位、STM32 是 32 位，差了 4 倍。两个因素叠起来，做 32 位数据处理时 STM32 相对 51 有几十倍的差距，这就是为什么 51 跑不动彩屏、跑不动 FFT，而 STM32 可以。</p>
+          </div>
+
+          <h3 id="sub-bus" class="mt-7 text-base font-semibold">总线矩阵：AHB、APB1、APB2 分别挂什么</h3>
+          <p class="mt-3">「总线」这个词听起来抽象，其实它就是<b class="font-semibold text-ink">芯片内部的一组公共导线</b>，相当于公司里的一条走廊，所有部门（外设）的门都开在这条走廊上，内核要跟谁打交道，就走到谁门口。芯片内部不止一条走廊，而是分了快慢两档：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>总线名</th><th>全称与含义</th><th>F103 上的最高频率</th><th>挂在上面的东西</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">AHB</td><td>Advanced High-performance Bus，高性能总线</td><td class="font-mono text-xs">72 MHz</td><td>内核取指、SRAM、Flash 接口、DMA、RCC 时钟控制器、复位控制器</td></tr>
+                <tr><td class="font-mono text-xs">APB2</td><td>Advanced Peripheral Bus 2，高速外设总线</td><td class="font-mono text-xs">72 MHz</td><td>GPIOA~GPIOE、AFIO、EXTI、USART1、SPI1、ADC1/2、TIM1</td></tr>
+                <tr><td class="font-mono text-xs">APB1</td><td>Advanced Peripheral Bus 1，低速外设总线</td><td class="font-mono text-xs">36 MHz</td><td>USART2/3、I2C1/2、SPI2、TIM2~TIM4、看门狗、电源管理、备份寄存器、USB、CAN</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">为什么要分成两条 APB 而不是全挂一起？因为<b class="font-semibold text-ink">外设的「手速」差别很大</b>。GPIO 要跟着内核跑，翻转越快越好；而 I2C 总线本身最高才 400kHz，看门狗更是几秒钟才动一次，把它们和 GPIO 放在同一条总线上，等于让一条走廊里既有百米冲刺的又有散步的，快的会被拖慢。分开挂，各自按需要的速度跑，同时低速那条总线可以用更低的频率工作、更省电。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这件事和后面「配时钟」直接相关</div>
+            <p>记住这张表，你就能解释后面会反复遇到的一个问题：<b class="font-semibold">为什么时钟树里要分别配置 AHB、APB1、APB2 三个分频器？</b>因为它们本来就是三条独立的总线，各跑各的频率。也正因为 USART1 在 APB2（72MHz）而 USART2 在 APB1（36MHz），同样写 115200 的波特率，两个外设算出来的分频值完全不同——这就是「同一个波特率、USART1 正常而 USART2 乱码」的根源。</p>
+          </div>
+
+          <h3 id="sub-memory-map" class="mt-7 text-base font-semibold">存储器映射：4GB 地址空间是怎么切块的（本节重点）</h3>
+          <p class="mt-3">这一节是整篇的核心概念，看懂它，STM32 手册里那些吓人的十六进制地址就全都讲得通了。</p>
+          <p class="mt-3">先建立第一个认知：<b class="font-semibold text-ink">Cortex-M3 是 32 位内核，它能发出的地址是 32 位</b>，也就是从 <code class="icode">0x00000000</code> 到 <code class="icode">0xFFFFFFFF</code>，一共 2³² = 4294967296 个地址，即 <b>4GB</b>（每 1GB = 2³⁰ 字节）。这 4GB 并不是都装了东西，ARM 在规范里把它<b class="font-semibold text-ink">预先划分</b>成若干区块，规定「哪一段该放什么」。这个规定就叫<b class="font-semibold text-ink">存储器映射（Memory Map）</b>。</p>
+          <p class="mt-3">第二个认知更关键：<b class="font-semibold text-ink">外设不是「另外的东西」，它就是一段地址。</b>你在 51 上写 <code class="icode">P1 = 0xFE;</code>，编译器把 <code class="icode">0x90</code>（P1 的字节地址）翻译成一条写指令。STM32 完全一样，只是地址变成了 32 位，而「GPIOB 的输出数据寄存器」这个位置，它的地址是 <code class="icode">0x40010C0C</code>。你写 <code class="icode">GPIOB-&gt;ODR = 0xFE;</code>，编译出来的就是「往 0x40010C0C 写 0xFE」。硬件那边有一块地址解码电路盯着这个地址：发现是 0x40010C0C，就把数据送给 GPIOB 的输出锁存器。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">类比：旅馆房间号</div>
+            <p>把 4GB 地址空间想成一栋巨大的旅馆，房间号从 0 编到 4294967295。ARM 规定：0 楼那一大片给「程序存储（Flash）」，2 号楼那片给「内存（SRAM）」，4 号楼那片留给「外设」。ST 拿到这个规定后，把 GPIOA 安排在 4 号楼的 0x40010800 号房间，把 RCC 安排在 0x40021000 号房间。你写 <code class="icode">RCC-&gt;APB2ENR |= 0x10;</code>，就是「往 0x40021018 号房间送一个值」，那个房间里住着时钟控制器，它收到后就把 GPIOC 的时钟打开了。<b class="font-semibold">「寄存器」= 有门牌号的房间；「外设」= 一群连着的房间。</b></p>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="Cortex-M3 的 4GB 地址空间总划分（ARM 规定）">
+            <pre><code>地址范围                 大小      用途                         F103C8T6 上实际放了什么
+─────────────────────────────────────────────────────────────────────────────────────
+0x0000 0000 ─┐
+             │ 512MB   Code 代码区（取指、取向量表）    Flash 的别名区，复位后从这里启动
+0x1FFF FFFF ─┘                                       （可通过 BOOT 引脚换成系统存储器）
+0x2000 0000 ─┐
+             │ 512MB   SRAM 片上内存区                 20KB SRAM（0x2000 0000 ~ 0x2000 4FFF）
+0x3FFF FFFF ─┘                                       变量、栈都在这里
+0x4000 0000 ─┐
+             │ 512MB   Peripheral 外设区               所有外设寄存器都在这一段
+0x5FFF FFFF ─┘                                       GPIOA 在 0x40010800，RCC 在 0x40021000
+0x6000 0000 ─┐
+             │ 512MB   External RAM 外部内存           做项目外扩 SRAM/PSRAM 时用
+0x7FFF FFFF ─┘                                       F103C8T6 用不到，属保留
+0x8000 0000 ─┐
+             │ 512MB   External Device 外部设备        接 LCD 控制器一类的并行外设
+0x9FFF FFFF ─┘                                       F103C8T6 用不到
+0xA000 0000 ─┐
+             │ 1GB     External RAM 外部内存（大块）    更大型系统的外扩内存区
+0xDFFF FFFF ─┘                                       F103C8T6 用不到
+0xE000 0000 ─┐
+             │ 1MB     内核私有外设区 PPB               NVIC、SysTick、系统控制块 SCB
+0xE00F FFFF ─┘                                       这些属于「内核」不属于 ST，归 ARM 管
+0xE010 0000 ─┐
+             │ 511MB   厂商自定义区                     ST 保留，未公开
+0xFFFF FFFF ─┘
+─────────────────────────────────────────────────────────────────────────────────────
+记忆锚点：看到 0x4000 开头 = 外设；0x2000 开头 = 内存；0x0800 开头 = Flash；
+         0xE000 开头 = 内核自己的东西（NVIC / SysTick）。</code></pre>
+          </div>
+
+          <p class="mt-3">这里出现一个必须解释的小细节：上表说 Code 区从 <code class="icode">0x00000000</code> 开始，但 STM32 的 Flash 明明是从 <code class="icode">0x08000000</code> 开始的。原因是 ST 做了<b class="font-semibold text-ink">地址重映射（remap）</b>：芯片里真实的 Flash 物理地址是 <code class="icode">0x08000000</code> 起，但为了让复位后 CPU 从 0 地址取向量表也能取到 Flash 的内容，ST 让 <code class="icode">0x00000000</code> 这一段变成 Flash 的「镜像」——访问 0x00000000 实际访问的是 0x08000000。这样做的好处是：改变 BOOT 引脚，就能让 0x00000000 镜像到「系统存储器（出厂 Bootloader）」或「SRAM」，实现「不拆板子也能换启动方式」。</p>
+
+          <h3 id="sub-peripheral" class="mt-7 text-base font-semibold">外设概览：STM32F103C8T6 到底有哪些资源</h3>
+          <p class="mt-3">外设（Peripheral）指的是<b class="font-semibold text-ink">内核之外、ST 加在芯片里、能独立完成某件事的功能模块</b>。它之所以叫「外」是因为它在内核外面，而不是因为它在你板子外面——它们全都长在同一颗芯片的硅片上。</p>
+          <p class="mt-3">每个外设都由两部分组成：<b class="font-semibold text-ink">一组寄存器</b>（你写代码操作的对象，挂在总线上、有地址）和<b class="font-semibold text-ink">一组引脚</b>（对外连接的物理管脚，焊在芯片边上）。比如 USART1 这个外设：内部有「数据寄存器」「波特率寄存器」「控制寄存器」，外部占用了 PA9（发送）和 PA10（接收）两个引脚。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>外设</th><th>它是干什么的</th><th>STM32F103C8T6 上有几个</th><th>常见用途</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">GPIO</td><td>通用输入输出口，把引脚设成高电平/低电平，或读回引脚上的电平</td><td>37 个可用 I/O（PA0~PA15、PB0~PB15、PC13~PC15）</td><td>点灯、按键、驱动继电器、软件模拟时序</td></tr>
+                <tr><td class="font-mono text-xs">USART</td><td>通用同步/异步收发器，也就是常说的「串口」</td><td>3 个（USART1 在 APB2，USART2/3 在 APB1）</td><td>打印调试信息、和蓝牙/WiFi 模块通信、接上位机</td></tr>
+                <tr><td class="font-mono text-xs">TIM</td><td>定时器，能按精确的时间间隔做事，也能输出 PWM 波</td><td>4 个（TIM1 高级定时器，TIM2/3/4 通用定时器，均为 16 位）</td><td>精确定时、PWM 调光调速、输入捕获测频率</td></tr>
+                <tr><td class="font-mono text-xs">ADC</td><td>模数转换器，把引脚上的电压变成一个数字</td><td>2 个 12 位 ADC，共 10 个外部通道</td><td>读电位器、测电池电压、接光敏电阻</td></tr>
+                <tr><td class="font-mono text-xs">I2C</td><td>一种只用两根线的总线，一根数据一根时钟</td><td>2 个（I2C1、I2C2）</td><td>接 OLED 屏、EEPROM、温湿度传感器</td></tr>
+                <tr><td class="font-mono text-xs">SPI</td><td>比 I2C 快的四线总线，一主多从</td><td>2 个（SPI1 在 APB2，SPI2 在 APB1）</td><td>接 TFT 彩屏、SD 卡、无线模块</td></tr>
+                <tr><td class="font-mono text-xs">DMA</td><td>直接存储器访问：不经过 CPU，自己把数据从一处搬到另一处</td><td>1 个控制器，7 个通道</td><td>串口大批量收数据、ADC 连续采样、刷屏</td></tr>
+                <tr><td class="font-mono text-xs">USB / CAN</td><td>USB 2.0 全速设备接口 / CAN 总线控制器</td><td>各 1 个（两者共用同一块 512 字节缓冲 SRAM，不能同时用）</td><td>做 USB 键盘、HID 设备；汽车与工业现场总线</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">另外还有几个「不用配置、上电就在」的：<b class="font-semibold text-ink">RCC</b>（复位与时钟控制，管全芯片的时钟）、<b class="font-semibold text-ink">FLASH 接口</b>（管 Flash 的读写与等待周期）、<b class="font-semibold text-ink">PWR</b>（电源管理，管睡眠/停机/待机三种低功耗模式）、<b class="font-semibold text-ink">AFIO</b>（复用功能与重映射，管「这个引脚到底归哪个外设用」）。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">型号里的学问：C8T6 是什么意思</div>
+            <p><code class="icode">STM32F103C8T6</code> 每个字段都有含义：<b>STM32</b> = ST 的 32 位 MCU 系列；<b>F</b> = 基础型（Foundation）；<b>103</b> = 具体子系列（F103 属于「增强型」，带 USB 和 CAN）；<b>C</b> = 引脚数 48 脚（LQFP48）；<b>8</b> = Flash 容量 64KB；<b>T</b> = 封装 LQFP；<b>6</b> = 工业级温度范围 −40℃~85℃。换一个字母含义就全变，比如 <code class="icode">STM32F103RCT6</code> 是 64 脚、256KB Flash，外设数量也不一样（它才有 TIM5/6/7）。所以抄例程前先对一下型号。</p>
+          </div>
+
+          <h3 id="sub-vector" class="mt-7 text-base font-semibold">中断向量表与 NVIC：谁在什么情况下叫醒 CPU</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">中断</b>是指：CPU 正在执行主程序，硬件突然有事要报告（比如串口收到一个字节、定时器数到了零），于是 CPU <b>暂停</b>当前的工作，跳去执行一段专门的代码（叫<b class="font-semibold text-ink">中断服务函数</b>），处理完再回到刚才暂停的地方继续。它解决的是「CPU 不可能一直盯着所有外设」的问题——没有中断，你就得在主循环里不停轮询，既浪费算力又容易漏掉信号。</p>
+          <p class="mt-3">那么 CPU 被叫醒后该跳到哪一行代码？这就需要一个<b class="font-semibold text-ink">地址清单</b>：「串口1 收到数据 → 跳到地址 A；定时器2 溢出 → 跳到地址 B……」。这份清单就叫<b class="font-semibold text-ink">中断向量表（Vector Table）</b>。「向量」在这里是「入口地址」的意思，不是什么数学向量。表本身是一串 4 字节的地址，从 <code class="icode">0x00000000</code> 开始一个挨一个排好。第 0 项是「初始栈顶地址」而不是函数地址（这是 Cortex-M 的特殊设计，下一节会讲），第 1 项是复位入口，之后依次是各种异常的入口。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="中断向量表的排布规则（Cortex-M3 规定）">
+            <pre><code>偏移量     内容                    说明
+──────────────────────────────────────────────────────────────────
+0x00    初始栈顶地址 SP           不是函数！是栈指针的初值，见下一节
+0x04    Reset_Handler            复位后第一条指令的入口（最重要）
+0x08    NMI_Handler              不可屏蔽中断（外部硬件严重故障）
+0x0C    HardFault_Handler        硬件错误：访问了非法地址、除零、栈溢出…
+0x10    MemManage_Handler        内存管理错误（F103 上基本用不到）
+0x14    BusFault_Handler         总线错误
+0x18    UsageFault_Handler       用法错误（执行了非法指令）
+0x1C~0x28  保留
+0x2C    SVC_Handler              软件触发的中断（RTOS 用来切换任务）
+0x30    DebugMon_Handler         调试监视
+0x34    保留
+0x38    PendSV_Handler           可挂起的系统调用（RTOS 上下文切换用）
+0x3C    SysTick_Handler          系统滴答定时器中断
+──────────────────────────────────────────────────────────────────
+0x40 起  外设中断，由 ST 排列。F103 的常见几项：
+0x40    WWDG_IRQHandler          窗口看门狗
+0x44    PVD_IRQHandler           电源电压监测
+0x58    EXTI0_IRQHandler         外部中断线 0（PA0/PB0/PC0…）
+0x5C    EXTI1_IRQHandler         外部中断线 1
+0x60    EXTI2_IRQHandler
+0x64    EXTI3_IRQHandler
+0x68    EXTI4_IRQHandler
+0x9C    EXTI9_5_IRQHandler       外部中断线 5~9 共用一个入口
+0xC4    TIM2_IRQHandler          定时器 2
+0xD0    TIM3_IRQHandler
+0xD4    TIM4_IRQHandler
+0xD8    I2C1_EV_IRQHandler
+0xDC    I2C1_ER_IRQHandler
+0xE0    I2C2_EV_IRQHandler
+0xE4    I2C2_ER_IRQHandler
+0xE8    SPI1_IRQHandler
+0xEC    SPI2_IRQHandler
+0xF0    USART1_IRQHandler
+0xF4    USART2_IRQHandler
+0xF8    USART3_IRQHandler
+0xFC    EXTI15_10_IRQHandler     外部中断线 10~15 共用一个入口
+0x100   RTCAlarm_IRQHandler
+0x104   USBWakeUp_IRQHandler
+0x108   TIM1_BRK_IRQHandler
+……（完整表见启动文件 startup_stm32f103xb.s，共约 60 项）</code></pre>
+          </div>
+
+          <p class="mt-3">谁来决定「现在能不能响应这个中断、要先响应哪一个」？答案是 <b class="font-semibold text-ink">NVIC（Nested Vectored Interrupt Controller，嵌套向量中断控制器）</b>。它在内核里面，属于 ARM 提供的那部分。它管三件事：① 每个中断有一个<b>开关</b>（使能位）和一个<b>优先级</b>；② 同时来了多个中断时，优先级高的先执行；③ 高优先级中断可以「插队」打断正在执行的低优先级中断，这叫<b>嵌套</b>。F103 的中断优先级用 4 个二进制位表示，可以分成 0~15 共 16 个等级，数值越小优先级越高。</p>
+          <p class="mt-3">最后说说 <b class="font-semibold text-ink">SysTick</b>：它是 NVIC 旁边的一个 24 位递减计数器，<b>属于内核而不属于 ST</b>，所以任何 Cortex-M 芯片上都有它，代码可移植。它的典型用法是配成「每 1 毫秒减到零 → 产生一次中断 → 中断里把一个全局变量加一」，这个全局变量就是「系统运行了多久」的计时器。HAL 库里那个 <code class="icode">HAL_Delay(500)</code> 就是靠它实现的：调用时记下当前计数，然后死等，直到计数增加 500 才返回。这也是为什么<b class="font-semibold">你没调用 <code class="icode">HAL_Init()</code>，<code class="icode">HAL_Delay()</code> 就会立刻返回、一点都不延时</b>——计时的心跳根本没启动。</p>
+
+          <h3 id="sub-boot" class="mt-7 text-base font-semibold">上电启动流程：从按下电源到进入 main()</h3>
+          <p class="mt-3">按下电源键（或按复位键）之后，到你的 <code class="icode">main()</code> 第一行被执行，中间发生了一串固定动作。理解它，你就能明白「为什么程序必须从 Flash 启动」「为什么全局变量有初始值而局部变量没有」这些平时想不通的问题。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="STM32 上电启动的六个步骤">
+            <pre><code>  ① 上电 / 复位
+      │  所有寄存器恢复默认值，外设时钟全部关闭
+      ▼
+  ② CPU 从 0x00000000 读出第 1 个 4 字节 → 送进 SP（栈指针）
+      │  注意：这一步是硬件自动做的，不执行任何指令
+      │  地址 0x00000000 的内容 = Flash 0x08000000 处的内容（重映射）
+      │  所以栈顶初值就是编译时算好的 __initial_sp
+      ▼
+  ③ CPU 从 0x00000004 读出第 2 个 4 字节 → 送进 PC（程序计数器）
+      │  这个地址指向的函数就是 Reset_Handler
+      │  PC 一旦被赋值，CPU 就开始取指令执行了 —— 程序活了
+      ▼
+  ④ 执行 Reset_Handler（在启动文件 startup_stm32f103xb.s 里）
+      │  它做四件事：
+      │    a. 调用 SystemInit()：配置时钟相关的基础寄存器
+      │    b. 把 .data 段从 Flash 拷贝到 SRAM   ← 有初值的全局变量靠它
+      │    c. 把 .bss  段在 SRAM 里全部清零     ← 没写初值的全局变量靠它
+      │    d. 调用 __main（C 库的入口），它最终调用你的 main()
+      ▼
+  ⑤ 进入 main()
+      │  此时 SRAM 已经按 C 语言规则准备就绪，栈指针指向 RAM 顶端
+      ▼
+  ⑥ 执行 HAL_Init() → SystemClock_Config() → MX_GPIO_Init() → while(1)
+         这一步是「你的程序」，前面五步是「芯片和工具链的事」</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么栈顶地址要放在第 0 项</div>
+            <p>51 复位后是「把 PC 设为 0，然后从 0 地址开始执行指令」，栈指针另外初始化。Cortex-M 换了个更巧的做法：反正复位后一定要从向量表取地址，那就顺手把第 0 项约定为<b>栈顶初值</b>——硬件读出来直接装进 SP 寄存器，连一条指令都不浪费。所以第 0 项如果被写成了某个函数地址，芯片一上电 SP 就指到一个莫名其妙的地址，第一次压栈就会进 HardFault。</p>
+          </div>
+
+          <p class="mt-3">再说一下 <code class="icode">.data</code> 和 <code class="icode">.bss</code>，这两个词在 Keil 的编译输出里天天出现。它们是「有初值的全局变量」和「没写初值的全局变量」两拨：</p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><code class="icode">uint8_t flag = 5;</code> 定义在函数外 —— 归入 <b>.data</b>。它的初值 5 必须存在 Flash 里（掉电不丢），但变量本体在 SRAM 里（运行时可改），所以启动时必须<b>从 Flash 拷贝到 SRAM</b>，这就是第 ④ 步 b 的动作。</li>
+            <li><code class="icode">uint8_t buf[128];</code> 定义在函数外 —— 归入 <b>.bss</b>。它没有初值，C 语言规定它应该是 0。如果 128 个字节的 0 都存进 Flash 太浪费，所以 Flash 里<b>只记录「有 128 字节需要清零」</b>，启动时在 SRAM 里清 128 个 0，这就是第 ④ 步 c。</li>
+            <li>函数内部的局部变量不在 .data/.bss 里，它们在<b>栈</b>上，所以<b class="font-semibold">局部变量不会有默认的 0</b>，初值是「上一个函数用完后留下的垃圾」。这就是为什么 HAL 的类型定义局部变量总写成 <code class="icode">GPIO_InitTypeDef GPIO_InitStruct = {0};</code>——手动清零。</li>
+          </ul>
+
+          <h3 id="sub-vs-51" class="mt-7 text-base font-semibold">与 51 的关键差异对照</h3>
+          <p class="mt-3">最后用一张表把 51 和 STM32 摆在一起，你就能看清「哪些旧知识能带过来、哪些必须重学」。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>51（STC89C52RC）</th><th>STM32F103C8T6</th><th>对你的影响</th></tr></thead>
+              <tbody>
+                <tr><td>内核位宽</td><td>8 位</td><td>32 位</td><td>int 直接是 32 位，不用再拆字节运算</td></tr>
+                <tr><td>主频</td><td>12MHz 晶振，多数指令 12 周期，约 1MIPS</td><td>72MHz，多数指令 1 周期，约 72MIPS</td><td>以前要精打细算的循环，现在随便写</td></tr>
+                <tr><td>寄存器命名</td><td>P0/P1/P2/P3、TMOD、TH0 等短名字，直接可写</td><td>没有短名字，用 <code class="icode">GPIOB-&gt;ODR</code> 这类结构体访问</td><td>要记住「外设名 + 寄存器名」这套写法</td></tr>
+                <tr><td>IO 配置方式</td><td>不用配！写 P1 就是操作引脚</td><td>必须先用 CRL/CRH 配置模式（输入/输出/复用），再操作</td><td>点亮第一盏灯前必须先学会配模式</td></tr>
+                <tr><td>时钟</td><td>外设默认就有时钟，不需要管</td><td>外设时钟默认<b>全部关闭</b>，必须手动开</td><td>最大的坑：忘开时钟会「零报错但完全不动」</td></tr>
+                <tr><td>中断写法</td><td><code class="icode">void INT0_ISR() interrupt 0</code>，靠关键字</td><td>函数名必须与向量表一致，如 <code class="icode">EXTI0_IRQHandler</code></td><td>名字拼错就静默不执行，没有编译错误</td></tr>
+                <tr><td>开发方式</td><td>Keil C51 + 烧写器 / STC-ISP 串口下载</td><td>Keil MDK（ARM 版）+ CubeMX + ST-Link 的 SWD 下载</td><td>编译器换了，工程结构也换了</td></tr>
+                <tr><td>位操作</td><td>支持位寻址，可以写 <code class="icode">P1^0 = 1</code></td><td>不支持位寻址，用「读改写」或 BSRR/BRR 寄存器</td><td>要习惯用掩码 <code class="icode">|=</code> / <code class="icode">&amp;= ~</code> 操作单个位</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件资源说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件资源说明</h2>
+          <p class="mt-4">这一节把后面所有例程要用到的板载资源一次性交代清楚。你手上那块「蓝药丸」（Blue Pill）是一块最小系统板，意思是：它把芯片正常工作所必需的东西都焊好了，插上 USB 就能跑，但没给你额外的传感器和屏幕。</p>
+
+          <h3 id="sub-board" class="mt-7 text-base font-semibold">蓝药丸最小系统板上有什么</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="STM32F103C8T6 蓝药丸板载资源示意">
+            <pre><code>                ┌──────────────────────────────────────────────┐
+                │  ┌────────┐                    ┌──────────┐  │
+   USB 口 ──────┤  │ STM32  │   8MHz 晶振         │ 3.3V LDO │  │
+   （供电+串口   │  │F103C8T6│   ┌──┴──┐         │ 稳压芯片  ├──┤ 5V 引脚
+     两用，看板子 │  │ LQFP48 │   │ Y1  │         └──────────┘  │
+     版本）       │  └────────┘   └─────┘                        │
+                │      │  │                                       │
+                │      │  └── PC13 ──[ 470Ω ]── LED ── 3V3      │ ← 板载 LED
+                │      │                    （低电平点亮）        │
+                │      │                                          │
+                │   ┌──┴──┐   复位按键             BOOT 跳线      │
+                │   │RST键│   ┌────┐          ┌─ BOOT0 ─┐        │
+                │   └─────┘   │ 按键│          │ 1  0    │        │
+                │             └────┘          └─────────┘        │
+                │                              ┌─ BOOT1 ─┐        │
+                │                              │ 1  0    │        │
+                │                              └─────────┘        │
+                │  ┌────────────────────────────────────────────┐ │
+                │  │ 两侧各 20 针排针，引出了几乎所有 GPIO       │ │
+                │  │ 板上丝印：PA0~PA15 / PB0~PB15 / PC13~PC15  │ │
+                │  │ 另有 3V3、5V、GND、SWDIO、SWCLK、R 等脚    │ │
+                │  └────────────────────────────────────────────┘ │
+                └──────────────────────────────────────────────┘
+
+  注意：不同厂家的蓝药丸有细微差别。最常见的一种是「USART1 的 PA9/PA10
+        已经接到了板载的 USB 转串口芯片」，另一种则没有。买回来先用万用表
+        量一下 PA9 对 USB 座的数据脚通不通，或者干脆把 PA9/PA10 引出来外接
+        USB-TTL 模块，避免猜错。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>板载元件</th><th>连接的引脚 / 参数</th><th>作用</th></tr></thead>
+              <tbody>
+                <tr><td>主控芯片</td><td class="font-mono text-xs">STM32F103C8T6，LQFP48</td><td>64KB Flash、20KB SRAM、72MHz</td></tr>
+                <tr><td>板载 LED</td><td class="font-mono text-xs">PC13，串 470Ω 到 3V3</td><td>唯一一个不用接线就能看的现象，第一个程序就点它。<b>低电平点亮</b></td></tr>
+                <tr><td>复位按键</td><td class="font-mono text-xs">NRST → GND</td><td>按下把芯片复位，程序从头开始跑。下载后不运行，先按它</td></tr>
+                <tr><td>外部晶振</td><td class="font-mono text-xs">Y1，8MHz，接 PD0(OSC_IN) / PD1(OSC_OUT)</td><td>给系统提供精准时钟源，经 PLL 倍频到 72MHz</td></tr>
+                <tr><td>负载电容</td><td class="font-mono text-xs">两个 20pF，晶振两端各一个到 GND</td><td>帮助晶振起振并稳定频率。缺了可能不起振</td></tr>
+                <tr><td>LDO 稳压器</td><td class="font-mono text-xs">把 5V 降到 3.3V</td><td>USB 给的 5V 不能直接进芯片，芯片只吃 3.3V</td></tr>
+                <tr><td>BOOT 跳线</td><td class="font-mono text-xs">BOOT0、BOOT1 各 3 针（或 2 针）</td><td>决定复位后从哪里启动，见下一小节</td></tr>
+                <tr><td>USB 座</td><td class="font-mono text-xs">Micro-USB 或 Type-C</td><td>供电；部分板子兼作串口（内部接了 USB 转串口芯片）</td></tr>
+                <tr><td>SWD 调试口</td><td class="font-mono text-xs">PA13(SWDIO)、PA14(SWCLK)、GND、3V3</td><td>接 ST-Link 下载和调试</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-boot-pin" class="mt-7 text-base font-semibold">BOOT0 / BOOT1 跳线：决定芯片从哪读程序</h3>
+          <p class="mt-3">上一节讲的「地址重映射」就是靠这两个引脚控制的。芯片复位时会在第 ② 步之前先采样这两个引脚的电平，据此决定把 <code class="icode">0x00000000</code> 映射到哪块存储区：</p>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>BOOT0</th><th>BOOT1</th><th>0x00000000 映射到</th><th>结果</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">0</td><td class="font-mono text-xs">任意</td><td>主 Flash（0x08000000）</td><td><b>正常运行你的程序</b>。这是唯一正确的日常工作状态</td></tr>
+                <tr><td class="font-mono text-xs">1</td><td class="font-mono text-xs">0</td><td>系统存储器（出厂 Bootloader）</td><td>进 ST 出厂的串口下载程序，可以用串口烧录，但你的程序不会跑</td></tr>
+                <tr><td class="font-mono text-xs">1</td><td class="font-mono text-xs">1</td><td>片内 SRAM</td><td>从 RAM 启动，用于调试，掉电即失，日常不用</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">「程序下载成功了，但一点动静都没有」的第一嫌疑人</div>
+            <p>如果 <code class="icode">BOOT0</code> 的跳线帽插在 <b>1</b> 一侧，芯片会从系统存储器启动，去跑 ST 出厂的那个串口下载程序，<b class="font-semibold">你的代码根本不会被执行</b>——下载能成功（因为下载走的是 SWD，和 BOOT 无关），但现象是全无。拿到二手板子或刚焊好的板子，第一件事就是看一眼跳线帽在哪边。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+          <p class="mt-4">这一节不做功能花哨的东西，只做两件「看清地基」的事：先读一段真正的启动文件（就是上一节说的 <code class="icode">Reset_Handler</code> 所在的地方），再写一个<b class="font-semibold text-ink">完全不依赖 HAL 库的纯寄存器点灯程序</b>——用它来证明「HAL 底层干的其实就是这几行」。</p>
+
+          <h3 id="sub-vector-code" class="mt-7 text-base font-semibold">启动文件里的向量表长什么样</h3>
+          <p class="mt-3">下面这段摘自芯片包里的 <code class="icode">startup_stm32f103xb.s</code>（符号名都是真实的）。它是汇编文件，但你不需要会写汇编，只要看懂「前两项是什么、Reset_Handler 做了什么」就够了。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="startup_stm32f103xb.s 片段 —— 向量表与复位处理">
+            <pre><code>; ==================== 栈与堆的大小设置 ====================
+Stack_Size      EQU     0x00000400          ; 栈 1KB（0x400 = 1024 字节）
+
+                AREA    STACK, NOINIT, READWRITE, ALIGN=3
+Stack_Mem       SPACE   Stack_Size
+__initial_sp                                ; ← 这就是向量表第 0 项要用的栈顶地址
+
+Heap_Size       EQU     0x00000200          ; 堆 512 字节（malloc 用，一般用不到）
+
+; ==================== 中断向量表本体 ====================
+                AREA    RESET, DATA, READONLY
+                EXPORT  __Vectors
+
+__Vectors       DCD     __initial_sp        ; 0x00 栈顶地址（硬件直接装进 SP）
+                DCD     Reset_Handler       ; 0x04 复位入口（硬件装进 PC）
+                DCD     NMI_Handler         ; 0x08 不可屏蔽中断
+                DCD     HardFault_Handler   ; 0x0C 硬件错误
+                DCD     MemManage_Handler   ; 0x10
+                DCD     BusFault_Handler    ; 0x14
+                DCD     UsageFault_Handler  ; 0x18
+                DCD     0                   ; 0x1C 保留，填 0
+                DCD     0                   ; 0x20 保留
+                DCD     0                   ; 0x24 保留
+                DCD     0                   ; 0x28 保留
+                DCD     SVC_Handler         ; 0x2C
+                DCD     DebugMon_Handler    ; 0x30
+                DCD     0                   ; 0x34 保留
+                DCD     PendSV_Handler      ; 0x38
+                DCD     SysTick_Handler     ; 0x3C 系统滴答
+
+; ---- 下面是 ST 的外设中断，按 RM0008 的顺序排列 ----
+                DCD     WWDG_IRQHandler     ; 0x40
+                DCD     PVD_IRQHandler      ; 0x44
+                ...
+                DCD     EXTI0_IRQHandler    ; 0x58
+                ...
+                DCD     USART1_IRQHandler   ; 0xF0
+                DCD     USART2_IRQHandler   ; 0xF4
+
+; ==================== 复位处理函数 ====================
+                AREA    |.text|, CODE, READONLY
+                EXPORT  Reset_Handler
+Reset_Handler   PROC
+                LDR     R0, =SystemInit     ; 取系统初始化函数地址
+                BLX     R0                  ; 调用它（在 system_stm32f1xx.c 里）
+                LDR     R0, =__main         ; 取 C 库启动代码地址
+                BX      R0                  ; 跳过去，它负责拷贝 .data、清 .bss、调 main
+                ENDP
+
+; ==================== 中断的默认实现（全是死循环）====================
+NMI_Handler     PROC
+                EXPORT  NMI_Handler   [WEAK]
+                B       .                   ; B . 就是「跳到自己」，即死循环
+                ENDP
+
+HardFault_Handler PROC
+                EXPORT  HardFault_Handler [WEAK]
+                B       .
+                ENDP</code></pre>
+          </div>
+
+          <p class="mt-3">逐行要点：</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">第 0 项 <code class="icode">__initial_sp</code></b>——它是链接器算出来的「栈顶地址」，等于「SRAM 起始地址 + SRAM 大小」附近的一个值，对 F103C8T6 大约在 <code class="icode">0x20005000</code> 附近。栈是<b>从高地址往低地址生长</b>的，所以初值设在顶端。</li>
+            <li><b class="font-semibold text-ink">第 1 项 <code class="icode">Reset_Handler</code></b>——复位后 CPU 直接跳到它，它是整个程序真正意义上的「第一条指令」。</li>
+            <li><b class="font-semibold text-ink"><code class="icode">DCD</code></b> 是汇编伪指令，意思是「在这里放一个 4 字节的值」，效果等价于 C 语言里的 <code class="icode">uint32_t table[] = { ... }</code>。所以别看它是汇编，本质就是一张数组。</li>
+            <li><b class="font-semibold text-ink"><code class="icode">[WEAK]</code></b>——标记为「弱符号」。意思是：如果工程里别处（比如 <code class="icode">stm32f1xx_it.c</code>）也定义了一个同名的 <code class="icode">HardFault_Handler</code>，就用你那一个，这里的被丢弃。这保证了「你不写中断函数也能编译通过」，是 HAL 工程能开箱即用的关键机制。</li>
+            <li><b class="font-semibold text-ink"><code class="icode">B .</code></b>——「跳转到当前地址」，也就是原地死循环。默认的中断处理函数全是这个，意思是「这个中断发生了但我没处理」，程序会停在那里等你看门狗复位或调试器介入。</li>
+          </ul>
+
+          <h3 id="sub-reg-code" class="mt-7 text-base font-semibold">纯寄存器点灯：不用 HAL 库，直接写地址</h3>
+          <p class="mt-3">下面这份代码<b class="font-semibold text-ink">不使用任何 HAL 函数、不依赖 CubeMX 生成的工程结构</b>，但用到了 CMSIS 提供的寄存器定义头文件（<code class="icode">stm32f103xb.h</code>，它做的事就是「把 <code class="icode">0x40010C00</code> 这样的地址起个名字叫 <code class="icode">GPIOB</code>」）。它让 PC13 上的板载 LED 闪烁。</p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— 纯寄存器点灯（不用 HAL 库）">
+            <pre><code>/* ============================================================================
+ * main.c —— 纯寄存器版本：完全不用 HAL 库，直接操作地址点灯
+ * 芯片：STM32F103C8T6   LED：PC13（板载，低电平点亮）
+ * 目的：让你看清 HAL_GPIO_WritePin() 底层到底写了哪几个寄存器
+ * ============================================================================ */
+
+#include "stm32f103xb.h"      /* CMSIS 头文件：把外设地址定义成 GPIOC、RCC 这样的名字 */
+
+/* ---------------------------------------------------------------------------
+ * 软件延时：靠空循环消耗时间。
+ * 这种写法不精确（编译器优化等级一变，循环次数就变），只适合看现象，
+ * 正式代码请用 HAL_Delay() 或定时器。
+ * --------------------------------------------------------------------------- */
+static void delay_loop(volatile uint32_t count)
+{
+  /* volatile 是必须的：没有它，编译器会认为这个空循环什么也没干，
+     直接把它优化掉，延时就会变成 0 */
+  while (count-- &gt; 0)
+  {
+    __NOP();              /* 内核自带指令：空操作，占一个时钟周期 */
+  }
+}
+
+int main(void)
+{
+  /* ---------- 第 1 步：打开 GPIOC 的时钟门 ----------
+   * RCC 是「复位与时钟控制器」，地址 0x40021000。
+   * APB2ENR 是它的「APB2 外设时钟使能寄存器」，偏移 0x18，所以地址是 0x40021018。
+   * 第 4 位（bit4）的名字叫 IOPCEN = IO Port C ENable。
+   * 复位后这一位是 0，也就是 GPIOC 没有时钟；不打开它，
+   * 下面所有对 GPIOC 的写入都会被硬件丢掉，而且不会有任何报错。
+   * ------------------------------------------------------------------- */
+  RCC-&gt;APB2ENR |= (1UL &lt;&lt; 4);       /* bit4 = IOPCEN，写 1 使能 GPIOC 时钟 */
+
+  /* ---------- 第 2 步：把 PC13 配成推挽输出 ----------
+   * F103 的 GPIO 用「端口配置寄存器」描述每个引脚的工作模式，
+   * 每个引脚占 4 个二进制位（CNF 2 位 + MODE 2 位），16 个引脚共 64 位，
+   * 一个 32 位寄存器装不下，所以拆成两个：
+   *   CRL（偏移 0x00）管引脚 0~7
+   *   CRH（偏移 0x04）管引脚 8~15
+   * PC13 属于 8~15，所以配 CRH；它在 CRH 里的位置：
+   *   引脚 13 → 第 (13-8)=5 组 → 占 bit23~bit20
+   * 取值含义（MODE 高位在前）：
+   *   CNF=00 且 MODE=11 → 二进制 0011 = 0x3 → 通用推挽输出，最高 50MHz
+   * ------------------------------------------------------------------- */
+  GPIOC-&gt;CRH &amp;= ~(0xFUL &lt;&lt; 20);     /* 先清掉 bit23~20 这一组（读改写） */
+  GPIOC-&gt;CRH |=  (0x3UL &lt;&lt; 20);     /* 再写入 0011：推挽输出 / 50MHz */
+
+  /* ---------- 第 3 步：主循环里翻转 PC13 ----------
+   * ODR = Output Data Register（端口输出数据寄存器），偏移 0x0C。
+   * 它的 bit13 直接对应 PC13 引脚上的电平：写 1 → 3.3V，写 0 → 0V。
+   * 板载 LED 是 3V3 → 电阻 → LED → PC13 的接法，
+   * 所以 PC13 输出 0（低电平）时电流流过 LED，灯亮。
+   * ------------------------------------------------------------------- */
+  while (1)
+  {
+    GPIOC-&gt;ODR &amp;= ~(1UL &lt;&lt; 13);     /* PC13 = 0 → 灯亮 */
+    delay_loop(800000);
+
+    GPIOC-&gt;ODR |=  (1UL &lt;&lt; 13);     /* PC13 = 1 → 灯灭 */
+    delay_loop(800000);
+  }
+}
+
+/* ============================================================================
+ * 对比一下 HAL 是怎么写的（同一个功能，三行替一行）：
+ *
+ *   __HAL_RCC_GPIOC_CLK_ENABLE();                  ← 展开后就是 RCC 的 APB2ENR 置 bit4
+ *   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;    ← 最后落到 GPIOC 的 CRH 的那 4 个位
+ *   HAL_GPIO_Init(GPIOC, 结构体地址);               ← 把结构体里的字段翻译成 CRH 的位
+ *   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, ...);    ← 就是写 GPIOC 的 ODR 的 bit13
+ *
+ * 结论：HAL 库不是「另一个硬件」，它只是把上面这些位操作包装成了函数。
+ *       理解寄存器，你才能在 HAL 出问题时知道该去哪里查。
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">在 Keil 里怎么单独跑这段代码</div>
+            <p>最省事的做法是：先用 CubeMX 生成一个标准 HAL 工程（保证启动文件、头文件路径、下载算法全都配好），然后把上面这段 <code class="icode">main.c</code> 的 <b class="font-semibold">main 函数体</b>替换掉原来的内容。注意不要连 <code class="icode">HAL_Init()</code> 和 <code class="icode">SystemClock_Config()</code> 一起删——这段代码不依赖它们也能跑（因为只用了默认的 HSI 8MHz 时钟，GPIO 在 8MHz 下照样工作），但保留它们能让你后面继续加 HAL 功能。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+          <p class="mt-4">「架构」这种偏理论的页面也要有可验证的现象，否则学了等于没学。下面这张 51 与 STM32 的对照表，建议你对着自己手上的两块板子逐条验证，你会对「同样是单片机，差别在哪」有直观感受。</p>
+
+          <h3 class="mt-7 text-base font-semibold">51 与 STM32 对照表（可逐条实测）</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>项目</th><th>51 上的做法与现象</th><th>STM32 上的做法与现象</th><th>怎么亲眼验证</th></tr></thead>
+              <tbody>
+                <tr><td>引脚</td><td>P1.0 直接写，不用配置</td><td>PA0/PB0/PC13…，必须先配模式</td><td>把 STM32 的 CRH 配成输入，再写 ODR，观察引脚电压是否纹丝不动</td></tr>
+                <tr><td>寄存器</td><td>名字如 P1、TMOD，编译后是 0x90、0x89</td><td>名字如 <code class="icode">GPIOC-&gt;ODR</code>，编译后是 0x4001100C</td><td>Keil 调试时打开 Disassembly 窗口，看每条语句翻译出的地址</td></tr>
+                <tr><td>时钟</td><td>不需要配置，外设默认工作</td><td>默认全关，必须 <code class="icode">__HAL_RCC_xxx_CLK_ENABLE()</code></td><td>把时钟使能那行注释掉，重新下载：灯完全不动、零报错</td></tr>
+                <tr><td>中断</td><td><code class="icode">interrupt 0</code> 关键字指定中断号</td><td>函数名必须写死成 <code class="icode">EXTI0_IRQHandler</code></td><td>故意把中断函数名写错一个字母，编译通过但中断永不触发</td></tr>
+                <tr><td>开发工具</td><td>Keil C51，STC-ISP 串口下载</td><td>Keil MDK，ST-Link 的 SWD 下载</td><td>看两边 Keil 里 Device 列表和 Debug 设置的区别</td></tr>
+                <tr><td>位操作</td><td><code class="icode">P1 ^= 1</code> 这类可位寻址写法</td><td>只能用掩码：<code class="icode">|=</code>、<code class="icode">&amp;= ~</code>，或 BSRR/BRR</td><td>查一下 GPIOB 的 BSRR 寄存器，看它怎么用一个 32 位数同时置位和清零 16 个引脚</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">把地址读到串口里验证一遍</div>
+            <p>最有说服力的验证是自己动手打印地址。写这么一句：</p>
+            <p class="mt-2"><code class="icode">printf("GPIOC base = 0x%08X, ODR = 0x%08X\r\n", (unsigned int)GPIOC, (unsigned int)&amp;GPIOC-&gt;ODR);</code></p>
+            <p class="mt-2">串口上应该打印出 <b>0x40011000</b> 和 <b>0x4001100C</b>。和本文存储器映射那一节的表格对上，你就真正理解了「结构体成员访问 = 基地址 + 偏移量」这件事，也理解了为什么 HAL 的函数都要传一个 <code class="icode">GPIOC</code> 指针进去。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>你观察到的</th><th>说明什么</th><th>下一步查什么</th></tr></thead>
+              <tbody>
+                <tr><td>下载后 LED 完全不动，但程序在跑</td><td>时钟没使能，或引脚模式没配对</td><td>确认 RCC 的 APB2ENR bit4 已置 1，CRH 的 bit23~20 是 0x3</td></tr>
+                <tr><td>程序一跑就停住，暂停时 PC 停在 <code class="icode">HardFault_Handler</code> 的 <code class="icode">B .</code></td><td>访问了非法地址，或栈溢出</td><td>看 Call Stack 窗口上一层的地址；检查启动文件里 Stack_Size 是否被改小过</td></tr>
+                <tr><td>LED 亮了但亮度很暗</td><td>引脚被配成了开漏，或 LED 接法和预期相反</td><td>用万用表量 PC13 对地电压，正确应在 0V 和 3.3V 之间跳变；若只有 1.5V 说明模式不对</td></tr>
+                <tr><td>翻转速度远比预期慢</td><td>延时循环次数太大，或编译器把循环优化成了别的写法</td><td>把 <code class="icode">delay_loop</code> 的参数从 800000 减到 8000 试一次；确认参数带 <code class="icode">volatile</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+          <p class="mt-4">下面这些故障的共同点是：<b class="font-semibold">它们看起来都像「芯片坏了」，其实全是概念没打通。</b>按「现象 → 原因 → 解决」的格式写，方便你直接比对。</p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">下载成功、Verify OK，但程序就是不跑</div>
+            <p><b class="font-semibold">原因：</b>按可能性排序——① <code class="icode">BOOT0</code> 跳线在 <b>1</b> 侧，芯片从系统存储器启动，跑的是 ST 出厂的 Bootloader，你的程序压根没被执行；② 下载完没有复位（没勾 <code class="icode">Reset and Run</code>），CPU 还停在旧程序里；③ 程序确实在跑，但卡在某个死循环里（比如 <code class="icode">Error_Handler()</code>）。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>① 把 BOOT0 跳线帽插到 <b>0</b> 侧，按一次复位键；② 在 Options for Target → Debug → Settings → Flash Download 里勾上 <code class="icode">Reset and Run</code>；③ 进调试按暂停，看 PC 指针停在哪个函数。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">代码全对、编译零错，引脚却纹丝不动</div>
+            <p><b class="font-semibold">原因：</b>外设时钟没使能。STM32 复位后<b>所有外设时钟默认关闭</b>，此时对 GPIOC 寄存器的写入会被硬件静默丢弃——不报错、不产生异常，程序照常往下跑。<b>这是 STM32 新手的第一大坑</b>，而且它是 51 上完全不存在的概念。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>在配置寄存器之前先开时钟。用 HAL 就写 <code class="icode">__HAL_RCC_GPIOC_CLK_ENABLE();</code>，用寄存器就写 <code class="icode">RCC-&gt;APB2ENR |= (1UL &lt;&lt; 4);</code>。同时记住 GPIO 在 APB2，别去开 APB1 的位。验证办法：下载后进调试，在 Watch 窗口看 RCC 的 APB2ENR 的 bit4 是不是 1。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">读出来的数值明显不对（比如读 IDR 得到 0x0000FF00 这种整齐的数）</div>
+            <p><b class="font-semibold">原因：</b>指针类型不对。C 语言里指针的「加一」是按它指向的类型大小走的：<code class="icode">uint8_t *p; p+1</code> 走 1 字节，<code class="icode">uint32_t *p; p+1</code> 走 4 字节。用错类型去读寄存器，读到的就是错位的字节组合；另一种情况是把 <code class="icode">uint32_t*</code> 强转成 <code class="icode">uint8_t*</code> 后按字节读，忘了 STM32 是小端序（低字节在低地址）。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>操作寄存器一律用 <code class="icode">uint32_t*</code>，因为 Cortex-M3 的寄存器宽度就是 32 位。CMSIS 头文件已经帮你定义好了正确的类型，所以优先写 <code class="icode">GPIOC-&gt;IDR</code> 而不是自己强转地址。要按字节观察时，记住小端序：地址 N 放的是最低字节。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">程序跑几秒就复位 / 停在 HardFault_Handler</div>
+            <p><b class="font-semibold">原因：</b>最常见的是<b>栈太小</b>或<b>栈溢出</b>。启动文件里默认 <code class="icode">Stack_Size EQU 0x00000400</code> 只有 1KB。如果你在函数里定义了大数组（比如 <code class="icode">uint8_t buf[2048];</code> 这种局部变量），栈立刻就冲出去了。栈溢出会踩坏别的变量或访问到非法地址，触发 HardFault，默认处理函数是个死循环，看门狗一超时就复位。其次是往只读区域写数据、或者数组下标越界。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>① 大数组一律定义在函数外（变成 .bss 里的全局变量），不要放栈上；② 确实需要大栈就把 <code class="icode">Stack_Size</code> 改成 <code class="icode">0x00000800</code>（2KB）以上；③ 调试时在 HardFault_Handler 里打断点，看 Call Stack 窗口的上一层，故障点就在那里。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">编译报错：identifier "GPIOC" is undefined</div>
+            <p><b class="font-semibold">原因：</b>没有包含芯片头文件，或者工程里没有定义正确的宏。CMSIS 头文件 <code class="icode">stm32f103xb.h</code> 内部是靠条件编译区分型号的——只有定义了 <code class="icode">STM32F103xB</code> 这个宏，它才会把 GPIOC 的定义展开出来。宏没定义时，编译器看到的就是一个陌生的名字。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>Options for Target → C/C++ → Define 里确认有 <code class="icode">STM32F103xB</code>（注意末尾的 xB，对应 64KB/128KB Flash 的中容量型号）和 <code class="icode">USE_HAL_DRIVER</code>；源文件顶部确认写了 <code class="icode">#include "stm32f1xx_hal.h"</code> 或 <code class="icode">#include "stm32f103xb.h"</code>。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">自己写的中断函数怎么都不执行，但编译通过</div>
+            <p><b class="font-semibold">原因：</b>函数名写错了。Cortex-M 的中断入口是靠<b>符号名</b>在链接期与向量表挂钩的：向量表第 0xF0 项写的是 <code class="icode">USART1_IRQHandler</code>，链接器就会去找这个符号。你写成 <code class="icode">USART1_IRQhandler</code>（小写 h）、<code class="icode">Usart1_IRQHandler</code>、或者 <code class="icode">USART1_Handler</code>，链接器找不到就退回用启动文件里的弱符号（那个 <code class="icode">B .</code> 死循环），于是你的函数永远不会被调用，<b>而且不报任何错</b>。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>从 <code class="icode">startup_stm32f103xb.s</code> 里<b>直接复制</b>函数名，不要手打。另外确认 NVIC 里已经使能了这个中断（<code class="icode">HAL_NVIC_EnableIRQ(USART1_IRQn)</code>），并且用 <code class="icode">HAL_NVIC_SetPriority()</code> 给了它一个优先级。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">另一类：程序能跑，但一加 printf 就卡死</div>
+            <p>这不是报错。原因是 <code class="icode">printf</code> 默认往「标准输出」写，而单片机没有操作系统，这个「标准输出」指向一个没实现的底层函数，程序会卡在那里等一个永远不会来的返回。解决：把你的串口发送函数重定向过去，实现 <code class="icode">fputc()</code>（Keil 下还需勾选 <code class="icode">Use MicroLIB</code>），或者调试时改用 SWO/ITM 输出。这属于后面串口那一篇的内容，这里先知道「卡死是重定向没做」就够了。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+          <p class="mt-4">这一篇讲的是「STM32 长什么样」。它不是操作手册，而是后面每一篇的地图。真正需要刻进脑子里的只有四句话：</p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">STM32 = ARM 的内核 + ST 的外设</b>——内核的规矩查 ARM 的文档，外设的规矩查 ST 的参考手册。</li>
+            <li><b class="font-semibold text-ink">外设就是一串有地址的寄存器</b>——<code class="icode">GPIOC</code> 是 <code class="icode">0x40011000</code>，<code class="icode">GPIOC-&gt;ODR</code> 是 <code class="icode">0x4001100C</code>，写它们就是写硬件。</li>
+            <li><b class="font-semibold text-ink">总线分三档，时钟也分三档</b>——AHB 管内核与内存、APB2 有 GPIO 和 USART1、APB1 是低速外设，这决定了时钟树为什么要分开配。</li>
+            <li><b class="font-semibold text-ink">复位后先取栈顶、再取复位向量</b>——然后 Reset_Handler 拷 .data、清 .bss，最后才进你的 <code class="icode">main()</code>。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">自检题（先自己答，再对下面的判据）</div>
+            <ol class="list-decimal space-y-2 pl-5">
+              <li><b>为什么同一个「115200 波特率」，USART1 和 USART2 需要填的分频值不一样？</b><p class="mt-1 text-muted">判据：因为 USART1 挂在 APB2（72MHz），USART2 挂在 APB1（36MHz），波特率分频值 = 总线时钟 ÷ 波特率 ÷ 16，总线时钟不同，结果就不同。</p></li>
+              <li><b>往 <code class="icode">0x40010C0C</code> 写一个数，硬件上发生了什么？</b><p class="mt-1 text-muted">判据：这个地址落在 Peripheral 区，是 GPIOB 的 ODR 寄存器。总线上的地址解码电路认出它，把数据送进 GPIOB 的输出锁存器，PB0~PB15 的引脚电平随即按这 16 个位变化。</p></li>
+              <li><b>复位后 CPU 执行的第一条指令在哪？它的地址是怎么被找到的？</b><p class="mt-1 text-muted">判据：CPU 先读 <code class="icode">0x00000000</code> 装进 SP，再读 <code class="icode">0x00000004</code> 装进 PC，这个位置存的是 <code class="icode">Reset_Handler</code> 的地址。而 <code class="icode">0x00000000</code> 是 Flash 的镜像（BOOT0 = 0 时），所以实际取到的是 Flash 里向量表的内容。</p></li>
+              <li><b>为什么函数里的局部变量不会有默认的 0，而全局变量有？</b><p class="mt-1 text-muted">判据：全局变量按有没有初值分别进 .data 和 .bss，启动时 Reset_Handler 会拷贝/清零它们；局部变量在栈上，栈只是「一块反复使用的内存」，没人负责擦干净，所以值是上一次留下的垃圾。</p></li>
+              <li><b>把 BOOT0 拨到 1 之后再下载程序，为什么现象完全消失？</b><p class="mt-1 text-muted">判据：BOOT0=1、BOOT1=0 时，<code class="icode">0x00000000</code> 被重映射到系统存储器（出厂 Bootloader）而不是 Flash，复位后跑的是 ST 的下载程序，你自己烧进 Flash 的代码虽然还在，但没有人去执行它。</p></li>
+            </ol>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li><b>把地址读出来验一遍：</b>在工程里写 <code class="icode">uint32_t a = (uint32_t)GPIOC; uint32_t b = (uint32_t)&amp;GPIOC-&gt;ODR;</code>，用调试器的 Watch 窗口看它们的值，核对是不是 <b>0x40011000</b> 和 <b>0x4001100C</b>。再加一个 <code class="icode">(uint32_t)&amp;RCC-&gt;APB2ENR;</code>，看是不是 <b>0x40021018</b>。</li>
+              <li><b>亲手制造第一次 HardFault：</b>写一句 <code class="icode">*(volatile uint32_t *)0x12345678 = 1;</code>（这个地址在 F103 上没有任何设备），下载运行。观察程序是否立刻停在 <code class="icode">HardFault_Handler</code> 的死循环里，并用 Call Stack 窗口找出是谁闯的祸。做完删掉这一行。</li>
+              <li><b>把栈改小，复现栈溢出：</b>在启动文件里把 <code class="icode">Stack_Size EQU 0x00000400</code> 改成 <code class="icode">0x00000080</code>（128 字节），然后在 main 里定义 <code class="icode">uint8_t big[512];</code> 并往里写数据。观察现象，然后改回 <code class="icode">0x00000400</code>。</li>
+              <li><b>数一数向量表：</b>打开 <code class="icode">startup_stm32f103xb.s</code>，数出 F103C8 一共定义了多少个 <code class="icode">DCD</code> 中断入口，再对照 RM0008 的「向量表」章节，找出第 0xF0 项和第 0x58 项分别是谁。</li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">接下来看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-basic-clock.html">时钟系统基础</a>——既然外设时钟默认全关，那这些时钟到底从哪来、怎么配到 72MHz。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-basic-hal.html">寄存器、标准库与 HAL</a>——同一件事的三种写法，以及句柄结构体和回调到底是怎么回事。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-basic-c.html">C 语言进阶</a>——HAL 库里满屏的指针、结构体、函数指针，一次补齐。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-basic-level.html">3.3V 电平与硬件安全</a>——从 5V 的 51 转过来，怎么接线才不烧板子。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="../stm32.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 返回目录</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">STM32 全部教程</p>
+          </a>
+          <a href="stm32-basic-clock.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">时钟系统：为什么第一件事是配时钟</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

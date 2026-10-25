@@ -1,0 +1,3383 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数字电路基础：高低电平与逻辑门 - McuStudy</title>
+  <meta name="description" content="零基础数字电路入门：模拟信号与数字信号的区别、高低电平为什么是一个范围而不是固定电压、TTL 与 CMOS 电平标准对照（2.4V/0.4V/2.0V/0.8V 与 0.7×VCC/0.3×VCC）、3.3V 与 5V 器件为什么不能直连、六种逻辑门的真值表与对应 C 位运算符、上拉下拉电阻与 10k 的来历、开漏与推挽、按键电路完整分析与消抖，附完整可编译的 51 C 代码。" >
+  <meta name="keywords" content="数字电路基础,高低电平,TTL电平,CMOS电平,3.3V转5V,5V容忍,逻辑门真值表,与或非异或,上拉电阻,下拉电阻,开漏输出,推挽输出,按键消抖,51单片机">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="mcu51" class="min-h-screen">
+
+﻿  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../mcu51.html" class="hover:text-brand-600 dark:hover:text-brand-300">51单片机</a>
+          <span>/</span>
+          <span class="text-muted">数字电路与电平</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          数字电路基础：高低电平与逻辑门
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          单片机眼里只有 0 和 1，但引脚上跑的却是实实在在的电压。
+          「多少伏算高」这个问题，答案是<b class="font-semibold text-ink">一个范围</b>而不是一个确定值。
+          这一篇讲清 TTL 与 CMOS 两套电平标准、3.3V 与 5V 器件为什么不能直连、
+          六种逻辑门与 C 语言位运算符的对应关系、上拉下拉电阻怎么选、
+          以及按键电路和消抖的完整分析。读完你就能自己判断
+          「这个接法能不能通、会不会烧」。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">前置：<b>电学基础 / 常用元件</b></span>
+          <span class="stat-pill">芯片：<b>STC89C52RC</b></span>
+          <span class="stat-pill">阅读约 <b>25</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-analog-digital">模拟信号与数字信号</a>
+          <a class="toc-link is-sub" href="#sub-level">高低电平：一个范围，不是一个点</a>
+          <a class="toc-link is-sub" href="#sub-ttl-cmos">TTL 与 CMOS 电平标准</a>
+          <a class="toc-link is-sub" href="#sub-33v-5v">3.3V 与 5V 器件能不能直连</a>
+          <a class="toc-link is-sub" href="#sub-logic-gates">六种逻辑门与对应的位运算</a>
+          <a class="toc-link is-sub" href="#sub-pullup">上拉、下拉与正负逻辑</a>
+          <a class="toc-link is-sub" href="#sub-opendrain">开漏与推挽输出</a>
+          <a class="toc-link is-sub" href="#sub-button-circuit">按键电路完整分析</a>
+          <a class="toc-link is-sub" href="#sub-debounce">去抖动</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-analog-digital">模拟信号与数字信号</a>
+            <a class="toc-link is-sub" href="#sub-level">高低电平：一个范围，不是一个点</a>
+            <a class="toc-link is-sub" href="#sub-ttl-cmos">TTL 与 CMOS 电平标准</a>
+            <a class="toc-link is-sub" href="#sub-33v-5v">3.3V 与 5V 器件能不能直连</a>
+            <a class="toc-link is-sub" href="#sub-logic-gates">六种逻辑门与对应的位运算</a>
+            <a class="toc-link is-sub" href="#sub-pullup">上拉、下拉与正负逻辑</a>
+            <a class="toc-link is-sub" href="#sub-opendrain">开漏与推挽输出</a>
+            <a class="toc-link is-sub" href="#sub-button-circuit">按键电路完整分析</a>
+            <a class="toc-link is-sub" href="#sub-debounce">去抖动</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            到这一篇为止，你已经知道了三件事：电阻能限制电流、LED 需要限流电阻、
+            程序里的一个字节对应 8 个引脚。但还有一个最根本的问题没回答：
+          </p>
+          <p class="mt-3">
+            <b class="font-semibold text-ink">引脚上的电压到底是多少伏，才算是「1」？</b>
+          </p>
+          <p class="mt-3">
+            这个问题听起来很基础，但它是所有数字电路的根。
+            更麻烦的是，很多初学者以为答案是「5V 就是 1、0V 就是 0」，
+            然后按这个假设去接线、去读代码，
+            结果遇到「按键读数乱跳」「模块接上去就烧」「I2C 怎么都不通」这类问题，
+            怎么查都查不出来。
+          </p>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">这一篇要建立的三个直觉</div>
+            <ol class="list-decimal space-y-2 pl-5">
+              <li>
+                <b>高电平是一个范围，不是 5V 这个点。</b>
+                4.6V 是高电平，3.2V 也是高电平，2.5V 还是高电平——
+                只要落在允许的范围里，单片机读到的都是 1。
+              </li>
+              <li>
+                <b>电平标准有「家族」，不同家族之间不能随便对接。</b>
+                TTL 和 CMOS 的判定门限不一样，5V 和 3.3V 更是不一样。
+                不知道对方的门限就直连，轻则读数不稳，重则烧芯片。
+              </li>
+              <li>
+                <b>悬空的输入引脚是最危险的状态。</b>
+                它既不是高也不是低，而是一个会随空气和手指变化的「天线」。
+                上拉/下拉电阻的存在，就是为了消灭这种状态。
+              </li>
+            </ol>
+          </div>
+
+          <h3 id="sub-analog-digital" class="mt-7 text-base font-semibold">模拟信号与数字信号</h3>
+
+          <p class="mt-3">
+            你一定用过老式收音机的音量旋钮——可以停在任意位置，
+            音量可以从 0 慢慢地、连续地转到最大。
+            这叫<b class="font-semibold text-ink">模拟量</b>：
+            它在任意两个值之间都能取到中间值。
+          </p>
+          <p class="mt-3">
+            而电灯开关只有两个位置：开和关，没有「半开」。
+            这叫<b class="font-semibold text-ink">数字量</b>：
+            它只能取有限个离散的值，最常见的就是两个（0 和 1）。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="模拟信号与数字信号的波形对比">
+            <pre><code>【模拟信号】电压随时间连续变化，能取到中间任何值
+   电压
+    5V ┤        ╭───╮
+       │      ╭─╯   ╰─╮
+    3V ┤    ╭─╯       ╰╮
+       │  ╭─╯           ╰─╮
+    1V ┤╭╯                 ╰╮
+       ││                   ╰╮
+    0V ┼╯                     ╰──────→ 时间
+       └─────────────────────────────
+       任何时候读它，都可能得到 3.72V 这种「不在表上」的值。
+       典型例子：温度传感器输出的电压、麦克风的音频信号、
+                 光敏电阻分压后的电压。
+
+【数字信号】电压只在两个「台阶」之间跳，中间的过程极短
+   电压
+    5V ┤    ┌───────┐         ┌──────┐
+       │    │       │         │      │
+    3V ┤    │       │         │      │
+       │    │       │         │      │
+    1V ┤    │       │         │      │
+       │    │       │         │      │
+    0V ┼────┘       └─────────┘      └──→ 时间
+       └─────────────────────────────
+       绝大多数时间里，它稳定在 5V 或 0V 这两个平台上，
+       只在「跳变的一瞬间」经过中间电压。
+       典型例子：按键信号、串口数据、LED 控制线。
+
+【关键区别】
+   模拟信号：信息藏在【具体的电压值】里。
+             3.72V 和 3.75V 是两个不同的意思，必须精确测量。
+   数字信号：信息藏在【电压落在哪个平台上】里。
+             4.6V 和 5.1V 是同一个意思，只要别掉到中间去就行。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            用水管类比：模拟信号像<b class="font-semibold text-ink">可以拧到任意角度的水龙头</b>，
+            水流量大小本身就是信息；
+            数字信号像<b class="font-semibold text-ink">只有全开和全关的水阀</b>，
+            信息是「这个阀门现在是开还是关」，
+            至于全开的时候流量是 10 升还是 10.5 升，完全不影响判断。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">为什么单片机只看 0 和 1</h4>
+
+          <p class="mt-3">
+            因为这样最<b class="font-semibold text-ink">省事、最可靠、最便宜</b>。
+            数字电路只需要回答一个问题：「电压在不在这个范围里？」
+            这个判断用一个简单的电压比较器就能做到，而且极其抗干扰。
+          </p>
+          <p class="mt-3">
+            更实际的原因是：单片机内部所有的运算（加法、比较、跳转）
+            都是用逻辑门搭出来的，而逻辑门天生就是「输入两个高低电平、
+            输出一个高低电平」的电路。要让它处理模拟量，
+            必须先经过一个叫<b class="font-semibold text-ink">ADC（模数转换器）</b>的电路
+            把电压变成一个数字，之后的一切就都在数字世界里进行。
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">那中间值算什么？——不确定区与亚稳态</div>
+            <p>
+              假设标准是「高于 2.0V 算高、低于 0.8V 算低」。
+              如果输入电压刚好是 1.4V 呢？
+            </p>
+            <p class="mt-2">
+              <b>答案是：没有答案。</b>这个区间叫<b>不确定区</b>（也叫禁止区），
+              器件手册里不会承诺它会被读成 0 还是 1。
+              实际表现为三种可能：
+            </p>
+            <ul class="list-disc space-y-1.5 pl-5 mt-2">
+              <li><b>读数随机跳变</b>：这一次读是 1，下一次读是 0，温度一变又不同。</li>
+              <li><b>芯片发热、电流暴增</b>：有些逻辑门（尤其是老的 TTL 工艺）
+                在输入停在中间电压时，内部两个管子会同时半导通，
+                这叫「穿通电流」，时间长了会烫甚至烧。</li>
+              <li><b>亚稳态（metastability）</b>：在时序电路（触发器、寄存器）里，
+                如果输入正好在时钟边沿附近处于不确定区，
+                输出可能停在一个既不是高也不是低的中间电平上，
+                并且持续一小段时间后才随机落向 0 或 1。
+                这段时间里，后面的电路全都读到了错误的值。
+                工程上用「多级触发器同步」来把这种概率降到极低。</li>
+            </ul>
+            <p class="mt-2">
+              对你的意义是：<b>绝对不要让输入引脚长时间停在中间电压上</b>。
+              所有输入要么被明确拉高、要么被明确拉低，中间不允许「悬着」。
+              这就是下一节要讲的上拉/下拉电阻存在的全部理由。
+            </p>
+          </div>
+
+          <h3 id="sub-level" class="mt-7 text-base font-semibold">高低电平：一个范围，不是一个点</h3>
+
+          <p class="mt-3">
+            这是本篇最重要的一句话：
+            <b class="font-semibold text-ink">「高电平」不是「5V」，而是「大于等于某个电压」。</b>
+          </p>
+          <p class="mt-3">
+            为什么会这样？因为现实世界里的电压从来不是精确的。
+            你的 USB 充电器标称 5V，实际可能是 5.15V；
+            电池从 4.2V 一路掉到 3.4V；
+            一根细长的杜邦线上会掉 0.3V；
+            电机一启动，电源瞬间塌下去 0.5V。
+            如果标准写成「必须正好 5.00V 才算高」，那这些情况全部失灵，
+            电路根本没法用。
+          </p>
+          <p class="mt-3">
+            所以标准被设计成<b class="font-semibold text-ink">「留出大片的容错空间」</b>：
+            规定一个门限，只要电压高过它就算高，低过另一个门限就算低，
+            中间那段留作缓冲。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="电压轴上的分区：为什么中间要留一段空档">
+            <pre><code>   电压
+    5.0V ┼────────────────────────────────────────────
+         │          【保证是高电平】的区域
+    2.4V ┼────────────────────────────────────────────
+         │          ← 输出端的最差情况在这里
+         │
+    2.0V ┼────────────────────────────────────────────
+         │          ← 输入端认高的门限在这里
+         │
+         │    ┌──────────────────────────────────┐
+         │    │      不 确 定 区（禁止进入）      │
+         │    └──────────────────────────────────┘
+         │
+    0.8V ┼────────────────────────────────────────────
+         │          ← 输入端认低的门限在这里
+         │
+    0.4V ┼────────────────────────────────────────────
+         │          ← 输出端的最差情况在这里
+         │          【保证是低电平】的区域
+    0.0V ┼────────────────────────────────────────────
+
+【为什么要留这么宽的空档？】
+   看 5V TTL 标准的数字：
+     · 输出端承诺：是「高」的时候，电压一定 ≥ 2.4V
+     · 输入端要求：只要 ≥ 2.0V，我就认它是「高」
+
+   输出最差 2.4V，输入只要 2.0V —— 中间多出来 0.4V 的余量。
+   这 0.4V 就是留给导线上压降、噪声干扰、温度漂移的「安全垫」。
+
+   这个余量在工程上叫【噪声容限（noise margin）】：
+       高电平噪声容限 = VOH(min) − VIH(min) = 2.4 − 2.0 = 0.4V
+       低电平噪声容限 = VIL(max) − VOL(max) = 0.8 − 0.4 = 0.4V
+
+   意思是：只要干扰不超过 0.4V，数字信号就不会传错。
+   这就是数字电路抗干扰能力的量化来源。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">怎么记住这四个参数</div>
+            <p>
+              它们两两成对，记住「输出管保证，输入管认账」：
+            </p>
+            <div class="table-scroll mt-3">
+              <table class="table-mcu">
+                <thead>
+                  <tr><th>缩写</th><th>全称</th><th>含义</th><th>谁保证</th><th>5V TTL 的值</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td class="font-mono text-xs">VOH</td><td class="font-mono text-xs">Voltage Output High</td><td>输出高电平时的最低电压</td><td>输出端</td><td class="font-mono text-xs">≥ 2.4V</td></tr>
+                  <tr><td class="font-mono text-xs">VOL</td><td class="font-mono text-xs">Voltage Output Low</td><td>输出低电平时的最高电压</td><td>输出端</td><td class="font-mono text-xs">≤ 0.4V</td></tr>
+                  <tr><td class="font-mono text-xs">VIH</td><td class="font-mono text-xs">Voltage Input High</td><td>能被认成高电平的最低电压</td><td>输入端</td><td class="font-mono text-xs">≥ 2.0V</td></tr>
+                  <tr><td class="font-mono text-xs">VIL</td><td class="font-mono text-xs">Voltage Input Low</td><td>能被认成低电平的最高电压</td><td>输入端</td><td class="font-mono text-xs">≤ 0.8V</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-2">
+              规律：<b>H 是 High、L 是 Low；O 是 Output、I 是 Input</b>。
+              带 O 的是器件「承诺做到」的指标，带 I 的是器件「要求对方做到」的指标。
+            </p>
+          </div>
+
+          <h3 id="sub-ttl-cmos" class="mt-7 text-base font-semibold">TTL 与 CMOS 电平标准</h3>
+
+          <p class="mt-3">
+            数字电路历史上有两大工艺家族：<b class="font-semibold text-ink">TTL</b>
+            （用双极型三极管搭的）和 <b class="font-semibold text-ink">CMOS</b>
+            （用 MOS 管搭的）。它们的电平门限不一样，
+            这是很多「接上去不工作」问题的根源。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>标准</th>
+                  <th>供电</th>
+                  <th>输出高 VOH</th>
+                  <th>输出低 VOL</th>
+                  <th>输入认高 VIH</th>
+                  <th>输入认低 VIL</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>5V TTL</b></td>
+                  <td class="font-mono text-xs">5V</td>
+                  <td class="font-mono text-xs">≥ 2.4V</td>
+                  <td class="font-mono text-xs">≤ 0.4V</td>
+                  <td class="font-mono text-xs">≥ 2.0V</td>
+                  <td class="font-mono text-xs">≤ 0.8V</td>
+                </tr>
+                <tr>
+                  <td><b>5V CMOS</b></td>
+                  <td class="font-mono text-xs">5V</td>
+                  <td class="font-mono text-xs">≥ 4.5V</td>
+                  <td class="font-mono text-xs">≤ 0.5V</td>
+                  <td class="font-mono text-xs">≥ 3.5V<br><span class="text-faint">（0.7×VCC）</span></td>
+                  <td class="font-mono text-xs">≤ 1.5V<br><span class="text-faint">（0.3×VCC）</span></td>
+                </tr>
+                <tr>
+                  <td><b>3.3V CMOS</b></td>
+                  <td class="font-mono text-xs">3.3V</td>
+                  <td class="font-mono text-xs">≥ 2.9V</td>
+                  <td class="font-mono text-xs">≤ 0.4V</td>
+                  <td class="font-mono text-xs">≥ 2.0V<br><span class="text-faint">（0.7×3.3）</span></td>
+                  <td class="font-mono text-xs">≤ 0.8V<br><span class="text-faint">（0.3×3.3）</span></td>
+                </tr>
+                <tr>
+                  <td><b>1.8V CMOS</b></td>
+                  <td class="font-mono text-xs">1.8V</td>
+                  <td class="font-mono text-xs">≥ 1.6V</td>
+                  <td class="font-mono text-xs">≤ 0.2V</td>
+                  <td class="font-mono text-xs">≥ 1.26V</td>
+                  <td class="font-mono text-xs">≤ 0.54V</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">CMOS 的规律：都是 VCC 的百分比</div>
+            <p>
+              CMOS 的门限是<b>按供电电压算比例</b>的，这是它和 TTL 最大的区别：
+            </p>
+            <p class="mt-2 font-mono text-sm">
+              VIH = 0.7 × VCC &nbsp;&nbsp;&nbsp; VIL = 0.3 × VCC
+            </p>
+            <p class="mt-2">
+              所以供电 5V 时，认高门限是 3.5V、认低门限是 1.5V；
+              供电 3.3V 时，变成 2.31V 和 0.99V。
+              <b>同一颗 CMOS 芯片，换一个供电电压，门限就全变了</b>——
+              这就是为什么 CMOS 器件特别在意「供电必须稳定」。
+            </p>
+            <p class="mt-2">
+              而 TTL 的门限是<b>固定值</b>（2.0V / 0.8V），
+              不管供电怎么变（只要在 4.5~5.5V 范围内）都不变。
+              原因是 TTL 内部基于固定的 PN 结压降，和电源电压关系不大。
+            </p>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">为什么中间那段是「不确定区」——用 5V TTL 算一遍</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="不确定区的由来与它在实际接线中的后果">
+            <pre><code>============================================================
+【5V TTL 的两个门限】
+============================================================
+     输入认高的门限 VIH = 2.0V
+     输入认低的门限 VIL = 0.8V
+
+     于是电压轴被分成三段：
+
+        2.0V ~ 5.0V   →  一定读成 1
+        0.8V ~ 2.0V   →  【不确定区】读成什么都有可能
+        0.0V ~ 0.8V   →  一定读成 0
+
+============================================================
+【为什么会这样：从内部电路看】
+============================================================
+     数字门的内部本质上是一个「差分放大器」：
+     它把输入电压和内部的两个参考电压比较，
+     输出一个「更像高」或「更像低」的结果。
+
+     当输入电压远高于 2.0V 时，比较结果明确 → 输出干净的 0 或 1。
+     当输入电压远低于 0.8V 时，比较结果也明确。
+     但当输入停在 1.4V（正好在中间）时，
+     放大器的输出会停在一个中间电平上，
+     后面接的下一级门电路又对这个中间电平做同样的判断 ——
+     结果就是随机的。
+
+     更糟的是，这个中间电平还会被【放大】：
+       · 输入端 1.40V 和 1.45V 的微小差别，
+         经过一级门可能变成输出端 3.0V 和 1.0V 的巨大差别。
+       · 于是电源上任何一点噪声、旁边一根线的串扰、
+         甚至你的手指靠近引脚，都会让结果翻转。
+
+============================================================
+【实际接线中的后果：三个真实场景】
+============================================================
+
+场景 1：一根长的杜邦线接按键，没加上拉电阻
+   按键不按时，引脚是【悬空】的。
+   悬空引脚的电压等于「这根线碰巧积累的电荷」，
+   通常在 1V ~ 3V 之间飘，正好落进不确定区。
+   现象：不按按键时 LED 自己乱闪、数码管乱跳、
+         计数器的数字蹭蹭往上涨。
+   → 解决：加一个 10kΩ 上拉或下拉电阻，把悬空状态消灭掉。
+
+场景 2：5V 器件的输出被一个「电阻分压」降到 3.3V 附近
+   假设用两个电阻把 5V 分成 0.66 倍，得到 3.3V，
+   想喂给 3.3V 的 CMOS 输入。
+   但 3.3V CMOS 的认高门限是 2.31V，看起来 3.3V 够了。
+   问题在于：分压比会随负载变化。如果那个输入引脚有 1mA 的漏电流，
+   分压点的电压就会掉一点，可能掉到 2.2V 附近，
+   离门限只差 0.1V —— 于是时好时坏。
+   → 解决：不要用分压做电平转换，用专门的转换电路。
+
+场景 3：一个缓慢上升的信号（比如 RC 充电）直接接输入端
+   电压从 0V 慢慢升到 5V，中间有几十毫秒停在 1V 附近。
+   这几十毫秒里，输入端一直在「不确定区」徘徊。
+   如果这是时钟输入，会引起多次误触发；
+   如果是 CMOS 输入，会因为两个管子同时半导通而额外耗电发热。
+   → 解决：用施密特触发输入（带迟滞的输入，比如 74HC14）
+     把缓慢变化的信号整形成干净的跳变。
+
+============================================================
+【一句话原则】
+============================================================
+   数字输入引脚只接受两种礼遇：
+       要么明确拉到高电平区域，要么明确拉到低电平区域。
+       任何「让它自己飘着」「让它停在中间」的做法都是 bug 的温床。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">施密特触发：给不确定区加一层「记忆」</div>
+            <p>
+              普通输入只有一个门限；<b>施密特触发（Schmitt trigger）输入</b>有两个门限：
+              上升时要高过 3.0V 才翻成高，下降时要低过 2.0V 才翻回低。
+              中间那 1V 的差值叫<b>迟滞（hysteresis）</b>。
+            </p>
+            <p class="mt-2">
+              好处是：一旦判定为高，只要没掉到 2.0V 以下就不会变回低。
+              于是缓慢变化、带噪声的信号也能被整形成一个干净的跳变，
+              不会在门限附近反复横跳。按键电路、长线输入、
+              光耦输出这些场合都应该选带施密特触发的芯片
+              （比如 74HC14、74HC132）。
+            </p>
+          </div>
+
+          <h3 id="sub-33v-5v" class="mt-7 text-base font-semibold">3.3V 与 5V 器件能不能直连</h3>
+
+          <p class="mt-3">
+            这是实际做项目时踩坑最多的一个问题。现在的模块五花八门：
+            有的标 5V，有的标 3.3V，有的标「3.3V/5V 兼容」。
+            随便接会怎样？取决于<b class="font-semibold text-ink">方向</b>。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>连接方向</th>
+                  <th>5V 端输出的电压</th>
+                  <th>3.3V 端的门限</th>
+                  <th>能不能读对</th>
+                  <th>会不会损坏</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>5V 输出 → 3.3V 输入</b></td>
+                  <td class="font-mono text-xs">约 4.5~5.0V</td>
+                  <td class="font-mono text-xs">VIH = 2.31V</td>
+                  <td>电压够高，<b>能读对</b></td>
+                  <td><b class="text-brand-600 dark:text-brand-300">可能烧！</b>输入脚耐压通常只有 VCC+0.3V = 3.6V</td>
+                </tr>
+                <tr>
+                  <td><b>3.3V 输出 → 5V 输入</b></td>
+                  <td class="font-mono text-xs">约 3.0~3.3V</td>
+                  <td class="font-mono text-xs">TTL：VIH = 2.0V<br>CMOS：VIH = 3.5V</td>
+                  <td>接 <b>TTL 输入能读对</b>；<br>接 <b>5V CMOS 输入可能读错</b></td>
+                  <td>通常不会（电压比 5V 低）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">为什么 5V 输出接 3.3V 输入会烧芯片</div>
+            <p>
+              看芯片内部：每个 CMOS 输入引脚内部都有一对<b>保护二极管</b>，
+              一个从引脚指向 VCC（3.3V），一个从 GND 指向引脚。
+              它们的作用是「万一引脚上来了异常电压，就把它泄放到电源或地」。
+            </p>
+            <p class="mt-2">
+              正常工作时，引脚电压在 0~3.3V 之间，上面的二极管反偏、不导通。
+              但如果你把 5V 接到这个引脚上：
+            </p>
+            <ul class="list-disc space-y-1.5 pl-5 mt-2">
+              <li>引脚 5V 比 VCC 3.3V 高出 1.7V，保护二极管<b>正向导通</b>。</li>
+              <li>于是电流从你的 5V 器件，经这个引脚，灌进 3.3V 的电源网络。</li>
+              <li>3.3V 电源上被强行抬压，LDO 稳压器被「倒灌」——
+                轻则整个 3.3V 系统电压升高、其他芯片工作异常，
+                重则 LDO 损坏。</li>
+              <li>同时保护二极管本身能承受的电流很小（通常几毫安），
+                持续灌入会把它烧穿，芯片引脚永久失效。</li>
+            </ul>
+            <p class="mt-2">
+              实际表现：可能接上去当天就坏，也可能「用了一周才坏」——
+              因为芯片在超规格状态下会缓慢退化。
+              这类故障最难查，因为看起来时好时坏。
+            </p>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">什么是「5V 容忍（FT）」引脚</h4>
+
+          <p class="mt-3">
+            很多 3.3V 芯片的引脚，有一部分是可以直接承受 5V 的。
+            数据手册里会标成 <b class="font-semibold text-ink">FT</b>
+            （Five-volt Tolerant，5V 容忍），中文资料也叫「耐 5V」。
+            这类引脚的内部保护结构做了特殊设计，
+            即使加 5V 也不会灌电流进电源。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="怎么确认一个引脚是不是 5V 容忍">
+            <pre><code>============================================================
+【第一步：查数据手册里的引脚定义表】
+============================================================
+   典型的手册写法（STM32 系列的引脚表）：
+
+     引脚名     类型           I/O 结构      备注
+     ─────────────────────────────────────────────────
+     PA0        I/O            FT            ← 5V 容忍
+     PA1        I/O            FT            ← 5V 容忍
+     PA4        I/O            TTa           ← 不是 FT，只能 3.3V
+     PA13       I/O            FT
+     PC13       I/O            TTa
+     VBAT       电源           —             不要当 IO 用
+
+   · 看到一个单独的「FT」标记 → 这个引脚可以接 5V 输入
+   · 看到「TTa」「TT」或其他标记 → 只能接 3.3V，别接 5V
+   · 【注意】FT 说的是「能承受 5V 输入」，不表示它输出也是 5V！
+           FT 引脚的输出仍然是 0~3.3V。
+
+============================================================
+【第二步：注意「不是所有引脚都 FT」】
+============================================================
+   通常模拟输入引脚（ADC 用的那些）、
+   专门的电源/复位/晶振引脚、以及其他特殊功能引脚都不是 FT。
+   所以绝对不能笼统地认为「这块板子所有 IO 都耐 5V」，
+   必须一个引脚一个引脚地查。
+
+============================================================
+【第三步：51 单片机反过来看这个事】
+============================================================
+   STC89C52RC 工作在 5V，它的引脚输出就是 0~5V，
+   普通 IO 口的输入门限就是标准 5V TTL（VIH 2.0V / VIL 0.8V）。
+   （厂家手册里另有一档 0.7 × VCC = 3.5V 的门限，那是 XTAL1 / RST / EA
+     这几个特殊脚才有的 VIH1，不要拿它当普通 IO 口的门限。）
+
+   所以 51 对接 3.3V 模块时：
+     · 3.3V 模块输出 → 51 输入：3.3V > 2.0V，能读对 ✔
+       （除非那个模块输出高电平只有 2.5V 左右，那就贴近门限了）
+     · 51 输出 5V → 3.3V 模块输入：危险 ✗
+       除非那个模块的引脚明确标了「5V 容忍」
+
+   【结论】51 和 3.3V 模块对接时，主要是「51 的输出」这条方向需要处理。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">电平转换的三种土办法（以及它们的代价）</h4>
+
+          <p class="mt-3">
+            如果手上没有专用电平转换芯片，可以用下面三种办法应急。
+            它们都能用，但每一种都有明确的限制，不能乱用。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="三种电平转换办法的电路与代价">
+            <pre><code>============================================================
+【办法一：串一个电阻限流（最简单、最不推荐）
+============================================================
+   5V 输出 ────[ 1kΩ ]──── 3.3V 输入
+
+   原理：即使保护二极管导通，电流也只有
+         (5 − 3.3 − 0.7) / 1000 = 1mA，在二极管承受范围内。
+
+   · 优点：一个电阻就搞定，成本几乎为零。
+   · 缺点：① 只能用于【低速】信号，1kΩ 加上引脚电容会拖慢边沿；
+           ② 这 1mA 仍然持续灌进 3.3V 电源网络，
+              长时间工作会让 LDO 发热、电源电压轻微上升；
+           ③ 它并没有真正解决「超规格」问题，只是把损伤减速。
+   · 适用：临时实验、低速（几 kHz 以下）的单个信号。
+   · 【绝对不要用于】串口高速通信、I2C 总线、时钟信号。
+
+============================================================
+【办法二：串一个二极管降压
+============================================================
+   5V 输出 ──|&gt;|── 3.3V 输入        （硅二极管，压降约 0.7V）
+
+   原理：5V 减去 0.7V 得到 4.3V。
+
+   · 问题：4.3V 还是比 3.3V 高！只降了 0.7V，远远不够。
+           要降到 3.3V 需要串两个二极管（5 − 0.7 − 0.7 = 3.6V），
+           但 3.6V 仍然略高于 3.3V + 0.3V = 3.6V 的极限，边界上很危险。
+   · 而且二极管的压降会随电流变化（小电流时可能只有 0.4V），
+     导致输出电压不稳定。
+   · 结论：这个办法在 5V → 3.3V 场合【基本不可靠】，
+           它更适合「把 5V 降到 4.3V 之类的中间目标」。
+
+============================================================
+【办法三：用三极管或 MOS 管做单向转换
+============================================================
+   NPN 三极管方案（把 5V 信号送给 3.3V 输入，顺便反相）：
+
+        5V ──┬────┬───── 3.3V 输入
+             │    │
+          [10k]  [集电极电阻 10k 接到 3.3V]
+             │    │
+   信号 ──[1k]──┤ NPN
+                  │
+                 GND
+
+   · 优点：真正实现了电平隔离，3.3V 侧只看到 0~3.3V。
+   · 缺点：① 反相了（输入高→输出低），代码里要反过来判断；
+           ② 需要额外的三极管和电阻，占板面积；
+           ③ 速度受限。
+   · 更常用的变体是【MOS 管双向转换】（两个 MOS 管背靠背），
+     可以同时支持两个方向的信号，也是很多廉价「电平转换模块」
+     内部用的方案（比如常见的 4 路双向转换小板）。
+
+============================================================
+【正规做法：用专用电平转换芯片】
+============================================================
+   · 单向、多路、高速：74LVC245（8 路，带方向控制脚）
+                        74LVC1T45（1 路，自动方向）
+   · 双向、I2C 专用：TXS0102 / TXS0108E / PCA9306
+   · 简单、便宜、国内易买：常见的「四路双向电平转换模块」，
+     基于 MOS 管方案，1.8/3.3/5V 之间都能转，
+     价格一两块钱，做项目时建议常备。
+
+   【选型原则】
+     信号速率低、通道少 → 电阻或 MOS 模块
+     信号速率高（SPI、时钟）、通道多 → 专用芯片
+     涉及 I2C → 必须用支持双向的转换方案（见开漏那一节）</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">最省事的办法：看模块上有没有稳压芯片</div>
+            <p>
+              很多标着「5V」的模块，比如某些传感器小板，
+              板上其实带了一个 3.3V 的 LDO 稳压器。
+              它的意思是「供电请给 5V，我内部会转成 3.3V」，
+              而不是「我的信号线是 5V 电平」。
+              这类模块的 IO 引脚<b>通常仍然是 3.3V 电平</b>，
+              甚至有些还标了「5V 容忍」。
+            </p>
+            <p class="mt-2">
+              判断方法：<b>拿万用表量一下模块的 IO 引脚在空闲时是高还是低，
+              再接 5V 信号之前先用示波器或万用表确认它的耐压标注</b>。
+              买模块时的第一件事是找数据手册或卖家页面上有没有
+              「电平」「兼容 5V」「FT」这些字样，
+              找不到就假设它只能 3.3V，加转换电路。
+            </p>
+          </div>
+
+          <h3 id="sub-logic-gates" class="mt-7 text-base font-semibold">六种逻辑门与对应的位运算</h3>
+
+          <p class="mt-3">
+            逻辑门是数字电路的最基本积木。每个门都是「输入一两个高低电平，
+            输出一个高低电平」的小电路。
+            有意思的是：<b class="font-semibold text-ink">C 语言里的位运算符和逻辑门是一一对应的</b>——
+            因为 CPU 内部的加法器就是这些门搭出来的，
+            位运算符就是用指令去调用那些门。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">与门 AND：两个都同意才通过</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="与门：真值表、符号、电路类比">
+            <pre><code>【电路符号描述】
+   一个左端平直、右端半圆的 D 形方框，两个输入在左边，一个输出在右边。
+   （在电路图软件里通常画成矩形，里面写 &amp; 符号）
+
+        A ──────┐
+                │  &amp;   ├────── Y
+        B ──────┘
+
+【真值表】
+   A   B  │  Y
+   ───────┼─────
+   0   0  │  0
+   0   1  │  0
+   1   0  │  0
+   1   1  │  1
+
+【电路类比】两个开关【串联】接一个灯泡：
+       电源 ──[开关A]──[开关B]── 灯泡 ── GND
+   只有两个开关同时闭合，灯才会亮。
+
+【生活类比】「带伞 AND 带钥匙」才出门：
+   两个条件都满足才行动。
+
+【对应的 C 语言位运算符】                &amp;
+   unsigned char y = a &amp; b;
+   逐位计算：第 n 位的结果 = a 的第 n 位 AND b 的第 n 位
+   例：0x3C &amp; 0x0F
+       0011 1100
+     &amp; 0000 1111
+     ─────────────
+       0000 1100 = 0x0C
+
+【典型用途】提取掩码、判断某一位、清掉不需要的位</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">或门 OR：一个同意就通过</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="或门：真值表、符号、电路类比">
+            <pre><code>【电路符号描述】
+   后端尖的盾形（像一支箭头），两个输入在弧形的前端，一个输出在尖端。
+
+        A ──╲
+             ╲
+              ╲────── Y
+             ╱
+        B ──╱
+
+【真值表】
+   A   B  │  Y
+   ───────┼─────
+   0   0  │  0
+   0   1  │  1
+   1   0  │  1
+   1   1  │  1
+
+【电路类比】两个开关【并联】接一个灯泡：
+       电源 ──┬──[开关A]──┬── 灯泡 ── GND
+              └──[开关B]──┘
+   任意一个闭合，灯就亮。
+
+【生活类比】「带伞 OR 带雨衣」就能防雨：
+   有一个条件满足就行。
+
+【对应的 C 语言位运算符】                |
+   unsigned char y = a | b;
+   例：0x3C | 0x0F
+       0011 1100
+     | 0000 1111
+     ─────────────
+       0011 1111 = 0x3F
+
+【典型用途】置位、合并两个字节（比如把高低字节拼成 16 位）</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">非门 NOT：反着来</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="非门：真值表、符号、电路类比">
+            <pre><code>【电路符号描述】
+   一个三角形，尖端有一个小圆圈。一个输入、一个输出。
+   那个小圆圈叫「反相泡」，表示输出取反。
+
+        A ──────▷o────── Y
+
+【真值表】
+   A  │  Y
+   ───┼─────
+   0  │  1
+   1  │  0
+
+【电路类比】一个【常闭】开关：
+   不按的时候电路通（灯亮），一按就断开（灯灭）。
+
+【对应的 C 语言位运算符】                ~
+   unsigned char y = ~a;
+   例：~0x0F（8 位视角）
+       0000 1111
+     ~ ─────────
+       1111 0000 = 0xF0
+
+【典型用途】配合 &amp; 使用，实现「清零某一位」：x &amp;= ~(1 &lt;&lt; n);</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">与非门 NAND：与之后取反（最万能的门）</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="与非门：真值表、符号，以及为什么它最重要">
+            <pre><code>【电路符号描述】
+   与门的符号 + 输出端一个小圆圈。
+
+        A ──────┐
+                │  &amp;   ├──o──── Y
+        B ──────┘
+
+【真值表】就是「与门的结果再取反」
+   A   B  │  Y
+   ───────┼─────
+   0   0  │  1      ← 注意这一行和与门不同
+   0   1  │  1
+   1   0  │  1
+   1   1  │  0      ← 只有这一行是 0
+
+【对应的 C 语言写法】
+   unsigned char y = ~(a &amp; b);
+   （注意括号：~ 的优先级比 &amp; 高，不写括号就变成 (~a) &amp; b 了）
+
+   例：~(0x3C &amp; 0x0F)
+       先算 0x3C &amp; 0x0F = 0x0C = 0000 1100
+       再取反（8 位视角） = 1111 0011 = 0xF3
+
+【为什么说 NAND 最重要】
+   理论上，只用与非门就能搭出所有其他逻辑门和整个 CPU：
+     NOT(a)     = NAND(a, a)
+     AND(a,b)   = NAND(NAND(a,b), NAND(a,b))     （输出再接一个非门）
+     OR(a,b)    = NAND(NAND(a,a), NAND(b,b))
+   这叫「功能完备性」。
+   所以真实芯片里，与非门是造得最多、最便宜的门。
+   你以后看到 74HC00 这种芯片，就是「四路二输入与非门」。
+
+【典型用途】芯片的片选信号、复位信号经常用与非门组合出来</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">或非门 NOR：或之后取反</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="或非门：真值表与对应写法">
+            <pre><code>【电路符号描述】
+   或门的符号 + 输出端一个小圆圈。
+
+        A ──╲
+             ╲
+              ╲──o──── Y
+             ╱
+        B ──╱
+
+【真值表】就是「或门的结果再取反」
+   A   B  │  Y
+   ───────┼─────
+   0   0  │  1      ← 只有这一行是 1
+   0   1  │  0
+   1   0  │  0
+   1   1  │  0
+
+【对应的 C 语言写法】
+   unsigned char y = ~(a | b);
+
+   例：~(0x3C | 0x0F)
+       先算 0x3C | 0x0F = 0x3F = 0011 1111
+       再取反（8 位视角） = 1100 0000 = 0xC0
+
+【典型用途】SR 锁存器（用一个或非门对就能做最简单的记忆单元）；
+   芯片手册里常见的「低有效复位」逻辑也常常用或非门实现。
+   NOR 同样是功能完备的，只用或非门也能搭出整个 CPU。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">异或门 XOR：不一样才输出 1</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="异或门：真值表、符号与它最有用的性质">
+            <pre><code>【电路符号描述】
+   或门的符号，但在输入端多一条弧线（像给输入加了「限定」）。
+
+        A ──╲
+           ╲ ╲
+            ╲ ╲────── Y
+           ╱ ╱
+        B ──╱ ╱
+
+【真值表】
+   A   B  │  Y
+   ───────┼─────
+   0   0  │  0
+   0   1  │  1      ← 不同
+   1   0  │  1      ← 不同
+   1   1  │  0
+
+【对应的 C 语言位运算符】                ^
+   unsigned char y = a ^ b;
+
+【最有用的性质：可控翻转】
+   x ^ 0 = x        与 0 异或，保持不变
+   x ^ 1 = ~x       与 1 异或，翻转
+   x ^ x = 0        自己与自己异或，得 0（所以可以当「清零」用）
+   (x ^ y) ^ y = x  异或两次还原
+
+【工程上的三个经典用途】
+   ① 翻转引脚（做方波、让 LED 闪烁）：
+          P1 ^= (1 &lt;&lt; 0);
+   ② 校验和：把所有字节异或起来当校验值，接收方算一遍对比
+   ③ 半加器的「和」位：两个 1 相加，本位是 0、进位是 1
+          和 = a ^ b        （异或）
+          进位 = a &amp; b      （与）
+      —— 这就是全加器的地基，CPU 的加法就靠它。
+
+【记住这句话】
+   异或不是或！1 | 1 = 1，而 1 ^ 1 = 0。
+   需要「至少一个为 1」用 |，需要「恰好一个是 1」用 ^。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>逻辑门</th>
+                  <th>名称</th>
+                  <th>输出为 1 的条件</th>
+                  <th>C 位运算符</th>
+                  <th>典型芯片</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">AND</td><td>与</td><td>两个输入都是 1</td><td class="font-mono text-xs">&amp;</td><td class="font-mono text-xs">74HC08</td></tr>
+                <tr><td class="font-mono text-xs">OR</td><td>或</td><td>至少一个输入是 1</td><td class="font-mono text-xs">|</td><td class="font-mono text-xs">74HC32</td></tr>
+                <tr><td class="font-mono text-xs">NOT</td><td>非</td><td>输入是 0</td><td class="font-mono text-xs">~</td><td class="font-mono text-xs">74HC04</td></tr>
+                <tr><td class="font-mono text-xs">NAND</td><td>与非</td><td>不是两个都为 1</td><td class="font-mono text-xs">~(a &amp; b)</td><td class="font-mono text-xs">74HC00</td></tr>
+                <tr><td class="font-mono text-xs">NOR</td><td>或非</td><td>两个输入都是 0</td><td class="font-mono text-xs">~(a | b)</td><td class="font-mono text-xs">74HC02</td></tr>
+                <tr><td class="font-mono text-xs">XOR</td><td>异或</td><td>两个输入不同</td><td class="font-mono text-xs">^</td><td class="font-mono text-xs">74HC86</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">为什么「位运算」和「逻辑门」是同一件事</div>
+            <p>
+              因为 CPU 里的 ALU（算术逻辑单元）就是用这些门搭出来的。
+              当你在 C 里写 <code class="icode">a &amp; b</code>，
+              单片机内部做的事情是：把 a 和 b 的每一位分别送到
+              8 个并联的与门电路上，每个与门产生结果的对应位。
+              8 位数据就是「8 个门同时工作」——
+              所以位运算是<b>一条指令处理 8 位</b>，
+              比用 8 次 <code class="icode">if</code> 判断快得多。
+            </p>
+          </div>
+
+          <h3 id="sub-pullup" class="mt-7 text-base font-semibold">上拉、下拉与正负逻辑</h3>
+
+          <p class="mt-3">
+            到这里你已经知道：输入引脚不能悬空。
+            那么问题来了——<b class="font-semibold text-ink">怎么才能让它在「没人管」的时候
+            自动处于一个确定状态？</b>
+            答案就是加一个电阻，把它轻轻地拉向高电平或低电平。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">上拉电阻与下拉电阻</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="上拉与下拉：一个电阻解决悬空问题">
+            <pre><code>============================================================
+【上拉电阻】把引脚「轻轻」拉到高电平
+============================================================
+
+           +5V
+            │
+            │
+          [10kΩ]        ← 上拉电阻
+            │
+            ├──────────── 单片机输入引脚 P3.2
+            │
+          ┌─┴─┐
+          │按键│          ← 按键另一端接 GND
+          └─┬─┘
+            │
+           GND
+
+   按键【不按】时：引脚通过 10kΩ 连到 +5V → 读到的电压是 5V → 读到 1
+   按键【按下】时：引脚被按键直接接到 GND → 读到的电压是 0V → 读到 0
+
+   【注意】按键按下时，5V 通过 10kΩ 直接到 GND，
+           电流 = 5V / 10kΩ = 0.5mA。
+           这个电流是白白消耗的，但 0.5mA 完全可以接受。
+
+============================================================
+【下拉电阻】把引脚「轻轻」拉到低电平
+============================================================
+
+            +5V
+             │
+           ┌─┴─┐
+           │按键│          ← 按键另一端接 +5V
+           └─┬─┘
+             │
+             ├──────────── 单片机输入引脚 P3.2
+             │
+           [10kΩ]          ← 下拉电阻
+             │
+            GND
+
+   按键【不按】时：引脚通过 10kΩ 连到 GND → 读到 0
+   按键【按下】时：引脚被按键直接接到 +5V → 读到 1
+
+============================================================
+【为什么这个电阻必须存在：没有它会怎样】
+============================================================
+   去掉上拉电阻，按键不按时引脚处于【悬空】状态。
+   悬空引脚的等效电路是：一个很小的电容 + 一个很高的电阻
+   （可达几十兆欧）。
+
+   · 这个电容会记住上一次的电荷，慢慢泄漏。
+   · 它还会像天线一样，感应到周围的工频干扰（50Hz）、
+     你手靠近时的静电、旁边电机开关时的电磁噪声。
+   · 于是引脚电压在 0.5V ~ 3.5V 之间乱飘，
+     正好落进【不确定区】。
+
+   【现象】不按按键时，LED 自己乱闪、计数器数字乱跳、
+           数码管显示没规律地变化、串口收到垃圾数据。
+   【最难查的地方】它「有时候正常、有时候不正常」，
+           而且手一碰线就变、动一下桌子也变。
+           初学者经常怀疑是程序问题，改了半天代码才发现是硬件。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">10kΩ 是怎么选出来的（漏电流算例）</h4>
+
+          <p class="mt-3">
+            「上拉电阻用 10k」是电子工程师的口头禅，但为什么是 10k？
+            为什么不用 100Ω 或 1MΩ？这背后有一个明确的计算。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="上拉电阻取值的两头夹逼：漏电流算上限、功耗与速度算下限">
+            <pre><code>============================================================
+【第一步：算上限 —— 电阻不能太大】
+============================================================
+   引脚本身不是完美的绝缘体，它会有【输入漏电流】（符号 IIL / IIH）。
+   5V TTL 或 CMOS 输入通常 1µA ~ 10µA，我们按最坏情况取 10µA。
+
+   上拉电阻 R 上的压降 = I × R。
+   引脚实际得到的电压 = VCC − I × R。
+
+   关键要求：这个电压必须还在「一定读成高」的区域里，
+             也就是要高于 VIH（5V TTL 是 2.0V），
+             而且最好留足噪声容限。
+
+   算几个候选值：
+
+     R = 1MΩ ：压降 = 10µA × 1MΩ = 10V  ← 比电源还大，完全失效！
+                引脚电压会被拉到 0V 附近，永远读成低。
+     R = 100kΩ：压降 = 10µA × 100kΩ = 1.0V
+                引脚电压 = 5 − 1.0 = 4.0V  ← 还能读成高，但已经掉了 1V。
+                如果再叠加一点噪声，就危险了。
+     R = 10kΩ ：压降 = 10µA × 10kΩ = 0.1V
+                引脚电压 = 5 − 0.1 = 4.9V  ← 非常稳，离门限 2.0V 差了 2.9V ✔
+     R = 4.7kΩ：压降 = 10µA × 4.7kΩ = 0.047V
+                引脚电压 = 4.95V  ← 最稳，但费电更多
+
+   【结论】从「保证读对」的角度，10kΩ 是很好的平衡点：
+           压降只有 0.1V，几乎可以忽略。
+
+============================================================
+【第二步：算下限 —— 电阻不能太小】
+============================================================
+   电阻越小，两个代价越大：
+
+   ① 静态功耗（按键按下时白白流走的电流）
+        R = 10kΩ ：I = 5V / 10kΩ = 0.5mA
+        R = 1kΩ  ：I = 5V / 1kΩ  = 5mA     ← 是 10k 的 10 倍
+        R = 100Ω ：I = 5V / 100Ω = 50mA    ← 已经超过单片机单个引脚的
+                                             推荐输出电流了，而且很费电
+
+      对电池供电的项目，这 5mA 可能直接决定续航。
+      对 51 单片机这种市电供电的板子，0.5mA 完全无所谓。
+
+   ② 输出端的驱动能力（如果这个电阻接在输出脚上）
+      如果引脚输出低电平，它要同时承受上拉电阻灌进来的电流。
+      51 单片机单个引脚建议不超过 10~20mA，
+      所以上拉电阻至少要 (5V / 10mA) = 500Ω。
+      10kΩ 只灌 0.5mA，远远在安全范围内 ✔
+
+   ③ 上升沿速度（这是高速场合的关键）
+      引脚有约 10pF 的输入电容，加上导线的电容，按 20pF 算。
+      上拉电阻和这个电容构成一个 RC 充电电路，
+      时间常数 τ = R × C。
+
+        R = 10kΩ ：τ = 10kΩ × 20pF = 0.2µs
+                   上升沿大约 3τ ≈ 0.6µs
+                   → 支持的最高频率约 1 / (2×0.6µs) ≈ 800kHz ✔ 够用
+
+        R = 100kΩ：τ = 2µs，上升沿约 6µs
+                   → 最高约 80kHz，跑 I2C 400kHz 就不行了 ✘
+
+        R = 1kΩ  ：τ = 0.02µs，上升沿极快
+                   → 适合高速，但费电
+
+   【结论】10kΩ 在「读得准、省电、速度够」三方面都过关，
+           所以成了默认选择。
+
+============================================================
+【什么时候不用 10k】
+============================================================
+   · I2C 总线：用 4.7kΩ（因为总线电容大，需要更强的上拉，
+                 同时 400kHz 的速度要求上升沿快）——有的场合甚至用 2.2kΩ
+   · 高速 SPI/时钟：用 1kΩ ~ 2.2kΩ
+   · 超低功耗（电池 + 纽扣电池）：用 100kΩ ~ 1MΩ，
+     但要确认芯片的漏电流足够小（CMOS 输入可以，老的 TTL 不行）
+   · 强干扰环境（旁边有电机、继电器）：用 4.7kΩ 甚至 2.2kΩ，
+     低阻抗更抗干扰
+
+============================================================
+【一句话记忆】
+============================================================
+   上拉电阻的量级：几 kΩ 到几十 kΩ 都合理，
+   10kΩ 是那个「几乎什么场合都不会出错」的默认值。
+   电阻越小越稳越快但越费电，越大越省电但越慢越怕漏电流。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">内部上拉与外部上拉</div>
+            <p>
+              很多单片机（包括 STC89C52RC 的 P1/P2/P3 口）在芯片内部
+              就带了<b>弱上拉</b>，所以有时候你不接外部电阻，按键也能工作。
+              但那是有代价的：
+            </p>
+            <ul class="list-disc space-y-1.5 pl-5 mt-2">
+              <li><b>阻值很大且不精确</b>：内部上拉通常是几十到几百微安级的恒流源，
+                等效阻值可能相当于 50kΩ~200kΩ 甚至更大。</li>
+              <li><b>抗干扰能力弱</b>：阻值大意味着容易被外部噪声拉偏，
+                一根长导线就能把电平带进不确定区。</li>
+              <li><b>速度慢</b>：RC 时间常数大，上升沿慢，
+                不适合做通信线（I2C 更是必须外部上拉）。</li>
+              <li><b>不同型号差别大</b>：换一颗芯片可能就不工作了，
+                这种「靠内部特性碰运气」的设计不专业。</li>
+            </ul>
+            <p class="mt-2">
+              <b>结论</b>：实验阶段靠内部上拉能省事，但正式做板子时
+              一律加外部 10kΩ 上拉。
+              还有一个 51 特有的坑：<b>P0 口没有内部上拉</b>，
+              它必须外接上拉电阻（通常 10kΩ 的排阻）才能输出高电平，
+              直接用它驱动 LED 或用它读输入都会出问题。
+            </p>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">正逻辑与负逻辑：为什么很多电路是「低电平点亮」</h4>
+
+          <p class="mt-3">
+            同样一个「灯亮」，可以设计成「输出高电平灯亮」，
+            也可以设计成「输出低电平灯亮」。
+            这两种约定分别叫<b class="font-semibold text-ink">正逻辑</b>和
+            <b class="font-semibold text-ink">负逻辑</b>（也叫高有效 / 低有效）。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="两种 LED 接法的对比：为什么工程上偏爱低电平点亮">
+            <pre><code>============================================================
+【接法一：拉电流（高电平点亮）—— 正逻辑】
+============================================================
+
+      单片机引脚 P1.0 ────[ 470Ω ]────|&gt;|──── GND
+                                        LED
+
+   输出高（5V）→ 电流从引脚流向 LED → 灯【亮】
+   输出低（0V）→ 没有电流 → 灯【灭】
+
+   代码里：P1_0 = 1;  表示「开」；P1_0 = 0; 表示「关」
+          （直观，符合人的直觉，这叫【正逻辑】）
+
+   问题：电流是单片机【吐】出来的。
+         51 单片机单个引脚输出电流的能力很弱：
+           灌电流（吸入）：约 20mA
+           拉电流（吐出）：只有约 1~2mA（早期的 8051 更弱）
+         LED 需要 5~20mA 才够亮，靠拉电流根本点不亮或很暗。
+         这会让单片机引脚工作在超规格状态，长期会损坏。
+
+============================================================
+【接法二：灌电流（低电平点亮）—— 负逻辑】
+============================================================
+
+       +5V ────[ 470Ω ]────|&gt;|──── 单片机引脚 P1.0
+                             LED
+
+   输出低（0V）→ 电流从 5V 经电阻、LED 流【进】引脚 → 灯【亮】
+   输出高（5V）→ 引脚与 5V 同电位，没有压差 → 灯【灭】
+
+   代码里：P1_0 = 0;  表示「开」；P1_0 = 1; 表示「关」
+          （反直觉，这叫【负逻辑】，但工程上到处都是）
+
+   优势：电流是单片机【吸】进来的。51 的灌电流能力有 20mA，
+         驱动一颗 5mA 的 LED 绰绰有余。
+         开发板上 99% 的 LED 都这么接。
+
+============================================================
+【对比表】
+============================================================
+   项目           拉电流接法          灌电流接法
+   ────────────────────────────────────────────────
+   代码值 1 表示   灯亮                灯灭
+   代码值 0 表示   灯灭                灯亮
+   电流方向        引脚 → 外部         外部 → 引脚
+   51 的驱动能力   弱（1~2mA）         强（约 20mA）
+   实际亮度        很暗甚至不亮        正常
+   开发板采用      ✘ 很少              ✔ 绝大多数
+
+============================================================
+【为什么工程上到处都是负逻辑】
+============================================================
+   ① 灌电流能力强：几乎所有芯片的「吸入」能力都强于「吐出」。
+      因为对地导通可以用一个大 MOS 管，导通电阻很低。
+   ② 历史原因：早期 TTL 芯片的输出低电平驱动能力远强于高电平。
+   ③ 抗干扰：低电平更容易做得很接近 0V（噪声容限大、
+      且地线是整块铜皮），而高电平容易受电源波动影响。
+
+   所以很多信号的名字里带一个 n 或 / 或 # 表示低有效：
+      RESET#   低电平复位
+      CS#      低电平片选
+      OE#      低电平输出使能
+      INT#     低电平中断请求
+   看到这些名字就要知道：写 0 才是「激活」。
+
+============================================================
+【怎么避免自己搞混】
+============================================================
+   在代码里用宏定义把语义写清楚，不要裸写 0 和 1：
+
+      sbit LED = P1 ^ 0;
+      #define LED_ON   0        /* 低电平点亮 */
+      #define LED_OFF  1
+
+      LED = LED_ON;             /* 一眼就知道是在开灯 */
+
+   换一块板子如果 LED 是高电平点亮的，只要改这两个宏的值，
+   其他代码一行都不用动。这是很值得养成的小习惯。</code></pre>
+          </div>
+
+          <h3 id="sub-opendrain" class="mt-7 text-base font-semibold">开漏与推挽输出</h3>
+
+          <p class="mt-3">
+            引脚的输出级有两种完全不同的结构，它们的行为差别很大，
+            直接决定了「能不能把两个引脚接在一起」这个关键问题。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="推挽输出与开漏输出的内部结构对比">
+            <pre><code>============================================================
+【推挽输出 Push-Pull：主动推高、主动拉低】
+============================================================
+
+             VCC
+              │
+            ┌─┴─┐
+            │ P │  ← 上管（PMOS）
+            └─┬─┘
+              ├──────── 输出引脚
+            ┌─┴─┐
+            │ N │  ← 下管（NMOS）
+            └─┬─┘
+              │
+             GND
+
+   输出高：上管导通、下管截止 → 引脚被【主动接到 VCC】，输出约 VCC
+   输出低：上管截止、下管导通 → 引脚被【主动接到 GND】，输出约 0V
+
+   · 优点：上升沿和下降沿都很快很有力（有主动驱动）。
+   · 缺点：① 【绝对不能把两个推挽输出直接接在一起】。
+             如果一个输出高、另一个输出低，
+             就相当于把 VCC 和 GND 通过两个导通的管子直接短路，
+             电流可能达到几百毫安，两个芯片都可能烧掉。
+             这叫「输出冲突」「总线争用」。
+           ② 输出高电平最多只能到 VCC，没法超过 VCC。
+
+============================================================
+【开漏输出 Open-Drain：只能拉低，不能推高】
+============================================================
+
+                          （没有上管！）
+              ├──────── 输出引脚
+            ┌─┴─┐
+            │ N │  ← 只有下管
+            └─┬─┘
+              │
+             GND
+
+   输出低：下管导通 → 引脚被接到 GND，输出 0V
+   输出高：下管截止 → 引脚【悬空】（高阻态），
+                       电压由外部电路决定
+
+   【关键点】开漏输出自己【永远产生不了高电平】！
+             要想得到高电平，必须外接一个上拉电阻：
+
+             VCC ──[10kΩ]──┬──── 输出引脚
+                            │
+                          ┌─┴─┐
+                          │ N │  开漏输出级
+                          └─┬─┘
+                            │
+                           GND
+
+   · 优点：① 可以把很多个开漏输出【并联】到同一根线上，
+             谁都不会烧——因为大家只能拉低，不能推高。
+             只要有一个拉低，这根线就是低；全都不拉，线被上拉电阻拉高。
+             这叫【线与（wired-AND）】，正是总线的基础。
+           ② 上拉电阻可以接到【比芯片 VCC 更高的电压】上。
+             比如 3.3V 的芯片，开漏输出外接 5V 上拉，
+             就能输出 5V 电平（前提是那个引脚耐 5V）。
+             这是最简单的单向电平转换！
+   · 缺点：上升沿靠上拉电阻给电容充电，速度受 RC 限制，比较慢。
+
+============================================================
+【对比表】
+============================================================
+   项目              推挽              开漏
+   ───────────────────────────────────────────────
+   能主动输出高      能                不能（需外部上拉）
+   能主动输出低      能                能
+   多个输出并联      会短路烧毁 ✘      安全 ✔（线与）
+   上升沿速度        快                慢（RC 限制）
+   静态功耗          低                输出低时有上拉电流
+   适合接总线        不适合            适合
+   典型用途          LED、继电器、       I2C、单总线、
+                     SPI、PWM           中断线、多机共享信号</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">为什么 I2C 必须用开漏</div>
+            <p>
+              I2C 只用两根线（SCL 时钟、SDA 数据），却要挂很多个器件，
+              而且每个器件都既要发数据又要收数据。
+            </p>
+            <p class="mt-2">
+              这就要求：<b>同一根线上，任意时刻必须允许多个器件同时「说话」而不烧毁。</b>
+            </p>
+            <ul class="list-disc space-y-1.5 pl-5 mt-2">
+              <li><b>如果 I2C 用推挽输出</b>：器件 A 想发 1（推高到 3.3V），
+                器件 B 想发 0（拉到 GND），两者一接就是直接短路，
+                瞬间大电流，芯片烧毁。所以推挽绝对不能用在共享总线上。</li>
+              <li><b>用开漏就完全没问题</b>：每个器件只能「拉低」或「放手」。
+                只要有一个器件拉低，总线就是低电平；
+                只有当所有器件都放手时，上拉电阻才把总线拉高。
+                永远不会出现「一个推高、一个拉低」的冲突。</li>
+            </ul>
+            <p class="mt-2">
+              <b>这同时也解释了 I2C 的两个重要特性：</b>
+            </p>
+            <ul class="list-disc space-y-1.5 pl-5 mt-2">
+              <li><b>为什么必须有上拉电阻</b>：因为开漏自己产生不了高电平。
+                没有上拉，总线永远起不来，读到的永远是 0，
+                现象是「I2C 通信完全不通」。典型值 4.7kΩ（100kHz）
+                或 2.2kΩ（400kHz）。</li>
+              <li><b>怎么实现「仲裁」和「时钟拉伸」</b>：
+                器件一边输出一边读回总线状态。
+                如果自己想发 1（放手），却读到总线是 0，
+                说明有别的器件在拉低——那就知道自己抢输了，主动退出。
+                这个机制能天然工作，完全依赖开漏的「线与」特性。</li>
+            </ul>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">51 单片机的 P0 口就是开漏结构</div>
+            <p>
+              STC89C52RC 的 <b>P0 口内部没有上拉电阻</b>，
+              它的输出级是开漏（或者说「漏极开路」）结构。
+              后果是：
+            </p>
+            <ul class="list-disc space-y-1.5 pl-5 mt-2">
+              <li>想让 P0 输出高电平，<b>必须外接上拉电阻</b>（通常用 10kΩ 排阻），
+                否则它只能输出低电平和高阻态，驱动不了任何东西。</li>
+              <li>用 P0 口读输入时，也必须先写 1，靠外部上拉把电平拉高。</li>
+              <li>常见的开发板会在 P0 口接一个 10kΩ 的排阻（8 个电阻封装在一起），
+                就是干这个用的。如果你自己搭电路忘了它，
+                现象就是「P0 口接的 LED 全都不亮」或「数码管段选完全失效」。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-button-circuit" class="mt-7 text-base font-semibold">按键电路完整分析</h3>
+
+          <p class="mt-3">
+            按键是单片机最基础的输入设备，也是最容易被接错的一个。
+            这一节把「不加电阻」「加上拉」「加下拉」三种情况完整走一遍。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">先说按键本身：轻触开关的四个脚</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="轻触开关的内部结构与对角导通">
+            <pre><code>【轻触开关（4 脚）的内部结构】
+   外观上四个脚，其实内部只有两组：
+   同一侧的两个脚是【永久连通】的，只有跨侧的两个脚才是开关。
+
+        引脚 1 ●━━━━━━━━━● 引脚 2
+                ┃         ┃
+                ┃  按下时 ┃
+                ┃  才接通 ┃
+                ┃         ┃
+        引脚 3 ●━━━━━━━━━● 引脚 4
+
+   · 1 和 2 之间：一直通（内部铜箔直接连着）
+   · 3 和 4 之间：一直通
+   · 1(或2) 和 3(或4) 之间：只有按下才通
+
+   【怎么用万用表确认】
+     打到蜂鸣通断档：
+       · 表笔碰 1 和 2 → 响（说明这两个是一组）
+       · 表笔碰 1 和 3 → 不响；按下按键 → 响 ✔
+     这就是判断「哪两个脚是开关两端」的方法。
+
+   【接线时的实用技巧】
+     用【对角】的两个脚：比如接 1 和 4。
+     因为 1-2 是通的、3-4 是通的，所以 1 和 4 就是开关的两端。
+     这样接的好处是：不管按键旋转 90 度装上去，都不会接错。
+     （如果用 1 和 3，旋转 90 度后就变成用 2 和 4——其实也能用，
+       但如果用 1 和 2，旋转后就变成一个短路，按键完全失效。
+       所以【永远用对角】是最保险的做法。）</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">三种接法的完整对比</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="方案一：不加电阻（错误示范）">
+            <pre><code>============================================================
+【接法 A：按键直接接引脚和 GND，不加任何电阻】
+============================================================
+
+                                    ┌─ 单片机引脚 P3.2
+                                    │
+                                  ┌─┴─┐
+                                  │按键│
+                                  └─┬─┘
+                                    │
+                                   GND
+
+   按下时：引脚被接到 GND → 读到 0  ✔ 这部分没问题
+   松开时：引脚【悬空】→ 电压随机飘动，可能落进不确定区
+           读到 0 还是 1 完全随机
+
+   【现象】
+     · 不按按键时，程序里 if (KEY == 0) 有时成立有时不成立
+     · LED 自己乱闪、计数器数字乱跳、状态机乱走
+     · 手靠近电路板时现象变化（因为人体相当于一根天线）
+     · 换一个环境（比如从实验室搬到宿舍）现象又不同
+
+   【为什么会这样：悬空引脚的物理】
+     引脚内部有约 10pF 的输入电容，外部走线还有几 pF。
+     这个电容会保留上一次的电荷，然后通过绝缘电阻（几十 MΩ）
+     缓慢泄漏，同时还会感应周围的电磁场。
+     所以它的电压是一个「随时间和环境变化的随机值」。
+
+   【最容易犯的误解】
+     「我读到 1 的时候灯是灭的，读到 0 灯亮，看起来正常工作啊！」
+     —— 那是运气好（或环境干扰恰好让它偏向高电平）。
+     这种电路在实验室能用，装到设备里就会出莫名其妙的故障。
+     【绝对不要这样接线】。
+
+============================================================
+【一个安全问题：如果引脚配成输出会怎样】
+============================================================
+   如果这个引脚被程序写成输出高电平（5V），
+   而按键又被按下（引脚接到 GND）——那就是 5V 通过
+   一个导通的 MOS 管直接短路到 GND。
+   电流可能达到几十到几百毫安，引脚会发烫甚至烧毁。
+   这也是「按键引脚应该配成输入」的另一半理由。</code></pre>
+          </div>
+
+          <div class="code-block mt-4" data-lang="text" data-title="方案二：加上拉（推荐）">
+            <pre><code>============================================================
+【接法 B：上拉电阻 + 按键对地（推荐，低电平有效）】
+============================================================
+
+                          +5V
+                           │
+                         [10kΩ]
+                           │
+                           ├────────── 单片机引脚 P3.2
+                           │
+                         ┌─┴─┐
+                         │按键│
+                         └─┬─┘
+                           │
+                          GND
+
+   松开：引脚 = 5V（通过 10kΩ）→ 读到 1
+   按下：引脚 = 0V（被按键直接接地）→ 读到 0
+
+   【代码里的判断】
+         if (KEY == 0)  { 按键被按下 }
+      或  if (!KEY)      { 按键被按下 }
+
+   【为什么推荐它】
+     ① 51 单片机的 P1/P2/P3 口【内部自带弱上拉】。
+        即使你忘了画外部电阻，它也可能凑合能工作，
+        但要清楚：内部上拉阻值大、不精确、抗干扰差，
+        正式设计一定要加外部 10kΩ。
+     ② 负逻辑（0 = 按下）在用「边沿触发中断」时很方便：
+        INT0/INT1 中断就是低电平或下降沿触发的。
+     ③ 与「多个按键共用一根线」的矩阵键盘接法一致。
+
+   【同时并一个 0.1µF 电容（可选，但很好）】
+         +5V ──[10kΩ]──┬──── 引脚
+                        │
+                      [0.1µF]      ← 硬件去抖电容
+                        │
+                      ┌─┴─┐
+                      │按键│
+                      └─┬─┘
+                        │
+                       GND
+      这个电容和 10kΩ 组成 RC 滤波（τ = 10k × 0.1µ = 1ms），
+      能把按键抖动的高频成分吸收掉，减轻软件消抖的负担。
+      代价是响应变慢约 1~3ms，对按键来说完全无所谓。
+
+   【注意内部上拉的一个坑：P0 口】
+      P0 口【没有内部上拉】，如果按键接在 P0 口上，
+      不加外部上拉就是接法 A 的效果（悬空）。
+      所以 P0 接按键必须外接上拉电阻。
+
+============================================================
+【接法 C：下拉电阻 + 按键接 5V（高电平有效）】
+============================================================
+
+                          +5V
+                           │
+                         ┌─┴─┐
+                         │按键│
+                         └─┬─┘
+                           │
+                           ├────────── 单片机引脚 P3.2
+                           │
+                         [10kΩ]
+                           │
+                          GND
+
+   松开：引脚 = 0V（通过 10kΩ 到地）→ 读到 0
+   按下：引脚 = 5V → 读到 1
+
+   【代码里的判断】
+         if (KEY == 1)  { 按键被按下 }
+
+   【优点】直观：1 表示按下，符合人的直觉。
+   【缺点】① 51 的 P1/P2/P3 内部有弱上拉（约几十 µA），
+             它和你的 10kΩ 下拉形成分压。
+             算一下：内部上拉按 50µA 恒流源估算，
+             10kΩ 上的压降 = 50µA × 10kΩ = 0.5V。
+             也就是说松开时引脚电压是 0.5V，还在 VIL = 0.8V 以内 ✔
+             但如果用 100kΩ 下拉，压降 = 5V，引脚直接被拉到 5V，
+             【永远读成 1】，按键完全失效 ✘
+             → 所以下拉电阻不能用太大，10kΩ 是安全的，100kΩ 不行。
+           ② 51 的 INT0/INT1 中断是低电平/下降沿触发的，
+             高电平有效的按键不能直接触发外部中断。
+   【结论】能用，但在 51 上不如上拉方案稳妥。
+
+============================================================
+【三种接法总对比】
+============================================================
+   接法        松开时读数   按下时读数   可靠性   推荐度
+   ────────────────────────────────────────────────────
+   A 不加电阻   随机        0           极差     ✘ 绝对不要
+   B 上拉       1           0           好       ✔ 推荐
+   C 下拉       0           1           可用     ○ 在 51 上次选
+   ────────────────────────────────────────────────────
+   记住：按键电路的核心不是「按下时接通」，
+         而是「不按时必须有一个明确的电平」。
+         那个电阻存在的意义，就是【消灭悬空状态】。</code></pre>
+          </div>
+
+          <h3 id="sub-debounce" class="mt-7 text-base font-semibold">去抖动</h3>
+
+          <p class="mt-3">
+            按键电路接对了，还有一个纯粹机械的问题要处理：<b class="font-semibold text-ink">抖动</b>。
+            这不是电路设计错误，而是所有机械开关的固有特性。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">抖动波形是什么样</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="按键抖动的真实波形与它造成的后果">
+            <pre><code>============================================================
+【理想中的按键波形：一次干净的跳变】
+============================================================
+   引脚电压
+    5V ┤━━━━━━━━━━━┓
+       │           ┃
+       │           ┃
+       │           ┃
+    0V ┤           ┗━━━━━━━━━━━━━━━→ 时间
+       └───────────────────────────
+        松开        按下         松开
+        （实际上不存在这样的波形）
+
+============================================================
+【真实的按键波形：按下和松开时都有一串抖动】
+============================================================
+   引脚电压
+    5V ┤━━━━━┓ ┏┓ ┏━┓ ┏┓
+       │     ┃ ┃┃ ┃ ┃ ┃┃
+       │     ┃ ┃┃ ┃ ┃ ┃┃
+    0V ┤     ┗━┛┗━┛ ┗━┛┗━━━━━━━━━━━━→ 时间
+       └───────────────────────────
+              ↑              ↑
+           按下瞬间        松开瞬间
+           抖动 5~20ms     抖动 5~20ms
+
+【为什么会抖动】
+   轻触开关内部是一片金属弹片。按下去的时候，
+   弹片不是「啪」地一下就贴住，而是在几毫秒内
+   反复弹跳、碰撞几次，每次碰撞都造成一次通断。
+   松手时同样如此（弹片回弹也会弹跳）。
+
+   抖动的特点：
+     · 持续时间：通常 5~20ms，质量差的开关可能到 30ms
+     · 抖动次数：几次到几十次不等，每次通断时间不规律
+     · 【每次按键都不一样】：同一个开关，这次抖 8 次，
+       下次抖 15 次，完全无法预测
+
+   【一个重要的数字感受】
+     你按一下按键大约 100ms，而抖动只有 10ms。
+     也就是说：抖动只占整个按压过程的 10% 的时间，
+     但如果没有处理，这 10% 的时间里程序可能
+     把「一次按键」读成 5 次甚至 20 次。
+
+============================================================
+【不处理抖动会怎样：三个真实现象】
+============================================================
+   ① 计数器一下加了好几：
+      按一次，数码管从 0 直接跳到 7。
+   ② 菜单一下翻过去好几页：
+      想切到下一页，结果翻过了 3 页。
+   ③ 状态机乱跳：
+      想「开灯」，结果开→关→开→关 快速闪了几下，最后停在想不到的状态。
+   ④ 更隐蔽的：如果按键用来触发某个「开始/停止」动作，
+      抖动可能让系统进入「开始→停止」的竞态，行为完全不可预期。
+
+   还有一种情况是「长按/短按」判断出错：
+   抖动的边沿会被误判成「按了很多次」，长按检测完全失效。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">办法一：硬件 RC 去抖</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="硬件去抖：RC 滤波与施密特触发">
+            <pre><code>============================================================
+【最简单的硬件去抖：上拉电阻 + 并联电容】
+============================================================
+
+                     +5V
+                      │
+                    [10kΩ]  R
+                      │
+                      ├─────────────── 单片机引脚
+                      │
+                    [0.1µF]  C
+                      │
+                    ┌─┴─┐
+                    │按键│
+                    └─┬─┘
+                      │
+                     GND
+
+   【原理】
+     电容上的电压不能突变。设时间常数 τ = R × C。
+        τ = 10kΩ × 0.1µF = 10000 × 0.0000001 = 0.001s = 1ms
+
+     按键松开时，电容通过 10kΩ 充电到 5V，需要约 3τ = 3ms。
+     按键按下时，电容通过按键（几乎零电阻）瞬间放电，很快到 0V。
+
+     抖动期间（每次通断只持续几十微秒到几毫秒），
+     电容的电压根本来不及响应，于是引脚电压保持平稳。
+     → 抖动被「平滑」掉了。
+
+   【电容取值怎么定】
+     · 0.1µF + 10kΩ → τ = 1ms
+        对按键足够了（抖动 5~20ms 会被大部分吸收），
+        响应延迟只有约 3ms，人手感觉不到。
+     · 0.01µF + 10kΩ → τ = 0.1ms
+        太快，去抖效果有限，仍需要软件配合。
+     · 1µF + 10kΩ → τ = 10ms
+        去抖很彻底，但松手后要等 30ms 才恢复，
+        「快速连按」会感觉迟钝。
+
+   【注意：上升沿变慢带来的问题】
+     有了这个电容，引脚的上升沿和下降沿都变缓了
+     （不是理想的瞬间跳变，而是一条 RC 曲线）。
+     如果引脚是【施密特触发输入】，这完全没问题。
+     如果是【普通输入】，缓慢的边沿在门限附近停留时间较长，
+     可能引起【多次翻转】—— 反而更糟！
+
+     → 所以严格来说，硬件去抖的最佳形式是：
+         RC 滤波 + 施密特触发输入（比如 74HC14），
+       让「缓慢变化的电压」被整形成「干净的跳变」。
+       51 单片机自身的 IO 不做这个整形，
+       所以纯粹靠 RC 在 51 上并不理想。
+       实际工程里更常用【软件去抖】。
+
+============================================================
+【硬件去抖的优缺点】
+============================================================
+   ✔ 优点：不占用 CPU 时间；响应实时；抖动在进单片机之前就被处理掉了。
+   ✘ 缺点：增加元件和成本；每个按键都要一套 RC，多按键时很占地方；
+          电容让边沿变慢，需要配合施密特触发；
+          电容值不好调，太大反应迟钝、太小没效果。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">办法二：软件延时去抖（最常用）</h4>
+
+          <div class="code-block mt-4" data-lang="text" data-title="软件去抖的核心思想与三个关键点">
+            <pre><code>============================================================
+【核心思想：隔一段时间再确认一次】
+============================================================
+   第一次读到低电平（可能是抖动产生的假信号）：
+     不立刻相信，先等 10~20ms
+   等完之后再读一次：
+     如果还是低 → 认为是真的按下 ✔
+     如果变回高了 → 认为是抖动，忽略 ✘
+
+   代码形态：
+     if (KEY == 0)              /* 第一次读到低 */
+     {
+         Delay_ms(15);          /* 等抖动过去 */
+         if (KEY == 0)          /* 再确认 */
+         {
+             真正的按键处理
+         }
+     }
+
+   【为什么是 15ms 左右】
+     · 抖动典型 5~20ms，取 15ms 能覆盖绝大多数情况。
+     · 太小（比如 2ms）：抖动还没结束，仍会误判。
+     · 太大（比如 100ms）：快速连按会被漏掉，
+       手感觉「按键有延迟」。
+     · 10~20ms 是通用值，15ms 是最常见的取法。
+
+============================================================
+【三个必须注意的关键点】
+============================================================
+
+① 松手时也有抖动，也要处理！
+   按下确认之后，如果你要等「手松开」，那个等待里也有抖动。
+   错误的写法（会导致松开时被误判成又一次按下）：
+       while (KEY == 0);      /* 等松手，但松手瞬间会抖 */
+   正确的写法：
+       while (KEY == 0);      /* 先等电平变高 */
+       Delay_ms(15);          /* 再等抖动过去 */
+       /* 之后再回到主循环，重新检测 */
+
+② while 等待会「卡住」CPU
+   while (KEY == 0); 这种写法叫【阻塞式】。
+   在等待期间，单片机什么都不能做——
+   如果你还接了数码管显示，会发现按住按键时显示会闪或者变暗，
+   因为扫描循环被卡住了。
+   → 简单项目可以用；复杂项目要用【状态机式】的非阻塞写法
+     （见下面的代码节）。
+
+③ 不要只在「按下时」去抖而忽略「长按」
+   如果你想区分「短按」和「长按」，不能靠 while 等松手，
+   要靠计时：记录按下时的时刻，每隔一段时间检查是否还按着，
+   超过 1 秒就判定为长按。
+
+============================================================
+【软件去抖的优缺点】
+============================================================
+   ✔ 优点：零成本（不需要任何额外元件）；
+          参数好调（改一个数字就行）；
+          多个按键可以共用一套逻辑。
+   ✘ 缺点：占用 CPU 时间（延时或轮询）；
+          如果程序里有长时间任务，可能错过按键；
+          依赖「读到的电平」，如果硬件本身接错了（悬空），
+          软件去抖完全无效——抖动和悬空是两回事，别混淆。</code></pre>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            下面把本篇讲到的四种典型电路完整画出来。
+            建议照着在面包板上搭一遍——尤其是「不加电阻的按键」那一个，
+            亲眼看到读数乱跳，比看十遍文字印象都深。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">电路一：上拉按键（推荐接法）</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="上拉按键的完整接线图">
+            <pre><code>                    +5V (开发板的 VCC)
+                     │
+                     │
+                  ┌──┴──┐
+                  │ 10kΩ│         ← 上拉电阻（可以用 10kΩ 排阻的一半）
+                  └──┬──┘
+                     │
+                     ├─────────────────── P3.2 （51 的 INT0 引脚）
+                     │                     （也可以选任意 P1/P2/P3 的脚，
+                     │                       但用 P3.2 以后可以直接用外部中断）
+                  ┌──┴──┐
+                  │     │
+                  │按键 │         ← 轻触开关，用【对角】两个脚
+                  │     │
+                  └──┬──┘
+                     │
+                    GND
+
+   ┌──────────────────────────────────────────────────────────┐
+   │ 面包板接线步骤                                            │
+   ├──────────────────────────────────────────────────────────┤
+   │ 1. 轻触开关跨在面包板中间的凹槽上，四个脚分别落在四排孔里。│
+   │ 2. 从开关左上角那个脚，接一根线到单片机 P3.2。            │
+   │ 3. 从同一个脚，再接一根线到 10kΩ 电阻的一端。             │
+   │ 4. 电阻另一端接到面包板的 +5V（红色电源轨）。             │
+   │ 5. 从开关右下角那个脚（对角！），接一根线到 GND。         │
+   │ 6. 检查：开关的另外两个脚是空着的，不接任何东西。         │
+   └──────────────────────────────────────────────────────────┘
+
+   【万用表验证（不通电时做）】
+     · 打到通断蜂鸣档
+     · 表笔碰 P3.2 那一脚 和 5V 那一脚 → 应该有 10kΩ 阻值（不响）
+     · 按下按键，表笔碰 P3.2 和 GND → 应该响（导通）
+     · 松开按键，表笔碰 P3.2 和 GND → 不响
+     这三步过了，接线就没问题。
+
+   【通电后的验证】
+     · 万用表打到直流电压 20V 档，黑笔接 GND
+     · 红笔量 P3.2：松开时约 5V，按下时约 0V</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">电路二：下拉按键</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="下拉按键的完整接线图">
+            <pre><code>                    +5V
+                     │
+                  ┌──┴──┐
+                  │     │
+                  │按键 │         ← 一端接 5V
+                  │     │
+                  └──┬──┘
+                     │
+                     ├─────────────────── P3.2
+                     │
+                  ┌──┴──┐
+                  │ 10kΩ│         ← 下拉电阻
+                  └──┬──┘
+                     │
+                    GND
+
+   【电压验证】
+     松开时：P3.2 应约 0V（被 10kΩ 拉到地）
+     按下时：P3.2 应约 5V
+
+   【⚠️ 在 51 上的注意点】
+     51 的 P1/P2/P3 内部有弱上拉（约几十 µA 的恒流源）。
+     它和 10kΩ 下拉会形成分压：
+        内部上拉按 50µA 估算 → 10kΩ 上的压降 = 0.5V
+        松开时引脚电压 ≈ 0.5V，仍在 VIL = 0.8V 以内 ✔
+     但如果用 100kΩ 下拉：
+        压降 = 50µA × 100kΩ = 5V → 引脚被拉到 5V
+        【永远读到 1】，按键完全失效 ✘
+     → 所以 51 上用下拉，阻值不能大于 10kΩ。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">电路三：LED 的两种接法</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="灌电流接法与拉电流接法">
+            <pre><code>============================================================
+【接法一：灌电流（低电平点亮）—— 开发板的标准接法】
+============================================================
+
+       +5V
+        │
+     [470Ω]        ← 限流电阻：I = (5 − 2.0) / 470 ≈ 6.4mA
+        │
+       |&gt;|          ← LED，长脚（阳极）朝上，短脚（阴极）朝下
+        │
+        ├────────── P1.0
+        │
+     （引脚输出低电平时，电流从 5V 流经电阻、LED 灌进引脚 → 灯亮）
+
+   输出低 = 灯亮；输出高 = 灯灭
+   代码：P1_0 = 0;  → 亮
+
+============================================================
+【接法二：拉电流（高电平点亮）】
+============================================================
+
+        P1.0
+        │
+     [470Ω]
+        │
+       |&gt;|          ← 阳极朝引脚，阴极朝地
+        │
+       GND
+
+   输出高 = 灯亮；输出低 = 灯灭
+   代码：P1_0 = 1;  → 亮
+
+   【在 51 上的问题】
+     51 单个引脚的拉电流能力只有约 1~2mA，
+     而 LED 需要 5~20mA 才够亮。
+     用这种接法，灯会很暗甚至完全不亮，
+     而且引脚在超规格工作，长期会损坏。
+     → 在 51 上【不要用这种接法】，除非中间加三极管驱动。
+
+============================================================
+【限流电阻怎么算（用上一篇的方法）】
+============================================================
+     R = (VCC − VF) / I
+
+     红色 LED，VF 取 2.0V，想要 6mA：
+         R = (5 − 2.0) / 0.006 = 500Ω  → 取标准值 470Ω
+         实际电流 = (5 − 2.0) / 470 = 6.4mA  ✔
+
+     蓝色 LED，VF 取 3.2V，想要 5mA：
+         R = (5 − 3.2) / 0.005 = 360Ω → 取标准值 330Ω
+         实际电流 = (5 − 3.2) / 330 = 5.5mA  ✔
+
+     【记住】470Ω 是 5V 系统配红色 LED 的万能值。
+             蓝色/白色/绿色 LED 的 VF 高，要用 330Ω 左右。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">电路四：三极管驱动（单片机引脚电流不够时）</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="NPN 三极管做开关：驱动继电器、蜂鸣器、电机">
+            <pre><code>                        +5V
+                         │
+                         │
+                    ┌────┴────┐
+                    │  继电器  │        ← 或者蜂鸣器、小电机、LED 灯带
+                    │  线圈    │
+                    └────┬────┘
+                         │
+                         ├──────────┐
+                         │          │
+                        ─┴─         │
+                        ╲ │ 续流    │   ← 【必须有】反向并联的二极管
+                        ╱ │ 二极管  │      1N4148 或 1N4007
+                        ─┬─         │      阴极接 +5V，阳极接集电极
+                         │          │
+                         └──────────┤ C（集电极）
+                                    │
+                        ┌───────────┤
+         P1.0 ──[1kΩ]───┤ B（基极） │  NPN 三极管（S8050 / 2N3904）
+                        └───────────┤
+                                    │ E（发射极）
+                                    │
+                                   GND
+
+============================================================
+【为什么要加这个三极管】
+============================================================
+   继电器的线圈需要 50~100mA 才能吸合，
+   而单片机引脚最多只能提供约 20mA（灌电流）。
+   直接接上去：① 继电器不动；② 引脚过流发热损坏。
+   三极管的作用是把「小电流的控制信号」放大成
+   「大电流的开关动作」。
+
+============================================================
+【基极电阻 1kΩ 是怎么算的】
+============================================================
+   步骤①：确定负载电流
+       继电器线圈电阻约 120Ω，工作电流 = 5V / 120Ω ≈ 42mA
+
+   步骤②：三极管要进入【饱和导通】，而不是放大状态
+       做开关用的时候，我们希望它像「闭合的开关」，
+       集电极和发射极之间压降尽量小（0.1~0.3V）。
+       为此要让基极电流大于「刚好够」的值，
+       一般取 Ic / 10 左右（这叫「过驱动」）：
+           Ib = 42mA / 10 = 4.2mA
+
+   步骤③：算基极电阻
+       P1.0 输出高电平约 4.8V（51 的准双向口带上拉，
+       实际输出高电平会低于 5V），三极管基极-发射极压降约 0.7V。
+           Rb = (4.8 − 0.7) / 4.2mA = 4.1V / 0.0042A ≈ 976Ω
+       取标准值【1kΩ】✔
+       实际基极电流 = 4.1V / 1kΩ = 4.1mA，接近设计值，可以。
+
+   步骤④：检查单片机的负担
+       4.1mA 的拉电流对 51 来说【偏大】，但可以接受
+       （51 单个引脚建议不超过 10mA）。
+       如果觉得不放心，可以把基极电阻改成 2kΩ，
+       基极电流降到约 2mA，此时
+           Ic 最大 = 2mA × 100（三极管 hFE） = 200mA
+       仍然远大于需要的 42mA，照样能饱和 ✔
+
+============================================================
+【续流二极管为什么必须有】
+============================================================
+   继电器线圈是【电感性】负载。
+   三极管从导通变为截止的瞬间，线圈里的电流要突然中断，
+   电感会产生一个反向的高压（几十伏甚至上百伏），
+   这个电压会把三极管击穿。
+
+   并联一个反向的二极管后：
+     · 正常工作时，二极管反偏不导通，不影响电路。
+     · 关断瞬间，线圈产生的反向电压让二极管【正向导通】，
+       把能量泄放掉，保护三极管。
+   这个二极管叫【续流二极管】或【钳位二极管】。
+   选 1N4148（小电流、快恢复）或 1N4007（大电流）都可以，
+   继电器场合两个都常用。
+
+============================================================
+【51 单片机的一个接线细节：上电时引脚的状态】
+============================================================
+   51 单片机【复位期间和刚上电时，所有 IO 口都是高电平】。
+   这意味着：如果你的三极管基极直接接在引脚上（没有反相），
+   上电瞬间三极管会【导通】，继电器会「啪」地吸合一下。
+   如果这接的是电机或者大功率负载，会有明显的冲击。
+
+   解决办法：
+     ① 用【低电平有效】的接法（加一级反相，或者用 PNP 三极管）；
+     ② 在程序最开始就立刻把引脚拉低（但解决不了复位那几十毫秒）；
+     ③ 用专门的高边开关芯片，或者给负载加软启动。
+   这也是为什么工业控制板上的输出常常设计成「低有效」——
+   上电时的默认状态正好是「关闭」，最安全。</code></pre>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            下面三段代码都可以直接复制进 Keil 编译下载。
+            第一段是<b class="font-semibold text-ink">阻塞式按键消抖</b>（最简单，适合入门）；
+            第二段是<b class="font-semibold text-ink">状态机式非阻塞消抖</b>
+            （不占用 CPU，能同时识别短按和长按，实际项目里用这个）；
+            第三段用<b class="font-semibold text-ink">位运算直接实现逻辑门</b>，
+            把这一篇的逻辑门和上一篇的位运算串起来。
+          </p>
+
+          <h3 id="sub-code-blocking" class="mt-7 text-base font-semibold">程序一：阻塞式按键消抖</h3>
+
+          <div class="code-block mt-4" data-lang="c" data-title="key_blocking.c —— 最简单的按键消抖">
+            <pre><code>#include &lt;reg52.h&gt;
+
+/* ------------------------------------------------------------------
+ * 引脚定义
+ * 按键接 P3.2，用 10kΩ 上拉、按下接 GND
+ * 所以：松开读到 1，按下读到 0
+ * LED 接 P1.0，灌电流接法（低电平点亮）
+ * ------------------------------------------------------------------ */
+sbit KEY  = P3 ^ 2;
+sbit LED  = P1 ^ 0;
+
+/* 让语义清晰：不要裸写 0 和 1 */
+#define LED_ON      0
+#define LED_OFF     1
+#define KEY_DOWN    0
+#define KEY_UP      1
+
+/* 消抖时间：15ms 覆盖绝大多数轻触开关的抖动 */
+#define DEBOUNCE_MS 15
+
+/* ------------------------------------------------------------------
+ * 软件延时，约毫秒
+ * 12MHz 晶振下内层循环约 1ms
+ * ------------------------------------------------------------------ */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;
+    for (i = ms; i &gt; 0; i--)
+        for (j = 110; j &gt; 0; j--);
+}
+
+/* ------------------------------------------------------------------
+ * 按键扫描（阻塞式）
+ * 返回值：1 表示检测到一次有效的按下，0 表示没有
+ *
+ * 工作原理：
+ *   ① 第一次读到低电平 —— 可能是抖动，先不完全相信
+ *   ② 等 15ms 再读一次确认 —— 还是低才认为是真的按下
+ *   ③ 等按键松手（电平回到高）
+ *   ④ 松手时也有抖动，所以再等 15ms
+ *
+ * 【代价】第 ③ 步会一直卡在这里等，CPU 什么都做不了。
+ *        按住按键不放，程序就会停在这一行。
+ * ------------------------------------------------------------------ */
+unsigned char Key_Scan_Blocking(void)
+{
+    if (KEY != KEY_DOWN)                /* 没按下，直接返回 */
+        return 0;
+
+    Delay_ms(DEBOUNCE_MS);              /* 第 ② 步：等抖动过去 */
+
+    if (KEY != KEY_DOWN)                /* 再确认一次，结果发现是高 */
+        return 0;                       /* 说明刚才是抖动，忽略 */
+
+    /* 到这里确认是真的按下了 */
+
+    while (KEY == KEY_DOWN)             /* 第 ③ 步：等松手 */
+    {
+        /* 空循环等待。注意：这里不能做别的事 */
+    }
+
+    Delay_ms(DEBOUNCE_MS);              /* 第 ④ 步：松手也有抖动 */
+
+    return 1;                           /* 报告一次有效的按键 */
+}
+
+/* ------------------------------------------------------------------
+ * 主程序：按一次按键，切换 LED 的状态
+ * ------------------------------------------------------------------ */
+void main(void)
+{
+    bit led_state = 0;                  /* 0 = 灭，1 = 亮 */
+
+    P1 = 0xFF;                          /* 上电先全部拉高（LED 全灭） */
+    LED = LED_OFF;
+
+    while (1)
+    {
+        if (Key_Scan_Blocking() == 1)   /* 检测到一次按键 */
+        {
+            led_state = !led_state;     /* 状态取反 */
+
+            if (led_state)
+                LED = LED_ON;           /* 低电平点亮 */
+            else
+                LED = LED_OFF;
+        }
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这段代码的三个局限</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li><b>按着不放程序就卡住。</b><code class="icode">while (KEY == KEY_DOWN)</code>
+                会一直等下去。如果主循环里还要扫描数码管，
+                按住按键时数码管会闪烁或变暗。</li>
+              <li><b>无法识别长按。</b>因为它在等松手，
+                所以无论按多久都只算「一次按键」。</li>
+              <li><b>一次只能管一个按键。</b>如果接 4 个按键，
+                每个都要等一遍，响应会变得很迟钝。</li>
+            </ol>
+            <p class="mt-2">
+              入门练习用这段没问题（逻辑最清楚）。
+              但实际项目里要用下面这种状态机写法。
+            </p>
+          </div>
+
+          <h3 id="sub-code-fsm" class="mt-7 text-base font-semibold">程序二：状态机式非阻塞消抖（推荐）</h3>
+
+          <div class="code-block mt-4" data-lang="c" data-title="key_fsm.c —— 不占用 CPU，支持短按与长按">
+            <pre><code>#include &lt;reg52.h&gt;
+
+sbit KEY = P3 ^ 2;                      /* 按下为低电平 */
+sbit LED = P1 ^ 0;
+
+#define LED_ON      0
+#define LED_OFF     1
+
+/* 消抖需要的连续稳定次数。
+ * 这个函数每 1ms 被调用一次，所以 15 次 = 15ms。
+ * 用「计数」代替「Delay」，就不需要阻塞 CPU 了。 */
+#define DEBOUNCE_CNT    15
+
+/* 长按判定：连续按住 1000ms = 1000 次调用 */
+#define LONG_PRESS_CNT  1000
+
+/* 按键状态机的四个状态 */
+#define ST_IDLE         0       /* 空闲：等待按下 */
+#define ST_DEBOUNCE     1       /* 疑似按下：正在确认 */
+#define ST_PRESSED      2       /* 确认按下：等待松手 */
+#define ST_RELEASE      3       /* 疑似松手：正在确认松手 */
+
+/* 按键的全局状态（静态变量，只在本文件可见） */
+static unsigned char key_state   = ST_IDLE;
+static unsigned int  key_counter = 0;
+
+/* 按键事件：由扫描函数产生，主循环读取后清零 */
+#define EV_NONE         0
+#define EV_SHORT_PRESS  1       /* 短按：按一下随即松开 */
+#define EV_LONG_PRESS   2       /* 长按：按住超过 1 秒 */
+static unsigned char key_event = EV_NONE;
+
+/* ------------------------------------------------------------------
+ * 软件延时
+ * ------------------------------------------------------------------ */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;
+    for (i = ms; i &gt; 0; i--)
+        for (j = 110; j &gt; 0; j--);
+}
+
+/* ------------------------------------------------------------------
+ * 按键扫描（非阻塞状态机）
+ * 【调用要求】必须每 1ms 调用一次（可以放在定时器中断里，
+ *             也可以放在主循环里配合一个 1ms 的节拍）
+ * 【特点】函数瞬间返回，绝不等待，CPU 一秒都不浪费
+ * ------------------------------------------------------------------ */
+void Key_Scan_1ms(void)
+{
+    switch (key_state)
+    {
+    /* ---------------- 空闲：等按下 ---------------- */
+    case ST_IDLE:
+        if (KEY == 0)                   /* 第一次读到低电平 */
+        {
+            key_counter = 0;
+            key_state = ST_DEBOUNCE;    /* 进入确认状态 */
+        }
+        break;
+
+    /* ---------------- 确认按下 ---------------- */
+    case ST_DEBOUNCE:
+        if (KEY == 0)                   /* 仍然是低电平 */
+        {
+            key_counter++;
+            if (key_counter &gt;= DEBOUNCE_CNT)   /* 连续 15ms 都是低 */
+            {
+                key_state = ST_PRESSED;        /* 确认按下 */
+                key_counter = 0;
+            }
+        }
+        else                            /* 变回高电平了 */
+        {
+            key_state = ST_IDLE;        /* 是抖动，放弃，回到空闲 */
+            key_counter = 0;
+        }
+        break;
+
+    /* ---------------- 已按下：等松手 + 判长按 ---------------- */
+    case ST_PRESSED:
+        if (KEY == 0)                   /* 还按着 */
+        {
+            key_counter++;
+            if (key_counter &gt;= LONG_PRESS_CNT)
+            {
+                key_event = EV_LONG_PRESS;   /* 报告长按事件 */
+                key_counter = LONG_PRESS_CNT;/* 封顶，防止溢出 */
+            }
+        }
+        else                            /* 电平变高了，可能松手 */
+        {
+            /* 如果还没到长按的门限，就当作短按 */
+            if (key_counter &lt; LONG_PRESS_CNT)
+                key_event = EV_SHORT_PRESS;
+
+            key_counter = 0;
+            key_state = ST_RELEASE;     /* 松手也要确认 */
+        }
+        break;
+
+    /* ---------------- 确认松手 ---------------- */
+    case ST_RELEASE:
+        if (KEY == 1)                   /* 仍然是高电平 */
+        {
+            key_counter++;
+            if (key_counter &gt;= DEBOUNCE_CNT)
+            {
+                key_state = ST_IDLE;    /* 确认松手，回到空闲 */
+                key_counter = 0;
+            }
+        }
+        else                            /* 又变低了，说明刚才不是松手 */
+        {
+            key_state = ST_PRESSED;
+            key_counter = 0;
+        }
+        break;
+
+    default:
+        key_state = ST_IDLE;            /* 万一状态乱了，复位 */
+        break;
+    }
+}
+
+/* ------------------------------------------------------------------
+ * 取出按键事件（读后自动清零，这样主循环不会重复处理同一件事）
+ * ------------------------------------------------------------------ */
+unsigned char Key_GetEvent(void)
+{
+    unsigned char e;
+
+    if (key_event == EV_NONE)           /* 没有新事件，直接返回 */
+        return EV_NONE;
+
+    e = key_event;                      /* 把事件取出来 */
+    key_event = EV_NONE;                /* 立刻清掉，避免重复处理 */
+
+    return e;
+}
+
+/* ------------------------------------------------------------------
+ * 主程序
+ * ------------------------------------------------------------------ */
+void main(void)
+{
+    unsigned char ev;
+    unsigned char led_on = 0;
+    unsigned char count  = 0;
+
+    P1 = 0xFF;
+    LED = LED_OFF;
+
+    while (1)
+    {
+        /* ---- 模拟一个 1ms 的节拍 ---- */
+        Delay_ms(1);
+
+        /* ---- 每 1ms 调一次按键扫描（不阻塞） ---- */
+        Key_Scan_1ms();
+
+        /* ---- 处理按键事件 ---- */
+        ev = Key_GetEvent();
+
+        if (ev == EV_SHORT_PRESS)       /* 短按：切换 LED */
+        {
+            led_on = !led_on;
+            LED = led_on ? LED_ON : LED_OFF;
+        }
+        else if (ev == EV_LONG_PRESS)   /* 长按：清掉计数，LED 灭 */
+        {
+            led_on = 0;
+            LED = LED_OFF;
+            count = 0;
+        }
+
+        /* ---- 这里可以插入别的任务 ---- */
+        /*     比如数码管扫描、串口收数据、传感器读数……
+         *     因为按键扫描不阻塞，这些任务都能正常运行，
+         *     按住按键也不会影响它们。这就是非阻塞的价值。 */
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">状态机写法为什么值得学</div>
+            <p>
+              这段代码比程序一长了三倍，但它解决了三个问题：
+            </p>
+            <ul class="list-disc space-y-1.5 pl-5 mt-2">
+              <li><b>不阻塞：</b>每次调用只做几个判断就返回，
+                CPU 时间几乎不占用，可以同时跑别的任务。</li>
+              <li><b>能识别长按：</b>靠计数实现，逻辑清晰，
+                以后想改成「双击」「三连击」也只是加状态。</li>
+              <li><b>可扩展：</b>要加第二个按键，只要把
+                <code class="icode">key_state</code> 和
+                <code class="icode">key_counter</code> 改成数组，
+                在函数里循环处理即可。</li>
+            </ul>
+            <p class="mt-2">
+              这个「用状态变量记住现在处于哪一步，用计数器记住等了多久」
+              的模式，是嵌入式编程里最重要的思维模型之一。
+              数码管扫描、串口收包、通信协议解析全都用这个套路。
+            </p>
+          </div>
+
+          <h3 id="sub-code-gates" class="mt-7 text-base font-semibold">程序三：用位运算实现逻辑门</h3>
+
+          <div class="code-block mt-4" data-lang="c" data-title="gates.c —— 逻辑门的位运算实现与半加器">
+            <pre><code>#include &lt;reg52.h&gt;
+
+sbit KEY_A = P3 ^ 2;                    /* 开关 A（按下为低） */
+sbit KEY_B = P3 ^ 3;                    /* 开关 B（按下为低） */
+sbit LED_Y = P1 ^ 0;                    /* 结果指示灯（低电平点亮） */
+
+/* 语义宏：按键按下读到 0，但逻辑上我们希望「按下 = 1」 */
+#define A_DOWN      0
+#define B_DOWN      0
+
+#define LED_ON      0
+#define LED_OFF     1
+
+/* ==================================================================
+ * 六种逻辑门：输入 0 或 1，输出 0 或 1
+ * 这些函数和真实的逻辑门芯片行为完全一致
+ * ================================================================== */
+
+/* ------------------------------------------------------------------
+ * 与门 AND：只有两个输入都是 1，输出才是 1
+ * 对应芯片：74HC08（四路二输入与门）
+ * ------------------------------------------------------------------ */
+unsigned char Gate_AND(unsigned char a, unsigned char b)
+{
+    return a &amp; b;
+}
+
+/* ------------------------------------------------------------------
+ * 或门 OR：任意一个输入是 1，输出就是 1
+ * 对应芯片：74HC32
+ * ------------------------------------------------------------------ */
+unsigned char Gate_OR(unsigned char a, unsigned char b)
+{
+    return a | b;
+}
+
+/* ------------------------------------------------------------------
+ * 非门 NOT：输入取反
+ * 对应芯片：74HC04（六路反相器）
+ * ------------------------------------------------------------------ */
+unsigned char Gate_NOT(unsigned char a)
+{
+    return (a == 0) ? 1 : 0;            /* 用逻辑判断写，读起来更清楚 */
+    /* 也可以写成 return !a;            */
+}
+
+/* ------------------------------------------------------------------
+ * 与非门 NAND：与之后再取反
+ * 对应芯片：74HC00（最常用的门，功能完备）
+ * 【注意】~ 的优先级比 &amp; 高，括号绝对不能省！
+ *        不写括号会变成 (~a) &amp; b，那是完全不同的东西。
+ * ------------------------------------------------------------------ */
+unsigned char Gate_NAND(unsigned char a, unsigned char b)
+{
+    return (unsigned char)(~((unsigned char)(a &amp; b))) &amp; 0x01;
+    /* 拆解说明：
+     *   a &amp; b          → 先做与运算（括号保证顺序）
+     *   ~(...)         → 取反。因为整型提升，结果高位全是 1，
+     *                    所以需要截断
+     *   &amp; 0x01         → 只保留最低位，保证返回值是干净的 0 或 1
+     */
+}
+
+/* ------------------------------------------------------------------
+ * 或非门 NOR：或之后再取反
+ * 对应芯片：74HC02
+ * ------------------------------------------------------------------ */
+unsigned char Gate_NOR(unsigned char a, unsigned char b)
+{
+    return (unsigned char)(~((unsigned char)(a | b))) &amp; 0x01;
+}
+
+/* ------------------------------------------------------------------
+ * 异或门 XOR：两个输入不同时输出 1
+ * 对应芯片：74HC86
+ * ------------------------------------------------------------------ */
+unsigned char Gate_XOR(unsigned char a, unsigned char b)
+{
+    return a ^ b;
+}
+
+/* ==================================================================
+ * 用逻辑门搭出加法器 —— 这是 CPU 运算能力的起点
+ * ================================================================== */
+
+/* ------------------------------------------------------------------
+ * 半加器：把两个 1 位二进制数相加
+ *   返回值的 bit0 = 和（Sum），bit1 = 进位（Carry）
+ *
+ * 真值表：
+ *   A  B  │  进位C  和S
+ *   ──────┼────────────
+ *   0  0  │   0     0
+ *   0  1  │   0     1
+ *   1  0  │   0     1
+ *   1  1  │   1     0        ← 1+1 = 二进制 10
+ *
+ * 观察真值表可以发现：
+ *   和 S   = A 异或 B      （两个不同时才为 1）
+ *   进位 C = A 与 B        （两个都是 1 时才进位）
+ * 这就是异或门和与门最经典的应用。
+ * ------------------------------------------------------------------ */
+unsigned char Half_Adder(unsigned char a, unsigned char b)
+{
+    unsigned char result;
+
+    result  = Gate_XOR(a, b);           /* 和的位 */
+    result |= (Gate_AND(a, b) &lt;&lt; 1);     /* 进位放到 bit1 */
+
+    return result;
+}
+
+/* ------------------------------------------------------------------
+ * 全加器：把两个 1 位二进制数加上低位来的进位，一起相加
+ *   a、b   ：两个加数位
+ *   cin    ：低位送来的进位（0 或 1）
+ *   返回   ：bit0 = 和，bit1 = 向高位的进位
+ *
+ *   和的公式  ：s = a ^ b ^ cin
+ *   进位的公式：cout = (a &amp; b) | (b &amp; cin) | (a &amp; cin)
+ * ------------------------------------------------------------------ */
+unsigned char Full_Adder(unsigned char a, unsigned char b, unsigned char cin)
+{
+    unsigned char s, cout, result;
+
+    /* 和的三个异或：三位中 1 的个数是奇数时，和为 1 */
+    s = Gate_XOR(Gate_XOR(a, b), cin);
+
+    /* 进位：任意两位同时为 1，就产生进位 */
+    cout = Gate_OR(Gate_OR(Gate_AND(a, b), Gate_AND(b, cin)),
+                   Gate_AND(a, cin));
+
+    result  = s;
+    result |= (cout &lt;&lt; 1);
+
+    return result;
+}
+
+/* ==================================================================
+ * 主程序：用两个开关当输入，把六种门的结果依次显示出来
+ * ================================================================== */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;
+    for (i = ms; i &gt; 0; i--)
+        for (j = 110; j &gt; 0; j--);
+}
+
+void main(void)
+{
+    unsigned char a, b, y;
+
+    /* 51 的准双向口：读输入之前必须先写 1 */
+    KEY_A = 1;
+    KEY_B = 1;
+    P1 = 0xFF;
+
+    while (1)
+    {
+        /* 读两个按键，并把「按下」转成逻辑 1 */
+        a = (KEY_A == A_DOWN) ? 1 : 0;
+        b = (KEY_B == B_DOWN) ? 1 : 0;
+
+        /* ---- 依次演示六种门 ---- */
+
+        y = Gate_AND(a, b);             /* 与门 */
+        LED_Y = (y == 1) ? LED_ON : LED_OFF;
+        Delay_ms(300);
+
+        y = Gate_OR(a, b);              /* 或门 */
+        LED_Y = (y == 1) ? LED_ON : LED_OFF;
+        Delay_ms(300);
+
+        y = Gate_NOT(a);                /* 非门 */
+        LED_Y = (y == 1) ? LED_ON : LED_OFF;
+        Delay_ms(300);
+
+        y = Gate_NAND(a, b);            /* 与非门 */
+        LED_Y = (y == 1) ? LED_ON : LED_OFF;
+        Delay_ms(300);
+
+        y = Gate_NOR(a, b);             /* 或非门 */
+        LED_Y = (y == 1) ? LED_ON : LED_OFF;
+        Delay_ms(300);
+
+        y = Gate_XOR(a, b);             /* 异或门 */
+        LED_Y = (y == 1) ? LED_ON : LED_OFF;
+        Delay_ms(300);
+
+        /* ---- 演示半加器：把「和」显示在 P1.0，「进位」显示在 P1.1 ---- */
+        y = Half_Adder(a, b);
+        /* y 的 bit0 是和，bit1 是进位。
+         * 灌电流接法：结果是 1 的位要把引脚拉低（= 0）才点亮，
+         * 所以先取反，再只保留低两位。 */
+        P1 = 0xFF;                      /* 先全灭 */
+        P1 &amp;= ~(y &amp; 0x03);              /* 把结果为 1 的位置的引脚拉低 */
+        Delay_ms(500);
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这段代码想说明什么</div>
+            <p>
+              它把两件事连起来了：
+              <b>逻辑门</b>（硬件概念）和<b>位运算符</b>（软件概念）
+              其实是同一个东西的两种表述。
+            </p>
+            <p class="mt-2">
+              真实芯片 74HC08 做的事情，就是
+              <code class="icode">return a &amp; b;</code>；
+              而 CPU 内部的加法器，就是一堆异或门和与门拼出来的
+              ——也就是上面那个 <code class="icode">Half_Adder</code>。
+              当你在 C 里写 <code class="icode">3 + 5</code> 的时候，
+              单片机内部真的就是几百万个这样的门在同时工作。
+            </p>
+            <p class="mt-2">
+              顺便注意 <code class="icode">Gate_NAND</code> 里的那段处理：
+              因为整型提升，<code class="icode">~</code> 的结果高位全是 1，
+              所以要用 <code class="icode">&amp; 0x01</code> 截断成干净的 0 或 1。
+              这和上一篇讲的「掩码」是同一个套路。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            这一节给三张表。
+            第一张是<b class="font-semibold text-ink">电平判断表</b>——
+            拿万用表量到一个电压，查它会被读成什么；
+            第二张是<b class="font-semibold text-ink">三套标准的门限对照</b>；
+            第三张是<b class="font-semibold text-ink">上拉电阻取值速查</b>。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">电平判断表（5V TTL 系统）</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>万用表量到的电压</th>
+                  <th>会被读成</th>
+                  <th>这个电压可能来自什么</th>
+                  <th>处理建议</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">0.00 ~ 0.20V</td>
+                  <td><b>0（稳定）</b></td>
+                  <td>引脚被直接接地；或输出低电平</td>
+                  <td>正常，不用担心</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">0.20 ~ 0.40V</td>
+                  <td><b>0（稳定）</b></td>
+                  <td>输出低电平（VOL 最大 0.4V）；或经三极管/二极管接地</td>
+                  <td>正常</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">0.40 ~ 0.80V</td>
+                  <td><b>0（可靠）</b></td>
+                  <td>低电平但线上有压降；或长导线的落地反弹</td>
+                  <td>仍能读对，但要检查走线是否太长</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs"><b>0.80 ~ 2.00V</b></td>
+                  <td><b class="text-brand-600 dark:text-brand-300">不确定（禁止）</b></td>
+                  <td>① 输入引脚悬空，被干扰带到中间<br>② 电阻分压的中间点<br>③ 信号边沿正在跳变的瞬间<br>④ 电平转换电路设计不当</td>
+                  <td><b>必须处理</b>：加上拉/下拉电阻消除悬空；检查电平转换；如果是边沿，用施密特触发输入</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">2.00 ~ 2.40V</td>
+                  <td><b>1（勉强）</b></td>
+                  <td>高于 VIH 但低于输出承诺的 VOH，说明驱动能力不足或线上压降大</td>
+                  <td>能工作但没余量，稍微有点干扰就会翻。检查负载是否过重、线是否太长</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">2.40 ~ 4.50V</td>
+                  <td><b>1（稳定）</b></td>
+                  <td>正常的输出高电平；或经上拉电阻拉到 5V 但引脚有漏电流</td>
+                  <td>正常，噪声容限充足</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">4.50 ~ 5.50V</td>
+                  <td><b>1（稳定）</b></td>
+                  <td>标准的高电平；供电可能偏高一点也正常</td>
+                  <td>正常</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs"><b>5.50V 以上</b></td>
+                  <td><b class="text-brand-600 dark:text-brand-300">危险</b></td>
+                  <td>供电异常、稳压器损坏、或把更高电压误接到了 5V 系统上</td>
+                  <td><b>立刻断电检查</b>：可能已经超过芯片的绝对最大额定值（通常 6V 或 7V）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">怎么用这张表排查问题</div>
+            <ol class="list-decimal space-y-2 pl-5">
+              <li>
+                <b>万用表直流电压档（V⎓ 20V），黑笔固定接 GND，红笔量引脚。</b>
+                测的时候不要用手碰表笔的金属部分（人体感应会干扰读数）。
+              </li>
+              <li>
+                <b>先看稳定度。</b>如果读数在 1.2V ~ 1.8V 之间小幅度跳动，
+                基本可以确定是<b>悬空</b>。这是最常见的故障。
+              </li>
+              <li>
+                <b>如果读数稳定但落在不确定区</b>（0.8~2.0V），
+                说明有电路把它「固定」在了中间，通常是：
+                电阻分压设计错误、或者某个器件钳位住了。
+                逐个断开可疑的连接，看电压往哪边变。
+              </li>
+              <li>
+                <b>如果读数在 2.0~2.4V</b>，说明信号是「对」的方向但驱动太弱。
+                检查：上拉电阻是不是太大（比如用了 100kΩ）？
+                导线是不是太长？后面接的负载是不是太多（扇出超了）？
+              </li>
+              <li>
+                <b>想知道「跳变的一瞬间」发生了什么</b>，
+                万用表是不够的（它显示的是平均值）。
+                需要示波器。如果暂时没有，可以用单片机的办法：
+                在引脚上快速采样几百次，把结果通过串口发出来，
+                也能看到抖动和毛刺的规律。
+              </li>
+            </ol>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">三套标准的门限对照</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>电压</th>
+                  <th>5V TTL</th>
+                  <th>5V CMOS</th>
+                  <th>3.3V CMOS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">5.0V</td>
+                  <td>1 ✔</td>
+                  <td>1 ✔</td>
+                  <td><b class="text-brand-600 dark:text-brand-300">超压，可能损坏</b></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">4.0V</td>
+                  <td>1 ✔</td>
+                  <td>1 ✔（勉强，门限 3.5V）</td>
+                  <td><b class="text-brand-600 dark:text-brand-300">超压，可能损坏</b></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">3.3V</td>
+                  <td>1 ✔（余量 1.3V）</td>
+                  <td><b class="text-brand-600 dark:text-brand-300">0 ✘</b>（低于 3.5V 门限）</td>
+                  <td>1 ✔</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">2.5V</td>
+                  <td>1 ✔（余量 0.5V）</td>
+                  <td>0 ✘</td>
+                  <td>1 ✔（余量 0.19V，偏小）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">2.0V</td>
+                  <td>临界（正好是 VIH）</td>
+                  <td>0 ✘</td>
+                  <td>0 ✘（门限 2.31V）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">1.5V</td>
+                  <td><b class="text-brand-600 dark:text-brand-300">不确定</b></td>
+                  <td>0 ✔（正好是 VIL）</td>
+                  <td>0 ✘（高于 0.99V 门限）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">0.8V</td>
+                  <td>0 ✔（正好是 VIL）</td>
+                  <td>0 ✔</td>
+                  <td>0 ✔（余量 0.19V）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">0.4V</td>
+                  <td>0 ✔</td>
+                  <td>0 ✔</td>
+                  <td>0 ✔</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">0.0V</td>
+                  <td>0 ✔</td>
+                  <td>0 ✔</td>
+                  <td>0 ✔</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">从这张表读出的三个实用结论</div>
+            <ul class="list-disc space-y-2 pl-5">
+              <li>
+                <b>3.3V 的输出接 5V TTL 输入完全没问题</b>（3.3V 远高于 2.0V 门限），
+                这是最常见的混接场景，可以放心。
+              </li>
+              <li>
+                <b>3.3V 的输出接 5V CMOS 输入会失败</b>（3.3V 低于 3.5V 门限）。
+                这就是「为什么我的模块接到某个芯片上没反应」的一个典型原因。
+                老式的 5V CMOS 芯片（比如 4000 系列的一部分）就属于这种。
+              </li>
+              <li>
+                <b>5V 的输出接 3.3V CMOS 输入会被读对，但会损坏芯片。</b>
+                这是最危险的一种组合：「明明能用，怎么就烧了」。
+                遇到这种必须加电平转换。
+              </li>
+            </ul>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">上拉电阻取值速查</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>阻值</th>
+                  <th>按键按下时电流</th>
+                  <th>引脚漏电流造成的压降<br><span class="text-faint">（按 10µA 算）</span></th>
+                  <th>RC 上升时间<br><span class="text-faint">（按 20pF 算）</span></th>
+                  <th>适用场合</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">100Ω</td>
+                  <td class="font-mono text-xs">50mA ✘ 超规格</td>
+                  <td class="font-mono text-xs">0.001V</td>
+                  <td class="font-mono text-xs">0.006µs</td>
+                  <td>不用于上拉；可用于高速总线的终端匹配</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">1kΩ</td>
+                  <td class="font-mono text-xs">5mA</td>
+                  <td class="font-mono text-xs">0.01V</td>
+                  <td class="font-mono text-xs">0.06µs</td>
+                  <td>高速 SPI / 时钟线；强干扰环境</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">2.2kΩ</td>
+                  <td class="font-mono text-xs">2.3mA</td>
+                  <td class="font-mono text-xs">0.022V</td>
+                  <td class="font-mono text-xs">0.13µs</td>
+                  <td>I2C 400kHz 快速模式；长总线</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs"><b>4.7kΩ</b></td>
+                  <td class="font-mono text-xs">1.1mA</td>
+                  <td class="font-mono text-xs">0.047V</td>
+                  <td class="font-mono text-xs">0.28µs</td>
+                  <td><b>I2C 标准模式 100kHz（最常用）</b></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs"><b>10kΩ</b></td>
+                  <td class="font-mono text-xs">0.5mA</td>
+                  <td class="font-mono text-xs">0.1V</td>
+                  <td class="font-mono text-xs">0.6µs</td>
+                  <td><b>按键、普通输入（万能默认值）</b></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">47kΩ</td>
+                  <td class="font-mono text-xs">0.11mA</td>
+                  <td class="font-mono text-xs">0.47V</td>
+                  <td class="font-mono text-xs">2.8µs</td>
+                  <td>低速信号、想省电的场合</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">100kΩ</td>
+                  <td class="font-mono text-xs">0.05mA</td>
+                  <td class="font-mono text-xs">1.0V ⚠</td>
+                  <td class="font-mono text-xs">6µs</td>
+                  <td>低功耗设计（CMOS 输入才行）；抗干扰差</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">1MΩ</td>
+                  <td class="font-mono text-xs">0.005mA</td>
+                  <td class="font-mono text-xs">10V ✘ 完全失效</td>
+                  <td class="font-mono text-xs">60µs</td>
+                  <td>不能做上拉；只能用于极低功耗的特殊场合</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">动手验证：亲眼看到悬空引脚的乱跳</div>
+            <ol class="list-decimal space-y-2 pl-5">
+              <li>
+                按「电路一」搭好上拉按键，写一个最简单的程序：
+                把 P3.2 的状态直接送到 LED 上
+                （<code class="icode">P1_0 = P3_2;</code>）。
+                现象：松开时灯灭（读到 1），按下时灯亮（读到 0），干净利落。
+              </li>
+              <li>
+                <b>现在把 10kΩ 上拉电阻拔掉。</b>
+                现象：灯开始乱闪，而且<b>你手靠近导线时闪得更厉害，
+                手拿开又变慢</b>。这就是悬空引脚在感应人体电荷。
+              </li>
+              <li>
+                用万用表量这个悬空的引脚：
+                会看到读数在 1V ~ 3V 之间无规律地变。
+                转动一下板子的方向，读数会跟着变
+                （因为感应到的工频干扰方向变了）。
+              </li>
+              <li>
+                <b>把电阻插回去</b>，世界立刻恢复安静。
+                这个对比实验比任何文字都有说服力——
+                建议每个学单片机的人都亲手做一次。
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            数字电路的问题有个共同特点：<b class="font-semibold text-ink">时好时坏</b>。
+            好的时候你以为成功了，坏的时候又找不到规律。
+            下面这八条覆盖了最常见的现象。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">现象：输入引脚读数乱跳，不按按键时也一直变</div>
+            <p><b class="font-semibold">原因：</b>
+              输入引脚悬空，没有上拉或下拉电阻。
+              悬空引脚相当于一根小天线，
+              会感应工频干扰、静电、旁边导线的串扰，
+              电压在不确定区里乱飘。
+              另一个可能：<b>引脚被配置成了输出</b>，而不是输入
+              （在 51 上如果不先写 1 就读，读到的可能不是引脚的真实电平）。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              ① 加一个 10kΩ 上拉（按键对地）或下拉（按键对 5V）电阻。
+              ② 如果用的是 P0 口，必须外接上拉（P0 内部没有上拉）。
+              ③ 读之前先写 1：<code class="icode">KEY = 1; then read</code>。
+              ④ 验证方法：用万用表量引脚电压，
+              如果是 0.8~2.0V 之间且在跳动，基本可以确认是悬空。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：3.3V 的模块接到 5V 系统上，用了一段时间就坏了</div>
+            <p><b class="font-semibold">原因：</b>
+              51 的输出是 5V 电平，而那个模块的输入引脚耐压只有 3.6V 左右。
+              5V 通过引脚内部的保护二极管持续灌电流进 3.3V 电源网络，
+              轻则抬压、重则烧穿保护二极管。
+              「用了一段时间才坏」是因为芯片在超规格状态下会缓慢退化，
+              这类故障最难查。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              ① 查数据手册，确认那个引脚是不是标了 <b>FT（5V 容忍）</b>。
+              标了就可以直连，没标就必须加电平转换。
+              ② 应急可用 1kΩ 串在信号线上（只能低速、只能临时）。
+              ③ 正规做法是用双向电平转换模块（基于 MOS 管，
+              一两块钱，1.8/3.3/5V 都能转）。
+              ④ 涉及 I2C 必须用支持双向的转换方案。
+              ⑤ 记住方向：3.3V 输出接 5V 输入通常没问题，
+              <b>5V 输出接 3.3V 输入才是危险的那一边</b>。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：按键按一次触发了多次（计数一下加好几）</div>
+            <p><b class="font-semibold">原因：</b>
+              机械抖动。轻触开关内部的金属弹片在按下和松开的瞬间
+              会反复弹跳 5~20ms，每次弹跳都造成一次通断，
+              程序把每一次都当成了一次按键。
+              注意：抖动和悬空是两回事——
+              抖动是「电平在高低之间快速变化」，
+              悬空是「电平停在中间乱飘」。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              ① 软件消抖：读到低电平后先延时 15ms 再确认一次
+              （见程序一）。
+              ② 更推荐状态机式消抖（见程序二），
+              用「连续 15 次采样都是低」来代替延时，不阻塞 CPU。
+              ③ 松手时也要消抖，这一点最容易被忽略。
+              ④ 硬件辅助：在按键两端并联 0.1µF 电容（配合 10kΩ 上拉）。
+              ⑤ 排查方法：用示波器看按键波形，
+              或者在软件里统计「1 秒内读到了多少次低电平」，
+              如果远大于你按的次数，就是抖动。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：I2C 完全不通，读不到任何数据</div>
+            <p><b class="font-semibold">原因：</b>
+              没有上拉电阻。I2C 的两个引脚（SCL、SDA）都是<b>开漏输出</b>，
+              开漏自己只能拉低、不能推高，必须靠外部上拉电阻才能产生高电平。
+              没有上拉，两根线永远都是低电平，通信完全无法开始。
+              第二个常见原因：上拉接到了 5V，而器件是 3.3V 的
+              （这时需要把上拉接到 3.3V，或者用双向电平转换）。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              ① 加 4.7kΩ 上拉（100kHz）或 2.2kΩ（400kHz），
+              SCL 和 SDA 各一个，接到器件自己的供电电压上。
+              ② 用万用表量两根线在空闲时的电压：
+              正常应该接近 VCC（被上拉拉高）。
+              如果量到 0V 或 1V 左右，就是上拉缺失或阻值过大。
+              ③ 检查地址：I2C 器件都有 7 位地址，
+              写错了会「有波形但没应答」。
+              ④ 检查是不是有器件把线一直拉低（总线死锁），
+              这种情况需要发 9 个时钟脉冲解锁。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：3.3V 模块接 5V 系统，能读数据但偶尔读到错的值</div>
+            <p><b class="font-semibold">原因：</b>
+              这不是电平不匹配（3.3V 高于 TTL 的 2.0V 门限，能读对），
+              而是<b>噪声容限被吃掉了</b>。
+              正常的高电平应该接近 5V，现在只有 3.3V，
+              离 2.0V 门限只有 1.3V 余量。
+              如果导线长、旁边有电机或继电器，
+              一点干扰就能让读数翻转。
+              另一个可能：那个 3.3V 器件的输出高电平实际上只有 2.5V 左右
+              （有些模块带串联电阻或者驱动能力弱），
+              那就离门限只差 0.5V 了。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              ① 用万用表或示波器确认那个模块输出高电平的实际值。
+              ② 缩短导线、远离干扰源（电机、继电器、开关电源）。
+              ③ 在信号线上加 100Ω 串联电阻 + 100pF 到地做 RC 滤波
+              （注意会降低最高速率）。
+              ④ 如果对可靠性要求高，直接加一级缓冲/
+              电平转换芯片，把信号恢复到完整的 5V。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：LED 在上电瞬间闪一下，然后才进入正常状态</div>
+            <p><b class="font-semibold">原因：</b>
+              51 单片机在<b>复位期间和刚上电时，所有 IO 口都是高电平</b>。
+              如果你的 LED 是灌电流接法（低电平点亮），
+              高电平应该意味着「灭」，那就不该闪——
+              所以这里的闪说明是别的原因：
+              ① LED 是拉电流接法（高电平点亮），
+              上电时的高电平让它亮了一下；
+              ② 或者接了 PNP 三极管 / 低有效的驱动电路，
+              上电的高电平让驱动导通；
+              ③ 或者电源上电过程中电压上升缓慢，
+              单片机的复位还没完成，IO 处于不确定状态。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              ① 把 LED 改成灌电流接法（低电平点亮），
+              这样上电的高电平正好对应「灭」，最安全。
+              ② 驱动继电器/电机的电路，用低有效设计
+              （上电默认关闭），或者加一级反相。
+              ③ 在程序最开始的第一行就把所有输出拉低或拉高到安全状态。
+              ④ 电源加软启动或者加大滤波电容，让上电更平稳。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：5V 单片机驱动不了的负载（继电器不吸合、电机不转）</div>
+            <p><b class="font-semibold">原因：</b>
+              引脚电流不够。51 单个引脚最多约 20mA（灌电流），
+              而继电器线圈要 40~100mA，小电机要几百毫安。
+              直接接上去：负载不动，而且引脚在过流状态，
+              时间长了会烧。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              ① 加一级 NPN 三极管做开关（S8050、2N3904），
+              基极串 1kΩ 电阻（见「电路四」）。
+              ② 如果是大电流负载（超过 500mA），用 MOS 管
+              （比如 AO3400、IRF540）或者专用的驱动芯片
+              （ULN2003 可以一次驱动 7 路，很适合继电器和步进电机）。
+              ③ 感性负载<b>必须</b>并联续流二极管
+              （1N4148 或 1N4007，阴极朝电源正极），
+              否则关断瞬间的反向高压会击穿三极管。
+              ④ 别忘了：51 的 P0 口没有内部上拉，
+              用它驱动三极管时必须外接上拉电阻。
+            </p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">现象：两个输出引脚接在一起，芯片发烫</div>
+            <p>
+              这是<b>推挽输出冲突</b>。推挽输出的引脚会主动推高或拉低，
+              如果一个输出高（接到 VCC）、另一个输出低（接到 GND），
+              两者一连就相当于把电源短路了。
+              电流可能达到几百毫安，两个芯片都发烫甚至烧毁。
+            </p>
+            <p class="mt-2">
+              解决办法：
+              ① <b>绝对不要把两个推挽输出直接并联</b>。
+              ② 共享总线必须用<b>开漏输出</b>（这是 I2C、单总线、
+              多机共享信号线的基础）。
+              ③ 如果确实需要两个来源驱动同一个负载，
+              用「或」的逻辑：各串一个二极管，
+              或者用一个逻辑门芯片来合并。
+              ④ 检查是不是把某个引脚配成了输出，
+              而它本来是应该配成输入的
+              （输入脚是「高阻态」，接在一起不会冲突）。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇的主线是「电压 → 电平 → 门 → 电路」。
+            要带走的是五句话：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">高低电平是一个范围，不是固定电压。</b>
+              5V TTL 的标准是「输入 ≥ 2.0V 认高、≤ 0.8V 认低」，
+              中间那段是不确定区，绝对不能让信号停在里面。</li>
+            <li><b class="font-semibold text-ink">输入端有门限，输出端有承诺，两者之差就是噪声容限。</b>
+              VOH 2.4V 对 VIH 2.0V，余量 0.4V —— 这就是数字电路抗干扰能力的来源。</li>
+            <li><b class="font-semibold text-ink">5V 输出接 3.3V 输入会通过保护二极管灌电流，可能烧芯片。</b>
+              接之前先查对方引脚是不是 5V 容忍（FT）。</li>
+            <li><b class="font-semibold text-ink">上拉/下拉电阻的作用是消灭悬空。</b>
+              10kΩ 是万能默认值：漏电流造成的压降只有 0.1V，
+              按键电流只有 0.5mA，RC 上升时间只有 0.6µs。</li>
+            <li><b class="font-semibold text-ink">逻辑门和位运算符是同一个东西。</b>
+              与/或/非/与非/或非/异或分别对应
+              <code class="icode">&amp;</code> / <code class="icode">|</code> /
+              <code class="icode">~</code> / <code class="icode">~(a&amp;b)</code> /
+              <code class="icode">~(a|b)</code> / <code class="icode">^</code>。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">自检题（先自己做，再看答案）</div>
+            <ol class="list-decimal space-y-3 pl-5">
+              <li>
+                <b>题 1：</b>你用万用表量一个 51 单片机的输入引脚，
+                读数是 1.4V 且在 1.3V~1.5V 之间轻微跳动。
+                这说明了什么？应该怎么处理？
+                <p class="mt-2 text-muted">
+                  <b>答案：</b>1.4V 落在 5V TTL 的不确定区（0.8V~2.0V）内，
+                  说明这个引脚<b>悬空</b>了——没有上拉或下拉电阻，
+                  引脚在感应周围的干扰。
+                  现象上会表现为读数随机、程序行为不可预测。<br>
+                  <b>处理：</b>加一个 10kΩ 上拉电阻（按键对地接法）
+                  或下拉电阻（按键对 5V 接法），把引脚在空闲时
+                  明确拉到高或低。如果是 P0 口，必须外接上拉，
+                  因为 P0 内部没有上拉。
+                </p>
+              </li>
+              <li>
+                <b>题 2：</b>一个 3.3V 的传感器模块，输出高电平是 3.3V。
+                要接到 STC89C52RC（5V 系统）的输入引脚上，能直接用吗？
+                反过来，51 输出 5V 接到这个 3.3V 模块的输入引脚上，能直接用吗？
+                <p class="mt-2 text-muted">
+                  <b>答案：</b><br>
+                  <b>方向一（3.3V 模块 → 51）：可以。</b>
+                  51 是 5V TTL 输入，VIH = 2.0V，
+                  3.3V 比它高 1.3V，能可靠读成高电平。
+                  （只是余量比正常的 5V 小一点，
+                  如果导线很长、旁边有干扰，就要注意。）<br>
+                  <b>方向二（51 → 3.3V 模块）：不行，除非那个引脚是 5V 容忍（FT）。</b>
+                  51 输出 5V，而 3.3V 器件的输入引脚耐压通常只有 VCC+0.3V = 3.6V。
+                  5V 会让内部保护二极管正向导通，
+                  电流灌进 3.3V 电源网络，可能损坏芯片或稳压器。
+                  正确做法是用双向电平转换模块，或者查手册确认是 FT 引脚。
+                </p>
+              </li>
+              <li>
+                <b>题 3：</b>上拉电阻能不能用 1MΩ？请用具体数字说明。
+                <p class="mt-2 text-muted">
+                  <b>答案：</b>不能用。<br>
+                  假设输入引脚有 10µA 的漏电流，1MΩ 上的压降是
+                  10µA × 1MΩ = <b>10V</b>，
+                  比电源电压 5V 还大——引脚电压会被拉到接近 0V，
+                  <b>永远读成低电平</b>，按键完全失效。<br>
+                  用 10kΩ 时压降只有 10µA × 10kΩ = 0.1V，
+                  引脚电压 4.9V，离 2.0V 门限还有 2.9V 余量，非常稳。<br>
+                  另外 1MΩ 配合 20pF 的引脚电容，
+                  上升时间约 3 × 1MΩ × 20pF = 60µs，
+                  最高只能支持几十 kHz，稍微快一点的信号就跟不上了。
+                </p>
+              </li>
+              <li>
+                <b>题 4：</b>为什么 I2C 总线必须用开漏输出 + 上拉电阻？
+                如果改成推挽输出会怎样？
+                <p class="mt-2 text-muted">
+                  <b>答案：</b>I2C 一根线上挂着多个器件，
+                  每个器件都可能在输出。<br>
+                  <b>开漏的好处：</b>每个器件只能「拉低」或「放手」，
+                  不能主动推高。只要有一个器件拉低，总线就是低；
+                  全部放手时，上拉电阻把总线拉高。
+                  这实现了「线与」，永远不会冲突。
+                  同时，器件可以一边输出一边读回总线状态，
+                  从而判断出「有人在拉低」——这就是仲裁和时钟拉伸的实现基础。<br>
+                  <b>如果用推挽：</b>器件 A 想输出高（接到 VCC），
+                  器件 B 想输出低（接到 GND），两者同时导通时
+                  就是电源直接短路，电流几百毫安，芯片烧毁。<br>
+                  <b>为什么必须加上拉：</b>因为开漏自己产生不了高电平，
+                  没有上拉电阻，总线永远起不来。
+                </p>
+              </li>
+              <li>
+                <b>题 5：</b>写出与非门、或非门、异或门对应的 C 语言表达式，
+                并说明为什么 <code class="icode">~a &amp; b</code> 不是与非门。
+                <p class="mt-2 text-muted">
+                  <b>答案：</b><br>
+                  与非门：<code class="icode">~(a &amp; b)</code><br>
+                  或非门：<code class="icode">~(a | b)</code><br>
+                  异或门：<code class="icode">a ^ b</code><br>
+                  <b>为什么 <code class="icode">~a &amp; b</code> 不对：</b>
+                  因为 <code class="icode">~</code> 的优先级高于
+                  <code class="icode">&amp;</code>，
+                  所以 <code class="icode">~a &amp; b</code> 会被理解成
+                  <code class="icode">(~a) &amp; b</code>——
+                  先把 a 整个取反，再和 b 相与。
+                  这与「先做与、再整体取反」完全不同。<br>
+                  验证：a = 1，b = 1 时，<br>
+                  与非门 <code class="icode">~(1 &amp; 1) = ~1</code>，
+                  只有最低位为 1 时截断后是 0（输出 0，正确）；<br>
+                  <code class="icode">(~1) &amp; 1</code> = 0xFFFFFFFE &amp; 1 = 0
+                  （碰巧也是 0，但这是巧合）。<br>
+                  换 a = 0，b = 0：<br>
+                  与非门 <code class="icode">~(0 &amp; 0) = ~0</code>，截断后是 0xFF，
+                  只保留最低位是 1（输出 1，正确）；<br>
+                  <code class="icode">(~0) &amp; 0 = 0xFFFFFFFF &amp; 0 = 0</code>
+                  （输出 0，<b>错误</b>）。
+                  所以必须写括号：<code class="icode">~(a &amp; b)</code>。
+                </p>
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一步看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-led.html">IO 口输出：LED 流水灯</a>——把前四篇的电阻计算、位运算、低电平点亮全部用上，真正点亮第一颗灯。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="../mcu51.html">51 单片机全部教程</a>——后续的数码管、按键、串口、I2C 全都建立在这一篇的电平概念之上。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-number.html">数制与位运算</a>——如果对 <code class="icode">~(a &amp; b)</code> 这类写法还不熟，回头把这四个标准动作再练一遍。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="mcu51-basic-number.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">数制与位运算：从十进制到二进制</p>
+          </a>
+          <a href="mcu51-basic-c.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">C 语言基础：单片机编程真正要用的部分</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+﻿  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+
+</body>
+</html>

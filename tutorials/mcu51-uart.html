@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UART 串口通信 - McuStudy</title>
+  <meta name="description" content="51 单片机串口通信完整教程：SCON 与 PCON 寄存器逐位解析、方式 1 为什么最常用、波特率公式与 TH1 初值计算、为什么串口通信几乎都用 11.0592MHz 晶振、定时器 1 方式 2 做波特率发生器、TI/RI 软件清零的正确位置，以及 printf 重定向到串口的完整可编译代码。">
+  <meta name="keywords" content="51单片机,串口通信,UART,SCON,PCON,SMOD,波特率,TH1初值,11.0592MHz,printf重定向,putchar">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="mcu51" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../mcu51.html" class="hover:text-brand-600 dark:hover:text-brand-300">51单片机</a>
+          <span>/</span>
+          <span class="text-muted">教程正文</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          UART 串口通信
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          让 51 和电脑说上话：把 SCON / PCON 两个寄存器逐位讲清楚，算明白 TH1 初值是怎么来的，
+          并回答那个几乎人人都遇到过的问题——<b class="font-semibold text-ink">为什么串口通信几乎都用 11.0592MHz 晶振</b>。
+          最后给出「收到什么就回显什么」加 printf 重定向的完整代码。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="stat-pill">芯片：<b>STC89C52RC</b></span>
+          <span class="stat-pill">工具：<b>Keil C51 + 串口助手</b></span>
+          <span class="stat-pill">晶振：<b>11.0592MHz</b></span>
+          <span class="stat-pill">阅读约 <b>14</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>串口是把「位」按时间一位一位发出去，所以既要懂电平，也要会算波特率。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-number.html">数制与位运算</a> —— 波特率、定时器初值、寄存器配置值的进制换算</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-register.html">单片机内部结构与寄存器</a> —— SCON / PCON / TMOD 里每一位代表什么</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-digital.html">数字电路与电平</a> —— 起始位、停止位、波特率这些概念背后的电平变化</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-toolchain.html">从源码到芯片：编译、HEX 与烧录</a> —— 用 STC-ISP 自带的串口助手观察现象时你会用到</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-frame">一帧数据长什么样</a>
+          <a class="toc-link is-sub" href="#sub-scon">SCON 与 PCON 寄存器</a>
+          <a class="toc-link is-sub" href="#sub-baud">波特率与 11.0592MHz 之谜</a>
+          <a class="toc-link is-sub" href="#sub-isr">发送、接收与中断写法</a>
+          <a class="toc-link is-sub" href="#sub-printf">printf 重定向是怎么做到的</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-frame">一帧数据长什么样</a>
+            <a class="toc-link is-sub" href="#sub-scon">SCON 与 PCON 寄存器</a>
+            <a class="toc-link is-sub" href="#sub-baud">波特率与 11.0592MHz 之谜</a>
+            <a class="toc-link is-sub" href="#sub-isr">发送、接收与中断写法</a>
+            <a class="toc-link is-sub" href="#sub-printf">printf 重定向是怎么做到的</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            串口（UART）是单片机工程师用得最多的一个外设，原因很实在：它只需要两根线，
+            却能把单片机里的变量、状态、错误码实时送到电脑屏幕上。
+            你以后遇到的蓝牙模块、WiFi 模块、GPS、很多工业传感器，接口也都是串口。
+            换句话说，<b class="font-semibold text-ink">学不会串口，就没法调试任何稍微复杂一点的系统</b>。
+          </p>
+
+          <h3 id="sub-frame" class="mt-7 text-base font-semibold">一帧数据长什么样</h3>
+          <p class="mt-3">
+            UART 是<b class="font-semibold text-ink">异步串行</b>通信，这四个字要拆开理解：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">串行</b>——一位一位地发，一根线就够了（还有一根地线）。代价是慢：8 位数据要花 10 个位时间。</li>
+            <li>
+              <b class="font-semibold text-ink">异步</b>——<b class="font-semibold">没有时钟线</b>。既然没有时钟告诉接收方“什么时候该读下一位”，
+              双方就只能提前约定好每一位持续多久，这个约定就是<b class="font-semibold">波特率</b>（每秒多少位）。
+              接收方靠自己的波特率在每一位的中间时刻采样。
+            </li>
+          </ul>
+
+          <div class="code-block mt-4" data-lang="text" data-title="方式 1 的一帧数据（9600bps 时每位约 104us，一帧约 1.04ms）">
+            <pre><code>空闲（高电平）
+        ┌───┐                                                ┌───────
+        │   └──┐   ┌──┐   ┌──┐   ┌──┐   ┌──┐   ┌──┐   ┌──┐   │
+   ─────┘      └───┘  └───┘  └───┘  └───┘  └───┘  └───┘  └───┘
+        起始位  D0    D1    D2    D3    D4    D5    D6    D7  停止位
+         (0)    └──────────── 8 位数据，低位 D0 先发 ────────┘   (1)
+
+  每一位宽度 = 1 / 9600 ≈ 104us，一帧 = 1 起始 + 8 数据 + 1 停止 = 10 位 ≈ 1.04ms
+
+  接收方在每一位的“中点”采样：中点离边沿最远，最不容易被抖动和误差影响</code></pre>
+          </div>
+
+          <p class="mt-4">
+            注意两个容易忽略的细节：<b class="font-semibold text-ink">起始位必须是低电平</b>，
+            这就是接收方判断“有数据来了”的依据（空闲时线是高电平）；
+            数据位是<b class="font-semibold">低位先发</b>（LSB first），
+            所以你在示波器上看到的第一个数据位是 D0 而不是 D7。
+          </p>
+
+          <h3 id="sub-scon" class="mt-7 text-base font-semibold">SCON 与 PCON 寄存器</h3>
+          <p class="mt-3">
+            串口的行为由 <code class="icode">SCON</code>（字节地址 0x98，可位寻址）和
+            <code class="icode">PCON</code>（0x87，不可位寻址）两个寄存器决定。
+            SCON 的 8 位每一位都有明确分工：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>位</th>
+                  <th>名称</th>
+                  <th>含义</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">SCON.7</td><td class="font-mono text-xs">SM0</td><td>工作方式选择高位</td></tr>
+                <tr><td class="font-mono text-xs">SCON.6</td><td class="font-mono text-xs">SM1</td><td>工作方式选择低位，与 SM0 组合选方式</td></tr>
+                <tr><td class="font-mono text-xs">SCON.5</td><td class="font-mono text-xs">SM2</td><td>多机通信控制位；方式 1 下不用，写 0</td></tr>
+                <tr><td class="font-mono text-xs">SCON.4</td><td class="font-mono text-xs">REN</td><td><b class="font-semibold">允许接收：1 = 允许，0 = 禁止</b>（只发不收时才是 0）</td></tr>
+                <tr><td class="font-mono text-xs">SCON.3</td><td class="font-mono text-xs">TB8</td><td>方式 2 / 3 发送的第 9 位数据</td></tr>
+                <tr><td class="font-mono text-xs">SCON.2</td><td class="font-mono text-xs">RB8</td><td>方式 2 / 3 接收的第 9 位数据</td></tr>
+                <tr><td class="font-mono text-xs">SCON.1</td><td class="font-mono text-xs">TI</td><td><b class="font-semibold">发送完成标志</b>：硬件置 1，<b class="font-semibold">必须软件清零</b></td></tr>
+                <tr><td class="font-mono text-xs">SCON.0</td><td class="font-mono text-xs">RI</td><td><b class="font-semibold">接收完成标志</b>：硬件置 1，<b class="font-semibold">必须软件清零</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            所以最常见的初始化只写一行：<code class="icode">SCON = 0x50;</code>。
+            <code class="icode">0x50 = 0101 0000</code>，拆开来就是 SM0 = 0、SM1 = 1（选方式 1）、REN = 1（允许接收），
+            TI 和 RI 清 0。以后看到这行代码，脑子里要能自动展开成这个二进制。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">四种工作方式，为什么方式 1 最常用</h4>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>SM0 SM1</th>
+                  <th>方式</th>
+                  <th>说明</th>
+                  <th>波特率</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">0 0</td>
+                  <td>方式 0</td>
+                  <td>同步移位寄存器，<b class="font-semibold">不是常规串口</b>，用来配 74HC595 扩 IO</td>
+                  <td class="font-mono text-xs">fosc / 12</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">0 1</td>
+                  <td>方式 1</td>
+                  <td>8 位 UART：1 起始 + 8 数据 + 1 停止，<b class="font-semibold">波特率可变</b>，与 PC 通信就用它</td>
+                  <td>定时器 1 溢出率 / 32 × 2<sup>SMOD</sup></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">1 0</td>
+                  <td>方式 2</td>
+                  <td>9 位 UART，波特率固定不可调，很少用</td>
+                  <td class="font-mono text-xs">fosc / 64 或 / 32</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">1 1</td>
+                  <td>方式 3</td>
+                  <td>9 位 UART，多出来的那位可做校验位</td>
+                  <td>同方式 1</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            方式 1 胜出的原因很朴素：<b class="font-semibold text-ink">它和电脑串口助手默认的“8 数据位、无校验、1 停止位”完全一致，而且波特率可以用软件随便调。</b>
+            方式 2 波特率固定，方式 0 压根不是异步串口，方式 3 多出来的第 9 位在没有校验需求时纯属浪费。
+            所以 99% 的场景写 <code class="icode">SCON = 0x50;</code> 就对了。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">PCON 里的 SMOD 位</h4>
+          <p class="mt-3">
+            <code class="icode">PCON</code>（电源控制寄存器）只有最高位和串口有关：
+            <code class="icode">SMOD</code>（PCON.7）是<b class="font-semibold">波特率倍增位</b>，
+            写 1 时波特率翻倍。其余位是 IDL（空闲模式）和 PD（掉电模式）等电源管理位，
+            串口初始化时<b class="font-semibold">不要</b>用 <code class="icode">PCON = 0x80;</code> 这种整字节赋值去清掉它们，
+            用 <code class="icode">PCON |= 0x80;</code> 或 <code class="icode">PCON &amp;= 0x7F;</code> 只动这一位。
+          </p>
+
+          <h3 id="sub-baud" class="mt-7 text-base font-semibold">波特率与 11.0592MHz 之谜</h3>
+          <p class="mt-3">
+            方式 1 / 3 的波特率由<b class="font-semibold text-ink">定时器 1 的溢出率</b>决定。
+            这里有个前提：定时器 1 必须工作在<b class="font-semibold">方式 2（8 位自动重装）</b>，
+            它的溢出周期是固定的 <code class="icode">12 × (256 − TH1) / fosc</code>，
+            溢出率再除以 32（还要乘 2 的 SMOD 次方）就是波特率：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="波特率公式与 TH1 初值反推（方式 1 / 3，定时器 1 方式 2）">
+            <pre><code>                   2^SMOD      fosc
+        波特率  =  ───────── × ──────────────────
+                     32       12 × (256 − TH1)
+
+        反过来解出初值：
+
+                              2^SMOD × fosc
+        TH1  =  256  −  ────────────────────────
+                        384 × 波特率
+
+  注意：TH1 只能是 0~255 的整数！
+        如果算出来不是整数，实际波特率就会和约定值有偏差，
+        偏差太大 → 接收方采样点跑偏 → 满屏乱码。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            先看 11.0592MHz、SMOD = 0、目标 9600bps 的情况：
+            <code class="icode">11059200 / (384 × 9600) = 3</code>，正好是整数，
+            所以 <code class="icode">TH1 = 256 − 3 = 253 = 0xFD</code>，误差 <b class="font-semibold text-ink">0%</b>。
+          </p>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">换成 12MHz 呢？</b>
+            <code class="icode">12000000 / (384 × 9600) = 3.255</code>，不是整数！
+            只能取 3，于是实际波特率变成
+            <code class="icode">12000000 / (384 × 3) = 10417bps</code>，
+            误差 <code class="icode">(10417 − 9600) / 9600 ≈ +8.5%</code>。
+          </p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">+8.5% 的误差为什么就是乱码</div>
+            <p>
+              一帧 10 位。接收方用自己的波特率计时，误差会在整帧上<b class="font-semibold">逐位累积</b>：
+              到第 10 位（停止位）时，采样时刻已经偏了约 <code class="icode">9.5 × 8.5% ≈ 0.8 个位宽</code>，
+              早就跨过位边界，采到隔壁位上去了。行业经验是收发双方合计误差要控制在
+              <b class="font-semibold">±2% 以内</b>，超过 5% 基本必然乱码。8.5% 属于“有时候能出几个对字符、大部分是乱码”的典型表现。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            11.0592MHz 这个看起来“奇怪”的频率，正是为了让上面那个除法能整除：
+            <code class="icode">11059200 = 9600 × 1152 = 19200 × 576 = 4800 × 2304</code>，
+            常用波特率全是它的因数。这就是<b class="font-semibold text-ink">串口通信几乎一律用 11.0592MHz 晶振</b>的全部原因，
+            和“精度更高”无关，纯粹是“除得尽”。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>目标波特率</th>
+                  <th>SMOD</th>
+                  <th>256 − TH1</th>
+                  <th>TH1</th>
+                  <th>11.0592MHz 实际值</th>
+                  <th>误差</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">1200</td><td class="font-mono text-xs">0</td><td class="font-mono text-xs">24</td><td class="font-mono text-xs">0xE8</td><td class="font-mono text-xs">1200</td><td>0%</td></tr>
+                <tr><td class="font-mono text-xs">2400</td><td class="font-mono text-xs">0</td><td class="font-mono text-xs">12</td><td class="font-mono text-xs">0xF4</td><td class="font-mono text-xs">2400</td><td>0%</td></tr>
+                <tr><td class="font-mono text-xs">4800</td><td class="font-mono text-xs">0</td><td class="font-mono text-xs">6</td><td class="font-mono text-xs">0xFA</td><td class="font-mono text-xs">4800</td><td>0%</td></tr>
+                <tr><td class="font-mono text-xs">9600</td><td class="font-mono text-xs">0</td><td class="font-mono text-xs">3</td><td class="font-mono text-xs">0xFD</td><td class="font-mono text-xs">9600</td><td>0%</td></tr>
+                <tr><td class="font-mono text-xs">19200</td><td class="font-mono text-xs">1</td><td class="font-mono text-xs">3</td><td class="font-mono text-xs">0xFD</td><td class="font-mono text-xs">19200</td><td>0%</td></tr>
+                <tr><td class="font-mono text-xs">57600</td><td class="font-mono text-xs">1</td><td class="font-mono text-xs">1</td><td class="font-mono text-xs">0xFF</td><td class="font-mono text-xs">57600</td><td>0%</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>目标波特率</th>
+                  <th>12MHz 取整后的实际值</th>
+                  <th>误差</th>
+                  <th>结果</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">9600</td><td class="font-mono text-xs">10417</td><td>+8.5%</td><td>乱码</td></tr>
+                <tr><td class="font-mono text-xs">4800</td><td class="font-mono text-xs">5208</td><td>+8.5%</td><td>乱码</td></tr>
+                <tr><td class="font-mono text-xs">2400</td><td class="font-mono text-xs">2404</td><td>+0.16%</td><td>可用（但为什么要降到 2400 呢）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">两个连带结论</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>
+                换上 11.0592MHz 之后，机器周期从 1µs 变成 <code class="icode">12 / 11.0592 ≈ 1.085µs</code>，
+                <b class="font-semibold">软件延时会整体慢约 8.5%</b>。上一篇里的延时常数需要重新标定，别直接照抄。
+              </li>
+              <li>
+                定时器 1 之所以必须用<b class="font-semibold">方式 2（自动重装）</b>，是因为方式 2 溢出后
+                TL1 会自动从 TH1 重新装载，溢出周期恒定；如果用了方式 1，
+                每溢出一轮都要靠中断重装初值，中断一旦被抢占，波特率就会抖一下，直接表现为丢字节。
+              </li>
+            </ul>
+          </div>
+
+          <h3 id="sub-isr" class="mt-7 text-base font-semibold">发送、接收与中断写法</h3>
+
+          <h4 class="mt-5 text-sm font-semibold">发送：写 SBUF 就开始了</h4>
+          <p class="mt-3">
+            发送数据只需要一句 <code class="icode">SBUF = byte;</code>——写进去就等于“开始发送”，
+            硬件会自己把起始位、8 个数据位、停止位一位一位推出去。
+            发完一帧后硬件把 <code class="icode">TI</code> 置 1，程序靠它判断“发完了没有”。
+            查询式发送就是最常见的 <code class="icode">while (TI == 0); TI = 0;</code>。
+          </p>
+
+          <h4 class="mt-5 text-sm font-semibold">接收：REN 必须置 1</h4>
+          <p class="mt-3">
+            接收的前提是 <code class="icode">REN = 1</code>（也就是 <code class="icode">SCON</code> 的 bit4）。
+            收到完整一帧后，硬件把数据放进 <code class="icode">SBUF</code>、把 <code class="icode">RI</code> 置 1。
+            <b class="font-semibold text-ink">“收不到数据”的第一嫌疑人永远是 REN 忘了置 1</b>，
+            第二嫌疑人才是接线。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="对比：查询式接收 vs 中断式接收">
+            <pre><code>/* ---------- 查询式接收：简单，但 CPU 被彻底绑住 ---------- */
+while (RI == 0);            /* 死等，这期间不能干任何别的事 */
+ch = SBUF;                  /* 读走数据 */
+RI = 0;                     /* 手动清标志 */
+/* 缺点：主循环里有 Delay_ms(1000) 时，这一秒内来的数据全丢失 */
+
+/* ---------- 中断式接收：事件驱动，主循环照常干活 ---------- */
+void Uart_ISR(void) interrupt 4
+{
+    if (RI == 1)            /* 是“接收完成”触发的中断 */
+    {
+        ch = SBUF;          /* 第一件事：把数据取走 */
+        RI = 0;             /* 第二件事：软件清零 */
+        /* 第三件事：处理数据。原则仍然是“越快越好” */
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">TI 和 RI 都在一个中断入口里，必须判断是谁触发</div>
+            <p>
+              发送完成和接收完成共用<b class="font-semibold">同一个中断号 4</b>、同一个中断服务函数。
+              所以进中断后一定要先判断 <code class="icode">RI</code> / <code class="icode">TI</code>，
+              再分别处理；<b class="font-semibold">漏清任何一个标志，中断就会反复进入，主循环再也跑不动</b>——
+              这是串口最经典的“程序卡死”原因。
+            </p>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">TI 到底该在哪里清零</h4>
+          <p class="mt-3">
+            很多教材都写“TI 要在中断里清零”，这句话本身没错，但和查询式发送混用时会出大问题：
+            主循环正在 <code class="icode">while (TI == 0);</code> 里等发送完成，
+            结果中断先进来把 TI 清成了 0，主循环就<b class="font-semibold">永远等不到 TI 变成 1，卡死在那里</b>。
+          </p>
+          <p class="mt-3">
+            本篇采用的规则是：<b class="font-semibold text-ink">谁等待，谁清零</b>。
+            发送用查询方式，就在发送函数里等 TI 并清零；中断服务函数里<b class="font-semibold">不碰 TI</b>，
+            只处理接收。这样两边各管一个标志，互不干扰。
+            如果你以后改成“发送也用中断”（配合环形缓冲区），那才需要把 TI 也交给中断去清。
+          </p>
+
+          <h3 id="sub-printf" class="mt-7 text-base font-semibold">printf 重定向是怎么做到的</h3>
+          <p class="mt-3">
+            能用 <code class="icode">printf("温度 = %d 度\r\n", temp);</code> 调试，比手动把数字拆成字符再发送舒服太多。
+            Keil C51 的 <code class="icode">printf</code> 内部并不直接操作串口，
+            而是<b class="font-semibold text-ink">每输出一个字符就调用一次 <code class="icode">putchar</code></b>。
+            库里的 <code class="icode">putchar</code> 默认是个空函数，所以只要自己实现一份，
+            printf 的输出就自动流向串口了：
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="printf 重定向的最小实现">
+            <pre><code>#include &lt;stdio.h&gt;              /* 必须包含，否则报 error C267 */
+
+/* Keil C51 的 printf 会为每个字符调用这个函数 */
+char putchar(char c)
+{
+    SBUF = c;                   /* 写 SBUF → 硬件开始发送 */
+    while (TI == 0);            /* 等这一帧发完（9600bps 下约 1ms） */
+    TI = 0;                     /* 软件清零，准备下一个字符 */
+    return c;                   /* 标准要求返回写出的字符 */
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">用 printf 之前必须知道的三件事</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold">它会占代码空间。</b> 拉进格式化输出库大约要多占 1~2KB Flash，
+                STC89C52 的 8KB 还扛得住，但如果你已经用了很大的数组就要留意。
+              </li>
+              <li>
+                <b class="font-semibold">千万别用 %f 打印浮点。</b> 一旦用到 <code class="icode">%f</code>，
+                链接器会把整个浮点库拖进来，代码体积可能直接翻倍。
+                正确做法是把数值放大成整数打印，例如温度 25.4℃ 就发 <code class="icode">%d.%d</code> 打印 25 和 4。
+              </li>
+              <li>
+                <b class="font-semibold">换行要写 \r\n。</b> 只写 <code class="icode">\n</code> 在多数串口助手里只是回到行首不换行，
+                必须“回车 + 换行”两个字符。
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            单片机说不了 USB，所以中间需要一个 <b class="font-semibold text-ink">USB 转 TTL 串口模块</b>
+            （常见芯片 CH340G、CP2102、PL2303）。它一头插电脑 USB，另一头引出
+            <code class="icode">TXD / RXD / GND / 5V</code> 四根线。
+            接线本身只有三根线，但<b class="font-semibold text-ink">“TXD 接 RXD”这个交叉关系</b>是新手最容易接反的地方。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">元件与接线表</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>模块引脚</th>
+                  <th>规格</th>
+                  <th>连接到</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>USB-TTL 的 TXD</td>
+                  <td>模块的发送脚</td>
+                  <td>单片机 <b class="font-semibold">P3.0（RXD）</b></td>
+                  <td>模块发 → 单片机收，必须交叉</td>
+                </tr>
+                <tr>
+                  <td>USB-TTL 的 RXD</td>
+                  <td>模块的接收脚</td>
+                  <td>单片机 <b class="font-semibold">P3.1（TXD）</b></td>
+                  <td>单片机发 → 模块收，必须交叉</td>
+                </tr>
+                <tr>
+                  <td>USB-TTL 的 GND</td>
+                  <td>地</td>
+                  <td>单片机 GND（第 20 脚）</td>
+                  <td><b class="font-semibold">必须共地</b>，否则电平没有参考，收发全乱</td>
+                </tr>
+                <tr>
+                  <td>USB-TTL 的 VCC</td>
+                  <td class="font-mono text-xs">5V（跳线选 5V 档）</td>
+                  <td>板子已单独供电时不接</td>
+                  <td>不要用模块的 3.3V 档，见下方警告</td>
+                </tr>
+                <tr>
+                  <td>晶振</td>
+                  <td class="font-mono text-xs">11.0592MHz</td>
+                  <td>XTAL1 / XTAL2</td>
+                  <td>串口通信的硬性要求，两端各 30pF 到地</td>
+                </tr>
+                <tr>
+                  <td>USB-TTL 模块</td>
+                  <td>CH340G / CP2102</td>
+                  <td>电脑 USB 口</td>
+                  <td>装好驱动后设备管理器里会出现 COM 号</td>
+                </tr>
+                <tr>
+                  <td>电源</td>
+                  <td class="font-mono text-xs">5V</td>
+                  <td>第 40 脚 VCC、第 20 脚 GND</td>
+                  <td>和 USB-TTL 共地；供电不足会导致乱码</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意图</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="接线示意（交叉连接 + 共地）">
+            <pre><code>   电脑 USB 口
+        │
+   ┌────┴─────────────┐
+   │   USB-TTL 模块   │                STC89C52RC
+   │  (CH340G)        │              ┌───────────┐
+   │                  │              │           │
+   │   TXD ───────────┼─────────────►│ P3.0 RXD  │   ← 模块发，单片机收
+   │                  │              │           │
+   │   RXD ◄──────────┼──────────────│ P3.1 TXD  │   ← 单片机发，模块收
+   │                  │              │           │
+   │   GND ───────────┼──────────────│ GND  (20) │   ← 必须共地
+   │                  │              │           │
+   │   5V  ─ ─ ─ ─ ─ ─┼─ ─ ─ ─ ─ ─ ─►│ VCC  (40) │   （板子已单独供电时不接）
+   └──────────────────┘              └───────────┘
+
+  一句话记忆：TX 接 RX、RX 接 TX、GND 接 GND。
+  接反的典型现象：电脑能看到单片机打印的内容，但单片机收不到电脑发的数据（或反之）。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">上位机软件设置</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>串口助手（或 SSCOM、XCOM）里选择设备管理器中的那个 COM 号。</li>
+            <li>参数固定为：<b class="font-semibold">波特率 9600、数据位 8、停止位 1、校验位无、流控无</b>，和 <code class="icode">SCON = 0x50</code> 的方式 1 一一对应。</li>
+            <li>勾上“发送新行 / 回车换行”，否则你在发送框里敲的字符串末尾不带 \r\n，单片机那边看不出“一句话说完了”。</li>
+            <li>下载程序和串口助手会<b class="font-semibold">抢同一个 COM 口</b>：STC-ISP 下载时必须先关闭串口助手，下载完再打开串口助手重新连接。这不是 bug，是串口独占机制。</li>
+          </ol>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">上电前必查（第 2 条最容易被忽略）</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>TXD / RXD 是不是<b class="font-semibold">交叉</b>接的；GND 有没有真的连上。</li>
+              <li>
+                <b class="font-semibold">CH340 模块的供电跳线必须在 5V 档。</b>
+                如果跳在 3.3V，它的 TXD 高电平只有 3.3V，
+                而 51 的输入高电平门限是 <code class="icode">0.7 × 5V = 3.5V</code>——
+                单片机根本认不出这个高电平，现象就是“单片机发得出去，但怎么都收不到”。
+                很多人在这里查一整天。
+              </li>
+              <li>晶振实物是不是 11.0592MHz（很多开发板出厂焊的是 12MHz，丝印上写着 12.000）。</li>
+              <li>单片机和 USB-TTL 是否共用同一路 5V；用两路电源时更要确认共地。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            这份代码实现了三件事：上电打印一行欢迎信息（验证发送通路）、
+            每秒打印一次计数（验证 printf 重定向）、
+            收到任何字符立刻原样发回（验证接收通路与中断）。
+            三件事合起来，就把串口的收发双向通道都验证完了。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— 9600bps 回显 + printf 重定向（STC89C52RC / 11.0592MHz）">
+            <pre><code>#include &lt;reg52.h&gt;
+#include &lt;stdio.h&gt;            /* 用 printf 必须包含；同时必须自己实现 putchar */
+
+#define FOSC    11059200UL    /* 晶振频率，串口场景必须是 11.0592MHz */
+#define BAUD    9600          /* 目标波特率，要和串口助手一致 */
+
+/* ------------------------------------------------------------------
+ * 软件延时：只给主循环用，绝对不要放进中断服务函数
+ * 11.0592MHz 下内层循环 110 次约 1.08ms（换晶振要重新标定）
+ * ------------------------------------------------------------------ */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;
+    for (i = ms; i &gt; 0; i--)
+        for (j = 110; j &gt; 0; j--);
+}
+
+/* ------------------------------------------------------------------
+ * 串口初始化：方式 1 + 9600bps + 允许接收 + 开中断
+ * ------------------------------------------------------------------ */
+void Uart_Init(void)
+{
+    /* ---- 1. 定时器 1 工作在方式 2（8 位自动重装），专门做波特率发生器 ---- */
+    TMOD &amp;= 0x0F;                  /* 先清掉 T1 的配置位（高 4 位），保留 T0 的配置 */
+    TMOD |= 0x20;                  /* T1：M1=1 M0=0 → 方式 2，自动重装 */
+
+    /* ---- 2. 波特率初值：TH1 = 256 − FOSC / (384 × 波特率)，SMOD = 0 ----
+     * 11059200 / 384 / 9600 = 3  →  TH1 = 253 = 0xFD，误差 0%
+     * 如果晶振是 12MHz，这个除法就不是整数，波特率会偏 +8.5%，必然乱码
+     */
+    TH1 = (unsigned char)(256 - (FOSC / 384UL / BAUD));
+    TL1 = TH1;                     /* 方式 2 下 TL1 是计数器，初值必须和 TH1 一致 */
+    TR1 = 1;                       /* 启动定时器 1，波特率时钟开始输出 */
+
+    /* ---- 3. 串口本身：方式 1 + 允许接收 ---- */
+    SCON = 0x50;                   /* SM0=0 SM1=1 → 方式 1；REN=1 → 允许接收 */
+    PCON &amp;= 0x7F;                  /* SMOD = 0，波特率不倍增（只动这一位） */
+
+    /* ---- 4. 中断：分开关 + 总开关 ---- */
+    ES = 1;                        /* 串口中断允许 */
+    EA = 1;                        /* 总中断允许 */
+}
+
+/* ------------------------------------------------------------------
+ * 发送一个字节（查询方式：发完才返回）
+ * ------------------------------------------------------------------ */
+void Uart_SendByte(unsigned char byte)
+{
+    SBUF = byte;                   /* 写 SBUF 就等于“开始发送” */
+    while (TI == 0);               /* 等硬件把 TI 置 1，表示这一帧发完了 */
+    TI = 0;                        /* 谁等待谁清零：清零放在这里，不放进中断 */
+}
+
+/* 发送一个以 '\0' 结尾的字符串 */
+void Uart_SendString(char *s)
+{
+    while (*s != '\0')
+        Uart_SendByte((unsigned char)(*s++));
+}
+
+/* ------------------------------------------------------------------
+ * printf 重定向：Keil C51 的 printf 每输出一个字符就调用一次 putchar
+ * 我们自己实现它，printf 的内容就从串口出去了
+ * ------------------------------------------------------------------ */
+char putchar(char c)
+{
+    Uart_SendByte((unsigned char)c);
+    return c;                      /* 标准要求返回写出去的字符 */
+}
+
+/* ------------------------------------------------------------------
+ * 串口中断：中断号 4，发送完成（TI）和接收完成（RI）共用这个入口
+ * 本程序把 TI 交给发送函数处理，中断里只处理接收
+ * ------------------------------------------------------------------ */
+void Uart_ISR(void) interrupt 4
+{
+    unsigned char ch;
+
+    if (RI == 1)                   /* ---- 收到一个字节 ---- */
+    {
+        ch  = SBUF;                /* 第一件事：把数据取走（读 SBUF 会同时影响 RI 的清除条件） */
+        RI  = 0;                   /* 第二件事：软件清零，否则会反复进中断 */
+        SBUF = ch;                 /* 原样回显：直接写 SBUF，不在中断里傻等 TI */
+    }
+
+    /* TI 故意不在这里清零：
+     * 主循环的 Uart_SendByte 正用 while (TI == 0) 等发送完成，
+     * 如果中断先把 TI 清掉，主循环就永远等不到，程序会卡死。
+     */
+}
+
+void main(void)
+{
+    unsigned int count = 0;
+
+    Uart_Init();                   /* 必须先初始化串口，再谈收发 */
+
+    /* ---- 上电先打两行，验证“单片机 → 电脑”这条路是通的 ---- */
+    Uart_SendString("51 UART echo test\r\n");
+    printf("FOSC = %lu Hz, BAUD = %d\r\n", FOSC, (int)BAUD);
+    printf("type something, the MCU will echo it back\r\n");
+
+    while (1)
+    {
+        /* ---- 每秒打印一次计数，验证 printf 重定向 ---- */
+        printf("running... count = %u\r\n", count++);
+        Delay_ms(1000);
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">TMOD &amp;= 0x0F; TMOD |= 0x20;</code>——先用“与”把 T1 的 4 个配置位清零、
+              保留 T0 的设置，再用“或”写入方式 2。直接写 <code class="icode">TMOD = 0x20;</code>
+              会顺手把 T0 的配置抹掉，如果主程序里还用了定时器 0，那里就会莫名其妙失效。
+              <b class="font-semibold">改寄存器用位操作，不做整字节覆盖</b>，这是个通用习惯。
+            </li>
+            <li>
+              <code class="icode">TH1 = 256 - (FOSC / 384UL / BAUD);</code>——
+              把波特率公式直接写成表达式，比硬编码 <code class="icode">TH1 = 0xFD;</code> 更好：
+              以后改晶振或改波特率只动宏定义，初值自动跟着变。
+              <code class="icode">384UL</code> 里的 <code class="icode">UL</code> 是提醒编译器按无符号长整型运算，
+              避免 16 位溢出——11059200 用 16 位是存不下的。
+            </li>
+            <li>
+              <code class="icode">SCON = 0x50;</code>——SM0=0、SM1=1（方式 1）、REN=1（允许接收）。
+              这个字节可以整写，因为它没有别的模块共用。
+            </li>
+            <li>
+              <code class="icode">PCON &amp;= 0x7F;</code>——只清 SMOD 这一位，保留 PCON 里的电源管理位。
+              想改成 19200bps 时把它换成 <code class="icode">PCON |= 0x80;</code> 即可（TH1 仍然是 0xFD）。
+            </li>
+            <li>
+              <code class="icode">while (TI == 0);</code>——查询等待。注意末尾那个分号，
+              这是有意写的空循环；写成 <code class="icode">while (TI == 0) TI = 0;</code> 之类反而会出错。
+            </li>
+            <li>
+              <code class="icode">char putchar(char c)</code>——名字、参数、返回值都必须和库里的一致，
+              参数类型写成 <code class="icode">unsigned char</code> 或返回值写成 <code class="icode">void</code> 都会让重定向失效。
+            </li>
+            <li>
+              <code class="icode">if (RI == 1)</code>——进中断先判断来源。这里还要注意：
+              读 <code class="icode">SBUF</code> 和清 <code class="icode">RI</code> 的顺序建议“先读后清”，
+              先清再读在某些型号上会读到旧值。
+            </li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">想一次发一整行字符串？数据拆分工具可以帮忙</div>
+            <p>
+              调试协议、拼装发送帧时经常要在 ASCII 和十六进制字节流之间来回换算，
+              可以用<a class="text-brand-600 dark:text-brand-300" href="../tools.html#tool-serial">串口转换工具</a>
+              在浏览器里直接对照，不用装软件。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>给单片机复位（或重新上电），串口助手接收区立刻出现三行文字：欢迎语、晶振与波特率信息、操作提示。</li>
+            <li>之后每隔约 1 秒出现一行 <code class="icode">running... count = N</code>，N 从 0 开始递增，从不断行、从不错字。</li>
+            <li>在串口助手的发送框里输入 <code class="icode">hello</code> 并点击发送，接收区立刻多出 <code class="icode">hello</code>——这就是回显。</li>
+            <li>连续快速发送多个字符，回显一个都不少（说明中断接收没有丢数据）。</li>
+            <li>回显的字符有时会插在 <code class="icode">running...</code> 那一行中间，这是正常的：发送和接收共用一套硬件，两路数据在时间上会交叉。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>接收区全是乱码（随机符号）</td>
+                  <td>双方波特率不一致，最常见的是晶振不是 11.0592MHz</td>
+                  <td>看晶振丝印；核对串口助手是不是 9600 8 N 1；把 <code class="icode">FOSC</code> 宏改成实际频率</td>
+                </tr>
+                <tr>
+                  <td>一个字都没有，接收区空白</td>
+                  <td>发送通路断了：接线、串口没打开、或程序没跑起来</td>
+                  <td>查 P3.1 → 模块 RXD 这根线、GND 是否共地、串口助手有没有点“打开串口”</td>
+                </tr>
+                <tr>
+                  <td>能看到打印，但发过去的数据没有回显</td>
+                  <td>接收通路断了，或单片机侧收不到</td>
+                  <td>查 P3.0 ← 模块 TXD；确认 <code class="icode">REN = 1</code>、<code class="icode">ES = 1</code>、<code class="icode">EA = 1</code>；确认 CH340 跳线在 5V</td>
+                </tr>
+                <tr>
+                  <td>只有第一个字符正确，后面错乱</td>
+                  <td>波特率存在中等偏差，逐位累积到后半帧就采错</td>
+                  <td>用 11.0592MHz；或把波特率降到 4800 观察是否变好</td>
+                </tr>
+                <tr>
+                  <td>收到一堆多余的空行或奇怪符号</td>
+                  <td>数据位 / 校验位设置不匹配，或发送端把 \n 当成 \r\n 发了两遍</td>
+                  <td>把串口助手改回 8 数据位、无校验；检查代码里用了 \r\n 还是 \n</td>
+                </tr>
+                <tr>
+                  <td>打印几行之后程序不动了</td>
+                  <td>中断里把 TI 清掉了，查询式发送卡在 <code class="icode">while (TI == 0);</code></td>
+                  <td>检查中断服务函数有没有多余的 <code class="icode">TI = 0;</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">顺手标定一下时间</div>
+            <p>
+              串口助手接收区一般会带时间戳。数一下 10 行 <code class="icode">running...</code>
+              占用的实际时间，理论上应该约 10 秒。如果明显偏大，多半是 <code class="icode">Delay_ms</code>
+              的常数按 12MHz 标准写的而晶振是 11.0592MHz（慢约 8.5%）。
+              把实测值记进实验报告，就是一份很标准的“软件延时精度分析”。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">编译报错：error C267: 'printf': requires ANSI-style prototype</div>
+            <p><b class="font-semibold">原因：</b>调用了 <code class="icode">printf</code> 却没包含头文件。Keil C51 的库函数要求先有原型声明，否则按老式 C 语法处理并报错。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>在文件顶部加 <code class="icode">#include &lt;stdio.h&gt;</code>。如果加了还报同样的错，检查是不是把它写在 <code class="icode">#include &lt;reg52.h&gt;</code> 之前被条件编译跳过了。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">链接警告：*** WARNING L15: MULTIPLE CALL TO SEGMENT（指向 _PUTCHAR 或 _UART_SENDBYTE）</div>
+            <p><b class="font-semibold">原因：</b>同一个函数既被主程序调用，又被中断服务函数调用。51 的普通 C 函数默认<b class="font-semibold">不可重入</b>——参数和局部变量放在固定的内存里，中断打断主程序后会把中间结果覆盖掉，于是偶发乱码或死机。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>首选“不要让中断调用它”：中断里只写 <code class="icode">SBUF</code> 或只置一个标志，把打印和拼字符串留在主循环。确实需要在中断里调用时，把函数声明为可重入（<code class="icode">void f(char c) reentrant</code>，注意这样参数会走栈，速度变慢、代码变大）。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：串口助手满屏乱码</div>
+            <p><b class="font-semibold">原因：</b>按可能性从高到低：① 晶振实际是 12MHz，波特率偏 +8.5%；② 串口助手的波特率 / 数据位和代码不一致；③ <code class="icode">TH1</code> 初值和 <code class="icode">SMOD</code> 不配套（例如代码算的是 SMOD=0 的初值，却把 SMOD 置了 1，波特率直接翻倍）；④ 供电不稳、共地不良导致的位错误。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>先量晶振（示波器或频率计看 XTAL2），不是 11.0592MHz 就换掉；再核对串口助手 9600 8 N 1；然后检查 <code class="icode">PCON</code> 那一位有没有被别的代码改过（<code class="icode">PCON = 0x80;</code> 这种整写是隐患）。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：单片机打印正常，但电脑发过去的数据一个都收不到</div>
+            <p><b class="font-semibold">原因：</b>接收方向与发送方向是两根独立的线，所以“能发不能收”一定出在接收链路上：① 模块 TXD 没接到 P3.0（或接到了 P3.1 上）；② <code class="icode">REN</code> 不是 1——只发不收；③ <code class="icode">ES</code> 或 <code class="icode">EA</code> 没开，<code class="icode">RI</code> 根本没人处理；④ CH340 跳线在 3.3V，51 认不出高电平。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>按 ④ → ③ → ② → ① 的顺序查（先看跳线，因为最容易忽略）。快速验证办法：把 <code class="icode">SCON = 0x50;</code> 临时改成查询式接收，在主循环里 <code class="icode">while (RI == 0); ch = SBUF; RI = 0; printf("got %c\r\n", ch);</code>，能收到就说明是中断配置的问题。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：程序跑着跑着卡死，只剩前几行打印</div>
+            <p><b class="font-semibold">原因：</b>两个经典死法。一是查询式发送撞上“中断里清 TI”：主循环在 <code class="icode">while (TI == 0);</code> 里等，TI 却被中断清掉了，永远等不到。二是中断里漏清 <code class="icode">RI</code>，中断反复进入，主循环再也得不到执行机会。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>记住两条规则——<b class="font-semibold">接收标志 RI 在中断里清，发送标志 TI 在发送函数里清（谁等待谁清零），任何情况下都别漏清 RI</b>。排查时可以在主循环里翻转一个 LED，看它在卡死时是否停止翻转，就能立刻区分“卡在中断里”还是“卡在等待里”。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            串口是“配置多、时序少”的典型外设：一旦寄存器配对，剩下的就是收发数据，
+            不像 DHT11 那样需要掐着微秒算时间。把下面五句话记住，串口基本不会再出问题：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><code class="icode">TMOD |= 0x20;</code>——定时器 1 方式 2，自动重装，做波特率发生器。</li>
+            <li><code class="icode">TH1 = 256 − FOSC / (384 × 波特率);</code>——初值必须整除，所以才要用 11.0592MHz 晶振。</li>
+            <li><code class="icode">SCON = 0x50;</code>——方式 1 + 允许接收，和电脑串口助手默认参数一致。</li>
+            <li><code class="icode">ES = 1; EA = 1;</code>——两级中断开关都要开。</li>
+            <li><code class="icode">RI</code> 在中断里清，<code class="icode">TI</code> 在发送函数里清，<b class="font-semibold">谁等待谁清零</b>。</li>
+          </ul>
+
+          <p class="mt-3">
+            还有一条工程经验值得单独记住：<b class="font-semibold text-ink">串口是你调试一切其它外设的工具</b>。
+            后面做 DHT11、做 LCD、做电机控制，遇到“读数不对”时，
+            第一个动作都应该是把中间量用 printf 打出来，而不是盯着代码猜。
+          </p>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold text-ink">改成 19200bps。</b>
+                根据公式重新算一遍 TH1 和 SMOD，改完用串口助手验证。
+                提示：19200 需要 <code class="icode">SMOD = 1</code>，而 TH1 仍然是 <code class="icode">0xFD</code>；
+                改完想一想，为什么 SMOD 加倍之后“除数”反而没变？
+              </li>
+              <li>
+                <b class="font-semibold text-ink">亲手复现一次乱码。</b>
+                借一块 12MHz 晶振的开发板（或把晶振换成 12MHz），保持代码里 <code class="icode">FOSC</code> 不变跑一遍，
+                记录乱码的表现；再用公式算出实际波特率与实际误差，写进实验报告。
+                这个“理论预测 → 实测验证”的闭环，是工科报告里最有价值的部分。
+              </li>
+              <li>
+                <b class="font-semibold text-ink">做一个命令行控制。</b>
+                约定：收到字符 <code class="icode">'A'</code> 点亮 P1.0，<code class="icode">'B'</code> 熄灭 P1.0，<code class="icode">'?'</code> 回复一行帮助信息。
+                要求<b class="font-semibold">中断里只把字符存进变量并置标志</b>，判断和动作全部放在主循环里做，
+                并在报告里说明为什么这样分工。
+              </li>
+              <li>
+                <b class="font-semibold text-ink">进阶：改成中断发送。</b>
+                用环形缓冲区（一个数组 + 读指针 + 写指针）实现“主循环只管往缓冲区里塞字符，
+                中断负责从缓冲区取出来发”，彻底避免查询式发送浪费 CPU 时间。
+                提示：这时候 TI 才需要交给中断去清。
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-exti.html">外部中断触发</a>——同样是中断框架，对比一下外部中断为什么不用清标志。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-lcd1602.html">LCD1602 液晶驱动</a>——让单片机摆脱电脑，自己把数据显示出来。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-dht11.html">综合项目：温湿度采集</a>——把本页的 printf 用起来，给传感器数据做一份实时记录。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="mcu51-exti.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">外部中断触发</p>
+          </a>
+          <a href="mcu51-lcd1602.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">LCD1602 液晶驱动</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

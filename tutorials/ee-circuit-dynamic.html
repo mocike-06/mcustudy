@@ -1,0 +1,1845 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>一阶动态电路：RC 充放电与时间常数 - McuStudy</title>
+  <meta name="description" content="知识体系第 1 层电路理论第四篇：电容与电感为什么电压/电流不能突变、换路定则与初始值怎么算、RC 零输入响应与零状态响应、全响应与三要素法、时间常数 τ=RC 的物理意义与 3τ/5τ 工程约定、RL 电路、微分与积分电路。落到上电复位、按键 RC 消抖、去耦电容、ADC 采样保持建立时间、PWM 转模拟电压五个真实场景，含完整数值算例。">
+  <meta name="keywords" content="一阶动态电路,RC充放电,时间常数,时间常数RC,零输入响应,零状态响应,全响应,三要素法,换路定则,电容电压不能突变,电感电流不能突变,微分电路,积分电路,阶跃响应,按键消抖,去耦电容,上电复位电路,ADC采样保持,PWM滤波,续流二极管">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">一阶动态电路：RC 充放电与时间常数</span>
+        </nav>
+
+        <p class="sec-eyebrow">第 1 层 · 学科基础 → 电路理论（第 4 篇）</p>
+
+        <h1 class="mt-2 text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          一阶动态电路：RC 充放电与时间常数
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你按下一次按键，串口却打印出 7 次「按键按下」；板子偶尔要按一下复位才肯启动；呼吸灯调到最暗时在抖；换了 ADC 通道后第一个读数总是偏的。这四件事看起来毫无关系，但把它们拆开，里面都是同一个东西：<b class="font-semibold text-ink">一个电容（或一个电感）加一个电阻，以及那个决定一切的 τ = RC</b>。前面三篇电路理论讲的都是稳态——电源一接上，电压电流"啪"地就到位了。这一篇讲的是从接通到到位之间的那段时间，也就是工程上真正会坑你的那段时间。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="badge-brand">第 1 层 · 学科基础</span>
+          <span class="stat-pill">第 1 层 · 电路理论</span>
+          <span class="stat-pill">第 <b>4</b> 篇</span>
+          <span class="stat-pill">教材：<b>邱关源《电路》第 5 版 第 6、7 章</b></span>
+          <span class="stat-pill">平台：<b>通用</b>（例用 51 / STM32F103）</span>
+          <span class="stat-pill">阅读约 <b>34</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-capacitor">电容元件：q = Cu</a>
+          <a class="toc-link is-sub" href="#sub-inductor">电感元件：ψ = Li</a>
+          <a class="toc-link is-sub" href="#sub-switching">换路定则与初始值</a>
+          <a class="toc-link is-sub" href="#sub-zero-input">零输入响应：放电</a>
+          <a class="toc-link is-sub" href="#sub-zero-state">零状态响应：充电</a>
+          <a class="toc-link is-sub" href="#sub-tau">时间常数 τ = RC</a>
+          <a class="toc-link is-sub" href="#sub-three-element">全响应与三要素法</a>
+          <a class="toc-link is-sub" href="#sub-rl-filter">RL 电路与微分积分电路</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-capacitor">电容元件：q = Cu</a>
+            <a class="toc-link is-sub" href="#sub-inductor">电感元件：ψ = Li</a>
+            <a class="toc-link is-sub" href="#sub-switching">换路定则与初始值</a>
+            <a class="toc-link is-sub" href="#sub-zero-input">零输入响应：放电</a>
+            <a class="toc-link is-sub" href="#sub-zero-state">零状态响应：充电</a>
+            <a class="toc-link is-sub" href="#sub-tau">时间常数 τ = RC</a>
+            <a class="toc-link is-sub" href="#sub-three-element">全响应与三要素法</a>
+            <a class="toc-link is-sub" href="#sub-rl-filter">RL 电路与微分积分电路</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              本篇对应邱关源《电路》第 5 版<b>第 6 章「储能元件」</b>与<b>第 7 章「一阶电路和二阶电路的时域分析」</b>。
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先给你一个真实的现场。你写好了按键扫描程序，逻辑简单到不能再简单：<b class="font-semibold text-ink">读到低电平就算按了一次</b>。下载、复位、按下按键——串口助手上打印出来 7 个「按键按下」。你以为是程序写错了，加了个标志位，又变成 3 次。换一颗按键，好了，只打印 1 次。你以为是自己焊的那颗按键坏了，其实不是：<b class="font-semibold text-ink">机械触点在闭合的那几毫秒里会来回弹跳几十次</b>，而你的程序每 10µs 就看一眼引脚，把每一次弹跳都当成了「一次按下」。</p>
+
+          <p class="mt-3">再给你三个同样说不清的怪事，它们都发生在<b class="font-semibold text-ink">「开关动作的那一瞬间」</b>：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">上电之后板子偶尔不启动</b>，按一下复位键就正常了。换一块板子、换一个电源，概率又变了。听起来像玄学。</li>
+            <li><b class="font-semibold text-ink">呼吸灯调到最暗的那一段会抖</b>，占空比 3% 的时候肉眼可见地在闪。占空比调大就不闪了。</li>
+            <li><b class="font-semibold text-ink">ADC 刚切换完通道，第一个读数明显偏低</b>，读第二次才准。你在代码里连读两次取第二次，问题"解决"了，但你不知道自己在解决什么。</li>
+          </ul>
+
+          <p class="mt-3">这些现象的物理过程各不相同，但它们在纸上的数学模型是同一个：<b class="font-semibold text-ink">一个电容（或一个电感），配上一个电阻，构成的一阶动态电路</b>。所谓「一阶」，是指描述它的微分方程是一阶的，解出来只有一个指数项 <code class="icode">e<sup>−t/τ</sup></code>——整个电路的全部个性，最后被压缩进一个数：<b class="font-semibold text-ink">时间常数 τ</b>。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="这一类问题在电路上的共同长相">
+            <pre><code>【所有一阶动态电路，拆到最里面都是这一个回路】
+
+      开关   R（电阻）
+   ────/ ────[####]────┬────────
+                       │
+                      ===  C        ← 电容：电压 u_C 不能突变
+                       │              （电感则为 L：电流 i_L 不能突变）
+                      ─┴─
+                      GND
+
+  【规律】只要这个回路里有一个 C 或一个 L，
+          电路就【不会】在开关动作的瞬间进入稳态，
+          而是要走一段"过渡过程"，快慢由 τ 决定：
+
+           · C 回路：τ = R × C     （秒）
+           · L 回路：τ = L / R     （秒）
+
+  【工程上的残酷事实】
+      τ 不是"大概多久"的意思，它是【唯一】决定这条曲线形状的参数。
+      τ 算错 10 倍，延时、滤波、消抖、建立时间全部一起错，而且是
+      "能用但偶尔出错"的那种错 —— 最难查的一类 bug。</code></pre>
+          </div>
+
+          <p class="mt-4">为什么说是「最难查的一类 bug」？因为它<b class="font-semibold text-ink">不给你一个稳定的错误，它给你一个概率性的错误</b>。上电十次成功九次，按键按十次错一次，ADC 读数偶尔跳一格。程序逻辑你翻来覆去检查了十遍，都是对的——错的是「你以为电路会瞬间到位」这个前提。这一篇要做的，就是把这个前提修正掉。</p>
+
+          <p class="mt-3">下面这张表把你在单片机开发里最常撞见的五个现象，提前对上号。看不懂没关系，正文讲完再回头扫一眼，你会发现每个现象都落在同一套公式里。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>你会遇到的现象</th><th>背后的电路</th><th>本篇对应内容</th></tr></thead>
+              <tbody>
+                <tr><td>按一次键，程序数出好几次</td><td>按键并联的消抖电容 + 上拉电阻</td><td><a class="text-brand-600 dark:text-brand-300" href="#sub-tau">时间常数 τ</a>、<a class="text-brand-600 dark:text-brand-300" href="#sec-calc">例题二</a></td></tr>
+                <tr><td>上电偶尔不启动，按复位就好</td><td>NRST 引脚上的 10kΩ + 100nF 上电复位</td><td><a class="text-brand-600 dark:text-brand-300" href="#sub-zero-state">零状态响应</a>、<a class="text-brand-600 dark:text-brand-300" href="#sub-mcu-reset">复位电路</a></td></tr>
+                <tr><td>芯片工作不稳定、各有各的怪</td><td>电源引脚旁的去耦电容（0.1µF）</td><td><a class="text-brand-600 dark:text-brand-300" href="#sub-capacitor">电容的储能与阻抗</a>、<a class="text-brand-600 dark:text-brand-300" href="#sub-mcu-decouple">去耦电容为什么必须贴近引脚</a></td></tr>
+                <tr><td>换通道后第一个 ADC 读数偏低</td><td>ADC 内部的采样保持电容 + 外部源阻抗</td><td><a class="text-brand-600 dark:text-brand-300" href="#sub-mcu-adc">采样保持的建立时间</a></td></tr>
+                <tr><td>PWM 想输出模拟电压，结果在抖</td><td>PWM 后面的 RC 低通滤波器</td><td><a class="text-brand-600 dark:text-brand-300" href="#sub-mcu-pwm">PWM 经 RC 变模拟电压</a>、<a class="text-brand-600 dark:text-brand-300" href="#sub-rl-filter">积分电路</a></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一篇在知识体系里的位置</div>
+            <p>它是<b>第 1 层「学科基础」→ 电路理论</b>的第 4 篇，教材出处是邱关源《电路》第 5 版<b>第 6 章（储能元件）</b>和<b>第 7 章（一阶电路和二阶电路的时域分析）</b>。前三篇讲的都是<b>稳态</b>：串联分压、戴维宁等效、叠加定理，全部建立在一个隐含前提上——<b>「电路接通的那一刻，各处电压电流就已经是最终值了」</b>。这一篇把那个前提拆掉。</p>
+            <p class="mt-2">但也不是全部拆掉。第 7 章真正的大招是：<b>即使有电容电感，稳态那一套依然能用</b>——用来看 t→∞ 时的最终值，再用一个指数项把中间过程补上。这就是后面要讲的「三要素法」。所以这一篇不是推翻前三篇，而是给它们加了一条时间轴。</p>
+          </div>
+
+          <p class="mt-4"><b class="font-semibold text-ink">学完这一篇，你应该能做到四件事：</b></p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>看到原理图上任何一个电容或电感，能立刻说出<b class="font-semibold text-ink">「它在这里是干什么的」</b>——储能、滤波、延时、消抖还是耦合。</li>
+            <li>能手算 τ，并把 τ 翻译成<b class="font-semibold text-ink">工程语言</b>：「3τ 到 95%，5τ 到 99.3%，所以这里的 1ms 意味着…… 」。</li>
+            <li>能用<b class="font-semibold text-ink">三要素法</b>在一分钟内写出任意一阶电路的全响应表达式，不需要解微分方程。</li>
+            <li>遇到「偶尔出错」的硬件问题时，知道该怀疑哪几个时间常数，以及怎么用示波器把它量出来。</li>
+          </ul>
+        </section>
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section class="mt-12">
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节按「器件 → 规则 → 三种响应 → 一个常数 → 万能方法」的顺序推进。你不需要背微分方程，但需要理解<b class="font-semibold text-ink">为什么解一定长成指数形状</b>——理解了这一点，后面所有公式你都能自己推出来。</p>
+
+          <h3 id="sub-capacitor" class="mt-7 text-base font-semibold">电容元件：q = Cu，它储存的是电荷</h3>
+
+          <p class="mt-3">电容的物理本质是<b class="font-semibold text-ink">两块导体中间夹一层绝缘介质</b>。给它加电压，两块板上就会积累等量异号的电荷；电压越高，堆积的电荷越多。这个正比关系就是电容的定义式：</p>
+
+          <p class="mt-3"><code class="icode">q = C × u</code></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>符号</th><th>含义</th><th>单位</th><th>典型量级</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">q</td><td>极板上储存的电荷量</td><td>库仑（C）</td><td>nC ~ µC 级</td></tr>
+                <tr><td class="font-mono text-xs">C</td><td>电容量，由几何形状和介质决定，与电压无关</td><td>法拉（F）</td><td>pF（芯片内部）~ µF（电源滤波）</td></tr>
+                <tr><td class="font-mono text-xs">u</td><td>电容两端的电压</td><td>伏特（V）</td><td>0 ~ VDD</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">把 q = Cu 对时间求导，就得到了电容最重要的一个关系式——<b class="font-semibold text-ink">流过电容的电流，取决于它两端电压变化的快慢</b>：</p>
+
+          <p class="mt-3"><code class="icode">i = dq/dt = C × du/dt</code></p>
+
+          <p class="mt-3">这个式子值得你盯着看三十秒，因为<b class="font-semibold text-ink">单片机开发里一半的「玄学现象」都是从它推出来的</b>：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">电压不变化（du/dt = 0）时，电流为 0。</b>所以直流稳态下的电容相当于<b>断路</b>——这是「电容隔直流」的准确说法。注意：是<b>稳态</b>下断路，不是一直断路。</li>
+            <li><b class="font-semibold text-ink">电压变化越快，电流越大。</b>电源上突然出现一个高频毛刺，去耦电容就会用一股大电流把它"吸"掉——高频去耦的原理就在这一句里。</li>
+            <li><b class="font-semibold text-ink">电压不能突变。</b>如果 u 能在 0 时刻瞬间从 0V 跳到 3.3V，那 du/dt 就是无穷大，电流也得是无穷大。现实中电源和导线提供不了无穷大的电流，所以<b>电压只能连续地爬上去</b>。这就是「电容电压不能突变」的物理来源，也是换路定则的依据。</li>
+          </ul>
+
+          <p class="mt-3"><b class="font-semibold text-ink">再看看它储存的能量。</b>把电源给电容充电过程中做的功积分起来，得到：</p>
+
+          <p class="mt-3"><code class="icode">w_C = ½ × C × u²</code>（单位：焦耳 J）</p>
+
+          <p class="mt-3">注意这里是 <b>u²</b>（电压的平方），不是 u。这个细节有实际后果：<b class="font-semibold text-ink">电压加倍，储能变四倍</b>。一个 100µF 的电容充到 3.3V 只存 0.54mJ，同样这个电容充到 12V 就存 7.2mJ——所以「上电瞬间的火花」在高压电路里比低压电路吓人得多。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">别把「电容的容量」和「电容的储能」混为一谈</div>
+            <p>去买电容时你说的是 <b>C（容量）</b>；设计电源缓冲时你真正关心的是 <b>w = ½Cu²（储能）</b>。同样是 100nF，0.1µF 的陶瓷电容能瞬间吐出几安培的电流去补一个高频毛刺，而 100µF 的电解电容虽然储能大得多，却因为内部等效串联电阻（ESR）和引线电感大，<b>对高频毛刺基本没反应</b>。这就是为什么电源引脚旁要放 0.1µF 陶瓷电容，而不是用电解电容凑数——两者管的频段不一样，是配合关系，不是替代关系。</p>
+          </div>
+
+          <p class="mt-3">最后记住电容在<b class="font-semibold text-ink">不同场合下的三种身份</b>，这在看原理图时非常有用：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>场合</th><th>在这个场合里，电容被当成什么</th><th>原理图上常见位置</th></tr></thead>
+              <tbody>
+                <tr><td>直流稳态分析时</td><td><b>断路</b>（电流为 0，两端电压由外电路决定）</td><td>算初始值、算稳态值时</td></tr>
+                <tr><td>高频干扰出现时</td><td><b>短路</b>（阻抗 = 1/(2πfC)，f 越高阻抗越小）</td><td>电源引脚旁的 0.1µF 去耦电容</td></tr>
+                <tr><td>开关动作的一瞬间</td><td><b>一个不能突变的电压源</b>（把 u(0+) 当成已知量）</td><td>算初始值时的等效替换</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-inductor" class="mt-7 text-base font-semibold">电感元件：ψ = Li，它储存的是磁场</h3>
+
+          <p class="mt-3">电感是导线绕成的线圈。电流流过时会在周围建立磁场，磁场又反过来"穿过"线圈本身，形成磁链 ψ（磁通量乘以匝数）。磁链与电流成正比：</p>
+
+          <p class="mt-3"><code class="icode">ψ = L × i</code>　　（ψ 单位：韦伯 Wb；L 单位：亨利 H）</p>
+
+          <p class="mt-3">对它求导，得到电感的电压电流关系：</p>
+
+          <p class="mt-3"><code class="icode">u = dψ/dt = L × di/dt</code></p>
+
+          <p class="mt-3">把它和电容的式子<b class="font-semibold text-ink">并排放</b>，你会发现它们是一对镜像——只要把 u 和 i 对调，两个式子就长得一模一样：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>电容 C</th><th>电感 L</th></tr></thead>
+              <tbody>
+                <tr><td>基本关系</td><td class="font-mono text-xs">q = C·u</td><td class="font-mono text-xs">ψ = L·i</td></tr>
+                <tr><td>伏安关系</td><td class="font-mono text-xs">i = C·du/dt</td><td class="font-mono text-xs">u = L·di/dt</td></tr>
+                <tr><td>储存的能量</td><td class="font-mono text-xs">w = ½Cu²</td><td class="font-mono text-xs">w = ½Li²</td></tr>
+                <tr><td><b>不能突变的量</b></td><td><b>电压 u</b></td><td><b>电流 i</b></td></tr>
+                <tr><td>直流稳态下相当于</td><td><b>断路</b>（电流为 0）</td><td><b>短路</b>（电压为 0）</td></tr>
+                <tr><td>时间常数</td><td class="font-mono text-xs">τ = R·C</td><td class="font-mono text-xs">τ = L/R</td></tr>
+                <tr><td>突变会造成</td><td>无穷大电流（打火、烧触点）</td><td>无穷大电压（击穿、炸管）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张表<b class="font-semibold text-ink">建议背下来</b>。它一次性解释了电感电路和电容电路的全部差别：电容怕短路（电压突变），电感怕断路（电流突变）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">电感在单片机开发里最要命的一刻，是「断电的那一瞬间」。</b>继电器线圈、电机绕组、蜂鸣器，本质上都是电感。它们正常工作时电流是稳定的，此时电感两端电压为 0，你完全感觉不到它的存在。可一旦你让三极管截止、把电流通路切断：</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="为什么继电器必须并一个续流二极管">
+            <pre><code>【没有续流二极管：电流想停，但停不下来】
+
+   5V ──┬──────────────┐
+        │              │
+      线圈 L            │  三极管
+      (继电器)          │
+        │            ┌─┴─┐
+        ├────────────┤ C │
+        │            └─┬─┘
+       ─┴─              │
+       GND             GND
+
+   稳态电流：i = 5V / 70Ω ≈ 71mA（线圈电阻按 70Ω 估算）
+   某一刻三极管截止 → 回路被切断 → 但电感的电流【不能突变】
+
+       u = L · di/dt ，di 要从 71mA 掉到 0，
+       如果这个变化发生在 1µs 内，取 L = 0.1H：
+
+            u = 0.1H × (0.071A / 1µs) = 7100V  ← 只在纸上，实际被寄生的
+                                                  电容钳位，但仍可达上百伏
+
+   后果：三极管 C-E 之间的电压远超它的 VCEO（S8050 约 25V）→ 击穿 → 冒烟。
+
+【加上续流二极管：给电流留一条出路】
+
+   5V ──┬──────────────┐
+        │              │
+      线圈 L         ┌─┴─┐  ▲ 二极管 1N4148 / 1N4007
+      (继电器)       │   │  │ 方向：正极接集电极侧，负极接 5V 侧
+        │            │   │  │ 平时反偏不导通，断电瞬间正偏导通
+        ├────────────┤ C │──┘
+        │            └─┬─┘
+       ─┴─              │
+       GND             GND
+
+   断电瞬间：线圈电流经二极管【原地绕圈】继续流，回路阻力只有线圈
+   电阻 70Ω + 二极管压降，电流按 τ = L/R = 0.1H / 70Ω ≈ 1.43ms
+   的指数规律衰减到 0。
+
+   三极管两端的电压被钳在 (5V + 0.7V) ≈ 5.7V —— 安全。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">「电感电流不能突变」是会烧板子的那一条</div>
+            <p>电容电压不能突变，违反它的后果通常是「打火、触点烧蚀、读数错误」，属于慢性伤害。而<b>电感电流不能突变，违反它的后果是瞬间的高压击穿</b>——你几乎看不到过程，只有一声轻微的响和一股味道。所以配继电器、电机、蜂鸣器时，续流二极管不是「最好加上」，而是<b>必须加</b>。这也是为什么市面上卖的「继电器模块」上都自带了它（有的还加了光耦隔离），而便宜的裸继电器没有——买模块多花的两块钱，买的就是这个二极管。</p>
+          </div>
+
+          <p class="mt-3">顺带说清楚一件事：<b class="font-semibold text-ink">电感和电容一样，都不是「耗能元件」，而是「储能元件」</b>。理想电容和理想电感既不消耗功率，也不产生功率，它们只是把能量先存起来、再还回去。真正消耗能量的只有电阻。这一点在算功率和看波形时很关键：一个周期里电容一会儿吸收能量、一会儿释放能量，<b>平均功率为零</b>，但对瞬态电流的贡献可能非常大。</p>
+
+<h3 id="sub-switching" class="mt-7 text-base font-semibold">换路定则与初始值：整个分析的第一步</h3>
+
+          <p class="mt-3">前面反复说「不能突变」，现在把它写成一条可以用的规则。<b class="font-semibold text-ink">换路</b>是指电路结构发生改变的那一刻——开关闭合、开关断开、电源接入、器件损坏，都算。把换路发生的时刻记作 t = 0，换路之前叫 t = 0<sup>−</sup>，换路之后叫 t = 0<sup>+</sup>。因为这两个时刻之间的间隔趋近于零，而电容电压、电感电流又不能突变，于是：</p>
+
+          <div class="card card-pad mt-3">
+            <p class="text-center font-mono text-[15px] font-semibold">u<sub>C</sub>(0<sup>+</sup>) = u<sub>C</sub>(0<sup>−</sup>)　　　i<sub>L</sub>(0<sup>+</sup>) = i<sub>L</sub>(0<sup>−</sup>)</p>
+            <p class="mt-2 text-center text-[13px] text-muted">换路定则：电容电压连续，电感电流连续</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">换路定则只管两个量，别把它推广到全部</div>
+            <p>很多人看完这条规则，脑子里会形成「电路在换路瞬间什么都不变」的印象——这是错的。<b>能保证连续的只有电容电压和电感电流这两个量</b>，其他一切量（电阻上的电压、流过电容的电流、流过电感的电压、电源输出的电流）<b>都允许突变</b>。</p>
+            <p class="mt-2">举个例子：一个电容和电阻串联，换路瞬间电容电压不能跳，但流过电容的电流<b>可以立刻从 0 跳到 U/R</b>。因为 i = C·du/dt，u 连续但 du/dt 可以不连续（曲线可以有一个折点）。<b>记住这条区别，算初始值时就不会把 i<sub>C</sub>(0<sup>+</sup>) 也当成连续的。</b></p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">初始值计算的标准三步</b>，以后所有一阶电路都按这个流程走：</p>
+
+          <div class="mini-step mt-4">
+            <span class="step-num">1</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">画 t = 0<sup>−</sup> 的电路，求 u<sub>C</sub>(0<sup>−</sup>) 和 i<sub>L</sub>(0<sup>−</sup>)</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                换路之前电路已经工作了足够久，可以当成<b>直流稳态</b>处理。稳态下的两条铁律：<b>电容当断路</b>（电流为 0，两端电压由外电路决定）、<b>电感当短路</b>（电压为 0，电流由外电路决定）。这样整个电路就退化成一个纯电阻电路，用前三篇的分压、分流、戴维宁随便算。
+              </p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-4">
+            <span class="step-num">2</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">套换路定则，得到 0<sup>+</sup> 时刻的两个已知量</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                u<sub>C</sub>(0<sup>+</sup>) 直接等于第 1 步算出来的 u<sub>C</sub>(0<sup>−</sup>)，i<sub>L</sub>(0<sup>+</sup>) 直接等于 i<sub>L</sub>(0<sup>−</sup>)。这一步不需要计算，是「抄下来」。
+              </p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-4">
+            <span class="step-num">3</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">画 t = 0<sup>+</sup> 的电路，把储能元件换成「源」</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                这一步是全部技巧所在：<b>把电容换成一个电压源，电压值就是 u<sub>C</sub>(0<sup>+</sup>)；把电感换成一个电流源，电流值就是 i<sub>L</sub>(0<sup>+</sup>)</b>。于是 0<sup>+</sup> 时刻的电路又变成了纯电阻电路，可以解出任何你想要的初始值。
+              </p>
+            </div>
+          </div>
+
+          <p class="mt-4">走一遍最简单的例子，把流程跑通。电路是：5V 电源经 R = 2kΩ 给电容 C = 1µF 充电，电容两端并了一个开关 S。<b>t &lt; 0 时 S 一直闭合</b>（把电容短路），t = 0 时 S 断开。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="初始值计算：三步走完整演示">
+            <pre><code>【电路】
+
+    5V ──[ R = 2kΩ ]──┬──────────┐
+                      │          │
+                     === C=1µF   /  S（t=0 时断开）
+                      │          │
+                     GND        GND
+
+【第 1 步】t = 0⁻：S 闭合，电容被短路
+           → 电容两端被强行短接，稳态下 u_C(0⁻) = 0V
+           → 此时流过 R 的电流 = 5V / 2kΩ = 2.5mA（全部流过开关）
+
+【第 2 步】套换路定则
+           → u_C(0⁺) = u_C(0⁻) = 0V      （电容电压不能突变）
+
+【第 3 步】t = 0⁺：S 断开，把电容换成 0V 的电压源
+           → 等效电路：5V ──[2kΩ]── 0V 的电压源 ── GND
+           → 流过电容的电流 i_C(0⁺) = (5V − 0V) / 2kΩ = 2.5mA
+             ⚠ 注意：这个电流【可以】突变。如果 S 在 0.5s 时才断开，
+               断开瞬间电流会从 0（电容已充满，R 上无压降）跳到 2.5mA —— 完全合法。
+
+【加一步：顺便算出稳态值，后面要用】
+           t → ∞：电容充满当断路，R 上没有电流也就没有压降
+           → u_C(∞) = 5V，i_C(∞) = 0
+
+【时间常数】
+           τ = R × C = 2kΩ × 1µF = 2ms
+
+【于是全响应可以直接写出来】（下一节讲为什么）
+           u_C(t) = 5 × (1 − e^(−t/2ms)) V</code></pre>
+          </div>
+
+          <h3 id="sub-zero-input" class="mt-7 text-base font-semibold">零输入响应：放电，一条纯粹的衰减曲线</h3>
+
+          <p class="mt-3">「零输入」的意思是<b class="font-semibold text-ink">换路之后电路里没有独立电源了</b>，电路的动静完全来自储能元件自己攒下的能量。典型场景就是：电容已经充到 U<sub>0</sub>，你把它接到一个电阻上，让它自己放掉。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="RC 放电回路（零输入响应）">
+            <pre><code>      开关在 t=0 时闭合
+              │
+   ┌───────/ ──┴──[ R ]──────┐
+   │                         │
+  === C  u_C(0⁺) = U₀        │
+   │                         │
+  GND                       GND
+
+  回路方程（KVL）： u_R + u_C = 0
+  而 u_R = R·i ，流过电容的电流 i = −C·du_C/dt
+   （负号是因为电容在放电，电流方向与充电时相反）
+
+  代入： −R·C·(du_C/dt) = u_C
+
+  这是一个一阶齐次微分方程，解出来：
+
+        u_C(t) = U₀ · e^(−t/τ)          τ = R·C
+
+  【验证】t = 0 时 u_C = U₀ ✓ ；t → ∞ 时 u_C → 0 ✓ （能量被电阻耗光了）
+
+  放电电流： i(t) = u_C/R = (U₀/R) · e^(−t/τ)
+  放电功率： p_R = u_C·i = (U₀²/R) · e^(−2t/τ)</code></pre>
+          </div>
+
+          <p class="mt-3">这条曲线你其实很熟悉：<b class="font-semibold text-ink">每过一个 τ，剩下的量就乘 0.368</b>。所以它会越掉越慢——不是"匀速漏电"，而是<b>先快后慢</b>。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="放电曲线：每个 τ 时刻的剩余百分比（U₀ = 3.3V 为例）">
+            <pre><code>         t:    0      1τ     2τ     3τ     4τ     5τ
+               │      │      │      │      │      │
+  3.300V ┤━━━━●━━━━━━┿━━━━━━┿━━━━━━┿━━━━━━┿━━━━━━┿━━━━━━  0τ → 100%
+  1.214V ┤────┼──────●──────┼──────┼──────┼──────┼──────  1τ → 36.8%  ← 只剩三分之一多
+  0.447V ┤────┼──────┼──────●──────┼──────┼──────┼──────  2τ → 13.5%
+  0.164V ┤────┼──────┼──────┼──────●──────┼──────┼──────  3τ → 4.98%  ← 工程上常说"放完了"
+  0.060V ┤────┼──────┼──────┼──────┼──────●──────┼──────  4τ → 1.83%
+  0.022V ┤────┼──────┼──────┼──────┼──────┼──────●──────  5τ → 0.67%
+  0.000V ┤────┼──────┼──────┼──────┼──────┼──────┼──────  理论上永远到不了 0</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">放电过程里能量去哪了？全变成热了</div>
+            <p>电容初始储能 <code class="icode">w = ½CU₀²</code>，放电结束时电容电压为 0，储能也为 0——那些能量没有凭空消失，全部在电阻上变成了焦耳热。可以证明：<b>不管 R 取多大，最终耗散的能量都是 ½CU₀²，一点不多一点不少</b>。R 只改变放电的<b>快慢</b>（τ = RC），不改变放出的总能量。</p>
+            <p class="mt-2">这个结论有一个很实用的推论：<b>想让电容放电快，就减小 R，而不是减小 C</b>。反过来，如果一块板子掉电后你想让某个电容尽快放干净（比如为了避免重新上电时残留电压导致误动作），可以给它并一个几百欧姆的"泄放电阻"。</p>
+          </div>
+
+          <h3 id="sub-zero-state" class="mt-7 text-base font-semibold">零状态响应：充电，把曲线画到 5τ</h3>
+
+          <p class="mt-3">「零状态」的意思是<b class="font-semibold text-ink">储能元件的初始储能为零</b>（电容初始电压为 0、电感初始电流为 0），电路的动静完全由换路后接入的电源驱动。这是你实际中最常遇到的情况：系统刚上电，所有电容都是空的。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="RC 充电回路（零状态响应）">
+            <pre><code>      开关在 t=0 时闭合
+              │
+   Us ────/ ──┴──[ R ]──┬──────┐
+                        │      │
+                       === C   │  u_C(0⁺) = 0
+                        │      │
+                       GND    GND
+
+  回路方程（KVL）： u_R + u_C = Us
+  其中 u_R = R·i ，i = C·du_C/dt （电容在充电，方向与放电相反）
+
+  代入： R·C·(du_C/dt) + u_C = Us
+
+  这是一个一阶非齐次微分方程，解由两部分组成：
+       u_C(t) = Us·(1 − e^(−t/τ)) =  Us  −  Us·e^(−t/τ)
+                └─ 稳态分量 ─┘     └─ 暂态分量 ─┘
+                （强制分量）        （自由分量，τ 决定它衰减多快）
+
+  充电电流： i(t) = (Us/R)·e^(−t/τ)   ← 一开始最大，然后迅速减小</code></pre>
+          </div>
+
+          <p class="mt-3">充电曲线是这篇教程的主角，把它的关键点一个一个标出来。<b class="font-semibold text-ink">下面这张图里的每一个电压值都可以自己验算</b>：拿百分比乘以 3.3V 就是表格里的数（比如 1τ：0.632 × 3.3V = 2.086V）。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="充电曲线：Us = 3.3V 时，每个 τ 到达的电压">
+            <pre><code>         t:    0      1τ     2τ     3τ     4τ     5τ
+               │      │      │      │      │      │
+  3.300V ┤━━━━━┿━━━━━━┿━━━━━━┿━━━━━━┿━━━━━━┿━━━━━━┿━━━━  v(∞) 稳态值
+  3.278V ┤─────┼──────┼──────┼──────┼──────┼──●───┼────  5τ → 99.33%  ★工程上算"充满了"
+  3.240V ┤─────┼──────┼──────┼──────┼──●───┼──────┼────  4τ → 98.17%
+  3.136V ┤─────┼──────┼──────┼──●───┼──────┼──────┼────  3τ → 95.02%  ★做 RC 延时常用到这里
+  2.853V ┤─────┼──────┼──●───┼──────┼──────┼──────┼────  2τ → 86.47%
+  2.086V ┤─────┼──●───┼──────┼──────┼──────┼──────┼────  1τ → 63.21%  ★时间常数的定义点
+  1.298V ┤─────●──────┼──────┼──────┼──────┼──────┼────  0.5τ → 39.35%
+  0.000V ┤━━━━━┿━━━━━━┿━━━━━━┿━━━━━━┿━━━━━━┿━━━━━━┿━━━━  0τ  → 0%（初始值）
+
+  把同一组数据画成曲线（示意，横轴为时间）：
+
+  3.3V ┤                                                   ╭────────
+       │                                            ╭──────╯
+       │                                     ╭──────╯
+       │                              ╭──────╯
+       │                       ╭──────╯
+       │                ╭──────╯        ← 曲线的"膝盖"大约在 1τ~3τ 之间
+       │         ╭──────╯                 过了 3τ 就基本躺平了
+       │  ╭──────╯
+  0.0V ┼──┴──────┴──────┴──────┴──────┴──────┴───────────────► t
+       0  1τ     2τ     3τ     4τ     5τ     6τ
+
+  【三个必背的百分比】 1τ → 63.2%   3τ → 95.0%   5τ → 99.3%
+  【小数形式，写公式时用这一排】
+        0.632（1τ）   0.865（2τ）   0.950（3τ）   0.982（4τ）   0.993（5τ）
+        ↓ 记法：每过一个 τ，就把"剩下的路程"再走掉 63.2%
+  【一个容易记反的百分比】 0.693τ → 50%（不是 0.5τ！因为 τ 是 e 的尺度）</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一个反直觉但非常经典的结论：充电效率永远只有 50%</div>
+            <p>整个充电过程中，电源输出的总能量是 <code class="icode">W<sub>源</sub> = C·U<sub>s</sub>²</code>，电容最终存下的是 <code class="icode">½C·U<sub>s</sub>²</code>——<b>正好一半</b>。另一半（<code class="icode">½C·U<sub>s</sub>²</code>）全部在电阻上变成了热，不管这个 R 是 1Ω 还是 1MΩ。</p>
+            <p class="mt-2">推导只用一行：W<sub>源</sub> = ∫U<sub>s</sub>·i dt = U<sub>s</sub>·(U<sub>s</sub>/R)·τ = U<sub>s</sub>²·C，因为 τ = RC 正好把 R 约掉了。<b>这个结论解释了一个常被问到的问题：为什么给超级电容充电时，充电电路会烫？</b>因为不管你用什么电阻限流，一半的能量注定变成热，这是数学决定的，不是器件不好。想提高效率，只能用开关电源式的恒流恒压充电，而不是串一个电阻。</p>
+          </div>
+
+          <h3 id="sub-tau" class="mt-7 text-base font-semibold">时间常数 τ = RC：只有一个参数决定快慢</h3>
+
+          <p class="mt-3">现在把主角请出来。<b class="font-semibold text-ink">τ（读作 tau）就是电路从"旧状态"走向"新状态"的速度尺度</b>，单位是秒。它的表达式简单到不像话：</p>
+
+          <div class="card card-pad mt-3">
+            <p class="text-center font-mono text-[15px] font-semibold">RC 电路：τ = R × C　　　RL 电路：τ = L / R</p>
+            <p class="mt-2 text-center text-[13px] text-muted">R 的单位是欧姆 Ω，C 的单位是法拉 F，乘出来正好是秒 s（Ω·F = s，可自行验证）</p>
+          </div>
+
+          <p class="mt-3">这个式子里有一个非常关键的信号：<b class="font-semibold text-ink">τ 只认 R 和 C 的乘积</b>。R = 10kΩ 配 C = 100nF，和 R = 1kΩ 配 C = 1µF，τ 完全一样（都是 1ms），充放电曲线一模一样。所以在工程上调参时：<b>要改快慢就调乘积，要改别的（比如静态功耗、抗干扰能力）才单独调 R 或 C</b>。</p>
+
+          <p class="mt-3">τ 的物理意义可以用三句话讲清楚，三句都要能脱口而出：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">它是一个"刻度"：</b>充电走到 63.2%、放电掉到 36.8% 所花的时间，就是 1τ。这就是 τ 的<b>定义点</b>，也是示波器上量 τ 最方便的位置。</li>
+            <li><b class="font-semibold text-ink">它是初始斜率的投影：</b>从 t = 0 开始，按<b>初始速度</b>一路不变地冲下去，正好在 t = τ 的时刻到达终点。换句话说，充电一开始很快，是因为斜率大；后面变慢，是因为斜率按指数衰减。<b>τ 就是"如果一直保持起跑速度，多久能到"。</b></li>
+            <li><b class="font-semibold text-ink">它和频率是一对：</b>同样的 RC 回路，从频域看是一个低通滤波器，截止频率 <code class="icode">f<sub>c</sub> = 1/(2πτ)</code>。τ = 1ms 对应 f<sub>c</sub> ≈ 159Hz。这就是为什么一个"消抖电容"同时也是一个"低通滤波器"——时域和频域在描述同一件事。这一块会在下一篇<a class="text-brand-600 dark:text-brand-300" href="ee-circuit-ac.html">正弦稳态与频域入门</a>里展开。</li>
+          </ul>
+
+          <p class="mt-3">工程上真正天天用到的是<b class="font-semibold text-ink">「几个 τ 算够」的约定</b>。下面这张表建议记住 1τ、3τ、5τ 三行，其余的现查现算：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>时间</th><th>充电时到达（占稳态值）</th><th>放电时剩余</th><th>工程上怎么说</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">0.5τ</td><td>39.35%</td><td>60.65%</td><td>刚起步，几乎没走完一半</td></tr>
+                <tr><td class="font-mono text-xs">0.693τ</td><td><b>50.00%</b></td><td>50.00%</td><td>「半程点」，不是 0.5τ，别记混</td></tr>
+                <tr><td class="font-mono text-xs">1τ</td><td><b>63.21%</b></td><td>36.79%</td><td>τ 的定义点，示波器测 τ 就看这里</td></tr>
+                <tr><td class="font-mono text-xs">2τ</td><td>86.47%</td><td>13.53%</td><td>大概其能用了，但余量不够</td></tr>
+                <tr><td class="font-mono text-xs">3τ</td><td><b>95.02%</b></td><td>4.98%</td><td>★ 做延时、消抖、判断"到位"时最常用的标准</td></tr>
+                <tr><td class="font-mono text-xs">4τ</td><td>98.17%</td><td>1.83%</td><td>要求高一点的场合</td></tr>
+                <tr><td class="font-mono text-xs">5τ</td><td><b>99.33%</b></td><td>0.67%</td><td>★ 教科书里公认的「过渡过程结束」</td></tr>
+                <tr><td class="font-mono text-xs">7τ</td><td>99.91%</td><td>0.09%</td><td>12 位 ADC 想做到 1LSB 精度时才会用到这里</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">反过来用的时候，公式是</b>：</p>
+
+          <p class="mt-3"><code class="icode">t = τ × ln( 1 / (1 − p) )</code>　（p 是想要达到的百分比，ln 是自然对数）</p>
+
+          <p class="mt-3">把常用的几个代进去：到 90% 要 2.303τ，到 99% 要 4.605τ，到 99.9% 要 6.908τ。<b class="font-semibold text-ink">注意 99% 需要 4.6τ，这是一个非常常用的数</b>——下面第三节课的例题一就要用它。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">「5τ 之后就充满了」——这句话是近似，不是真理</div>
+            <p>5τ 时电容电压是稳态值的 99.33%，不是 100%。严格地说，<b>指数曲线永远到不了终点</b>。工程上说「5τ 充满」，背后是一个<b>误差承诺</b>：我接受 0.67% 的偏差。所以这句话能不能用，取决于你的精度要求：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li>做一个 LED 呼吸灯的 RC 延时：0.67% 的偏差肉眼完全看不出，5τ 绰绰有余。</li>
+              <li>做 12 位 ADC 的输入滤波：1LSB = 1/4096 = 0.024%，5τ 差了一个数量级，得按 7τ~9τ 算。</li>
+              <li>做高精度比较器的基准建立：可能要等到 10τ 以上。</li>
+            </ul>
+            <p class="mt-2"><b>正确的心智模型是：5τ 不是"充满"，而是"误差小于 1%"。</b>要求变了，τ 的个数就得跟着变。</p>
+          </div>
+
+          <h3 id="sub-three-element" class="mt-7 text-base font-semibold">全响应与三要素法：一分钟写出任何一阶电路的答案</h3>
+
+          <p class="mt-3">现实中大多数情况既不是纯粹的零输入，也不是纯粹的零状态，而是<b class="font-semibold text-ink">既有初始储能、又接了电源</b>——这叫全响应。好消息是：全响应的表达式有<b>统一的固定形状</b>，你不需要再解微分方程，只要凑齐三个数。</p>
+
+          <div class="card card-pad mt-3">
+            <p class="text-center font-mono text-[15px] font-semibold">f(t) = f(∞) + [ f(0<sup>+</sup>) − f(∞) ] × e<sup>−t/τ</sup></p>
+            <p class="mt-2 text-center text-[13px] text-muted">三要素法：只要 f(0<sup>+</sup>)、f(∞)、τ 三个数定了，任何一个电压或电流的完整时间函数就定了</p>
+          </div>
+
+          <p class="mt-3">这个公式值得逐项读一遍，它把「稳态」和「暂态」的关系讲得很清楚：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">f(∞) 是终点</b>，也就是换路后新电路到达直流稳态时该量的值。你完全可以用前三篇的电阻电路方法算出来（电容断路、电感短路）。</li>
+            <li><b class="font-semibold text-ink">[f(0<sup>+</sup>) − f(∞)] 是"起点到终点的距离"</b>，也就是这条曲线一共要走的行程。t = 0 时 e<sup>0</sup> = 1，公式变成 f(0) = f(∞) + f(0<sup>+</sup>) − f(∞) = f(0<sup>+</sup>) ✓。</li>
+            <li><b class="font-semibold text-ink">e<sup>−t/τ</sup> 负责"把这段行程走完"</b>，从 1 衰减到 0。所以整个过程就是：从 f(0<sup>+</sup>) 出发，按指数规律爬向（或掉向）f(∞)。</li>
+            <li><b class="font-semibold text-ink">如果 f(0<sup>+</sup>) = 0</b>，公式退化成零状态响应；<b>如果 f(∞) = 0</b>，退化成零输入响应。<b>两种基本响应都是全响应的特例</b>——这就是为什么前面两节不用单独背公式。</li>
+          </ul>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么所有一阶电路都能用这一个公式？</b>因为一阶电路的微分方程只有一个特征根，解里只可能有一个自由分量，而自由分量一定是 e<sup>−t/τ</sup> 的形状。<b>这与电路里有多少个电阻、有没有受控源都无关</b>——只要储能元件只有一个（或者可以合并成一个），它就是"一阶"的。二阶电路（比如两个不能合并的电容）就会出现两个指数项、可能振荡，那是《电路》第 7 章后半部分的内容，单片机开发里很少碰到。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">三要素的求法，逐个说清楚：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>要素</th><th>怎么求</th><th>最容易错的地方</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">f(0<sup>+</sup>)</td>
+                  <td>先算换路前的 u<sub>C</sub>(0<sup>−</sup>) 或 i<sub>L</sub>(0<sup>−</sup>)，套换路定则，再解 0<sup>+</sup> 等效电路</td>
+                  <td>直接把 f(0<sup>−</sup>) 当成 f(0<sup>+</sup>)。<b>只有 u<sub>C</sub> 和 i<sub>L</sub> 可以这样，别的量不行</b></td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">f(∞)</td>
+                  <td>把换路<b>之后</b>的电路当成直流稳态：电容断路、电感短路，然后按纯电阻电路解</td>
+                  <td>用了换路<b>之前</b>的电路结构。开关状态变了，稳态值一般也跟着变</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">τ</td>
+                  <td>把独立源全部置零（电压源短路、电流源开路），求<b>从储能元件两端看进去</b>的等效电阻 R<sub>eq</sub>，则 τ = R<sub>eq</sub>·C</td>
+                  <td><b>用了电路里的某一个电阻，而不是等效电阻。</b>这是最高频的错误，见下面的例子</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">τ 里的 R 是「等效电阻」，不是「随便哪个电阻」</div>
+            <p>这是全篇最容易出错、也最值得反复强调的一点。看一个具体电路：5V 电源经 R<sub>1</sub> = 10kΩ 接到节点 A，节点 A 上还挂着 R<sub>2</sub> = 10kΩ 到地，电容 C 接在节点 A 和地之间。</p>
+            <p class="mt-2">很多人会写 τ = R<sub>1</sub>·C = 10kΩ × C，<b>这是错的</b>。正确做法：<b>把 5V 电源短路（置零）</b>，然后从电容两端（也就是节点 A 和地）看进去，会看到 R<sub>1</sub> 和 R<sub>2</sub> <b>并联</b>——因为电源已经变成了一根导线，R<sub>1</sub> 的上端接地了。所以：</p>
+            <p class="mt-2"><code class="icode">R<sub>eq</sub> = R<sub>1</sub> ∥ R<sub>2</sub> = 10k × 10k / (10k + 10k) = 5kΩ</code>，<code class="icode">τ = R<sub>eq</sub>·C = 5kΩ × C</code></p>
+            <p class="mt-2">比错误答案整整小一半。<b>「电压源短路、电流源开路，从储能元件两端看进去求等效电阻」</b>——这句话请你背下来，它是戴维宁定理在这里的直接应用（第 3 篇刚讲过），也是 τ 唯一正确的算法。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">顺带认识两个等价的说法。</b>全响应还可以拆成另外两种组合，考试和教材里都会出现：</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="全响应的两种拆法（说的是同一件事）">
+            <pre><code>【拆法一】按"激励来源"拆
+   全响应 = 零输入响应 + 零状态响应
+          = f(0⁺)·e^(−t/τ)  +  f(∞)·(1 − e^(−t/τ))
+            └ 靠初始储能 ┘     └ 靠外加电源 ┘
+
+【拆法二】按"数学性质"拆
+   全响应 = 稳态分量（强制分量） + 暂态分量（自由分量）
+          = f(∞)  +  [f(0⁺) − f(∞)]·e^(−t/τ)
+            └ 永远存在 ┘   └ 指数衰减，5τ 后基本没了 ┘
+
+【两种拆法算出来完全一样，只是观察角度不同】
+   · 想强调"初始条件的影响"→ 用拆法一
+   · 想强调"最终会稳定到哪"→ 用拆法二（也就是三要素法的写法）
+   · 考试常问"暂态分量是什么"→ 答案就是 [f(0⁺) − f(∞)]·e^(−t/τ)</code></pre>
+          </div>
+
+          <h3 id="sub-rl-filter" class="mt-7 text-base font-semibold">RL 电路、微分电路与积分电路</h3>
+
+          <p class="mt-3">前面全部在讲电容。电感电路的数学完全一样，只是把 R·C 换成 L/R、把「电压」换成「电流」——所以这一小节讲得快一点。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="RL 电路的零状态响应：电流爬上去，电压掉下来">
+            <pre><code>      t=0 闭合
+          │
+   Us ──/ ┴──[ R ]──┬──────┐
+                    │      │
+                   ═╧═ L   │  i_L(0⁺) = 0
+                    │      │
+                   GND    GND
+
+    i_L(t) = (Us/R)·(1 − e^(−t/τ))        τ = L / R
+    u_L(t) = Us·e^(−t/τ)                  ← 电感两端的电压一开始是满值，然后掉到 0
+
+   【注意最后这一行】稳态时电感两端的电压是 0，电流是 Us/R。
+    所以"电感在直流稳态下相当于一根导线"——这句话的真实含义是：
+    它上面的电压为 0，但电流可以很大。这也正是继电器线圈
+    断电时危险的原因：电流大，而电流又不能突变。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">再看 τ = L/R 的一个反直觉之处</b>：R 越大，τ 越小，电流上升<b>越快</b>。这和 RC 电路里「R 越大越慢」正好相反。原因也很直观：电感电流的稳态值就是 U<sub>s</sub>/R，R 越大稳态电流越小，自然很快就到了。</p>
+
+          <p class="mt-3">接下来是两个很常用的小电路。<b class="font-semibold text-ink">同一个 RC 回路，输出端取在哪里、τ 和信号周期是什么关系，决定了它叫什么名字。</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>电路</th><th>输出取在哪</th><th>条件</th><th>输入方波 → 输出</th><th>典型用途</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>微分电路</b></td>
+                  <td>取<b>电阻</b>两端 u<sub>R</sub></td>
+                  <td class="font-mono text-xs">τ ≪ 脉宽（一般 τ ≤ 0.1 t<sub>p</sub>）</td>
+                  <td>正负尖脉冲（只在跳变瞬间有输出）</td>
+                  <td>边沿检测、把方波变成触发脉冲</td>
+                </tr>
+                <tr>
+                  <td><b>耦合电路</b></td>
+                  <td>取电阻两端</td>
+                  <td class="font-mono text-xs">τ ≈ 脉宽</td>
+                  <td>方波，但顶部明显倾斜（平顶下降）</td>
+                  <td>交流耦合、隔直流（音频、示波器输入）</td>
+                </tr>
+                <tr>
+                  <td><b>积分电路</b></td>
+                  <td>取<b>电容</b>两端 u<sub>C</sub></td>
+                  <td class="font-mono text-xs">τ ≫ 脉宽（一般 τ ≥ 10 t<sub>p</sub>）</td>
+                  <td>三角波（方波的积分）</td>
+                  <td>PWM 转模拟电压、滤波、波形变换</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-4" data-lang="text" data-title="微分电路与积分电路：同一套元件，两种接法">
+            <pre><code>【微分电路】输出从 R 上取                    【积分电路】输出从 C 上取
+
+   u_in ──[ C ]──┬── u_out               u_in ──[ R ]──┬── u_out
+                 │                                    │
+                [ R ]                               ═══ C
+                 │                                    │
+                GND                                  GND
+
+   τ = RC ≪ 脉宽 → 电容在半个周期内就              τ = RC ≫ 脉宽 → 电容在半个周期内
+   充满/放完，u_R 只在跳变瞬间有尖峰                只充了一点点，u_C 近似线性上升
+
+   输入方波：                                    输入方波：
+   ┌───────┐         ┌───────┐                  ┌───────┐         ┌───────┐
+   │       │         │       │                  │       │         │       │
+───┘       └─────────┘       └──            ────┘       └─────────┘       └──
+
+   输出（正负尖脉冲）：                          输出（三角波）：
+     ▲  ▲                                          ▲
+    ╱ ╲╱ ╲     ▲  ▲                               ╱ ╲       ╱ ╲
+   ╱  ╲  ╲   ╱ ╲╱ ╲                             ╱   ╲     ╱   ╲
+──╯    ╲  ╲ ╱      ╲────                     ──╯     ╲   ╱     ╲────
+        ╲  V        ╲                                  ╲ ╱       ╲ ╱
+         ╲           ╲                                  V         V
+          ▼           ▼
+
+   ★ 微分电路的输出幅度【随频率变化】（高频大、低频小），
+     所以它做"边沿检测"很好用，做"精确测量"不行。
+   ★ 积分电路的输出幅度同样随频率变化。真正精确的积分要用运放。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">把这两个电路的名字和 τ 的关系记成一句话</div>
+            <p><b>「τ 小到在半个周期里就走完 → 微分；τ 大到半个周期里几乎没动 → 积分。」</b>同一组 R 和 C，改一改数值就能在两个角色之间切换。判断一个 RC 电路到底在干什么，最快的办法就是<b>拿 τ 和信号周期 T 比一比</b>：τ ≪ T 是微分（高通），τ ≈ T 是耦合（会让方波顶部塌下去），τ ≫ T 是积分（低通）。这个判断方法在下一篇讲频率响应时会变成更严格的「截止频率 vs 信号频率」。</p>
+          </div>
+
+          <p class="mt-3">到这里，核心概念就齐了：<b class="font-semibold text-ink">两个储能元件 + 一条换路定则 + 一个 τ + 一个三要素公式</b>。下一节开始动笔算，把这三件东西用到真实的数上。</p>
+        </section>
+
+<!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section class="mt-12">
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">这一节四道题，全部用真实器件上会出现的数值。<b class="font-semibold text-ink">建议你拿张纸跟着算一遍</b>，尤其是第二题——它是"反着设计参数"的典型思路，也是你以后自己选电容时每天都要用的方法。</p>
+
+          <h3 class="mt-7 text-base font-semibold">例题一：R = 10kΩ、C = 100nF，算 τ，再算充到 3.3V 的 99% 要多久</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>一个 3.3V 的电源，经 R = 10kΩ 给一个初始电压为 0 的 C = 100nF 电容充电。求：(1) 时间常数 τ；(2) 充电到稳态值 99% 所需的时间；(3) 3τ 和 5τ 时分别到了多少伏；(4) 充电刚开始那一瞬间的电流；(5) 电容最终储存的能量。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="例题一：完整计算过程">
+            <pre><code>【第 (1) 问】时间常数
+
+    τ = R × C = 10 kΩ × 100 nF
+
+    先把单位换成功率形式，避免 10³ 和 10⁻⁹ 看花眼：
+        10 kΩ  = 10 × 10³ Ω  = 1.0 × 10⁴ Ω
+        100 nF = 100 × 10⁻⁹ F = 1.0 × 10⁻⁷ F
+
+    τ = 1.0×10⁴ × 1.0×10⁻⁷ = 1.0 × 10⁻³ s = 1 ms
+
+    ★ 记住这个组合：10kΩ + 100nF = 1ms。它是电子工程里的"一米"，
+      量级感全靠它。以后看到 4.7kΩ + 100nF 就知道约 0.47ms，
+      看到 10kΩ + 1µF 就知道是 10ms。
+
+【第 (2) 问】充到 99% 需要多久
+
+    充电公式： v(t) = 3.3V × (1 − e^(−t/τ))
+
+    要求 v = 99% × 3.3V，也就是括号里的部分等于 0.99：
+
+        1 − e^(−t/τ) = 0.99
+            e^(−t/τ) = 0.01          ← 两边减一下
+              −t/τ  = ln(0.01)      ← 两边取自然对数
+              −t/τ  = −4.6052
+                 t  = 4.6052 × τ
+                    = 4.6052 × 1 ms
+                    ≈ 4.61 ms
+
+    ★ 结论：充到 99% 要 4.61τ。这个系数（4.605）值得记住。
+    ★ 顺便得到精确电压：99% × 3.3V = 3.267V，还差 33mV 才到 3.3V。
+
+【第 (3) 问】3τ 和 5τ 时到了多少伏
+
+    3τ： v = 3.3 × (1 − e^(−3)) = 3.3 × (1 − 0.049787)
+           = 3.3 × 0.950213 = 3.1357 V ≈ 3.136 V   （95.0%）
+
+    5τ： v = 3.3 × (1 − e^(−5)) = 3.3 × (1 − 0.006738)
+           = 3.3 × 0.993262 = 3.2778 V ≈ 3.278 V   （99.3%）
+
+    ★ 对比一下：3τ 时差 164mV，5τ 时只差 22mV。
+      "再等 2τ 只换来 142mV" —— 这就是指数曲线后段"越来越没用"的量化体现。
+      所以做 RC 延时时选 3τ 就够，非要 5τ 是拿时间换那 4.3% 的精度。
+
+【第 (4) 问】充电刚开始那一瞬间的电流
+
+    t = 0⁺ 时，电容电压还是 0（不能突变），所以 R 上承担全部 3.3V：
+
+        i(0⁺) = 3.3V / 10 kΩ = 0.33 mA = 330 µA
+
+    ★ 顺便算一下电阻上的峰值功率，用来选电阻的封装：
+        p(0⁺) = 3.3V × 0.33mA = 1.09 mW
+      常见的 0603 贴片电阻额定功率是 100mW，1.09mW 只用了 1% —— 随便选。
+      （这也是为什么 RC 电路里的电阻几乎从来不用担心烧掉：
+        只要 R 在 kΩ 量级，功率就是 mW 量级。）
+
+【第 (5) 问】最终储能
+
+    w = ½ × C × U² = 0.5 × 100nF × (3.3V)²
+      = 0.5 × 1.0×10⁻⁷ × 10.89
+      = 5.445 × 10⁻⁷ J
+      ≈ 0.545 µJ（微焦）
+
+    ★ 0.545 µJ 是什么概念？一颗普通的 3mm 红色 LED 点亮 1 秒大约要 20mJ，
+      是它的 3.7 万倍。
+      所以【100nF 的电容根本不能当电源用】——它只能补"几纳秒"的电流尖峰。
+      这个数量级感非常重要，它直接决定了去耦电容的正确用法（见第四节）。
+
+【答案汇总】
+    τ = 1 ms ；充到 99% 要 4.61 ms ；3τ = 3.136 V（95.0%）；
+    5τ = 3.278 V（99.3%）；初始电流 330 µA ；储能 0.545 µJ</code></pre>
+          </div>
+
+          <h3 class="mt-8 text-base font-semibold">例题二：按键抖动 5ms，反着设计 RC 消抖参数</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>一个按键，一端接 STM32F103 的 PA0，另一端接 GND，引脚配成<b>输入上拉</b>。数据手册给出 STM32F103 内部上拉电阻的典型值约 <b>40kΩ</b>（范围 30kΩ~50kΩ），3.3V 供电下输入高电平门限 V<sub>IH</sub> ≈ <b>2.0V</b>、低电平门限 V<sub>IL</sub> ≈ <b>0.8V</b>。机械按键的抖动时间按 <b>5ms</b> 设计（普通轻触按键典型 1~10ms）。请设计消抖电容，并检查"用内部上拉 + 100nF"这个流行做法到底行不行。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="按键抖动到底长什么样（先看清敌人）">
+            <pre><code>【按下一次按键，引脚上真实的电压波形（没有电容时）】
+
+ 3.3V ┤━━━━━━┓   ┏━┓  ┏┓ ┏━━━┓  ┏━━┓                    ┏━━━━━━━━
+       │      ┃   ┃ ┃  ┃┃ ┃   ┃  ┃  ┃                    ┃
+       │      ┃   ┃ ┃  ┃┃ ┃   ┃  ┃  ┃   ← 抖动期约 5ms   ┃
+ 0.0V  ┤      ┗━━━┛ ┗━━┛┗━┛   ┗━━┛  ┗━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━
+       └──────┬───────────────────────────────────────┬──────────► t
+              按下瞬间                              5ms 后稳定
+              （程序如果每 10µs 读一次，
+                会数出 7~20 次"按下"）
+
+【加上 RC 之后，引脚上看到的电压】
+
+ 3.3V ┤━━━━━━┓                                        ╭──────────
+       │      ┃                                   ╭────╯
+ 2.0V  ┤ ─ ─ ─┃─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─╯  ← V_IH：程序在这里才认成"松开"
+       │      ┃                                  （所以要等 τ 的 0.93 倍）
+ 0.8V  ┤ ─ ─ ─┃─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ──  ← V_IL：程序认成"按下"
+ 0.0V  ┤      ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       └──────┬──────────────────────────────────────┬──────────► t
+              按下：电容瞬间被拉到 0（快）      松开：只能经 R 慢慢充（慢）
+              → 抖动被"吃"掉了                 → 抖动同样被吃掉了 ★关键在这里</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">设计思路：</b>抖动的本质是<b>触点在这 5ms 里反复通断</b>。按下时触点闭合会把电容迅速拉低（强驱动，快）；而每次触点弹开时，电容只能通过上拉电阻慢慢充电。<b>只要保证"充电到 V<sub>IH</sub> 所需的时间"比整个抖动窗口还长，这 5ms 里引脚就永远不会被读成高电平</b>，抖动就被吃掉了。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="例题二：反着设计消抖参数">
+            <pre><code>【第 1 步】写出"电容从 0 充到 V_IH 需要多久"
+
+    电容从 0V 向 3.3V 充电： u(t) = 3.3 × (1 − e^(−t/τ))
+    令 u = V_IH = 2.0V：
+
+        3.3 × (1 − e^(−t/τ)) = 2.0
+                 1 − e^(−t/τ) = 0.6061
+                     e^(−t/τ) = 0.3939
+                       −t/τ   = ln(0.3939) = −0.9316
+
+        →  t_VIH = 0.9316 × τ
+
+    ★ 顺带记一个通用公式（很有用）：
+            t_到门限 = τ × ln( VDD / (VDD − V_门限) )
+
+【第 2 步】把设计要求写成不等式
+
+    要求：抖动期 5ms 内引脚都不能被读成高电平
+
+        0.9316 × τ ≥ 5 ms
+                 τ ≥ 5.367 ms
+
+【第 3 步】方案对比
+
+    ── 方案 A：只用内部上拉 40kΩ ─────────────────────────────
+       需  C ≥ τ / R = 5.367ms / 40kΩ = 134 nF
+
+       · 配 100nF：τ = 40kΩ × 100nF = 4.0ms
+                   t_VIH = 0.9316 × 4.0ms = 3.73 ms  ✗ 小于 5ms
+                   → 抖动还没结束，引脚就已经被读成高电平了，会多计数
+       · 配 220nF：τ = 40kΩ × 220nF = 8.8ms
+                   t_VIH = 0.9316 × 8.8ms = 8.20 ms  ✓ 大于 5ms，余量 1.6 倍
+
+    ── 方案 B：外部 10kΩ 上拉 + 100nF（网上最常见的"标准消抖电路"）──
+       τ = 10kΩ × 100nF = 1.0 ms
+       t_VIH = 0.9316 × 1.0ms = 0.93 ms   ✗✗ 连抖动的五分之一都没到
+
+       ★ 这是个反直觉的结论：把上拉从 40kΩ 换成 10kΩ（"更强的上拉"），
+         消抖能力反而【差 4 倍】。因为 τ = RC，R 变小，τ 就变小。
+         网上那张"10k 上拉 + 100nF"的图，其实只是一张【低通滤波】图，
+         它对付的是高频干扰，不是 5ms 的机械抖动。
+
+    ── 方案 C：外部 10kΩ 上拉 + 1µF（推荐）────────────────
+       τ = 10kΩ × 1µF = 10 ms
+       t_VIH = 0.9316 × 10ms = 9.32 ms   ✓ 大于 5ms，余量 1.9 倍
+
+       选它的理由：1µF 是便宜常见的值；τ = 10ms 对"人手按键"
+       （按下-松开通常 100ms 以上）完全够快，不会觉得迟钝。
+
+【第 4 步】别忘了一个副作用：触点放电电流
+
+   按下时，电容是被按键触点【直接短路到地】放电的。
+   触点接触电阻很小（几十 mΩ 到几 Ω，取 100mΩ 保守估计）：
+
+        峰值放电电流 ≈ 3.3V / 0.1Ω ≈ 33 A  ← 远超触点的额定电流
+        → 长期使用会烧蚀触点（按键越用越不灵）
+
+   解决办法：在按键回路里串一个限流电阻 R_s = 1kΩ
+
+       峰值放电电流 = 3.3V / 1kΩ = 3.3 mA      ✓ 安全
+       放电时间常数 = R_s × C = 1kΩ × 1µF = 1ms
+       → 每次触点闭合持续几百 µs，1ms 的放电时间常数足够把电压拉到接近 0 ✓
+
+【最终参数】
+   上拉 R = 10 kΩ（外部）     电容 C = 1 µF（X7R 陶瓷，耐压 16V 以上）
+   按键串联 R_s = 1 kΩ        预期消抖窗口 ≈ 9.3 ms，覆盖 5ms 抖动并有近两倍余量
+   按下时的静态电流 = 3.3V / 10kΩ = 0.33 mA（只在按住期间有，可接受）</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">硬件消抖只保证「边沿干净」，不保证「逻辑正确」</div>
+            <p>RC 消抖解决的是「一次按下被数成 7 次」，它<b>不解决</b>「按住不放连续触发」「同时按两个键误判」「按键接触不良时读到的中间电平」。所以工程上的标准做法是<b>两道防线</b>：硬件 RC 把抖动幅度压下去，软件再做一次 10~20ms 的确认或状态机判断。别指望用一个大电容把所有问题一次解决——电容越大，响应越迟钝，漏电流和体积问题也越多。</p>
+          </div>
+
+          <h3 class="mt-8 text-base font-semibold">例题三：用三要素法求全响应（顺便踩一次等效电阻的坑）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>电路里 Us = 5V，R<sub>1</sub> = 10kΩ 与开关 S 串联后接到节点 A；节点 A 上接着 R<sub>2</sub> = 10kΩ 到地，同时接着 C = 1µF 到地。换路前（S 断开时）电容上已经存有 u<sub>C</sub>(0<sup>−</sup>) = 2.0V。t = 0 时 S 闭合，求 u<sub>C</sub>(t)，并算出 5ms 时的电压。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="例题三：三要素法四步走">
+            <pre><code>【电路】
+
+      S            R₁ = 10kΩ
+  5V ──/ ────[####]────┬──────────┐
+                       │          │
+                       │        [ R₂ = 10kΩ ]
+                       │          │
+                      === C=1µF   │   已知 u_C(0⁻) = 2.0V
+                       │          │
+                      GND        GND
+
+【第 1 步】求初始值 u_C(0⁺)
+
+    换路定则： u_C(0⁺) = u_C(0⁻) = 2.0 V      （题目已给，直接抄）
+
+【第 2 步】求稳态值 u_C(∞)
+
+    t → ∞ 时电容当断路（那里没有电流），节点 A 的电压就是 R₁、R₂ 的分压：
+
+        u_C(∞) = 5V × R₂ / (R₁ + R₂) = 5 × 10k / 20k = 2.5 V
+
+    ★ 判断趋势：2.0V → 2.5V，是【上升】，说明电容在被充电。
+
+【第 3 步】求时间常数 τ  ← 最容易错的一步
+
+    ⚠ 错误做法：τ = R₁ × C = 10kΩ × 1µF = 10 ms   ✗
+
+    正确做法：把电压源【短路】（置零），再从【电容两端】看进去求等效电阻。
+              5V 一旦短路，R₁ 的上端就变成了地，于是从节点 A 到地有
+              两条路：经过 R₁ 到地、经过 R₂ 到地 —— 两者【并联】：
+
+        R_eq = R₁ ∥ R₂ = (10k × 10k) / (10k + 10k) = 5 kΩ
+        τ    = R_eq × C = 5kΩ × 1µF = 5 ms
+
+    ★ 这个"从储能元件两端看进去、独立源置零"就是戴维宁定理的直接应用
+      （第 3 篇讲过）。τ 里的 R 永远是等效电阻，不是随便哪个电阻。
+
+【第 4 步】代三要素公式
+
+        f(t) = f(∞) + [ f(0⁺) − f(∞) ] × e^(−t/τ)
+
+        u_C(t) = 2.5 + (2.0 − 2.5) × e^(−t/5ms)
+               = 2.5 − 0.5 × e^(−t/5ms)   V
+
+    【验证 t = 0】 2.5 − 0.5 × 1 = 2.0 V ✓ 和初始值一致
+    【验证 t → ∞】2.5 − 0.5 × 0 = 2.5 V ✓ 和稳态值一致
+
+【算 5ms 时的电压】
+
+    t = 5ms = 1τ：  u_C = 2.5 − 0.5 × e^(−1) = 2.5 − 0.5 × 0.3679
+                        = 2.5 − 0.1839 = 2.316 V
+
+    【对比错误答案】如果用错的 τ = 10ms：
+                    u_C = 2.5 − 0.5 × e^(−0.5) = 2.5 − 0.3033 = 2.197 V
+                    → 差了 119 mV。在 12 位 ADC（3.3V 量程、1LSB = 0.8mV）眼里，
+                      这是 148 个 LSB 的错误。
+
+【附加：验算一下初始电流，检查有没有算错】
+
+    0⁺ 时刻的三个电流：
+      · 流过 R₁ 的电流 i_R1 = (5 − 2.0) / 10kΩ = 300 µA   （从电源流向节点 A）
+      · 流过 R₂ 的电流 i_R2 = 2.0 / 10kΩ        = 200 µA   （从节点 A 流向地）
+      · 剩下的电流只能进电容： i_C = 300 − 200 = 100 µA
+
+    用公式反算一遍 i_C = C × du/dt |t=0
+        du/dt = 0.5 × (1/τ) = 0.5 / 5ms = 100 V/s
+        i_C = 1µF × 100 V/s = 100 µA   ✓ 两种算法一致，KCL 闭合
+
+    ★ 这个"KCL 验算"是很实用的自查手段：算完初始值后，
+      用基尔霍夫电流定律把 0⁺ 时刻的节点电流加一遍，
+      对不上就说明前一步错了。考场上能救回好几分。</code></pre>
+          </div>
+
+          <h3 class="mt-8 text-base font-semibold">例题四：5V 继电器的吸合时间与续流回路</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>一个小型 5V 继电器，线圈电阻 R<sub>coil</sub> = 70Ω、电感 L = 0.1H（按常见小型继电器的典型值估算）。三极管驱动，电源 5V。求：(1) 时间常数；(2) 稳态电流；(3) 电流升到吸合电流（取额定的 70%）需要多久；(4) 断电时如果不加续流二极管会发生什么；(5) 加了二极管后释放变慢，怎么加速。</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="例题四：RL 电路的两个时间常数">
+            <pre><code>【第 (1)(2) 问】时间常数与稳态电流
+
+    τ = L / R = 0.1 H / 70 Ω = 1.43 × 10⁻³ s = 1.43 ms
+
+    ★ 注意和 RC 相反：这里 R 在分母上。R 越大，τ 越小。
+      原因很直观：稳态电流就是 Us/R，R 大则终点低，自然到得快。
+
+    稳态电流 i(∞) = 5V / 70Ω = 71.4 mA
+
+【第 (3) 问】吸合时间
+
+    电流上升： i(t) = 71.4mA × (1 − e^(−t/τ))
+    吸合电流取额定的 70%： i_吸合 = 0.70 × 71.4 = 50.0 mA
+
+        1 − e^(−t/τ) = 0.70
+            e^(−t/τ) = 0.30
+               t/τ  = ln(1/0.30) = 1.204
+
+        t = 1.204 × 1.43ms = 1.72 ms
+
+    ★ 也就是说，从给信号到继电器真正吸合，大约要 1.7ms。
+      这个数字在"继电器控制交流电做相位控制"之类的场合是必须算进去的；
+      在普通开关场合可以忽略。
+
+    ★ 顺便算一下电感储能： w = ½Li² = 0.5 × 0.1 × (0.0714)² = 0.255 mJ
+      0.255mJ 看起来很小，但它要在几微秒内被"挤"出去 —— 见第 (4) 问。
+
+【第 (4) 问】不加续流二极管
+
+    三极管截止的瞬间，电流要从 71.4mA 突然变成 0。
+    电感说"不行"： u = L × di/dt
+
+        若这个变化发生在 1µs 内： u = 0.1 × (0.0714 / 1×10⁻⁶) = 7140 V
+        （实际会被线圈的寄生电容和 PCB 走线电容钳位，但仍可达上百伏）
+
+    S8050 的 V_CEO 只有 25V，S8550 类似 —— 【必炸】。
+
+【第 (5) 问】加二极管之后，再想办法加速释放
+
+    ── 只加二极管（最简单）──
+       断电后电流在"线圈 + 二极管"这个小圈里继续流，
+       回路电阻只有线圈自身 70Ω + 二极管压降：
+
+           τ_释放 = L / R = 0.1 / 70 = 1.43 ms
+           电流降到 10% 需要 2.303τ = 3.3 ms
+
+       ★ 代价：继电器释放变慢。慢释放会让触点"拖泥带水"，
+         在频繁通断的场合缩短触点寿命、甚至粘接。
+
+    ── 二极管 + 串联电阻（加速释放）──
+       在线圈两端：二极管与 R_z = 100Ω 串联后再并到线圈上
+
+           τ_释放 = L / (R_coil + R_z) = 0.1 / 170 = 0.59 ms
+           电流降到 10% 只需 2.303 × 0.59 = 1.35 ms   （快了 2.4 倍）
+
+       代价是反向电压变高：
+           u_峰值 = i × (R_coil + R_z) = 71.4mA × 170Ω = 12.1 V
+           三极管承受的电压 = 5V + 12.1V = 17.1 V ＜ 25V ✓ 仍在安全区
+
+       ★ 这就是工程上的经典取舍：用更高的电压应力，换更快的动作速度。
+         经验值：R_z 取线圈电阻的 1~2 倍最合适。
+
+【答案汇总】
+    τ = 1.43 ms ；稳态电流 71.4 mA ；吸合时间 1.72 ms ；
+    储能 0.255 mJ ；加二极管释放 3.3 ms ；加 100Ω 加速后 1.35 ms（电压应力 17.1V）</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">四道题的共同套路</div>
+            <p>回头看这四道题，你会发现它们用的是<b>完全相同的三个动作</b>：① 找出电路里那个储能元件；② 确定它两端的等效电阻（电容看 R<sub>eq</sub> = R₁∥R₂ 之类，电感看回路总电阻）；③ 用 τ 把"时间"和"百分比"互相换算。第二题是<b>反过来</b>用（给定时间求 τ，再求元件值），这是设计时最常用的方向。<b>把这三个动作练熟，一阶电路对你来说就不再是公式，而是一种看了就知道答案的直觉。</b></p>
+          </div>
+        </section>
+
+<!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section class="mt-12">
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4">前面三节都是纸上的东西，这一节把它们落到你的板子上。<b class="font-semibold text-ink">下面六个场景，你会在几乎每一块自己画的板子上碰到它们</b>：复位、按键、去耦、ADC、PWM 转模拟、以及"要不要用软件延时"这个每天都在做的选择题。</p>
+
+          <h3 id="sub-mcu-reset" class="mt-7 text-base font-semibold">上电复位电路：10kΩ + 100nF 在等什么</h3>
+
+          <p class="mt-3">先看电路。它简单到只有两个元件，但几乎每一块 STM32 板子上都有它：</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="上电复位电路与复位脉冲宽度计算">
+            <pre><code>【STM32 的经典上电复位电路（NRST 低电平复位）】
+
+      3.3V ────┬─────────────┬──────────────
+               │             │
+            [ 10 kΩ ]        │  ← 可选：1N4148
+               │             │     （阳极接 NRST、阴极接 3.3V）
+               ├──── NRST ───┘     作用是掉电时让电容飞快放电
+               │
+             ──┴──  100 nF
+               │
+              GND
+
+【为什么需要它？因为复位引脚必须"低"住一段时间】
+
+  · STM32 的 NRST 是【低电平复位】，芯片内部自带约 40kΩ 上拉。
+  · 上电那一瞬间，电容电压不能突变（本页第 2 节讲过）→ NRST 被拉到 0V
+    → 芯片处于复位状态，不会执行任何指令。
+  · 3.3V 通过电阻给电容慢慢充电，NRST 电压缓缓上升。
+  · 当 NRST 升到复位门限以上（大约 1.0V，按典型值估算），复位才释放。
+
+【算一下这段"低电平窗口"到底有多长】
+
+  第 1 步：求等效上拉电阻
+      外部 10kΩ 和内部 40kΩ 上拉是【并联】的（都接在 NRST 和 3.3V 之间）：
+          R_eq = 10k ∥ 40k = (10 × 40)/(10 + 40) kΩ = 8 kΩ
+
+  第 2 步：求时间常数
+          τ = R_eq × C = 8 kΩ × 100 nF = 0.8 ms
+
+  第 3 步：求"从 0V 充到 1.0V"需要多久
+          t = τ × ln( VDD / (VDD − V_th) )
+            = 0.8 ms × ln( 3.3 / (3.3 − 1.0) )
+            = 0.8 ms × ln( 3.3 / 2.3 )
+            = 0.8 ms × ln( 1.4348 )
+            = 0.8 ms × 0.3609
+            ≈ 0.29 ms
+
+  ★ 结论：这组"经典参数"只提供约 0.29ms 的复位脉冲。
+
+【那 0.29ms 够不够？取决于你的电源爬得多快】
+
+  ┌────────────────────────────┬──────────────────────────────────────┐
+  │ 电源情况                    │ 0.29ms 的复位脉冲                     │
+  ├────────────────────────────┼──────────────────────────────────────┤
+  │ LDO 输出快，0.1ms 就爬到 3V │ 够用。而且芯片内部的 POR 电路         │
+  │                            │ （VDD 到约 2.0V 时释放）才是主力，    │
+  │                            │ 外部 RC 只是补充                      │
+  ├────────────────────────────┼──────────────────────────────────────┤
+  │ LDO 慢启动 + 大电容，      │ 不够。可能出现"偶尔上电不启动"       │
+  │ 1~2ms 才爬到 3V            │ 或者上电后跑飞 —— 因为芯片在电源还    │
+  │                            │ 没稳的时候就被放出来执行代码了        │
+  └────────────────────────────┴──────────────────────────────────────┘
+
+【把 100nF 换成 1µF 会怎样】
+
+      τ = 8 kΩ × 1 µF = 8 ms
+      t = 8 ms × 0.3609 = 2.9 ms     ← 复位脉冲变成 2.9ms，慢启动电源也稳了
+
+【那再加大到 10µF 呢？会遇到一个反向的坑】
+
+      τ = 8 kΩ × 10 µF = 80 ms
+      t = 80 ms × 0.3609 = 29 ms     ← 复位脉冲很长，但带来两个新问题：
+        ① 上电后要等 29ms 芯片才开始跑，感觉"开机迟钝"
+        ② ★ 更严重：快速断电再上电时，电容上还存着电，
+           NRST 一开始就在门限以上 → 根本没有复位脉冲 → 芯片带着旧状态继续跑
+
+      解决 ② 的办法就是开头那个可选二极管：
+        掉电时 NRST 点的电位高于已经塌掉的 3.3V 轨，
+        二极管导通，电容通过它放电，放电回路电阻只有几 Ω：
+            τ_放电 = 几 Ω × 10µF ≈ 几十 µs     ← 瞬间放干净，下次上电复位正常
+
+【对照：51 单片机的复位电路是反过来的，不能照抄】
+
+  STC89C52RC 是【高电平复位】（RST 脚要高电平才复位），
+  典型电路是 10µF 电解电容 + 10kΩ 电阻，但接法和 STM32 完全相反：
+
+      VCC ──┬── 10µF ──┬──── RST
+            │          │
+            │        [ 10 kΩ ]
+            │          │
+           GND        GND
+
+      · 上电时电容电压不能突变 → RST 被瞬间拉到 VCC → 复位
+      · 电容通过电阻充电，RST 电压慢慢下降 → 降到门限以下，复位释放
+      · τ = 10kΩ × 10µF = 100 ms
+      · RST 降到 1.5V（按典型值估算）需要：
+            t = 100ms × ln( 5 / 1.5 ) = 100ms × 1.204 = 120 ms
+
+  ★ 一句话记住区别：STM32 是"低电平复位，电容接在复位脚和地之间"；
+    51 是"高电平复位，电容接在电源和复位脚之间"。方向反了，复位就永远不释放。
+
+【布线上的两条硬规矩】
+  · 复位引脚的走线越短越好，不要和晶振、PWM、继电器的走线并排。
+  · 不要为了"滤干扰"在 NRST 上并一个几百 nF~µF 的电容到地 ——
+    那会把复位脉冲吃掉，属于典型的自作聪明。</code></pre>
+          </div>
+
+          <h3 id="sub-mcu-key" class="mt-7 text-base font-semibold">按键 RC 消抖：τ 要和抖动时间对上</h3>
+
+          <p class="mt-3">电路和参数在第三节例题二里已经完整算过了，结论复述一遍：<b class="font-semibold text-ink">外部 10kΩ 上拉 + 1µF 到地 + 按键串 1kΩ 限流</b>，τ = 10ms，引脚要等约 9.3ms 才会被读成高电平，正好盖住 5ms 的机械抖动。这里补上软件那一半。</p>
+
+          <p class="mt-3">硬件 RC 解决的是"边沿脏"，软件要解决的是"逻辑对"。<b class="font-semibold text-ink">下面的写法是工程上最常用的非阻塞消抖状态机</b>——它不占用 CPU，也不影响其他任务的实时性：</p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="key_debounce.c：非阻塞按键消抖（1ms 调用一次）">
+            <pre><code>/* 硬件前提：PA0 接按键；外部 10kΩ 上拉到 3.3V；1µF 到地；按键串 1kΩ
+ *           → τ = 10ms，引脚约 9.3ms 后才稳定变高（见第三节例题二）
+ * 软件作用：再确认 5ms，覆盖 RC 之后的残余毛刺，并把它变成"一次性事件"
+ */
+#include &lt;stdint.h&gt;
+
+#define KEY_STABLE_MS   5u          /* 软件确认窗口：5ms */
+
+static uint8_t key_cnt   = 0u;      /* 连续读到同一电平的毫秒数 */
+static uint8_t key_last  = 1u;      /* 已确认的稳定电平：1=松开，0=按下 */
+static uint8_t key_event = 0u;      /* 0=无事件，1=按下事件，2=松开事件 */
+
+/* 放在 1ms 定时器中断里调用，或者在主循环里配合毫秒计数调用 */
+void key_scan_1ms(void)
+{
+    uint8_t now = (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) ? 1u : 0u;
+
+    if (now == key_last) {
+        key_cnt = 0u;               /* 电平没变，计数清零 */
+        return;
+    }
+
+    if (key_cnt &lt; KEY_STABLE_MS) {
+        key_cnt++;
+    }
+
+    if (key_cnt &gt;= KEY_STABLE_MS) {  /* 连续 5ms 都是新电平，才认账 */
+        key_last  = now;
+        key_event = now ? 2u : 1u;
+        key_cnt   = 0u;
+    }
+}
+
+/* 主循环里取事件：只处理一次，天然实现"按下动作只触发一次" */
+void app_poll(void)
+{
+    if (key_event == 1u) {          /* 按下 */
+        key_event = 0u;
+        led_toggle();
+    } else if (key_event == 2u) {   /* 松开 */
+        key_event = 0u;
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">为什么硬件和软件要"两道防线"</div>
+            <p>只用硬件：电容容差 ±10%、温度变化、老化，都会让 τ 漂；一旦 τ 变小，抖动又冒出来了。只用软件：抖动期间引脚上的电压会在门限附近来回穿越，<b>如果走线附近有干扰，可能读到意料之外的跳变</b>，而且快速连按的两次按键可能被合并。</p>
+            <p class="mt-2">两道防线各自负责一件事：<b>RC 把抖动的幅度压到门限以内，软件把剩余的短脉冲过滤掉。</b>成本只多了一个 1µF 电容和一个 1kΩ 电阻，非常划算。</p>
+          </div>
+
+          <p class="mt-3">还有三个容易被忽略的细节：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">引脚要有施密特特性。</b>RC 会让边沿变慢，慢边沿穿过门限时如果叠加噪声，可能来回翻转好几次。STM32 的 GPIO 输入自带施密特触发器（这就是 V<sub>IL</sub> ≈ 0.8V、V<sub>IH</sub> ≈ 2.0V 那个"回差"的由来），所以安全。<b>如果你用的是没有施密特输入的芯片，RC 直接接进去反而更糟</b>，中间要加一级 74HC14 之类的施密特反相器。</li>
+            <li><b class="font-semibold text-ink">别用大电解电容做消抖。</b>1µF 用 X7R 陶瓷电容（0603 或 0805，耐压选 16V 以上）。电解电容有极性、漏电流大、等效串联电阻大，会把充电曲线搞得一塌糊涂。</li>
+            <li><b class="font-semibold text-ink">长按、连发、组合键是软件的事。</b>RC 只负责"这一次按下是真的"，长按 1 秒触发一次还是每 100ms 触发一次，完全由你的状态机决定。</li>
+          </ul>
+
+          <h3 id="sub-mcu-decouple" class="mt-7 text-base font-semibold">去耦电容：为什么 0.1µF 必须贴着引脚放</h3>
+
+          <p class="mt-3">先纠正一个最常见的误解：<b class="font-semibold text-ink">去耦电容不是用来"给芯片供电"的</b>。按第一节例题一算过，100nF 在 3.3V 上只存 0.545µJ 的能量，连点亮一个 LED 一毫秒都不够。它真正的作用是<b>补上"芯片开关瞬间"那几十纳秒的电流缺口</b>。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>时间尺度</th><th>谁在供这个电流</th><th>为什么是它</th></tr></thead>
+              <tbody>
+                <tr><td>几十纳秒（芯片内部开关动作）</td><td><b>引脚旁 100nF</b></td><td>只有它就地在场，走线电感最小</td></tr>
+                <tr><td>几微秒（一批门同时翻转）</td><td>板级 10µF</td><td>容量大，能顶更久，但离得远一点也没关系</td></tr>
+                <tr><td>毫秒以上（平均功耗）</td><td>LDO / DC-DC</td><td>这才是真正的"供电"，靠环路慢慢调</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现在算一算它到底能顶多久。</b>允许 VDD 跌落 5%（0.165V）时，100nF 能贡献的电荷是：</p>
+
+          <p class="mt-3"><code class="icode">ΔQ = C × ΔV = 100nF × 0.165V = 16.5 nC</code>，若负载电流缺口是 50mA，则能顶住的时长 <code class="icode">t = ΔQ / I = 16.5nC / 50mA = 0.33 µs</code></p>
+
+          <p class="mt-3">把允许的跌落收紧到 1%（33mV），就只剩 66ns。<b class="font-semibold text-ink">这正好就是芯片开关动作的时间尺度</b>——也就是说，100nF 的定位极其精准：它管的就是"纳秒到几百纳秒"这一段，再长的时间它管不了，也不该它管。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">那"贴着引脚"到底省下了什么？答案是走线电感。</b>PCB 上走线的寄生电感大约是 1nH/mm（按典型值估算），加上过孔，一条 1cm 的走线很容易做到 10nH。电压尖峰由这个式子决定：</p>
+
+          <p class="mt-3"><code class="icode">ΔV = L × di/dt</code></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>电容到引脚的距离</th><th>回路电感 L</th><th>电流 2ns 内跳变 100mA 时的电压尖峰</th><th>后果</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">2 mm（就贴旁边）</td><td class="font-mono text-xs">≈ 2 nH</td><td class="font-mono text-xs">2nH × 5×10⁷ A/s = <b>0.10 V</b></td><td>3% 的抖动，安全</td></tr>
+                <tr><td class="font-mono text-xs">10 mm（放在板子另一角）</td><td class="font-mono text-xs">≈ 10 nH</td><td class="font-mono text-xs">10nH × 5×10⁷ A/s = <b>0.50 V</b></td><td>15% 的跌落，可能跌破欠压复位门限</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">同样的 100nF，位置不同，尖峰差了 5 倍。</b>这就是"去耦电容必须靠近引脚"的全部理由——不是玄学，就是一个 L·di/dt。而且当尖峰大到让 VDD 跌破内部欠压复位（BOR）门限时，芯片会直接复位；跌不到门限但足够大时，表现是 ADC 读数跳动、串口丢包、跑高速外设时死机这类<b>看起来毫无规律</b>的故障。</p>
+
+          <p class="mt-3">再补一个数：<b class="font-semibold text-ink">100nF 配 5nH 的自谐振频率约 7.1MHz</b>（f = 1/(2π√(LC))），超过这个频率它就不再像电容，而像一个电感。<b>所以"加大电容"并不能解决高频问题</b>——0.1µF 这个尺寸之所以成为行业标准，正是因为它的自谐振点刚好落在数字电路噪声最凶的频段附近。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">去耦的三条实操规矩</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>一颗 VDD 引脚配一颗 100nF</b>，就近打地过孔，让"电容→引脚→地平面"围出的回路面积最小。以 STM32F103C8T6（LQFP48）为例：VDD 三颗、VDDA 一颗，就是 4 颗 100nF。</li>
+              <li><b>电源入口再放一颗 10µF</b>（陶瓷或钽），它管微秒级的批次翻转和电源走线上的谐振。</li>
+              <li><b>绝不集中摆放。</b>把 10 颗电容排在板子边上"整齐好看"，等于把它们全部废掉。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-mcu-adc" class="mt-7 text-base font-semibold">ADC 采样保持：建立时间是怎么算出来的</h3>
+
+          <p class="mt-3">ADC 内部有一个很小的采样电容（STM32F103 数据手册给出的典型值是 <b>C<sub>ADC</sub> = 8pF</b>），采样开关闭合时，它要和你的信号源"平分电荷"。<b class="font-semibold text-ink">这又是一个 RC 充电过程</b>——只不过电容换成了 8pF，电阻是你的信号源阻抗加上内部开关电阻。</p>
+
+          <p class="mt-3">所以结论直接沿用前文：采样窗口必须给足 9.7 个 τ（对应 1/4 LSB 的误差），于是有公式：</p>
+
+          <p class="mt-3"><code class="icode">t<sub>采样</sub> ≥ (R<sub>ADC</sub> + R<sub>源</sub>) × C<sub>ADC</sub> × ln(2<sup>N+2</sup>)</code>，其中 N = 12 时 ln(2<sup>14</sup>) = 9.704</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="ADC 采样时间怎么选：四种源阻抗逐一代入">
+            <pre><code>【已知条件（STM32F103，按数据手册典型值）】
+    C_ADC = 8 pF       采样电容
+    R_ADC = 1 kΩ       采样开关串联电阻
+    N     = 12 位      要求误差 ＜ 1/4 LSB → 需要 9.704 个 τ
+    ADC 时钟 = 14 MHz  → 1 个 ADC 周期 = 1/14MHz = 71.4 ns
+    采样时间可选档位：1.5 / 7.5 / 13.5 / 28.5 / 41.5 / 55.5 / 71.5 / 239.5 周期
+
+【公式】
+    t_采样 = (R_ADC + R_源) × C_ADC × 9.704
+    需要的周期数 = t_采样 / 71.4ns
+
+┌──────────┬──────────────┬───────────┬────────────┬──────────────────────┐
+│ 信号源阻抗│  内部 τ      │ 需要 t_采样│ 需要周期数 │ 应该选的档位          │
+├──────────┼──────────────┼───────────┼────────────┼──────────────────────┤
+│ 0 Ω      │ 1000×8p=8 ns │   78 ns   │   1.1 个   │ 1.5 周期（最小档）    │
+│ （运放直驱）                                                              │
+│ 1 kΩ     │  16 ns       │  155 ns   │   2.2 个   │ 7.5 周期              │
+│ 10 kΩ    │  88 ns       │  854 ns   │  12.0 个   │ 13.5 周期  ← 常用     │
+│ 47 kΩ    │ 384 ns       │  3.73 µs  │  52.2 个   │ 55.5 周期             │
+│ 100 kΩ   │ 808 ns       │  7.84 µs  │ 109.8 个   │ 239.5 周期（最大档）  │
+└──────────┴──────────────┴───────────┴────────────┴──────────────────────┘
+                （全部按数据手册典型值估算；实际请以你手上那颗芯片的手册为准）
+
+【换算成实际采样率（以 10kΩ 源阻抗、13.5 周期为例）】
+
+    一次完整转换 = 采样时间 + 逐次逼近时间
+                 = 13.5 周期 + 12.5 周期（12 位模式下逐次逼近要 12.5 个周期）
+                 = 26 个周期
+
+    转换时间 = 26 × 71.4 ns = 1.86 µs
+    最高采样率 = 1 / 1.86µs ≈ 538 kSPS
+
+    如果源阻抗是 47kΩ（选 55.5 周期）：
+        总周期 = 55.5 + 12.5 = 68 → 68 × 71.4ns = 4.86 µs
+        最高采样率 ≈ 206 kSPS      ← 慢了 2.6 倍
+
+【采样时间给不够会怎样？算一下误差】
+
+    源阻抗 10kΩ、内部 τ = 88 ns，但采样窗口只给了 7.5 周期 = 536 ns：
+
+        已建立的倍数 = 536 / 88 = 6.09 个 τ
+        残余误差 = e^(−6.09) = 0.226%
+
+    折算成 12 位的读数误差：
+        0.226% × 4096 = 9.3 个 LSB     ← 12 位 ADC 白瞎了，实际只有 8.8 位有效
+
+    ★ 而且这个误差是【系统性偏低】，不是随机跳动：
+      采样电容没充满，读到的电压永远比真实值低一点。
+      你会看到"示波器上明明是 2.000V，ADC 读出来是 1.995V"这种稳定的偏差，
+      然后开始怀疑基准电压 —— 其实是采样时间不够。
+
+【高阻信号源怎么救】
+
+    方案一：把采样时间拉到最大档 239.5 周期
+            代价：转换时间变成 (239.5+12.5) × 71.4ns = 18 µs，采样率只剩 55 kSPS
+    方案二（推荐）：前面加一级运放电压跟随器
+            源阻抗从 100kΩ 降到几 Ω → 采样时间可以用最小的 1.5 周期
+            而且跟随器还能隔离 ADC 采样瞬间对前级电路造成的负载扰动
+    方案三：在 ADC 引脚并一个滤波电容（比如 100nF）
+            这一招很有效，但要看清楚它的代价 ↓
+
+【方案三的代价：把"建立时间不够"换成了"响应太慢"】
+
+    引脚上并 100nF 之后，8pF 的采样电容从 100nF 里"抽"电荷，
+    电压几乎不动（跌 8p/100n = 0.008%，约 0.26mV）→ 源阻抗几乎无关 ✓
+
+    但是：这个 100nF 自己必须跟得上信号的变化！
+        τ = R_源 × 100nF
+
+        · 源阻抗 10 kΩ → τ = 1 ms → 5τ = 5 ms
+          → 只适合测量变化比 5ms 慢得多的信号（电池电压、温度、电位器慢调）
+        · 源阻抗 100 kΩ → τ = 10 ms → 5τ = 50 ms
+          → 基本只能测直流了
+
+    ★ 一句话：并电容并没有消灭 RC，只是把同一个 RC 从
+      "纳秒尺度（采样窗口不够）"搬到了"毫秒尺度（信号跟不上）"。
+      多通道快速轮询时尤其要注意：通道切过来之后，要等好几个 τ 才准。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">两个和数据手册对得上的数</div>
+            <p>STM32F103 数据手册里对"最大外部输入阻抗"的建议大约是 <b>50kΩ</b>（配合 55.5 周期的采样时间）——你看，这和我们上面算出来的"47kΩ 需要 52.2 个周期"完全对得上。<b>手册上的那些数字不是凭空给的，背后就是一这个 (R<sub>ADC</sub>+R<sub>源</sub>)·C<sub>ADC</sub> 的建立时间。</b>以后再看别的芯片的 ADC 手册，你也可以自己把这张表算出来。</p>
+          </div>
+
+          <h3 id="sub-mcu-pwm" class="mt-7 text-base font-semibold">PWM 经 RC 滤波变成模拟电压</h3>
+
+          <p class="mt-3">这是"积分电路"最实用的一种用法：一个 PWM 引脚 + 一级 RC，就得到了一个可以软件调节的模拟电压。<b class="font-semibold text-ink">原理一句话：电容把方波的平均值取了出来</b>，而这个平均值就等于占空比乘以高电平：</p>
+
+          <p class="mt-3"><code class="icode">V<sub>out</sub> = D × V<sub>H</sub></code>，其中 D 是占空比（0~1）</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="PWM + RC 滤波：纹波、建立时间与带载能力">
+            <pre><code>【电路】
+
+  PWM 引脚 ──[ R ]──┬─────────┬──→ 送给后级
+                    │         │
+                  ═══ C       │  （后级的输入阻抗必须远大于 R）
+                    │         │
+                   GND       GND
+
+【先看波形：为什么能"取平均"】
+
+   PWM 引脚：          输出的平均值 = D × V_H
+     ┌───┐    ┌───┐
+     │   │    │   │      D = 0.5 → V_out = 1.65 V
+  ───┘   └────┘   └──     D = 0.25 → V_out = 0.825 V
+
+   电容上的电压（R=10kΩ、C=1µF，τ=10ms，PWM 频率 1kHz）：
+
+   1.65V ┤   ╭───────────────────────────────────────
+         │  ╱  ← 建立过程（要 5τ = 50ms 才稳）
+         │ ╱    上面那一点点锯齿就是纹波
+   0.00V ┼─╯
+         └──┬────────┬────────┬────────┬────────┬─────► t
+            0       10ms     20ms     30ms     40ms
+
+【纹波有多大？用一个很好用的近似公式】
+
+    ΔV_pp ≈ V_H × D × (1 − D) × T / τ        （T 是 PWM 周期）
+
+   推导只用一行：充电时 dv/dt ≈ V_H(1−D)/τ，持续 D·T 的时间，乘起来就是它。
+
+   ★ 这个式子在 D = 0.5 时取最大值（因为 D(1−D) 在 0.5 处最大）：
+     所以【调试时要看 D=50% 的纹波，那是最坏情况】。
+
+【第 1 组参数：PWM 1kHz，R=10kΩ，C=1µF】
+
+    τ = 10kΩ × 1µF = 10 ms
+    T = 1/1kHz = 1 ms
+
+    D = 0.5 时： ΔV = 3.3 × 0.5 × 0.5 × 1ms / 10ms = 82.5 mV
+
+    折算成 8 位分辨率（3.3V/256 = 12.9 mV 一个 LSB）：
+        82.5mV / 12.9mV = 6.4 个 LSB   ← 纹波比 1 个 LSB 大 6 倍，谈不上精确
+
+【想压到 1 个 LSB（≤12.9mV）】
+
+    要求 3.3 × 0.25 × 1ms / τ ≤ 12.9 mV
+        → τ ≥ 0.0640 s = 64 ms
+        → C ≥ 64ms / 10kΩ = 6.4 µF  → 取 10µF（τ = 100ms）
+
+    结果是纹波 8.25mV ✓（0.64 个 LSB），但代价是：
+        建立时间 = 5τ = 500 ms   ← 改一次占空比要等半秒才到位，太慢了
+
+【第 2 组参数：把 PWM 频率提到 20kHz，C 回到 1µF】
+
+    T = 1/20kHz = 50 µs，τ 仍为 10 ms
+
+    D = 0.5 时： ΔV = 3.3 × 0.25 × 50µs / 10ms = 4.13 mV ✓（0.32 个 LSB）
+    建立时间仍是 5τ = 50 ms     ← 快、准两头都拿到了
+
+    ★ 纹波正比于 T/τ：要同时要好纹波和快建立，唯一的办法就是
+      【提高 PWM 频率】。降 τ 会让建立变快但纹波变差，升 τ 相反。
+
+    定时器能不能做到 20kHz？以 STM32F103（定时器时钟 72MHz）为例：
+        PWM 频率 = 72MHz / (PSC+1) / (ARR+1)
+        取 PSC = 0、ARR = 3599 → 72M / 3600 = 20 kHz ✓ 而且一周内有 3600 个计数，
+        相当于 11.8 位的占空比分辨率，比 8 位绰绰有余。
+    ★ 记住这个换算：定时器时钟 / PWM 频率 = 一周期的计数值 = 有效分辨率位数。
+
+【带载能力：这是"PWM 当 DAC"最大的坑】
+
+    后级如果直接接一个 10kΩ 的负载（或直接接一颗电阻分压），
+    它会和 R 形成分压：
+
+        实际输出 = D × V_H × R_L / (R + R_L)
+                 = D × 3.3V × 10k/(10k+10k)
+                 = D × 1.65 V
+
+    ★ 也就是说：空载算出 1.65V，接上负载变成 0.825V，【整整差一半】。
+      而且纹波也会变化（充电路径的等效电阻变成了 R∥R_L）。
+
+    正确做法：后面加一级运放电压跟随器（或射极跟随器），
+    把后级的高阻输入变成"几乎不吃电流"，RC 的输出电压才成立。
+
+【什么时候别用 PWM+RC】
+    · 需要快速变化（更新率高于 1/5τ）→ 用 STM32 自带的 DAC，或外挂 I²C/SPI DAC
+    · 需要驱动负载 → 必须加缓冲级
+    · 需要高精度（优于 8 位）→ PWM+RC 的精度受电源电压、电容容差、后级负载影响，
+      免费方案里它最好用，但别指望它到 12 位</code></pre>
+          </div>
+
+          <h3 id="sub-mcu-soft" class="mt-7 text-base font-semibold">软件延时 vs RC 延时：什么时候必须用硬件</h3>
+
+          <p class="mt-3">既然软件也能延时，为什么还要用 RC？<b class="font-semibold text-ink">因为有些时刻，软件根本还没有开始运行</b>——上电复位就是最典型的例子：那时候 CPU 还在复位状态，一行代码都没执行，你打算让谁来延时？这类需求<b>只能</b>用硬件。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比维度</th><th>RC 延时</th><th>定时器中断</th><th>忙等软件延时</th></tr></thead>
+              <tbody>
+                <tr><td>典型精度</td><td>±10% ~ ±30%（电容容差 ±5~20%、温度系数、老化叠加）</td><td>±20 ~ ±50 ppm（外接晶振）</td><td>取决于时钟源，内部 RC 振荡器约 ±1%</td></tr>
+                <tr><td>温漂</td><td>明显：X7R 电容的容量随温度可变化 ±15%</td><td>很小</td><td>随内部振荡器漂移</td></tr>
+                <tr><td>CPU 占用</td><td><b>0</b></td><td>每次中断几微秒</td><td><b>100%</b>（期间什么都干不了）</td></tr>
+                <tr><td>芯片还没跑起来时能用吗</td><td><b>能</b>（唯一的答案）</td><td>不能</td><td>不能</td></tr>
+                <tr><td>可调性</td><td>要换元件或改电位器</td><td>改一个寄存器/变量即可</td><td>改一个常量即可</td></tr>
+                <tr><td>并行数量</td><td>一路延时一套元件</td><td>一个定时器能做几十个软件定时器</td><td>串行排队，互相干扰</td></tr>
+                <tr><td>附带功能</td><td>顺带滤波、整形、限流</td><td>无</td><td>无</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">从这个表里能读出一条很清晰的分工：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">芯片上电之前、复位释放之前要的延时 → 只能是 RC。</b>复位脉冲、电源时序、LDO 使能延时，全属于这一类。</li>
+            <li><b class="font-semibold text-ink">芯片跑起来之后要的"计时" → 优先用定时器。</b>精度差两三个数量级，而且不占 CPU。要精确到毫秒、微秒，还要能同时跑好几个，只有定时器能给你。</li>
+            <li><b class="font-semibold text-ink">需要"抗干扰、整形、限流" → 回到 RC。</b>比如比较器输出抖得厉害，加一级 RC 再进中断引脚；比如信号线上有高频毛刺，加 RC 低通。这些事软件做不了（信号已经进到引脚了，硬件层面的毛刺可能已经被当成边沿捕获了）。</li>
+          </ul>
+
+          <p class="mt-3">另外提醒三个软件延时的经典陷阱，<b class="font-semibold text-ink">它们和 RC 无关，但每个人都会踩一遍</b>：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">空循环会被编译器优化掉。</b>写 <code class="icode">for(i=0;i&lt;1000;i++);</code> 来延时，在 -O2 优化下编译器发现"这个循环什么也没做"，可能直接删掉，延时变成 0。计数变量必须声明为 <code class="icode">volatile</code>，或者干脆用 <code class="icode">__NOP()</code> 和硬件定时器。</li>
+            <li><b class="font-semibold text-ink">"数循环次数"估算出来的延时极不可靠。</b>编译器优化等级、Flash 等待周期、中断打断，都会让实际时间变掉。真要精确，用定时器。</li>
+            <li><b class="font-semibold text-ink">用毫秒计数做超时判断时，别写 <code class="icode">if (millis() &gt; start + ms)</code>。</b>计数溢出回绕时会误判。正确写法是 <code class="icode">if ((uint32_t)(millis() - start) &gt;= ms)</code>——无符号相减在回绕时依然得到正确的时间差，这是处理 <code class="icode">millis()</code> 回绕的标准手法。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一句话总结这一节</div>
+            <p><b>「芯片没跑起来之前要的延时，只能靠 RC；芯片跑起来之后的计时，优先用定时器；RC 真正不可替代的价值在于整形和抗干扰，而不在于计时。」</b>把这句话记住，以后设计电路时就不会在"该用电阻电容还是该写代码"这个问题上犹豫了。</p>
+          </div>
+        </section>
+
+<!-- ---------------------------- 5. 常见坑 ---------------------------- -->
+        <section class="mt-12">
+          <h2 id="sec-pitfall" class="text-xl font-semibold">新手最容易踩的坑</h2>
+
+          <p class="mt-4">下面这 9 条，每一条都是「听起来很有道理，但结果是错的」。<b class="font-semibold text-ink">建议你对照自己的理解过一遍</b>——如果某一条你原本的想法是"错误认知"那一栏，现在就是纠正它的最好时机。</p>
+
+          <div class="card card-pad mt-5">
+            <p><span class="badge badge-hard">坑 1</span> <b class="font-semibold text-ink">错误认知：电容电压不能突变，所以换路瞬间电路里什么都没有变。</b></p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>为什么错：</b>换路定则只管两个量——<b>电容电压 u<sub>C</sub> 和电感电流 i<sub>L</sub></b>。流过电容的电流、电感两端的电压、电阻上的电压和电流，全都可以在换路瞬间跳变。因为它们分别对应 u 的导数和 i 的导数，连续函数的导数完全可以不连续。</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>正确做法：</b>算初始值时，先把 u<sub>C</sub>(0<sup>−</sup>) 抄成 u<sub>C</sub>(0<sup>+</sup>)，然后<b>重新解 0<sup>+</sup> 时刻的电阻电路</b>去求其他量，不要想当然地认为它们也都连续。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p><span class="badge badge-hard">坑 2</span> <b class="font-semibold text-ink">错误认知：τ = RC，R 就是电路图上离电容最近的那个电阻。</b></p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>为什么错：</b>τ 里的 R 必须是从储能元件两端看进去的<b>等效电阻</b>。第三节例题三就是活例子：R<sub>1</sub> = 10kΩ 和 R<sub>2</sub> = 10kΩ 在图上离电容的距离差不多，但正确结果是 <code class="icode">R<sub>eq</sub> = R<sub>1</sub>∥R<sub>2</sub> = 5kΩ</code>，用错会差 119mV。</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>正确做法：</b>背下这句话——<b>「电压源短路、电流源开路，从储能元件两端看进去求等效电阻」</b>。这是戴维宁定理的直接应用，也是 τ 唯一正确的算法。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p><span class="badge badge-hard">坑 3</span> <b class="font-semibold text-ink">错误认知：5τ 之后电容就充满了，所有场合等 5τ 就行。</b></p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>为什么错：</b>5τ 只到 99.33%，还差 0.67%。对 LED 呼吸灯这种应用完全够用，但对 12 位 ADC（1LSB = 0.024%）来说差了将近 30 倍——按 5τ 算出来的采样时间会导致读数系统性偏低。</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>正确做法：</b>把 5τ 理解成<b>「误差小于 1% 的承诺」</b>，然后按精度要求反算：1/4 LSB 需要 9.7τ，1% 需要 4.6τ，5% 需要 3τ。<b>精度要求一变，τ 的个数就得跟着变。</b></p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p><span class="badge badge-hard">坑 4</span> <b class="font-semibold text-ink">错误认知：去耦电容越大越好，用一颗 10µF 代替所有 0.1µF 更省事。</b></p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>为什么错：</b>电容的阻抗不是单调下降的。100nF 配 5nH 的回路电感，自谐振频率约 7.1MHz，超过这个频率它就开始<b>呈感性</b>，容量再大也没用。而且真正决定电压尖峰的是回路电感：<code class="icode">ΔV = L × di/dt</code>——电容放在 10mm 外，同样的 100nF，尖峰是贴在引脚旁时的 5 倍（0.5V vs 0.1V）。</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>正确做法：</b>一颗 VDD 引脚配一颗 100nF，<b>就贴在引脚旁，地过孔就近打</b>；电源入口再放一颗 10µF 管微秒级的大电流。小电容管高频、大电容管低频，两者是分工，不是替代。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p><span class="badge badge-hard">坑 5</span> <b class="font-semibold text-ink">错误认知：按键消抖电容越大越保险，反正也就是慢一点。</b></p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>为什么错：</b>两个问题。① 电容越大，从"按下"到"程序认账"的延时越长，快速连按会被吃掉；② 更危险的是按下瞬间——电容被按键触点<b>直接短路到地</b>，峰值放电电流可能是几十安培，长期会把触点烧蚀掉（按键越用越不灵）。</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>正确做法：</b>先算再选。用 <code class="icode">t = τ × ln(VDD/(VDD − V<sub>IH</sub>))</code> 让充电时间比抖动窗口长 1.5~2 倍（例题二给出的 10kΩ + 1µF 对 5ms 抖动有 1.9 倍余量），同时<b>在按键回路串一个 1kΩ 限流电阻</b>把放电电流压到毫安级。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p><span class="badge badge-hard">坑 6</span> <b class="font-semibold text-ink">错误认知：用 RC 电路做精确计时，比如给串口产生波特率、给采样做精确定时。</b></p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>为什么错：</b>RC 的时间精度取决于两个元件的容差，而且是<b>误差相乘</b>：普通电阻 ±1%、X7R 电容 ±10%，再叠加温度系数（X7R 可达 ±15%）、直流偏压效应（大容量 MLCC 在额定电压下容量可能掉 20~50%）、老化，合起来轻松超过 ±30%。而晶振的精度是 ±20~50ppm（0.002~0.005%），差了<b>四个数量级</b>。</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>正确做法：</b>RC 只用来做"毫秒级、允许百分之几十误差"的延时和整形（复位、消抖、上电时序）。凡是要求准确的时间，一律交给晶振 + 定时器。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p><span class="badge badge-hard">坑 7</span> <b class="font-semibold text-ink">错误认知：PWM 加一级 RC 滤出来的电压，可以直接驱动后面的电路。</b></p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>为什么错：</b>RC 的输出阻抗就是那个 R。如果后级接一个 10kΩ 的负载，而 R 也是 10kΩ，输出会被分压<b>直接砍掉一半</b>（空载 1.65V 变成 0.825V），而且纹波特性也跟着变。</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>正确做法：</b>在 RC 后面加一级<b>运放电压跟随器</b>，把后级的高阻输入变成一个几乎不吃电流的负载。<b>或者干脆承认它只是个"参考电压源"，只接高阻输入（比如 ADC 引脚、比较器输入）。</b></p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p><span class="badge badge-hard">坑 8</span> <b class="font-semibold text-ink">错误认知：继电器线圈并个续流二极管就万事大吉，不用管释放速度。</b></p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>为什么错：</b>不并二极管当然更糟（<code class="icode">u = L·di/dt</code> 能把几十毫安的电流变化放大成上千伏，三极管必炸），但并了二极管之后，电流在"线圈 + 二极管"的小回路里慢慢衰减，释放时间被拖长到 2.3τ（例题四是 3.3ms）。频繁通断时，触点"拖泥带水"会显著缩短寿命。</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>正确做法：</b>理解取舍——<b>用更高的电压应力换更快的动作速度</b>。二极管串一个等于线圈电阻 1~2 倍的电阻（例题里用 100Ω），释放时间从 3.3ms 缩到 1.35ms，三极管承受的峰值电压 17.1V 仍在 25V 耐压之内。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p><span class="badge badge-hard">坑 9</span> <b class="font-semibold text-ink">错误认知：复位电路那两个元件可以省掉，反正我可以写个软件延时等着。</b></p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>为什么错：</b>芯片被复位按住的时候，<b>一行代码都还没有执行</b>。软件延时是"跑起来之后"的工具，它无法解决"跑起来之前"的问题。而且老芯片（如 51 系列）根本没有内部 POR，没外部 RC 就是彻底不启动。</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>正确做法：</b>记牢那句分工——<b>芯片没跑起来之前要的延时只能靠 RC；跑起来之后的计时优先用定时器。</b>复位电路的两个元件（10kΩ + 100nF 起步，慢启动电源用 1µF）是必须留的。</p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 6. 小结 ---------------------------- -->
+        <section class="mt-12">
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自测</h2>
+
+          <p class="mt-4">这一篇只讲了一个式子：<b class="font-semibold text-ink">τ = RC</b>。但它撑起了单片机上最常用的一批"模拟小电路"。下面把要点压缩成一张清单，然后做几道题检验一下。</p>
+
+          <h3 class="mt-7 text-base font-semibold">要点清单</h3>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">电容：</b>q = Cu，储能 <code class="icode">½Cu²</code>，两端电压不能突变。直流稳态时电流为 0，相当于<b>断路</b>。</li>
+            <li><b class="font-semibold text-ink">电感：</b>ψ = Li，储能 <code class="icode">½Li²</code>，流过的电流不能突变。直流稳态时电压为 0，相当于<b>短路</b>（但电流可以很大）。</li>
+            <li><b class="font-semibold text-ink">换路定则只管两个量：</b>u<sub>C</sub>(0<sup>+</sup>) = u<sub>C</sub>(0<sup>−</sup>)、i<sub>L</sub>(0<sup>+</sup>) = i<sub>L</sub>(0<sup>−</sup>)。其他量允许突变。</li>
+            <li><b class="font-semibold text-ink">初始值三步：</b>0<sup>−</sup> 稳态求 u<sub>C</sub> 或 i<sub>L</sub> → 套换路定则 → 0<sup>+</sup> 电路里把电容换成电压源、电感换成电流源，再解电阻电路。</li>
+            <li><b class="font-semibold text-ink">三要素法：</b><code class="icode">f(t) = f(∞) + [f(0<sup>+</sup>) − f(∞)] × e<sup>−t/τ</sup></code>。零输入、零状态都只是它的特例。</li>
+            <li><b class="font-semibold text-ink">τ 的算法：</b>电容看 <code class="icode">τ = R<sub>eq</sub>·C</code>，电感看 <code class="icode">τ = L/R<sub>eq</sub></code>。R<sub>eq</sub> 是"独立源置零后从储能元件两端看进去"的等效电阻。</li>
+            <li><b class="font-semibold text-ink">必背百分比：</b>1τ = 63.2%，2τ = 86.5%，3τ = 95.0%，5τ = 99.3%；反过来，到 99% 要 4.605τ。</li>
+            <li><b class="font-semibold text-ink">充电效率永远是 50%：</b>电源给出的能量有一半必定在电阻上变成热，与 R 大小无关。</li>
+            <li><b class="font-semibold text-ink">微分与积分：</b>输出取在 R 上且 τ ≪ 脉宽就是微分（尖脉冲）；输出取在 C 上且 τ ≫ 脉宽就是积分（三角波、取平均值）。</li>
+            <li><b class="font-semibold text-ink">板级对应关系：</b>复位 8kΩ×100nF → 0.29ms；按键 10kΩ+1µF → 9.3ms 盖住 5ms 抖动；去耦电容靠引脚（ΔV = L·di/dt）；ADC 建立时间 = (R<sub>ADC</sub>+R<sub>源</sub>)·C<sub>ADC</sub>·9.7；PWM 滤波纹波 ∝ T/τ。</li>
+            <li><b class="font-semibold text-ink">最后的分工：</b>芯片跑起来之前要的延时只能靠 RC，跑起来之后的计时优先用定时器，RC 真正不可替代的价值是整形与抗干扰。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">自测题（答案附在每题下方）</h3>
+
+          <div class="card card-pad mt-4">
+            <p><b class="font-semibold text-ink">Q1.</b> 一个 100nF 的电容充到 5V，储存了多少能量？如果它通过 10kΩ 电阻放电，多长时间电压会掉到 1V 以下？</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>储能 <code class="icode">w = ½Cu² = 0.5 × 100nF × 25 = 1.25µJ</code>。放电时间常数 τ = 10kΩ × 100nF = 1ms。从 5V 掉到 1V 是降到原来的 20%：<code class="icode">e<sup>−t/τ</sup> = 0.2 → t = 1.609τ = 1.61ms</code>。（注意：从 5V 掉到 2.5V 是降到 50%，需要 0.693τ = 0.69ms，两个数不要记混。）</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p><b class="font-semibold text-ink">Q2.</b> 一个电容已经充到 3V，t = 0 时被接入一个回路：6V 电源经 2kΩ 电阻接到它两端，已知该回路 τ = 4ms。写出 u<sub>C</sub>(t)，并求 t = 4ms 时的电压。</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>三要素：u<sub>C</sub>(0<sup>+</sup>) = 3V、u<sub>C</sub>(∞) = 6V、τ = 4ms。所以 <code class="icode">u<sub>C</sub>(t) = 6 + (3 − 6)e<sup>−t/4ms</sup> = 6 − 3e<sup>−t/4ms</sup></code> V。t = 4ms 时正好 1τ：<code class="icode">u<sub>C</sub> = 6 − 3 × 0.3679 = 4.896V</code>。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p><b class="font-semibold text-ink">Q3.</b> 12V 电源经 R<sub>1</sub> = 6kΩ 接到节点 A，节点 A 另有 R<sub>2</sub> = 3kΩ 到地，C = 2µF 接在 A 与地之间且初始电压为 0。求 τ、稳态值和 5τ 时的电压。</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>稳态时电容断路，A 点就是分压：<code class="icode">u<sub>C</sub>(∞) = 12 × 3/(6+3) = 4V</code>。求 τ 时把 12V 电源短路，从电容两端看进去 R<sub>1</sub> 和 R<sub>2</sub> 并联：<code class="icode">R<sub>eq</sub> = 6k∥3k = 2kΩ</code>，<code class="icode">τ = 2kΩ × 2µF = 4ms</code>。5τ = 20ms 时：<code class="icode">u<sub>C</sub> = 4 × 0.9933 = 3.973V</code>。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p><b class="font-semibold text-ink">Q4.</b> 为什么说 100nF 的去耦电容"不能当小电池用"？请用数量级说明。</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>3.3V 下它只存 0.545µJ 的能量。若允许电源跌落 5%（0.165V），可用的电荷只有 <code class="icode">ΔQ = C·ΔV = 16.5nC</code>，按 50mA 的电流缺口算只能顶 <code class="icode">16.5nC / 50mA = 0.33µs</code>。所以它管的是"纳秒到几百纳秒"的开关尖峰；再长的时间尺度必须由 10µF 和稳压器接管。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p><b class="font-semibold text-ink">Q5.</b> 某按键抖动时间 8ms，用的是 STM32 内部 40kΩ 上拉，V<sub>DD</sub> = 3.3V、V<sub>IH</sub> = 2.0V。应该选多大的消抖电容？</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>先算需要的时间常数：<code class="icode">t = τ × ln(3.3/(3.3−2.0)) = 0.9316τ ≥ 8ms → τ ≥ 8.59ms</code>。再算电容：<code class="icode">C ≥ 8.59ms / 40kΩ = 215nF</code>。220nF 只是刚刚够（τ = 8.8ms，t = 8.2ms，余量仅 2.5%），<b>建议取 470nF</b>（τ = 18.8ms，t = 17.5ms，余量 2.2 倍）。别忘了在按键回路串 1kΩ 限流电阻保护触点。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p><b class="font-semibold text-ink">Q6.</b> 微分电路和积分电路怎么区分？各自把输出取在哪个元件上？</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>看 τ 和信号脉宽的关系。<b>微分：</b>输出取在<b>电阻</b>两端，要求 τ ≪ 脉宽（一般 τ ≤ 0.1 倍脉宽），方波进、正负尖脉冲出，因为电容在半个周期内就充满/放完了。<b>积分：</b>输出取在<b>电容</b>两端，要求 τ ≫ 脉宽（一般 ≥ 10 倍），方波进、三角波出，因为电容在半个周期内只充了一点点，近似线性。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p><b class="font-semibold text-ink">Q7.</b> 同样是 100nF 的去耦电容，放在芯片引脚旁 2mm 处和放在 10mm 处，差别有多大？为什么？</p>
+            <p class="mt-2 text-[13px] leading-relaxed text-muted"><b>答：</b>差别来自回路的寄生电感（约 1nH/mm，按典型值估算）。2mm 对应约 2nH，10mm 对应约 10nH。按 <code class="icode">ΔV = L × di/dt</code>，若电流在 2ns 内变化 100mA（di/dt = 5×10⁷ A/s），两者分别产生 <b>0.10V 和 0.50V</b> 的电压尖峰，差 5 倍。0.5V 的跌落已经接近 15% 的电源波动，可能导致欠压复位、ADC 跳动、通信丢包。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+
+          <div class="mini-step mt-4">
+            <span class="step-num">1</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">测一条真实的充电曲线</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">拿 R = 10kΩ 和 C = 100nF 搭一个充电回路（用方波当激励，或者手动按开关），用示波器（或 LTspice / Multisim 仿真）抓到电容电压波形，量出 1τ 时刻的电压，验证它等于稳态值的 63.2%。然后把 R 换成 4.7kΩ，看曲线是不是变快了 2.1 倍。</p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-4">
+            <span class="step-num">2</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">给开发板上的按键做一次真实的消抖实验</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">先写一段不带任何消抖的程序，统计一次按下被计到多少次，记下这个数字。然后按例题二算出的参数（10kΩ 外部上拉 + 1µF + 1kΩ 串联电阻）改硬件，再跑一遍同样的程序。用示波器同时观察引脚电压的上升沿，验证它爬过 2.0V 的时间确实是 9ms 左右。</p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-4">
+            <span class="step-num">3</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">用万用表验证 PWM + RC 的"取平均"</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">配置一个 20kHz 的 PWM，经 10kΩ + 1µF 滤波。分别在占空比 25%、50%、75% 时用万用表测输出电压，和 <code class="icode">D × 3.3V</code> 对比，画一张"占空比—电压"曲线看线性度。然后在输出端并一个 10kΩ 负载电阻，观察电压掉多少，体会一下为什么必须加跟随器。</p>
+            </div>
+          </div>
+
+          <div class="mini-step mt-4">
+            <span class="step-num">4</span>
+            <div>
+              <h3 class="text-[15px] font-semibold">观察继电器的续流过程</h3>
+              <p class="mt-1.5 text-[13px] leading-relaxed text-muted">用三极管驱动一个 5V 继电器，先只加二极管，用示波器看集电极电压的下降沿，量出电流衰减到 10% 所需的时间（应该在 3ms 量级）。然后把二极管换成"二极管 + 100Ω 串联"，再测一次，并检查集电极的峰值电压有没有超过三极管的耐压。</p>
+            </div>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">下一篇</div>
+            <p>到这里，你已经能用 τ = RC 解释板子上一大半的"模拟小电路"了。但还有一个问题没回答：<b>如果激励不是直流，而是正弦波，电容和电感会怎么表现？</b>答案会引出阻抗、相量、截止频率、滤波器——那就是下一篇<a class="text-brand-600 dark:text-brand-300" href="ee-circuit-ac.html">正弦稳态与频域入门</a>的内容。你会发现，本页讲的 τ 和那里的截止频率 <code class="icode">f<sub>c</sub> = 1/(2πτ)</code> 说的是同一件事。</p>
+          </div>
+        </section>
+
+<!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="ee-circuit-theorems.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">电路定理：叠加、戴维宁与诺顿</p>
+          </a>
+          <a href="ee-circuit-ac.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：进入正弦稳态 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">正弦稳态与频域入门</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

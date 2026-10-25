@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>蓝牙串口通信 - McuStudy</title>
+  <meta name="description" content="ESP32 蓝牙教程：经典蓝牙 BluetoothSerial 与 BLE 的区别与选型、SerialBT.begin 初始化、手机蓝牙串口助手收发数据、通过手机控制板载 LED 的完整代码，以及经典蓝牙与 WiFi 共用射频互相干扰的原因。">
+  <meta name="keywords" content="ESP32 蓝牙,BluetoothSerial,SerialBT,BLE,经典蓝牙,蓝牙串口助手,ESP32 控制 LED,蓝牙 WiFi 干扰,SPP">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="esp32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../esp32.html" class="hover:text-brand-600 dark:hover:text-brand-300">ESP32</a>
+          <span>/</span>
+          <span class="text-muted">教程正文</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          蓝牙串口通信
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          不用路由器、不用接线，直接用手机控制板子上的 LED。
+          讲清楚经典蓝牙和 BLE 到底该选哪个、为什么 iPhone 用不了经典蓝牙、
+          <code class="icode">SerialBT</code> 和 <code class="icode">Serial</code>
+          到底差在哪、以及蓝牙和 Wi-Fi 为什么不能同时用。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="stat-pill">芯片：<b>ESP32-WROOM-32</b></span>
+          <span class="stat-pill">协议：<b>经典蓝牙 SPP</b></span>
+          <span class="stat-pill">阅读约 <b>16</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>蓝牙是 ESP32 区别于另外两个平台的重要能力。先用基础把「串口」这个概念接上，再理解它多出来的那一层。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-cpp.html">C++ 与 Arduino API 基础</a> —— 蓝牙库里那些类、成员函数与回调该怎么写</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-compare.html">从 51 / STM32 到 ESP32</a> —— 双核与协议栈，为什么它能同时跑蓝牙和你的主循环</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-arduino.html">Arduino 框架与 ESP-IDF</a> —— 蓝牙库属于哪一层、为什么装好就能直接用</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-classic-ble">经典蓝牙与 BLE 怎么选</a>
+          <a class="toc-link is-sub" href="#sub-api">SerialBT 是什么</a>
+          <a class="toc-link is-sub" href="#sub-rf">蓝牙和 WiFi 为什么互相干扰</a>
+          <a class="toc-link is-sub" href="#sub-app">手机端要用什么 App</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link is-sub" href="#sub-circuit">接线表与准备清单</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-classic-ble">经典蓝牙与 BLE 怎么选</a>
+            <a class="toc-link is-sub" href="#sub-api">SerialBT 是什么</a>
+            <a class="toc-link is-sub" href="#sub-rf">蓝牙和 WiFi 为什么互相干扰</a>
+            <a class="toc-link is-sub" href="#sub-app">手机端要用什么 App</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link is-sub" href="#sub-circuit">接线表与准备清单</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            前面三篇里，你要么连着 USB 线看串口，要么得先有路由器才能通信。
+            蓝牙解决的是第三种场景：<b class="font-semibold text-ink">设备完全独立，
+            人在几米之内，拿手机直接对话</b>。
+            做智能小车调试、毕设演示、现场答辩，这一招特别有用——
+            不用抱着笔记本，掏出手机就能改参数、开关设备。
+          </p>
+          <p class="mt-3">
+            ESP32 在这件事上有个先天优势：<b class="font-semibold text-ink">它同时支持经典蓝牙和 BLE</b>，
+            而且芯片里只做了<b class="font-semibold text-ink">一套 2.4GHz 射频</b>，
+            蓝牙和 Wi-Fi 是靠分时复用共用它的。
+            这一个硬件事实，决定了本页后面所有的使用限制和坑。
+          </p>
+
+          <h3 id="sub-classic-ble" class="mt-7 text-base font-semibold">经典蓝牙与 BLE 怎么选</h3>
+          <p class="mt-3">
+            蓝牙这个名字下面其实住着两套几乎不相干的技术。它们只是都叫蓝牙、都用 2.4GHz，
+            协议栈、应用场景、能连的设备完全不同：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th>经典蓝牙（BR/EDR，用 SPP 协议）</th>
+                  <th>BLE（低功耗蓝牙，GATT 协议）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>ESP32 库</td>
+                  <td class="font-mono text-xs">BluetoothSerial</td>
+                  <td class="font-mono text-xs">BLEDevice / BLEServer / BLECharacteristic</td>
+                </tr>
+                <tr>
+                  <td>核心概念</td>
+                  <td>串口（SPP）——建立一条「虚拟串口线」</td>
+                  <td>服务（Service）与特征值（Characteristic）</td>
+                </tr>
+                <tr>
+                  <td>安卓手机</td>
+                  <td><b class="font-semibold text-ink">支持</b>，任意蓝牙串口 App 直接用</td>
+                  <td>支持，需要支持 BLE 的 App（nRF Connect 等）</td>
+                </tr>
+                <tr>
+                  <td>iPhone / iPad</td>
+                  <td><b class="font-semibold text-ink">不支持</b>（苹果不开放 SPP）</td>
+                  <td><b class="font-semibold text-ink">支持</b>，这是 iOS 上唯一的办法</td>
+                </tr>
+                <tr>
+                  <td>编程难度</td>
+                  <td>极低，用法和 <code class="icode">Serial</code> 几乎一样</td>
+                  <td>中等，要定义 UUID、服务、特征值、回调</td>
+                </tr>
+                <tr>
+                  <td>功耗</td>
+                  <td>高（几十 mA），不适合电池设备</td>
+                  <td>低（广播时微安级），纽扣电池能撑几个月</td>
+                </tr>
+                <tr>
+                  <td>传输速率</td>
+                  <td>高，每秒几十 KB 很轻松</td>
+                  <td>低，一次最多 20 字节左右（默认 MTU）</td>
+                </tr>
+                <tr>
+                  <td>典型用途</td>
+                  <td>调试终端、小车遥控、批量传数据</td>
+                  <td>手环、传感器节点、手机配网、iOS 设备</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            选型其实只需要回答一个问题：
+            <b class="font-semibold text-ink">你要不要支持 iPhone？</b>
+            要，就只能用 BLE；只在安卓上做调试，经典蓝牙能让你十分钟就出成果。
+            本页的完整示例用经典蓝牙，因为它的代码最像串口、
+            最适合第一次接触蓝牙的人建立直觉；
+            BLE 的入门门槛主要在于概念多，理解了 GATT 之后代码量并不大。
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">一个必须提前知道的坑</div>
+            <p>
+              很多同学照着网上的教程写好了经典蓝牙，用自己的安卓手机跑通了，
+              答辩时老师的 iPhone 一搜——<b class="font-semibold">根本搜不到设备</b>。
+              这不是程序错了，是 iPhone 系统层面就不支持经典蓝牙的 SPP 协议。
+              如果你的作品要适配所有人，<b class="font-semibold">直接上 BLE。</b>
+            </p>
+          </div>
+
+          <h3 id="sub-api" class="mt-7 text-base font-semibold">SerialBT 是什么</h3>
+          <p class="mt-3">
+            ESP32 的经典蓝牙库把 SPP 协议封装成了一个叫
+            <code class="icode">BluetoothSerial</code> 的类。
+            它的高明之处在于<b class="font-semibold text-ink">继承自 Arduino 的 Stream 类</b>，
+            也就是和 <code class="icode">Serial</code> 完全同一套接口：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>功能</th>
+                  <th>USB 串口</th>
+                  <th>蓝牙串口</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>初始化</td><td class="font-mono text-xs">Serial.begin(115200)</td><td class="font-mono text-xs">SerialBT.begin("名字")</td><td>蓝牙不需要波特率</td></tr>
+                <tr><td>有没有数据</td><td class="font-mono text-xs">Serial.available()</td><td class="font-mono text-xs">SerialBT.available()</td><td>返回可读字节数</td></tr>
+                <tr><td>读一个字节</td><td class="font-mono text-xs">Serial.read()</td><td class="font-mono text-xs">SerialBT.read()</td><td>读不到返回 -1</td></tr>
+                <tr><td>发一行</td><td class="font-mono text-xs">Serial.println("Hi")</td><td class="font-mono text-xs">SerialBT.println("Hi")</td><td>自动补 \r\n</td></tr>
+                <tr><td>有没有人连着</td><td>—</td><td class="font-mono text-xs">SerialBT.hasClient()</td><td>蓝牙独有，用来判断连接状态</td></tr>
+                <tr><td>断开连接</td><td>—</td><td class="font-mono text-xs">SerialBT.disconnect()</td><td>主动踢掉手机</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            正因为接口一致，工程的常见做法是
+            <b class="font-semibold text-ink">同时开两个「终端」</b>：
+            电脑上的串口用来看日志（调试用），手机上的蓝牙用来做交互（演示用）。
+            你写的业务逻辑只需要处理一次输入，把两个来源都喂给同一个解析函数就行——
+            本页的代码正是这么组织的。
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">蓝牙串口没有「波特率」这个概念</div>
+            <p>
+              已经习惯了 <code class="icode">Serial.begin(115200)</code> 的同学，
+              写 <code class="icode">SerialBT.begin(115200)</code> 是编译不过的——
+              <code class="icode">begin()</code> 的参数是设备名，不是波特率。
+              蓝牙链路的速率是协议自动协商的，双方不需要事先约定。
+              有些手机 App 里也有「波特率」选项，那是给连老式 HC-05 模块用的，
+              连 ESP32 时<b class="font-semibold">随便选一个都不影响通信</b>。
+            </p>
+          </div>
+
+          <h3 id="sub-rf" class="mt-7 text-base font-semibold">蓝牙和 WiFi 为什么互相干扰</h3>
+          <p class="mt-3">
+            这是 ESP32 上一个非常反直觉、但必须理解的问题。
+            蓝牙和 Wi-Fi 都工作在 2.4GHz 的 ISM 频段——
+            Wi-Fi 的信道 1~13 覆盖 2401~2483MHz，蓝牙则在这个范围内
+            以每秒上千次的频率在 79 个 1MHz 宽的窄带上跳来跳去（跳频）。
+            两者<b class="font-semibold text-ink">在物理上是同一段频谱</b>。
+          </p>
+          <p class="mt-3">
+            而 ESP32 里只有<b class="font-semibold text-ink">一套射频前端和一个天线</b>。
+            所以当蓝牙和 Wi-Fi 都要用时，芯片内部的共存机制
+            （coexistence，靠时分复用 + 优先级仲裁）必须在两者之间来回切换：
+            这一刻收 Wi-Fi 的包，下一刻跳到蓝牙频点去收发。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="一套射频，两个用户：共存机制的代价">
+            <pre><code>  理想情况（只开一个）              同时开两个（共存仲裁）
+
+  ┌──────────────┐                 ┌──────────────┐
+  │  2.4GHz 射频  │ 100% 时间归它  │  2.4GHz 射频  │ 时间被切成小片
+  └──────┬───────┘                 └──┬────────┬──┘
+         │                            │        │
+     ┌───┴───┐                  ┌─────┴──┐  ┌──┴─────┐
+     │ Wi-Fi │                  │ Wi-Fi  │  │ 蓝牙    │
+     └───────┘                  └────────┘  └────────┘
+     吞吐高、延迟稳               各自只能分到一部分时间片
+
+  实际表现：
+   · Wi-Fi 吞吐量下降（可能掉一半以上）
+   · 蓝牙数据出现几十到几百毫秒的突发延迟
+   · 极端情况下蓝牙直接断连，或者 Wi-Fi 频繁掉线重连
+   · 经典蓝牙的干扰比 BLE 更严重（它占用的时间片更多）
+
+  结论与对策：
+   · 只做蓝牙调试 -> 不要在代码里调用任何 WiFi.begin()，
+     甚至不要 #include &lt;WiFi.h&gt;，射频资源全给蓝牙，最稳
+   · 必须两个都用 -> 优先用 BLE（占用时间片少得多）
+   · 两个都要且数据量大 -> 错峰：连 Wi-Fi 传完数据后
+     WiFi.disconnect(true) 关掉射频，再启用蓝牙</code></pre>
+          </div>
+
+          <p class="mt-4">
+            这份代价清单解释了一个很常见的现象：
+            同学把前一篇的 Wi-Fi 代码和这一篇的蓝牙代码合到一个工程里，
+            结果<b class="font-semibold text-ink">两边的表现都变差了</b>——
+            蓝牙发一条命令要等半秒才响应，Wi-Fi 也开始间歇性掉线。
+            代码本身没错，是射频在打架。
+          </p>
+
+          <h3 id="sub-app" class="mt-7 text-base font-semibold">手机端要用什么 App</h3>
+          <p class="mt-3">
+            ESP32 这边负责「提供一条串口」，手机那边需要一个能打开这条串口的 App。
+            这类 App 的功能都很朴素：列出设备 → 点一下连接 → 一个输入框和一个接收区。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>平台</th>
+                  <th>推荐 App</th>
+                  <th>适用协议</th>
+                  <th>使用要点</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>安卓</td>
+                  <td>Serial Bluetooth Terminal（中文常叫「蓝牙串口助手」）</td>
+                  <td>经典蓝牙 SPP</td>
+                  <td>连接后长按输入框可勾选「发送新行」，本页的 <code class="icode">p128</code> 这类命令需要它</td>
+                </tr>
+                <tr>
+                  <td>安卓</td>
+                  <td>SPP 串口助手 / 各类「蓝牙调试助手」</td>
+                  <td>经典蓝牙 SPP</td>
+                  <td>功能类似，注意在设置里把发送结尾设为 <code class="icode">\r\n</code></td>
+                </tr>
+                <tr>
+                  <td>安卓 / iOS</td>
+                  <td>nRF Connect for Mobile</td>
+                  <td>BLE</td>
+                  <td>BLE 调试的事实标准，能看服务与特征值的原始数据</td>
+                </tr>
+                <tr>
+                  <td>iOS</td>
+                  <td>LightBlue</td>
+                  <td>BLE</td>
+                  <td>界面友好，适合第一次理解 GATT 结构</td>
+                </tr>
+                <tr>
+                  <td>iOS</td>
+                  <td>—（无经典蓝牙方案）</td>
+                  <td>—</td>
+                  <td>iOS 上不存在能连 ESP32 经典蓝牙串口的 App</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            还有两个概念要先分清，否则后面一定会卡住：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>
+              <b class="font-semibold text-ink">配对 ≠ 连接。</b>
+              在手机系统设置的蓝牙列表里点一下设备，只是完成了「配对」，
+              系统记住这个设备了。要真正收发数据，
+              还必须<b class="font-semibold">在串口 App 里再点一次「连接」</b>。
+              很多人卡在这一步：明明系统显示「已配对」，但板子一直收不到数据。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">配对码通常不需要输。</b>
+              ESP32 的 SPP 默认采用「Just Works」方式，大多数安卓手机不弹窗就直接配上了。
+              如果弹了配对码输入框，试 <code class="icode">1234</code> 或 <code class="icode">0000</code>。
+            </li>
+          </ul>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            这一篇和 Wi-Fi 那篇一样，<b class="font-semibold text-ink">核心功能零接线</b>——
+            天线和射频都在芯片里，用板载 LED 就能完成全部实验。
+            可选的外接 LED 只是为了让现象看得更清楚。
+          </p>
+
+          <h3 id="sub-circuit" class="mt-7 text-base font-semibold">接线表与准备清单</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对象</th>
+                  <th>引脚 / 规格</th>
+                  <th>连接到</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>ESP32 开发板</td>
+                  <td class="font-mono text-xs">USB 母座</td>
+                  <td>电脑 USB 口</td>
+                  <td>只用来供电和看日志，蓝牙通信本身不依赖电脑</td>
+                </tr>
+                <tr>
+                  <td>板载天线</td>
+                  <td class="font-mono text-xs">模组 PCB 天线</td>
+                  <td>—</td>
+                  <td>在金属屏蔽罩那一侧，<b class="font-semibold">天线附近别放金属物、别用手捏</b></td>
+                </tr>
+                <tr>
+                  <td>板载 LED</td>
+                  <td class="font-mono text-xs">GPIO2</td>
+                  <td>—</td>
+                  <td>用来指示蓝牙连接状态和手机下发的命令，不需要接线</td>
+                </tr>
+                <tr>
+                  <td>外接 LED（可选）</td>
+                  <td class="font-mono text-xs">GPIO16</td>
+                  <td>LED 正极；负极经 220Ω 接 GND</td>
+                  <td>把代码里的 <code class="icode">PIN_LED</code> 从 2 改成 16 即可</td>
+                </tr>
+                <tr>
+                  <td>限流电阻</td>
+                  <td class="font-mono text-xs">220Ω ~ 1kΩ</td>
+                  <td>串在 LED 与 GND 之间</td>
+                  <td>不接电阻会烧 LED，也可能拉坏 GPIO</td>
+                </tr>
+                <tr>
+                  <td>供电</td>
+                  <td class="font-mono text-xs">5V / ≥ 500mA</td>
+                  <td>USB 口</td>
+                  <td>蓝牙发射虽然比 Wi-Fi 省，劣质线材一样会导致掉电复位</td>
+                </tr>
+                <tr>
+                  <td>手机</td>
+                  <td class="font-mono text-xs">安卓 4.3 以上</td>
+                  <td>—</td>
+                  <td>iPhone 不支持经典蓝牙 SPP，只能走 BLE 方案</td>
+                </tr>
+                <tr>
+                  <td>手机 App</td>
+                  <td class="font-mono text-xs">蓝牙串口助手类</td>
+                  <td>—</td>
+                  <td>装好后记得开蓝牙、给定位权限（安卓扫描蓝牙需要）</td>
+                </tr>
+                <tr>
+                  <td>手机距离</td>
+                  <td class="font-mono text-xs">10 米以内</td>
+                  <td>—</td>
+                  <td>空旷处经典蓝牙可达 10m，隔墙会明显缩短</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">链路示意</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="手机 → ESP32 蓝牙链路与两路串口">
+            <pre><code>   ┌──────────────────────┐
+   │   手机                │
+   │  蓝牙串口助手 App      │
+   └──────────┬───────────┘
+              │  ① 系统蓝牙里先「配对」（只需一次）
+              │  ② 在 App 里点「连接」建立 SPP 链路
+              │  ③ App 输入框发送命令，接收区显示回传
+              │
+   ┌──────────┴───────────┐
+   │  ESP32-WROOM-32      │
+   │                      │
+   │   SerialBT  ←→ 同一个解析函数 ←→ Serial │
+   │   （蓝牙）                        （USB）│
+   └──────────┬───────────┘
+              │
+              │  ④ 板载 LED（GPIO2）随命令变化
+              │
+   ┌──────────┴───────────┐
+   │  电脑（USB）           │
+   │  串口监视器 115200     │
+   │  看日志、也能直接敲命令 │
+   └──────────────────────┘
+
+  两个「终端」同时在线的好处：
+   · 手机在几米外操作，像遥控器
+   · 电脑上的串口监视器同时看到全部日志，方便定位问题
+   · 电脑串口还能直接敲命令，手机没电时不影响调试
+
+  上电顺序（建议）：
+   1. 开发板插 USB，先看串口日志确认「已启动，等待手机连接」
+   2. 再打开手机蓝牙，搜索设备名 ESP32-LED-Ctrl
+   3. 先系统配对，再进 App 点连接
+   4. 连上瞬间，串口会打印「手机已连接」，手机端收到一条欢迎语</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">上电前必查</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>代码里<b class="font-semibold">没有</b> <code class="icode">WiFi.begin()</code>。蓝牙实验期间不要开 Wi-Fi，射频抢不过会互相拖累。</li>
+              <li>开发板型号必须带蓝牙。ESP32-S2 没有蓝牙，ESP32-C3 只有 BLE 没有经典蓝牙。</li>
+              <li>手机蓝牙和定位（位置信息）两个开关都打开，安卓扫描蓝牙设备依赖定位权限。</li>
+              <li>设备名只用英文、数字和连字符，不要用中文和空格，部分手机搜不到或显示乱码。</li>
+              <li>上传程序时手机先断开连接，否则串口可能被占用导致上传失败。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            一个文件就够。它实现了一套小型的命令协议：
+            单字符命令（<code class="icode">1</code> <code class="icode">0</code>
+            <code class="icode">t</code> <code class="icode">s</code>）
+            不带换行也能立刻生效，多字符命令（<code class="icode">p128</code>）需要以换行结束。
+            这样无论手机 App 有没有开「发送新行」，你都能马上玩起来。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="esp32-bt-led.ino —— 手机蓝牙控制板载 LED">
+            <pre><code>/* =====================================================================
+ *  esp32-bt-led.ino —— 用手机蓝牙串口控制板载 LED
+ *
+ *  功能：
+ *    1. 以经典蓝牙 SPP 方式对外提供一个串口，设备名 ESP32-LED-Ctrl
+ *    2. 手机 App 连接后可以开灯、关灯、翻转、调亮度、查状态
+ *    3. 电脑 USB 串口和手机蓝牙共用同一套命令解析，两个终端都能操作
+ *    4. 连接 / 断开都有日志和 LED 反馈
+ *
+ *  命令表：
+ *    1 / on        点亮 LED（恢复到记忆的亮度）
+ *    0 / off       熄灭 LED
+ *    t / toggle    翻转开关状态
+ *    p&lt;0-255&gt;      设置亮度，例如 p128、p255
+ *    s / status    查询当前状态
+ *    h / help      显示帮助
+ *
+ *  目标板：ESP32 Dev Module（ESP32-WROOM-32，必须带经典蓝牙）
+ *  核心版本：arduino-esp32 2.x（2.0.17 及同系列版本自带 BluetoothSerial 库）
+ *  波特率：115200
+ *
+ *  ⚠ 本程序刻意不包含 WiFi.h：蓝牙和 Wi-Fi 共用一套 2.4GHz 射频，
+ *    只开一个才能获得最稳定的效果。
+ * ===================================================================== */
+
+#include &lt;BluetoothSerial.h&gt;      /* 经典蓝牙库，ESP32 核心自带，无需安装 */
+
+/* 如果这块芯片根本没有经典蓝牙（例如 ESP32-S2 / ESP32-C3），
+ * 让编译在早期就报出人话，而不是丢一堆看不懂的链接错误 */
+#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
+#error "经典蓝牙未启用：请把开发板选为 ESP32 Dev Module，并确认核心为 2.x"
+#endif
+
+/* ---------------- 可调参数 ---------------- */
+#define DEVICE_NAME         "ESP32-LED-Ctrl"   /* 手机蓝牙列表里显示的名字 */
+#define PIN_LED             2                  /* 板载 LED；外接 LED 可改成 16 */
+
+#define LEDC_CHANNEL        0                  /* 用 LEDC 通道 0 做 PWM */
+#define LEDC_FREQ           5000               /* 5kHz，远高于人眼闪烁感知 */
+#define LEDC_RESOLUTION     8                  /* 8 位分辨率，占空比 0~255 */
+
+#define STATUS_INTERVAL_MS  10000UL            /* 连上后每 10 秒回一条心跳 */
+#define MAX_CMD_LEN         32                 /* 单条命令最长字符数，防止内存被撑爆 */
+
+/* ---------------- 全局状态 ---------------- */
+BluetoothSerial SerialBT;                      /* 蓝牙串口对象，用法和 Serial 一样 */
+
+bool     g_btReady     = false;    /* 蓝牙是否初始化成功 */
+bool     g_connected   = false;    /* 手机当前是否连着 */
+bool     g_ledOn       = false;    /* LED 开关状态 */
+uint8_t  g_brightness  = 128;      /* 记忆的亮度，开灯时用这个值 */
+String   g_rxBuf       = "";       /* 命令接收缓冲 */
+uint32_t g_lastStatusMs = 0;       /* 上次心跳时刻 */
+uint32_t g_cmdCount    = 0;        /* 累计收到的命令条数 */
+uint32_t g_connectCount = 0;       /* 手机连接过几次 */
+
+/* ---------------------------------------------------------------------
+ * 统一的回复函数：同一个消息同时发给手机和电脑
+ * 为什么要两边都发？调试时电脑串口监视器能完整看到"手机发了什么、
+ * 板子回了什么"，排查问题时不用来回切设备
+ * ------------------------------------------------------------------- */
+void reply(const String &amp;msg) {
+    Serial.print("[回复] ");
+    Serial.println(msg);                 /* 给电脑看 */
+    if (SerialBT.hasClient()) {
+        SerialBT.println(msg);           /* 给手机看，没人连着就别白发 */
+    }
+}
+
+/* ---------------------------------------------------------------------
+ * 把当前状态应用到 LED
+ * 注意引脚已经交给 LEDC 控制，之后只能用 ledcWrite，
+ * 不能再用 digitalWrite，两者会互相打架
+ * ------------------------------------------------------------------- */
+void applyLed() {
+    ledcWrite(LEDC_CHANNEL, g_ledOn ? g_brightness : 0);
+}
+
+/* ---------------------------------------------------------------------
+ * 拼一行状态字符串
+ * ------------------------------------------------------------------- */
+String statusLine() {
+    String s = "STATUS LED=";
+    s += (g_ledOn ? "ON" : "OFF");
+    s += " brightness=";
+    s += g_brightness;
+    s += " cmds=";
+    s += g_cmdCount;
+    s += " conns=";
+    s += g_connectCount;
+    s += " uptime=";
+    s += (millis() / 1000);
+    s += "s";
+    return s;
+}
+
+/* ---------------------------------------------------------------------
+ * 帮助信息
+ * ------------------------------------------------------------------- */
+void printHelp() {
+    reply("---- ESP32 蓝牙 LED 控制 ----");
+    reply("1 / on        点亮 LED");
+    reply("0 / off       熄灭 LED");
+    reply("t / toggle    翻转开关");
+    reply("p&lt;0-255&gt;      设置亮度，例如 p128");
+    reply("s / status    查询当前状态");
+    reply("h / help      显示本帮助");
+    reply("-----------------------------");
+}
+
+/* ---------------------------------------------------------------------
+ * 命令解析：这是整个程序的核心
+ * 把「协议解析」和「硬件动作」分开，是嵌入式代码保持可维护的关键：
+ * 将来换成继电器、电机、舵机，只需要改这里的分支，接收逻辑完全不动
+ * ------------------------------------------------------------------- */
+void handleCommand(String cmd) {
+    cmd.trim();              /* 去掉首尾的空格、回车、换行 */
+    cmd.toLowerCase();       /* 统一转小写，"ON" 和 "on" 都认 */
+
+    if (cmd.length() == 0) {
+        return;              /* 空命令（比如只按了一下回车）直接忽略 */
+    }
+
+    g_cmdCount++;
+
+    if (cmd == "1" || cmd == "on") {
+        g_ledOn = true;
+        applyLed();
+        reply("OK LED=ON brightness=" + String(g_brightness));
+
+    } else if (cmd == "0" || cmd == "off") {
+        g_ledOn = false;
+        applyLed();
+        reply("OK LED=OFF");
+
+    } else if (cmd == "t" || cmd == "toggle") {
+        g_ledOn = !g_ledOn;
+        applyLed();
+        reply(String("OK LED=") + (g_ledOn ? "ON" : "OFF"));
+
+    } else if (cmd == "s" || cmd == "status") {
+        reply(statusLine());
+
+    } else if (cmd == "h" || cmd == "help" || cmd == "?") {
+        printHelp();
+
+    } else if (cmd.startsWith("p")) {
+        /* 亮度命令：p 后面跟 0~255 的数字 */
+        int v = cmd.substring(1).toInt();
+        if (v &gt;= 0 &amp;&amp; v &lt;= 255) {
+            g_brightness = (uint8_t)v;
+            g_ledOn     = (v &gt; 0);       /* 设成 0 就等于关灯 */
+            applyLed();
+            reply("OK brightness=" + String(g_brightness));
+        } else {
+            reply("ERR 亮度必须在 0~255 之间");
+        }
+
+    } else {
+        reply("ERR 未知命令: " + cmd + "（发送 h 查看帮助）");
+    }
+}
+
+/* ---------------------------------------------------------------------
+ * 逐字符接收，负责把字节流切成一条条命令
+ *
+ * 设计要点：
+ *   · 收到 \n 或 \r 时，把缓冲区里的内容当作一条命令交出去
+ *   · 如果缓冲区是空的，且当前字符属于单字符命令，立刻执行
+ *     —— 这样手机 App 即使没开"发送新行"，按下 1 也能马上开灯
+ *   · 缓冲区有长度上限，手机端不停发不带换行的数据时不会耗尽内存
+ * ------------------------------------------------------------------- */
+void handleChar(char c) {
+    if (c == '\n' || c == '\r') {
+        if (g_rxBuf.length() &gt; 0) {
+            handleCommand(g_rxBuf);
+            g_rxBuf = "";
+        }
+        return;
+    }
+
+    /* 缓冲为空 + 是单字符命令 -> 立即执行，不用等换行 */
+    if (g_rxBuf.length() == 0) {
+        if (c == '1' || c == '0' || c == 't' || c == 's' || c == 'h' || c == '?') {
+            handleCommand(String(c));
+            return;
+        }
+    }
+
+    if (g_rxBuf.length() &lt; MAX_CMD_LEN) {
+        g_rxBuf += c;
+    } else {
+        /* 超长了：丢弃并报错。宁可丢一条命令，也不能让内存被撑爆 */
+        g_rxBuf = "";
+        reply("ERR 命令过长，已丢弃");
+    }
+}
+
+void setup() {
+    Serial.begin(115200);            /* USB 串口：看日志用 */
+    delay(500);
+
+    /* 先把 LED 引脚配成 PWM，再把亮度清零（上电默认熄灭） */
+    ledcSetup(LEDC_CHANNEL, LEDC_FREQ, LEDC_RESOLUTION);
+    ledcAttachPin(PIN_LED, LEDC_CHANNEL);
+    ledcWrite(LEDC_CHANNEL, 0);
+
+    Serial.println();
+    Serial.println("=== ESP32 经典蓝牙串口（SPP）演示 ===");
+    Serial.printf("设备名   : %s\n", DEVICE_NAME);
+    Serial.printf("LED 引脚 : GPIO%d\n", PIN_LED);
+
+    /* begin() 的参数是设备名，不是波特率。蓝牙链路速率由协议自己协商，
+     * 不需要双方约定——这是和 Serial.begin() 最大的差别 */
+    g_btReady = SerialBT.begin(DEVICE_NAME);
+
+    if (!g_btReady) {
+        Serial.println("[BT] 初始化失败！请确认开发板带经典蓝牙、核心版本为 2.x");
+    } else {
+        Serial.println("[BT] 已启动，等待手机连接...");
+        Serial.printf("[BT] 请在手机蓝牙里搜索 \"%s\"\n", DEVICE_NAME);
+    }
+    printHelp();
+}
+
+void loop() {
+    /* ---------- 1. 检测手机的连接状态变化 ---------- */
+    bool nowConnected = SerialBT.hasClient();
+    if (nowConnected != g_connected) {
+        g_connected = nowConnected;
+        if (g_connected) {
+            g_connectCount++;
+            Serial.println("[BT] 手机已连接");
+            reply("ESP32 已就绪，发送 h 查看帮助");
+            g_lastStatusMs = millis();
+        } else {
+            Serial.println("[BT] 手机已断开");
+            /* 安全策略：断开时自动关灯。
+             * 遥控类设备的通行做法——失去控制链路就应该回到安全状态，
+             * 否则车还在跑、灯还亮着，人却已经连不上了 */
+            g_ledOn = false;
+            applyLed();
+        }
+    }
+
+    /* ---------- 2. 处理来自手机蓝牙的数据 ---------- */
+    while (SerialBT.available()) {
+        handleChar((char)SerialBT.read());
+    }
+
+    /* ---------- 3. 处理来自电脑 USB 串口的数据 ----------
+     * 和蓝牙共用同一个 handleChar，所以两个终端的行为完全一致。
+     * 手机没电或者蓝牙抽风时，插着 USB 一样能调试 */
+    while (Serial.available()) {
+        handleChar((char)Serial.read());
+    }
+
+    /* ---------- 4. 连上之后周期性发心跳 ---------- */
+    if (g_connected &amp;&amp; millis() - g_lastStatusMs &gt;= STATUS_INTERVAL_MS) {
+        g_lastStatusMs = millis();
+        reply(statusLine());
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">BluetoothSerial SerialBT;</code> 这一行
+              <b class="font-semibold text-ink">写在所有函数外面</b>。
+              它是全局对象，构造时会向系统申请蓝牙协议栈资源。
+              写进函数里会变成局部变量，函数一返回对象就析构了，
+              表现是「编译通过但完全搜不到设备」。
+            </li>
+            <li>
+              <code class="icode">SerialBT.begin(DEVICE_NAME)</code> ——
+              参数是<b class="font-semibold text-ink">设备名</b>，绝对不是波特率。
+              它返回 <code class="icode">bool</code>，初始化失败会返回
+              <code class="icode">false</code>。很多教程忽略这个返回值，
+              结果蓝牙根本没起来，还在那儿反复重启手机找设备。
+              <b class="font-semibold">凡是返回 bool 的初始化函数，都要检查。</b>
+            </li>
+            <li>
+              <code class="icode">SerialBT.hasClient()</code> 用来判断有没有手机连着。
+              它是<b class="font-semibold text-ink">轮询式</b>的，
+              所以在 <code class="icode">loop()</code> 里比较前后两次的值，
+              就能捕捉到「刚连上」和「刚断开」这两个瞬间事件。
+              蓝牙库其实还提供了
+              <code class="icode">SerialBT.register_callback()</code>
+              回调机制，能在事件发生时被主动调用，代码更优雅；
+              但回调运行在蓝牙协议栈自己的任务里，
+              在里面做耗时操作或调用 <code class="icode">Serial</code> 打印都可能引发问题。
+              <b class="font-semibold">初学阶段先用轮询，行为可预测。</b>
+            </li>
+            <li>
+              <code class="icode">reply()</code> 里那个
+              <code class="icode">if (SerialBT.hasClient())</code>
+              判断不能省。往一个没人接收的蓝牙串口写数据不会报错，
+              但会一直往发送缓冲区里堆，堆满之后
+              <code class="icode">println()</code> 就会阻塞，
+              把整个主循环拖住。这是蓝牙项目里很隐蔽的一个卡顿来源。
+            </li>
+            <li>
+              <code class="icode">handleChar()</code> 里的
+              <b class="font-semibold text-ink">「缓冲为空 + 单字符命令立刻执行」</b>
+              这一段，是应对手机 App 差异的实用设计。
+              有的 App 每按一次按钮就发一个字节，有的会自动补
+              <code class="icode">\r\n</code>，还有的要你手动勾选「发送新行」。
+              两种输入形态都兼容之后，你就不用为了 App 的设置去改代码。
+            </li>
+            <li>
+              <code class="icode">MAX_CMD_LEN</code> 的长度上限看着多余，
+              但它是<b class="font-semibold text-ink">防止内存被撑爆的必要保护</b>。
+              如果手机端因为故障连续发送不带换行的字节，
+              <code class="icode">g_rxBuf</code> 会无限增长，
+              最后耗尽堆内存导致芯片重启。凡是接收外部数据的地方，
+              都要有长度上限——这和网络编程里必须限制请求体大小是同一个道理。
+            </li>
+            <li>
+              <code class="icode">applyLed()</code> 里只用
+              <code class="icode">ledcWrite</code> 而没有混用
+              <code class="icode">digitalWrite</code>。
+              引脚一旦 <code class="icode">ledcAttachPin</code> 给了 LEDC 外设，
+              就不要再让 GPIO 矩阵直接驱动它，否则两个控制器会互相覆盖，
+              现象是亮度命令偶尔不生效、偶尔闪烁异常。
+              <b class="font-semibold">一个引脚同一时间只能有一个"主人"。</b>
+            </li>
+            <li>
+              断开连接时自动关灯，是<b class="font-semibold text-ink">安全状态设计</b>。
+              遥控小车、加热台、电机这类执行器，只要控制链路断了，
+              就必须回到安全状态。这个思路来自工业控制里的「失能保护」，
+              建议从第一个带执行器的作品开始就养成习惯，
+              答辩时说出来也是加分项。
+            </li>
+          </ul>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            上传完成后，先只插着 USB 看电脑上的日志，确认蓝牙已经启动，
+            再去手机上操作。这样出问题时就很容易判断是哪一端的事。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="串口监视器 115200 —— 完整交互过程">
+            <pre><code>=== ESP32 经典蓝牙串口（SPP）演示 ===
+设备名   : ESP32-LED-Ctrl
+LED 引脚 : GPIO2
+[BT] 已启动，等待手机连接...
+[BT] 请在手机蓝牙里搜索 "ESP32-LED-Ctrl"
+[回复] ---- ESP32 蓝牙 LED 控制 ----
+[回复] 1 / on        点亮 LED
+[回复] 0 / off       熄灭 LED
+[回复] t / toggle    翻转开关
+[回复] p&lt;0-255&gt;      设置亮度，例如 p128
+[回复] s / status    查询当前状态
+[回复] h / help      显示本帮助
+[回复] -----------------------------
+[BT] 手机已连接
+[回复] ESP32 已就绪，发送 h 查看帮助
+
+──── 下面是在手机 App 里操作时，电脑同步看到的日志 ────
+
+[回复] OK LED=ON brightness=128        ← 手机点了「1」
+[回复] OK brightness=64                ← 手机发了「p64」
+[回复] OK LED=OFF                      ← 手机点了「0」
+[回复] OK LED=ON                       ← 手机点了「t」（翻转）
+[回复] STATUS LED=ON brightness=64 cmds=4 conns=1 uptime=42s
+[回复] STATUS LED=ON brightness=64 cmds=4 conns=1 uptime=52s
+[BT] 手机已断开
+[回复] ERR 未知命令: xyz（发送 h 查看帮助）  ← 断开后这条只打到电脑上
+
+──── 用电脑串口监视器直接敲命令也同样有效 ────
+
+[回复] OK LED=ON brightness=64
+[回复] OK brightness=255
+</code></pre>
+          </div>
+
+          <ol class="mt-4 list-decimal space-y-2 pl-5">
+            <li>上电后，串口打印「已启动，等待手机连接」，紧接着打印一张帮助表。</li>
+            <li>打开手机蓝牙，在设备列表里能找到 <b class="font-semibold text-ink">ESP32-LED-Ctrl</b>，点一下完成配对。</li>
+            <li>打开蓝牙串口 App，在已配对设备里选中它，点「连接」。</li>
+            <li>连接成功的瞬间，电脑串口打印「手机已连接」，手机接收区收到「ESP32 已就绪，发送 h 查看帮助」。</li>
+            <li>在手机输入框里发一个 <code class="icode">1</code>，板载 LED 立刻亮起，手机收到 <code class="icode">OK LED=ON brightness=128</code>。</li>
+            <li>发 <code class="icode">p64</code>，LED 明显变暗一半（需要 App 开启「发送新行」）。</li>
+            <li>发 <code class="icode">t</code>，LED 熄灭；再发一次，LED 恢复。</li>
+            <li>发 <code class="icode">s</code>，收到完整状态行，可以看到 <code class="icode">cmds</code> 计数在增长。</li>
+            <li>把手机蓝牙关掉，串口打印「手机已断开」，<b class="font-semibold text-ink">LED 自动熄灭</b>（安全策略生效）。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>手机搜不到 ESP32-LED-Ctrl</td>
+                  <td>蓝牙根本没启动，或手机权限不足</td>
+                  <td>串口有没有打印「已启动」；安卓是否开了定位权限；设备名是否含中文</td>
+                </tr>
+                <tr>
+                  <td>搜到了，点连接立刻失败</td>
+                  <td>还残留着上一次的配对记录</td>
+                  <td>手机蓝牙设置里「忽略 / 取消配对」这个设备，再重新搜</td>
+                </tr>
+                <tr>
+                  <td>系统显示「已配对」，但发数据没反应</td>
+                  <td>只配对没连接（最常见的新手卡点）</td>
+                  <td>必须进 App 再点一次「连接」，配对不等于连接</td>
+                </tr>
+                <tr>
+                  <td>串口打印了「手机已连接」，但板子收不到命令</td>
+                  <td>链路是通的，问题在命令格式</td>
+                  <td>手机端是否勾选「发送新行」；试单字符 1 / 0 / t，它们不需要换行</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">p64</code> 没反应，但 <code class="icode">1</code> 有效</td>
+                  <td>多字符命令需要以换行结束</td>
+                  <td>在 App 里开启「发送新行 / Send newline」，或改用单字符命令</td>
+                </tr>
+                <tr>
+                  <td>LED 不亮，但串口回复了 <code class="icode">OK LED=ON</code></td>
+                  <td>逻辑正确，硬件或引脚不对</td>
+                  <td>你的板子 LED 可能不在 GPIO2，或为低电平点亮；改成 GPIO16 外接一个试试</td>
+                </tr>
+                <tr>
+                  <td>手机收到的中文全是乱码</td>
+                  <td>App 用 GBK 解码，ESP32 发的是 UTF-8</td>
+                  <td>把回复内容改成纯英文；或只把中文当调试信息，不发给手机</td>
+                </tr>
+                <tr>
+                  <td>连上几十秒后自己断开</td>
+                  <td>信号弱、距离远，或手机自动省电断了蓝牙</td>
+                  <td>靠近到 3 米内；手机设置里关掉该 App 的电池优化</td>
+                </tr>
+                <tr>
+                  <td>一开 Wi-Fi 蓝牙就卡顿、延迟几百毫秒</td>
+                  <td>射频共存仲裁，两者在抢天线</td>
+                  <td>蓝牙实验期间不要开 Wi-Fi；确实要同时用就改 BLE</td>
+                </tr>
+                <tr>
+                  <td>上传程序时报串口打不开</td>
+                  <td>蓝牙还连着，串口被占用或板子忙</td>
+                  <td>手机上先断开连接，再点上传；必要时按住 BOOT 键</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">一个很实用的调试习惯</div>
+            <p>
+              手机和电脑同时在线时，<b class="font-semibold">电脑上的日志才是完整的</b>。
+              手机 App 的接收区常常只显示最近几十行，滚动就没了；
+              而电脑串口监视器能看到从开机到现在的全过程。
+              所以一旦出现「手机端看着不对劲」，第一反应应该是
+              <b class="font-semibold">看电脑上的日志，而不是反复重启 App</b>。
+              代码里 <code class="icode">reply()</code> 同时往两边发，
+              就是为了这个目的。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            蓝牙问题的排查有个好用的二分法：
+            <b class="font-semibold text-ink">先看电脑串口日志，判断问题在 ESP32 这一侧还是手机那一侧</b>。
+            日志里出现了「手机已连接」就说明蓝牙部分完全正常，
+            后面所有问题都在手机端或者命令格式上。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">报错原文：fatal error: BluetoothSerial.h: No such file or directory</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              当前安装的 esp32 核心版本里没有这个经典蓝牙库。
+              最常见的情况是核心版本装得过新——<b class="font-semibold">esp32 核心 3.x 系列对经典蓝牙库做了调整</b>，
+              部分版本不再默认提供 <code class="icode">BluetoothSerial.h</code>；
+              另一种情况是把开发板选成了 ESP32-S2（该型号物理上没有蓝牙）。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              第一，确认开发板选的是 <b class="font-semibold">ESP32 Dev Module</b>，
+              不是 ESP32-S2、ESP32-C3（S2 无蓝牙，C3 只有 BLE）。
+              第二，打开「工具 → 开发板 → 开发板管理器」，搜索 esp32，
+              把版本从 3.x <b class="font-semibold">降到 2.0.x（如 2.0.17）</b>，
+              这是经典蓝牙最稳定的版本线。第三，改完版本后
+              重启 Arduino IDE 再编译。如果课程要求必须用 3.x，
+              那就把方案改成 BLE——用 <code class="icode">BLEDevice</code> 系列库，
+              它在 3.x 里是完整支持的。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：（没有报错）手机蓝牙列表里根本搜不到 ESP32-LED-Ctrl</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              按概率排：
+              <b class="font-semibold">① Android 6.0 以后扫描蓝牙设备需要「位置信息」权限</b>，
+              没给权限 App 和系统都列不出设备；
+              ② <code class="icode">SerialBT.begin()</code> 没被调用，
+              或者调用了但没检查返回值，实际初始化失败了；
+              ③ 设备名里有中文或空格，部分手机的蓝牙栈处理不了；
+              ④ 手机之前连过同名设备，缓存里还留着旧记录；
+              ⑤ 开发板型号不带经典蓝牙。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              先看电脑串口有没有打印「[BT] 已启动，等待手机连接」——
+              没有就是 ESP32 侧的问题，有就是手机侧的问题。
+              然后打开手机的「设置 → 应用 → 蓝牙串口助手 → 权限」，
+              把<b class="font-semibold">位置信息</b>和附近的设备权限都打开。
+              设备名改成纯英文（本页用的 <code class="icode">ESP32-LED-Ctrl</code> 就是安全的）。
+              在系统蓝牙设置里把这个设备「忽略 / 取消配对」，
+              重启手机蓝牙开关，等 10 秒再搜。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：（没有报错）手机显示已连接，但发什么板子都没反应</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              分三层。
+              如果电脑串口<b class="font-semibold">连「手机已连接」都没打印</b>，
+              说明系统配对成功但 App 里的 SPP 链路没建立——
+              这是「配对 ≠ 连接」的经典误解。
+              如果打印了「手机已连接」，但发命令没有任何 <code class="icode">[回复]</code>，
+              说明数据没进来，多半是命令格式问题（多字符命令缺少结束换行）。
+              如果日志里有 <code class="icode">ERR 未知命令</code>，
+              那是你的命令拼错了或者用了中文标点。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              第一，确认 App 里点过「连接」，而不只是在系统设置里配了对。
+              第二，先在手机里发单字符 <code class="icode">1</code>——
+              它在代码里是不需要换行就立刻执行的，
+              如果 <code class="icode">1</code> 有反应，就说明链路正常，
+              问题一定在「发送新行」设置上。
+              第三，在 App 设置里把行结束符设为 <code class="icode">\r\n</code>（CR+LF）。
+              第四，检查输入法是不是中文状态，
+              中文全角字符 <code class="icode">１</code> 和英文 <code class="icode">1</code>
+              在程序里是两个完全不同的字节。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：（没有报错）同时开 Wi-Fi 和蓝牙后，两边都变得不稳定</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              <b class="font-semibold">ESP32 只有一套 2.4GHz 射频和一个天线</b>，
+              Wi-Fi 和蓝牙靠芯片内部的共存机制分时复用。
+              两者同时工作时，每次收发都要在频点之间切换，
+              结果是 Wi-Fi 吞吐下降、蓝牙延迟从几毫秒涨到几百毫秒，
+              严重时直接断连。经典蓝牙占用的时间片比 BLE 更多，冲突更明显。
+              如果此时还调用了 <code class="icode">WiFi.setSleep(false)</code>，
+              Wi-Fi 会持续占用射频，蓝牙几乎抢不到时间片。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              第一，也是最有效的：<b class="font-semibold">蓝牙调试期间干脆不要开 Wi-Fi</b>，
+              连 <code class="icode">#include &lt;WiFi.h&gt;</code> 都不要写，
+              射频资源全给蓝牙，这是本页示例的做法。
+              第二，如果业务上必须两个都有，
+              把蓝牙那一侧从经典蓝牙换成 <b class="font-semibold">BLE</b>，
+              它按需收发、占用时间片少得多。
+              第三，采用错峰策略：连 Wi-Fi 把数据传完，
+              调用 <code class="icode">WiFi.disconnect(true)</code> 关闭射频，
+              再启用蓝牙；需要用网时反过来。
+              第四，把蓝牙和手机的距离拉近到 2 米内，
+              信号强度足够时可以用更少的重传换到更长的有效时间片。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：（没有报错）手机收到的中文显示成乱码，比如「ES32 宸插氨缁」</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              编码不一致。ESP32 的 Arduino 环境里，
+              源代码和字符串常量默认按 <b class="font-semibold">UTF-8</b> 编码存放和发送；
+              而不少蓝牙串口 App 为了兼容单片机的使用习惯，
+              默认按 <b class="font-semibold">GBK</b> 解码接收到的字节。
+              同一串字节用两种规则去解释，就必然出现乱码。
+              另一种情况是你用手机发送中文命令，
+              App 按 GBK 编码发出去，ESP32 收到的字节按 UTF-8 解释，同样是乱码。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              第一，也是最省事的：<b class="font-semibold">凡是发给手机的内容一律用英文和数字</b>。
+              蓝牙命令协议本来就该用 ASCII，用英文既不会有编码问题，
+              也方便将来换别的 App。
+              第二，中文只留在 <code class="icode">Serial.println()</code> 里给电脑看——
+              电脑串口监视器是 UTF-8 的，中文显示完全正常。
+              第三，如果确实要给手机发中文，
+              在 App 设置里找「字符编码 / Encoding」选项，从 GBK 改成 UTF-8。
+              第四，实在找不到设置项时，用电脑串口当作参照：
+              同一条消息电脑显示正常、手机显示乱码，就能确定是手机端解码的问题。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            蓝牙这一篇的核心其实只有三件事：
+          </p>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">第一，先选协议再写代码。</b>
+            要支持 iPhone 就必须用 BLE；
+            只在安卓上做调试、想要最简单最快出结果，就用经典蓝牙
+            <code class="icode">BluetoothSerial</code>。
+            选错了协议，后面的努力全是白费。
+            <b class="font-semibold text-ink">第二，SerialBT 就是第二个串口。</b>
+            它和 <code class="icode">Serial</code> 是同一套接口，
+            用法完全一致，只是 <code class="icode">begin()</code> 的参数是设备名而不是波特率。
+            把两个终端的输入喂给同一个解析函数，是既省事又可靠的工程写法。
+            <b class="font-semibold text-ink">第三，蓝牙和 Wi-Fi 抢同一根天线。</b>
+            只开一个最稳；必须同时开就优先用 BLE，或者错峰使用。
+            遇到「两个都变慢」时，先想想是不是射频在打架，
+            而不是急着去改代码。
+          </p>
+
+          <div class="stat mt-6">
+            <span class="stat-k">蓝牙命令协议</span>
+            <span class="stat-v">ASCII 单字符 + 换行结束</span>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold text-ink">加一个「呼吸灯」命令 <code class="icode">f</code>，并观察它的副作用。</b>
+                收到 <code class="icode">f</code> 时，用 <code class="icode">for</code> 循环在 1 秒内
+                把亮度从 0 拉到 255 再回到 0，重复 3 次。
+                写的过程中你会发现问题：这段循环里如果用
+                <code class="icode">delay()</code>，<b class="font-semibold">整个蓝牙接收都会停摆</b>，
+                呼吸灯跑完之前发什么命令都没反应。
+                请把它改成用 <code class="icode">millis()</code> 推进的
+                <b class="font-semibold">非阻塞呼吸灯</b>，让它在执行期间依然能响应新命令。
+                这个练习能让你真正体会到「不阻塞主循环」有多重要。
+              </li>
+              <li>
+                <b class="font-semibold text-ink">加一个「延时关灯」命令 <code class="icode">d30</code>。</b>
+                含义是「30 秒后自动关灯」。
+                要点：<b class="font-semibold">不能用 <code class="icode">delay(30000)</code></b>——
+                那会让板子在这 30 秒里彻底失去响应。
+                正确做法是记下「应该在什么时刻关灯」，
+                在 <code class="icode">loop()</code> 里用 <code class="icode">millis()</code> 比对。
+                做完之后再想一想：如果连续发两次 <code class="icode">d30</code> 和
+                <code class="icode">d10</code>，应该按哪个时间关？
+                把「后发的命令覆盖先发的」这个逻辑实现出来。
+              </li>
+              <li>
+                <b class="font-semibold text-ink">把它改成 BLE 版本，并列一张对照表。</b>
+                用 <code class="icode">BLEDevice</code>、
+                <code class="icode">BLEServer</code>、
+                <code class="icode">BLECharacteristic</code> 重新实现同样的功能，
+                用手机上的 nRF Connect 或 LightBlue 收发数据。
+                BLE 没有现成的「串口」，
+                需要自定义一个服务和一个特征值，
+                并给接收特征值写一个回调函数。
+                做完之后列一张表，对比两种方案在
+                <b class="font-semibold">代码行数、手机端操作步骤、iPhone 是否可用、
+                响应延迟</b>这四个方面的差异。
+                这张表可以直接放进你的实验报告或毕设文档里。
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">回顾与延伸</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-wifi.html">WiFi 连接与 STA 模式</a>——需要联网上报数据时看这一篇，同时注意射频共存问题。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-gpio.html">ESP32 GPIO 控制</a>——本例用到的 <code class="icode">ledcWrite</code> 调光在那一篇有完整原理讲解。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-env.html">Arduino IDE 环境搭建</a>——如果核心版本需要降级到 2.0.x，操作步骤在这里。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="esp32-wifi.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">WiFi 连接与 STA 模式</p>
+          </a>
+          <a href="esp32-mqtt.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">回到栏目 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">MQTT 接入物联网平台</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

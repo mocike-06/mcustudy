@@ -1,0 +1,3691 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>存储器映射与地址空间 - McuStudy</title>
+  <meta name="description" content="知识体系第 2 层第 26 篇：从 0x00000000 到 0xFFFFFFFF。存储器映射是什么、Cortex-M 的 4GB 空间怎么切成 8 个 512MB 区块、STM32F103 的 Flash/SRAM/APB1/APB2/AHB/内核私有区分别住在哪、寄存器映射为什么是「基地址 + 偏移」、用 C 语言描述寄存器的三种写法与 CMSIS 分层命名、位带的地址换算与原子性、BOOT0/BOOT1 启动模式与启动别名、.text/.data/.bss/heap/stack 怎么落位与怎么读 map 文件、内存保护单元 MPU。含 4 道数值例题与一份不依赖 HAL 的手写寄存器点灯程序。">
+  <meta name="keywords" content="存储器映射,地址空间,4GB,Cortex-M,0x08000000,启动别名,BOOT0,BOOT1,系统存储器,Bootloader,寄存器映射,基地址,偏移量,GPIOA,CRL,CRH,IDR,ODR,BSRR,BRR,LCKR,volatile,结构体指针,CMSIS,PERIPH_BASE,GPIO_TypeDef,位带,bit-band,别名区,原子操作,RCC_APB2ENR,0x40021000,链接脚本,map文件,text,data,bss,heap,stack,MPU,内存保护单元,HTP,HardFault">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">存储器映射与地址空间</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          存储器映射与地址空间
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          「点亮一个 LED，本质上就是往一个内存地址里写一个数。」这句话你在很多教材的序言里见过，但它经不起追问：哪个地址？为什么是那个地址？<b class="font-semibold text-ink">这颗芯片上根本没有「LED 寄存器」这种东西，只有一片 4GB 的地址空间</b>——Flash、20KB 的 SRAM、几十个外设的几百个寄存器、连内核里的 SysTick 和 NVIC，全都被排进了同一张线性地图。这一篇就是带你从 0x00000000 走到 0xFFFFFFFF：看懂这张地图之后，你会发现 <code class="icode">0x4001080C</code> 这种「魔法数字」其实是可以用加法和乘法推出来的，HAL 库、标准库、CMSIS 头文件三层包装的关系也一眼就清楚了。附 4 道数值例题和一份完全不依赖 HAL 的手写寄存器点灯程序。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">核心原理</span>
+          <span class="stat-pill">层级：<b>第 2 层 · 嵌入式核心</b></span>
+          <span class="stat-pill">核心原理第 <b>26</b> 篇</span>
+          <span class="stat-pill">教材：<b>刘火良 第 5、6 章</b></span>
+          <span class="stat-pill">平台：<b>STM32F103C8T6</b></span>
+          <span class="stat-pill">阅读约 <b>45</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-what">存储器映射是什么</a>
+          <a class="toc-link is-sub" href="#sub-4gb">4GB 空间：8 个 512MB 区块</a>
+          <a class="toc-link is-sub" href="#sub-map">STM32F103 的实际排布</a>
+          <a class="toc-link is-sub" href="#sub-c">用 C 描述寄存器：三种写法</a>
+          <a class="toc-link is-sub" href="#sub-bitband">位带：把一位变成一个地址</a>
+          <a class="toc-link is-sub" href="#sub-boot">启动模式与启动别名</a>
+          <a class="toc-link is-sub" href="#sub-image">编译产物落在哪里</a>
+          <a class="toc-link is-sub" href="#sub-mpu">内存保护单元 MPU</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-what">存储器映射是什么</a>
+            <a class="toc-link is-sub" href="#sub-4gb">4GB 空间：8 个 512MB 区块</a>
+            <a class="toc-link is-sub" href="#sub-map">STM32F103 的实际排布</a>
+            <a class="toc-link is-sub" href="#sub-c">用 C 描述寄存器：三种写法</a>
+            <a class="toc-link is-sub" href="#sub-bitband">位带：把一位变成一个地址</a>
+            <a class="toc-link is-sub" href="#sub-boot">启动模式与启动别名</a>
+            <a class="toc-link is-sub" href="#sub-image">编译产物落在哪里</a>
+            <a class="toc-link is-sub" href="#sub-mpu">内存保护单元 MPU</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              本篇的每一个地址都能在 ST 的参考手册里查到出处，
+              代码示例只用 CMSIS 或裸指针，不依赖 HAL。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先说一个你很可能已经经历过、但当时没在意的瞬间。</p>
+          <p class="mt-3">你照着教程点亮了第一个 LED。教程给你的代码只有三行：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="点亮 LED 的三行「咒语」">
+            <pre><code>RCC-&gt;APB2ENR |= (1u &lt;&lt; 2);          /* ① 开 GPIOA 的时钟 */
+GPIOA-&gt;CRL &amp;= ~0xFu;               /* ② 清掉 PA0 的 4 个配置位 */
+GPIOA-&gt;CRL |=  0x2u;               /*    再填成「推挽输出 2MHz」 */
+GPIOA-&gt;ODR |=  (1u &lt;&lt; 0);          /* ③ 把 PA0 拉高，灯亮 */</code></pre>
+          </div>
+
+          <p class="mt-3">灯亮了，问题也来了。你盯着 <code class="icode">GPIOA</code> 这三个字母想：<b class="font-semibold text-ink">它是什么？</b>它不是你在 <code class="icode">main</code> 里声明过的变量，也不在任何一个头文件里有定义体——它只是「一个指针」而已。而这个指针指向的东西，物理上并不存在于 SRAM 里，而是芯片内部一块叫「GPIOA 外设」的电路。<b class="font-semibold text-ink">那么它的地址是谁规定的？为什么是 0x40010800，而不是 0x12345678？</b></p>
+          <p class="mt-3">这一篇要回答的就是这类问题。先把「不懂会卡在哪」讲具体，你才知道这篇值不值得花 45 分钟。</p>
+
+          <h3 id="sub-why-1" class="mt-7 text-base font-semibold">四个真实发生过的困惑现场</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">现场一：为什么所有地址都「长得差不多」？</b></p>
+          <p class="mt-3">某天你为了调试，随手用串口打印了几个地址：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="打印出来的三行输出（真实实验，F103C8T6 + arm-none-eabi-gcc）">
+            <pre><code>main          = 0x08000A5C      ← 函数地址，0x0800 开头
+&amp;g_buffer     = 0x2000002C      ← 全局数组，0x2000 开头
+&amp;GPIOA-&gt;ODR  = 0x4001080C      ← 外设寄存器，0x4001 开头
+key_reg       = 0xE000E010      ← 内核里的 SysTick，0xE000 开头
+
+【当年的疑问】
+   为什么函数偏爱 0x0800 开头？为什么变量偏爱 0x2000 开头？
+   为什么外设偏爱 0x4000 开头？这三个数字之间有关系吗？
+   —— 有关系，而且是【人为规定】的关系。
+      这四行地址分别是：Flash 区、SRAM 区、外设区、内核私有区。
+      芯片设计者把它们放在固定位置，谁都不能改。
+      记住这三个「开头」，你以后看任何 STM32 的地址都能立刻判断出
+      它是一段代码、一个变量，还是一个外设寄存器。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场二：改了一个 const 数组，程序直接死掉。</b></p>
+          <p class="mt-3">你想做一个「参数表」，于是写了 <code class="icode">const uint16_t cal_table[8] = {...};</code>，然后在运行时想校正其中一个值：<code class="icode">cal_table[0] = 100;</code>。在 PC 上这只是个警告，在 STM32 上它可能让程序直接跳进 HardFault 死循环。<b class="font-semibold text-ink">因为 <code class="icode">const</code> 数据住在 Flash 里，而 Flash 不是「写进去就完事」的存储器</b>——它需要先擦除整页、再按半字（16 位）写入，而且写的时候 CPU 取指会被阻塞。这条规则如果没有「存储器映射」的概念打底，你只会觉得「C 语言在单片机上怎么这么邪门」。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场三：map 文件里同一个变量出现了两个地址。</b></p>
+          <p class="mt-3">打开 Keil 或 GCC 生成的 <code class="icode">.map</code> 文件，你会看到类似这样的两行：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="map 文件片段：.data 段的两个地址">
+            <pre><code> .data     0x20000000     0x1ac   ← 运行时地址（VMA）：在 RAM
+           0x08000a5c             ← 加载地址（LMA）：初值存在 Flash
+ .bss      0x200001ac     0x30c   ← 只有运行地址，没有加载地址
+ .text     0x08000340    0x071c   ← 代码和常量，只在 Flash
+
+【当年的疑问】
+   同一份数据，为什么在 Flash 和 RAM 里各有一个地址？
+   到底哪个才算「它的地址」？程序怎么知道要把 Flash 里的初值搬到 RAM？
+   —— 这些都是「段（section）+ 加载地址 + 运行地址」的知识，
+      而它们又全部建立在「地址空间是怎么划分的」之上。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场四：换了一个芯片，代码里那一堆地址全得改。</b></p>
+          <p class="mt-3">你从 F103 换到 F407，发现 <code class="icode">0x40010800</code> 这个 GPIOA 地址完全不管用了——F4 的 GPIOA 在 <code class="icode">0x40020000</code>。<b class="font-semibold text-ink">同一个「GPIOA」，为什么换个芯片就搬家了？</b>答案也在这篇：地址是 ST 在每颗芯片的参考手册里规定的，不同系列的划分方式不同，而 CMSIS 头文件做的事，就是把这些地址用一层层宏拼出来，让你不用背数字。</p>
+
+          <h3 id="sub-why-2" class="mt-7 text-base font-semibold">不懂这张地图，具体会卡在哪</h3>
+          <p class="mt-3">把上面四个现场翻译成「工程上的实际损失」，大概是这六条：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>你不会遇到的事</th><th>不懂存储器映射时的表现</th><th>懂之后的判断</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>外设「没反应」</td>
+                  <td>寄存器写进去了、程序也不报错，就是不动。查半天代码</td>
+                  <td>先怀疑「时钟没使能」——外设寄存器在地址空间里真实存在，但没时钟时写进去的值不会生效</td>
+                </tr>
+                <tr>
+                  <td>HardFault 排查</td>
+                  <td>看到 <code class="icode">BFAR = 0x00000004</code> 完全不知道意味着什么</td>
+                  <td>地址落在哪个区、属于谁、是不是空指针偏移出来的，一眼能圈定范围</td>
+                </tr>
+                <tr>
+                  <td>Flash 与 RAM 的取舍</td>
+                  <td>代码大到 200KB 才发现芯片只有 64KB Flash，只能推翻重写</td>
+                  <td>提前知道 <code class="icode">.text</code> 和 <code class="icode">const</code> 吃 Flash、<code class="icode">.bss</code> 只吃 RAM，能预先分配预算</td>
+                </tr>
+                <tr>
+                  <td>看别人写的「裸机代码」</td>
+                  <td><code class="icode">*(volatile uint32_t *)0x40010C0C = 0;</code> 这种句子完全读不懂</td>
+                  <td>一眼拆成「基地址 0x40010C00 是 GPIOB，偏移 0x0C 是 ODR，写 0 就是拉低」</td>
+                </tr>
+                <tr>
+                  <td>做 IAP / Bootloader</td>
+                  <td>不知道自己的 App 应该从哪个地址开始、怎么跳转</td>
+                  <td>知道 App 通常放 <code class="icode">0x08008000</code> 之后，跳转就是设好 MSP 再跳向量表里的复位地址</td>
+                </tr>
+                <tr>
+                  <td>换芯片 / 移植</td>
+                  <td>把所有硬编码地址逐个手工改，改错一个就莫名其妙跑飞</td>
+                  <td>改用 CMSIS 的分层宏，或者链接脚本里的一个 <code class="icode">ORIGIN</code>，改一处即可</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一篇和「ARM 架构」那一篇的分工</div>
+            <p>如果你刚看完 <a class="text-brand-600 dark:text-brand-300" href="core-cpu.html">CPU 架构与指令执行</a>，会记得 Cortex-M 是「统一编址、load/store 架构」。这一篇是那句话的落地：<b>统一编址到底统一成了什么样子</b>——4GB 怎么切、切给谁、每块有什么属性、开发工具和库又是怎么把这块地图包装成人能用的形式。看完这一篇，你再回去看「取指、译码、执行」会有新的感觉：取指也是「读一个地址」，只不过读的是 Code 区。</p>
+          </div>
+
+          <h3 id="sub-why-3" class="mt-7 text-base font-semibold">本篇的路线图</h3>
+          <p class="mt-3">接下来这一篇会按「从大到小、从抽象到具体」的顺序推进，一共八站：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="本篇结构：八站地图">
+            <pre><code>【第一站】存储器映射是什么 ············ 统一编址的思想，和 51 的对比
+     │
+【第二站】Cortex-M 的 4GB 空间 ········· 8 个 512MB 区块，每块什么属性
+     │
+【第三站】STM32F103 的实际排布 ········ Flash/SRAM/APB1/APB2/AHB/内核私有区
+     │                                    + 寄存器映射（基地址 + 偏移）
+【第四站】用 C 语言描述寄存器 ·········· 三种写法逐级演进 + CMSIS 分层命名
+     │
+【第五站】位带（bit-band） ············· 一位 = 一个 32 位地址，原子操作
+     │
+【第六站】启动模式与「启动别名」 ······· BOOT0/BOOT1，0x00000000 处到底是谁
+     │
+【第七站】编译产物落在哪里 ············· .text/.data/.bss/heap/stack + map 文件
+     │
+【第八站】内存保护单元 MPU ············· 给内存加「只读」「不可执行」属性
+
+   然后【动手算一遍】四道数值例题，
+   再【在单片机上的样子】手写一遍点灯程序，
+   最后【常见误解与坑】九条。</code></pre>
+          </div>
+
+          <p class="mt-3">不用紧张，这里面真正需要你「背下来」的只有三个数字：<b class="font-semibold text-ink">0x08000000</b>（Flash）、<b class="font-semibold text-ink">0x20000000</b>（SRAM）、<b class="font-semibold text-ink">0x40000000</b>（外设）。其余全部是「知道有这回事、需要时去手册里查」。</p>
+        </section>
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节是整篇的主体，八个小节按「思想 → 大框架 → 具体芯片 → 怎么写代码 → 两个进阶特性 → 工具链怎么用它 → 怎么保护它」的顺序推进。<b class="font-semibold text-ink">建议第一次读的时候不要跳</b>：第三站（F103 的实际排布）和第四站（用 C 描述寄存器）是后面所有内容的地基，例题和代码全靠它们。</p>
+
+          <h3 id="sub-what" class="mt-7 text-base font-semibold">一、存储器映射是什么：把一切变成地址</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">存储器映射（memory map）</b>这个词听起来很抽象，其实定义只有一句话：</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">定义</div>
+            <p>存储器映射，就是<b>把芯片内外所有可被 CPU 访问的资源——程序存储器（Flash）、数据存储器（SRAM）、每一个外设的每一个寄存器、以及内核自己的控制组件——按芯片设计者的规定，排进同一个线性的地址空间里</b>。每个资源占据一段固定的地址范围，CPU 用同一套「读一个地址」「写一个地址」的指令去访问它们中的任何一个字节。这张「谁住在哪个地址」的表，就叫存储器映射表。</p>
+          </div>
+
+          <p class="mt-3">注意这个定义里的关键词是<b class="font-semibold text-ink">「排进同一个」</b>。物理上，这几类东西完全不是一回事：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>资源</th><th>物理实现</th><th>访问代价</th><th>写之前要不要擦除</th></tr></thead>
+              <tbody>
+                <tr><td>Flash（程序存储器）</td><td>浮栅 MOS 管阵列，靠电荷存数据</td><td>读快（约几十 ns），写慢（毫秒级）</td><td><b>要</b>，必须先按页擦除</td></tr>
+                <tr><td>SRAM（数据存储器）</td><td>6 个 MOS 管一个比特的触发器阵列</td><td>读写都快（一个时钟周期级）</td><td>不用，随时可写</td></tr>
+                <tr><td>外设寄存器</td><td>就是一堆 D 触发器 / 状态机，直接连着外设电路</td><td>取决于挂在哪条总线上（APB 慢、AHB 快）</td><td>不用，但有些位<b>只读</b>、有些位<b>读清零</b></td></tr>
+                <tr><td>内核组件（SysTick、NVIC…）</td><td>CPU 内核内部的专用寄存器</td><td>很快（在 CPU 旁边）</td><td>不用，但误写会立刻改变系统行为</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这四种东西的实现方式、速度、使用规矩都不一样，但站在 CPU 的角度，它们被统一成了一种东西：<b class="font-semibold text-ink">「给我一个地址，我要读/写它」</b>。这就是「统一编址」（memory-mapped I/O）。CPU 内部其实只有几根地址线、两根读写控制线，剩下的全部交给一个叫<b class="font-semibold text-ink">总线译码器</b>的硬件去判断：这个地址属于谁？然后把请求转发过去。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么要这样设计？和 51 对比一下就清楚了。</b>如果你用过 51，会觉得「地址就是存储器」这句话有点怪。因为 51 是<b class="font-semibold text-ink">分开编址</b>的：它的程序存储器、数据存储器、外设（SFR）是三套彼此独立的地址空间，地址 0x30 在 data 空间和 code 空间指的是完全不同的东西，所以 51 需要不同种类的指令去访问它们。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="51 的分立编址 vs Cortex-M 的统一编址">
+            <pre><code>【51（MCS-51）的地址空间：三套地址，各走各的门】
+
+   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+   │  CODE 空间    │   │  DATA/XDATA  │   │  SFR 空间     │
+   │ 0x0000~0xFFFF│   │ 0x00~0xFF    │   │ 0x80~0xFF    │
+   │  程序 + 常量  │   │  变量         │   │  外设寄存器   │
+   └──────┬───────┘   └──────┬───────┘   └──────┬───────┘
+          │                  │                  │
+       MOVC 指令          MOV / MOVX        MOV 直接寻址
+     （读程序存储器）     （读数据存储器）    （读写 SFR）
+
+   ★ 同样是「地址 0x90」：
+      在 CODE 空间是某条指令；在 DATA 空间是某个变量；
+      在 SFR 空间是 P1 口。三者的地址相同、含义完全不同！
+   ★ 后果：C 语言要扩展出 sfr / sbit 这类关键字来描述 SFR，
+      因为标准 C 的指针没法表达「这是另一套地址空间」。
+
+【Cortex-M 的地址空间：一套地址，一个大门】
+
+   ┌──────────────────────────────────────────────────────┐
+   │            唯一的 4GB 线性地址空间                    │
+   │  0x00000000 ── Flash ── SRAM ── 外设 ── 内核 ── 0xFFFFFFFF
+   └───────────────────────────┬──────────────────────────┘
+                               │
+                         LDR / STR 指令
+                      （一套 load/store 走天下）
+
+   ★ 任何资源的地址都唯一。要看某个字节，就只有一个地址。
+   ★ 后果：标准 C 的指针就够了 ——
+      *(volatile uint32_t *)0x4001080C = 1u;
+      这一句里没有任何编译器扩展，任何 C 编译器都认。</code></pre>
+          </div>
+
+          <p class="mt-3">统一编址带来的好处，可以拆成四条：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">① 一套指令访问一切。</b>Cortex-M 是 load/store 架构，它只有 <code class="icode">LDR</code>（读）和 <code class="icode">STR</code>（写）两种数据访问指令，但它们能访问整个 4GB 里的任何东西——读 Flash 里的常量、写 RAM 里的变量、改外设寄存器、设内核的 SysTick。<b>不需要专门的 IO 指令</b>（x86 就额外有一套 <code class="icode">IN</code>/<code class="icode">OUT</code> 指令，专门跑 IO 空间，那是分立编址的遗留）。</li>
+            <li><b class="font-semibold text-ink">② C 语言可以直接操作硬件，不需要方言。</b>指针解引用天然就是「访问某个地址」，所以 <code class="icode">*(volatile uint32_t *)0x4001080C</code> 这样的写法是标准 C，不依赖任何编译器扩展。对比 51：<code class="icode">sfr P1 = 0x90;</code> 里的 <code class="icode">sfr</code> 是 Keil C51 的<b>非标准扩展关键字</b>，换一个编译器就不认。这也是为什么 ARM 的代码移植性天然更好。</li>
+            <li><b class="font-semibold text-ink">③ 工具链统一。</b>链接器只需要处理「把哪些东西放在哪些地址」这一件事；调试器也只需要一套机制——ST-Link 能读你的变量、也能读外设寄存器，是因为对调试器来说两者都只是「某个地址上的 4 个字节」。<b>你在 Keil 的 Watch 窗口里输入 <code class="icode">GPIOA-&gt;ODR</code> 能看到值的变化，就是统一编址送的礼物。</b></li>
+            <li><b class="font-semibold text-ink">④ 属性可以按区域统一管理。</b>因为资源是按区排布的，就可以给「区」而不是「单个资源」规定属性：这一段可以执行、那一段不能缓存、外设区必须严格按顺序访问……MPU（第八站会讲）和总线矩阵都靠这个前提工作。</li>
+          </ul>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">一个必须记住的区别：地址 ≠ 存储器</div>
+            <p>「统一编址」容易让人产生一个错误直觉：<b>凡是有地址的地方，就有一块存储器</b>。实际上地址空间里有四种情况，你得能区分：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>有存储、可读写</b>：SRAM。写进去再读出来还是那个值。</li>
+              <li><b>有存储、但写起来很贵</b>：Flash。写进去要按页擦除，而且只能 1 变 0 不能 0 变 1。</li>
+              <li><b>不是存储、而是「开关」</b>：外设寄存器。写 ODR 不是在「存一个数」，而是在<b>改变引脚上的电压</b>；读 IDR 也不是「读上次写的值」，而是<b>读此刻引脚上的电平</b>。它们的值会自己变。</li>
+              <li><b>什么都没接</b>：保留区或未实现区。访问它不会「读出 0」，而是可能触发一个总线错误（在 STM32 上会升级成 HardFault）。</li>
+            </ul>
+            <p class="mt-2">还有更绕的一种：<b>同一个地址，读和写的含义不同。</b>比如串口的 DR 寄存器：你读它 = 取走接收到的数据，你写它 = 把数据发出去。位置一样，方向不同，动作完全不同。所以「地址就是内存」这个直觉，从这一篇开始要彻底改掉。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">那么，一次写寄存器，硬件上到底发生了什么？</b>把 <code class="icode">GPIOA-&gt;ODR |= (1u &lt;&lt; 0);</code> 这句话拆到底层的物理过程，你会对「映射」两个字有感觉。下面是这条 C 语句的完整旅程：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="从一行 C 代码到引脚电压：地址译码的全过程">
+            <pre><code>【第一层】C 语言
+    GPIOA-&gt;ODR |= (1u &lt;&lt; 0);
+
+【第二层】编译器翻译成机器指令（volatile 保证了这两条访问不会被优化掉）
+    LDR  r1, [r0, #0x0C]        ; r0 = 0x40010800（GPIOA 基地址）
+                                 ; 读 0x4001080C 处的 4 字节
+    ORR  r1, r1, #1              ; 把最低位置 1
+    STR  r1, [r0, #0x0C]        ; 写回 0x4001080C
+
+【第三层】CPU 把地址放到总线上，发出一个「写」请求
+    地址总线 = 0x4001080C，数据总线 = 0x00000001，控制 = 写、32 位
+
+【第四层】总线译码器看地址的高位，决定把请求发给谁
+    0x4001080C 的高 3 位是 010 → Peripheral 区（外设）
+    再往下看 0x4001_xxxx → APB2 总线
+    再往下看 0x4001_0800 → GPIOA 这个外设
+    再往下看 0x4001080C 的低 12 位 = 0x80C → GPIOA 内部的 0x0C 号寄存器
+
+【第五层】0x0C 号寄存器的解码结果就是「输出数据寄存器 ODR」
+    写请求被送进 ODR 里第 0 号触发器的 D 端
+    时钟沿一到，触发器翻转 → 输出驱动电路把 PA0 拉高到 3.3V
+
+    ┌──────────┐   AHB/APB    ┌────────────┐    ┌──────────┐
+    │  Cortex  │────总线──────►│  总线译码   │───►│ GPIOA 外设│───► PA0 引脚
+    │   -M3    │  地址+数据    │  器 + 桥    │    │  ODR 等  │     3.3V
+    └──────────┘              └────────────┘    └──────────┘
+
+【关键结论】
+    · 对 CPU 而言，「写引脚」和「写一个内存变量」是同一种动作，
+      区别只发生在【总线译码器之后】。
+    · 所以 GPIOA 那个地址不是「一段内存」，而是一个【门牌号】，
+      敲这个门，里面有电路等着你。
+    · 地址的哪几位决定什么，是芯片设计时【硬连线】定的，
+      写死在硅片里，你在手册上查到的就是这份硬连线的说明书。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">最后一句是这一节最重要的话</b>：地址的划分是硬连线的结果，手册（Reference Manual）就是它的说明书。所以你不需要「理解」为什么 GPIOA 在 0x40010800——你只需要知道<b>去手册的哪张表里查它</b>，以及后面会讲的一整套「基地址 + 偏移」的记账方法。</p>
+
+          <h3 id="sub-4gb" class="mt-7 text-base font-semibold">二、Cortex-M 的 4GB 空间：8 个 512MB 区块</h3>
+
+          <p class="mt-3">先说「4GB」这个数字是怎么来的。<b class="font-semibold text-ink">Cortex-M 是 32 位处理器，地址总线的宽度是 32 位</b>，也就是说它能表达的地址范围是 0x00000000 到 0xFFFFFFFF，一共 2<sup>32</sup> 个字节：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="4GB 是怎么算出来的">
+            <pre><code>2^32 字节 = 4 294 967 296 字节
+          = 4 × 2^30 字节
+          = 4 GB
+
+【顺带记住三个换算】
+   1 KB = 2^10 = 1024 字节         = 0x400    字节
+   1 MB = 2^20 = 1 048 576 字节    = 0x100000 字节
+   1 GB = 2^30 = 1 073 741 824 字节= 0x40000000 字节
+
+   ★ 注意 0x40000000 = 1GB。所以 4GB 空间的最高地址 0xFFFFFFFF
+     和「外设区起点 0x40000000」，相差正好 3GB —— 这两个数字
+     以后会反复出现，先建立感觉。</code></pre>
+          </div>
+
+          <p class="mt-3">ARM 在设计 ARMv7-M 架构时，把这 4GB 从中间「切成」<b class="font-semibold text-ink">8 个 512MB 的区块</b>（每块 0x20000000 字节），每一块有固定的用途和固定的内存属性。切法如下：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>起始地址</th><th>区块名</th><th>用途</th><th>默认内存属性</th><th>位带</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">0x00000000</td><td>Code</td><td>程序代码与常量（ROM/Flash）</td><td>普通内存，<b>可执行</b></td><td>无</td></tr>
+                <tr><td class="font-mono text-xs">0x20000000</td><td>SRAM</td><td>数据存储器（片上 SRAM）</td><td>普通内存，<b>不可执行</b>（XN）</td><td><b>有</b>（首 1MB）</td></tr>
+                <tr><td class="font-mono text-xs">0x40000000</td><td>Peripheral</td><td>片上外设寄存器</td><td>设备内存（Device），不可执行</td><td><b>有</b>（首 1MB）</td></tr>
+                <tr><td class="font-mono text-xs">0x60000000</td><td>RAM</td><td>外部 RAM（挂在总线上扩展）</td><td>普通内存，不可执行</td><td>无</td></tr>
+                <tr><td class="font-mono text-xs">0x80000000</td><td>Device</td><td>外部设备（外部存储器、外设接口）</td><td>设备内存，不可执行</td><td>无</td></tr>
+                <tr><td class="font-mono text-xs">0xA0000000</td><td>保留</td><td>ARM 保留给未来使用，ST 未使用</td><td>—（访问会出错）</td><td>无</td></tr>
+                <tr><td class="font-mono text-xs">0xC0000000</td><td>保留</td><td>ARM 保留给未来使用，ST 未使用</td><td>—（访问会出错）</td><td>无</td></tr>
+                <tr><td class="font-mono text-xs">0xE0000000</td><td>系统区</td><td>前 1MB 是内核私有外设总线 PPB，其余是厂商区</td><td>强序（Strongly-ordered），不可执行</td><td>无</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">把这张表画成图，就是你以后看任何 Cortex-M 芯片都要先在脑子里浮现的那张「楼层平面图」：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="Cortex-M 的 4GB 地址空间分区图（每块 512MB）">
+            <pre><code>0xFFFFFFFF ┌──────────────────────────────────────┐
+           │                                      │
+           │        系统区（System）512MB          │  厂商自定义区
+           │        0xE0100000 ~ 0xFFFFFFFF        │  （ST 放调试组件等）
+0xE0100000 ├──────────────────────────────────────┤
+           │   PPB 内核私有外设总线（前 1MB）       │  SysTick/NVIC/SCB/MPU
+           │   0xE0000000 ~ 0xE00FFFFF             │  调试组件、ROM 表
+0xE0000000 ├──────────────────────────────────────┤
+           │                                      │
+           │        保留（Reserved）512MB          │  ARM 保留，谁也别碰
+           │        0xC0000000 ~ 0xDFFFFFFF        │
+0xC0000000 ├──────────────────────────────────────┤
+           │                                      │
+           │        保留（Reserved）512MB          │  ARM 保留，谁也别碰
+           │        0xA0000000 ~ 0xBFFFFFFF        │
+0xA0000000 ├──────────────────────────────────────┤
+           │                                      │
+           │        Device 外部设备 512MB          │  外部存储器/外设接口
+           │        0x80000000 ~ 0x9FFFFFFF        │  （F103 上没有）
+0x80000000 ├──────────────────────────────────────┤
+           │                                      │
+           │        RAM 外部 RAM 512MB             │  扩展 RAM
+           │        0x60000000 ~ 0x7FFFFFFF        │  （F103 上没有）
+0x60000000 ├──────────────────────────────────────┤
+           │                                      │
+           │        Peripheral 外设 512MB          │  片上外设寄存器
+           │        0x40000000 ~ 0x5FFFFFFF        │  ★ 头 1MB 支持位带
+0x40000000 ├──────────────────────────────────────┤
+           │                                      │
+           │        SRAM 数据区 512MB              │  片上 SRAM
+           │        0x20000000 ~ 0x3FFFFFFF        │  ★ 头 1MB 支持位带
+0x20000000 ├──────────────────────────────────────┤
+           │                                      │
+           │        Code 代码区 512MB              │  Flash / ROM
+           │        0x00000000 ~ 0x1FFFFFFF        │  ★ 0x00000000 是启动别名
+0x00000000 └──────────────────────────────────────┘
+
+  每一块正好 512MB = 0x20000000 字节，8 块拼满 4GB。</code></pre>
+          </div>
+
+          <p class="mt-3">你可能会问：<b class="font-semibold text-ink">为什么偏偏是 512MB 一块，而不是 1GB 或 64MB？</b>这不是随手切的，背后有两个工程理由：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">① 让译码变得极简单。</b>512MB = 2<sup>29</sup>，所以「地址落在哪个区」只取决于地址的<b>最高 3 位</b>（bit 31、30、29）。硬件译码器不需要做任何减法或比较表，直接把三根地址线接进一个 3-8 译码器就完事了。<b>速度快、面积小、不可能出错</b>——这在硅片上是很大的优势。下面这张刻度尺能帮你看清这件事。</li>
+            <li><b class="font-semibold text-ink">② 让「属性」可以按区规定。</b>ARMv7-M 规定：Code 区是<b>可执行</b>的（你的代码就住在那里）；SRAM / RAM / Device / 外设区统统是<b>不可执行（XN, eXecute Never）</b>的；外设和 PPB 是<b>设备内存 / 强序内存</b>，禁止缓存、禁止合并、禁止乱序。这样一来，只要看地址落在哪个区，CPU 就知道该用什么规矩去访问它——野指针跳进 SRAM 里「执行数据」这件事，在架构层面就被堵死了。</li>
+          </ul>
+
+          <div class="code-block mt-3" data-lang="text" data-title="为什么只切 8 块就够：地址高 3 位决定一切">
+            <pre><code>把 32 位地址写成二进制，只看最高 3 位（bit31 ~ bit29）：
+
+   bit31 bit30 bit29 │ 区块          │ 起始地址
+   ──────────────────┼───────────────┼─────────────
+     0     0     0   │ Code          │ 0x00000000
+     0     0     1   │ SRAM          │ 0x20000000
+     0     1     0   │ Peripheral    │ 0x40000000
+     0     1     1   │ RAM（外部）    │ 0x60000000
+     1     0     0   │ Device（外部） │ 0x80000000
+     1     0     1   │ 保留          │ 0xA0000000
+     1     1     0   │ 保留          │ 0xC0000000
+     1     1     1   │ 系统区 / PPB  │ 0xE0000000
+
+【举一反三，练一下这个直觉】
+   0x4001080C → 高 3 位 = 010 → 外设区 ✅
+   0x2000002C → 高 3 位 = 001 → SRAM 区 ✅
+   0x08000A5C → 高 3 位 = 000 → Code 区（Flash 里的函数）✅
+   0xE000E010 → 高 3 位 = 111 → 系统区（SysTick）✅
+
+   ★ 以后看到一个陌生的 32 位地址，先看第一位十六进制数字：
+      0 或 1 开头 → 代码/常量        2 或 3 开头 → 变量（SRAM）
+      4 或 5 开头 → 外设寄存器        6、7 开头   → 外部 RAM
+      8、9 开头   → 外部设备          A ~ D 开头  → 保留（别碰）
+      E、F 开头   → 内核/系统区
+      ——「看一眼开头就能猜出它是什么」，这就是分区带来的最大便利。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">「不可执行（XN）」不是理论，它会真的救你</div>
+            <p>很多人第一次遇到「函数指针指错了地方」时会以为后果是「跑飞」，实际表现往往是<b>直接进 HardFault</b>。原因就是 SRAM 区被标成了 XN：CPU 想从 SRAM 里取指，架构直接判为非法。<b>这是好事</b>——它把一个「不知道跑到哪里去了」的随机故障，变成了一个「立刻停在原地、还能用调试器看现场」的确定性故障。缓冲区溢出、栈被冲掉、函数指针被覆盖，这些经典事故都会因此当场暴露，而不是几个小时以后以「莫名其妙的行为」出现。</p>
+            <p class="mt-2">顺带说一句：<b>为什么「执行 SRAM 里的代码」在某些教程里又能跑？</b>因为有些芯片（或某些启动方式）会把 SRAM 的 XN 属性通过 MPU/系统配置改掉，让 SRAM 可执行。默认情况下，STM32F103 的 SRAM 是不可执行的。</p>
+          </div>
+
+          <p class="mt-3">最后补一句：<b class="font-semibold text-ink">4GB 是「地址空间」的大小，不是「你有 4GB 内存」。</b>STM32F103C8T6 只有 64KB Flash 和 20KB SRAM，它们分别占据这 4GB 中的一小段：Flash 占 Code 区里的 0x08000000~0x0800FFFF，SRAM 占 SRAM 区里的 0x20000000~0x20004FFF。<b>剩下 99.99% 的地址空间是空的</b>——空的地址不是「可以随便用」，而是「访问了会出错」。这个区别，在第五站的「常见误解与坑」里还会再强调一次。</p>
+        <!-- ---------------------------- 2. 核心概念（续） ---------------------------- -->
+
+          <h3 id="sub-map" class="mt-7 text-base font-semibold">三、STM32F103 的实际排布：ARM 画格子，ST 填内容</h3>
+
+          <p class="mt-3">上一站那张 8 区块图是 <b class="font-semibold text-ink">ARM 定的架构框架</b>——任何一颗 Cortex-M 芯片都必须遵守它（否则编译器、调试器、RTOS 就没法通用）。而<b class="font-semibold text-ink">具体哪个外设住在哪个地址，是 ST 在参考手册里规定的</b>。所以看存储器映射永远要问两个问题：ARM 规定这块区域<b>是干什么用的</b>，ST 在这块区域里<b>放了什么</b>。</p>
+
+          <p class="mt-3">先说结论：STM32F103 这颗芯片，只用到 4 个区块——Code 区（Flash）、SRAM 区、Peripheral 区、系统区（PPB）。另外 4 个区块（外部 RAM、外部 Device、两个保留区）在 F103 上<b>什么都没接</b>。完整排布如下：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>地址范围</th><th>区域名称</th><th>F103C8T6 上实际有什么</th><th>大小</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">0x00000000 ~ 0x0007FFFF</td><td><b>启动别名区</b></td><td>由 BOOT0/BOOT1 决定：主 Flash / 系统存储器 / 内嵌 SRAM 三者之一</td><td>512KB 窗口</td></tr>
+                <tr><td class="font-mono text-xs">0x08000000 ~ 0x0800FFFF</td><td><b>主 Flash（真身）</b></td><td>你的程序代码和常量（C8T6 是 64KB）</td><td>64KB</td></tr>
+                <tr><td class="font-mono text-xs">0x08010000 ~ 0x1FFFEFFF</td><td>保留</td><td>无（大容量型号的 Flash 会向上延伸）</td><td>—</td></tr>
+                <tr><td class="font-mono text-xs">0x1FFFF000 ~ 0x1FFFF7FF</td><td><b>系统存储器</b></td><td>出厂预置的 Bootloader（2KB，只读）</td><td>2KB</td></tr>
+                <tr><td class="font-mono text-xs">0x1FFFF800 ~ 0x1FFFF80F</td><td>选项字节</td><td>读写保护、看门狗硬件使能等配置</td><td>16 字节</td></tr>
+                <tr><td class="font-mono text-xs">0x20000000 ~ 0x20004FFF</td><td><b>SRAM</b></td><td>变量、堆、栈（C8T6 是 20KB）</td><td>20KB</td></tr>
+                <tr><td class="font-mono text-xs">0x20005000 ~ 0x3FFFFFFF</td><td>SRAM 区剩余</td><td>无（访问会出错）</td><td>—</td></tr>
+                <tr><td class="font-mono text-xs">0x40000000 ~ 0x4000FFFF</td><td><b>APB1 外设</b></td><td>低速外设：TIM2~TIM7、USART2/3、I2C1/2、SPI2、看门狗…</td><td>64KB</td></tr>
+                <tr><td class="font-mono text-xs">0x40010000 ~ 0x4001FFFF</td><td><b>APB2 外设</b></td><td>高速外设：GPIOA~E、USART1、SPI1、ADC1/2、TIM1…</td><td>64KB</td></tr>
+                <tr><td class="font-mono text-xs">0x40020000 ~ 0x40023FFF</td><td><b>AHB 外设</b></td><td>DMA1/2、RCC、Flash 接口、CRC</td><td>16KB</td></tr>
+                <tr><td class="font-mono text-xs">0xE0000000 ~ 0xE00FFFFF</td><td><b>PPB 内核私有区</b></td><td>SysTick、NVIC、SCB、MPU、DWT、ITM 等</td><td>1MB</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="STM32F103 存储器映射总图（俯视）">
+            <pre><code>0xFFFFFFFF ┌─────────────────────────────┐
+           │       （F103 未使用）        │
+0xE0100000 ├─────────────────────────────┤
+           │  PPB 内核私有外设区          │ ← SysTick / NVIC / SCB / MPU
+           │  0xE0000000 ~ 0xE00FFFFF     │    ★ ARM 定地址，全系列一样
+0xE0000000 ├─────────────────────────────┤
+           │       （F103 未使用）        │  保留区、外部 RAM、外部设备
+0x40024000 ├─────────────────────────────┤
+           │  AHB 外设  0x40020000        │ ← DMA / RCC / FLASH / CRC
+0x40020000 ├─────────────────────────────┤
+           │  APB2 外设 0x40010000        │ ← GPIO / USART1 / SPI1 / ADC / TIM1
+0x40010000 ├─────────────────────────────┤
+           │  APB1 外设 0x40000000        │ ← TIM2~7 / USART2,3 / I2C / SPI2
+0x40000000 ├─────────────────────────────┤
+           │  （F103 未使用）             │
+0x20005000 ├─────────────────────────────┤
+           │  SRAM 20KB  0x20000000       │ ← 变量 / 堆 / 栈
+0x20000000 ├─────────────────────────────┤
+           │  （F103 未使用）             │
+0x08010000 ├─────────────────────────────┤
+           │  主 Flash 64KB 0x08000000    │ ← 你的程序在这里「住」
+0x08000000 ├─────────────────────────────┤
+           │  启动别名区 0x00000000       │ ← 一个窗口，看 BOOT 引脚指向谁
+0x00000000 └─────────────────────────────┘
+
+  ★ 记住三个「门牌号起点」：Flash 0x08000000、SRAM 0x20000000、外设 0x40000000。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">为什么 Flash 在 0x08000000，而不是 0x00000000？</h4>
+
+          <p class="mt-3">这是学 STM32 时最经典的一个疑问。多数人的直觉是：<b class="font-semibold text-ink">程序不是从地址 0 开始执行的吗？那 Flash 不就该放在 0x00000000 吗？</b></p>
+
+          <p class="mt-3">关键在这里：Cortex-M 复位时，CPU 做两件事——从 <b class="font-semibold text-ink">0x00000000</b> 读出前 4 个字节当作初始栈指针 MSP，从 <b class="font-semibold text-ink">0x00000004</b> 读出复位向量（Reset_Handler 的地址）当作 PC。<b>所以 0x00000000 这个位置必须有一张「向量表」，而且这张表必须是 CPU 复位后立刻能读到的东西。</b></p>
+
+          <p class="mt-3">可是 STM32 有三种启动方式（第七站细讲）：从主 Flash 启动、从系统存储器启动（进出厂 Bootloader 用串口下载程序）、从内嵌 SRAM 启动。这三种情况下，<b class="font-semibold text-ink">0x00000000 处应该出现的东西完全不同</b>。如果 Flash 的物理地址就固定在 0x00000000，那「让 0x00000000 指向 SRAM」这件事就做不到了。</p>
+
+          <p class="mt-3">于是 ST 的做法是：<b class="font-semibold text-ink">把 0x00000000 留出来做「窗口」（启动别名区），让 Flash 的真身住在 0x08000000</b>。窗口里能看到谁，由 <b class="font-semibold text-ink">BOOT0 / BOOT1 两个引脚在复位瞬间的电平</b>决定（F103 只提供这一种手段，改完必须复位才生效；F4 及之后的系列另外还有 SYSCFG 里的 MEM_MODE 位，可以让软件在运行时重映射）。这就是所谓的<b class="font-semibold text-ink">「启动别名」或「地址重映射」机制</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="启动别名：0x00000000 是一个「可切换的窗口」">
+            <pre><code>【硬件结构】
+
+        0x00000000 窗口            真实物理位置
+      ┌───────────────┐
+      │ 0x00000000    │──┐
+      │ 启动别名区     │  │      ┌────────────────────────┐
+      │ (512KB 窗口)   │  ├───►  │ 主 Flash  @0x08000000  │  BOOT0=0
+      │               │  │      ├────────────────────────┤
+      │ 里面看到谁，   │  ├───►  │ 系统存储器 @0x1FFFF000 │  BOOT0=1,BOOT1=0
+      │ 由「开关」决定 │  │      ├────────────────────────┤
+      └───────────────┘  └───►  │ 内嵌 SRAM @0x20000000  │  BOOT0=1,BOOT1=1
+                                 └────────────────────────┘
+             ★ 开关 = BOOT0 / BOOT1 两个引脚在复位瞬间的电平。
+             F103 只有这一种手段，改完必须复位才生效；
+             F4 及之后的系列另有 SYSCFG 里的 MEM_MODE 位，
+             可以让软件在运行时重映射。
+
+【后果一：同一块 Flash 有两个地址】
+
+   函数 main 的代码物理上只存在一份，但你可以用两个地址找到它：
+      0x08000A5C   ← Flash 真身地址（永远有效）
+      0x00000A5C   ← 别名地址（仅当窗口指向 Flash 时有效）
+
+   ⚠ 这两个指针指向同一个字节，但数值不相等！
+      if (p == (void *)&amp;main) 这种比较可能因此失败。
+      结论：写代码时【永远用 0x0800xxxx】，别用别名地址取函数/常量地址。
+
+【后果二：为什么 IAP 里 App 要从 0x08008000 开始】
+
+   做串口升级（IAP）时，Bootloader 占 0x08000000 ~ 0x08007FFF，
+   App 从 0x08008000 开始放。
+   有人问：为什么不是从 0x8000 开始？
+   —— 因为 0x8000 落在【别名窗口】里，那是「谁在启动时被选中」
+      才决定的位置，不能用来固定住 App。
+      只有 0x08000000 这个真身地址是确定不移的。
+
+【后果三：为什么调试时看到两个地址都能读】
+
+   在 Keil 的 Memory 窗口里输入 0x00000000 和 0x08000000，
+   你会看到【完全相同】的一段数据 —— 因为那就是同一块 Flash。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-3">
+            <div class="callout-title">一个能立刻用上的判断</div>
+            <p>以后你在别人的代码里看到 <code class="icode">0x08004000</code>、<code class="icode">0x08008000</code> 这类数字，就知道那是在<b>指定 Flash 里的某个位置</b>（做 IAP 分区、放参数区、放字库）；看到 <code class="icode">0x00000000</code> 出现在代码里，就要警惕了——除非你明确知道自己在做启动相关的事，否则那多半是把「零地址」和「Flash 起点」搞混了。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">外设区怎么分：APB1 / APB2 / AHB 三条总线</h4>
+
+          <p class="mt-3">从 0x40000000 开始的 512MB 外设区，F103 只用到了最前面的 144KB 左右。这 144KB 被分成了三段，<b class="font-semibold text-ink">每一段对应芯片内部的一条总线</b>——这不是随意的分区，而是物理上的总线拓扑直接反映到了地址上：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>总线</th><th>基地址</th><th>最高频率</th><th>典型外设</th><th>时钟使能寄存器</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>APB1</b>（低速）</td>
+                  <td class="font-mono text-xs">0x40000000</td>
+                  <td>36 MHz（系统 72MHz 的 1/2）</td>
+                  <td>TIM2~TIM7、USART2/3、UART4/5、I2C1/2、SPI2/3、IWDG、WWDG、RTC、PWR、BKP、CAN、USB、DAC</td>
+                  <td><code class="icode">RCC-&gt;APB1ENR</code></td>
+                </tr>
+                <tr>
+                  <td><b>APB2</b>（高速）</td>
+                  <td class="font-mono text-xs">0x40010000</td>
+                  <td>72 MHz（与系统同频）</td>
+                  <td>GPIOA~E、AFIO、EXTI、USART1、SPI1、ADC1/2/3、TIM1、TIM8、TIM9~17</td>
+                  <td><code class="icode">RCC-&gt;APB2ENR</code></td>
+                </tr>
+                <tr>
+                  <td><b>AHB</b>（高速）</td>
+                  <td class="font-mono text-xs">0x40020000</td>
+                  <td>72 MHz</td>
+                  <td>DMA1/2、RCC、FLASH 接口、CRC</td>
+                  <td><code class="icode">RCC-&gt;AHBENR</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张表能解释一件很多人「照抄代码但没想通」的事：<b class="font-semibold text-ink">为什么开 GPIOA 时钟写的是 <code class="icode">RCC-&gt;APB2ENR</code> 的 bit2，而不是 APB1ENR？</b>因为 GPIOA 是挂在 APB2 这条总线上的，而时钟门控是按总线分组的——每一条总线都有一个自己的「时钟开关寄存器」，位的位置对应挂在这条总线上的外设编号。<b>外设挂在哪条总线（地址落在哪一段），决定了你要去哪个寄存器开它的时钟。</b>地址分段和时钟分组，是同一件事的两种表现。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="外设区地址细分：每个外设占 1KB 窗口">
+            <pre><code>0x40000000 ├─────────────── APB1（低速，≤36MHz）───────────────┤
+           │  TIM2    0x40000000   ← 每个外设间隔 0x400 = 1KB
+           │  TIM3    0x40000400
+           │  TIM4    0x40000800
+           │  TIM5    0x40000C00
+           │  TIM6    0x40001000
+           │  TIM7    0x40001400
+           │  （保留  0x40001800 ~ 0x400027FF）
+           │  RTC     0x40002800
+           │  WWDG    0x40002C00
+           │  IWDG    0x40003000
+           │  （保留）
+           │  SPI2    0x40003800
+           │  SPI3    0x40003C00
+           │  （保留）
+           │  USART2  0x40004400
+           │  USART3  0x40004800
+           │  UART4   0x40004C00
+           │  UART5   0x40005000
+           │  I2C1    0x40005400
+           │  I2C2    0x40005800
+           │  USB     0x40005C00
+           │  （保留）
+           │  CAN     0x40006400
+           │  （保留）
+           │  BKP     0x40006C00
+           │  PWR     0x40007000
+           │  DAC     0x40007400
+0x40010000 ├─────────────── APB2（高速，72MHz）───────────────┤
+           │  AFIO    0x40010000
+           │  EXTI    0x40010400
+           │  GPIOA   0x40010800   ← ★ 点亮 LED 的门牌号
+           │  GPIOB   0x40010C00
+           │  GPIOC   0x40011000
+           │  GPIOD   0x40011400
+           │  GPIOE   0x40011800
+           │  （保留）
+           │  ADC1    0x40012400
+           │  ADC2    0x40012800
+           │  TIM1    0x40012C00
+           │  SPI1    0x40013000
+           │  TIM8    0x40013400
+           │  USART1  0x40013800
+           │  ADC3    0x40013C00
+           │  TIM15~17、TIM9~11 …
+0x40020000 ├─────────────── AHB（高速，72MHz）────────────────┤
+           │  DMA1    0x40020000
+           │  DMA2    0x40020400
+           │  （保留  0x40020800 ~ 0x40020FFF）
+           │  RCC     0x40021000   ← ★ 时钟开关在这里
+           │  FLASH   0x40022000   ← Flash 接口（等待周期、擦写）
+           │  CRC     0x40023000
+0x40024000 └─────────────── （F103 未使用）──────────────────┘
+
+【★ 关键规律：每个外设独占 1KB（0x400 字节）】
+
+   为什么要给 TIM2 整整 1KB，而它其实只有 0x00 ~ 0x40 十几个寄存器？
+   —— 因为外设的地址窗口大小必须是 2 的幂，才能用「高位选外设、
+      低位选寄存器」的方式译码，硬件最简单。
+
+   这带来两个可以直接用的推论：
+     ① 两个外设基地址之间必定相差 0x400 的整数倍。
+        记住 TIM2 = 0x40000000，就能推出 TIM3 = 0x40000400、
+        TIM4 = 0x40000800 …… 完全不用背。
+     ② 外设内部的寄存器偏移都在 0x000 ~ 0x3FF 之间，
+        所以「基地址 + 偏移」永远不会串到隔壁外设去。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">内核私有区 0xE0000000：ARM 定的地址，全系列通用</h4>
+
+          <p class="mt-3">外设区的地址是 ST 定的，<b class="font-semibold text-ink">但 0xE0000000 开始的 PPB 区地址是 ARM 定的</b>——任何一颗 Cortex-M3 芯片，不管谁家的，SysTick 都在 0xE000E010，NVIC 都在 0xE000E100，SCB 都在 0xE000ED00。这是 ARMv7-M 架构规范的一部分。</p>
+
+          <p class="mt-3">这件事的实际意义非常大：<b class="font-semibold text-ink">它意味着内核相关的代码可以跨厂商、跨系列复用。</b>你在 F103 上写的 <code class="icode">SysTick-&gt;LOAD = 72000 - 1;</code>，拿到 F407、GD32、甚至国产的 Cortex-M3 芯片上，一行都不用改（只是系统频率不同，重装载值要重算）。CMSIS 里的 <code class="icode">core_cm3.h</code> 之所以能直接写死地址，就是因为这些地址在架构里是固定的。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>组件</th><th>基地址</th><th>关键寄存器</th><th>干什么用的</th></tr></thead>
+              <tbody>
+                <tr><td><b>ITM</b></td><td class="font-mono text-xs">0xE0000000</td><td>TER、TPR…</td><td>调试时的 printf 输出通道（SWO）</td></tr>
+                <tr><td><b>DWT</b></td><td class="font-mono text-xs">0xE0001000</td><td>CTRL、CYCCNT</td><td>精确测时间、算代码执行周期</td></tr>
+                <tr><td><b>FPB</b></td><td class="font-mono text-xs">0xE0002000</td><td>CTRL、COMP…</td><td>断点单元（硬件断点）</td></tr>
+                <tr><td><b>SysTick</b></td><td class="font-mono text-xs">0xE000E010</td><td>CTRL 0xE000E010、LOAD 0xE000E014、VAL 0xE000E018、CALIB 0xE000E01C</td><td>系统滴答定时器，RTOS 的心跳</td></tr>
+                <tr><td><b>NVIC</b></td><td class="font-mono text-xs">0xE000E100</td><td>ISER 0xE000E100、ICER 0xE000E180、ISPR 0xE000E200、ICPR 0xE000E280、IPR 0xE000E400</td><td>中断使能、挂起、优先级（第 27 篇主角）</td></tr>
+                <tr><td><b>SCB</b></td><td class="font-mono text-xs">0xE000ED00</td><td>CPUID 0xE000ED00、ICSR 0xE000ED04、<b>VTOR 0xE000ED08</b>、AIRCR 0xE000ED0C、SHP 0xE000ED18、SHCSR 0xE000ED24、CFSR 0xE000ED28、HFSR 0xE000ED2C、BFAR 0xE000ED38</td><td>系统控制：向量表基址、复位、故障状态</td></tr>
+                <tr><td><b>MPU</b></td><td class="font-mono text-xs">0xE000ED90</td><td>TYPE 0xE000ED90、CTRL 0xE000ED94、RNR 0xE000ED98、RBAR 0xE000ED9C、RASR 0xE000EDA0</td><td>内存保护（第八站细讲）</td></tr>
+                <tr><td>调试（DHCSR）</td><td class="font-mono text-xs">0xE000EDF0</td><td>DHCSR、DCRSR、DCRDR</td><td>调试器控制 CPU、读写寄存器</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张表里有两个你会反复打交道的寄存器，先记住位置：<b class="font-semibold text-ink"><code class="icode">SCB-&gt;VTOR</code>（0xE000ED08）</b>决定 CPU 去哪儿找向量表——做 IAP 跳转、把中断向量搬到 RAM，改的都是它；<b class="font-semibold text-ink"><code class="icode">SCB-&gt;CFSR</code>/<code class="icode">HFSR</code>/<code class="icode">BFAR</code>（0xE000ED28 / 0xE000ED2C / 0xE000ED38）</b>是 HardFault 现场勘查的入口——程序莫名死掉时，第一个该看的就是它们（这也是开头「现场二」里那个 0x00000004 的出处）。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">寄存器映射：基地址 + 偏移 = 绝对地址</h4>
+
+          <p class="mt-3">现在把「外设地址」这件事记账化。<b class="font-semibold text-ink">寄存器映射（register map）</b>只有一条公式：</p>
+
+          <div class="callout callout-info mt-3">
+            <div class="callout-title">寄存器映射公式</div>
+            <p class="text-center font-mono text-[15px]"><b>寄存器绝对地址 = 外设基地址 + 寄存器偏移量</b></p>
+            <p class="mt-2">每个外设分到一块 1KB 的窗口，窗口的起点叫<b>基地址</b>（由 ST 在参考手册里规定）；外设内部每个寄存器在窗口里的位置叫<b>偏移量</b>（也从 0 开始算，也由手册规定）。两者相加就是你在代码里写的那个地址。<b>所有的「魔法数字」都是这么加出来的。</b></p>
+          </div>
+
+          <p class="mt-3">以 GPIOA 为例，它的基地址是 0x40010800，<b class="font-semibold text-ink">它一共有 7 个寄存器</b>，就是下面这 7 个。这张表建议直接背下来（尤其是前 5 个，写点灯、读按键、做位带都要用）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>寄存器</th><th>偏移</th><th>绝对地址（GPIOA）</th><th>读写</th><th>作用</th></tr></thead>
+              <tbody>
+                <tr><td><b>CRL</b> 端口配置低</td><td class="font-mono text-xs">0x00</td><td class="font-mono text-xs">0x40010800</td><td>读写</td><td>配置 PA0~PA7 的模式与速度，每 4 位管一个引脚</td></tr>
+                <tr><td><b>CRH</b> 端口配置高</td><td class="font-mono text-xs">0x04</td><td class="font-mono text-xs">0x40010804</td><td>读写</td><td>配置 PA8~PA15，格式与 CRL 相同</td></tr>
+                <tr><td><b>IDR</b> 输入数据</td><td class="font-mono text-xs">0x08</td><td class="font-mono text-xs">0x40010808</td><td><b>只读</b></td><td>读此刻引脚上的电平，bit0 对应 PA0</td></tr>
+                <tr><td><b>ODR</b> 输出数据</td><td class="font-mono text-xs">0x0C</td><td class="font-mono text-xs">0x4001080C</td><td>读写</td><td>引脚要输出的电平，bit0 对应 PA0。★ 点灯写这里</td></tr>
+                <tr><td><b>BSRR</b> 位置位/复位</td><td class="font-mono text-xs">0x10</td><td class="font-mono text-xs">0x40010810</td><td><b>只写</b></td><td>低 16 位写 1 置位、高 16 位写 1 复位，<b>原子</b></td></tr>
+                <tr><td><b>BRR</b> 位复位</td><td class="font-mono text-xs">0x14</td><td class="font-mono text-xs">0x40010814</td><td><b>只写</b></td><td>低 16 位写 1 复位（BSRR 高 16 位的简化版）</td></tr>
+                <tr><td><b>LCKR</b> 配置锁定</td><td class="font-mono text-xs">0x18</td><td class="font-mono text-xs">0x40010818</td><td>读写</td><td>锁定引脚配置，锁定后到下次复位前不能改（防止误改）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="GPIOA 的 1KB 窗口里到底有什么">
+            <pre><code>GPIOA 的地址窗口：0x40010800 ~ 0x40010BFF（共 1KB = 0x400 字节）
+
+   偏移      绝对地址        寄存器       ← 只有前 0x1C 个字节有内容
+  ┌────────┬──────────────┬──────────┐
+  │ 0x00   │ 0x40010800   │  CRL     │  4 字节 ████
+  │ 0x04   │ 0x40010804   │  CRH     │  4 字节 ████
+  │ 0x08   │ 0x40010808   │  IDR     │  4 字节 ████
+  │ 0x0C   │ 0x4001080C   │  ODR     │  4 字节 ████   ← 点灯写这里
+  │ 0x10   │ 0x40010810   │  BSRR    │  4 字节 ████
+  │ 0x14   │ 0x40010814   │  BRR     │  4 字节 ████
+  │ 0x18   │ 0x40010818   │  LCKR    │  4 字节 ████
+  │ 0x1C   │ 0x4001081C   │ （保留） │  ░░░░░░░░░░░
+  │  ……    │     ……       │ （保留） │  ░░░░░░░░░░░
+  │ 0x3FF  │ 0x40010BFF   │ （保留） │  ░░░░░░░░░░░
+  └────────┴──────────────┴──────────┘
+
+【观察一】偏移量全是 4 的整数倍：0x00, 0x04, 0x08, 0x0C, 0x10, 0x14, 0x18
+    为什么？—— 每个寄存器是 32 位（4 字节），下一个只能从 4 字节之后开始。
+    这就是「32 位对齐」。外设寄存器不存在「3 字节的寄存器」，
+    也不存在偏移是 0x02 这种位置 —— 因为它没法被一条 32 位的
+    LDR/STR 直接访问。
+
+【观察二】手册里写「偏移 0x0C」，代码里写「0x4001080C」，
+    两个数字差的就是基地址 0x40010800。
+
+【观察三】窗口只用了 0x1C 字节，剩下 0x3E4 字节是保留的。
+    读保留地址通常返回 0，写它没有效果 —— 但别去写，
+    某些型号上访问未实现区域会触发总线错误。</code></pre>
+          </div>
+
+          <h3 id="sub-c" class="mt-7 text-base font-semibold">四、用 C 语言描述寄存器：三种写法逐级演进</h3>
+
+          <p class="mt-3">现在我们知道 GPIOA 的 ODR 在 0x4001080C。问题是：<b class="font-semibold text-ink">怎么在 C 语言里「写这个地址」？</b>标准 C 没有「端口输出」这种语句，但有两种东西是它有的：<b>指针</b>和<b>结构体</b>。整个 STM32 的寄存器访问体系，就是从这两样东西上长出来的。下面三种写法是<b>同一件事的三代版本</b>，看懂了演进过程，你就看懂了所有 STM32 头文件。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">写法一：宏定义绝对地址</h4>
+
+          <p class="mt-3">最直接的做法——把「地址」变成一个看起来像变量的宏：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="写法一：把绝对地址包装成宏（最原始的裸机写法）">
+            <pre><code>#include &lt;stdint.h&gt;
+
+/* 把「0x4001080C 这个地址上的 32 位无符号数」定义成一个宏 */
+#define GPIOA_ODR   (*(volatile uint32_t *)0x4001080C)
+
+int main(void)
+{
+    GPIOA_ODR |= (1u &lt;&lt; 0);   /* 展开后：*(volatile uint32_t *)0x4001080C |= 1u; */
+    for (;;) { }
+}
+
+/* ============================================================
+   把这个宏拆开看，它有五层含义，每一层都不能少：
+   ============================================================
+
+     (  *  (volatile uint32_t *)  0x4001080C  )
+     │  │  └────────┬─────────┘   └────┬────┘
+     │  │           │                  │
+     │  │           │                  └─ ① 地址常量：一个整数
+     │  │           └─ ② 强制类型转换：把整数变成「指针」
+     │  │                 （普通 int 不能解引用，必须转成指针类型）
+     │  └─ ③ 解引用：拿到「这个地址上的那个 32 位变量」
+     │        —— 有了它，宏才能出现在赋值号左边（左值）
+     └─ ④ 外层括号：保证 GPIOA_ODR |= x 展开后优先级正确
+           如果没有最外层括号，展开成
+             *(volatile uint32_t *)0x4001080C |= (1u &lt;&lt; 0);
+           其实也能工作（因为 * 的优先级高于 |=），
+           但如果宏被用在 GPIOA_ODR + 1 这种上下文里就会出错。
+           所以【规范做法：宏整体加括号】。
+
+     ⑤ volatile：告诉编译器「这个地址的内容会自己变，
+        每次访问都必须真去访问，不许优化、不许缓存到寄存器」。
+
+   ★ 写法一的缺点：
+     · 寄存器一多，就是几百个宏（F103 有 1000 多个寄存器）
+     · 地址硬编码在宏里，换芯片要逐个改
+     · 读代码时看不出「外设」这个层次：GPIOA_ODR 和 GPIOB_ODR
+       在代码里是两个毫不相干的宏，看不出它们「同属 GPIO 类型」</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">写法二：基地址 + 偏移</h4>
+
+          <p class="mt-3">把上一站的记账公式直接翻译成 C——先定义基地址，再用加法得到每个寄存器：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="写法二：基地址 + 偏移（把「记账结构」写进代码）">
+            <pre><code>#include &lt;stdint.h&gt;
+
+#define GPIOA_BASE   0x40010800UL        /* 外设基地址（查手册得到） */
+#define RCC_BASE     0x40021000UL
+
+#define GPIOA_CRL    (*(volatile uint32_t *)(GPIOA_BASE + 0x00))
+#define GPIOA_CRH    (*(volatile uint32_t *)(GPIOA_BASE + 0x04))
+#define GPIOA_IDR    (*(volatile uint32_t *)(GPIOA_BASE + 0x08))
+#define GPIOA_ODR    (*(volatile uint32_t *)(GPIOA_BASE + 0x0C))
+#define GPIOA_BSRR   (*(volatile uint32_t *)(GPIOA_BASE + 0x10))
+#define GPIOA_BRR    (*(volatile uint32_t *)(GPIOA_BASE + 0x14))
+#define GPIOA_LCKR   (*(volatile uint32_t *)(GPIOA_BASE + 0x18))
+
+#define RCC_APB2ENR  (*(volatile uint32_t *)(RCC_BASE + 0x18))
+
+int main(void)
+{
+    RCC_APB2ENR |= (1u &lt;&lt; 2);      /* 开 GPIOA 时钟 */
+    GPIOA_CRL &amp;= ~0x0000000Fu;     /* 清 PA0 的 4 个配置位 */
+    GPIOA_CRL |= 0x00000002u;      /* PA0 = 推挽输出，2MHz */
+    GPIOA_BSRR = (1u &lt;&lt; 0);        /* 置位 PA0，灯亮 */
+    for (;;) { }
+}
+
+/* ★ 写法二的进步：
+     · 「基地址 + 偏移」的结构显式出现了，和手册一一对应
+     · 基地址只写一次，换芯片型号时主要改基地址
+     · 偏移量写在加法里，读代码时能直接和手册对照
+
+   ★ 写法二仍然存在的问题：
+     · 每个寄存器还是一个独立的宏，7 个 GPIO 端口 = 49 个宏，
+       全芯片 1000+ 个宏，维护起来是噩梦
+     · 没有类型检查：GPIOA_BASE + 0x0C 里的 0x0C 写错成 0x0D
+       编译器不会报错，只会在运行时「莫名其妙不工作」
+     · 无法把「一个 GPIO 端口」当成一个整体传给函数
+       （比如写一个 void led_init(GPIO_TypeDef *port, uint32_t pin)）</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">写法三：结构体指针（HAL / 标准库实际采用的方式）</h4>
+
+          <p class="mt-3">这是真正的答案。<b class="font-semibold text-ink">关键洞察是：手册里那张「偏移量表」，长得就是一个 C 结构体的内存布局。</b>偏移 0x00、0x04、0x08… 依次排列的 32 位成员——这正是 C 结构体的默认排布规则。所以：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="写法三：结构体指针（CMSIS 的核心技巧）">
+            <pre><code>#include &lt;stdint.h&gt;
+
+/* ① 用一个结构体描述「一个 GPIO 端口长什么样」 */
+typedef struct
+{
+    volatile uint32_t CRL;    /* 偏移 0x00 */
+    volatile uint32_t CRH;    /* 偏移 0x04 */
+    volatile uint32_t IDR;    /* 偏移 0x08 */
+    volatile uint32_t ODR;    /* 偏移 0x0C */
+    volatile uint32_t BSRR;   /* 偏移 0x10 */
+    volatile uint32_t BRR;    /* 偏移 0x14 */
+    volatile uint32_t LCKR;   /* 偏移 0x18 */
+} GPIO_TypeDef;
+
+/* ② 定义基地址，并把它「变成」一个指向该结构体的指针 */
+#define GPIOA_BASE   0x40010800UL
+#define GPIOA        ((GPIO_TypeDef *) GPIOA_BASE)
+
+#define RCC_BASE     0x40021000UL
+#define RCC          ((RCC_TypeDef *) RCC_BASE)   /* RCC 同理，结构体略 */
+
+int main(void)
+{
+    RCC-&gt;APB2ENR |= (1u &lt;&lt; 2);        /* 开 GPIOA 时钟 */
+    GPIOA-&gt;CRL &amp;= ~0x0000000Fu;       /* 清 PA0 配置位 */
+    GPIOA-&gt;CRL |= 0x00000002u;        /* PA0 = 推挽输出 2MHz */
+    GPIOA-&gt;BSRR = (1u &lt;&lt; 0);          /* 点亮 */
+    for (;;) { }
+}
+
+/* ★ 它是怎么工作的？
+     GPIOA-&gt;ODR
+     展开 = ((GPIO_TypeDef *)0x40010800)-&gt;ODR
+     编译器做的事：
+        基地址 0x40010800
+      + ODR 在结构体里的偏移（第 4 个成员，前 3 个各 4 字节 = 0x0C）
+      = 0x4001080C                    ← 和手册完全一致
+     然后生成 LDR/STR 指令。
+
+   ★ 为什么偏移能对上？—— 靠两条 C 语言规则：
+     ① 结构体成员按声明顺序在内存里依次排列；
+     ② 每个成员按自己的类型对齐，uint32_t 要求 4 字节对齐。
+     前 3 个成员都是 4 字节 → 第 4 个成员的偏移必然是 0x0C。
+     【结构体布局 = 手册的偏移表，这就是整个技巧的全部秘密。】</code></pre>
+          </div>
+
+          <p class="mt-3">结构体写法带来了三个前面两代做不到的能力：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">① 外设成了一个「类型」，可以当参数传递。</b>于是可以写出这样的通用代码：<code class="icode">void led_init(GPIO_TypeDef *port, uint32_t pin)</code>、<code class="icode">void led_toggle(GPIO_TypeDef *port, uint32_t pin)</code>。同一个函数服务 GPIOA 到 GPIOE，不用写五遍。HAL 库里那些 <code class="icode">GPIO_TypeDef *GPIOx</code> 参数就是这么来的。</li>
+            <li><b class="font-semibold text-ink">② 偏移由编译器算，不再手写。</b>你写 <code class="icode">GPIOA-&gt;ODR</code>，偏移是编译器按结构体布局算出来的，<b>不存在「偏移写错一位」这种 bug 了</b>。手写 <code class="icode">0x4001080C</code> 时打错一个字符编译器不会管，写结构体则根本无处可错。</li>
+            <li><b class="font-semibold text-ink">③ 编译器可以检查类型。</b><code class="icode">GPIOA-&gt;ODR</code> 是 <code class="icode">volatile uint32_t</code>，你写 <code class="icode">GPIOA-&gt;ODR = "hello";</code> 会直接报错；而宏写法里所有寄存器都是无类型的整数表达式，写错类型只能靠人眼。</li>
+          </ul>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">两个关于结构体布局的坑</div>
+            <p><b>坑一：成员顺序不能错，一个都不能漏。</b>结构体的偏移是按声明顺序「挤」出来的，所以结构体里的成员必须与手册里的偏移表<b>顺序一致、个数一致</b>。假设你手滑把 IDR 和 ODR 写反了，那 <code class="icode">GPIOA-&gt;ODR</code> 实际会去访问 IDR——寄存器名是对的、编译不报错、代码看起来很干净，但灯就是不亮。<b>这是最难查的一类 bug</b>：代码「没错」，只是布局错了。所以正式项目永远用官方 CMSIS 头文件，不要自己手写外设结构体。</p>
+            <p class="mt-2"><b>坑二：不要给外设结构体加 <code class="icode">__attribute__((packed))</code>。</b>有些教程为了防止「编译器插入填充字节」，习惯性地加 packed。对 STM32 的外设结构体来说，<b>这是错误的做法</b>：外设结构体的成员全是 4 字节的 <code class="icode">uint32_t</code>，本身就不需要填充，「没有填充」本来就成立；而加了 packed 之后，编译器会认为<b>这些成员可能不是 4 字节对齐的</b>，于是为了安全，可能把一次 32 位的 <code class="icode">LDR/STR</code> 拆成多条字节访问（<code class="icode">LDRB</code>/<code class="icode">STRB</code> 组合）或调用 <code class="icode">memcpy</code> 辅助例程。后果有三：<b>① 一次寄存器写变成多次总线访问，不再原子</b>；<b>② 对 Device 类型内存（外设区）的非对齐/字节宽访问在架构上是受限的，可能触发故障</b>；<b>③ 代码变大变慢</b>。真正需要 packed 的场合是「描述通信报文、文件头」这类<b>不含 32 位外设寄存器</b>的字节流结构体。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">volatile 为什么必不可少</h4>
+
+          <p class="mt-3">前面三种写法里，<code class="icode">volatile</code> 一直默默出现在每个成员前面。现在单独讲清楚：<b class="font-semibold text-ink">去掉它会发生什么。</b></p>
+
+          <p class="mt-3">编译器的优化建立在一条假设上：<b class="font-semibold text-ink">一块普通内存的值，只会因为程序自己的写操作而改变。</b>这条假设对 SRAM 变量是对的，对寄存器是<b>完全错误</b>的——寄存器的值由硬件改：定时器的计数寄存器在滴答滴答涨，状态寄存器的标志位由外设自己置位，数据寄存器的内容由外部引脚/总线决定。编译器不知道这件事，于是它会「替你省事」：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="没有 volatile 时的三种典型翻车（以及为什么）">
+            <pre><code>/* ============ 翻车 1：等待标志位变成死循环 ============ */
+
+/* 错误写法：指针没有 volatile */
+uint32_t *p_sr = (uint32_t *)0x40013800;   /* 假设是 USART1-&gt;SR */
+
+while ((*p_sr &amp; 0x20u) == 0u) { }          /* 等 TXE 标志置位 */
+
+/* 编译器（-O2）的想法：
+     「*p_sr 在循环体里没有被修改过，所以它的值不会变。
+       既然第一次判断就是 0，那循环永远不会退出。」
+   实际生成的汇编（GCC -O2）大致是：
+        LDR  r1, [r0]        ; 只读了一次
+        TST  r1, #0x20
+        BEQ  .L_dead         ; 直接跳到死循环
+   .L_dead:
+        B    .L_dead         ; 永远转圈，寄存器怎么变都没用
+   ★ 现象：程序卡死在一个空循环里，你以为硬件坏了。 */
+
+/* 正确写法：加 volatile */
+volatile uint32_t *p_sr = (volatile uint32_t *)0x40013800;
+while ((*p_sr &amp; 0x20u) == 0u) { }   /* 每次都真的去读地址，标志一变就退出 */
+
+
+/* ============ 翻车 2：「没用」的写被删掉 ============ */
+
+/* 错误写法 */
+uint32_t *p_dr = (uint32_t *)0x40013804;
+*p_dr = 'A';                 /* 发一个字节 */
+*p_dr = 'B';                 /* 再发一个字节 */
+
+/* 编译器：等一下，往同一个地址写两次，前一次的结果谁也读不到，
+           所以第一次写是「无效操作」，删掉！
+   实际结果：只发出了 'B'，'A' 丢了。 */
+
+/* 正确写法 */
+volatile uint32_t *p_dr = (volatile uint32_t *)0x40013804;
+*p_dr = 'A';   /* volatile 写必须逐条执行，一条都不能删 */
+*p_dr = 'B';   /* 于是两个字节都发出去了 */
+
+
+/* ============ 翻车 3：中断里改的变量被「缓存」 ============ */
+
+volatile uint8_t g_tick = 0;        /* ★ 必须 volatile */
+
+void SysTick_Handler(void) { g_tick++; }   /* 中断里改 */
+
+int main(void)
+{
+    while (g_tick &lt; 100) { }        /* 主循环里等 100 个滴答 */
+    /* 如果 g_tick 没有 volatile：编译器会把 g_tick 读到 CPU 寄存器里
+       反复比较，永远看不到中断里的改动 → 死循环。 */
+}
+
+/* ============================================================
+   volatile 到底保证了什么（精确表述）
+   ============================================================
+   ① 每一次读/写都必须真的访问内存（不许缓存到 CPU 寄存器）
+   ② 不许删除「看起来没用」的 volatile 访问（翻车 2）
+   ③ 不许把两次 volatile 访问合并成一次（翻车 1）
+   ④ 对同一对象的多条 volatile 访问，顺序必须保持
+
+   volatile 不保证什么（同样重要）
+   ✗ 不保证原子性！ 
+        GPIOA-&gt;ODR |= (1u &lt;&lt; 0);
+     是「读 - 改 - 写」三步。volatile 保证这三步都真的发生，
+     但【不保证中间不会被打断】。如果中断正好在读了 ODR、
+     还没写回的时候改了同一个引脚，你的修改就会把中断里的
+     修改覆盖掉（丢失更新）。要原子，得用 BSRR/BRR，
+     或者用位带别名地址（第五站）。
+   ✗ 不保证多核/多线程安全（STM32F103 是单核，暂时不用管）
+   ✗ 不等价于内存屏障（ARM 对各内存类型的访问顺序另有规定）</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">「volatile 是万能的」是一个流传很广的错误认知</div>
+            <p>另一种常见的错误是反过来：<b>以为加了 volatile 就万事大吉</b>。看这段代码——</p>
+            <div class="code-block mt-2" data-lang="c" data-title="volatile 挡不住的坑：读-改-写的丢失更新">
+              <pre><code>/* 主循环里：翻转 PB0 */
+GPIOB-&gt;ODR ^= (1u &lt;&lt; 0);
+
+/* 中断服务函数里：翻转 PB1（同一个 ODR 寄存器！） */
+void EXTI0_IRQHandler(void)
+{
+    GPIOB-&gt;ODR ^= (1u &lt;&lt; 1);      /* 也是对 ODR 的读-改-写 */
+    EXTI-&gt;PR = 1u;                /* 清中断标志 */
+}
+
+/* 出问题的时序：
+   ┌─ 主循环：读 ODR → 得到 0x0000
+   │  ★ 中断来了 ★
+   │      中断：读 ODR → 得到 0x0000
+   │      中断：写 ODR = 0x0002     ← PB1 置好了
+   │  ★ 中断返回 ★
+   └─ 主循环：把刚才读到的 0x0000 改成 0x0001，写回 ODR
+          → 中断里的 PB1 修改被【完全覆盖】，PB1 又变回 0 了！
+
+   两个 volatile 都对，问题是「读-改-写不是一个原子动作」。
+   正确解法：GPIOB-&gt;BSRR = (1u &lt;&lt; 16) | (1u &lt;&lt; 1);   ← 一次写，原子
+             或使用位带别名地址。</code></pre>
+            </div>
+            <p class="mt-2">记住这个分工：<b>volatile 管「编译器不要乱优化」，BSRR/位带管「运行时不要被打断」。</b>两者解决的是完全不同的问题，缺一不可。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">CMSIS 的分层命名：一层层把地址拼出来</h4>
+
+          <p class="mt-3">结构体指针解决了「怎么访问」，还剩一个问题：<b class="font-semibold text-ink">那些基地址本身写在哪儿？</b>答案在 CMSIS 头文件（<code class="icode">stm32f10x.h</code> 或 <code class="icode">stm32f103xb.h</code>）里，用的是一种<b class="font-semibold text-ink">分层拼装</b>的写法。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="CMSIS 的分层命名：从外设区总起点一步步拼到 GPIOA">
+            <pre><code>/* ============ 第 0 层：外设区总起点 ============ */
+#define PERIPH_BASE        ((uint32_t)0x40000000)
+
+/* ============ 第 1 层：三条总线的基地址 ============ */
+#define APB1PERIPH_BASE     PERIPH_BASE                        /* 0x40000000 */
+#define APB2PERIPH_BASE     (PERIPH_BASE + 0x10000)            /* 0x40010000 */
+#define AHBPERIPH_BASE      (PERIPH_BASE + 0x20000)            /* 0x40020000 */
+
+/* ============ 第 2 层：各个外设的基地址 ============ */
+#define GPIOA_BASE          (APB2PERIPH_BASE + 0x0800)         /* 0x40010800 */
+#define GPIOB_BASE          (APB2PERIPH_BASE + 0x0C00)         /* 0x40010C00 */
+#define GPIOC_BASE          (APB2PERIPH_BASE + 0x1000)         /* 0x40011000 */
+#define USART1_BASE         (APB2PERIPH_BASE + 0x3800)         /* 0x40013800 */
+#define TIM2_BASE           (APB1PERIPH_BASE + 0x0000)         /* 0x40000000 */
+#define RCC_BASE            (AHBPERIPH_BASE  + 0x1000)         /* 0x40021000 */
+#define FLASH_R_BASE        (AHBPERIPH_BASE  + 0x2000)         /* 0x40022000 */
+
+/* ============ 第 3 层：把基地址变成结构体指针 ============ */
+#define GPIOA               ((GPIO_TypeDef *) GPIOA_BASE)
+#define GPIOB               ((GPIO_TypeDef *) GPIOB_BASE)
+#define GPIOC               ((GPIO_TypeDef *) GPIOC_BASE)
+#define RCC                 ((RCC_TypeDef *) RCC_BASE)
+
+/* ============ 使用：地址是「算」出来的，不是「背」出来的 ============ */
+int main(void)
+{
+    RCC-&gt;APB2ENR |= (1u &lt;&lt; 2);        /* 0x40021000 + 0x18 = 0x40021018 */
+    GPIOA-&gt;CRL   &amp;= ~0x0000000Fu;     /* 0x40010800 + 0x00 = 0x40010800 */
+    GPIOA-&gt;BSRR   = (1u &lt;&lt; 0);        /* 0x40010800 + 0x10 = 0x40010810 */
+    for (;;) { }
+}</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="分层命名：从 0x40000000 到 GPIOA-&gt;ODR 的五级台阶">
+            <pre><code>【第 0 级】  PERIPH_BASE          0x40000000     「所有外设从这里开始」
+                  │
+【第 1 级】        ├── APB1PERIPH_BASE   0x40000000   低速外设总线
+                  ├── APB2PERIPH_BASE   0x40010000   高速外设总线
+                  └── AHBPERIPH_BASE    0x40020000   高速总线
+                        │
+【第 2 级】              ├── RCC_BASE     0x40021000   = AHB + 0x1000
+                        └── FLASH_R_BASE 0x40022000   = AHB + 0x2000
+                  APB2PERIPH_BASE
+                        │
+【第 2 级】              ├── GPIOA_BASE   0x40010800   = APB2 + 0x0800
+                        ├── GPIOB_BASE   0x40010C00   = APB2 + 0x0C00
+                        └── USART1_BASE  0x40013800   = APB2 + 0x3800
+                              │
+【第 3 级】                    └── GPIOA = (GPIO_TypeDef *)0x40010800
+                                    │
+【第 4 级】                          └── GPIOA-&gt;ODR
+                                        = 0x40010800 + 0x0C
+                                        = 0x4001080C       ★ 目标达成
+
+  ★ 每一级都只加一个「有意义的数」：
+      +0x10000 → 从 APB1 跨到 APB2
+      +0x0800  → 从 APB2 起点走到 GPIOA
+      +0x0C    → 从 GPIOA 起点走到 ODR
+    没有任何一个数字是凭空来的，全都能在手册里对上。</code></pre>
+          </div>
+
+          <p class="mt-3">分层命名有三个实打实的好处：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">① 地址有了「语义」。</b>看到 <code class="icode">#define USART1_BASE (APB2PERIPH_BASE + 0x3800)</code>，你立刻知道两件事：USART1 挂在 APB2 上（所以开时钟要写 <code class="icode">RCC-&gt;APB2ENR</code>），以及它在 APB2 段里的偏移是 0x3800。如果只写一个裸地址 <code class="icode">0x40013800</code>，这两条信息全丢了。</li>
+            <li><b class="font-semibold text-ink">② 移植只改底层。</b>换芯片时，工作量集中在「第 0~2 层」——因为不同系列的差异就是「哪个外设挂在哪条总线的哪个偏移上」。第 3 层及以上的代码（结构体指针、HAL、你的应用代码）基本不动。这就是 ST 能给出「F1 到 F4 迁移指南」的技术基础。</li>
+            <li><b class="font-semibold text-ink">③ 零运行开销。</b>所有宏都是编译期常量表达式，<code class="icode">GPIOA-&gt;ODR</code> 在编译后就是一条 <code class="icode">STR r1, [r0, #0x0C]</code> 里的立即数偏移，<b>不会多算一次加法、不消耗一个时钟周期、不占一个字节的 RAM</b>。分层是给人看的，机器看到的仍然是硬编码的地址。</li>
+          </ul>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">三层代码，各管一段——这是理解 STM32 生态的骨架</div>
+            <div class="code-block mt-2" data-lang="text" data-title="从你的代码到硬件：三层各管一段">
+              <pre><code>你的代码           HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
+                        │  「我要把 PA0 拉高」——业务语义层
+                        ▼
+HAL / 标准库         GPIOx-&gt;BSRR = GPIO_Pin;            （HAL_GPIO_WritePin 内部）
+                        │  「往 BSRR 写一个位掩码」——外设操作层
+                        │  帮你做了：参数检查、端口/引脚合法性、
+                        │            位掩码换算、必要时加锁
+                        ▼
+CMSIS 头文件         GPIOA  = (GPIO_TypeDef *)0x40010800
+                     GPIO_TypeDef { CRL, CRH, IDR, ODR, BSRR … }
+                        │  「这个外设的地址和寄存器布局」——地址层
+                        ▼
+编译器 / 硬件        STR  r1, [r0, #0x10]   →  0x40010800 + 0x10 = 0x40010810
+                        │  一条存储指令
+                        ▼
+                     GPIOA 的 BSRR 电路 → PA0 输出高电平
+
+  ★ 为什么标准库和 HAL 都要经过 CMSIS 这一层？
+    因为「寄存器地址」这件事必须【只有一份真相】。
+    CMSIS 由 ARM 制定规范、ST 提供具体头文件，
+    HAL 和标准库都建立在它之上。
+    这样一来：
+      · 同一份 HAL 代码，换个系列只需换 CMSIS 头文件和底层驱动；
+      · 调试器知道去 0xE000ED00 读 CPUID，也是因为 CMSIS 定义了它；
+      · 你哪天想抛开 HAL 直接写寄存器，用的还是同一套 GPIO_TypeDef。</code></pre>
+            </div>
+          </div>
+        <h3 id="sub-bitband" class="mt-7 text-base font-semibold">五、位带：把一位变成一个地址</h3>
+
+          <p class="mt-3">上一站留下了一个问题：<code class="icode">GPIOA-&gt;ODR |= (1u &lt;&lt; 0);</code> 是<b>读-改-写</b>三步，不原子，可能被中断打断造成「丢失更新」。我们已经知道 GPIO 的解法是改用 <code class="icode">BSRR</code>。但请想一层：<b class="font-semibold text-ink">如果我要原子地改「一个普通 SRAM 变量里的某一位」呢？如果我要原子地改「某个非 GPIO 外设寄存器里的某一位」呢？</b>BSRR 只存在于 GPIO，不能解决这一类问题。</p>
+
+          <p class="mt-3">ARM 在 Cortex-M3/M4 里给出的通用答案是<b class="font-semibold text-ink">位带（bit-banding）</b>：<b>把一块内存区域的每一个「位」，都映射成另一块区域里的一个「32 位字」</b>。你想操作哪一位，就去写它对应的那个字——<b>硬件替你把「读-改-写」做完了</b>。</p>
+
+          <h4 class="mt-6 text-[15px] font-semibold">两个 1MB 的位带区，和两个 32MB 的别名区</h4>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>区域</th><th>名称</th><th>地址范围</th><th>大小</th></tr></thead>
+              <tbody>
+                <tr><td rowspan="2">位带区<br>（操作对象）</td><td>SRAM 位带区</td><td class="font-mono text-xs">0x20000000 ~ 0x200FFFFF</td><td>1MB</td></tr>
+                <tr><td>外设位带区</td><td class="font-mono text-xs">0x40000000 ~ 0x400FFFFF</td><td>1MB</td></tr>
+                <tr><td rowspan="2">别名区<br>（你写的地址）</td><td>SRAM 别名区</td><td class="font-mono text-xs">0x22000000 ~ 0x23FFFFFF</td><td>32MB</td></tr>
+                <tr><td>外设别名区</td><td class="font-mono text-xs">0x42000000 ~ 0x43FFFFFF</td><td>32MB</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">注意这里的比例关系：<b class="font-semibold text-ink">1MB 的位带区，对应 32MB 的别名区</b>。为什么正好是 32 倍？算一下：1MB 里有 8 × 2<sup>20</sup> = 8388608 个位；每位要占一个 32 位字（4 字节），所以别名区要 8388608 × 4 = 33554432 字节 = 32MB。也就是 <b>1 字节（8 位）× 4 字节/位 = 32 字节</b>——<b>位带区里的每 1 个字节，在别名区里占 32 个字节。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="位带映射示意图：位 ↔ 字">
+            <pre><code>【位带区】1MB，每个字节有 8 个位
+                                                    【别名区】32MB，每个位占一个 32 位字
+
+0x20000000 ┌──────────────┐                    0x22000000 ┌──────────────────┐
+           │  byte 0      │                              │  word 0          │ ← byte0 的 bit0
+           │  bit7 … bit0 │──────────映射──────────►      │  word 1          │ ← byte0 的 bit1
+           ├──────────────┤                              │  word 2          │ ← byte0 的 bit2
+           │  byte 1      │                              │  word 3          │ ← byte0 的 bit3
+           │  bit7 … bit0 │──────────映射──────────►      │  word 4          │ ← byte0 的 bit4
+           ├──────────────┤                              │  word 5          │ ← byte0 的 bit5
+           │  byte 2      │                              │  word 6          │ ← byte0 的 bit6
+           │     ……       │                              │  word 7          │ ← byte0 的 bit7
+           │              │                              │  word 8          │ ← byte1 的 bit0
+           │  byte N      │                              │  word 9          │ ← byte1 的 bit1
+           │              │                              │     ……           │
+0x200FFFFF └──────────────┘                    0x23FFFFFF └──────────────────┘
+             1MB（8M 个位）                              32MB（8M 个 32 位字）
+
+【读写的语义：只有最低位有效】
+   写别名区的那个字：
+       写 0x00000001  →  位带区对应的那一【置 1】（其他位不动）
+       写 0x00000000  →  位带区对应的那一【清 0】（其他位不动）
+   读别名区的那个字：
+       返回 0x00000000（该位是 0）或 0x00000001（该位是 1）
+       —— 高 31 位恒为 0，别指望读出别的花样
+
+【硬件在背后做了什么】
+   CPU 发出：  STR 0x00000001 → 0x42210180        （一条指令，一个地址）
+   位带逻辑：  识别出这个地址在别名区
+              翻译成对 0x4001080C 的 bit0 的读-改-写
+              —— 这个读-改-写在【总线层面】由硬件完成，CPU 不参与，
+                 中间不可能被任何中断打断。
+   → 所以：一条 STORE 指令 = 一次原子操作。这就是位带的全部价值。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">地址换算公式</h4>
+
+          <div class="callout callout-info mt-3">
+            <div class="callout-title">位带别名地址公式</div>
+            <p class="text-center font-mono text-[15px]"><b>bit_word_addr = bit_band_base + (byte_offset × 32) + (bit_number × 4)</b></p>
+            <ul class="mt-3 list-disc space-y-2 pl-5">
+              <li><b class="font-semibold text-ink">bit_band_base</b>：别名区的基地址。SRAM 用 <code class="icode">0x22000000</code>，外设用 <code class="icode">0x42000000</code>。</li>
+              <li><b class="font-semibold text-ink">byte_offset</b>：目标字节相对<b>位带区基地址</b>的偏移量。SRAM 位带区基地址是 0x20000000，外设位带区基地址是 0x40000000。所以 <code class="icode">byte_offset = 目标字节地址 − 位带区基地址</code>。</li>
+              <li><b class="font-semibold text-ink">× 32</b>：因为位带区里的 1 个字节（8 位），在别名区里占 8 个 32 位字 = 8 × 4 = 32 字节。</li>
+              <li><b class="font-semibold text-ink">bit_number</b>：目标位在该字节里的编号（0~7，最低位是 0）。</li>
+              <li><b class="font-semibold text-ink">× 4</b>：每一位对应别名区里的 1 个 32 位字，1 个字 = 4 字节。</li>
+            </ul>
+            <p class="mt-3">这三个项的含义可以用一句话记住：<b>「先按字节走 32 步，再按位走 4 步。」</b></p>
+          </div>
+
+          <p class="mt-3">下面是把它写成 C 宏的样子——这段代码可以直接抄进你的项目里：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="位带宏：把「某地址的第 n 位」变成一个可读写的 32 位变量">
+            <pre><code>#include &lt;stdint.h&gt;
+
+/* ---- 两个别名区的基地址（ARM 架构规定，写死即可） ---- */
+#define BITBAND_SRAM_BASE     0x22000000UL
+#define BITBAND_PERIPH_BASE   0x42000000UL
+
+/* ---- 两个位带区的基地址 ---- */
+#define BITBAND_SRAM_ORIGIN   0x20000000UL
+#define BITBAND_PERIPH_ORIGIN 0x40000000UL
+
+/* ---- SRAM 变量的某一位：读写它就像读写一个 32 位变量，但是原子的 ---- */
+#define BITBAND_SRAM(addr, bit)                                    \
+    (*(volatile uint32_t *)(BITBAND_SRAM_BASE +                    \
+        (((uint32_t)(uintptr_t)(addr) - BITBAND_SRAM_ORIGIN) * 32u) \
+        + ((uint32_t)(bit) * 4u)))
+
+/* ---- 外设寄存器的某一位 ---- */
+#define BITBAND_PERIPH(addr, bit)                                    \
+    (*(volatile uint32_t *)(BITBAND_PERIPH_BASE +                    \
+        (((uint32_t)(uintptr_t)(addr) - BITBAND_PERIPH_ORIGIN) * 32u) \
+        + ((uint32_t)(bit) * 4u)))
+
+/* ================== 用法示例 ================== */
+
+/* 例 1：原子地置位 / 清零 PA0（GPIOA-&gt;ODR 的 bit0） */
+#define PA0_ODR_BIT   BITBAND_PERIPH(&amp;GPIOA-&gt;ODR, 0)
+
+void led_on(void)  { PA0_ODR_BIT = 1u; }   /* 展开成一条 STR，原子 */
+void led_off(void) { PA0_ODR_BIT = 0u; }   /* 同样是一条 STR，原子 */
+
+/* 例 2：一个 SRAM 里的软件标志位，中断和主循环都能安全地改 */
+volatile uint32_t g_flags = 0;
+
+#define FLAG_UART_RX_READY   BITBAND_SRAM(&amp;g_flags, 0)
+#define FLAG_ADC_DONE        BITBAND_SRAM(&amp;g_flags, 1)
+#define FLAG_ERROR           BITBAND_SRAM(&amp;g_flags, 2)
+
+void UART1_IRQHandler(void)   /* 中断里置位 */
+{
+    FLAG_UART_RX_READY = 1u;  /* 原子，不需要关中断保护 */
+}
+
+int main(void)
+{
+    while (1)
+    {
+        if (FLAG_UART_RX_READY)   /* 主循环里检查 */
+        {
+            FLAG_UART_RX_READY = 0u;
+            /* 处理数据…… */
+        }
+    }
+}
+
+/* ★ 注意 BITBAND_SRAM 的写法细节：
+     · 取地址必须转成 uintptr_t 再减（直接减指针是未定义行为）
+     · 乘 32 与乘 4 用无符号常量（32u / 4u），避免 int 溢出问题
+     · 宏参数 addr 要加括号，否则 &amp;GPIOA-&gt;ODR 这种表达式会被拆错
+     · 最外层必须整体加括号，保证可以出现在赋值号左边</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">为什么位带操作是原子的</h4>
+
+          <p class="mt-3">这是位带最核心的价值，值得单独说透。对比一下两种写法的<b>指令序列</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="原子性对比：三条指令 vs 一条指令">
+            <pre><code>【普通写法】GPIOA-&gt;ODR |= (1u &lt;&lt; 0);
+
+    LDR  r1, [r0, #0x0C]     ← ① 读：把整个 ODR 读进 CPU
+    ORR  r1, r1, #1          ← ② 改：在 CPU 里修改
+    STR  r1, [r0, #0x0C]     ← ③ 写：把整个 ODR 写回去
+
+    风险：
+      ┌─ 执行 ① 之后，② 之前 ───────────────────────────┐
+      │  ★ 中断来了 ★                                    │
+      │     中断里也在改 ODR（比如翻转另一个引脚）        │
+      │     中断改完写回 ODR                              │
+      │  ★ 中断返回 ★                                    │
+      │  主循环拿【中断发生前读到的旧值】去改，            │
+      │  写回时把中断里的修改【全部覆盖掉】                │
+      └──────────────────────────────────────────────────┘
+    这是典型的「丢失更新（lost update）」，而且是概率性的、
+    跑一千次才出现一次的那种 bug —— 最难查的一类。
+
+【位带写法】PA0_ODR_BIT = 1u;
+
+    MOVS r1, #1
+    STR  r1, [r0]            ← 只有这一条！
+
+    为什么它就没有风险了？
+      ① CPU 只发出一条总线写请求，中间没有「CPU 参与」的间隙；
+      ② 「读-改-写」这件事被【下移到了总线硬件】里完成，
+         在总线层面是一个不可分割的动作；
+      ③ 中断可以打断 CPU 的指令流，但无法打断一个
+         已经发出的总线事务。
+
+    → 结论：位带把「读-改-写」三步，压缩成了「一条 STORE」。
+      原子性来自这里，而不是来自 volatile、也不是来自关中断。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">位带在工程上的真实价值：缩短临界区</div>
+            <p>在没有位带的场合，要保证「改一个标志位」不被中断打断，标准做法是关中断：</p>
+            <div class="code-block mt-2" data-lang="c" data-title="传统做法 vs 位带做法">
+              <pre><code>/* 传统做法：关中断保护（临界区） */
+__disable_irq();
+g_flags |= (1u &lt;&lt; 0);      /* 读-改-写三步，被关中断保护起来 */
+__enable_irq();
+
+/* 代价：
+     · 关中断期间，所有中断都被推迟 —— 包括那些【有时序要求】的
+       （串口接收不等人、ADC 采样不等人），延迟过大就丢数据
+     · 中断嵌套/优先级被破坏，实时性变差
+     · 关得太久还可能影响 SysTick，让 RTOS 的心跳变慢 */
+
+/* 位带做法：不需要临界区 */
+FLAG_UART_RX_READY = 1u;    /* 一条原子写，中断随便来 */
+
+/* 收益：
+     · 没有任何时刻是「关中断」的，系统实时性不受影响
+     · 代码更短、意图更清晰（「把第 0 位置 1」）
+     · 在 RTOS 里尤其宝贵：任务间共享标志位可以不进临界区 */</code></pre>
+            </div>
+            <p class="mt-2">这也是为什么很多 RTOS 的移植层、以及一些对实时性敏感的驱动，会在支持的芯片上大量使用位带来代替临界区——<b>位带不是「炫技」，它是实打实的实时性优化手段</b>。</p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">支持情况：不是所有 Cortex-M 都有位带</h4>
+
+          <p class="mt-3">这是必须记牢的一点，<b class="font-semibold text-ink">很多资料在这里是错的（常见的错误说法是「Cortex-M 都有位带」）</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>内核</th><th>架构</th><th>位带支持</th><th>典型 STM32 系列</th></tr></thead>
+              <tbody>
+                <tr><td>Cortex-M0 / M0+</td><td>ARMv6-M</td><td><b>不支持</b></td><td>STM32F0、L0、G0、C0</td></tr>
+                <tr><td>Cortex-M1</td><td>ARMv6-M</td><td><b>不支持</b></td><td>（FPGA 软核，不做 MCU）</td></tr>
+                <tr><td><b>Cortex-M3</b></td><td>ARMv7-M</td><td><b>支持</b></td><td><b>STM32F1</b>、L1、F2</td></tr>
+                <tr><td><b>Cortex-M4</b></td><td>ARMv7E-M</td><td><b>支持</b></td><td>STM32F3、F4、L4、G4</td></tr>
+                <tr><td>Cortex-M7</td><td>ARMv7E-M</td><td><b>不支持</b>（M7 未实现该特性）</td><td>STM32F7、H7</td></tr>
+                <tr><td>Cortex-M23 / M33</td><td>ARMv8-M</td><td><b>不支持</b></td><td>STM32L5、U5、H5</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">所以：<b class="font-semibold text-ink">你手上这块 F103C8T6 是 Cortex-M3，位带可以用</b>；但如果哪天你换到 F7、H7 或者 G0，同样的代码就会写到一片「没有位带逻辑」的地址上——<b>写入不会生效，读回来恒为 0</b>，而且不会报错。这是个很隐蔽的坑。</p>
+
+          <p class="mt-3">另外三个使用位带时要知道的限制：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">① 只有头 1MB 能位带。</b>SRAM 位带区是 0x20000000~0x200FFFFF，外设位带区是 0x40000000~0x400FFFFF。<b>超出去的部分没有别名区</b>，按公式算出来的地址是无效的。对 F103 来说恰好都够用：SRAM 只有 20KB（全在头 1MB 内），而 APB1/APB2/AHB 三条总线的所有外设寄存器都在 0x40000000~0x40023FFF 这一段里，也全在头 1MB 内——<b>F103 的每一个外设寄存器都可以位带</b>。（这也是为什么 ST 把外设放在 0x40000000 而不是更高处的一个隐性好处。）</li>
+            <li><b class="font-semibold text-ink">② 位带改变的是「位」，不改变寄存器的位语义。</b>如果某个寄存器的某一位是「写 1 清零（W1C）」，你用位带去「写 0」并不会把它清零——因为写 0 到那一位本来就是「无操作」。<b>用位带之前，先想清楚你要写进去的到底是 1 还是 0。</b>对有 W1C 语义的状态寄存器，最好还是老老实实用 <code class="icode">寄存器 = 掩码</code> 的方式写。</li>
+            <li><b class="font-semibold text-ink">③ 位带访问比普通访问慢一点。</b>位带别名区的那次访问，硬件要额外做一次地址翻译和读-改-写，占用的总线周期比直接写 SRAM 多。<b>它换来的价值是「原子 + 代码简洁」，不是「更快」。</b>对时间极其敏感的循环（比如软件模拟的时序协议），别指望靠位带提速。</li>
+          </ul>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">别忘了：位带不是唯一的原子手段</div>
+            <p>把「原子地改一位」这件事的几种解法放在一起，方便你按场合挑选：</p>
+            <div class="table-scroll mt-2">
+              <table class="table-mcu">
+                <thead><tr><th>手段</th><th>适用对象</th><th>代价</th></tr></thead>
+                <tbody>
+                  <tr><td><code class="icode">GPIOx-&gt;BSRR</code></td><td>只限 GPIO 输出位</td><td>零额外代价，<b>首选</b></td></tr>
+                  <tr><td>位带别名地址</td><td>头 1MB 内的 SRAM 与外设寄存器</td><td>略慢，但不需要关中断；M0/M7 不可用</td></tr>
+                  <tr><td><code class="icode">__disable_irq()</code> 临界区</td><td>任何东西，包括多条语句的复合操作</td><td>影响实时性；<b>复合操作只能用这一种</b></td></tr>
+                  <tr><td>读-改-写专用寄存器（如 <code class="icode">BSRR</code>、<code class="icode">BRR</code>）</td><td>厂家提供了「写 1 生效」寄存器的外设</td><td>零额外代价，看手册有没有</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-2">注意最后一行和第一行是同一件事的两个说法：<b>ST 在很多外设上都提供了「写 1 才生效」的寄存器</b>（GPIO 的 BSRR、EXTI 的 PR、定时器的 SR 等），它们的存在本身就是为了让「清标志/置位」变成一次原子写。<b>看到手册里写「写 1 清零」，就说明厂家已经替你把原子性考虑好了。</b></p>
+          </div>
+
+          <h3 id="sub-boot" class="mt-7 text-base font-semibold">六、启动模式与「启动别名」</h3>
+
+          <p class="mt-3">第三站里我们说 Flash 的真身在 0x08000000，0x00000000 是一个「可切换的窗口」。现在把那个窗口的开关讲清楚：<b class="font-semibold text-ink">STM32F103 用 BOOT0、BOOT1 两个引脚，在复位（上电、按复位键、看门狗复位都算）的瞬间被采样，决定 0x00000000 指向谁。</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>BOOT0</th><th>BOOT1</th><th>启动模式</th><th>0x00000000 实际映射到</th><th>什么时候用</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>0</b></td><td>x（任意）</td>
+                  <td><b>主 Flash 启动</b></td>
+                  <td class="font-mono text-xs">0x08000000（主 Flash 别名）</td>
+                  <td><b>正常工作模式</b>：复位后直接跑你烧进去的程序</td>
+                </tr>
+                <tr>
+                  <td><b>1</b></td><td><b>0</b></td>
+                  <td><b>系统存储器启动</b></td>
+                  <td class="font-mono text-xs">0x1FFFF000（出厂 Bootloader 别名）</td>
+                  <td><b>串口下载</b>：跑 ST 预置的 Bootloader，通过 USART1 接收新程序</td>
+                </tr>
+                <tr>
+                  <td><b>1</b></td><td><b>1</b></td>
+                  <td><b>内嵌 SRAM 启动</b></td>
+                  <td class="font-mono text-xs">0x20000000（SRAM 别名）</td>
+                  <td>调试/特殊用途：程序不写 Flash，直接在 RAM 里跑</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种启动模式的物理路径">
+            <pre><code>【复位瞬间，芯片内部发生的事】
+
+   ┌─────────────┐
+   │ BOOT0 BOOT1 │  引脚电平被锁存进一个内部寄存器
+   └──────┬──────┘
+          │
+          ▼
+   ┌───────────────────────────────────────────────────────┐
+   │              启动地址重映射逻辑（硬连线）              │
+   │                                                       │
+   │   CPU 去读 0x00000000 ──► 被路由到：                   │
+   │                                                       │
+   │     ① BOOT0=0        ──►  0x08000000  主 Flash         │
+   │     ② BOOT0=1,BOOT1=0──►  0x1FFFF000  系统存储器        │
+   │     ③ BOOT0=1,BOOT1=1──►  0x20000000  内嵌 SRAM         │
+   └───────────────────────────────────────────────────────┘
+          │
+          ▼
+   CPU 从那里读出：前 4 字节 → MSP（栈顶），第 4~7 字节 → PC（复位向量）
+          │
+          ▼
+   开始执行被选中区域里的程序
+
+【关键点：被选中的区域放在 0x00000000「处」的，只是它的前 512KB】
+
+   主 Flash 启动时：
+      0x00000A5C  和  0x08000A5C   是同一个字节（Flash &lt; 512KB 时全都能别名）
+   系统存储器启动时：
+      0x00000000 ~ 0x000007FF  ↔  0x1FFFF000 ~ 0x1FFFF7FF（只有 2KB）
+   内嵌 SRAM 启动时：
+      0x00000000 ~ 0x00004FFF  ↔  0x20000000 ~ 0x20004FFF（SRAM 多大就多少）
+
+【怎么判断当前是从哪儿启动的？】
+   读一个地址就知道了：
+      *(volatile uint32_t *)0x00000000  ← 前 4 字节（MSP 初值）
+      *(volatile uint32_t *)0x08000000  ← 对比
+   两者相等 → 别名窗口指向主 Flash。
+   或者直接看 BOOT 引脚的电平（用万用表量）。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">系统存储器里的 Bootloader：串口下载的原理</h4>
+
+          <p class="mt-3">「系统存储器」这个名字容易让人以为是「给用户存数据的地方」，其实不是。它是 <b class="font-semibold text-ink">ST 在芯片出厂时预先烧好一段程序的一块 2KB 只读区域</b>（地址 0x1FFFF000~0x1FFFF7FF），这段程序叫 <b>Bootloader</b>（也叫 System Memory Boot Mode、ISP 程序）。用户擦不掉它，也改不了它。</p>
+
+          <p class="mt-3">这段程序做的事情，就是「用最简单的接口，把新程序写进 Flash」：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="出厂 Bootloader 干的事（以及为什么这样做）">
+            <pre><code>【上电后，如果 BOOT0=1、BOOT1=0】
+
+   ① 初始化 USART1（默认引脚 PA9 = TX、PA10 = RX，
+      默认波特率通常 8 位数据、偶校验、115200，具体看 AN2606 手册）
+   ② 等待上位机发来同步字节 0x7F
+   ③ 收到后回一个应答，进入「命令模式」
+   ④ 循环等待命令帧，支持的命令大致有：
+        0x00 Get      读版本
+        0x01 GetID    读芯片 ID（F103C8 是 0x410）
+        0x02 Read     读 Flash
+        0x11 Go       跳到指定地址开始执行
+        0x31 Write    写 Flash（按页写）
+        0x43 Erase    擦除页
+        0x63 WriteProtect / 0x73 WriteUnprotect / 0x82 ReadoutProtect
+        0x21 EraseExtended …
+   ⑤ 每个命令执行完回 ACK(0x79) 或 NACK(0x1F)
+
+【这就是「串口下载」的全部原理】
+
+   PC 上的下载软件                      STM32 里的 Bootloader
+   （FlyMcu / mcuisp /                 （系统存储器里的那 2KB）
+     STM32CubeProgrammer）                    │
+        │                                     │
+        │  ① 拉高 BOOT0，复位                  │
+        │────────────────────────────────────►│ 进入 Bootloader
+        │  ② 发 0x7F 同步                     │
+        │◄────────────────────────────────────│ ACK
+        │  ③ 发 0x00 读版本 / 0x01 读 ID       │
+        │◄────────────────────────────────────│ 版本号 / 芯片 ID
+        │  ④ 发 0x43 擦除（选择要擦的页）      │
+        │◄────────────────────────────────────│ ACK
+        │  ⑤ 发 0x31 写（地址 + 数据 + 校验）  │
+        │◄────────────────────────────────────│ ACK（每 256 字节一次）
+        │  ⑥ 发 0x11 Go（跳转到 0x08000000）   │
+        │◄────────────────────────────────────│ 开始跑你的程序
+        │                                     │
+        │  ⑦ 把 BOOT0 拨回 0，再复位           │
+        │     这次直接从主 Flash 启动           │
+
+【为什么这条路能走通？—— 因为它没依赖 Flash 里的任何东西】
+
+   这是「启动别名」机制最漂亮的一个应用：
+   你的 Flash 可能是【全空的】（刚买的新片子），
+   0x00000000 处什么都没有，CPU 根本没法从那儿启动。
+   于是把 BOOT0 拉高，让 0x00000000 指向那块【出厂就写好、
+   永远存在】的系统存储器 —— CPU 就有一份能跑的代码了，
+   而这份代码的唯一任务就是「帮你把 Flash 填满」。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">ISP（串口下载）和 SWD（调试器下载）的区别</div>
+            <p>新手常把这两件事混起来。它们的<b>最终结果一样</b>（Flash 里多了你的程序），但<b>干活的「人」不同</b>：</p>
+            <div class="table-scroll mt-2">
+              <table class="table-mcu">
+                <thead><tr><th></th><th>ISP / 串口下载</th><th>SWD / 调试器下载</th></tr></thead>
+                <tbody>
+                  <tr><td><b>谁来写 Flash</b></td><td>芯片里 ST 预置的 Bootloader 程序（它自己跑起来，执行擦写）</td><td>调试器通过 SWD 接口里的 AHB-AP，直接操作 Flash 控制器寄存器</td></tr>
+                  <tr><td><b>需要什么硬件</b></td><td>一个 USB-TTL 串口模块（几块钱）</td><td>ST-Link / J-Link / DAP-Link（几十块）</td></tr>
+                  <tr><td><b>需要动 BOOT 引脚吗</b></td><td><b>要</b>：下载前拉高 BOOT0、下完拨回、各复位一次</td><td><b>不用</b>：随时可下载</td></tr>
+                  <tr><td><b>能调试吗（断点、单步、看变量）</b></td><td>不能</td><td><b>能</b>，这才是调试器的主要价值</td></tr>
+                  <tr><td><b>为什么还留着 ISP</b></td><td>成本极低、没有调试器时的救命稻草；工厂产线烧录也常用</td><td>开发阶段的主力</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-2">顺带解释一个常见故障：<b>「串口下载失败，提示找不到芯片」</b>——按上面这张表排查就四步：BOOT0 是否真的被拉高（量一下电平）、串口线序是否交叉（PA9 要接 USB-TTL 的 <b>RX</b>）、下载软件选的串口是否对、以及有没有先点「下载」再给芯片复位。<b>注意最后一条尤其反直觉：Bootloader 只在复位后等一小段时间，你得让它在「等待」的时候收到你的第一个字节。</b></p>
+          </div>
+
+          <p class="mt-3">最后回答一个很多人的疑问：<b class="font-semibold text-ink">我能不能在程序里自己改启动模式，而不用动引脚？</b>在 F103 上：<b>不能</b>。启动映射只在复位瞬间按引脚电平锁存，运行期间无法改变（这正是前面纠正过的那个细节——F4 及之后的系列才有 SYSCFG 的 MEM_MODE 位可以软件重映射）。所以在 F103 上做 IAP（在应用内升级），思路完全不同：<b>不是切换启动映射，而是让 Bootloader 或 App 主动跳转</b>——先改 <code class="icode">SCB-&gt;VTOR</code> 把向量表指向新程序的位置，再取新向量表里的复位地址跳过去。这也是为什么 IAP 那套代码里到处是 <code class="icode">0x08008000</code> 这样的「Flash 真身地址」。</p>
+        <h3 id="sub-image" class="mt-7 text-base font-semibold">七、编译产物怎么落到这些区域</h3>
+
+          <p class="mt-3">前面六站讲的都是「芯片有什么地址」，这一站换个方向：<b class="font-semibold text-ink">你写的那些代码、变量、常量，最后各自落在哪一段地址上，是谁决定的。</b>这一站是很多人真正卡住的地方——「我明明声明了一个数组，为什么 map 文件里它有两个地址？」「为什么加了一个 const 表，RAM 没变、Flash 却涨了 2KB？」</p>
+
+          <p class="mt-3">先把链条捋直：<b class="font-semibold text-ink">编译是把 C 代码变成机器码；链接才是把机器码和数据「分配到地址」的那一步。</b>编译器生成的目标文件（.o）里，每个函数和变量都还没有确定的地址，只有名字和大小；链接器读入所有 .o，按<b class="font-semibold text-ink">链接脚本（.ld 或 Keil 的分散加载文件）</b>的指示，把内容分门别类地放进「段（section）」，再把每个段放到链接脚本规定的地址上。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="从 .c 文件到一个地址：四步流水线">
+            <pre><code>   led.c
+     │  ① 预处理：#include 展开、宏替换、条件编译
+     ▼
+   led.i
+     │  ② 编译：C → 汇编（这一步才真正「懂」C 语义）
+     ▼
+   led.s
+     │  ③ 汇编：汇编 → 机器码，产出【可重定位目标文件】led.o
+     ▼        ★ 此时 .text 的地址是 0（未定），变量只有名字和大小
+   led.o ──┐
+           │  ④ 链接：把所有 .o + 库 + 链接脚本 拼起来，
+   startup.o┤      决定「谁放在哪个地址」，并解析跨文件符号引用
+   libc.a  ─┘
+           ▼
+   led.elf   ← 带完整符号表和地址信息（调试用）
+           │  ⑤ objcopy：抽掉调试信息，只留「要烧进 Flash 的字节」
+           ▼
+   led.hex / led.bin   ← 真正烧进芯片的东西
+           │
+           └──► 同时生成 led.map ← 记录「每个符号落在哪个地址」，排查利器</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">段（section）：链接器给数据分的类</h4>
+
+          <p class="mt-3">链接器不是逐个变量去安排地址的，而是<b>按「段」批量安排</b>。段的分类依据是「这块数据有什么性质」——是可执行代码？是只读常量？是「有初值、且初值不能丢」的变量？还是「运行时才产生、初值无所谓」的变量？性质不同，放的地方就不同。STM32 上最常用的六个段：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>段名</th><th>里面装什么</th><th>住在哪</th><th>占 Flash？</th><th>占 RAM？</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>.isr_vector</b><br>（也叫 .vectors）</td>
+                  <td>中断向量表：第 1 个字是 MSP 初值（栈顶），后面是复位向量和各中断服务函数的地址</td>
+                  <td>Flash 最前面，<code class="icode">0x08000000</code></td>
+                  <td><b>占</b></td><td>不占</td>
+                </tr>
+                <tr>
+                  <td><b>.text</b></td>
+                  <td>所有函数的机器码</td>
+                  <td>Flash</td>
+                  <td><b>占</b></td><td>不占</td>
+                </tr>
+                <tr>
+                  <td><b>.rodata</b></td>
+                  <td>只读数据：<code class="icode">const</code> 全局/静态变量、字符串字面量、常量查表</td>
+                  <td>Flash</td>
+                  <td><b>占</b></td><td>不占</td>
+                </tr>
+                <tr>
+                  <td><b>.data</b></td>
+                  <td>有非零初值的全局变量和静态变量。<b>初值存 Flash，运行时拷到 RAM</b></td>
+                  <td>运行在 RAM（VMA）<br>初值在 Flash（LMA）</td>
+                  <td><b>占</b>（存初值）</td><td><b>占</b></td>
+                </tr>
+                <tr>
+                  <td><b>.bss</b></td>
+                  <td>没有初值、或初值为 0 的全局变量和静态变量</td>
+                  <td>RAM</td>
+                  <td><b>不占</b></td><td><b>占</b></td>
+                </tr>
+                <tr>
+                  <td>堆 / 栈</td>
+                  <td>堆：<code class="icode">malloc</code> 出来的空间<br>栈：局部变量、函数调用现场</td>
+                  <td>RAM</td>
+                  <td><b>不占</b></td><td><b>占</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="经典布局图：Flash 和 RAM 里各有什么（STM32F103C8T6：64KB Flash + 20KB SRAM）">
+            <pre><code>【Flash 64KB】0x08000000 ~ 0x0800FFFF          【SRAM 20KB】0x20000000 ~ 0x20004FFF
+
+ 0x08000000 ┌───────────────────────┐          0x20000000 ┌───────────────────────┐
+            │  .isr_vector          │                     │  .data                │
+            │  向量表（约 0x130）    │                     │  有初值的全局变量      │
+ 0x08000130 ├───────────────────────┤                     │  ★ 运行时才有内容      │
+            │  .text                │                     │    （初值来自 Flash）  │
+            │  函数机器码            │          0x200001AC ├───────────────────────┤
+            │                       │                     │  .bss                 │
+            │                       │                     │  无初值/零初值变量     │
+ 0x08001B7C ├───────────────────────┤                     │  ★ 启动时被清零        │
+            │  .rodata              │          0x200004B8 ├───────────────────────┤
+            │  const 表、字符串      │                     │  heap（堆）           │
+ 0x08001E34 ├───────────────────────┤                     │  malloc 向上生长 ↑     │
+            │  .data 的【初值副本】  │                     │                       │
+            │  ★ 系统启动时会被      │                     │         ↓  生长方向    │
+            │    memcpy 到 RAM 去    │                     │  stack（栈）          │
+            │  （也叫 LMA / 加载域） │                     │  局部变量、调用现场     │
+ 0x08001FE0 ├───────────────────────┤          0x20005000 ├───────────────────────┤
+            │  剩余 Flash（可写参数  │                     │  ← MSP 初始值指向这里  │
+            │  区、字库、第二 App…） │                     │    （栈是满递减的）    │
+ 0x0800FFFF └───────────────────────┘                     └───────────────────────┘
+
+   烧写时进 Flash 的总量 = .isr_vector + .text + .rodata + .data（的初值）
+   运行时占 RAM 的总量   = .data + .bss + heap + stack
+
+ ★ 注意箭头：.data 的初值从 Flash 出发，被启动代码搬到 RAM 的 .data 区。
+   这就是为什么同一个变量会有两个地址。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">.data 为什么需要「搬家」：启动代码做的事</h4>
+
+          <p class="mt-3">把上面那个箭头讲透。<b class="font-semibold text-ink">问题的本质是：RAM 掉电就丢，Flash 掉电不丢。</b>假设你写了：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="三个变量，三种命运">
+            <pre><code>#include &lt;stdint.h&gt;
+
+/* ① 有初值的全局变量 → 落 .data */
+uint16_t g_threshold = 1234;          /* 初值 1234 必须「活下来」 */
+
+/* ② 没有初值（或初值为 0）的全局变量 → 落 .bss */
+uint32_t g_counter;                    /* C 标准保证它初值为 0 */
+uint8_t  g_buf[512];                   /* 清零即可，不需要在 Flash 里占 512 字节 */
+
+/* ③ 只读常量 → 落 .rodata（或 .text 同区） */
+const char     g_msg[]      = "hello";       /* 字符串 + const 数组 */
+const uint16_t g_sin_table[64] = { 0, 3212, 6393, /* … */ };  /* 查表数据 */
+
+int main(void)
+{
+    g_counter += g_threshold;          /* 用到它们 */
+    for (;;) { }
+}
+
+/* ============================================================
+   ★ 为什么 ①②③ 的去处不同？逐条看：
+   ============================================================
+
+   ① g_threshold 初值是 1234，不是 0。
+      如果只把它放 RAM，那上电后 RAM 里是随机的，1234 从哪来？
+      → 必须把 1234 存在【非易失】的 Flash 里，
+        启动时再拷进 RAM。所以它「有一个 Flash 地址」+「一个 RAM 地址」。
+
+   ② g_counter 没有初值，而 C 标准要求它必须是 0。
+      如果也把它放 Flash，那就要在 Flash 里存 512 个 0 字节 —— 纯浪费！
+      反正全是 0，启动代码【清零一段 RAM】比【从 Flash 拷 0】快得多、
+      也省 Flash。所以 .bss 只在 RAM 里占位，Flash 里一位都不花。
+         （.bss 这个名字来自 IBM 704 的「block started by symbol」，
+           是个历史遗留的缩写，别去纠结字面意思。）
+
+   ③ g_sin_table 是 const，程序永远不会写它。
+      → 放 RAM 纯属浪费（RAM 比 Flash 宝贵得多）。
+        放 Flash 里，CPU 可以直接读（Flash 是可读的），
+        只在确实要写的时候才需要搬。所以 const 数据留在 Flash。</code></pre>
+          </div>
+
+          <p class="mt-3">那「把 .data 初值从 Flash 拷到 RAM」这件事由谁做？<b class="font-semibold text-ink">由启动文件（startup_stm32f10x_md.s）里的 Reset_Handler 做，在跳进 <code class="icode">main</code> 之前完成。</b>这段代码通常被称为「启动代码」或 C 运行时初始化（crt0）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="Reset_Handler 在 main 之前做的事（ARM 汇编，加了逐行注释）">
+            <pre><code>Reset_Handler:
+    /* ---------- 第 1 步：把 .data 的初值从 Flash 拷到 RAM ---------- */
+    LDR     r0, =_sdata        ; r0 = RAM 中 .data 的起始地址（VMA）
+    LDR     r1, =_edata        ; r1 = RAM 中 .data 的结束地址
+    LDR     r2, =_sidata       ; r2 = Flash 中初值副本的起始（LMA）
+    MOVS    r3, #0
+copy_loop:
+    CMP     r0, r1             ; 拷完了吗？
+    ITTT    LT
+    LDRLT   r4, [r2, r3]       ; 从 Flash 读 4 字节
+    STRLT   r4, [r0, r3]       ; 写进 RAM
+    ADDLT   r3, r3, #4
+    BLT     copy_loop
+
+    /* ---------- 第 2 步：把 .bss 清零 ---------- */
+    LDR     r2, =_sbss         ; r2 = .bss 起始
+    LDR     r4, =_ebss         ; r4 = .bss 结束
+    MOVS    r3, #0
+zero_loop:
+    CMP     r2, r4
+    IT      LT
+    STRLT   r3, [r2], #4       ; 写 0，并且指针 += 4
+    BLT     zero_loop
+
+    /* ---------- 第 3 步：初始化系统时钟（可选）---------- */
+    BL      SystemInit          ; 在 system_stm32f10x.c 里，配置时钟树
+
+    /* ---------- 第 4 步：进入 main ---------- */
+    BL      main
+    B       .                   ; main 返回了？死循环（嵌入式里 main 不该返回）
+
+【★ 关键：_sdata / _edata / _sidata / _sbss / _ebss 这几个符号是谁定义的？】
+   —— 是【链接脚本】。链接脚本在把 .data 段放进 RAM（VMA）、
+      把它的初值放进 Flash（LMA）的同时，顺手定义了这几个符号，
+      告诉启动代码「从哪儿拷到哪儿」。
+      所以：链接脚本一改，启动代码的行为就跟着变 —— 两件事是配套的。
+
+【★ 另一个细节：MSP（栈指针）是谁设的？】
+   不是启动代码设的，是【CPU 自己】设的：
+   复位时 CPU 从 0x00000000 读出前 4 个字节装进 MSP。
+   而这 4 个字节的内容 = _estack 符号的值 = 链接脚本算出的 RAM 末尾地址。
+   于是链条闭合：
+      链接脚本 → _estack → 向量表第 1 个字（.isr_vector 在 Flash 里）
+      → CPU 复位时读它 → MSP 指向栈顶 → 栈可用 → 启动代码能跑</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">变量落位速查表</h4>
+
+          <p class="mt-3">下面这张表是实战里查得最频繁的。左边是你写的 C 声明，右边是它落在哪：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>你写的 C 代码</th><th>落在哪个段</th><th>Flash</th><th>RAM</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td><code class="icode">void foo(void) {…}</code></td><td>.text</td><td>✔</td><td>—</td><td>函数机器码</td></tr>
+                <tr><td><code class="icode">const uint16_t tbl[64] = {…};</code></td><td>.rodata</td><td>✔</td><td>—</td><td>全局 const，最省 RAM 的做法</td></tr>
+                <tr><td><code class="icode">char *p = "abc";</code></td><td>字符串在 .rodata，指针 <code class="icode">p</code> 本身在 .data</td><td>✔</td><td>✔</td><td>两个东西、两个去处</td></tr>
+                <tr><td><code class="icode">uint16_t g_threshold = 1234;</code></td><td>.data</td><td>✔（初值）</td><td>✔</td><td>初值非零的全局变量</td></tr>
+                <tr><td><code class="icode">uint32_t g_counter;</code></td><td>.bss</td><td>—</td><td>✔</td><td>未初始化 → 启动时清零</td></tr>
+                <tr><td><code class="icode">uint8_t g_buf[512];</code></td><td>.bss</td><td>—</td><td>✔ 512B</td><td>大缓冲优先这样写，不吃 Flash</td></tr>
+                <tr><td><code class="icode">static uint32_t s_cnt = 5;</code>（函数内）</td><td>.data</td><td>✔（初值）</td><td>✔</td><td><b>★ static 局部变量不在栈上</b>，它和全局变量同命</td></tr>
+                <tr><td><code class="icode">static uint8_t s_buf[64];</code>（函数内）</td><td>.bss</td><td>—</td><td>✔ 64B</td><td>同上，函数返回后内容还在</td></tr>
+                <tr><td><code class="icode">uint8_t tmp[64];</code>（函数内，无 static）</td><td>栈</td><td>—</td><td>✔</td><td>函数返回即失效，<b>别返回它的地址</b></td></tr>
+                <tr><td><code class="icode">malloc(1024)</code></td><td>堆</td><td>—</td><td>✔</td><td>用完要 <code class="icode">free</code>；嵌入式里不推荐大量使用</td></tr>
+                <tr><td><code class="icode">volatile uint8_t flag;</code></td><td>.bss</td><td>—</td><td>✔</td><td><b>volatile 不改变落位</b>，它只管优化</td></tr>
+                <tr><td><code class="icode">__attribute__((section(".ccmram")))</code></td><td>自定义段</td><td>看链接脚本</td><td>看链接脚本</td><td>高级技巧：把热数据放进 CCM/DTCM（F4/F7 有）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一个立刻能省 Flash 的技巧</div>
+            <p>很多人写查表数据时忘了 <code class="icode">const</code>：<code class="icode">uint16_t sin_table[256] = {…};</code>——这会同时占 <b>Flash 512 字节（初值）+ RAM 512 字节</b>。加上 <code class="icode">const</code> 之后，它只在 Flash 里占 512 字节，<b>RAM 占用直接归零</b>。在只有 20KB SRAM 的 F103 上，这种「一个忘了写的 const」经常就是「RAM 不够用」的真正原因。<b>规则很简单：凡是运行时不改的大数组，全部加 const。</b></p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">读 map 文件：怎么确认东西到底落在哪</h4>
+
+          <p class="mt-3">前面说的都是原理。<b class="font-semibold text-ink">要确认实际情况，只有一个权威来源：map 文件</b>（Keil 在 <code class="icode">Objects/你的工程.map</code>，GCC 用 <code class="icode">-Wl,-Map=out.map</code> 生成）。它开头的一段长这样：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="map 文件（GCC / arm-none-eabi-ld 生成）逐段解读">
+            <pre><code>/* ============ 第一部分：Memory Configuration ============ */
+/* 这一段【直接抄自链接脚本的 MEMORY 命令】—— 说明地址空间里
+   哪几段是「可用的」。改芯片容量，就是改这里的 LENGTH。          */
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+FLASH            0x08000000         0x00010000         xr      ← 64KB，可执行可读
+RAM              0x20000000         0x00005000         rwxl    ← 20KB，可读写可执行
+
+/* ============ 第二部分：段的落位（Linker script and memory map）============ */
+
+Linker script and memory map
+
+.isr_vector     0x08000000      0x130
+                0x08000000                . = ALIGN(0x4)
+ *(.isr_vector)
+ .isr_vector    0x08000000      0x130  startup_stm32f10x_md.o
+                0x08000000                _sidata = LOADADDR(.data)
+                0x08000000                _sdata = .
+                0x08000000                _sbss = .
+                0x08000000                _estack = 0x20005000
+
+.text           0x08000130     0x1a4c          ← 起始地址 + 大小
+ *(.text*)
+ .text          0x08000130      0x2c0  main.o
+ .text          0x080003f0      0x120  gpio.o
+ …
+
+.rodata         0x08001b7c      0x2b8          ← const 数据在这儿
+ *(.rodata*)
+ .rodata        0x08001b7c       0x80  main.o
+                0x08001bfc                g_sin_table      ← 符号级落位！
+
+.data           0x20000000      0x1ac load address 0x08001e34   ← ★ 两个地址！
+                0x20000000                _sdata = .
+ *(.data*)
+ .data          0x20000000       0x40  main.o
+                0x20000000                g_threshold
+ .data          0x20000040       0x6c  uart.o
+                0x200000ac                _edata = .
+                0x08001e34                _sidata = LOADADDR(.data)
+
+.bss            0x200001ac      0x30c          ← 只有运行地址，没有 load address
+                0x200001ac                _sbss = .
+ *(.bss*)
+ .bss           0x200001ac      0x200  main.o
+                0x200001ac                g_buf
+ .bss           0x200003ac       0x10c  uart.o
+                0x200004b8                _ebss = .
+                0x200004b8                _end = .
+                0x200004b8                PROVIDE(end, .)
+
+/* ============ 第三部分：统计（有的工具会输出）============ */
+   text    data     bss     dec     hex filename
+  10240     428     780   11448    2cb8 led.elf
+
+/* ============ 怎么读这几行？============
+
+   ① 「.data  0x20000000  0x1ac  load address 0x08001e34」
+        0x20000000  → 运行时地址（VMA，Virtual Memory Address）：变量在 RAM
+        0x1ac       → 大小 = 428 字节
+        0x08001e34  → 加载地址（LMA，Load Memory Address）：初值在 Flash
+      ★ 这两个地址就是「同一个变量有两个地址」的真相。
+      ★ 只有 .data 有 load address，.text/.rodata 的 VMA = LMA，
+         .bss 根本没有 load address（因为不需要初值）。
+
+   ② 符号级落位：map 文件里会出现【变量名】和它的地址：
+        g_threshold   0x20000000     ← 有初值的全局变量，在 RAM
+        g_sin_table   0x08001bfc     ← const 表，在 Flash
+        g_buf         0x200001ac     ← 数组，在 .bss（RAM）
+      想确认「我的数组到底在哪」，直接在 map 里搜变量名最快。
+
+   ③ 便于算总账：
+        Flash 占用 = .isr_vector + .text + .rodata + .data
+                   = 0x130 + 0x1a4c + 0x2b8 + 0x1ac = 0x1fe0 (8160 字节)
+        RAM 占用   = .data + .bss + heap + stack
+                   = 0x1ac + 0x30c + heap + stack
+      ★ 注意 RAM 占用【不含】.text 和 .rodata —— 它们不占 RAM。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="Keil 用户看这一行就够了：Program Size">
+            <pre><code>Build Output 窗口的最后一行（Keil MDK）：
+
+    Program Size: Code=10240 RO-data=1024 RW-data=256 ZI-data=2048
+
+【四个数字的含义，以及与 GCC 段的对应关系】
+
+   Code     = .text 的大小（函数机器码）
+   RO-data  = .rodata + .isr_vector（只读数据 + 向量表）
+   RW-data  = .data（有初值的可读写数据）
+   ZI-data  = .bss（Zero-Initialized，零初始化数据）
+
+【两个最有用的换算 —— 直接决定你会不会「装不下」】
+
+   ★ Flash 实际占用 = Code + RO-data + RW-data
+                      = 10240 + 1024 + 256 = 11520 字节
+       为什么 RW-data 要算进 Flash？
+       —— 因为它的【初值】必须存在 Flash 里，否则上电后拿什么去拷？
+
+   ★ RAM 实际占用   = RW-data + ZI-data + 堆 + 栈
+                      = 256 + 2048 + 堆 + 栈
+       为什么 RW-data 要算进 RAM？
+       —— 因为运行时变量本体在 RAM 里。
+
+   ★ 所以 RW-data 是【两头都算】的，这是最容易算错的一项。
+     记住一句话：
+         「RO 只吃 Flash；ZI 只吃 RAM；RW 两头都吃。」
+
+【顺带一个新手常见困惑】
+   「我加了 2KB 的 const 数组，为什么 Code 没变、RAM 也没变？」
+   —— 它进了 RO-data。看那一项就对了。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">链接脚本 .ld：谁在决定这些地址</h4>
+
+          <p class="mt-3">map 文件是「果」，链接脚本是「因」。下面是一份简化但结构完整的 STM32F103C8T6 链接脚本——<b class="font-semibold text-ink">它短到可以直接读完，但已经把「地址从哪来」讲完了</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="STM32F103C8T6 链接脚本（.ld）精简版，逐段注释">
+            <pre><code>/* ==========================================================
+   ① MEMORY：定义「地址空间里有哪些可用的内存区域」
+      这两个 ORIGIN 就是前面讲的「门牌号」，
+      芯片一换（F103C8 → F103RC），改的就是两行 LENGTH。
+   ========================================================== */
+MEMORY
+{
+    FLASH (rx)  : ORIGIN = 0x08000000, LENGTH = 64K     /* ★ Flash 真身地址 */
+    RAM   (rwx) : ORIGIN = 0x20000000, LENGTH = 20K     /* ★ SRAM 起始地址 */
+}
+
+/* ==========================================================
+   ② 栈顶：_estack 是「RAM 末尾」
+      满递减栈：压栈时 SP 减小，所以栈从 RAM 末尾往下长。
+      这个符号会被启动文件引用，填进向量表的第 1 个字。
+   ========================================================== */
+_estack = ORIGIN(RAM) + LENGTH(RAM);      /* = 0x20005000 */
+
+/* 堆和栈的最小保留量（有些链接脚本用这两个符号来检查是否放得下） */
+_Min_Heap_Size  = 0x200;                  /* 512 字节 */
+_Min_Stack_Size = 0x400;                  /* 1KB */
+
+/* ==========================================================
+   ③ SECTIONS：每个段放在哪、按什么顺序放
+   ========================================================== */
+SECTIONS
+{
+    /* ---- 向量表：放在 Flash 最开头，必须保留 ---- */
+    .isr_vector :
+    {
+        . = ALIGN(4);
+        KEEP(*(.isr_vector))      /* ★ KEEP 防止被 --gc-sections 删掉 */
+        . = ALIGN(4);
+    } &gt;FLASH                        /* 放进 FLASH 区域 */
+
+    /* ---- 代码 + 只读数据 ---- */
+    .text :
+    {
+        . = ALIGN(4);
+        *(.text)                  /* 所有目标文件的 .text */
+        *(.text*)
+        *(.rodata)
+        *(.rodata*)
+        . = ALIGN(4);
+        _etext = .;               /* 记下 .text 的结束位置 */
+    } &gt;FLASH
+
+    /* ---- 有初值的可读写数据 ---- */
+    .data :
+    {
+        . = ALIGN(4);
+        _sdata = .;               /* 符号：RAM 中 .data 起点 */
+        *(.data)
+        *(.data*)
+        . = ALIGN(4);
+        _edata = .;               /* 符号：RAM 中 .data 终点 */
+    } &gt;RAM AT&gt; FLASH                /* ★★ 这一行是关键，见下方解释 */
+    _sidata = LOADADDR(.data);    /* 符号：Flash 中初值副本的起点 */
+
+    /* ---- 无初值/零初值数据 ---- */
+    .bss :
+    {
+        . = ALIGN(4);
+        _sbss = .;
+        *(.bss)
+        *(.bss*)
+        *(COMMON)
+        . = ALIGN(4);
+        _ebss = .;
+    } &gt;RAM                          /* 只指定 RAM，没有 AT&gt;，所以不占 Flash */
+}
+
+/* ==========================================================
+   ④ 最关键的一行：&gt;RAM AT&gt; FLASH
+   ==========================================================
+   「&gt;RAM」      ：这个段的【运行地址 VMA】在 RAM —— 变量运行在 RAM
+   「AT&gt; FLASH」 ：这个段的【加载地址 LMA】在 Flash —— 初值存在 Flash
+   链接器同时做两件事：
+        · 把 .data 段安排在 RAM 里（分配 VMA）
+        · 把它的初值数据接在 Flash 里上一段的后面（分配 LMA）
+        · 定义 _sidata = Flash 里初值的起点
+   启动代码就用 _sdata / _edata / _sidata 这三个符号做 memcpy。
+
+   ★ 一句话：链接脚本里的「AT&gt;」就是「.data 初值存 Flash」这件事的出处。
+     没有它，.data 就得在 RAM 里凭空有初值 —— 那是不可能的。
+
+   ★ 反过来看 .bss 没有 AT&gt;：因为它不需要初值（全是 0），
+     所以链接器不为它在 Flash 里留任何空间。
+     这就是「.bss 只占 RAM 不占 Flash」的实现方式。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">Keil 用户的对应物：分散加载文件（.sct）</div>
+            <p>Keil MDK 默认不用 .ld，而是用 <b>分散加载文件（scatter file，.sct）</b>，思想完全一样，只是语法不同。你在 Keil 的 Options → Linker 里能看到它自动生成的版本，大致长这样：</p>
+            <div class="code-block mt-2" data-lang="text" data-title="Keil 分散加载文件（.sct）与 .ld 的对应关系">
+              <pre><code>; *******************************
+; *** Scatter-Loading Description File generated by uVision ***
+; *******************************
+
+LR_IROM1 0x08000000 0x00010000  {      ; 加载域：Flash，64KB
+                                         ; 「LR_」= Load Region
+  ER_IROM1 0x08000000 0x00010000  {    ; 执行域①：也是 Flash
+                                         ; 「ER_」= Execution Region
+   *.o (RESET, +First)                 ; 向量表放最前面（对应 .isr_vector）
+   *(InRoot$$Sections)                 ; 库里的固定段
+   .ANY (+RO)                          ; 所有只读内容（对应 .text + .rodata）
+  }
+  RW_IRAM1 0x20000000 0x00005000  {    ; 执行域②：RAM，20KB
+   .ANY (+RW +ZI)                      ; 可读写数据 + 零初始化数据
+  }                                    ; （对应 .data + .bss + 堆栈）
+}
+
+【对照表】
+     .ld 里的写法                     .sct 里的写法              含义
+     ───────────────────────────────  ──────────────────────────  ──────────────
+     MEMORY { FLASH: ORIGIN=… }       LR_IROM1 0x08000000 …       Flash 区域
+     MEMORY { RAM: ORIGIN=… }         RW_IRAM1 0x20000000 …       RAM 区域
+     .isr_vector … KEEP(…)            *.o (RESET, +First)         向量表放最前
+     *(.text*) *(.rodata*)  &gt;FLASH    .ANY (+RO)                  只读内容进 Flash
+     .data / .bss  &gt;RAM               .ANY (+RW +ZI)              可读写内容进 RAM
+     &gt;RAM AT&gt; FLASH                   （由 LR_/ER_ 两个域自动表达） 初值在 Flash
+
+【★ 什么时候你非改它不可？三个场景】
+   ① 做 IAP：Bootloader 的 LR_IROM1 大小要限制成 0x8000，
+      App 的起始地址要改成 0x08008000（还要同时改向量表偏移 VTOR）。
+   ② 芯片型号换了（Flash/RAM 容量变了）：改 LENGTH。
+   ③ 想划一块「掉电不丢的参数区」：在 Flash 里留出一段
+      不放进任何段，用固定地址直接访问（比如 0x0800F800）。</code></pre>
+            </div>
+          </div>
+
+          <h3 id="sub-mpu" class="mt-7 text-base font-semibold">八、内存保护单元 MPU</h3>
+
+          <p class="mt-3">最后一站，讲一件「把前面所有知识都用来保护自己」的事。</p>
+
+          <p class="mt-3">先把问题摆出来。<b class="font-semibold text-ink">Cortex-M 默认没有任何内存访问限制</b>：程序里任何一个指针，指向任何一个地址，都可以直接读写。<code class="icode">*(uint32_t *)0x08000000 = 0;</code> 这一句在你没有权限的情况下也照样编译、照样执行，只是结果可能是把 Flash 里的代码给「写坏」（实际会进 HardFault，因为 Flash 没解锁），或者更糟——<b>写进某个毫不相干的地址，程序在几秒钟之后以完全无关的症状崩溃</b>。</p>
+
+          <p class="mt-3">野指针、数组越界、栈溢出、把指针用错类型……这些错误的共同点是：<b class="font-semibold text-ink">错误的「发生地点」和「暴露地点」离得很远</b>。写坏数据的地方在第 20 行，崩溃的地方在第 2000 行；中间还有一千多行「看起来正常」的运行。这是嵌入式调试最耗时的一类问题。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">MPU（Memory Protection Unit，内存保护单元）</b>就是用来把「发生地点」和「暴露地点」拉近的：它是一个<b>可编程的硬件单元</b>，把 4GB 地址空间划分成若干「区域（region）」，给每个区域规定<b>谁能访问、能做什么</b>。越权的那一次访问会<b>当场</b>触发一个异常（MemManage Fault），把 CPU 停在肇事现场。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="MPU 能规定的两类东西：权限 与 属性">
+            <pre><code>【第一类：访问权限（谁能做什么）】
+
+   ┌────────────────┬────────────────────────────────────────────┐
+   │ 特权 / 非特权   │ Cortex-M 有两种执行状态：                   │
+   │ (privileged /   │   · 特权模式：复位后默认，能访问所有资源      │
+   │  unprivileged)  │   · 非特权模式：受 MPU 约束，用户任务用        │
+   ├────────────────┼────────────────────────────────────────────┤
+   │ 读 / 写         │ 可以把一段内存设成「只读」——野指针想写它，    │
+   │                │ 立刻触发异常，而不是悄悄改坏                 │
+   ├────────────────┼────────────────────────────────────────────┤
+   │ 执行 / 不执行   │ XN 位（eXecute Never）：防止数据被当代码执行  │
+   │                │ ——缓冲区溢出攻击、函数指针被覆盖都靠它拦     │
+   └────────────────┴────────────────────────────────────────────┘
+
+【第二类：内存属性（访问的规矩）】
+
+   普通内存 / 设备内存 / 强序内存、是否可缓存、是否可共享……
+   —— 这些属性在【架构层面】是按区域默认规定的（第二站那张表），
+      MPU 允许你在区域内部【重新划分和覆盖】。
+
+【典型用法举例】
+
+   区域 0：0x08000000 起 64KB  → 特权只读、不可执行（代码区，防止被写）
+   区域 1：0x20000000 起 4KB   → 全权限（当前任务的栈与数据）
+   区域 2：0x20001000 起 32B   → 【任何访问都禁止】← 栈的「守卫区」
+   区域 3：0x40000000 起 1KB   → 特权读写，非特权【无权限】← 关键外设
+   区域 4：0x20002000 起 512B  → 特权读写、非特权只读 ← 共享的只读配置
+
+   ★ 守卫区（guard region）是个很实用的技巧：
+     把栈「下面」紧挨着的一小块内存设为完全不可访问。
+     一旦栈溢出，第一次越界写就会撞上守卫区 →
+     立刻 MemManage Fault，而不是默默改写别的变量。</code></pre>
+          </div>
+
+          <p class="mt-3">Cortex-M3/M4 的 MPU 提供<b class="font-semibold text-ink">最多 8 个区域</b>（region 0~7），每个区域最小 32 字节，大小必须是 2 的幂。区域的配置通过 5 个寄存器完成，它们也在 PPB 区里（第三站那张表里已经有了）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>寄存器</th><th>地址</th><th>作用</th></tr></thead>
+              <tbody>
+                <tr><td><b>MPU_TYPE</b></td><td class="font-mono text-xs">0xE000ED90</td><td>只读。<b>bits 15:8 的 DREGION 字段告诉你这颗芯片实现了几个区域</b>——读出来是 0 就说明「没有 MPU」，这是最可靠的检测方法</td></tr>
+                <tr><td><b>MPU_CTRL</b></td><td class="font-mono text-xs">0xE000ED94</td><td>ENABLE（bit0）开 MPU；PRIVDEFENA（bit2）允许特权模式访问未被区域覆盖的地址（「背景区域」）；HFNMIENA（bit1）决定 HardFault 和 NMI 里是否也启用 MPU</td></tr>
+                <tr><td><b>MPU_RNR</b></td><td class="font-mono text-xs">0xE000ED98</td><td>Region Number：先写它选中要配置哪个区域（0~7），再写下面两个</td></tr>
+                <tr><td><b>MPU_RBAR</b></td><td class="font-mono text-xs">0xE000ED9C</td><td>区域的基地址（低 5 位必须为 0，因为区域至少 32 字节对齐）</td></tr>
+                <tr><td><b>MPU_RASR</b></td><td class="font-mono text-xs">0xE000EDA0</td><td>属性与大小：SIZE（bits 5:1，区域大小 = 2<sup>SIZE+1</sup> 字节）、AP（bits 26:24，访问权限）、XN（bit 28，不可执行）、SRD（子区域禁用）、TEX/S/C/B（内存属性）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">用 C 把一段内存设成「特权只读、非特权不可访问、且不可执行」，核心代码只有几行（下面用命名常量代替裸数字，便于对照手册）：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="配置一个 MPU 区域：把 1KB 的配置数据设为只读">
+            <pre><code>#include &lt;stdint.h&gt;
+
+/* ---- MPU 寄存器（PPB 区，地址由 ARM 架构规定，与厂商无关） ---- */
+typedef struct {
+    volatile uint32_t TYPE;      /* 0xE000ED90 */
+    volatile uint32_t CTRL;      /* 0xE000ED94 */
+    volatile uint32_t RNR;       /* 0xE000ED98 */
+    volatile uint32_t RBAR;      /* 0xE000ED9C */
+    volatile uint32_t RASR;      /* 0xE000EDA0 */
+} MPU_Type;
+
+#define MPU   ((MPU_Type *)0xE000ED90UL)
+
+/* ---- RASR 里的字段（对照手册的位定义） ---- */
+#define MPU_RASR_ENABLE     (1u &lt;&lt; 0)
+#define MPU_RASR_SIZE_Pos   1u      /* bits 5:1：区域大小 = 2^(SIZE+1) 字节 */
+#define MPU_RASR_XN         (1u &lt;&lt; 28)   /* 不可执行 */
+#define MPU_RASR_AP_Pos     24u          /* bits 26:24：访问权限 */
+
+/* AP 字段的编码（ARMv7-M） */
+#define MPU_AP_NO_ACCESS        0u   /* 任何访问都禁止 */
+#define MPU_AP_PRIV_RW          1u   /* 特权读写，非特权禁止 */
+#define MPU_AP_PRIV_RW_UNPRIV_RO 2u  /* 特权读写，非特权只读 */
+#define MPU_AP_FULL_ACCESS      3u   /* 特权/非特权都可读写 */
+#define MPU_AP_PRIV_RO          5u   /* 特权只读，非特权禁止 */
+#define MPU_AP_RO_RO            6u   /* 特权只读，非特权只读 */
+
+/* ---- 把字节数换算成 SIZE 字段：区域最小 32 字节，且必须是 2 的幂 ---- */
+static uint32_t mpu_size_field(uint32_t bytes)
+{
+    uint32_t size = 4u;                       /* 4 → 2^(4+1) = 32 字节 */
+    while (((uint32_t)1u &lt;&lt; (size + 1u)) &lt; bytes) { size++; }
+    return size;
+}
+
+/* ---- 配置一个区域 ---- */
+void mpu_set_region(uint32_t region, uint32_t base, uint32_t bytes,
+                    uint32_t ap, uint32_t xn)
+{
+    MPU-&gt;RNR  = region;                        /* 先选区域号 */
+    MPU-&gt;RBAR = base &amp; 0xFFFFFFE0u;           /* 基地址低 5 位必须为 0 */
+    MPU-&gt;RASR = MPU_RASR_ENABLE
+              | (mpu_size_field(bytes) &lt;&lt; MPU_RASR_SIZE_Pos)
+              | (ap &lt;&lt; MPU_RASR_AP_Pos)
+              | (xn ? MPU_RASR_XN : 0u);
+}
+
+void mpu_init(void)
+{
+    if ((MPU-&gt;TYPE &amp; 0xFF00u) == 0u) {
+        return;                               /* DREGION = 0：这颗芯片没有 MPU */
+    }
+
+    MPU-&gt;CTRL = 0;                            /* 先关掉，配置期间必须关 */
+
+    /* 区域 0：把 1KB 的只读配置表锁起来 —— 野指针写它就立刻报错 */
+    mpu_set_region(0, 0x20001000u, 1024u, MPU_AP_PRIV_RO, 1u);
+
+    /* 区域 1：栈下面的 32 字节守卫区 —— 栈溢出检测 */
+    mpu_set_region(1, 0x20000000u, 32u,   MPU_AP_NO_ACCESS, 1u);
+
+    MPU-&gt;CTRL = (1u &lt;&lt; 0)   /* ENABLE：打开 MPU */
+              | (1u &lt;&lt; 2);  /* PRIVDEFENA：特权模式仍可访问未覆盖区域 */
+}
+
+/* ============================================================
+   ★ 三个容易踩的点：
+   ① 配置 MPU 时必须先清 CTRL.ENABLE —— 改着改着就生效会很危险。
+   ② RASR 里的区域大小是 2^(SIZE+1)，最小 32 字节（SIZE=4）。
+      基地址必须按区域大小对齐，写错会配出意外的覆盖范围。
+   ③ 区域可以重叠：编号大的（region 7）优先级高于编号小的。
+      所以「先配大范围、再配小范围」的写法里，
+      小范围要用【更大的编号】才压得住大范围。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">重要纠正：STM32F103 上其实没有 MPU</div>
+            <p>这一段必须说清楚，因为很多教程把「Cortex-M3 有 MPU」当成「STM32F103 有 MPU」来写，导致学生照着敲代码却怎么都不生效：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>MPU 在 ARMv7-M 架构里是「可选组件（optional）」</b>。ARM 允许芯片厂商不实现它。Cortex-M3/M4 的 MPU 都是可选的。</li>
+              <li><b>STM32F103 使用的 Cortex-M3 没有实现 MPU。</b>你在这颗芯片上写 <code class="icode">MPU-&gt;TYPE</code> 读到的 DREGION 是 <b>0</b>——0 个区域，也就是「没有」。这是可以直接上机验证的判据，不需要相信任何人的说法。</li>
+              <li>有 MPU 的典型型号：<b>STM32F4（Cortex-M4，8 个区域）、STM32F7/H7（Cortex-M7，16 个区域）、L4/G4 系列</b>等。M0/M0+ 的型号（F0/L0/G0 等）通常也没有，MPU 在 ARMv6-M 里同样是可选项，具体以型号的参考手册为准。</li>
+              <li>所以在 F103 上，这一站的知识是<b>「知道有这个机制、知道它解决什么问题、知道换到 F4 之后怎么用」</b>，而不是「现在就去配 MPU」。<b>但这不妨碍你现在就理解它的价值</b>——因为你踩过的那些野指针坑，正是它要解决的问题。</li>
+            </ul>
+            <p class="mt-2">顺便把两个「容易混淆的可选项」放在一起对照，这个对比很能说明「架构规定 ≠ 芯片实现」：</p>
+            <div class="table-scroll mt-2">
+              <table class="table-mcu">
+                <thead><tr><th>特性</th><th>架构层面</th><th>STM32F103（M3）</th><th>STM32F407（M4）</th><th>STM32F767（M7）</th></tr></thead>
+                <tbody>
+                  <tr><td>位带 bit-band</td><td>ARMv7-M 定义</td><td><b>有</b></td><td><b>有</b></td><td><b>无</b>（M7 未实现）</td></tr>
+                  <tr><td>MPU</td><td>可选（optional）</td><td><b>无</b>（DREGION=0）</td><td><b>有</b>（8 区域）</td><td><b>有</b>（16 区域）</td></tr>
+                  <tr><td>FPU（浮点单元）</td><td>M4F/M7 才有</td><td>无</td><td><b>有</b>（单精度）</td><td><b>有</b>（双精度）</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-2">这三行合起来就是一句话：<b>写跨平台代码时，不要假设任何一个「可选项」存在，要用条件编译或运行时检测（读 TYPE/CPUID 寄存器）来判断。</b></p>
+          </div>
+
+          <h4 class="mt-6 text-[15px] font-semibold">MPU 与 RTOS：任务隔离是怎么做到的</h4>
+
+          <p class="mt-3">MPU 最典型的用武之地是 RTOS。普通的 FreeRTOS 有一个众所周知的性质：<b class="font-semibold text-ink">所有任务都在特权模式、共享同一个地址空间</b>。这意味着任何一个任务里的野指针，都能写坏别的任务的栈、内核的链表、甚至中断向量表——一个任务出错，整个系统一起死。这在教学项目里没问题，在工业设备上是不可接受的。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">FreeRTOS-MPU</b>（以及商业 RTOS 里的等价功能）用 MPU 解决这件事，思路如下：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="MPU + RTOS：任务隔离的工作方式">
+            <pre><code>【没有 MPU 的 RTOS】
+
+   ┌──────────────────────────────────────────────────┐
+   │  单个地址空间，全部特权模式                        │
+   │  任务A │ 任务B │ 任务C │ 内核数据 │ 外设            │
+   └──────────────────────────────────────────────────┘
+        │
+   任务 A 里一个野指针 → 可以写到任何地方 → 整个系统崩
+
+【有 MPU 的 RTOS】
+
+   ┌──────────────────────────────────────────────────┐
+   │  内核（特权模式）：调度器、队列、内核数据          │
+   ├──────────────────────────────────────────────────┤
+   │  任务 A（非特权）  │ 只能访问：自己的栈 + 被授予的区域│
+   │  任务 B（非特权）  │ 只能访问：自己的栈 + 被授予的区域│
+   └──────────────────────────────────────────────────┘
+        │
+   任务 A 里一个野指针 → 撞在 MPU 区域边界上 →
+       当场 MemManage Fault → 内核可以【只杀掉任务 A】，
+       记录错误、重启该任务，系统其余部分继续运行。
+
+【上下文切换时多做的事】
+
+   普通 FreeRTOS 切换任务：保存/恢复寄存器 → 装新栈指针 → 返回
+   MPU 版还要多做：重写 MPU 的区域寄存器，让「当前任务可见的内存」
+                    随任务一起切换
+   → 代价：切换开销变大；区域数有限（8 个），
+           所以「每个任务能拥有的独立内存区域个数」是受限的
+   → 所以 MPU 版 RTOS 通常要求：任务的栈 + 少量被授予的
+      缓冲区，加起来不超过可用区域数
+
+【进入内核的路径也变了】
+
+   非特权任务不能直接操作内核数据结构，
+   要通过 SVC（Supervisor Call）指令「请求」内核代劳：
+       任务：SVC  →  内核（特权）：执行操作  →  返回任务
+   —— 这也是为什么 MPU 版 RTOS 的 API 内部普遍有 SVC 调用。
+
+【工程上的取舍】
+   · 教学项目、消费类产品：一般不用 MPU（不值那个复杂度与开销）
+   · 工业控制、汽车电子、医疗：常用（功能安全标准
+     IEC 61508 / ISO 26262 都要求「故障隔离」能力）
+   · 学习顺序建议：先把「普通 RTOS + 位带 + BSRR」用熟，
+     等真的遇到「一个任务弄死整个系统」的痛点，再上 MPU</code></pre>
+          </div>
+
+          <p class="mt-3">最后，如果你在 F4 上真的被 MPU 咬了一口（比如打开 MPU 之后程序立刻进 HardFault），排查路径是确定的：<b class="font-semibold text-ink">看 <code class="icode">SCB-&gt;CFSR</code>（0xE000ED28）的低字节</b>——里面的 <code class="icode">IACCVIOL</code>（取指违规）、<code class="icode">DACCVIOL</code>（数据访问违规）、<code class="icode">MMARVALID</code>（MMFAR 是否有效）几个位会告诉你「是取指还是读写越权」；如果 MMARVALID 置位，<b><code class="icode">SCB-&gt;MMFAR</code>（0xE000ED34）里就是那个违法的地址本身</b>——拿到地址，对照你配置的区域，问题基本一眼可见。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">别忘了：没有 MPU 也有别的保护手段</div>
+            <p>F103 上没有 MPU，但它并不是「完全不设防」。下面几层保护是它本来就有的，很多同学用了很久却不知道：</p>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>区域级 XN：</b>SRAM、外设、PPB 区在架构上就是「不可执行」的（第二站讲过）。野指针跳进 RAM 执行会立刻 HardFault。</li>
+              <li><b>非特权模式：</b>Cortex-M 有特权/非特权两种执行状态，即使没有 MPU，把不可信代码跑在非特权模式下也能挡住一部分危险操作（比如改 SCB、关中断）。只是没有 MPU 时，「哪些内存能访问」这层限制不存在。</li>
+              <li><b>Flash 读/写保护（选项字节）：</b>在 0x1FFFF800 的选项字节里，可以设置整片读保护（RDP）和按页写保护（WRP）。开了读保护，调试器和 Bootloader 都读不出 Flash 内容——这是产品防抄板的常用手段，也是「存储器保护」在 Flash 层面的实现。<b>注意：读保护一旦开启，解除时会顺带擦除整片 Flash。</b></li>
+              <li><b>编译期检查：</b>让编译器帮你抓——<code class="icode">-Wall -Wextra</code>、<code class="icode">-Wconversion</code>，加上静态分析工具；再配合运行时断言 <code class="icode">assert()</code> 检查指针范围。<b>这些「软件保护」比 MPU 便宜得多，应该先用足。</b></li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="mt-7 text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">前面八站讲完了概念，这一节做四道题。<b class="font-semibold text-ink">这四道题全部可以在纸上算完</b>，而且都是你以后每天都会用到的：算寄存器的绝对地址、算位带别名地址、核算 RAM 够不够、核算 Flash 怎么分区。<b>建议先自己算，再对答案</b>——算过一次之后，你对「0x4001080C」这类数字的感觉会彻底不一样：它不再是一个要背的魔法数，而是一个你能推出来的结果。</p>
+
+          <p class="mt-3">四道题共用下面这张「手册摘录」。<b class="font-semibold text-ink">这张表里的每一个数字都可以在 ST 的 RM0008 参考手册（STM32F103 参考手册）里查到</b>，第 2 章是总表，各外设章节的开头有各自的寄存器偏移表：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>外设</th><th>基地址</th><th>所属总线</th><th>本题用到的寄存器偏移</th></tr></thead>
+              <tbody>
+                <tr><td>GPIOA</td><td class="font-mono text-xs">0x40010800</td><td>APB2</td><td>CRL 0x00、CRH 0x04、IDR 0x08、<b>ODR 0x0C</b>、BSRR 0x10、BRR 0x14、LCKR 0x18</td></tr>
+                <tr><td>GPIOC</td><td class="font-mono text-xs">0x40011000</td><td>APB2</td><td>同上（偏移完全相同，这是「同一类外设布局一致」的体现）</td></tr>
+                <tr><td>RCC</td><td class="font-mono text-xs">0x40021000</td><td>AHB</td><td>CR 0x00、CFGR 0x04、<b>APB2ENR 0x18</b>、APB1ENR 0x1C、BDCR 0x20、CSR 0x24、AHBENR 0x14</td></tr>
+                <tr><td>TIM2</td><td class="font-mono text-xs">0x40000000</td><td>APB1</td><td>CR1 0x00、CR2 0x04、SMCR 0x08、DIER 0x0C、SR 0x10、EGR 0x14、CCMR1 0x18、CCMR2 0x1C、CCER 0x20、<b>CNT 0x24</b>、PSC 0x28、ARR 0x2C</td></tr>
+                <tr><td>USART1</td><td class="font-mono text-xs">0x40013800</td><td>APB2</td><td>SR 0x00、DR 0x04、<b>BRR 0x08</b>、CR1 0x0C、CR2 0x10、CR3 0x14、GTPR 0x18</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="calc-1" class="mt-8 text-base font-semibold">例题 1：由基地址与偏移算出寄存器绝对地址，并写成 C 宏</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>根据上表，求出下面 6 个寄存器的绝对地址，并为每个写出 C 宏定义：</p>
+          <p class="mt-3">① GPIOA 的 ODR　② GPIOA 的 BSRR　③ RCC 的 APB2ENR　④ TIM2 的 CNT　⑤ USART1 的 BRR　⑥ GPIOC 的 ODR</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">解题思路：</b>只有一个动作——<b>加法</b>。但要注意两个细节：<b>① 按十六进制算，不要转成十进制</b>（十进制算完再转回来极易出错）；<b>② 高 16 位通常不变，只算低 16 位</b>，这样心算就够了。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 1 解题过程：十六进制加法竖式">
+            <pre><code>【① GPIOA-&gt;ODR = 基地址 + 偏移】
+
+      0x40010800        ← GPIOA 基地址
+    + 0x0000000C        ← ODR 的偏移量
+    ──────────────
+      0x4001080C        ← 答案
+
+   心算过程：高 16 位 0x4001 不动；
+             低 16 位 0x0800 + 0x0C = 0x080C。
+             拼起来：0x4001080C。     ✔
+
+【② GPIOA-&gt;BSRR】
+
+      0x40010800
+    + 0x00000010
+    ──────────────
+      0x40010810        ← 低 16 位 0x0800 + 0x10 = 0x0810     ✔
+
+【③ RCC-&gt;APB2ENR】
+
+      0x40021000        ← 注意 RCC 是 AHB 外设，基地址是 0x40021000
+    + 0x00000018        ← 不是 0x40020000（那是 AHB 段的起点）
+    ──────────────
+      0x40021018        ← 低 16 位 0x1000 + 0x18 = 0x1018     ✔
+
+【④ TIM2-&gt;CNT】
+
+      0x40000000        ← APB1 段的起点，正好也是 TIM2 的基地址
+    + 0x00000024
+    ──────────────
+      0x40000024        ← 低 16 位 0x0000 + 0x24 = 0x0024     ✔
+
+【⑤ USART1-&gt;BRR】
+
+      0x40013800
+    + 0x00000008
+    ──────────────
+      0x40013808        ← 低 16 位 0x3800 + 0x08 = 0x3808     ✔
+
+【⑥ GPIOC-&gt;ODR】
+
+      0x40011000        ← GPIOC 基地址（比 GPIOA 大 0x800）
+    + 0x0000000C
+    ──────────────
+      0x4001100C        ← 低 16 位 0x1000 + 0x0C = 0x100C     ✔
+
+【★ 三个可以自查的规律】
+
+   规律一：所有偏移量都是 4 的整数倍（0x00/0x04/0x08/0x0C/0x10/0x14/0x18/0x24…）。
+           如果算出来的地址末尾不是 0/4/8/C，一定错了。
+
+   规律二：同一类外设的寄存器偏移完全一样。
+           GPIOA 的 ODR 偏移是 0x0C，GPIOB/GPIOC/GPIOD 也全是 0x0C。
+           所以 GPIOC-&gt;ODR 只要把 GPIOA 的答案加上 (0x40011000-0x40010800)=0x800。
+           0x4001080C + 0x800 = 0x4001100C   ✔ 两条路对上了。
+
+   规律三：外设之间的基地址差都是 0x400 的整数倍
+           （第二站讲过的「每个外设独占 1KB 窗口」）。
+           例如 GPIOA 0x40010800 → GPIOB 0x40010C00 → GPIOC 0x40011000，
+           每次 +0x400。记住一个就能推出后面所有。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">把答案写成 C 宏。</b>这里有三种写法，从「最直白」到「最工程」——注意第三种才是你以后真正会用的：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="例题 1 答案：三种 C 宏写法">
+            <pre><code>#include &lt;stdint.h&gt;
+
+/* ============ 写法 A：直接写绝对地址（最直白，适合手写小实验）============ */
+#define GPIOA_ODR      (*(volatile uint32_t *)0x4001080C)
+#define GPIOA_BSRR     (*(volatile uint32_t *)0x40010810)
+#define RCC_APB2ENR    (*(volatile uint32_t *)0x40021018)
+#define TIM2_CNT       (*(volatile uint32_t *)0x40000024)
+#define USART1_BRR     (*(volatile uint32_t *)0x40013808)
+#define GPIOC_ODR      (*(volatile uint32_t *)0x4001100C)
+
+/* ============ 写法 B：基地址 + 偏移（把「加法」留给编译器）============ */
+#define GPIOA_BASE     0x40010800UL
+#define GPIOC_BASE     0x40011000UL
+#define RCC_BASE       0x40021000UL
+#define TIM2_BASE      0x40000000UL
+#define USART1_BASE    0x40013800UL
+
+#define GPIOA_ODR      (*(volatile uint32_t *)(GPIOA_BASE  + 0x0C))
+#define GPIOA_BSRR     (*(volatile uint32_t *)(GPIOA_BASE  + 0x10))
+#define GPIOC_ODR      (*(volatile uint32_t *)(GPIOC_BASE  + 0x0C))
+#define RCC_APB2ENR    (*(volatile uint32_t *)(RCC_BASE    + 0x18))
+#define TIM2_CNT       (*(volatile uint32_t *)(TIM2_BASE   + 0x24))
+#define USART1_BRR     (*(volatile uint32_t *)(USART1_BASE + 0x08))
+
+/* ============ 写法 C：结构体指针（工程做法，等价于 CMSIS）============ */
+typedef struct {
+    volatile uint32_t CRL, CRH, IDR, ODR, BSRR, BRR, LCKR;   /* 偏移 0x00~0x18 */
+} GPIO_TypeDef;
+
+typedef struct {
+    volatile uint32_t CR, CFGR, CIR, APB2RSTR, APB1RSTR, AHBENR, APB2ENR, APB1ENR,
+                      BDCR, CSR;                              /* 偏移 0x00~0x24 */
+} RCC_TypeDef;
+
+#define GPIOA   ((GPIO_TypeDef *)0x40010800UL)
+#define GPIOC   ((GPIO_TypeDef *)0x40011000UL)
+#define RCC     ((RCC_TypeDef  *)0x40021000UL)
+
+/* 使用（三种写法最终生成的机器码完全一样，都是对绝对地址的一次 STR）：
+      GPIOA_ODR |= (1u &lt;&lt; 0);       // 写法 A / B
+      GPIOA-&gt;ODR |= (1u &lt;&lt; 0);      // 写法 C
+      RCC-&gt;APB2ENR |= (1u &lt;&lt; 2);    // 开 GPIOA 时钟
+*/
+
+/* ============ ★ 用编译期断言把「算错的地址」变成「编译错误」============ */
+/* 手写地址最大的风险是打错一位。用编译期断言，让编译器帮你查： */
+#define STATIC_ASSERT(cond, tag) typedef char static_assert_##tag[(cond) ? 1 : -1]
+
+STATIC_ASSERT((GPIOA_BASE + 0x0C) == 0x4001080Cu, gpioa_odr_addr_ok);
+STATIC_ASSERT((RCC_BASE   + 0x18) == 0x40021018u, rcc_apb2enr_addr_ok);
+STATIC_ASSERT((GPIOC_BASE + 0x0C) == 0x4001100Cu, gpioc_odr_addr_ok);
+/* 如果哪个地址算错了，这一行会编译报错（数组长度不能为负），
+   而不是等到板子上跑起来才发现「灯不亮」。 */</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">上机验证的两种办法：</b>① 在调试器的 Watch 窗口里输入 <code class="icode">&amp;GPIOA-&gt;ODR</code>，看它显示的是不是 0x4001080C；② 反汇编你的函数，找到那条 <code class="icode">STR</code> 指令，看它的地址操作数是不是 <code class="icode">0x4001080C</code>（或者 <code class="icode">[r0, #0x0C]</code> 而 r0 = 0x40010800）。<b>能自己确认地址，就不再需要「信教程」了。</b></p>
+
+          <h3 id="calc-2" class="mt-8 text-base font-semibold">例题 2：用位带公式算出别名地址（含一个容易算错的细节）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>求下列四问：</p>
+          <p class="mt-3">① PA0 对应的位带别名地址（<code class="icode">GPIOA-&gt;ODR</code> 的 bit0）；② PC13 对应的别名地址（<code class="icode">GPIOC-&gt;ODR</code> 的 bit13，这是 BluePill 板上 LED 的引脚）；③ SRAM 里地址 0x20000004 那个字节的 bit3；④ 反向题：有人给你一个别名地址 <code class="icode">0x422201B4</code>，问它对应哪个寄存器的哪一位。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">先把公式本身说清楚（这里有一个很多人算错的地方）。</b>位带公式有两种等价写法，来源不同，<b>用哪一种都对，但绝不能混着用</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="位带公式的两种等价写法（以及为什么它们等价）">
+            <pre><code>【写法一：ARM 手册（Cortex-M3 TRM）的原始形式】
+   —— 站在「位带区」的视角，把 1MB 看成一串字节，每个字节有 8 个位
+
+   bit_word_addr = bit_band_base + (byte_offset × 32) + (bit_number × 4)
+
+     · byte_offset ：目标【字节】相对位带区基地址（0x20000000 或 0x40000000）
+                     的偏移
+     · bit_number  ：目标位在【这个字节内部】的编号，取值范围 0 ~ 7 ！
+
+【写法二：寄存器视角（宏里最常用的形式）】
+   —— 站在「寄存器」的视角，把 32 位寄存器看成一串位，编号 0 ~ 31
+
+   bit_word_addr = bit_band_base + (寄存器地址 − 位带区基地址) × 32 + (寄存器位号 × 4)
+
+     · 寄存器位号：0 ~ 31（比如 ODR 的 bit13 就写 13）
+
+【★ 两种写法为什么等价？代数一下就明白了】
+
+   设寄存器位号为 N（0~31），它落在寄存器地址 + (N/8) 这个字节里，
+   字节内位号是 r = N mod 8。用写法一算：
+
+       0x42000000 + ((寄存器地址 − 0x40000000) + N/8) × 32 + r × 4
+
+   展开：
+      = 0x42000000 + (寄存器地址 − 0x40000000) × 32 + (N/8)×32 + r×4
+
+   而 (N/8)×32 + r×4 = 4 × (8×(N/8) + r) = 4N     ← 关键
+
+   所以：
+      = 0x42000000 + (寄存器地址 − 0x40000000) × 32 + N × 4
+
+   —— 就是写法二。两者恒等。
+
+【★ 那么「容易算错」的地方在哪？】
+   在【混用】：
+     · 用了写法一的公式，却把 bit_number 填成了 13（寄存器位号）
+       → 多算了 13×4 − 5×4 = 32 字节，结果偏了整整一个「字节槽」
+     · 用了写法二的公式，却把寄存器位号填成了字节内位号
+       → 同样错位
+   写宏的时候两种写法都会出现，所以看到别人的位带宏，
+   先确认它的 bit 参数是 0~7 还是 0~31。
+   本页统一用【写法二（0~31）】，因为它和「寄存器的第几位」直觉一致，
+   也是 CMSIS 和绝大多数库的用法。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 ① 问：PA0（GPIOA-&gt;ODR 的 bit0）。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2 ①：PA0 的位带别名地址">
+            <pre><code>【第一步：确定用哪个别名区】
+   GPIOA 是外设，地址在 0x40010800（外设位带区 0x40000000~0x400FFFFF 内）
+   → 用外设别名区基地址 0x42000000
+
+【第二步：算出目标寄存器的地址】
+   GPIOA-&gt;ODR = 0x40010800 + 0x0C = 0x4001080C     （例题 1 算过）
+
+【第三步：算「相对位带区基地址」的偏移】
+   0x4001080C − 0x40000000 = 0x1080C
+
+【第四步：代入公式】
+
+   偏移 × 32 ：
+        0x1080C × 32 = 0x1080C × 0x20
+        十六进制乘 0x20 = 左移 5 位：
+            0x1080C = 0001 0000 1000 0000 1100 (二进制)
+            左移 5 位 → 0010 0001 0000 0001 1000 0000
+            = 0x210180
+        用十进制验算：0x1080C = 67596
+                      67596 × 32 = 2163072
+                      2163072 = 0x210180        ✔ 两种算法一致
+
+   位号 × 4 ：
+        0 × 4 = 0
+
+   相加：
+        0x42000000
+      + 0x210180
+      ──────────────
+        0x42210180        ← ★ 答案
+
+【第五步：验证它的量级合理吗】
+   地址在 0x42000000 ~ 0x43FFFFFF 之间 ✔
+   0x42210180 − 0x42000000 = 0x210180 = 2163072
+   2163072 ÷ 32 = 67596 = 0x1080C  ✔ 正好回到 ODR 的偏移
+
+【写进代码】
+   #define PA0_BITBAND   (*(volatile uint32_t *)0x42210180UL)
+
+   PA0_BITBAND = 1;    // 原子置位 PA0，等价于 GPIOA-&gt;BSRR = (1u &lt;&lt; 0)
+   PA0_BITBAND = 0;    // 原子清零 PA0，等价于 GPIOA-&gt;BRR  = (1u &lt;&lt; 0)</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 ② 问：PC13（GPIOC-&gt;ODR 的 bit13）—— 这里会用到上面说的那个细节。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2 ②：PC13 的位带别名地址（两种写法互相验算）">
+            <pre><code>【已知】GPIOC 基地址 0x40011000，ODR 偏移 0x0C
+        → GPIOC-&gt;ODR = 0x4001100C
+        → 相对外设位带区基地址的偏移 = 0x4001100C − 0x40000000 = 0x1100C
+
+【用写法二（寄存器位号 13）直接算】
+
+   0x1100C × 32 ：
+        0x1100C 左移 5 位 → 0x220180
+        验算：0x1100C = 69644；69644 × 32 = 2228608；2228608 = 0x220180  ✔
+
+   13 × 4 = 52 = 0x34
+
+   相加：
+        0x42000000
+      + 0x220180
+      + 0x000034
+      ──────────────
+        0x422201B4        ← ★ 答案
+
+【用写法一（字节偏移 + 字节内位号）验算】
+   bit13 不在 ODR 的第一个字节里：
+       13 ÷ 8 = 1，13 mod 8 = 5
+       → 它在 ODR 地址 + 1 = 0x4001100D 这个字节里，字节内位号是 5
+
+   字节偏移 = 0x4001100D − 0x40000000 = 0x1100D
+   0x1100D × 32 ：
+        0x1100D = 69645；69645 × 32 = 2228640 = 0x2201A0
+   字节内位号 × 4 ：5 × 4 = 20 = 0x14
+
+   相加：
+        0x42000000
+      + 0x2201A0
+      + 0x000014
+      ──────────────
+        0x422201B4        ← 和写法二的结果【完全相同】 ✔
+
+【★ 如果你把 13 当成「字节内位号」代入写法一会怎样？】
+        0x42000000 + 0x1100C×32 + 13×4
+      = 0x42000000 + 0x220180 + 0x34
+      = 0x422201B4     ← 咦，居然一样！
+
+   这不是巧合：因为 0x1100C×32 + 13×4 恰好等于 0x1100D×32 + 5×4
+   （13 = 8×1+5，(8×1)×32 + 5×4 = 32 + 20 = 52 = 13×4）。
+   —— 也就是说，【对 32 位寄存器而言，写法一和写法二在数值上真的相通】，
+      真正会算错的场合是：
+        · 你用了写法一，但【字节地址没有跟着进位】
+          （还写 0x1100C，却用了 13 当字节内位号 → 结果多算了 32 字节）
+        · 或者把 bit 参数填成了「引脚号」而不是「寄存器位号」
+  所以结论是：【公式记一种就好，记住 bit 参数的定义域】，不要混着推。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 ③ 问：SRAM 地址 0x20000004 的 bit3。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2 ③：SRAM 的位带别名地址（注意换一个别名区）">
+            <pre><code>【第一步：确定别名区】
+   0x20000004 在 SRAM（0x20000000~0x200FFFFF）
+   → 用 SRAM 别名区基地址 0x22000000（不是 0x42000000！）
+
+【第二步：算偏移】
+   0x20000004 − 0x20000000 = 4
+
+【第三步：代入公式（写法二，这里 bit3 也在第一个字节内）】
+   4 × 32 = 128 = 0x80
+   3 × 4  = 12  = 0x0C
+
+        0x22000000
+      + 0x00000080
+      + 0x0000000C
+      ──────────────
+        0x2200008C        ← ★ 答案
+
+【这意味着什么？】
+   假设你有一个变量正好落在 0x20000004：
+
+       volatile uint32_t g_flags;          // 假设编译器把它放在 0x20000004
+
+   #define FLAG_BIT3   (*(volatile uint32_t *)0x2200008CUL)
+   FLAG_BIT3 = 1;      // 【原子地】把 g_flags 的第 3 位置 1
+   FLAG_BIT3 = 0;      // 【原子地】把 g_flags 的第 3 位清 0
+
+   而不用写成 g_flags |= (1u &lt;&lt; 3);  （那是读-改-写，不原子）
+
+【★ 但请注意】变量的实际地址是【编译器决定的】，会随代码变化而变！
+   所以实践中绝不要手算变量的别名地址，要用第五站那个宏：
+       FLAG_BIT3  = BITBAND_SRAM(&amp;g_flags, 3);
+   宏让编译器去填 &amp;g_flags，你只负责写位号。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 ④ 问（反向题）：别名地址 0x422201B4 对应谁？</b>这种题在调试时特别有用——你在反汇编里看到一串位带地址，想知道它到底在动哪个引脚。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2 ④：由别名地址反推寄存器与位">
+            <pre><code>【第一步：判断它属于哪个别名区】
+   0x422201B4 落在 0x42000000 ~ 0x43FFFFFF 之间
+   → 外设别名区 → 它操作的是【外设寄存器】，位带区基地址是 0x40000000
+
+【第二步：减去别名区基地址，得到「位带区内的字偏移」】
+   0x422201B4 − 0x42000000 = 0x2201B4
+   （十进制：2228660）
+
+【第三步：拆分出「字节偏移」和「字节内位号」】
+   除以 32 取整 = 字节偏移；余数 ÷ 4 = 字节内位号
+
+   0x2201B4 = 2228660
+   2228660 ÷ 32 = 69645 …… 余 20        （69645 × 32 = 2228640）
+   → 字节偏移 = 69645 = 0x1100D
+   → 余数 20 ÷ 4 = 5 = 字节内位号
+
+【第四步：还原成位带区内的地址】
+   0x40000000 + 0x1100D = 0x4001100D
+
+【第五步：判断这是哪个外设的哪个寄存器】
+   0x4001100D 减去 0x40000000 = 0x1100D
+   在 APB2 段（0x40010000 起）内，减去 0x10000 得 0x100D
+   落在 GPIOC（基地址 0x40011000，即 APB2 + 0x1000）的窗口里
+   0x4001100D − 0x40011000 = 0x0D = 13
+   → 寄存器 = GPIOC 的偏移 0x0C = 【ODR】，
+     并且落在 0x0D（= ODR 的第 2 个字节）里，字节内位号 5
+
+【第六步：换算成该寄存器的位号】
+   ODR 内偏移 1 个字节 → 位号基数是 8
+   8 + 5 = 【第 13 位】→ PC13
+
+【结论】0x422201B4 是「原子操作 PC13 的输出电平」的别名地址。
+       这正是 BluePill 开发板上那颗板载 LED 的引脚 ——
+       所以你在别人的位带点灯代码里，经常会看到 0x422201B4 这个数字。
+       （对照第 ② 问，答案完全吻合 ✔）</code></pre>
+          </div>
+
+          <h3 id="calc-3" class="mt-8 text-base font-semibold">例题 3：20KB SRAM 够不够？反推能开多大的缓冲</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>STM32F103C8T6 的 SRAM 是 20KB。某个工程编译后的 map 文件给出：<code class="icode">.data</code> = 428 字节，<code class="icode">.bss</code> = 780 字节；工程里堆（heap）预留了 512 字节、栈（stack）预留了 1KB。现在要新增一个采集缓冲 <code class="icode">uint16_t adc_buf[N]</code>，问：</p>
+          <p class="mt-3">① 当前还剩多少可用 RAM？② 如果要求「至少留 30% 余量给实际的栈增长」，N 最大能取多少？③ 如果 N 取 4096，还剩多少余量，安不安全？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 3 解题过程：先把「已用」和「总共」都换成同一个单位">
+            <pre><code>【第一步：总容量换算成字节，并且记住它的十六进制值】
+
+   20KB = 20 × 1024 = 20480 字节 = 0x5000
+
+   ★ 顺便算出 SRAM 的地址范围，以后核对 map 文件要用：
+       0x20000000 ~ 0x20000000 + 0x5000 − 1 = 0x20004FFF
+       （所以 SRAM 里最后一个合法字节的地址是 0x20004FFF）
+
+【第二步：列出所有吃 RAM 的项目】
+
+   ┌────────────────────────┬──────────┬──────────────────────────┐
+   │ 项目                    │ 大小      │ 说明                     │
+   ├────────────────────────┼──────────┼──────────────────────────┤
+   │ .data（有初值的变量）    │ 428 B    │ 运行时在 RAM（初值在 Flash）│
+   │ .bss（零初始化变量）     │ 780 B    │ 只在 RAM                 │
+   │ heap（堆，给 malloc）    │ 512 B    │ 链接脚本/MSP 里预留       │
+   │ stack（栈，给局部变量）  │ 1024 B   │ 预留最小值，实际可能更多   │
+   ├────────────────────────┼──────────┼──────────────────────────┤
+   │ 小计                    │ 2744 B   │ 428 + 780 + 512 + 1024   │
+   └────────────────────────┴──────────┴──────────────────────────┘
+
+   ★ 注意：.text（代码）和 .rodata（const 数据）【不算进来】——
+     它们住在 Flash 里，不占 RAM。这是新手最容易算错的一项：
+     看到「程序有 11KB」就以为 RAM 也要 11KB。
+
+【第三步：算剩余】
+
+   20480 − 2744 = 17736 字节
+   换算成十六进制：17736 = 0x4548
+
+   → 剩余 17736 字节，占总容量的 17736 ÷ 20480 = 86.6%
+
+【第四步：第 ① 问的答案】
+   ─────────────────────────────────────────
+   当前可用 RAM = 17736 字节（约 17.3KB）
+   ─────────────────────────────────────────
+
+【第五步：第 ② 问 —— 反推最大 N（要求留 30% 余量）】
+
+   先把「余量」定义清楚：
+      · 总剩余 17736 B
+      · 其中最多 70% 可以拿来做缓冲：17736 × 0.7 = 12415.2 → 12415 B
+      · 剩下 30%（约 5321 B）留给：栈比预留值长得更多、
+        函数调用层次变深、中断嵌套、库函数临时占用、
+        以及以后加功能
+
+   uint16_t 每个元素 2 字节：
+       N ≤ 12415 ÷ 2 = 6207.5 → N 最大取 6207
+
+   但工程上不会取 6207 这种数字，通常取 2 的幂或整数：
+       N = 4096 → 4096 × 2 = 8192 B   （用掉剩余空间的 46%）
+       N = 6144 → 6144 × 2 = 12288 B  （用掉 69%，正好卡在 70% 线上）
+       N = 8192 → 8192 × 2 = 16384 B  （用掉 92%，太激进）
+
+   → 推荐 N = 4096（8KB）。如果确实需要更大，选 6144，
+     但此时必须实测栈的峰值使用量（用调试器给栈填充魔数、
+     或者用水位线法查看栈用到哪儿了）。
+
+   ─────────────────────────────────────────
+   第 ② 问答案：N 最大约 6207；工程上取 4096 稳妥，
+               最多不建议超过 6144。
+   ─────────────────────────────────────────
+
+【第六步：第 ③ 问 —— N = 4096 时还剩多少】
+
+   缓冲占用 = 4096 × 2 = 8192 字节
+   总占用   = 2744 + 8192 = 10936 字节
+   剩余     = 20480 − 10936 = 9544 字节
+   剩余比例 = 9544 ÷ 20480 = 46.6%
+   折算成「给栈的额外余量」= 9544 − 1024（栈预留）= 8520 字节
+
+   ─────────────────────────────────────────
+   第 ③ 问答案：N = 4096 时，总占用 10936 B（53.4%），
+               剩余 9544 B，栈还有 8.5KB 的增长空间 → 【安全】
+   ─────────────────────────────────────────
+
+【★ 交叉验证：用 Keil 的 Program Size 再算一遍】
+   假设 Keil 报告：Code=10240  RO-data=1024  RW-data=428  ZI-data=780
+
+   Flash 占用 = Code + RO-data + RW-data
+              = 10240 + 1024 + 428 = 11692 字节  （64KB 里用掉 17.8%）
+   RAM 占用   = RW-data + ZI-data + heap + stack
+              = 428 + 780 + 512 + 1024 = 2744 字节  ✔ 与上面一致
+
+   ★ 如果 adc_buf 是【未初始化】的全局数组，它进 .bss → ZI-data 变成
+        780 + 8192 = 8972
+     RAM 占用 = 428 + 8972 + 512 + 1024 = 10936  ✔ 也对上了
+   ★ 如果写成 const uint16_t adc_buf[4096]（虽然采集缓冲不该是 const），
+     它会进 RO-data，Flash 涨 8192、RAM 一点不涨 —— 落位的差别就在这儿。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">「RAM 不够用」的七种解决办法（按性价比排序）</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>① 给大数组加 const：</b>如果它其实是常量表，加 const 直接搬到 Flash，RAM 立刻归零。<b>收益最大、改动最小，先查这一条。</b></li>
+              <li><b>② 把数据类型降级：</b>缓冲区存的是 12 位 ADC 值？用 <code class="icode">uint16_t</code> 就够，别用 <code class="icode">uint32_t</code>——一下省一半。存布尔标志？用位域或位带。</li>
+              <li><b>③ 减小缓冲深度：</b>2048 点和 4096 点在很多应用里没区别（比如做 FFT，256/512 点往往就够）。</li>
+              <li><b>④ 排查栈：</b>局部大数组是隐形杀手——<code class="icode">uint8_t buf[1024];</code> 写在函数里就是 1KB 栈，而栈只有 1KB，直接溢出。<b>函数里的数组超过 128 字节就应该改成 static 或全局。</b></li>
+              <li><b>⑤ 共享缓冲区：</b>两个功能不同时用的缓冲，可以用同一块内存（union 或显式复用）。</li>
+              <li><b>⑥ 减堆：</b>嵌入式里 <code class="icode">malloc</code> 用得少的话，把 heap 从 512 降到 0（但要注意 printf/sprintf 这类库函数可能需要一点堆）。</li>
+              <li><b>⑦ 换芯片：</b>F103C8 → F103RC（64KB Flash / 48KB SRAM），硬件成本增加很小。<b>如果前面六条都试过还不够，别硬扛。</b></li>
+            </ul>
+          </div>
+
+          <h3 id="calc-4" class="mt-8 text-base font-semibold">例题 4（进阶）：64KB Flash 怎么做 IAP 分区</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>要在这颗 64KB Flash 的 F103C8T6 上做串口升级（IAP）：一个 Bootloader + 一个 App + 一块 2KB 的「掉电不丢的参数区」。已知 STM32F103 中容量产品（≤128KB Flash）的<b>Flash 页大小是 1KB</b>，擦除必须整页擦。问：① Bootloader 分多少页合理？② App 从哪个地址开始？App 最多能用多少空间？③ 为什么 App 的起始地址必须按页对齐，并且还要满足「512 字节对齐」这个额外要求？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 4 解题过程：把 Flash 当一块地来分">
+            <pre><code>【第一步：先把三个硬约束摆在桌面上】
+
+   约束一：Flash 总量 64KB = 65536 字节 = 0x10000
+           地址范围 0x08000000 ~ 0x0800FFFF
+
+   约束二：【擦除的最小单位是页】。F103 中容量（≤128KB）的页大小
+           是 1KB；大容量（≥256KB）是 2KB。
+           → 所以每个分区的大小必须是 1KB 的整数倍，
+             起始地址也必须落在 1KB 边界上。
+             （0x1000 的整数倍地址天然满足，故选 4KB 边界的地址最省心）
+
+   约束三：App 也要有自己的向量表，而向量表的地址必须写进
+           SCB-&gt;VTOR 寄存器。VTOR 的低 9 位是保留的，
+           → 【向量表必须 512 字节对齐】，也就是 App 起始地址
+             必须是 0x200 的整数倍。
+
+【第二步：规划分区（三种常见方案对比）】
+
+   方案 A：Bootloader 给 4KB（4 页）
+        0x08000000 ~ 0x08000FFF   Bootloader（4096 字节）
+        0x08001000 ~ 0x0800F7FF   App（59392 字节 ≈ 58KB）
+        0x0800F800 ~ 0x0800FFFF   参数区（2048 字节 = 2 页）
+        · App 起始 0x08001000：满足 1KB 对齐 ✔ 满足 512 对齐 ✔
+        · 风险：4KB 的 Bootloader 够不够？如果 Bootloader 里
+          要放串口协议 + Flash 擦写 + 校验 + 跳转，
+          用寄存器写、不加花哨功能，4KB 是【够但不宽裕】。
+          如果 Bootloader 里还想放个菜单、显示、或者用了 HAL 库
+          （一个 HAL_UART_Receive 就上千字节），4KB 会爆。
+
+   方案 B：Bootloader 给 8KB（8 页）  ← ★ 推荐
+        0x08000000 ~ 0x08001FFF   Bootloader（8192 字节）
+        0x08002000 ~ 0x0800F7FF   App（55296 字节 = 54KB）
+        0x0800F800 ~ 0x0800FFFF   参数区（2048 字节）
+        · App 起始 0x08002000：
+            0x2000 = 8192 = 8 × 1024 → 1KB 对齐 ✔
+            0x2000 也是 512 的整数倍 ✔
+        · 8KB 给了 Bootloader 充足空间（可以带 HAL、带校验、带重试）
+
+   方案 C：Bootloader 给 32KB（32 页）
+        0x08000000 ~ 0x08007FFF   Bootloader（32768 字节）
+        0x08008000 ~ 0x0800F7FF   App（30720 字节 = 30KB）
+        0x0800F800 ~ 0x0800FFFF   参数区
+        · 这就是网上最常见的「App 从 0x08008000 开始」的由来
+        · 缺点很明显：为了一个 Bootloader，白白牺牲了 24KB Flash，
+          在只有 64KB 的 C8T6 上，App 直接被砍到 30KB
+        · 它流行的原因是「省事」：0x8000 好记、分区不用算
+
+【第三步：算出各方案的「账」】
+
+   ┌──────────┬────────────┬───────────┬───────────┬─────────────┐
+   │ 方案      │ Bootloader │ App 起始   │ App 可用   │ 参数区       │
+   ├──────────┼────────────┼───────────┼───────────┼─────────────┤
+   │ A（4KB） │ 0x08000000 │ 0x08001000│ 59392 B   │ 0x0800F800  │
+   │          │ 4 页        │ (4KB 对齐)│ ≈ 58KB    │ 2KB = 2 页   │
+   │ B（8KB） │ 0x08000000 │ 0x08002000│ 55296 B   │ 0x0800F800  │
+   │  ★推荐   │ 8 页        │ (8KB 对齐)│ = 54KB    │ 2KB = 2 页   │
+   │ C（32KB）│ 0x08000000 │ 0x08008000│ 30720 B   │ 0x0800F800  │
+   │          │ 32 页       │ (32KB 对齐)│ = 30KB   │ 2KB = 2 页   │
+   └──────────┴────────────┴───────────┴───────────┴─────────────┘
+
+   验算方案 B 的 App 空间：
+        0x0800F800 − 0x08002000 = 0xD800 = 55296 字节 = 54KB  ✔
+        页数：0xD800 ÷ 0x400 = 54 页  ✔
+
+   把「还剩多少」也核一下（对照例题 3 的 Flash 占用 11692 字节）：
+        方案 B 的 App 预算 55296 B，当前程序 11692 B
+        → 用掉 21%，还有 43604 B（约 42KB）的成长空间  ✔ 很宽裕
+
+【第四步：第 ③ 问 —— 为什么必须对齐】
+
+   ① 为什么必须【按页对齐（1KB 边界）】：
+      擦除只能整页擦。如果 App 的起始地址落在某一页的中间，
+      那么「擦掉 App 最后一页」这个动作会连带擦掉
+      【不属于 App 的那半页】——而那半页可能正好是
+      参数区或者 Bootloader 的内容。地址对齐之后，
+      每个分区都由整数个完整的页组成，擦除就不会误伤邻居。
+
+   ② 为什么还要【512 字节对齐】：
+      App 运行时要把自己的向量表地址写进 SCB-&gt;VTOR
+      （用 NVIC_SetVectorTable(0x08002000, 0) 或直接
+        SCB-&gt;VTOR = 0x08002000）。VTOR 寄存器的位 [8:0]
+      是保留位，写入会被忽略 —— 也就是说这个寄存器
+      只能表达 512 字节粒度的地址。
+      如果 App 从 0x08002100 开始（非 512 对齐），
+      你写进 VTOR 的值会被截断成 0x08002000，
+      中断就会跳到【错误的地方】去执行。
+
+   ③ 结论：实际工程里直接选 4KB 或 8KB 边界的地址（0x1000 的倍数），
+      两个约束一次性都满足，还省心。
+
+【★ 别忘了这三件事（做了 IAP 就必须做）】
+
+   ① App 工程的链接脚本要改：FLASH ORIGIN = 0x08002000（方案 B）
+      否则编译出来的程序会被安排在 0x08000000，和 Bootloader 打架。
+   ② App 的 main 开头要设向量表偏移：
+        SCB-&gt;VTOR = 0x08002000;
+      （用标准库是 NVIC_SetVectorTable(NVIC_VectTab_FLASH, 0x2000)）
+      否则中断向量还是指向 Bootloader 的那张表 → 中断一进就飞。
+   ③ 参数区的擦写要注意：Flash 只能「1 变 0」，所以改一个字节
+      也要先擦整页；而且擦写期间 CPU 取指会被阻塞
+      （除非做了取指/数据流水线优化），高频写入要考虑寿命
+      （F103 的 Flash 擦写寿命约 10000 次）。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这四道题的共同点</div>
+            <p>回头看这四道题，用的其实全是同一套动作：<b>① 查手册拿到基地址或已知量；② 16 进制加减；③ 把结果和「容量/边界」对照一下看合不合理；④ 用另一条路验算一遍。</b>没有任何一步需要「灵感」或「背下某个数字」。<b>这就是「懂存储器映射」和「照抄代码」的区别：前者能算、能验证、能排查；后者只能祈祷。</b></p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="mt-7 text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4">前面八站的知识，现在全部用在一件事上：<b class="font-semibold text-ink">点亮 PA0 引脚上的一个 LED，全程不依赖 HAL、不依赖标准库的外设驱动，只往寄存器里写数。</b>这不是为了「炫技」——而是因为把这 3 步走通之后，任何一份 HAL 代码在你眼里都不再是黑盒：你会清楚地知道 CubeMX 生成的那几十行，最后落到哪几个地址上。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">硬件假设（先说清楚，否则代码没法解释）</div>
+            <p>假设你的板子是这样接的：<b>PA0 → 330Ω 限流电阻 → LED → GND</b>。这种接法叫「拉电流驱动」，<b>PA0 输出高电平时 LED 亮</b>。</p>
+            <p class="mt-2">如果 LED 是接在 <b>PA0 与 3.3V 之间</b>（比如 BluePill 开发板上的 PC13 就是这种接法），那么<b>输出低电平才亮</b>——因为这时是引脚「灌电流」，LED 由 3.3V 经电阻流向引脚。写代码前先确认你的板子是哪一种，这是新手最常见的「程序没错但灯不亮」原因。</p>
+            <p class="mt-2">电流核算：STM32F103 数据手册规定，单个 I/O 引脚最大可灌/拉 <b>±20mA</b>，所有 I/O 合计不超过 <b>150mA</b>。限流电阻按 <code class="icode">I = (V引脚 − V_LED) / R</code> 算，取普通红色 LED 的正向压降 <b>V_LED ≈ 2.0V</b>（按典型值估算），则 <code class="icode">I = (3.3 − 2.0) / 330 ≈ 3.9mA</code>——远小于 20mA 的上限，亮度也足够。若换成 100Ω：<code class="icode">(3.3 − 2.0) / 100 ≈ 13mA</code>，仍在 20mA 以内但已偏大；多个 LED 同时点亮时还要留意 150mA 的总量限制。</p>
+          </div>
+
+          <h3 id="sub-mcu-three" class="mt-7 text-base font-semibold">三步点亮一个 LED：只碰三个寄存器</h3>
+
+          <p class="mt-3">整个程序只操作三个寄存器。<b class="font-semibold text-ink">把它们的地址写在这里，你可以对照上一节的例题 1 逐个验算：</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>步骤</th><th>寄存器</th><th>绝对地址</th><th>怎么来的</th><th>写什么</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>① 开时钟</b></td>
+                  <td><code class="icode">RCC-&gt;APB2ENR</code></td>
+                  <td class="font-mono text-xs">0x40021018</td>
+                  <td>RCC 基地址 0x40021000 + 偏移 0x18</td>
+                  <td>把 bit2 置 1</td>
+                </tr>
+                <tr>
+                  <td><b>② 配引脚</b></td>
+                  <td><code class="icode">GPIOA-&gt;CRL</code></td>
+                  <td class="font-mono text-xs">0x40010800</td>
+                  <td>GPIOA 基地址 + 偏移 0x00（CRL 就在最前面）</td>
+                  <td>把 bit3:0 写成 0b0010</td>
+                </tr>
+                <tr>
+                  <td><b>③ 输出数据</b></td>
+                  <td><code class="icode">GPIOA-&gt;BSRR</code><br><code class="icode">GPIOA-&gt;BRR</code></td>
+                  <td class="font-mono text-xs">0x40010810<br>0x40010814</td>
+                  <td>GPIOA 基地址 + 偏移 0x10 / 0x14</td>
+                  <td>写「哪一位要置位」或「哪一位要清零」</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="led_reg.c —— 纯寄存器点灯（完整可编译，不需要 HAL）">
+            <pre><code>/* ============================================================
+   led_reg.c —— 纯寄存器点灯，目标：STM32F103C8T6，PA0 接 LED
+   不依赖 HAL、不依赖标准外设库。
+   下面的两个结构体就是 CMSIS 里 GPIO_TypeDef / RCC_TypeDef 的等价物，
+   如果你用 CMSIS，把这一段删掉、直接 #include "stm32f10x.h" 即可。
+   ============================================================ */
+#include &lt;stdint.h&gt;
+
+/* ---------- 寄存器定义：结构体成员顺序 = 手册里的偏移顺序 ---------- */
+typedef struct {
+    volatile uint32_t CRL;    /* 0x00  端口配置低寄存器（PA0~PA7）  */
+    volatile uint32_t CRH;    /* 0x04  端口配置高寄存器（PA8~PA15） */
+    volatile uint32_t IDR;    /* 0x08  输入数据寄存器               */
+    volatile uint32_t ODR;    /* 0x0C  输出数据寄存器               */
+    volatile uint32_t BSRR;   /* 0x10  位设置/清除寄存器            */
+    volatile uint32_t BRR;    /* 0x14  位清除寄存器                 */
+    volatile uint32_t LCKR;   /* 0x18  配置锁定寄存器               */
+} GPIO_TypeDef;
+
+typedef struct {
+    volatile uint32_t CR;        /* 0x00 */
+    volatile uint32_t CFGR;      /* 0x04 */
+    volatile uint32_t CIR;       /* 0x08 */
+    volatile uint32_t APB2RSTR;  /* 0x0C */
+    volatile uint32_t APB1RSTR;  /* 0x10 */
+    volatile uint32_t AHBENR;    /* 0x14 */
+    volatile uint32_t APB2ENR;   /* 0x18  ★ 本程序要写的就是它 */
+    volatile uint32_t APB1ENR;   /* 0x1C */
+    volatile uint32_t BDCR;      /* 0x20 */
+    volatile uint32_t CSR;       /* 0x24 */
+} RCC_TypeDef;
+
+#define RCC        ((RCC_TypeDef  *)0x40021000UL)   /* AHB 段 + 0x1000 */
+#define GPIOA      ((GPIO_TypeDef *)0x40010800UL)   /* APB2 段 + 0x0800 */
+
+/* ---------- 用到的位定义（名字取自参考手册的位名） ---------- */
+#define RCC_APB2ENR_IOPAEN   (1uL &lt;&lt; 2)     /* bit2：GPIOA 时钟使能 */
+#define GPIO_CRL_MODE0_2MHZ  (0x2uL &lt;&lt; 0)   /* PA0：MODE0=10, CNF0=00 */
+
+/* ---------- 粗糙的软件延时（数值靠试，见文末说明） ---------- */
+static void delay_loops(volatile uint32_t n)
+{
+    while (n != 0u) { n--; }    /* volatile 保证循环不会被优化掉 */
+}
+
+int main(void)
+{
+    /* ================= 第一步：打开 GPIOA 的时钟 ================= */
+    /* 外设默认没有时钟。不开时钟，后面写的 CRL/BSRR 全部【无效】——
+       寄存器能写进去、读出来也是你写的值，但引脚毫无反应。
+       这是新手最容易被骗的一步。 */
+    RCC-&gt;APB2ENR |= RCC_APB2ENR_IOPAEN;
+
+    /* ================= 第二步：把 PA0 配成「推挽输出、2MHz」 ========= */
+    /* CRL 里每个引脚占 4 位：PA0 占 bit3:0。
+       顺序很重要：先【清】掉这 4 位，再【写】入新值。
+       如果直接 |=，会在复位值 0b0100（浮空输入）上叠加，配出错误模式。 */
+    GPIOA-&gt;CRL &amp;= ~(0xFuL &lt;&lt; 0);        /* 清掉 PA0 的 CNF0/MODE0 */
+    GPIOA-&gt;CRL |=  GPIO_CRL_MODE0_2MHZ;  /* 写入 0b0010：推挽、2MHz */
+
+    /* ================= 第三步：循环点亮/熄灭 ================= */
+    for (;;) {
+        GPIOA-&gt;BSRR = (1uL &lt;&lt; 0);        /* 写 0x00000001：置位 PA0 → 点亮 */
+        delay_loops(400000u);
+        GPIOA-&gt;BRR  = (1uL &lt;&lt; 0);        /* 写 0x00000001：清零 PA0 → 熄灭 */
+        delay_loops(400000u);
+    }
+
+    /* main 不会返回。嵌入式程序的主循环就是 for(;;)。 */
+}
+
+/* ============================================================
+   ★ 关于延时：
+     上面是「空循环延时」，循环次数靠试。复位后 STM32F103 默认用
+     片内 8MHz 的 HSI 时钟，一次循环大约几个时钟周期，
+     400000 次大约是 0.2~0.5 秒，肉眼能看出闪烁。
+     要精确延时必须用 SysTick（0xE000E010，第三站那张表里的那个），
+     它就是为这个用途设计的 24 位递减计数器。
+   ============================================================ */</code></pre>
+          </div>
+
+          <h3 id="sub-mcu-step1" class="mt-7 text-base font-semibold">第一步详解：RCC 的地址是怎么来的，为什么是 bit2</h3>
+
+          <p class="mt-3">这一步只有一行，但它包含两个必须能自己回答的问题：<b>为什么 RCC 在 0x40021000？为什么 GPIOA 的时钟是 bit2？</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="RCC 基地址 0x40021000 的推导（回到第三站的「每 1KB 一个窗口」）">
+            <pre><code>【回忆第三站：外设按总线分三段】
+
+   APB1 段起点 0x40000000   （低速外设：定时器、USART2/3、I2C、SPI2）
+   APB2 段起点 0x40010000   （高速外设：GPIO、USART1、SPI1、ADC1、TIM1）
+   AHB  段起点 0x40020000   （DMA、RCC、FLASH 接口、CRC）
+
+【AHB 段里，每个外设独占 1KB（0x400）窗口，依次排下去】
+
+   0x40020000  ┌──────────────────┐
+               │  DMA1            │  AHB 段起点 + 0x0000
+   0x40020400  ├──────────────────┤
+               │  DMA2            │  + 0x0400
+   0x40020800  ├──────────────────┤
+               │  （预留 2 个窗口）│  + 0x0800 / + 0x0C00
+   0x40021000  ├──────────────────┤
+               │  ★ RCC           │  + 0x1000   ← 就是它
+   0x40021400  ├──────────────────┤
+               │  （预留）         │  + 0x1400
+   0x40022000  ├──────────────────┤
+               │  FLASH 接口       │  + 0x2000
+   0x40023000  ├──────────────────┤
+               │  CRC             │  + 0x3000
+   0x40024000  └──────────────────┘
+
+   所以：RCC 基地址 = 0x40020000 + 0x1000 = 0x40021000    ✔
+
+【再往上叠 APB2ENR 的偏移 0x18】
+
+   0x40021000 + 0x18 = 0x40021018                         ✔
+   （和例题 1 的第 ③ 问一致）
+
+【为什么 GPIOA 的时钟是 bit2？】
+
+   查参考手册 RCC_APB2ENR 寄存器（偏移 0x18）的位定义：
+
+     bit0  AFIOEN    复用功能 IO 时钟
+     bit1  （保留）
+     bit2  IOPAEN    ★ GPIOA 时钟
+     bit3  IOPBEN    GPIOB 时钟
+     bit4  IOPCEN    GPIOC 时钟
+     bit5  IOPDEN    GPIOD 时钟
+     bit6  IOPEEN    GPIOE 时钟
+     bit7  IOPFEN    GPIOF 时钟
+     bit8  IOPGEN    GPIOG 时钟
+     bit9  ADC1EN
+     bit10 ADC2EN
+     bit11 TIM1EN
+     bit12 SPI1EN
+     bit13 TIM8EN
+     bit14 USART1EN
+     bit15 ADC3EN
+
+   ★ 注意 bit1 是保留位，GPIOA 从 bit2 开始 ——
+     这就是「为什么是 (1u &lt;&lt; 2)」而不是 (1u &lt;&lt; 1) 的答案。
+     【不要凭「第一个 GPIO 应该是 bit0」的直觉去猜，一定要查表。】
+     记住这个规律也没坏处：A、B、C、D、E、F、G 依次占 bit2~bit8。
+
+【★ 用 |= 而不是 = 的原因】
+
+   APB2ENR 是一个【所有外设共用】的寄存器：
+   你开 GPIOA 的时候，不能把别人的时钟位清掉。
+       RCC-&gt;APB2ENR |=  (1u &lt;&lt; 2);   ✔ 只置 bit2，其他位不变
+       RCC-&gt;APB2ENR  =  (1u &lt;&lt; 2);   ✗ 把 AFIO/ADC1/USART1 的时钟全关了
+   这就是「读-改-写」在这里【必须】存在的原因 ——
+   也解释了为什么后面点亮 LED 时我们要改用 BSRR（那里没有这个必要，
+   但 BSRR 能做到「只影响一个位、还不用读」）。</code></pre>
+          </div>
+
+          <h3 id="sub-mcu-step2" class="mt-7 text-base font-semibold">第二步详解：CRL 的四个位怎么拆</h3>
+
+          <p class="mt-3">GPIOA 的 CRL 寄存器是一个「<b>每 4 位管一个引脚</b>」的配置寄存器。它管的是 PA0~PA7（高 8 位引脚由 CRH 管，结构完全一样）。<b>PA0 占最右边的 4 位（bit3:0）</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>位</th><th>名称</th><th>含义</th><th>复位值</th><th>本程序写入</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">bit1:0</td><td><b>MODE0</b></td><td>PA0 的输出模式/速度</td><td class="font-mono text-xs">00（输入）</td><td class="font-mono text-xs">10（输出、2MHz）</td></tr>
+                <tr><td class="font-mono text-xs">bit3:2</td><td><b>CNF0</b></td><td>PA0 的配置类型</td><td class="font-mono text-xs">01（浮空输入）</td><td class="font-mono text-xs">00（通用推挽）</td></tr>
+                <tr><td class="font-mono text-xs">bit7:4</td><td>MODE1 / CNF1</td><td>PA1 的配置（8 个引脚依次排下去）</td><td class="font-mono text-xs">0100</td><td>不动</td></tr>
+                <tr><td class="font-mono text-xs">bit11:8</td><td>MODE2 / CNF2</td><td>PA2 的配置</td><td class="font-mono text-xs">0100</td><td>不动</td></tr>
+                <tr><td class="font-mono text-xs">…</td><td>…</td><td>PA3 ~ PA6 同理</td><td class="font-mono text-xs">0100</td><td>不动</td></tr>
+                <tr><td class="font-mono text-xs">bit31:28</td><td>MODE7 / CNF7</td><td>PA7 的配置</td><td class="font-mono text-xs">0100</td><td>不动</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">那 4 个位具体写什么值？需要查 MODE 和 CNF 两张编码表（<b class="font-semibold text-ink">这两张表是 GPIO 配置的全部内容，值得记住</b>）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th colspan="2">MODE[1:0]：模式与速度</th><th colspan="2">CNF[1:0]：配置类型</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">00</td><td>输入（速度无关）</td><td class="font-mono text-xs">00</td><td><b>输出：通用推挽</b>（本程序用这个）</td></tr>
+                <tr><td class="font-mono text-xs">01</td><td>输出，最大 10MHz</td><td class="font-mono text-xs">01</td><td>输出：通用开漏</td></tr>
+                <tr><td class="font-mono text-xs">10</td><td><b>输出，最大 2MHz</b>（本程序用这个）</td><td class="font-mono text-xs">10</td><td>输出：复用推挽（给 SPI/USART 等外设用）</td></tr>
+                <tr><td class="font-mono text-xs">11</td><td>输出，最大 50MHz</td><td class="font-mono text-xs">11</td><td>输出：复用开漏（I2C 用）</td></tr>
+                <tr><td colspan="4" class="text-muted">★ CNF 的含义在输入模式下完全不同：00 模拟输入（给 ADC 用）、01 浮空输入（复位值）、10 上拉/下拉输入（方向由 ODR 决定）、11 保留。<b>所以「CNF=00」在输入模式下是「模拟输入」，在输出模式下才是「推挽」——同一个编码，两种意思，看 MODE 决定。</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">把上面的编码表落到具体数字上（<b class="font-semibold text-ink">这三行数字建议自己手推一遍</b>）。GPIOA_CRL 的复位值是 <code class="icode">0x44444444</code>——8 个 nibble 全是 <code class="icode">0b0100</code>，即 CNF=01（浮空输入）、MODE=00（输入）；也就是说复位后所有 GPIO 都是高阻输入，既不能驱动 LED，也不会和外部电路打架（这是刻意设计的安全状态）。我们要做的，是把低 4 位那个 nibble 从 <code class="icode">0b0100</code> 改成 <code class="icode">0b0010</code>。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第一步，清零。</b>掩码 <code class="icode">(0xF &lt;&lt; 0) = 0x0000000F</code>，取反得 <code class="icode">0xFFFFFFF0</code>，与原值按位与：<code class="icode">0x44444444 &amp; 0xFFFFFFF0 = 0x44444440</code>——PA0 的 nibble 变成全 0，其余 7 个引脚的 nibble 一位没动。<b class="font-semibold text-ink">第二步，写入。</b><code class="icode">0x44444440 | 0x00000002 = 0x44444442</code>，最终 CRL = <code class="icode">0x44444442</code>：高 7 个 nibble 保持 <code class="icode">0x4</code>（其他引脚不受影响），PA0 的 nibble = <code class="icode">0b0010</code>，即 CNF0=00（通用推挽）、MODE0=10（输出 2MHz）✔</p>
+
+          <p class="mt-3">这三行算术揭示的是一个通用套路：<b class="font-semibold text-ink">配置寄存器永远「先清后写」</b>。<code class="icode">GPIOA-&gt;CRL &amp;= ~(0xF &lt;&lt; 0)</code> 负责清位，<code class="icode">GPIOA-&gt;CRL |= (0x2 &lt;&lt; 0)</code> 负责写值；把 <code class="icode">0</code> 换成 <code class="icode">7</code> 就变成配置 PA7（掩码 <code class="icode">0xF &lt;&lt; 28</code>），换成 CRH 就管 PA8~PA15，结构一模一样。这也是后面 HAL_GPIO_Init 内部真正在做的事。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">为什么必须先清后写，不能直接 |=</div>
+            <p>如果不清零、直接或上去：<code class="icode">0b0100 | 0b0010 = 0b0110</code>，也就是 CNF=01、MODE=10。而 CNF=01 在输出模式下的含义是<b>开漏输出</b>——配出来成了「开漏 2MHz」，不是我们要的推挽。开漏输出只能把引脚拉低、不能拉高（高电平要靠外部上拉电阻），结果就是「程序看起来没错，LED 却只微亮、或者根本不亮」。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">这类「值确实写进去了、模式却不对」的 bug，只有把位域拆开、按位算一遍才能发现。</b>规则：凡是「一个寄存器里塞了多个字段」的配置寄存器，永远先清位、再写值。这与第一步 <code class="icode">APB2ENR |= (1u &lt;&lt; 2)</code> 用 <code class="icode">|=</code> 并不矛盾——那是「置位」语义的寄存器，写成赋值反而会把别人的时钟一起关掉。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么选 2MHz 而不是 50MHz</div>
+            <p>MODE 里的「速度」指的是<b>引脚电平翻转时输出驱动电路的压摆率</b>，不是「CPU 能跑多快」。速度越高，上升/下降沿越陡：高频噪声与 EMI 越大，驱动电路的动态功耗也越高。点一个 LED 只需要几十 Hz，用最慢的 2MHz 绰绰有余，还更安静。</p>
+            <p class="mt-2">规则：<b>能用慢的就别用快的</b>。只有 SPI（几 MHz）、FSMC 外部总线这类需要快速翻转的场合，才值得用 10MHz / 50MHz。顺带记一个数字：MODE=10 表示「最高支持 2MHz」，不是「一定跑 2MHz」——你翻转得慢它就更慢，这个字段只是驱动能力的上限。</p>
+          </div>
+
+          <h3 id="sub-mcu-step3" class="mt-7 text-base font-semibold">第三步详解：ODR 还是 BSRR</h3>
+
+          <p class="mt-3">配置好方向之后，剩下的就是「把这一位写成 1 或 0」。<b class="font-semibold text-ink">四种写法都能点亮 LED，但它们的代价完全不同</b>——这张表是本节最值得记住的东西：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>写法</th><th>C 代码</th><th>编译后</th><th>原子性</th><th>评价</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>ODR 读-改-写</b></td>
+                  <td class="font-mono text-xs">GPIOA-&gt;ODR |= (1u&lt;&lt;0);</td>
+                  <td>LDR + ORR + STR<br>（3 条指令）</td>
+                  <td><b>不原子</b></td>
+                  <td>两次访问之间若发生中断、且中断里也改了 ODR，你的修改会被覆盖。<b>多任务/中断环境下必须警惕。</b></td>
+                </tr>
+                <tr>
+                  <td><b>ODR 直接赋值</b></td>
+                  <td class="font-mono text-xs">GPIOA-&gt;ODR = (1u&lt;&lt;0);</td>
+                  <td>STR（1 条）</td>
+                  <td>原子</td>
+                  <td><b>★ 危险：它把另外 15 位全部写成 0。</b>如果 PA1 上的继电器正在吸合，这一句会把它关掉。只控制一个引脚时看似没事，加第二个引脚立刻出事。</td>
+                </tr>
+                <tr>
+                  <td><b>BSRR 置位</b></td>
+                  <td class="font-mono text-xs">GPIOA-&gt;BSRR = (1u&lt;&lt;0);</td>
+                  <td>STR（1 条）</td>
+                  <td><b>原子</b></td>
+                  <td>低 16 位：写 1 的位被<b>置位</b>，写 0 的位不受影响。<b>推荐写法。</b></td>
+                </tr>
+                <tr>
+                  <td><b>BSRR 高 16 位复位</b></td>
+                  <td class="font-mono text-xs">GPIOA-&gt;BSRR = (1u&lt;&lt;16);</td>
+                  <td>STR（1 条）</td>
+                  <td><b>原子</b></td>
+                  <td>高 16 位：写 1 的位被<b>清零</b>。F4 及以后的芯片只有 BSRR，用这个写法可移植性最好。</td>
+                </tr>
+                <tr>
+                  <td><b>BRR 复位</b></td>
+                  <td class="font-mono text-xs">GPIOA-&gt;BRR = (1u&lt;&lt;0);</td>
+                  <td>STR（1 条）</td>
+                  <td><b>原子</b></td>
+                  <td>BSRR 高 16 位的「专用版」，老代码里常见。F1 上两者等价。</td>
+                </tr>
+                <tr>
+                  <td><b>位带别名</b></td>
+                  <td class="font-mono text-xs">PA0_OUT = 1;</td>
+                  <td>STR（1 条）</td>
+                  <td><b>原子</b></td>
+                  <td>对<b>任何</b>支持位带的寄存器都能这么干（不限于 GPIO），见下文。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">BSRR 一个容易忽略的细节</div>
+            <p>如果你在 BSRR 里<b>同时</b>把某个位的「置位位」和「复位位」都写了 1（比如 <code class="icode">GPIOA-&gt;BSRR = (1u&lt;&lt;0) | (1u&lt;&lt;16)</code>，注意这是同一引脚 PA0），<b>置位优先</b>——引脚最终是高电平。参考手册明确写了这条规则，但没人会故意这么写；提它是为了让你知道：<b>读手册读到的细节，往往就是别人踩坑的原因。</b>（顺便注意：这个例子也说明了「操作哪一位」的方法——置位用引脚号当位号，复位用引脚号 + 16 当位号。）</p>
+          </div>
+
+          <h3 id="sub-mcu-hal" class="mt-7 text-base font-semibold">同一件事，CubeMX + HAL 怎么写</h3>
+
+          <p class="mt-3">现在看 CubeMX 会给你生成什么。同样是「PA0 推挽输出 + 循环闪烁」，HAL 版本大致是这样：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="main.c（CubeMX 生成 + HAL）—— 与手写寄存器版逐条对照">
+            <pre><code>/* ============ CubeMX 自动生成的部分 ============ */
+static void MX_GPIO_Init(void)
+{
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    /* ① 开时钟：宏展开后就是【往 RCC-&gt;APB2ENR 的 bit2 写 1】 */
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+
+    /* ② 配置引脚：把「要什么」填进结构体 */
+    GPIO_InitStruct.Pin   = GPIO_PIN_0;              /* 哪几个引脚（位掩码 0x0001）*/
+    GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;     /* 推挽输出 */
+    GPIO_InitStruct.Pull  = GPIO_NOPULL;             /* 不用上下拉 */
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;     /* 低速 ≈ 2MHz */
+    HAL_GPIO_Init(GPIOA, &amp;GPIO_InitStruct);          /* ③ 由 HAL 翻译成 CRL/CRH 的位 */
+}
+
+/* ============ 主循环 ============ */
+int main(void)
+{
+    HAL_Init();                 /* 里面配了 SysTick，HAL_Delay 才能用 */
+    SystemClock_Config();       /* 时钟树配置（本例保持默认 HSI） */
+    MX_GPIO_Init();
+
+    for (;;) {
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);    /* 点亮 */
+        HAL_Delay(200);                                        /* 200ms */
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);  /* 熄灭 */
+        HAL_Delay(200);
+    }
+}
+
+/* ============================================================
+   ★ HAL 内部到底做了什么？把两层皮揭开：
+   ============================================================
+
+   ① __HAL_RCC_GPIOA_CLK_ENABLE()  是个宏，展开后大致是：
+
+        do {
+            SET_BIT(RCC-&gt;APB2ENR, RCC_APB2ENR_IOPAEN);   ← 和手写版一模一样
+            tmpreg = READ_BIT(RCC-&gt;APB2ENR, RCC_APB2ENR_IOPAEN);
+            UNUSED(tmpreg);                              ← 回读一次，确保时钟已生效
+        } while (0)
+
+      多出来的「回读一次」是为了防止编译器把这条写操作优化掉，
+      也顺带等一个总线周期。功能上与你手写的
+      RCC-&gt;APB2ENR |= (1u &lt;&lt; 2) 完全等价。
+
+   ② HAL_GPIO_Init() 做的是「翻译 + 定位 + 写位」：
+        · 把 GPIO_MODE_OUTPUT_PP / GPIO_SPEED_FREQ_LOW 翻译成
+          MODE=10、CNF=00（就是上面那张编码表）
+        · 用 GPIO_Pin 的位掩码算出「这是第几个引脚」，
+          定位到 CRL/CRH 里的对应 nibble
+        · 先清那 4 位，再写入新值 —— 和你手写的两步完全一样
+        · 额外处理：如果是输入模式且要上拉/下拉，它还要去改 ODR
+          （F1 的上拉/下拉由 ODR 的对应位决定），
+          以及开漏模式、复用模式的组合 —— 这就是 HAL 代码
+          比手写版大得多的原因
+
+   ③ HAL_GPIO_WritePin() 在 STM32F1 的 HAL 里就是：
+
+        if (PinState != GPIO_PIN_RESET) {
+            GPIOx-&gt;BSRR = GPIO_Pin;      ← 置位
+        } else {
+            GPIOx-&gt;BRR  = GPIO_Pin;      ← 复位
+        }
+
+      ★ 也就是说：你手写的第三步行，HAL 原封不动地替你写了。
+        （F4 之后的 HAL 改成写 BSRR 的高 16 位，思想相同。）
+
+   ④ HAL_Delay(200) 依赖 SysTick：HAL_Init() 里把 SysTick 配成
+      1ms 中断一次，HAL_Delay 在中断里递减计数。
+      而 SysTick 的三个寄存器就在内核私有区：
+          SysTick-&gt;CTRL  0xE000E010
+          SysTick-&gt;LOAD  0xE000E014
+          SysTick-&gt;VAL   0xE000E018
+      —— 手写版用一个空循环代替了它，精度差但零依赖。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>动作</th><th>手写寄存器</th><th>HAL / CubeMX</th><th>HAL 帮你做了什么</th></tr></thead>
+              <tbody>
+                <tr><td>开时钟</td><td><code class="icode">RCC-&gt;APB2ENR |= (1u&lt;&lt;2);</code></td><td><code class="icode">__HAL_RCC_GPIOA_CLK_ENABLE();</code></td><td>把位名（IOPAEN）和寄存器地址打包成宏，并回读确认</td></tr>
+                <tr><td>配方向</td><td>清 CRL 的 bit3:0，再写 0x2</td><td>填 4 个字段 + <code class="icode">HAL_GPIO_Init()</code></td><td>把「推挽/速度」翻译成 MODE/CNF 编码；按引脚号定位 nibble；顺带处理上下拉、开漏、复用</td></tr>
+                <tr><td>点亮</td><td><code class="icode">GPIOA-&gt;BSRR = (1u&lt;&lt;0);</code></td><td><code class="icode">HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);</code></td><td>包成一句可读的函数调用；内部就是写 BSRR</td></tr>
+                <tr><td>熄灭</td><td><code class="icode">GPIOA-&gt;BRR = (1u&lt;&lt;0);</code></td><td><code class="icode">HAL_GPIO_WritePin(..., GPIO_PIN_RESET);</code></td><td>内部就是写 BRR（F4+ 写 BSRR 高位）</td></tr>
+                <tr><td>延时</td><td>空循环 <code class="icode">delay_loops()</code></td><td><code class="icode">HAL_Delay(200);</code></td><td>用 SysTick 建立 1ms 时基，给出毫秒级精确延时</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">那到底该用哪个？</b>一句话：<b>学习期用手写寄存器打地基，做项目用 HAL 提效率，但永远保留「一眼看回寄存器」的能力。</b>HAL 的成本是代码体积（一个 <code class="icode">HAL_GPIO_Init</code> 编译出来上百字节，要在 64KB 的芯片里省着用）、多一层函数调用，以及把细节藏了起来——当 LED 不亮时，HAL 用户往往不知道该看哪里，而懂寄存器的人会条件反射地检查三件事：<b>时钟开了吗（APB2ENR）、方向配了吗（CRL/CRH）、数据写对寄存器了吗（BSRR/ODR）。</b>这三问能解决 90% 的「GPIO 没反应」。</p>
+
+          <h3 id="sub-mcu-bitband" class="mt-7 text-base font-semibold">同一件事，用位带别名地址写</h3>
+
+          <p class="mt-3">第三站的位带，在这里派上用场。上一节例题 2 ① 已经算出：<b>PA0（GPIOA-&gt;ODR 的 bit0）的位带别名地址是 0x42210180</b>。于是「点亮 PA0」可以写成一次普通的变量赋值：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="位带版点灯：同样的效果，一条 STR 完成">
+            <pre><code>/* ---------- 写法一：直接把别名地址写死（适合验证/教学） ---------- */
+#define PA0_OUT   (*(volatile uint32_t *)0x42210180UL)
+
+/* ---------- 写法二：用宏让编译器替你算（推荐，换引脚只改参数） ---------- */
+#define BITBAND_PERIPH(addr, bit)                                   \
+    (*(volatile uint32_t *)(0x42000000UL                            \
+        + (((uint32_t)(addr) - 0x40000000UL) * 32UL)                \
+        + ((uint32_t)(bit) * 4UL)))
+
+#define PA0_OUT2  BITBAND_PERIPH(&amp;GPIOA-&gt;ODR, 0)     /* bit 用 0~31 */
+
+/* ============================================================
+   注意：位带【不改变】前两步！
+   ============================================================
+   必须照样开时钟、照样配 CRL。位带只改变「怎么写这一位」，
+   它不负责给外设上电，也不负责把引脚变成输出。 */
+
+int main(void)
+{
+    RCC-&gt;APB2ENR |= (1uL &lt;&lt; 2);              /* 第一步：一样要开时钟 */
+    GPIOA-&gt;CRL &amp;= ~(0xFuL &lt;&lt; 0);            /* 第二步：一样要配方向 */
+    GPIOA-&gt;CRL |=  (0x2uL &lt;&lt; 0);
+
+    for (;;) {
+        PA0_OUT  = 1uL;      /* 点亮：一条 STR，原子操作 */
+        delay_loops(400000u);
+        PA0_OUT  = 0uL;      /* 熄灭：一条 STR，原子操作 */
+        delay_loops(400000u);
+
+        /* PA0_OUT2 与 PA0_OUT 指向【同一个位】：
+           BITBAND_PERIPH(&amp;GPIOA-&gt;ODR, 0) 展开后就是 0x42210180。
+           你可以在调试器里把两个地址都加到 Watch 窗口对比，
+           或者在反汇编里看两条 STR 的目标地址是否相同。 */
+    }
+}
+
+/* ============================================================
+   ★ 位带真正的价值：它不限于 GPIO
+   ============================================================
+   GPIO 有 BSRR 这个「硬件自带的位操作寄存器」，所以位带在 GPIO 上
+   算不上刚需。但别的外设【没有】BSRR：
+
+       把 TIM2-&gt;SR 的第 0 位（更新标志 UIF）清零，通常要写
+           TIM2-&gt;SR = ~(1u &lt;&lt; 0);     ← 读-改-写，且写 1 清零的语义容易搞错
+       用位带就可以：
+           #define TIM2_UIF  BITBAND_PERIPH(&amp;TIM2-&gt;SR, 0)
+           TIM2_UIF = 0;               ← 干净、原子、一眼看懂
+
+   类似的还有 USART-&gt;SR 的各个标志位、EXTI-&gt;IMR 的中断屏蔽位、
+   ADC-&gt;CR2 的 SWSTART 位……
+   ★ 一句话：BSRR 是 GPIO 的特权，位带是所有外设的通权。</code></pre>
+          </div>
+
+          <h3 id="sub-mcu-map" class="mt-7 text-base font-semibold">最后一步：用 map 文件确认「东西到底落在哪」</h3>
+
+          <p class="mt-3">讲了这么多落位规则，怎么验证？<b class="font-semibold text-ink">在程序里放三个不同类型的东西，然后去 map 文件里搜它们的名字。</b>这是「第七站」的知识在真实工程里的用法：</p>
+
+          <p class="mt-3">在 main.c 里放三个<b>不同类型</b>的东西，编译后去 <code class="icode">.map</code> 文件里搜它们的名字：</p>
+
+          <p class="mt-2 font-mono text-xs text-muted">uint8_t g_frame[128]; 　 uint32_t g_tick = 1000; 　 const uint16_t g_sin[64] = { 0, 3212, 6393, 9512, … };</p>
+
+          <p class="mt-3">你会看到三组地址，它们分别落在三个不同的段里（<b class="font-semibold text-ink">这三行就是「编译产物落位」最直观的证据</b>）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>符号</th><th>声明</th><th>map 文件里的地址</th><th>落在哪个段</th><th>Flash 占用</th><th>RAM 占用</th><th>为什么</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">g_tick</code></td>
+                  <td>有初值的全局变量<br><code class="icode">= 1000</code></td>
+                  <td class="font-mono text-xs">运行地址 0x20000000<br>（另有 Flash 里的加载地址 0x08001e34）</td>
+                  <td><b>.data</b></td>
+                  <td class="font-mono text-xs">4 B<br>（存初值 1000）</td>
+                  <td class="font-mono text-xs">4 B</td>
+                  <td>有初值 ⇒ 初值必须躺在非易失存储器里；复位时由启动代码从 Flash 搬到 RAM。<b>所以它有两份：Flash 里一份、RAM 里一份。</b></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">g_sin</code></td>
+                  <td>只读常量表<br><code class="icode">const uint16_t[64]</code></td>
+                  <td class="font-mono text-xs">0x08001bfc</td>
+                  <td><b>.rodata</b></td>
+                  <td class="font-mono text-xs">128 B<br>（64 × 2）</td>
+                  <td class="font-mono text-xs"><b>0 B</b></td>
+                  <td>程序从不修改它，那就<b>留在 Flash 里、不占 RAM</b>。代价是读取比 RAM 慢：F103 的取指有预取缓冲，数据访问没有，高频查表时才看得出差别。</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">g_frame</code></td>
+                  <td>未初始化的数组<br><code class="icode">uint8_t[128]</code></td>
+                  <td class="font-mono text-xs">0x20000040</td>
+                  <td><b>.bss</b></td>
+                  <td class="font-mono text-xs"><b>0 B</b></td>
+                  <td class="font-mono text-xs">128 B</td>
+                  <td>全是 0 的数据<b>没必要存进 Flash</b>：启动代码把这片 RAM 清零就行。给它一个初值反而会让它变成 .data，在 Flash 里多存 128 字节（其中 127 个还是 0）。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">读 map 文件的三个技巧，也就是上面这张表的读法：</p>
+          <ul class="mt-2 list-disc space-y-1 pl-5">
+            <li><b class="font-semibold text-ink">看地址前缀。</b><code class="icode">0x08…</code> 开头 = Flash（0x08000000 起），<code class="icode">0x20…</code> 开头 = SRAM（0x20000000 起）。<b>第一站那四行打印地址之所以重要，就是为了让你养成「看一眼地址就知道它住在哪」的条件反射</b>——这一个习惯能省掉大量猜测。</li>
+            <li><b class="font-semibold text-ink">看 <code class="icode">load address</code>。</b>.data 段的段头会写成 <code class="icode">.data 0x20000000 0x40 load address 0x08001e34</code>：前面是<b>运行地址（VMA，在 RAM）</b>，后面是<b>加载地址（LMA，在 Flash）</b>。同一个变量两个地址，这就是「初值存 Flash、运行时拷到 RAM」在 map 文件里的样子。</li>
+            <li><b class="font-semibold text-ink">看段头那一行的第二个十六进制数。</b><code class="icode">.bss 0x20000040 0x80</code> 里的 <code class="icode">0x80</code> 就是这一段的<b>大小</b>（128 字节）。把各段大小加起来，就是 Flash 和 RAM 的总占用——这与 Keil 的 <code class="icode">Program Size</code> 行、GCC 的 <code class="icode">size</code> 命令是同一份账。</li>
+          </ul>
+
+          <p class="mt-3">三个可以立刻动手的验证动作（<b class="font-semibold text-ink">建议至少做前两个，只要十分钟</b>）：</p>
+          <ul class="mt-2 list-disc space-y-1 pl-5">
+            <li><b>验证一（对地址）：</b>在调试器的 Watch 窗口输入 <code class="icode">&amp;g_frame</code>、<code class="icode">&amp;g_tick</code>、<code class="icode">&amp;g_sin</code>，显示的地址应该与 map 文件完全一致。</li>
+            <li><b>验证二（改一行，看数字怎么跳）：</b>看编译输出的 Program Size——把 <code class="icode">g_sin</code> 改成非 const，<b>RO-data 减少 128、RW-data 增加 128</b>（而且从此要占 RAM 了）；把 <code class="icode">g_frame</code> 改成有初值，<b>RW-data 增加 128、ZI-data 减少 128</b>（Flash 占用增加，RAM 占用不变）。<b>观察这几个数字怎么跳，比读十遍文档都管用。</b></li>
+            <li><b>验证三（直接读 Flash）：</b>把 <code class="icode">g_sin</code> 的地址 <code class="icode">0x08001bfc</code> 当普通指针在调试器里读，能读出 <code class="icode">0x0000</code>、<code class="icode">0x0C8C</code>（= 3212）、<code class="icode">0x18F9</code>（= 6393）……这就是「Flash 里的常量可以被直接读」的实证——因为 Flash 和 RAM 在同一个地址空间里。</li>
+          </ul>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">顺手回答一个新手常问的问题：「我把表改成 const，程序反而变大了？」</div>
+            <p>不会变大。<b>变的只是这些字节落在哪一段</b>：非 const 版本占 Flash（初值 128B）<b>并且</b>占 RAM（128B）；const 版本只占 Flash（128B），不占 RAM。<b>两个版本的 Flash 占用是一样的</b>（都是那 128 字节数据，只是搬了个位置），const 版本白赚 128 字节 RAM。</p>
+            <p class="mt-2">如果你觉得「Flash 也变了」，那是把 Keil 的 RO-data 和 RW-data 两项看混了——数一下就知道：<b>RW-data 少了 128，RO-data 多了 128，总量不变</b>。这也是为什么「看 Program Size 四个数字的<b>和</b>，而不是只看第一项」是嵌入式工程师的基本功：<b>Code + RO-data + RW-data 才是 Flash 的真实占用，RW-data + ZI-data 才是 RAM 的真实占用。</b></p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这一节你其实已经用完了全部八站</div>
+            <p>回头数一下：<b>统一编址</b>（外设和 Flash 在同一个地址空间，所以能用指针访问）→ <b>4GB 分区</b>（知道 0x40010800 属于 Peripheral 区）→ <b>外设基址与偏移</b>（算出三个寄存器地址）→ <b>结构体指针与 volatile</b>（写出 GPIO_TypeDef）→ <b>位带</b>（0x42210180）→ <b>启动别名</b>（复位后 0x00000000 那里为什么也有代码）→ <b>编译产物落位</b>（.data/.bss/.rodata）→ <b>MPU</b>（知道哪些行为会被硬件拦住）。<b>这八站不是八个孤立的知识点，而是同一套机制的八个侧面</b>——你现在能从「点亮一个 LED」一路解释到「这些字节住在 4GB 空间的哪个角落」，这就是这一篇的全部目的。</p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 5. 常见误解与坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="mt-7 text-xl font-semibold">常见误解与坑</h2>
+
+          <p class="mt-4">下面这九条，是这个话题里<b>最容易在面试、评审和深夜调试现场暴露出来的误解</b>。每一条都按「错误认知 → 为什么错 → 正确做法」写，建议逐条核对一遍自己的理解。</p>
+
+          <div class="card card-pad mt-4">
+            <p class="text-sm font-semibold text-ink">误解 1 · 「地址就是一个内存单元，0x40010800 也是某块 RAM」</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">为什么错：</b>地址空间里住的不只是存储器。0x40010800 落在 Peripheral 区（0x40000000~0x5FFFFFFF），背后是 GPIOA 的配置寄存器，不是一个存储单元——读它得到引脚状态，写它会<b>改变硬件行为</b>（把引脚拉高、把外设时钟关掉）。同理 0xE000E010 背后是 SysTick 计数器，0x08000000 背后才是真正的 Flash 存储单元。</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">正确做法：</b>看到地址先看高 3 位落在哪个区块，判断「这是存储还是硬件」。访问外设寄存器一律用 <code class="icode">volatile</code>，并且心里默念「写寄存器 = 发命令」。<b>永远不要把外设地址当缓冲区用</b>——一句 <code class="icode">memcpy(buf, (void *)0x40010800, 16)</code> 读的是寄存器，而 <code class="icode">memset((void *)0x40010810, 0xFF, 4)</code> 会真的把 16 个引脚全部拉高。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p class="text-sm font-semibold text-ink">误解 2 · 「Flash 就在 0x00000000，程序从那里开始跑」</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">为什么错：</b>0x00000000 是<b>启动别名窗口</b>，它指向哪里由复位瞬间 BOOT0/BOOT1 的电平决定（主 Flash / 系统存储器 / 内嵌 SRAM）；主 Flash 的<b>物理</b>地址是 0x08000000。所以「CPU 复位后从 0x00000000 取向量表」和「Flash 编址在 0x08000000」两件事同时成立，靠的是别名机制。</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">正确做法：</b>链接脚本里 Flash 写 <code class="icode">ORIGIN = 0x08000000</code>；要判断「现在跑的是谁」就看 BOOT 引脚或 <code class="icode">SCB-&gt;VTOR</code>（0xE000ED08），别假设 0x00000000 后面一定是 Flash。另外记住：<b>0x00000000 与 0x08000000 是同一存储单元的两个不同地址</b>，用两个指针分别指向它们做 <code class="icode">==</code> 比较会得到「不相等」——这是别名机制最反直觉的后果。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p class="text-sm font-semibold text-ink">误解 3 · 「加上 volatile 就安全了，中断也打断不了」</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">为什么错：</b>把两件事混成了一件。<code class="icode">volatile</code> 保证的是「每次都真实访问内存、不缓存到寄存器、不删除看似多余的访问」——它对付的是<b>编译器优化</b>；它<b>不保证原子性</b>，对付不了<b>中断并发</b>。所以 <code class="icode">GPIOA-&gt;ODR |= (1u &lt;&lt; 0)</code> 加了 volatile 之后，仍然是 LDR + ORR + STR 三条指令，中断插在中间照样会丢更新。</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">正确做法：</b>抗优化用 <code class="icode">volatile</code>；抗并发改用原子手段——<b>BSRR/BRR</b>（写 1 生效，不需要先读）、<b>位带别名地址</b>（整个读-改-写被一条 STR 替代），或者把这段代码放进关中断的临界区。<b>两个问题、两套工具，缺一不可。</b></p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p class="text-sm font-semibold text-ink">误解 4 · 「位带是 Cortex-M 的通用功能，哪块芯片都能用」</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">为什么错：</b>位带属于架构里的<b>可选</b>特性。Cortex-M3 / M4 实现了它（所以 STM32F103 能用），<b>Cortex-M0 / M0+ / M23 / M33 没有，Cortex-M7（STM32F7 / H7）也没有</b>。把位带代码原样搬到 F7 上，访问 0x42000000 会直接触发总线错误（HardFault），而且报错信息离现场很远，很难查。</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">正确做法：</b>用之前查芯片架构手册里有没有「bit-band」章节；要写成可移植的代码，就把位带宏包在 <code class="icode">#if defined(__CORTEX_M) &amp;&amp; (__CORTEX_M == 3 || __CORTEX_M == 4)</code> 之类的条件编译里，退化路径用 BSRR/BRR 或临界区。顺便记牢一句话：<b>能跑在 F103 上的位带技巧，不代表能跑在 F4 之外的任何一颗 Cortex-M 上。</b></p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p class="text-sm font-semibold text-ink">误解 5 · 「STM32F103 有 MPU，越界会被硬件抓住」</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">为什么错：</b>MPU 同样是可选单元，<b>STM32F103 的 Cortex-M3 没有实现 MPU</b>：读 <code class="icode">MPU-&gt;TYPE</code>（0xE000ED90）会看到 DREGION 字段为 0。抱着「反正有 MPU 兜着」的心态写代码，实际结果是野指针悄悄改坏内存，几天后才以「串口乱码」「ADC 跳变」这种毫不相干的现象崩溃。</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">正确做法：</b>先上机确认（读一次 <code class="icode">MPU-&gt;TYPE</code>，十秒钟的事）；F103 上只能靠编译期检查、静态分析、栈填充/哨兵值、看门狗和代码评审；真需要硬件级隔离（RTOS 任务隔离、功能安全认证）就选 F4 / F7 / H7，它们分别提供 8 / 16 个区域。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p class="text-sm font-semibold text-ink">误解 6 · 「栈是自动管理的，不用管它够不够」</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">为什么错：</b>栈的容量是链接脚本写死的（默认例程常常只给 0x400~0x800 字节），而且<b>溢出时不会有任何报错</b>：它会越过边界压进 .bss 里的数组、压进堆，把别的变量改坏。典型的吃栈大户是递归、几百字节的局部数组、以及 <code class="icode">printf</code>/<code class="icode">sprintf</code> 家族（一次可能吃掉几百字节）。</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">正确做法：</b>把栈大小当成<b>必须核算的资源</b>（例题 3 就是这么算的），并按实测留 50% 以上余量；大数组一律不要放局部变量（改成全局/static）；用「栈填充法」测真实峰值——启动时把整个栈区填成 <code class="icode">0xAA</code>，跑过所有功能后看最深被改到哪个地址；上 RTOS 时给每个任务单独核算栈。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p class="text-sm font-semibold text-ink">误解 7 · 「加了 const，就一定在 Flash 里、一定不占 RAM」</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">为什么错：</b>这句话在<b>全局/static 的只读数据</b>上是对的，但 <code class="icode">const</code> 加在<b>局部变量</b>上时，编译器常常仍然把它放在栈上（因为栈上的 const 只是「不许你改」，并不要求放到只读段）；反过来，一些工程把 <code class="icode">.rodata</code> 一起放进 RAM（为了速度或为了 IAP 自更新），那 const 数据也在 RAM 里。</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">正确做法：</b>别靠推理，<b>去 map 文件里搜符号名看地址前缀</b>（0x08 开头 = Flash，0x20 开头 = SRAM）。想让大表确定进 Flash，就写成全局或文件级 <code class="icode">static const uint16_t tbl[] = { … };</code>；需要放到指定段还可以用 <code class="icode">__attribute__((section(".rodata")))</code>。判断依据永远是编译产物，不是字符串 <code class="icode">const</code>。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p class="text-sm font-semibold text-ink">误解 8 · 「外设地址记在心里、写死在代码里最省事」</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">为什么错：</b>外设地址是<b>型号相关</b>的：F103 的 GPIOA 在 0x40010800，F407 的 GPIOA 在 0x40020000。写死地址的代码一换型号就全盘错位，而且错得很隐蔽——地址可能仍然落在 Peripheral 区，写进去不报错，只是「操作了另一个外设」，现象诡异。</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">正确做法：</b>永远用 CMSIS 的分层宏（<code class="icode">GPIOA</code>、<code class="icode">RCC</code>、<code class="icode">TIM2</code>）或 HAL 的句柄，它们由 <code class="icode">PERIPH_BASE</code> 一级级拼出来，换型号只换头文件。真要写死绝对地址，也必须集中成几行 <code class="icode">#define</code> 并加编译期断言（<code class="icode">STATIC_ASSERT</code>，例题 1 演示过）；看到别人例程里的地址对不上时，<b>第一反应应该是「型号不对」，而不是「抄错了」</b>。</p>
+          </div>
+
+          <div class="card card-pad mt-4">
+            <p class="text-sm font-semibold text-ink">误解 9 · 「越界读一下没关系，Flash 空白区读出来是 0」</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">为什么错：</b>擦除后的 Flash 读出的是 <b>0xFF</b>（全 1），不是 0——很多算法把「读到 0xFF」当作「这段没写过」的依据，就是把这条记反了的后果。而越界读：落在有效映射区内会读到垃圾数据（比 0 危险得多，因为不会有任何异常），落在未映射区或保留区则可能触发 BusFault；越界<b>写</b>外设寄存器更糟，会直接改变硬件状态。</p>
+            <p class="mt-2 text-sm"><b class="font-semibold text-ink">正确做法：</b>不要依赖越界读的返回值；数组访问加长度检查（或用静态分析工具查出来）；写 Flash 前必须先擦成 0xFF 再写（1 只能写成 0，不能写成 1）；把一个变量的地址直接拿去调试器里读时，先确认那个地址在有效范围内。<b>「读出来是 0」和「读出来是 0xFF」是两条完全不同的诊断线索，别搞混。</b></p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 6. 小结与自检 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="mt-7 text-xl font-semibold">小结与自检</h2>
+
+          <h3 class="mt-6 text-base font-semibold">这一篇要记住的十句话</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">存储器映射就是「把内外所有资源排进同一个线性地址空间」</b>：Flash、SRAM、外设寄存器、内核组件都在这 4GB 里，所以一套 load/store 指令就能访问一切，C 语言可以直接操作硬件。</li>
+            <li><b class="font-semibold text-ink">地址 ≠ 存储器。</b>同一个地址空间里既住着存储单元，也住着硬件寄存器（读它得到状态、写它发出命令），还有大片保留区。</li>
+            <li><b class="font-semibold text-ink">4GB 被切成 8 块 512MB</b>，地址高 3 位决定去哪一块：Code / SRAM / Peripheral / RAM / Device / 保留 / PPB。分区让「可缓存、可共享、可执行」这些属性可以按区统一管理（MPU 才有东西可管）。</li>
+            <li><b class="font-semibold text-ink">STM32F103 的排布：</b>Flash 在 <code class="icode">0x08000000</code>、SRAM 20KB 在 <code class="icode">0x20000000</code>、外设在 <code class="icode">0x40000000</code> 起分 APB1/APB2/AHB 三条总线、内核私有区在 <code class="icode">0xE0000000</code>（SysTick、NVIC、SCB、MPU 都在这里）。</li>
+            <li><b class="font-semibold text-ink">0x00000000 是启动别名窗口</b>，复位瞬间由 BOOT0/BOOT1 决定它映射到主 Flash / 系统存储器（出厂 Bootloader）/ 内嵌 SRAM；主 Flash 的物理地址始终是 0x08000000。</li>
+            <li><b class="font-semibold text-ink">寄存器绝对地址 = 外设基地址 + 偏移</b>，偏移永远是 4 的整数倍（32 位对齐）。用<b>结构体指针</b>描述寄存器（成员顺序 = 手册偏移顺序，不要 <code class="icode">packed</code>），再套上 <code class="icode">volatile</code>——这是 CMSIS 的全部秘密。</li>
+            <li><b class="font-semibold text-ink">CMSIS 的分层命名是整套生态的地基：</b><code class="icode">PERIPH_BASE</code> → <code class="icode">APB1/APB2/AHBxPERIPH_BASE</code> → <code class="icode">GPIOA_BASE</code> → <code class="icode">GPIOA</code>。标准库和 HAL 都建在这一层上，换型号只需换头文件。</li>
+            <li><b class="font-semibold text-ink">位带把「一位」变成「一个字」：</b>别名地址 = 别名区基址 + (位带区地址 − 位带区基址) × 32 + 位号 × 4；因为整个读-改-写被一条 STR 替代，所以它是<b>原子</b>的。Cortex-M3/M4 支持，M0/M0+/M7 不支持。</li>
+            <li><b class="font-semibold text-ink">编译产物的落位：</b><code class="icode">.text</code>/<code class="icode">.rodata</code> 在 Flash；<code class="icode">.data</code> 的初值在 Flash、运行时由 <code class="icode">Reset_Handler</code> 搬到 RAM（map 文件里的 LMA 与 VMA 两个地址）；<code class="icode">.bss</code> 只占 RAM；堆和栈在 RAM，栈顶 <code class="icode">_estack</code> 由链接脚本给出。</li>
+            <li><b class="font-semibold text-ink">面试与调试都实用的两条推论：</b>省 RAM 就「常量加 const、大缓冲按需分配、栈按实测留余量」；省 Flash 就「别给大数组初值、开 O2/Os、查重复的库代码」。而 MPU 给的是<b>权限与属性</b>（只读、不可执行、非特权禁止访问），不是性能——并且 F103 上它根本不存在。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">自检题</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>为什么 Flash 的物理地址是 0x08000000，而 CPU 复位后却从 0x00000000 取向量表？这两件事怎么同时成立？</li>
+            <li>写出「从外设基地址推出 GPIOA_ODR 绝对地址」的过程，并用结构体指针写法写出点亮 PA0 的那一句 C 代码（要含 volatile）。</li>
+            <li>算出 GPIOB-&gt;ODR 的第 5 位（PB5）的位带别名地址（已知 GPIOB 基地址 0x40010C00），并解释为什么位带操作不会被中断打断。</li>
+            <li>STM32F103C8T6 的 20KB SRAM 里，.data 占 300 字节、.bss 占 500 字节、栈预留 1KB、不用堆。还剩多少字节？如果要放一个 <code class="icode">uint16_t</code> 缓冲并留 25% 余量，最多能开多少个元素？</li>
+            <li>同事说：「我把 <code class="icode">volatile</code> 加上了，所以这句 <code class="icode">|=</code> 不会被中断打断。」这句话错在哪？给出两种正确做法。</li>
+            <li>你有一个 512 字节的正弦表，希望它不占 RAM。代码怎么写？编译后怎么在 map 文件里确认它真的在 Flash？</li>
+            <li>用两个具体地址解释「地址 ≠ 存储器」这句话；再说说为什么 <code class="icode">0x00000000</code> 和 <code class="icode">0x08000000</code> 指向同一存储单元却不能用指针直接比较。</li>
+          </ol>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">自检题答案</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>靠启动别名机制。</b>Cortex-M 规定复位后从 0x00000000 取 MSP 和复位向量，但 0x00000000 只是一个「窗口」，复位瞬间由 BOOT0/BOOT1 决定它映射到主 Flash、系统存储器还是内嵌 SRAM。主 Flash 的物理编址是 0x08000000，当别名指向它时，读 0x00000000 得到的就是 0x08000000 处的内容——<b>两个地址、同一份数据</b>，程序因此既满足「从 0 开始取向量」，又能把代码放在 0x08000000。</li>
+              <li>GPIOA 属于 APB2 段：<code class="icode">APB2PERIPH_BASE = 0x40010000</code>，GPIOA 是这一段里第 2 个 1KB 窗口：<code class="icode">0x40010000 + 0x0800 = 0x40010800</code>；ODR 偏移 <code class="icode">0x0C</code>，所以 <code class="icode">GPIOA_ODR = 0x4001080C</code>。结构体写法：<br><code class="icode">typedef struct { volatile uint32_t CRL, CRH, IDR, ODR, BSRR, BRR, LCKR; } GPIO_TypeDef;</code><br><code class="icode">#define GPIOA ((GPIO_TypeDef *)0x40010800UL)</code>，点亮语句是 <code class="icode">GPIOA-&gt;BSRR = (1u &lt;&lt; 0);</code>（或 <code class="icode">GPIOA-&gt;ODR |= (1u &lt;&lt; 0);</code>，但后者不原子）。</li>
+              <li><code class="icode">GPIOB_ODR = 0x40010C00 + 0x0C = 0x40010C0C</code>；别名 = <code class="icode">0x42000000 + (0x40010C0C − 0x40000000) × 32 + 5 × 4 = 0x42000000 + 0x10C0C × 32 + 0x14</code>。<code class="icode">0x10C0C × 32 = 0x218180</code>，再加 0x14 得 <code class="icode">0x218194</code>，最后 <code class="icode">0x42000000 + 0x218194 = 0x42218194</code>。（用 PA0 的结果交叉验证：GPIOB 比 GPIOA 高 0x400，×32 = 0x8000；位号从 0 变 5，×4 = 0x14；<code class="icode">0x42210180 + 0x8000 + 0x14 = 0x42218194</code> ✔）<br><b>为什么原子：</b>「读位带区的字节 → 改其中一位 → 写回」这三步在硬件层面完成，对 CPU 而言只有一条 STR 指令；中断只能在指令边界响应，不可能插进这一条指令中间，因此不存在丢失更新。</li>
+              <li>20KB = 20480 字节；已用 300 + 500 + 1024 = <b>1824 字节</b>，剩余 <b>18656 字节</b>。留 25% 余量 → 可用 13992 字节，每个 <code class="icode">uint16_t</code> 占 2 字节 → 最多 <b>6996 个</b>元素。工程上建议取整到 <b>4096</b>（8KB，占用更宽裕），或者 6144（12KB）——<b>能算出上限不等于应该贴着上限用</b>，栈的峰值、库函数的隐藏分配都会在后面咬你一口。</li>
+              <li>错在把「抗优化」当成了「抗并发」。<code class="icode">volatile</code> 只保证每次都真实读写内存，<b>不保证「读-改-写」三步不被打断</b>；中断插在 LDR 与 STR 之间，就会丢掉另一位的变化。正确做法：<b>① 用 BSRR/BRR</b>——写 1 生效，不需要先读，整体是一条 STR；<b>② 用位带别名地址</b>——同样是一条 STR；<b>③（兜底）把这段放进关中断的临界区</b>，用完立刻恢复。</li>
+              <li>写成文件级只读表：<code class="icode">static const uint16_t sin_tbl[512] = { … };</code>（全局或 static 的 const 才会稳定进 <code class="icode">.rodata</code>；局部 const 可能仍在栈上）。确认方法：在 map 文件里搜 <code class="icode">sin_tbl</code>，地址应当以 <code class="icode">0x08</code> 开头（例如 <code class="icode">0x08001bfc</code>），并且 <code class="icode">.rodata</code> 段不占 RAM；在 Keil 里看 Program Size，应表现为 <b>RO-data 增加 1024、RW-data 与 ZI-data 不变</b>。</li>
+              <li>例子一：<code class="icode">0x40010800</code> 背后是 GPIOA 的寄存器——读写它改变引脚电平和配置，它不是存储单元。例子二：<code class="icode">0xE000E010</code> 背后是 SysTick 的计数器与使能位，写它会让计数器开始倒数；而 <code class="icode">0x40024000</code> 那一带（保留区）背后什么都没有，读出来可能是垃圾值甚至触发总线错误。<br>至于 0x00000000 与 0x08000000：它们通过别名指向同一存储单元，但<b>它们是两个不同的地址值</b>——C 语言的指针比较看的是地址值本身，不看它指向哪里，所以 <code class="icode">((void*)0x00000000 == (void*)0x08000000)</code> 为假。这也是为什么「用 0 判断空指针」在这里依然成立（0 是空指针常量，不代表 Flash 首地址）。</li>
+            </ol>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li><b>先验一验你手上的芯片到底有什么。</b>写一段程序，把 <code class="icode">SCB-&gt;CPUID</code>（0xE000ED00）、<code class="icode">MPU-&gt;TYPE</code>（0xE000ED90）、<code class="icode">SCB-&gt;VTOR</code>（0xE000ED08）三个寄存器读出来，用串口打印。<b>把 MPU-&gt;TYPE 的 DREGION 字段解出来</b>——如果读到 0，你手上的 F103 就没有 MPU。这一步把「架构规定 ≠ 芯片实现」从一句口号变成你亲眼看过的数字。</li>
+            <li><b>做一张自己的「地址地图」。</b>打印 Flash 起始 16 字节、SRAM 起始 16 字节、GPIOA 的 7 个寄存器值、SysTick 的 CTRL/LOAD/VAL。打开参考手册逐个核对（注意外设寄存器有复位值，不是 0——这也正是「地址 ≠ 存储器」的实证）。<b>把这张地图存进项目笔记，下次调试时它就是你的参照系。</b></li>
+            <li><b>用位带把一个普通变量的某一位当标志位。</b>定义 <code class="icode">#define FLAG_BIT3 BITBAND_SRAM(&amp;g_flag, 3)</code>，在定时器中断里把它置 1、在主循环里读取并清零。去掉临界区保护再跑一遍，观察是否会出现「丢标志」——<b>亲手验证一次「位带是原子的」，比记住公式有用得多。</b></li>
+            <li><b>把例题 3 的 RAM 预算换成你自己项目的数字。</b>从 map 文件里抄出真实的 .data / .bss / 栈 / 堆占用，做成一张表，算一算「还能不能再加一个 2KB 的接收缓冲」。<b>这张表填过一遍，你以后看任何一份例程都会先扫一眼它的 RAM 账。</b></li>
+            <li><b>用两次编译验证 const 的落位。</b>同一个大数组，一次写成 <code class="icode">uint16_t tbl[512] = { … };</code>，一次写成 <code class="icode">static const uint16_t tbl[512] = { … };</code>，把两次的 Program Size 与 map 文件里的地址都抄下来对比，并解释每一个数字的变化（RO-data / RW-data / ZI-data 各变了多少）。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">延伸阅读</h3>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>CPU 是怎么把这些地址变成总线上的读写的 → <a class="text-brand-600 dark:text-brand-300" href="core-cpu.html">CPU 架构与指令执行</a></li>
+            <li>外设怎么「通知」CPU 某个寄存器变了 → <a class="text-brand-600 dark:text-brand-300" href="core-interrupt.html">中断与异常机制</a></li>
+            <li>从 0x00000000 出发认识这颗芯片 → <a class="text-brand-600 dark:text-brand-300" href="core-intro.html">嵌入式系统概论</a></li>
+            <li>用寄存器、标准库、HAL 三种方式点灯的实际对比 → <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-hal.html">寄存器、标准库与 HAL：同一件事的三种写法</a></li>
+            <li>回到知识体系栏目页，看这一系列的完整顺序 → <a class="text-brand-600 dark:text-brand-300" href="../knowledge.html">知识体系</a></li>
+          </ul>
+
+          <div class="callout callout-info mt-6">
+            <div class="callout-title">下一篇：中断与异常机制</div>
+            <p>这一篇讲的是「东西住在哪」。但硬件世界里，CPU 不能只靠自己一轮轮地问「你好了吗」——按键按下、定时器溢出、串口收到一个字节，都需要<b>主动打断 CPU 当前的工作</b>。而中断向量表就住在我们这一篇反复提到的地址上：Flash 起始处那张表、<code class="icode">SCB-&gt;VTOR</code> 指着的那个位置、以及内核私有区里 NVIC 的一整套寄存器（0xE000E100 起）。</p>
+            <p class="mt-2">下一篇就把这条线接上：<b>中断向量表怎么排、优先级怎么定、NVIC 怎么配、为什么中断服务函数里不能用 ODR 读-改-写</b>——你会发现，那里的每一个问题，答案都落在这一篇讲过的地址上。</p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="core-cpu.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">CPU 架构与指令执行</p>
+          </a>
+          <a href="core-interrupt.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：继续深入 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">中断与异常机制</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

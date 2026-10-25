@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>电路基本概念与定律 - McuStudy</title>
+  <meta name="description" content="知识体系第 1 篇（学科基础 · 电路理论）：电流与电压为什么必须先假定参考方向、关联与非关联参考方向、电功率 p=ui 与能量、电源与负载怎么判别、欧姆定律与电阻元件、KCL 节点电流定律、KVL 回路电压定律、电阻的串联与并联、理想电压源/电流源与受控源、电位与「地」。含 LED 限流电阻、节点电流、12V 分压采样等数值例题，以及单片机现场：限流电阻为什么必须串在回路里、3.3V 与 5V 器件之间为什么要电平转换、万用表测电流为什么要串联。">
+  <meta name="keywords" content="电路基本概念,参考方向,关联参考方向,电功率,ui,电源与负载判别,欧姆定律,电阻元件,KCL,节点电流定律,KVL,回路电压定律,电阻串联,电阻并联,理想电压源,理想电流源,受控源,电位,地,GND,邱关源电路,LED限流电阻,电平转换,万用表测电流">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">电路基本概念与定律</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          电路基本概念与定律
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你已经在面包板上点亮过 LED、接过按键、量过电压，但心里大概还压着几个说不清的问题：<b class="font-semibold text-ink">为什么限流电阻必须串在回路里，并到 LED 两端就不行？为什么电流算出来是负数，老师却说「没错」？为什么万用表的电流档一并上去就冒火花？</b>这些问题在教材里都有答案，而且答案集中在一章里——<b class="font-semibold text-ink">电流电压的参考方向、电功率、欧姆定律，加上 KCL 和 KVL 这两条定律</b>。这一篇就是邱关源《电路》第 1 章的内容，但它不是给你背公式用的：读完你会拥有一套「把电路算出来」的语言，能把 LED 限流电阻、电平转换、分压采样这些单片机里的日常问题，全部变成可以写出数字的方程。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-brand">学科基础</span>
+          <span class="stat-pill">第 1 层 · 电路理论 <b>第 1 篇</b></span>
+          <span class="stat-pill">教材：邱关源《电路》第 5 版 <b>第 1 章</b></span>
+          <span class="stat-pill">阅读约 <b>32</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-reference-direction">电流与电压的参考方向</a>
+          <a class="toc-link is-sub" href="#sub-associated">关联与非关联参考方向</a>
+          <a class="toc-link is-sub" href="#sub-power">电功率 p = ui 与能量</a>
+          <a class="toc-link is-sub" href="#sub-source-load">电源还是负载</a>
+          <a class="toc-link is-sub" href="#sub-ohm">欧姆定律与电阻元件</a>
+          <a class="toc-link is-sub" href="#sub-kcl">KCL：节点电流定律</a>
+          <a class="toc-link is-sub" href="#sub-kvl">KVL：回路电压定律</a>
+          <a class="toc-link is-sub" href="#sub-potential">电位与「地」</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-reference-direction">电流与电压的参考方向</a>
+            <a class="toc-link is-sub" href="#sub-associated">关联与非关联参考方向</a>
+            <a class="toc-link is-sub" href="#sub-power">电功率 p = ui 与能量</a>
+            <a class="toc-link is-sub" href="#sub-source-load">电源还是负载</a>
+            <a class="toc-link is-sub" href="#sub-ohm">欧姆定律与电阻元件</a>
+            <a class="toc-link is-sub" href="#sub-kcl">KCL：节点电流定律</a>
+            <a class="toc-link is-sub" href="#sub-kvl">KVL：回路电压定律</a>
+            <a class="toc-link is-sub" href="#sub-potential">电位与「地」</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先给你三个真实的现场。这三个现场的共同点是：<b class="font-semibold text-ink">代码一行没错，错的是你对「电流和电压」的直觉</b>。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场一：LED 亮了一下就灭了。</b>你照着网上抄了个点灯程序，5V 电源直接串了一颗红色 LED 接到 IO 上——你心想「LED 才几毫安，5V 而已」。上电那一瞬间 LED 亮得很漂亮，然后暗下去，再也不亮了。万用表一量：LED 两端都是 5V，它内部已经烧成一根导线。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场二：一测电流就跳闸。</b>你想知道电机模块到底吃多少电流，于是把万用表打到电流档，把红黑表笔往电源两端一搭——火花一闪，万用表里的保险丝烧了。<b>表是好的，用法是错的</b>：电流表必须「串」进回路，并联上去的瞬间，它自己变成了一个几乎为零欧的电阻，直接把电源短路。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场三：3.3V 的单片机读不到 5V 模块的信号。</b>你在 STM32 的引脚上量到 3.3V，明明是「高电平」，对面的 5V 模块却咬定这是低电平。反过来把 5V 模块的输出接到 STM32 引脚，芯片发烫。你要在这两者之间加什么、加多少阻值，靠的不是试，是算。</p>
+
+          <p class="mt-3">这三个现场，分别对应这一章的三组知识：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>你遇到的现场</th><th>真正缺的知识</th><th>本文对应小节</th></tr></thead>
+              <tbody>
+                <tr><td>LED 烧毁 / 不知道该串多大电阻</td><td>KVL 把电压分完 + 欧姆定律把电流算出来 + 电功率校核电阻够不够瓦数</td><td>欧姆定律、KVL、电功率</td></tr>
+                <tr><td>一测电流就短路、读数符号看不懂</td><td>电流必须串入回路、测量值带符号是因为有「参考方向」</td><td>参考方向、关联参考方向</td></tr>
+                <tr><td>3.3V 与 5V 之间不会接</td><td>KVL 决定电压怎么分配、KCL 决定电流怎么分流</td><td>KCL、KVL、电阻的串并联</td></tr>
+                <tr><td>电路明明接了却不工作，一量全是「浮空」</td><td>电压是两点之差，没有公共参考点（地）就没有意义</td><td>电位与「地」</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">你会发现，单片机开发里 90% 的硬件调试，最后都会落到这几个问题上：<b class="font-semibold text-ink">这个电压是多少、这个电流是多少、它们的参考方向是什么、功率有没有超标</b>。而这一章，就是把这四句话变成可计算的公式。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一章在整门课里的位置</div>
+            <p>邱关源《电路》第 1 章讲的是「电路这门语言的语法」：<b>怎么描述一个电路（参考方向、电位）、怎么描述元件（电阻、电源、受控源）、电路必须遵守的两条铁律（KCL 与 KVL）</b>。后面第 2 章的等效变换、第 3 章的网孔与节点法、第 4 章的各种定理，全都是在这三样东西上搭积木。</p>
+            <p class="mt-2">所以在知识地图上它排在第 1 篇：<b>这一篇没读懂，后面的分压分流、戴维南等效、一阶动态电路都会变成「背公式」</b>；这一篇读懂了，后面每一篇你都能自己推出来。</p>
+          </div>
+
+          <p class="mt-3">下面正式开始。这一节的内容会比你想象的啰嗦一点，因为<b class="font-semibold text-ink">「参考方向」这个词会被反复强调</b>——它是整章里最容易被跳过、也最容易让后面全错的一个约定。</p>
+        </section>
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="mt-12 text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节有 8 个小节，顺序是刻意排的：先解决「怎么描述」（参考方向），再解决「怎么算子」（欧姆定律、电功率），然后是「两条铁律」（KCL、KVL），最后是「它们合起来能推出什么」（串并联）和「什么叫参考点」（电位与地）。</p>
+
+          <h3 id="sub-reference-direction" class="mt-7 text-base font-semibold">电流与电压的参考方向：为什么非要加「参考」两个字</h3>
+
+          <p class="mt-3">先回到物理。电流的定义是「单位时间内通过导体横截面的电荷量」：</p>
+          <p class="mt-3"><code class="icode">i = dq / dt</code>&nbsp;&nbsp;直流情况下写成&nbsp;&nbsp;<code class="icode">I = Q / t</code></p>
+          <p class="mt-3">1 安培就是「每秒流过 1 库仑电荷」。1 库仑约等于 6.24&times;10<sup>18</sup> 个电子所带的电量，所以 1A 意味着每秒有大约 624 亿亿个电子从导体截面穿过去。</p>
+
+          <p class="mt-3">顺便说一个能帮你破除迷信的事实：<b class="font-semibold text-ink">导体里电子跑得极慢</b>，漂移速度通常在每秒零点几毫米的量级。但你在按键上按下的一瞬间，灯就亮了——因为真正在传播的是电场，它以接近光速的速度沿着导线建立起来，把「该动了」这个命令同时通知了整条回路上的所有电子。<b>「电很快」说的是信号的传播速度，不是电子的奔跑速度</b>，这两件事经常被混为一谈。</p>
+
+          <p class="mt-3">现在到了关键的一步。假设我给你一张只有元件和连线的图，问你：<b class="font-semibold text-ink">这条支路上的电流，往哪个方向流？</b></p>
+          <p class="mt-3">你没法回答。有些电路（比如一节电池接一个电阻）凭直觉能猜出来，但稍复杂一点，比如两个电源、多个回路交错的电路，谁是真正的电流方向，<b>只有算完才知道</b>。可问题是：算的时候就要用到电流的符号，符号又依赖方向——这是一个死循环。</p>
+          <p class="mt-3">工程上的解法非常干脆：<b class="font-semibold text-ink">先随便假设一个方向，把它画在图上，然后照着这个假设去列方程。</b>这个被假设出来的方向，就叫电流的<b class="font-semibold text-ink">参考方向</b>（reference direction）。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="参考方向：先假定，再用符号判断对错">
+            <pre><code>【一个电阻，先假定电流方向和电压极性】
+
+           i 的参考方向（箭头是人为画的）
+                  ┌─────────────────────┐
+     a ●──────────┤        R            ├──────────● b
+                  └─────────────────────┘
+            +  ──────────  u  ──────────  −
+           （u 的参考极性：先假定 a 端为正、b 端为负）
+
+  这两个「参考」都是我自己画的，不代表真实情况。
+
+【算完之后看符号】
+
+   · 算出 i = +0.5A   → 真实电流方向与箭头一致：确实从 a 流向 b
+   · 算出 i = −0.5A   → 真实电流方向与箭头相反：实际从 b 流向 a，大小 0.5A
+                        ★ 这不是「算错了」，这是「方向猜反了」，答案完全有效
+
+   · 算出 u = +3V     → 真实极性与假设一致：a 比 b 高 3V
+   · 算出 u = −3V     → 真实极性与假设相反：b 比 a 高 3V，大小还是 3V
+
+【一句话记住】
+   参考方向 = 我先把话说明白的那个前提。
+   正数说明「我说对了」，负数说明「我说反了」，两种都是正确答案。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">电压也一样，而且更需要参考。</b>电压（准确说是电位差）本质上是两点之间的量，它必须回答两个问题：<b>是哪两点</b>、<b>哪一点是高</b>。所以画电路图时，每个元件两端的电压都要标出「+」和「−」（或者画一个箭头，箭头尾为负、箭头头为正）。这两个标记就是电压的参考极性。</p>
+          <p class="mt-3">为什么说「参考」两个字不能省？因为它定义了符号。同一个电路，你把电流箭头画反、电压极性画反，列出来的方程整体差一个负号——<b class="font-semibold text-ink">数学上完全等价，但物理含义完全不同</b>。如果一张图上有的人按「流入为正」列，有的人按「流出为正」列，最后所有人的功都白做，因为方程组的符号系统乱了。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">三个生活类比，一秒理解「参考」</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>海拔高度</b>：说「这座山高 1200 米」，其实隐含了「以海平面为参考」。如果参考换成山脚，数字就变了，但山本身没变——<b>这就是电位和地</b>。</li>
+              <li><b>记账的借贷方向</b>：先约定「收入记在左边」，最后左边是负数就说明其实是笔支出。<b>这就是参考方向</b>。</li>
+              <li><b>地图上的「向东走 3 公里」</b>：如果实际是向西走了 3 公里，规范的说法是「向东走 −3 公里」，而不是「你走错了」。<b>工程上就是这么记的。</b></li>
+            </ul>
+          </div>
+
+          <h3 id="sub-associated" class="mt-7 text-base font-semibold">关联参考方向与非关联参考方向：一个决定公式正负号的约定</h3>
+
+          <p class="mt-3">参考方向可以随便画，这句话有个后果：<b class="font-semibold text-ink">同一个元件上的电流箭头和电压极性，可能出现两种相对关系</b>。这两种关系有自己的名字，而且直接决定欧姆定律和功率公式要不要带负号。</p>
+
+          <p class="mt-3">规定是这样的：</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">关联参考方向（一致参考方向）</b>：电流的参考方向<b>从电压参考极性的「+」端流入</b>、从「−」端流出。通俗说就是「电流顺着电压的方向流进去」。</li>
+            <li><b class="font-semibold text-ink">非关联参考方向（不一致参考方向）</b>：电流的参考方向<b>从「+」端流出</b>（也就是从「−」端流入）。</li>
+          </ul>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两种约定并排看：只差箭头方向">
+            <pre><code>【关联参考方向】电流从 + 端流入
+
+        + ──────  u  ────── −
+        ●───────────────────────●
+        │          R            │
+        └─────── i ─────────────┘
+             箭头指向「+」端（从上往下流进去）
+
+        u = R · i          ← 不带负号    ★ 绝大多数教材默认这种
+        p = u · i          → p &gt; 0 表示【吸收】功率
+
+【非关联参考方向】电流从 + 端流出
+
+        + ──────  u  ────── −
+        ●───────────────────────●
+        │          R            │
+        └─────── i ─────────────┘
+             箭头从「+」端指出去
+
+        u = −R · i         ← 必须带负号
+        p = u · i          → p &gt; 0 表示【发出】功率
+
+【判定的三步法】拿到任何一个元件，按顺序问：
+        ① 这个元件的两个端子，哪一端标了 + ？
+        ② 电流箭头是「指向 + 端」（进）还是「背离 + 端」（出）？
+        ③ 进 → 关联；出 → 非关联。     就这么简单。</code></pre>
+          </div>
+
+          <p class="mt-3">为什么要有这个约定？因为<b class="font-semibold text-ink">电路分析里有大量「吸收功率」的元件（电阻），也大量存在「发出功率」的元件（电源）</b>。如果所有元件的 u 和 i 都按同一种相对关系去标，那么同一个公式 p = ui 在不同元件上会表示相反的意思，做题时就要不断心算「这个符号是不是要反过来」——那是错误的高发区。用一个约定把这件事固定下来，公式就永远只有一种写法。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这是本篇最容易出错的地方，没有之一</div>
+            <p>后面第 2 篇讲等效变换、第 4 篇讲各种定理时，你写错符号的原因，<b>九成以上都是这里</b>。养成一个习惯：<b>每写下一个方程之前，先用笔在图上把 u 的极性（+/−）和 i 的箭头都标出来</b>，标完再写公式。不要跳步，不要凭印象。</p>
+            <p class="mt-2">另外记住一句护身符：<b>如果你把某个元件的 u 和 i 同时反向，方程形式不变</b>。所以「我是不是标反了」这个问题，只在「u 和 i 相对关系」上有意义，单个箭头标反无所谓。</p>
+          </div>
+
+          <h3 id="sub-power" class="mt-7 text-base font-semibold">电功率 p = ui 与能量：为什么电阻要选瓦数</h3>
+
+          <p class="mt-3">功率的定义是「能量转换的速率」：<code class="icode">p = dw / dt</code>，单位是瓦特（W），1W = 1 焦耳/秒。</p>
+          <p class="mt-3">把这个定义和电学量挂上钩，只需要一步：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="p = ui 是怎么来的（两行推导）">
+            <pre><code>   p = dw / dt
+     = (dw / dq) × (dq / dt)      ← 分子分母同乘同除一个 dq，数学上恒等
+     =      u    ×      i
+
+   因为：  dw / dq = u   （电压就是单位电荷的能量差，1V = 1J/C）
+           dq / dt = i   （电流就是单位时间的电荷量，1A = 1C/s）
+
+【直流情况下】
+        P = U · I       单位：1 W = 1 V × 1 A = 1 J/s
+
+【能量】
+        W = P · t       单位：焦耳 J ；1 度电 = 1 kW·h = 3.6×10⁶ J
+
+【在你手上的意义】
+   电阻上消耗的功率 P = U·I，这部分能量不干活，全部变成热。
+   所以电阻除了「阻值」这个参数，还有第二个参数：额定功率（瓦数）。
+   阻值选对了、瓦数选小了 → 电阻发热、变色、甚至烧断。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">电阻上功率的三种等价写法</b>，由欧姆定律代进去就能互相推出来，做题时哪个方便用哪个：</p>
+          <p class="mt-3"><code class="icode">P = U·I = I²·R = U²/R</code></p>
+          <p class="mt-3">为什么三种都要记住？因为<b>已知条件不同</b>：你知道流过电阻的电流，用 <code class="icode">I²R</code>；你知道电阻两端的电压，用 <code class="icode">U²/R</code>；两个都算出来了，用 <code class="icode">UI</code> 校核。注意后两种写法都是「平方」形式，<b>所以功率对电流和电压是敏感的：电流翻倍，功率变四倍</b>——这就是为什么 LED 限流电阻算错一点点，电阻就烫得厉害。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>常见贴片电阻封装</th><th>常见额定功率（典型值）</th><th>额定电流（以 100Ω 为例）</th><th>什么时候用</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">0603</td><td>1/10 W（0.1W）</td><td>约 31.6mA</td><td>信号级负载：限流电阻、上拉下拉、分压</td></tr>
+                <tr><td class="font-mono text-xs">0805</td><td>1/8 W（0.125W）</td><td>约 35.4mA</td><td>最常用的通用封装，余量舒服</td></tr>
+                <tr><td class="font-mono text-xs">1206</td><td>1/4 W（0.25W）</td><td>约 50mA</td><td>LED 驱动电阻、几毫安到几十毫安的场合</td></tr>
+                <tr><td class="font-mono text-xs">直插 1/4W</td><td>0.25W</td><td>约 50mA</td><td>面包板实验最常用的就是它</td></tr>
+                <tr><td class="font-mono text-xs">直插 1W / 2W</td><td>1W / 2W</td><td>100mA / 141mA</td><td>放电电阻、假负载、功率电路</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张表里「额定电流」那一列是我按 <code class="icode">I = √(P/R)</code> 用 100Ω 算出来的，<b>属于按典型值估算</b>：实际选型时不同厂家、不同系列的额定功率会有差别（有的 0603 只标 1/10W，有的标 1/8W），买之前看一眼规格书最稳。工程习惯是<b>让实际功率不超过额定功率的一半</b>，这样温升和长期可靠性都好。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">符号约定再强调一次：p 的正负是「谁说了算」</div>
+            <p>在<b>关联参考方向</b>下用 <code class="icode">p = ui</code>：算出正数表示这个元件在<b>吸收</b>功率（像个负载），负数表示它在<b>发出</b>功率（像个电源）。</p>
+            <p class="mt-2">在<b>非关联参考方向</b>下用 <code class="icode">p = ui</code>：正数表示<b>发出</b>，负数表示<b>吸收</b>。</p>
+            <p class="mt-2">注意这里有个很实用的推论：<b>电阻上的功率永远是正的（吸收）</b>，不管你怎么标——因为如果你标的是非关联，那 u 本身就会是个负值，负负得正。所以如果你算出某个电阻的功率是负数，一定是哪一步符号抄错了。</p>
+          </div>
+
+          <h3 id="sub-source-load" class="mt-7 text-base font-semibold">电源还是负载：判别规则、理想电源与受控源</h3>
+
+          <p class="mt-3">「这个元件到底是在供电还是在耗电」，这个问题在单片机开发里天天出现：<b>USB 口是在供电还是被外部电源倒灌？电池是在放电还是被充电？</b>判别的方法其实上一小节已经给了，这里把它整理成一张可以照着查的表。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>参考方向</th><th>算出的 p = ui</th><th>这个元件是</th><th>物理解释</th></tr></thead>
+              <tbody>
+                <tr><td>关联</td><td>p &gt; 0</td><td><b>负载</b>（吸收功率）</td><td>电流从高电位端流进去，能量被它消耗掉，变成热/光/机械能</td></tr>
+                <tr><td>关联</td><td>p &lt; 0</td><td><b>电源</b>（发出功率）</td><td>实际电流方向与箭头相反，等于电流从 + 端流出</td></tr>
+                <tr><td>非关联</td><td>p &gt; 0</td><td><b>电源</b>（发出功率）</td><td>电流从 + 端流出，它在把能量送给别人</td></tr>
+                <tr><td>非关联</td><td>p &lt; 0</td><td><b>负载</b>（吸收功率）</td><td>实际电流从 + 端流入，它在吃掉能量</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">嫌表格麻烦的话，记这一条<b class="font-semibold text-ink">物理判据</b>就够了：<b>看真实电流是从元件的「+」端流出去、还是流进来。流出 = 电源（发出），流入 = 负载（吸收）。</b>这一条不需要管参考方向怎么标，因为它讲的是真实方向。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">功率守恒是检验答案的免费工具。</b>整个电路里，所有元件发出的功率之和，必然等于所有元件吸收的功率之和（能量守恒）：</p>
+          <p class="mt-3"><code class="icode">Σp = 0</code>&nbsp;&nbsp;（全电路的功率代数和为零）</p>
+          <p class="mt-3">这个式子看起来平淡，但它是你做完一道题之后<b>唯一不花钱的自检手段</b>：把每个元件的功率按同一套符号规则加起来，如果不等零，中间某一步一定错了。后面第 3 节的例 4 就会用这个方法验算一遍。</p>
+
+          <p class="mt-3">接下来是三类元件的概念，它们决定了你后面能不能看懂「电源」和「三极管驱动电路」。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">① 理想电压源：端电压恒定，电流由外电路决定。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两种理想电源的伏安特性">
+            <pre><code>【理想电压源】                     【理想电流源】
+   u │                                u │
+     │                                  │
+  Us ├━━━━━━━━━━━━━━                  ─┼━━━━━━━━━━━━━  Is
+     │                                  │
+     │                                  │
+     └──────────────── i                └──────────────── i
+
+  u 恒等于 Us，是一条水平线           i 恒等于 Is，是一条垂直线
+  流过它的电流由外电路说了算           它两端的电压由外电路说了算
+
+  · 外接 0Ω（短路）→ 电流无穷大        · 外接 0Ω → 电流还是 Is，电压为 0
+    （现实中会烧，所以叫「理想」）        （它自己会把电压拽到 0）
+  · 外接开路 → 电流为 0                 · 外接开路 → 电压无穷大
+    （端电压依然是 Us，不耗电）           （现实中做不到，所以也是「理想」）
+
+【单片机里的对应物】
+  · 3.3V 稳压输出（LDO、DCDC）≈ 理想电压源：你接什么负载，它都尽量维持 3.3V
+    但它一点都不「理想」：AMS1117 标称输出能力 800mA，超了电压就往下掉
+    → 所以工程上要问一句：这个电源能给出多少电流？
+  · 恒流 LED 驱动、运放的恒流源偏置 ≈ 理想电流源</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">② 理想电流源：输出电流恒定，端电压由外电路决定。</b>它的符号是一个圆圈里画一个箭头。现实中真正的电流源不多，但「恒流」这个概念非常有用：恒流驱动 LED 时，LED 的亮度不会随电源电压波动而变——这就是为什么大功率 LED 都用恒流驱动而不是恒压串联电阻。</p>
+
+          <p class="mt-3">顺便说清楚一件事：<b class="font-semibold text-ink">实际电源既不是理想电压源也不是理想电流源</b>，它是「理想源 + 一个内阻」。这个概念会在第 2 篇《电阻电路的等效变换》里正式登场（戴维南等效），这里只要先建立直觉：<b>任何号称「输出 5V」的电源，都隐含了一个前提——电流在它的能力范围内</b>。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">③ 受控源：大小由别的支路说了算的电源。</b>独立源（电压源、电流源）的输出是自己定的；受控源的输出则受电路中另一处的电压或电流控制。它有四种，名字就是「控制量 + 被控量」的组合：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>类型</th><th>英文缩写</th><th>控制关系</th><th>典型器件</th></tr></thead>
+              <tbody>
+                <tr><td>电压控制电压源</td><td class="font-mono text-xs">VCVS</td><td class="font-mono text-xs">u₂ = μ·u₁</td><td>运放的理想模型</td></tr>
+                <tr><td>电压控制电流源</td><td class="font-mono text-xs">VCCS</td><td class="font-mono text-xs">i₂ = g·u₁</td><td>MOS 管的小信号模型</td></tr>
+                <tr><td>电流控制电压源</td><td class="font-mono text-xs">CCVS</td><td class="font-mono text-xs">u₂ = r·i₁</td><td>较少见，某些反馈模型</td></tr>
+                <tr><td>电流控制电流源</td><td class="font-mono text-xs">CCCS</td><td class="font-mono text-xs">i₂ = β·i₁</td><td><b>三极管（BJT）</b>——你在单片机里一定会用到</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="受控源的记号，以及三极管为什么是 CCCS">
+            <pre><code>【记号区别，一眼分辨】
+     独立源：圆圈（电压源画 +/−，电流源画箭头）
+     受控源：菱形（四条边，像一个侧放的正方形）★ 看到菱形就知道「它听别人的」
+
+【三极管驱动继电器，就是一个电流控制电流源】
+
+       5V
+        │
+        ├──── 继电器线圈
+        │
+      ┌─┴─┐  c
+      │   │
+   b  │   │
+  ────┤   │
+      │   │  e
+      └─┬─┘
+        │
+       GND
+
+   单片机 IO → 1kΩ → 基极 b，给出 IB ≈ (3.3V − 0.7V) / 1kΩ = 2.6mA
+   集电极电流被「控制」成 IC = β · IB，β 取 100（2N3904 典型值）
+                            IC ≈ 100 × 2.6mA = 260mA
+   这 260mA 不是你 IO 给的，是 5V 电源经过线圈给的 ——
+   IO 只出了 2.6mA 的「控制信号」。这就是「受控源」的工程价值。</code></pre>
+          </div>
+
+          <h3 id="sub-ohm" class="mt-7 text-base font-semibold">欧姆定律与电阻元件：它是线性的，LED 不是</h3>
+
+          <p class="mt-3">欧姆定律的完整写法必须带上参考方向的约定：</p>
+          <p class="mt-3"><code class="icode">关联参考方向下：u = R · i</code>&nbsp;&nbsp;&nbsp;<code class="icode">非关联参考方向下：u = −R · i</code></p>
+          <p class="mt-3">三种变形你都要熟：<code class="icode">u = Ri</code>、<code class="icode">i = u/R</code>、<code class="icode">R = u/i</code>。它们的物理含义分别是：<b>电阻上的电压由电流决定</b>、<b>流过电阻的电流由电压决定</b>、<b>电阻是电压与电流的比值</b>。</p>
+          <p class="mt-3">电阻的单位是欧姆（Ω）。常用换算：<code class="icode">1kΩ = 10³Ω</code>、<code class="icode">1MΩ = 10⁶Ω</code>。有时也用<b class="font-semibold text-ink">电导</b> <code class="icode">G = 1/R</code>，单位西门子（S）——它的意义是「这条支路有多容易导电」，后面讲并联时会很方便。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电阻的伏安特性：直线 vs 曲线">
+            <pre><code>【线性电阻】u-i 是一条过原点的直线      【LED / 二极管】u-i 是一条折线
+
+   u │            ╱                     u │                ┃
+     │          ╱                       ▽ │              ┃
+     │        ╱                     Vf ──┼━━━━━━━━━━━━┛
+     │      ╱                           │        ╱
+     └────┴────────────── i             └───────┴────────── i
+          斜率 = R                            导通前几乎不导电
+          （R 是常数，所以是直线）              导通后电压几乎不变、电流猛涨
+
+   ★ 关键结论：LED 的电压和电流【不成正比】，
+     所以对 LED 不能写 u = R·i。
+     工程上用「折线模型」：
+         导通前：当它是断开的
+         导通后：当它是一个恒压源 Vf（红色 LED 典型值 1.8V~2.2V）
+     本章第 3 节的限流电阻例题，用的就是这个模型。</code></pre>
+          </div>
+
+          <p class="mt-3">如果硬要用欧姆定律算 LED，会得到什么？很多人会做这样一步：拿万用表量出 LED 两端是 1.9V、流过 10mA，于是算出 <code class="icode">R = 1.9V / 10mA = 190Ω</code>，然后拿这个 190Ω 去算别的电流——<b class="font-semibold text-ink">这是错的</b>。因为这个「等效电阻」只在 10mA 那个工作点上成立，电流一变它就变，190Ω 是个假数字。这就是「非线性元件」的含义，也是第 5 节里的第 3 条坑。</p>
+
+          <p class="mt-3">另外记住电阻的功率公式：<code class="icode">p = i²R = u²/R</code>。因为是平方，所以<b class="font-semibold text-ink">电阻的功率永远是正的</b>，它只吸收、不发出，是电路里唯一「老实消耗能量」的元件。</p>
+
+          <h3 id="sub-kcl" class="mt-7 text-base font-semibold">KCL：节点电流定律（基尔霍夫电流定律）</h3>
+
+          <p class="mt-3">到这里为止，讲的都是「单个元件」的规律。接下来两条定律讲的是「元件连起来之后必须遵守什么」，它们是整个电路分析的地基。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">KCL（Kirchhoff's Current Law）：对电路中任何一个节点，流出该节点的电流代数和为零。</b></p>
+          <p class="mt-3"><code class="icode">Σ i = 0</code>&nbsp;&nbsp;（流出为正、流入为负）&nbsp;&nbsp;等价写法：<code class="icode">Σ i<sub>流入</sub> = Σ i<sub>流出</sub></code></p>
+
+          <p class="mt-3">它的物理依据只有一句话：<b class="font-semibold text-ink">电荷守恒，而且节点不积累电荷。</b>流进来多少电荷，就必须立刻流出去多少——否则电荷会在节点上堆积，电压会飞起来。<b>这条定律与你连的是什么元件完全无关</b>：电阻、电容、三极管、运放，只要它们连在同一个节点上，就要遵守 KCL。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="KCL：一个节点、四条支路">
+            <pre><code>【节点 A 上有四条支路，每条都已标好参考方向】
+
+                  i₁ = 2.0A  （流入）
+                       │
+                       ▼
+                  ┌────┴────┐
+     i₄ = ?  ─────►│    A    │◄───── i₂ = 0.5A（流出）
+                  └────┬────┘
+                       │
+                       ▼
+                  i₃ = 1.2A  （流出）
+
+【列方程】统一规定「流出为正、流入为负」：
+
+        −i₁ + i₂ + i₃ + i₄ = 0
+        即：  i₁ = i₂ + i₃ + i₄      ← 「流进来 = 流出去」，更直观
+
+        2.0 = 0.5 + 1.2 + i₄
+        i₄  = 2.0 − 1.7 = 0.3A   （正数，说明真实方向确实是从节点流出）
+
+【如果 i₃ 变成 2.6A 呢？】
+        i₄ = 2.0 − 0.5 − 2.6 = −1.1A
+        → 负数说明 i₄ 的真实方向是【流入】节点，大小 1.1A
+        → 答案照样有效，不要以为算错了</code></pre>
+          </div>
+
+          <p class="mt-3">用 KCL 有两个容易忽略的操作规矩：</p>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">第一条：先标参考方向，再列方程。</b>不标方向的 KCL 是无意义的。列出方程时，全式统一「流入为正」或「流出为正」，<b>绝对不能混</b>——这是 KCL 出错的头号原因。</li>
+            <li><b class="font-semibold text-ink">第二条：有 n 个节点的电路，只能列 n−1 个独立的 KCL 方程。</b>因为所有节点的方程加起来，每个支路电流都会出现两次、正负抵消，于是得到一个恒等式 0 = 0。也就是说「最后一个节点的方程能被前面所有方程推出来」，它不提供新信息。这对后面用节点电压法解题很重要。</li>
+          </ul>
+
+          <p class="mt-3"><b class="font-semibold text-ink">KCL 的第一个推论：电阻并联。</b>把两个电阻并在一起接在同两个节点之间，两条支路的端电压是同一个 u（这是 KVL 的功劳，下一小节讲），写成 KCL：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="KCL 推出并联公式与分流公式">
+            <pre><code>【电路】两个电阻并联，总电流 i 从节点流进来
+
+                ┌──────── i ────────┐
+                │                   │
+                ▼                   │
+        ┌───────┴───────┐           │
+        │               │           │
+       ┌┴┐  i₁         ┌┴┐  i₂      │
+       │ │ R₁          │ │ R₂       │
+       └┬┘             └┬┘          │
+        │               │           │
+        └───────┬───────┘           │
+                │                   │
+                └───────────────────┘
+
+【KCL】i = i₁ + i₂
+【欧姆定律】i₁ = u/R₁ ，i₂ = u/R₂
+【合起来】i = u/R₁ + u/R₂ = u · (1/R₁ + 1/R₂)
+
+【定义等效电阻】把两电阻看成一个电阻 R_eq，要求 i = u / R_eq，于是：
+        1 / R_eq = 1 / R₁ + 1 / R₂
+        ★ 两个电阻并联的速算公式：R_eq = R₁·R₂ / (R₁ + R₂)
+
+【分流公式】两个电阻分到的电流分别为：
+        i₁ = i · R₂ / (R₁ + R₂)      ← 注意：分子是【另一个】电阻
+        i₂ = i · R₁ / (R₁ + R₂)
+        ★ 口诀：电阻越小，分到的电流越大（这是符合直觉的）
+
+【速算记忆】
+  · 两个相同的电阻 R 并联 → R_eq = R/2
+  · 两个相差悬殊的电阻并联 → 结果略小于小的那个
+    （10kΩ 并 100Ω → 100×10000/10100 = 99.0Ω，几乎就是 100Ω）
+  · n 个相同电阻 R 并联 → R_eq = R/n</code></pre>
+          </div>
+
+          <h3 id="sub-kvl" class="mt-7 text-base font-semibold">KVL：回路电压定律（基尔霍夫电压定律）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">KVL：沿电路中任何一个回路绕行一周，各段电压的代数和为零。</b></p>
+          <p class="mt-3"><code class="icode">Σ u = 0</code>&nbsp;&nbsp;等价写法：<code class="icode">Σ 电压上升 = Σ 电压下降</code></p>
+
+          <p class="mt-3">物理依据同样只有一句话：<b class="font-semibold text-ink">电场是保守场，电位具有单值性。</b>你从某个节点出发，沿任意路径走一圈回到原点，电位必须回到原来的值——不可能「走一圈回来发现比出发时高了 3V」。这条性质保证了后一小节「电位」这个概念是良定义的。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="KVL 的绕行规则（照做就不会错）">
+            <pre><code>【操作三步】
+
+  第一步：在回路上画一个绕行方向（顺时针 ↻ 或逆时针 ↺，随便选一个）
+  第二步：沿绕行方向逐个元件看：
+            · 先遇到「−」后遇到「+」→ 电位在升高 → 记 +u
+            · 先遇到「+」后遇到「−」→ 电位在降低 → 记 −u
+  第三步：把这些项加起来，令其等于 0
+
+【一个最简单的例子：5V 电源 + 电阻 + LED】
+
+          ┌───────── R ─────────┐
+          │        +  −         │
+          │   u_R = ?           │
+          │                     │
+        ┌─┴─┐                 ┌─┴─┐
+        │   │                 │ ▲ │  LED
+       ─┴─  │ 5V              └─┬─┘  u_LED = Vf（折线模型）
+        │   │                   │
+        └───┴───────────────────┘
+              ↻ 顺时针绕行
+
+  沿顺时针走一圈：
+    经过电源：从 − 到 + → 电位升高 → 记 +5V
+    经过电阻：假设左 + 右 −，顺时针是从 + 到 − → 记 −u_R
+    经过 LED ：从阳极到阴极 → 记 −u_LED = −Vf
+
+  KVL 方程：  +5 − u_R − u_LED = 0
+  所以：      u_R = 5 − Vf
+
+  ★ 这就是「限流电阻怎么算」的全部理论基础：
+    电阻上的电压不是 5V，而是「电源电压减去 LED 正向压降」。
+    很多人算错，就是因为直接拿 5V / R 当电流。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">绕行方向选反了怎么办？</div>
+            <p>不会错。<b>把绕行方向反过来，得到的方程整体乘 −1，和原来完全等价</b>，解出来的 u 和 i 一模一样。所以这一步不需要犹豫，随便选一个方向开始，比在那儿纠结半天要快得多。</p>
+            <p class="mt-2">真正需要小心的是<b>「遇到 + 还是 −」的判断</b>。一个稳妥的做法：在草稿纸上把每个元件两端的 +/− 先标全（哪怕有些是假设的），再用手指沿着绕行方向走一遍，手指每过一个元件就念一遍「升」或「降」。慢一点，但不会错。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">KVL 的第一个推论：电阻串联。</b>串联回路里只有一条路径，所以每个元件里的电流是同一个（这其实是 KCL 的结论：串联相邻元件之间的那个节点只有两条支路，一进一出，电流必然相等）。于是 KVL 变成电压的分配：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="KVL 推出串联公式与分压公式">
+            <pre><code>【电路】两个电阻串联，两端加电压 u
+
+        ┌────────── R₁ ──────────┬────────── R₂ ──────────┐
+        │      +       −         │       +        −       │
+     +  │                        │                        │  −
+     u  │                        │                        │
+        └────────────────────────┴────────────────────────┘
+                                  ← 同一条支路，电流 i 处处相同
+
+【KVL】u = u₁ + u₂
+【欧姆定律】u₁ = i·R₁，u₂ = i·R₂
+【合起来】u = i·R₁ + i·R₂ = i·(R₁ + R₂)
+【等效电阻】R_eq = R₁ + R₂      ★ 串联就是简单相加
+
+【分压公式】
+        u₁ = u · R₁ / (R₁ + R₂)      ← 分子就是【自己】的电阻
+        u₂ = u · R₂ / (R₁ + R₂)
+        ★ 口诀：谁的电阻大，谁分到的电压多
+        ★ 对比并联的分流公式：分子是【对方】的电阻 —— 别记混
+
+【单片机里的原型】电位器 / 分压采样网络
+        3.3V ──[ R₁ ]──┬──► ADC 引脚（采样 u₂）
+                       │
+                     [ R₂ ]
+                       │
+                      GND
+
+        u₂ = 3.3V × R₂ / (R₁ + R₂)      ← 第 3 节例 3 就是它</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>串联</th><th>并联</th></tr></thead>
+              <tbody>
+                <tr><td>电流</td><td>处处相同（KCL 的结论）</td><td>各支路按电阻反比分配</td></tr>
+                <tr><td>电压</td><td>各元件按电阻正比分配</td><td>各支路电压相同（KVL 的结论）</td></tr>
+                <tr><td>等效电阻</td><td class="font-mono text-xs">R_eq = R₁ + R₂ + …</td><td class="font-mono text-xs">1/R_eq = 1/R₁ + 1/R₂ + …</td></tr>
+                <tr><td>速算（两个）</td><td>直接相加</td><td class="font-mono text-xs">R₁R₂/(R₁+R₂)</td></tr>
+                <tr><td>等效电阻与单个比</td><td>一定比最大的还大</td><td>一定比最小的还小</td></tr>
+                <tr><td>单片机里的例子</td><td>LED + 限流电阻、分压采样</td><td>I2C 总线的多器件、多路 LED 共阳</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-potential" class="mt-7 text-base font-semibold">电位与「地」：电压的零点在哪</h3>
+
+          <p class="mt-3">前面说过，电压是两点之间的电位差（也叫电压降）。这句话反过来读就是：<b class="font-semibold text-ink">「某一点的电压是多少」这个问题，本身是不完整的</b>——你必须先指定「相对谁」。</p>
+
+          <p class="mt-3">工程上的做法很统一：<b class="font-semibold text-ink">在电路里选一个节点，规定它的电位为 0，这个节点叫参考点；其他节点到参考点的电压降，就叫那个节点的电位</b>，记作 <code class="icode">V<sub>A</sub></code>、<code class="icode">V<sub>B</sub></code>。参考点在电路图上的记号就是三个递减的横线（或者一个接地符号），在单片机系统里它就是你天天挂在嘴边的 <b class="font-semibold text-ink">GND</b>。</p>
+
+          <p class="mt-3">注意这里有个非常重要的关系：<b>电位差与参考点的选择无关，但电位本身会变。</b>下面这张图把一个电路的参考点从 B 挪到 A，你会看到三个节点的电位数值集体改变了，但任意两点之间的电压一个都没变。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="同一电路、两个参考点：电位全变，电压不变">
+            <pre><code>【电路】10V 电源经两个电阻串联，分成三段：V_A、V_B、V_C
+
+        10V ──[ R₁ = 3Ω ]── A ──[ R₂ = 7Ω ]── B ──► 回到电源负极
+
+        电流 i = 10V / (3Ω + 7Ω) = 1A
+        R₁ 上压降 = 1A × 3Ω = 3V
+        R₂ 上压降 = 1A × 7Ω = 7V
+        ★ 这三个数字（3V、7V、10V）与参考点无关，是【电压】
+
+【参考点选在 B（GND 接 B 点）】
+
+        V_B = 0V        （定义）
+        V_A = +7V       （A 比 B 高 7V，就是 R₂ 上的压降）
+        V_C = +10V      （电源正极比 B 高 10V）
+        → 全是正数，看起来很舒服
+
+【参考点改选在 A（GND 接 A 点）】
+
+        V_A = 0V        （定义）
+        V_B = −7V       （B 比 A 低 7V）
+        V_C = +3V       （C 比 A 高 3V，就是 R₁ 上的压降）
+        → 出现了负数，但电路一根线都没动
+
+【结论】
+     · 电位是「相对量」，换参考点就换数值 —— 就像换海拔基准
+     · 电压是「绝对量」（相对量之差），换参考点不变
+     · 所以：V_A − V_B = 0 − (−7) = +7V ，和第一种选法完全一致 ✅</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">「地」在单片机系统里有三重身份</b>，把这三重分清楚，很多玄学问题就消失了：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>身份</th><th>含义</th><th>踩坑的表现</th></tr></thead>
+              <tbody>
+                <tr><td><b>① 电位的参考点</b></td><td>电路图上的一个约定：这一点是 0V，其他电压都相对它来说</td><td>两块板子不共地，各自「0V」其实差着好几伏，信号全乱</td></tr>
+                <tr><td><b>② 电流的回流路径</b></td><td>真金白银的导线：电流从电源正极出发，必须经 GND 回到电源负极</td><td>用一根细杜邦线当地线，几十毫安就让地电位抬高、ADC 读数跳动</td></tr>
+                <tr><td><b>③ 一个物理网络（铜皮）</b></td><td>PCB 上的地平面，有电阻、有电感，不是「理想 0Ω」</td><td>大电流负载的地和 ADC 的地共用一段铜皮，噪声直接串进读数</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">「地不是垃圾桶」——最常见的误解</div>
+            <p>很多新手把 GND 想象成一个「什么电流都能倒进去、永远 0V」的地方。真实情况是：<b>GND 是电流回家的路，路上有电阻（哪怕只有几毫欧）也有电感</b>。电流流过它，就会产生压降 <code class="icode">u = i·R</code> 和 <code class="icode">u = L·di/dt</code>。</p>
+            <p class="mt-2">算一笔账：如果一段地线上有 0.1Ω 的电阻（一根细而长的杜邦线很轻松就超过它），流过 100mA 时，两端的「地」就差 <b>10mV</b>。这个 10mV 对数字电路无所谓，但 STM32F103 的 ADC 是 12 位、参考电压 3.3V，1 个 LSB 只有 <b>0.8mV</b>——<b>10mV 相当于 12 个码值的误差</b>。这就是「为什么 ADC 读数一直在跳」的经典原因之一。</p>
+            <p class="mt-2">正确的做法：大电流负载（电机、继电器、灯带）的地线要<b>单独走、粗走</b>，并在电源入口处「单点接地」和模拟地汇合；小信号（传感器、ADC）的地要短、要靠近芯片。</p>
+          </div>
+
+          <p class="mt-3">最后再强调一次电位的单值性：<b>KVL 保证了「从参考点到某一点的电压降，与走哪条路径无关」</b>，所以「A 点的电位是 3.3V」这句话才有意义。如果一个电路不满足 KVL（比如存在变化的磁场穿过回路——那是电磁感应，不在这门课的集总参数模型里），电位就没法定义了。</p>
+        </section>
+
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="mt-12 text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">概念讲完了，现在把它们变成数字。这一节的四道例题，都是单片机开发里会反复出现的场景：<b>限流电阻算多大、节点电流怎么记账、分压网络怎么设计、功率有没有超标</b>。每道题我都把「列方程 → 解 → 校核」三步写全，你照着做一遍，比读十遍公式有用。</p>
+
+          <h3 id="calc-led" class="mt-7 text-base font-semibold">例 1：5V 电源点一颗红色 LED，限流电阻该取多大</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>电源 <code class="icode">Us = 5.0V</code>；红色 LED 的正向压降 <code class="icode">Vf = 1.8V</code>（<b>按典型值估算</b>，实际同型号不同批次的红色 LED 在 1.8V~2.2V 之间波动）；希望的工作电流 <code class="icode">I = 10mA</code>；接法是一个串联回路：电源 → 电阻 → LED → 回到电源负极。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第一步，列 KVL 方程。</b>沿回路绕一圈，电压上升 = 电压下降：</p>
+          <p class="mt-3"><code class="icode">Us = u<sub>R</sub> + Vf</code>&nbsp;&nbsp;→&nbsp;&nbsp;<code class="icode">u<sub>R</sub> = Us − Vf = 5.0 − 1.8 = 3.2V</code></p>
+          <p class="mt-3">这一步是整个计算的灵魂：<b class="font-semibold text-ink">电阻上承受的不是 5V，而是 3.2V</b>。直接用 5V 去算电阻，是最常见的错误。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第二步，用欧姆定律求电阻。</b>串联回路里电流处处相同（KCL 的结论），所以流过电阻和流过 LED 的是同一个 10mA：</p>
+          <p class="mt-3"><code class="icode">R = u<sub>R</sub> / I = 3.2V / 0.010A = 320Ω</code></p>
+          <p class="mt-3">320Ω 不是标准阻值（E24 系列里没有），取最接近的 <b class="font-semibold text-ink">330Ω</b>。这一步很重要：<b>现实里的电阻只有离散的档位</b>，E24 系列（±5% 精度）的常用值有 100、110、120、130、150、160、180、200、220、240、270、300、330、360、390、430、470、510、560、620、680、750、820、910……算出来的值一定要往标准档位上靠。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第三步，反过来校核实际电流。</b>换成了 330Ω，电流就不是 10mA 了：</p>
+          <p class="mt-3"><code class="icode">I = u<sub>R</sub> / R = 3.2V / 330Ω = 0.009697A ≈ 9.70mA</code></p>
+          <p class="mt-3">9.70mA 与目标的 10mA 只差 3%，肉眼看不出亮度差别，<b class="font-semibold text-ink">这个设计成立</b>。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第四步，算功率，决定选什么封装。</b>这是最容易被跳过、也最容易冒烟的一步：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 1 的功率账：谁在发热">
+            <pre><code>【电阻上的功率】三种算法互相校核
+
+    P_R = u_R · I     = 3.2V × 0.009697A = 0.03103W ≈ 31.0mW
+    P_R = I² · R      = (0.009697)² × 330 = 9.403×10⁻⁵ × 330 = 0.03103W ✅
+    P_R = u_R² / R    = (3.2)² / 330 = 10.24 / 330 = 0.03103W ✅
+
+    → 三种写法结果一致，说明中间没有算错。
+
+【LED 上的功率】
+    P_LED = Vf · I = 1.8V × 0.009697A = 0.01746W ≈ 17.5mW
+
+【电源发出的功率】
+    P_S = Us · I = 5.0V × 0.009697A = 0.04849W ≈ 48.5mW
+
+【功率守恒校核】 31.0 + 17.5 = 48.5mW ✅ 与电源发出的一致
+    （这就是上一节讲的 Σp = 0，用来检验整道题）
+
+【选哪个封装的电阻？】
+    实际功率 31.0mW
+    · 0603（额定 0.1W = 100mW）→ 占额定的 31%   ✅ 可用
+    · 0805（额定 0.125W = 125mW）→ 占 25%       ✅ 推荐，余量舒服
+    · 直插 1/4W（250mW）→ 占 12%                ✅ 面包板首选
+    ★ 工程习惯：实际功率 ≤ 额定功率的一半</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第五步（最有价值的一步）：算一算「不串电阻」会怎样。</b>LED 导通以后的伏安特性接近一条陡峭的直线，等效于「一个 1.8V 的恒压源 + 一个很小的动态电阻」。小信号红色 LED 的动态电阻通常只有几欧到几十欧，这里取 <code class="icode">rd ≈ 10Ω</code>（按典型值估算）：</p>
+          <p class="mt-3"><code class="icode">I = (5.0 − 1.8) / 10Ω = 0.32A = 320mA</code></p>
+          <p class="mt-3">普通 5mm 红色 LED 的额定电流是 <b>20mA</b>，320mA 是它的 <b>16 倍</b>。这就是「现场一」里 LED 亮一下就灭的完整机理：<b class="font-semibold text-ink">LED 不烧是因为你串了电阻，而不是因为它「耐压」</b>。它耐的是电压，怕的是电流。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">换成 3.3V 系统呢（STM32 场景）</div>
+            <p>同样一颗红色 LED、同样要 10mA：<code class="icode">R = (3.3 − 1.8) / 0.010 = 150Ω</code>，正好是 E24 标准值，实际电流 10.0mA，电阻功率只有 <code class="icode">1.5V × 10mA = 15mW</code>，比 5V 的方案还省。</p>
+            <p class="mt-2">但这里有个 STM32 特有的约束：<b>板载 LED 挂在 PC13 上，而 PC13/PC14/PC15 这三个引脚的电流上限只有 3mA</b>（这是 STM32F103 数据手册绝对最大额定值里的规定，比普通 IO 的 20mA 小得多）。10mA 接上去就是超标 3 倍多——要用 PC13 点灯，电阻得按 1~2mA 去算（比如 3.3V − 1.8V = 1.5V，1.5V / 1.5mA = 1kΩ）。<b>这就是「算功率、查上限」这套动作的价值：同样的电路，换一个引脚，结论完全不同。</b></p>
+          </div>
+
+          <h3 id="calc-kcl" class="mt-7 text-base font-semibold">例 2：用 KCL 求一条支路的未知电流（并算清 GND 上的电流账）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>节点 A 上有四条支路，各自的参考方向已经画好：支路 1 标为流入、实测 <code class="icode">i₁ = 1.5A</code>；支路 2 标为流出、<code class="icode">i₂ = 0.8A</code>；支路 3 标为流出、<code class="icode">i₃ = 0.9A</code>；支路 4 的参考方向标为流出，但大小未知。求 <code class="icode">i₄</code>，并说明它的真实方向。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">解：</b>统一规定「流出为正、流入为负」，对节点 A 列 KCL：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 2 的完整求解过程">
+            <pre><code>【列 KCL 方程】
+        − i₁ + i₂ + i₃ + i₄ = 0
+
+【整理成更直观的形式】流进来 = 流出去
+        i₁ = i₂ + i₃ + i₄
+        1.5 = 0.8 + 0.9 + i₄
+        i₄  = 1.5 − 1.7 = −0.2A
+
+【结论怎么读】
+        i₄ = −0.2A，参考方向是「流出」，符号是负的
+        → 真实方向与参考方向【相反】：实际是 0.2A 流入节点 A
+
+【代回校核】把 i₄ 当成流入重新算账
+        流入合计 = 1.5 + 0.2 = 1.7A
+        流出合计 = 0.8 + 0.9 = 1.7A        ✅ 两边相等
+
+【换个参考方向会怎样？】
+        假如一开始我就把支路 4 的箭头画成【流入】呢？
+        方程变成： −1.5 + 0.8 + 0.9 − i₄ = 0  →  i₄ = +0.2A
+        → 答案里出现的是 +0.2A（流入），物理事实一模一样
+        ★ 所以：答案必须连「参考方向」一起说才有意义。
+          「0.2A」这个数字孤零零地摆着，是没法判对错的。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">把这个账本搬到单片机上，就是「GND 引脚上到底有多少电流」。</b>KCL 说的是「一个节点上流入等于流出」，而单片机系统里最大的那个节点，就是 GND。我们算一笔真实的账：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>支路（都经 GND 回流）</th><th>电流</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>8 个 LED 各自点亮（灌电流）</td><td>8 &times; 10mA = <b>80mA</b></td><td>每个 IO 灌 10mA，8 个就是 80mA，全部经 GND 流回电源</td></tr>
+                <tr><td>STM32 自身内核 + 外设运行电流</td><td>约 <b>30mA</b></td><td>按数据手册典型值估算（72MHz、外设开启时的量级，实测随主频和外设而变）</td></tr>
+                <tr><td>0.96 寸 OLED 模块供电</td><td>约 <b>20mA</b></td><td>按模块典型值，全亮时更大</td></tr>
+                <tr><td><b>GND 引脚电流合计</b></td><td><b>≈ 130mA</b></td><td>KCL：所有回流都汇聚到这里</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这个 130mA 有两个后果，都是新手容易忽略的：<b>① 它要流过你的杜邦线、排针和 PCB 地线</b>——一根普通杜邦线的接触电阻就有几十毫欧，130mA 虽然不至于发热，但会在「板内 GND」和「电源 GND」之间产生几毫伏的电位差（回到上一节的「地不是垃圾桶」）；<b>② 所有 IO 合计灌电流有 150mA 的上限</b>（STM32F103 数据手册绝对最大额定值），你光 LED 就用掉了 80mA，再加 8 个 LED 就直接超标。<b>这就是 KCL 的实际意义：它逼你把每一毫安都记账。</b></p>
+
+          <h3 id="calc-divider" class="mt-7 text-base font-semibold">例 3：设计一个 12V 电池电压检测的分压网络（KVL + 电位）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>要用 STM32F103 的 ADC 监测一块 12V 铅酸电池的电压。ADC 的参考电压 <code class="icode">VREF = 3.3V</code>，分辨率 12 位，<b>引脚上的电压绝对不能超过 3.3V</b>。电路是经典的电阻分压：电池正极 → R₁ → 采样节点 → R₂ → GND。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第一步，确定分压比。</b>希望电池电压 12V 时采样节点约 2.0V（留出余量，避免电池充电时电压升高就顶到 3.3V 上限）：</p>
+          <p class="mt-3"><code class="icode">u<sub>ADC</sub> = 12V &times; R₂ / (R₁ + R₂) = 2.0V</code>&nbsp;&nbsp;→&nbsp;&nbsp;<code class="icode">R₂ / (R₁ + R₂) = 2.0 / 12 = 1/6</code></p>
+          <p class="mt-3">取 <b class="font-semibold text-ink">R₁ = 100kΩ、R₂ = 20kΩ</b>（都是 E24 标准值，比值正好 5:1，即分压比 1/6）。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第二步，用 KVL 与欧姆定律校核。</b>回路电流：</p>
+          <p class="mt-3"><code class="icode">i = 12V / (R₁ + R₂) = 12V / 120kΩ = 0.1mA</code></p>
+          <p class="mt-3"><code class="icode">u<sub>R1</sub> = i · R₁ = 0.1mA &times; 100kΩ = 10.0V</code>&nbsp;&nbsp;&nbsp;<code class="icode">u<sub>R2</sub> = i · R₂ = 0.1mA &times; 20kΩ = 2.0V</code></p>
+          <p class="mt-3">KVL 校核：<code class="icode">10.0 + 2.0 = 12.0V</code> ✅ 电压被两个电阻分完了，一分不多一分不少。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第三步，用「电位」的视角再看一遍。</b>规定 GND 为参考点（电位 0V），则：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 3：电位视角与反向换算系数">
+            <pre><code>【三个节点的电位】以 GND 为参考点
+
+        V(电池正极) = +12.0V
+        V(采样节点) = +2.0V        ← 这就是 ADC 引脚上的电位
+        V(GND)      = 0V           ← 参考点，由我们定义
+
+【用两点电位差求元件电压】
+        u_R1 = V(采样节点) − V(电池正极) = 2.0 − 12.0 = −10.0V
+        → 负数：说明这个元件上「+」应该标在电池那一侧，大小 10.0V ✅
+        u_R2 = V(采样节点) − V(GND) = 2.0 − 0 = +2.0V  ✅
+
+        ★ 注意：电位一算出来，电压就是两个电位相减，不用再绕圈数符号了。
+
+【软件里怎么把 ADC 读数换回电池电压】
+
+        第 1 步：读数 → 引脚电压
+            u_ADC = raw × VREF / 4095      （12 位 ADC，满量程码值是 4095）
+        第 2 步：引脚电压 → 电池电压（乘分压系数的倒数）
+            分压系数 k = (R₁ + R₂) / R₂ = 120k / 20k = 6
+            V_bat = u_ADC × 6
+
+        举例：raw = 2482
+            u_ADC = 2482 × 3.3 / 4095 = 2.00015V
+            V_bat = 2.00015 × 6 = 12.00V      ✅ 和设定完全对上
+
+        ★ 反过来算量程：u_ADC 最大 3.3V → V_bat 最大 3.3 × 6 = 19.8V
+          也就是说这套分压能测到 19.8V，覆盖 12V 电池充电时的 14.4V 绰绰有余。
+
+【静态功耗：别忘了这两个电阻一直在耗电】
+        12V × 0.1mA = 1.2mW，对电池来说可以忽略（一年约 10Wh 量级）。
+        但如果测的是 400V 母线，分压电阻的耗电就必须认真算了。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这里藏着一个真实的坑：分压电阻不能随便取大</div>
+            <p>100kΩ 与 20kΩ 并联起来，从 ADC 引脚看进去的等效电阻（<b>源阻抗</b>）是 <code class="icode">100k ∥ 20k = 16.7kΩ</code>。而 STM32 的 ADC 内部有个采样电容，采样瞬间要由外部电路给它充电——<b>源阻抗越大，充电越慢，读数就越偏低、越不稳</b>。</p>
+            <p class="mt-2">STM32F103 数据手册的 ADC 特性表里专门列了一项 <b>R<sub>AIN</sub>（最大外部输入阻抗）</b>，而且它和「采样时间」是绑定的：采样时间最短（1.5 个 ADC 周期）时只允许约 <b>0.4kΩ</b>，7.5 个周期 <b>5.9kΩ</b>，13.5 个周期 <b>11.4kΩ</b>，41.5 个周期 <b>37.2kΩ</b>，到 55.5 个周期就是 <b>50kΩ</b>——<b>这已经是手册给出的 R<sub>AIN</sub> 绝对上限</b>；再长的 71.5 与 239.5 个周期，手册不再给保证值（标 NA）。这些数字来自 <b>DS5319 Rev 20 的 Table 48</b>（测试条件 f<sub>ADC</sub> = 14MHz，判据是误差小于 1/4 LSB），<b>不是可以随便套用的通用结论</b>——换芯片、换主频、换手册版本都要回去查表。</p>
+            <p class="mt-2">所以 16.7kΩ 这套参数<b>必须把采样时间设得足够长</b>（比如 55.5 或 239.5 个周期），或者在 R₂ 两端并一个 100nF 电容（让采样电容就近从电容取电），或者干脆加一级运放做电压跟随器。<b>改小电阻也行：R₁ = 30kΩ、R₂ = 10kΩ 时，分压比 1/4，源阻抗降到 7.5kΩ，静态电流升到 0.3mA</b>——这是一个典型的「精度 / 功耗 / 阻抗」三方权衡。<b>但要注意：分压比 1/4 只适合 12V 稳压供电——铅酸电池充电时电压会到 14.4V，14.4 × 0.25 = 3.6V 已经超过 3.3V，而 PA0 不是 FT 引脚，会顶坏 ADC，所以充电中的电池请仍用 100k/20k 那一套。</b></p>
+          </div>
+
+          <h3 id="calc-power" class="mt-7 text-base font-semibold">例 4：判别电源还是负载，并用功率守恒验算</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知：</b>一个 12V 电源，串联一个 <code class="icode">R = 470Ω</code> 的电阻，再串一颗正向压降 <code class="icode">Vf = 2.0V</code> 的 LED（按折线模型）。求各元件的功率，判断每个元件是电源还是负载，并验证功率守恒。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">解：</b>先由 KVL 求电流：<code class="icode">i = (12 − 2.0) / 470 = 10 / 470 = 0.02128A ≈ 21.28mA</code>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例 4：三个元件的功率账与判别结论">
+            <pre><code>【元件①：12V 电源】
+   参考方向：电流从电源的「+」端【流出】，所以 u 与 i 是非关联的
+   p = u · i = 12V × 0.02128A = 0.25532W ≈ 255.3mW
+   非关联下 p &gt; 0 → 【发出】功率 255.3mW     ★ 它是电源
+
+【元件②：470Ω 电阻】
+   参考方向：电流从「+」端流入，关联
+   p = i²R = (0.02128)² × 470 = 4.528×10⁻⁴ × 470 = 0.21277W ≈ 212.8mW
+   关联下 p &gt; 0 → 【吸收】功率 212.8mW       ★ 它是负载
+
+【元件③：LED】
+   参考方向：电流从阳极（+）流入，关联
+   p = Vf × i = 2.0V × 0.02128A = 0.04255W ≈ 42.6mW
+   关联下 p &gt; 0 → 【吸收】功率 42.6mW         ★ 它是负载
+
+【功率守恒校核】
+   发出合计 = 255.3mW
+   吸收合计 = 212.8 + 42.6 = 255.4mW
+   两者相差 0.1mW —— 这是四舍五入的误差，在有效数字范围内一致 ✅
+
+【最重要的工程结论：这颗电阻选小了会烧】
+   电阻实际耗散 212.8mW
+   · 1/4W（250mW）电阻 → 占额定的 85%   ⚠ 太贴上限，长期会烫、会漂移
+   · 1/2W（500mW）电阻 → 占 43%         ✅ 勉强可用
+   · 1W 电阻         → 占 21%           ✅ 稳妥，但体积大
+   ★ 更聪明的做法：别用 12V 串电阻点 LED。
+     换成 5V 供电：i = (5 − 2)/470 = 6.4mA，电阻只耗 (0.0064)²×470 = 19mW。
+     或者用恒流驱动 IC，效率高得多。</code></pre>
+          </div>
+
+          <p class="mt-3">这道题还顺带说明了一件事：<b class="font-semibold text-ink">「谁是电源、谁是负载」不是看元件的名字，而是看电流的真实方向</b>。同样一节 12V 电池，正常情况下它是电源（电流从 + 端流出）；但如果它正在被充电器充电，电流就会从 + 端流进去，这时它就是一个实打实的负载。<b>判别的依据永远是「电流从 + 端流出还是流入」，不是「它叫什么」。</b></p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">四道例题的公式速查</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>限流电阻</b>：<code class="icode">R = (Us − Vf) / I</code>，再往 E24 标准值上靠，最后校核电流与功率。</li>
+              <li><b>KCL</b>：<code class="icode">Σi = 0</code>（流出为正），一个节点一条方程，n 个节点只有 n−1 条独立方程。</li>
+              <li><b>KVL</b>：<code class="icode">Σu = 0</code>（沿绕行方向，升为 +、降为 −），串联回路里它决定电压怎么分。</li>
+              <li><b>分压</b>：<code class="icode">u₂ = u &times; R₂ / (R₁ + R₂)</code>，分子是「自己」的电阻；分流公式的分子是「对方」的电阻，别记混。</li>
+              <li><b>功率</b>：<code class="icode">p = ui = i²R = u²/R</code>，校核全电路的 <code class="icode">Σp = 0</code>。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="mt-12 text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4">现在把镜头拉到你桌上的那块板子。这一节讲三个「你一定遇到过」的现场，每个现场都用前面那几条定律来解释，<b>你会看到同一套公式在不同场景下反复出现</b>。</p>
+
+          <h3 id="mcu-led" class="mt-7 text-base font-semibold">现场一：LED 限流电阻为什么必须串在回路里（KCL 视角）</h3>
+
+          <p class="mt-3">先看三种接法。它们的区别只有一个字：<b class="font-semibold text-ink">串</b> 还是 <b class="font-semibold text-ink">并</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种 LED 接法对比：KCL 各自说了什么">
+            <pre><code>【接法 A：正确 —— 电阻串在回路里】
+
+        5V ●────[ R ]────┬──── LED ────┐
+                         │      ▼      │
+                         └─────────────┘
+                            同一回路，电流处处相同 i
+
+    KCL 在「R 与 LED 之间的那个节点」上说什么？
+        这个节点只有两条支路：一条通向电阻，一条通向 LED。
+        一进一出 → 流入 = 流出 → 两个元件里的电流【必然是同一个 i】。
+    ★ 所以：电阻串在电源侧还是地侧，电气上完全等价。
+      它限制的是【整条回路】的电流，而不是某个位置上的电流。
+
+    KVL 补上另一半：5V = i·R + Vf → i = (5 − 1.8)/330 = 9.7mA ✅
+
+【接法 B：错误 —— 电阻并在 LED 两端】
+
+        5V ●────┬──── LED ────┐
+                │      ▼      │
+                └──[ R ]──────┘
+                  电阻与 LED 并联
+
+    KCL 在这个并联节点上说什么？
+        电源送来的电流 i 分成两路：i = i_LED + i_R
+        其中 i_R = 1.8V / 330Ω = 5.5mA（这条支路被 LED 的压降限制住了）
+        但 i_LED 呢？它那条支路【直接接在 5V 和 GND 之间】，没有任何限流！
+        i_LED = (5 − 1.8)/rd ≈ 320mA  ← 和例 1 里算的一样，LED 烧毁
+
+    ★ 并联的电阻不会「限制 LED 的电流」，它只是额外分走一小股电流。
+      KCL 讲的是「分流」，不是「限流」—— 这两件事经常被混为一谈。
+
+【接法 C：错误 —— 多颗 LED 共用一个限流电阻】
+
+        5V ●────[ R ]────┬──── LED₁ ────┐
+                         ├──── LED₂ ────┤
+                         └──── LED₃ ────┘
+                                        │
+                                       GND
+
+    KCL 在分流节点上： i_总 = i₁ + i₂ + i₃   ← 总电流确实被电阻限制住了
+    但【每颗 LED 分到多少】由它们各自的正向压降决定：
+        Vf 最低的那颗会抢走绝大部分电流（Vf 差 0.1V，电流可能差几倍）
+        → 亮度不均；更糟的是，一旦最亮的那颗烧断，剩下两颗分担的
+          电流立刻变大，连锁烧毁。
+
+    ★ 正确做法：每颗 LED 一个限流电阻；
+      或者用恒流驱动（一颗恒流 IC 带多颗串联 LED）。</code></pre>
+          </div>
+
+          <p class="mt-3">所以「限流电阻必须串在回路里」这句话的完整理由是：<b class="font-semibold text-ink">串联回路的电流处处相同（KCL 保证），电阻串进去以后，它和 LED 流过的是同一个电流，于是「用电阻决定电流」这件事才成立</b>。并联只能分流，管不住任何一条支路的电流。</p>
+
+          <h3 id="mcu-level" class="mt-7 text-base font-semibold">现场二：KVL 解释为什么要电平转换（以及串电阻为什么不管用）</h3>
+
+          <p class="mt-3">3.3V 的 STM32 和 5V 的模块对接，是每个新手都会撞上的坎。这里只讲<b>「用 KVL 能看懂的那部分」</b>：电压怎么分配、为什么有些「土办法」看起来管用其实不管用。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电平转换的 KVL 视角：分压、串电阻、开漏上拉">
+            <pre><code>【做法一：电阻分压（5V → 3.3V，单向）】
+
+     5V 信号源 ──[ R₁ = 6.8kΩ ]──┬──► STM32 引脚
+                                 │
+                              [ R₂ = 10kΩ ]
+                                 │
+                                GND
+
+    KVL：5V = u_R1 + u_R2 ，而串联电流相同 → u_R2 = 5 × 10/16.8 = 2.98V
+
+    ✅ 2.98V 低于 3.3V 上限（安全），高于 STM32 的 VIH ≈ 2.0V（能读成高）
+    ✅ 源阻抗 = 6.8k ∥ 10k = 4.05kΩ，不算太大
+    ⚠ 单向：只能把 5V 降到 3.3V，不能反过来把 3.3V 升到 5V
+    ⚠ 有静态电流：5V / 16.8kΩ ≈ 0.3mA，一直在耗
+
+【做法二：串一个电阻「限流」—— 对输入引脚基本无效】
+
+     5V 信号源 ──[ 1kΩ ]──► STM32 引脚
+
+    很多教程说「串个 1kΩ 就安全了」。这个做法【有限地】成立，
+    但它的原理完全不是「把 5V 降成 3.3V」：
+
+        KVL：5V = u_R + u_引脚
+        而 STM32 的输入引脚是高阻态（输入阻抗在 MΩ 量级），
+        流过电阻的电流极小 → u_R = i × R ≈ 0V
+        → u_引脚 ≈ 5V，【电压一点没降】！
+
+    真正发生的事：引脚内部的保护二极管导通，把电位钳在 VDD + 0.7V 附近，
+    电流被 1kΩ 限制在 (5 − 4.0)/1kΩ = 1mA 左右，
+    没有超过 STM32 规定的 ±5mA 引脚注入电流上限 ——
+    于是「芯片不会立刻烧」，但电流被灌进了 VDD 网络。
+
+    ❌ 副作用：抬高 VDD、干扰 ADC 参考、增加功耗；
+       多路这样的信号一起灌，问题会叠加。
+    ★ 结论：**限流不等于降压**。要降压就得给电流一条通路（分压），
+      或者用专门的转换电路。这是 KVL 最经典的一次「反直觉」。
+
+【做法三：开漏 + 上拉（双向，I²C 的标准解法）】
+
+        3.3V ──[ 4.7kΩ ]──┬────────── 信号线
+                           │
+                           ├── STM32 的引脚（配成开漏输出）
+                           └── 5V 器件的开漏数据脚
+
+    KVL 看这条线的电位是怎么来的：
+        · 谁都不拉低时：线上的电流来自 3.3V 经 4.7kΩ，
+          没有别的电源往线上灌 → 线电位 = 3.3V ✅
+        · 任意一端拉低时：那一端内部直接接到 GND，线电位 ≈ 0V，
+          电流 = 3.3V / 4.7kΩ ≈ 0.7mA（很小，谁都不会累）
+
+    ★ 关键：5V 器件【从来不往线上输出 5V】，它只会拉低或放手。
+      所以线上电位的来源永远是 3.3V —— 这是 KVL 保证的。</code></pre>
+          </div>
+
+          <p class="mt-3">再补一句方向相反的情况（3.3V 出去驱动 5V 器件的输入）：<b>能不能直接接，取决于对方的 V<sub>IH</sub></b>。CMOS 的 74HC 系列规定 <code class="icode">V<sub>IH</sub> = 0.7 &times; V<sub>CC</sub></code>，5V 供电时就是 3.5V，STM32 输出的 3.3V 达不到，识别不了；而 74HCT 系列是 TTL 电平兼容，<code class="icode">V<sub>IH</sub> = 2.0V</code>，3.3V 直接就能用。<b>同一件事，型号后缀差一个字母，结论完全相反</b>——这种时候别猜，去查数据手册的 V<sub>IH</sub>/V<sub>IL</sub> 那两个参数。</p>
+
+          <h3 id="mcu-meter" class="mt-7 text-base font-semibold">现场三：万用表测电流为什么要串联（参考方向的现场版）</h3>
+
+          <p class="mt-3">这是「参考方向」这个概念在真实仪器上最直观的一次体现。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="万用表电流档：正确接法与错误接法">
+            <pre><code>【正确接法：把表【串】进回路 —— 先断开，再串入】
+
+      5V ●───┬───────────────┐
+             │               │
+          [ 负载 ]        ┌──┴──┐
+             │            │  A  │  万用表（电流档）
+             └────────────┤     │
+                          └──┬──┘
+                             │
+                            GND
+
+    · 表内部的采样电阻 R_shunt 只有零点几欧到几欧（随档位不同）
+    · KVL：5V = u_负载 + i × R_shunt —— 表几乎不影响电路
+    · 流过表的电流【就是】流过负载的电流（KCL：串联回路电流相同）
+    ★ 所以电流表必须串联，这不是习惯问题，是 KCL 的必然要求。
+
+【错误接法：把表【并】在电源两端】
+
+      5V ●───┬───────────────┐
+             │               │
+          [ 负载 ]        ┌──┴──┐
+             │            │  A  │
+             └────────────┤     │
+                          └──┬──┘
+                             │
+                            GND
+
+    表的电流档内阻极小（近似一根导线）
+    → 相当于用一根导线把 5V 和 GND 直接连起来
+    → 短路电流 = 5V / R_shunt（几安培到几十安培）
+    → 万用表里的保险丝熔断，或者电源保护动作
+    ★ 现象就是「一测电流就跳闸」。表没坏，用法违反了 KCL 的前提：
+      你把一条近乎零欧的支路直接并在电源两端。
+
+【参考方向的现场版：读数为什么会带负号】
+
+    数字万用表的约定：
+        红表笔 = 电流【流入】表的端子（相对 COM 黑表笔而言）
+        → 屏幕上显示的，是「沿红表笔流进表里」的电流
+
+    所以：
+        · 读数 +12.3mA  → 真实电流从红表笔流入、从黑表笔流出
+        · 读数 −12.3mA  → 真实电流方向与你的接法相反，
+                          实际是从黑表笔流入、红表笔流出
+
+    ★ 这就是「参考方向」：表笔的接法是你假定的参考方向，
+      负号不是故障，是「方向猜反了」。
+      想读数好看，就把红表笔接到电流流入的那一端。
+
+【三条安全习惯】
+    ① 测电流必须【先断电、断开回路、串入表笔、再上电】
+    ② 不要在带电情况下切换量程或档位（尤其是从电压档切到电流档）
+    ③ 测完立刻把表拨回电压档，防止下一次误用 —— 烧保险丝的头号原因</code></pre>
+          </div>
+
+          <h3 id="mcu-code" class="mt-7 text-base font-semibold">落到代码：把电阻和分压系数写进程序里</h3>
+
+          <p class="mt-3">硬件算完，最后一步是把这些常数写进代码。下面这段 STM32 HAL 代码里，<b>每个魔法数字的来历都在注释里标了出来</b>——这正是一个合格的单片机工程该有的样子：<b>代码里的每个数字，都能追回到一张原理图或一个公式</b>。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="main.c：LED 点灯 + 电池电压采样（常数都有出处）">
+            <pre><code>#include "stm32f1xx_hal.h"
+
+/* ---------- 硬件常数：全部来自上一节的 KVL / 分压计算 ---------- */
+
+/* LED 回路：3.3V → 限流电阻 → LED → GND
+ * KVL: 3.3V = i*R + Vf,  Vf = 1.8V (红色 LED 典型值), 目标 i = 10mA
+ *      R = (3.3 - 1.8) / 0.010 = 150 ohm  (正好是 E24 标准值)
+ * 功率: 1.5V * 10mA = 15mW, 选 0805 (1/8W) 余量充足
+ * 注意: 不要用 PC13, 它的上限只有 3mA —— 这里用 PA1 */
+#define LED_GPIO_PORT   GPIOA
+#define LED_GPIO_PIN    GPIO_PIN_1
+
+/* 电池分压：R1 = 30k (上), R2 = 10k (下)
+ * 分压比 1/4 → 采样节点电压 = Vbat / 4
+ * KVL 校核: 12V 时 i = 12V / 40k = 0.3mA, u_R2 = 0.3mA * 10k = 3.0V ✅ (不超 3.3V)
+ * 源阻抗 = 30k ∥ 10k = 7.5k ohm → 采样时间要选长一些 (见下面的配置)；注意：这组分压只适合 12V 稳压供电——铅酸电池充电时电压会到 14.4V，u_R2 就是 3.6V 超过 3.3V，而 PA0 非 FT 引脚，充电中的电池请改用 100k/20k
+#define DIVIDER_R_TOP       30000.0f
+#define DIVIDER_R_BOTTOM    10000.0f
+#define DIVIDER_RATIO       ((DIVIDER_R_TOP + DIVIDER_R_BOTTOM) / DIVIDER_R_BOTTOM)  /* = 4.0 */
+
+#define ADC_VREF            3.3f        /* ADC 参考电压, 等于 VDDA */
+#define ADC_FULL_SCALE      4095.0f     /* 12 位 ADC 的满量程码值 */
+
+static ADC_HandleTypeDef hadc1;
+
+/* 把 ADC 原始码值换算成电池电压
+ *
+ * 第 1 步 raw → 引脚电压: u = raw * VREF / 4095
+ * 第 2 步 引脚电压 → 电池电压: 乘回分压系数 4.0
+ * 注意用 float 变量, 否则整数除法会把小数部分全部丢掉 */
+static float Battery_GetVoltage(void)
+{
+    uint32_t raw;
+    float    u_adc;
+    float    v_bat;
+
+    HAL_ADC_Start(&amp;hadc1);
+    if (HAL_ADC_PollForConversion(&amp;hadc1, 10) != HAL_OK) {
+        HAL_ADC_Stop(&amp;hadc1);
+        return -1.0f;           /* 超时, 返回一个明显不合理值, 便于上层判断 */
+    }
+    raw = HAL_ADC_GetValue(&amp;hadc1);     /* 0 ~ 4095 */
+    HAL_ADC_Stop(&amp;hadc1);
+
+    u_adc = (float)raw * ADC_VREF / ADC_FULL_SCALE;   /* 引脚上的真实电位 */
+    v_bat = u_adc * DIVIDER_RATIO;                    /* 还原到电池端 */
+
+    return v_bat;
+}
+
+int main(void)
+{
+    HAL_Init();
+    SystemClock_Config();
+
+    /* LED 引脚: 推挽输出, 不需要上下拉 */
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    GPIO_InitTypeDef gpio = {0};
+    gpio.Pin   = LED_GPIO_PIN;
+    gpio.Mode  = GPIO_MODE_OUTPUT_PP;
+    gpio.Pull  = GPIO_NOPULL;
+    gpio.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(LED_GPIO_PORT, &amp;gpio);
+
+    /* 规则: 上电先让 LED 熄灭, 避免"上电瞬间闪一下" */
+    HAL_GPIO_WritePin(LED_GPIO_PORT, LED_GPIO_PIN, GPIO_PIN_SET);  /* 低电平点亮 */
+
+    while (1) {
+        HAL_GPIO_TogglePin(LED_GPIO_PORT, LED_GPIO_PIN);
+        HAL_Delay(500);              /* 500ms 亮, 500ms 灭 */
+
+        /* 每秒读一次电池电压。分压网络的源阻抗是 7.5k ohm,
+         * 采样时间必须够长, 让内部采样电容充满, 否则读数会偏低 */
+        float v = Battery_GetVoltage();
+        if (v &lt; 0.0f) {
+            /* 采样失败: 常见原因是没共地、分压电阻虚焊、或 ADC 时钟没使能 */
+        }
+    }
+}
+
+/* ---------- 电流预算（KCL 的账本，写在这里方便以后加功能时核对） ----------
+ *  LED (PA1)            10mA   ← 单个 IO 上限 20mA OK
+ *  OLED 模块供电        20mA
+ *  MCU 自身运行         30mA   (Typical, 72MHz)
+ *  ------------------------------------------
+ *  GND 引脚合计约       60mA   ← 所有 IO 合计灌电流上限 150mA, 还很有余量
+ *  每加一个 LED 就加 10mA, 加满 8 个就要重新核对这份账本
+ */</code></pre>
+          </div>
+
+          <p class="mt-3">这段代码里最值得学的不是 HAL 的 API，而是<b class="font-semibold text-ink">「常数 → 公式 → 注释」这条链条</b>：<code class="icode">150Ω</code> 来自 KVL、<code class="icode">4.0</code> 来自分压比、<code class="icode">4095</code> 来自分辨率的定义、<code class="icode">7.5kΩ</code> 来自并联等效电阻。<b>当老师说「这个数字要能说出出处」时，说的就是这件事。</b></p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一个能省下大量调试时间的小习惯</div>
+            <p>在原理图上，把每个关键电阻的<b>计算过程</b>写成注释贴在旁边（比如「R3 = (3.3−1.8)/10mA = 150Ω，0805 1/8W」）。三个月后你回头改板子，不会对着一个 150Ω 发呆；队友接手你的项目，也能立刻知道这个值能不能动。<b>这一条和 KCL/KVL 无关，但它和「成为一个靠谱的工程师」高度相关。</b></p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 5. 常见误解与坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="mt-12 text-xl font-semibold">常见误解与坑</h2>
+
+          <p class="mt-4">下面这 9 条，是这一章里学生最容易踩、而且踩了以后<b>很难自己发现</b>的坑。每一条都按「错误认知 → 为什么错 → 正确做法」三段来写。</p>
+
+          <p class="mt-4"><b class="font-semibold text-ink">坑 1：电流方向是客观存在的，算什么算，看一眼就知道</b></p>
+          <p class="mt-2"><b>错误认知：</b>「电流从电源正极出发，经过负载回到负极」——方向不是明摆着的吗，为什么还要「假设」？</p>
+          <p class="mt-2"><b>为什么错：</b>这句话只对「单个电源、单个回路」成立。一旦电路里有两个电源（比如 USB 供电 + 外部电池）、或者有电容充放电、或者有受控源，真实方向往往和直觉相反，而且<b>会随时间变化</b>。更关键的是：<b>列方程的那一刻你就需要符号，而符号依赖方向</b>——如果你要先知道方向才能列方程，就陷入死循环了。</p>
+          <p class="mt-2"><b>正确做法：</b>把「参考方向」当成一个纯粹的<b>记账约定</b>：先画箭头、先标 +/−，然后放心大胆地列方程。算出来是负数，就是「记账方向反了」，不是「做错了」。<b>养成「先标后算」的肌肉记忆</b>，你会在后面每一篇里受益。</p>
+
+          <p class="mt-4"><b class="font-semibold text-ink">坑 2：算出负的电流或电压，说明这道题算错了</b></p>
+          <p class="mt-2"><b>错误认知：</b>答案里出现 −0.5A、−3V，赶紧回头检查是不是哪一步符号抄错了。</p>
+          <p class="mt-2"><b>为什么错：</b>参考方向是人为定的，所以「算出负数」本来就是 <b>50% 概率会发生</b>的正常结果。它携带的信息是「真实方向与假设相反」，大小依然有效。真正需要检查的是<b>方程本身的符号规则有没有前后一致</b>，而不是答案的正负。</p>
+          <p class="mt-2"><b>正确做法：</b>把答案写成「i = −0.5A，即真实电流方向与参考方向相反，实际从 b 流向 a，大小 0.5A」。<b>把方向一起写出来</b>，这个答案才是完整、可判分的。</p>
+
+          <p class="mt-4"><b class="font-semibold text-ink">坑 3：拿万用表量出 LED 的电压和电流，算出「等效电阻」，然后拿它去算别的</b></p>
+          <p class="mt-2"><b>错误认知：</b>量到 LED 两端 1.9V、电流 10mA，于是 <code class="icode">R = 1.9V / 10mA = 190Ω</code>，下次要 20mA 就用 190Ω 去算。</p>
+          <p class="mt-2"><b>为什么错：</b>LED 是<b>非线性元件</b>，它的 u-i 曲线是一条陡峭的折线而不是过原点的直线。那个 190Ω 只是<b>10mA 这一个工作点上的比值</b>（叫静态电阻），电流一变它就变，20mA 时可能只剩 100Ω 左右。<b>欧姆定律只对「线性电阻」成立</b>，对 LED、二极管、三极管、白炽灯都不成立。</p>
+          <p class="mt-2"><b>正确做法：</b>对 LED 用<b>折线模型</b>：导通前当断路，导通后当成一个 Vf 的恒压源。于是限流电阻就是 <code class="icode">R = (Us − Vf)/I</code>——注意分子上是「电源减去 Vf」，这正是 KVL 的直接应用。Vf 的取值去查 LED 规格书，或者按颜色记典型值：红色约 1.8~2.2V，蓝色/白色约 2.8~3.4V。</p>
+
+          <p class="mt-4"><b class="font-semibold text-ink">坑 4：电阻只要阻值对就行，功率（瓦数）无所谓</b></p>
+          <p class="mt-2"><b>错误认知：</b>我算出来要 330Ω，手边有个 330Ω 就焊上去了，管它什么 1/4W 还是 0603。</p>
+          <p class="mt-2"><b>为什么错：</b>电阻有两个必须同时满足的参数：<b>阻值</b>和<b>额定功率</b>。功率超了不会「立刻坏」，而是先发热、阻值漂移、变色，然后开路——这种「用了几小时才坏」的故障最难查。第 3 节例 4 里那颗 470Ω 电阻耗散 212.8mW，装 1/4W 就占了 85%，长期必出问题。</p>
+          <p class="mt-2"><b>正确做法：</b>每次算完电阻，顺手算一遍 <code class="icode">P = i²R</code>，然后<b>让实际功率不超过额定功率的一半</b>。0805 贴片按 1/8W 算、直插按 1/4W 算是最常用的两档。当功率明显偏大时，先想「是不是电路方案本身就不对」（比如 12V 串电阻点 LED），而不是简单地换个大功率电阻糊过去。</p>
+
+          <p class="mt-4"><b class="font-semibold text-ink">坑 5：用万用表电流档测电流，把表笔并在电路上就行</b></p>
+          <p class="mt-2"><b>错误认知：</b>测电压是「并在两端」，那测电流应该也是并上去吧？</p>
+          <p class="mt-2"><b>为什么错：</b>电压表内阻极大（MΩ 级），并在电路上几乎不取电流，所以并联是对的；<b>电流表内阻极小（近似一根导线），并联等于把电源短路</b>。这是 KCL 的问题：你凭空制造了一条近乎零欧的支路，它会抢走几乎全部电流。</p>
+          <p class="mt-2"><b>正确做法：</b>测电流必须<b>先断电 → 断开回路 → 把表串进去 → 再上电</b>。读数出现负号，说明红表笔接在了电流流出的一端，交换表笔即可（第 4 节的现场三有完整的接线图）。另外记得：测完立刻把档位拨回电压档。</p>
+
+          <p class="mt-4"><b class="font-semibold text-ink">坑 6：GND 只是个图上的符号，两块板子不共地也能通信</b></p>
+          <p class="mt-2"><b>错误认知：</b>信号线接上就行了，反正 GND 就是「0V」，两边都是 0V，接不接一样。</p>
+          <p class="mt-2"><b>为什么错：</b>电压是<b>两点之间的电位差</b>，而「0V」只是一个约定。<b>两块独立的板子，各自的 GND 之间可能存在任意电压差</b>（尤其两边都用各自的电源适配器时，这个差值可能来自漏电流、可能是几伏的交流分量）。这时候 STM32 输出的 3.3V，在对方看来可能是 3.3 − 2 = 1.3V，甚至是负值。</p>
+          <p class="mt-2"><b>正确做法：</b>任何两根信号线之间的通信，<b>都要求两块板子共地</b>——接上 GND 线，让双方的「0V」是同一个 0V。长距离、大电流场合还要考虑地环路和地电位差，可能需要隔离（光耦、隔离电源）。<b>「不共地导致的通信失败」是串口和 I²C 调试中最常见的硬件原因，没有之一。</b></p>
+
+          <p class="mt-4"><b class="font-semibold text-ink">坑 7：PCB 上到处都标着 GND，随便挑一个点接地就行</b></p>
+          <p class="mt-2"><b>错误认知：</b>地平面是一整块铜，所有 GND 都是同一个点，接哪儿都一样。</p>
+          <p class="mt-2"><b>为什么错：</b>地平面有电阻也有电感。第 2 节算过：一段 0.1Ω 的地线上流过 100mA 就有 10mV 压降；而 STM32F103 的 12 位 ADC 在 3.3V 参考下 1 个 LSB 只有 <b>0.8mV</b>——10mV 就是 12 个码值的误差。电感性更麻烦：<code class="icode">u = L·di/dt</code>，电机、继电器启动的瞬间地线上会跳几十毫伏到几伏的尖峰。</p>
+          <p class="mt-2"><b>正确做法：</b>把地当成「有阻抗的回路」来设计：<b>大电流负载（电机、继电器、灯带）的地单独走、走粗</b>，在电源入口处与小信号地汇合（单点接地）；模拟部分（传感器、ADC 基准）的地靠近芯片、远离功率路径。板子上分开铺 AGND / DGND，最后在一点连起来。</p>
+
+          <p class="mt-4"><b class="font-semibold text-ink">坑 8：p = ui 这个公式到处都能用，不用管什么关联不关联</b></p>
+          <p class="mt-2"><b>错误认知：</b>反正是功率，算出正数就是消耗、负数就是发出，公式写对就行。</p>
+          <p class="mt-2"><b>为什么错：</b><code class="icode">p = ui</code> 的<b>符号含义完全取决于参考方向是不是关联</b>。关联时「正 = 吸收」，非关联时「正 = 发出」，两个结论正好相反。这在「元件发出还是吸收功率」的判断上会直接导致答错；在功率守恒校核时更危险——你会得到一堆加起来不为零的功率，然后怀疑自己算错了电流。</p>
+          <p class="mt-2"><b>正确做法：</b>算功率之前先花两秒做<b>三步判定</b>：① 找元件的 + 端；② 看电流是流进还是流出；③ 进 = 关联（正为吸收）、出 = 非关联（正为发出）。实在懒得判，也有一个万能写法：<b>统一按「吸收」来记，算出负数就说明它在发出</b>——只要全电路的符号规则一致，最后 <code class="icode">Σp = 0</code> 一定成立。</p>
+
+          <p class="mt-4"><b class="font-semibold text-ink">坑 9：3.3V 和 5V 之间串一个电阻就安全了</b></p>
+          <p class="mt-2"><b>错误认知：</b>「5V 进来串个 1kΩ 电阻降压，就变成 3.3V 了」——这个说法在网上流传极广。</p>
+          <p class="mt-2"><b>为什么错：</b>电阻上的压降是 <code class="icode">u = i·R</code>，<b>没有电流就没有压降</b>。STM32 的输入引脚是高阻态（输入阻抗在 MΩ 量级），流过的电流极小，所以电阻上几乎不产生压降，引脚上依然是 5V。串电阻真正起的作用只有一条：<b>把灌入引脚保护二极管的电流限制在规定范围内</b>（STM32F103 数据手册规定引脚注入电流不超过 ±5mA），代价是这部分电流被灌进了 VDD 网络，会抬高电源轨、干扰 ADC。</p>
+          <p class="mt-2"><b>正确做法：</b>要真正降压，就得给电流一条通路——用<b>两个电阻分压</b>（见第 4 节现场二），或者用<b>开漏 + 上拉</b>、专用电平转换芯片；能换成 3.3V 版本的器件就换器件。串电阻只应作为「临时、低速、单路、且确认注入电流安全」的权宜之计，不能当成设计。</p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">这 9 条的共同点</div>
+            <p>你注意到没有：<b>它们全都是「省掉一个前提」造成的</b>——省掉参考方向、省掉非线性的前提、省掉功率校核、省掉共地、省掉地线的阻抗、省掉关联方向的判定。<b>电路这门课真正难的从来不是公式，而是「用公式之前必须成立的那些条件」。</b>把这句话记住，你后面每一篇都会读得轻松很多。</p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 6. 小结与自检 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="mt-12 text-xl font-semibold">小结与自检</h2>
+
+          <p class="mt-4">这一篇的内容可以压缩成一张纸。如果你现在合上页面，能把这十句话复述出来，第 1 章就算过关了。</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead><tr><th>#</th><th>要点</th><th>一句话记法</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>参考方向是人为假定的</td><td>先标后算，答案里必须带方向</td></tr>
+                <tr><td>2</td><td>负号不是错，是方向反了</td><td>负数 = 猜反了，大小照样有效</td></tr>
+                <tr><td>3</td><td>关联 = 电流从 + 端流入</td><td>进则关联（u = Ri），出则非关联（u = −Ri）</td></tr>
+                <tr><td>4</td><td>功率 p = ui，符号看约定</td><td>关联下正为吸收，非关联下正为发出</td></tr>
+                <tr><td>5</td><td>功率的三种写法与选型</td><td><code class="icode">P = UI = I²R = U²/R</code>，实际 ≤ 额定一半</td></tr>
+                <tr><td>6</td><td>电源还是负载</td><td>真实电流从 + 端流出 = 发出 = 电源</td></tr>
+                <tr><td>7</td><td>欧姆定律只对线性电阻成立</td><td>LED 用折线模型：导通后当恒压源 Vf</td></tr>
+                <tr><td>8</td><td>KCL：节点上流入 = 流出</td><td>电荷守恒；n 个节点只有 n−1 条独立方程</td></tr>
+                <tr><td>9</td><td>KVL：绕一圈电压升降相等</td><td>串联分压、限流电阻 <code class="icode">R = (Us − Vf)/I</code></td></tr>
+                <tr><td>10</td><td>电位相对、电压绝对</td><td>换参考点电位全变，电压不变；共地是通信的前提</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="quiz" class="mt-8 text-base font-semibold">自测题（先自己算，再看答案）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 1 题（参考方向）：</b>某个元件上，电压 u 的参考极性是「左 + 右 −」，电流 i 的参考方向是「从右端流入、从左端流出」。这是关联还是非关联？如果算得 <code class="icode">u = 6V</code>、<code class="icode">i = 0.5A</code>，这个元件是电源还是负载，功率是多少？</p>
+          <p class="mt-3"><b class="font-semibold text-ink">第 2 题（KCL）：</b>一个节点上有四条支路：两条流入，分别是 1.2A 和 0.5A；两条流出，其中一条是 0.9A，另一条未知（参考方向标为流出）。求未知电流的大小和真实方向。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">第 3 题（KVL + 限流电阻）：</b>用 3.3V 电源点一颗蓝色 LED（按典型值 <code class="icode">Vf = 3.0V</code>），希望电流 5mA。限流电阻取多大（靠到 E24 标准值）？实际电流是多少？电阻要选多大功率？</p>
+          <p class="mt-3"><b class="font-semibold text-ink">第 4 题（串并联）：</b>两个电阻 <code class="icode">R₁ = 3kΩ</code>、<code class="icode">R₂ = 6kΩ</code>：(a) 串联后的等效电阻是多少？(b) 并联后的等效电阻是多少？(c) 如果并联后总电流是 9mA，流过 R₁ 的是多少？</p>
+          <p class="mt-3"><b class="font-semibold text-ink">第 5 题（电位）：</b>某电路里，以 C 点为参考点时 <code class="icode">V<sub>A</sub> = 5V</code>、<code class="icode">V<sub>B</sub> = −3V</code>。若改成以 B 点为参考点，A、C 两点的电位分别是多少？A 与 C 之间的电压变了吗？</p>
+          <p class="mt-3"><b class="font-semibold text-ink">第 6 题（功率校核）：</b>一个 9V 电源给一个串联回路供电：回路里有一个 220Ω 电阻和一个 <code class="icode">Vf = 2.0V</code> 的 LED。求回路电流、电阻上的功率、电源发出的功率，并验证功率守恒。</p>
+          <p class="mt-3"><b class="font-semibold text-ink">第 7 题（综合判断）：</b>有人说：「我在 5V 模块的输出和 STM32 引脚之间串了一个 10kΩ 电阻，量了一下引脚上是 5V，所以这个电阻根本没用，厂商在骗人。」请指出这句话里对的部分和错的部分。</p>
+
+          <p class="mt-5"><b class="font-semibold text-ink">参考答案：</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="自测题答案与关键步骤">
+            <pre><code>【第 1 题】
+   电流从「−」端（右端）流入、从「+」端（左端）流出 → 电流从 + 端【流出】
+   → 【非关联参考方向】
+   非关联下 p = u · i 为正表示发出：
+        p = 6V × 0.5A = 3W   → 【发出】功率 3W，它是【电源】
+   ★ 换个角度验算：真实电流从 + 端流出，符合「电源」的物理判据 ✅
+
+【第 2 题】
+   设未知电流为 i（参考方向为流出）。KCL（流出为正）：
+        −1.2 − 0.5 + 0.9 + i = 0
+        i = 1.7 − 0.9 = 0.8A
+   i 为正 → 真实方向与参考方向一致：从节点【流出】0.8A
+   校核：流入 1.7A，流出 0.9 + 0.8 = 1.7A ✅
+
+【第 3 题】
+   KVL：3.3V = u_R + Vf  →  u_R = 3.3 − 3.0 = 0.3V
+   欧姆定律：R = u_R / i = 0.3V / 0.005A = 60Ω
+   E24 标准值里取 62Ω（最接近）；实际电流 i = 0.3V / 62Ω = 4.84mA
+   电阻功率：P = u_R × i = 0.3V × 0.00484A = 1.45mW
+   → 任何封装都绰绰有余（0603 的额定 100mW，占 1.5%）
+   ⚠ 顺便提醒：蓝色 LED 的 Vf 有 2.8~3.4V 的分散性，
+     如果这颗的 Vf 是 3.3V，那么 u_R = 0，电流完全失控。
+     所以「用 3.3V 电源点蓝色/白色 LED」本身就是个脆弱的方案 ——
+     应该用 5V 供电，或者用恒流驱动。这是括号里那句话的真正含义。
+
+【第 4 题】
+   (a) 串联：R_eq = 3k + 6k = 9kΩ
+   (b) 并联：R_eq = 3k × 6k / (3k + 6k) = 18M / 9k = 2kΩ
+   (c) 分流公式（分子是【对方】的电阻）：
+       i₁ = i × R₂ / (R₁ + R₂) = 9mA × 6k / 9k = 6mA
+   校核：i₂ = 9mA × 3k / 9k = 3mA，6 + 3 = 9mA ✅
+   也可以这样验：并联 2kΩ 上的电压 = 9mA × 2kΩ = 18V，
+       则 i₁ = 18V / 3kΩ = 6mA ✅ 两条路都对得上
+
+【第 5 题】
+   以 C 为参考点时：V_A − V_B = 5 − (−3) = 8V（这个差值不会变）
+   改成以 B 为参考点：
+        V_B = 0V
+        V_A = +8V        （A 比 B 高 8V）
+        V_C = +3V        （C 比 B 高 3V；因为原来 V_B 比 V_C 低 3V）
+   A 与 C 之间的电压：原来 5 − 0 = 5V；现在 8 − 3 = 5V ✅ 【没有变】
+   ★ 结论：电位是相对量，电压是绝对量。
+
+【第 6 题】
+   KVL：i = (9 − 2.0) / 220 = 7 / 220 = 0.03182A ≈ 31.8mA
+   电阻功率：P_R = i²R = (0.03182)² × 220 = 0.2227W ≈ 222.7mW
+        （换个算法：u_R = 7V，P = 7 × 0.03182 = 0.2227W ✅）
+   LED 功率：P_LED = 2.0 × 0.03182 = 0.0636W ≈ 63.6mW
+   电源发出：P_S = 9 × 0.03182 = 0.2864W ≈ 286.4mW
+   守恒校核：222.7 + 63.6 = 286.3mW ✅（0.1mW 是四舍五入）
+   ⚠ 222.7mW 已经接近 1/4W 电阻的额定值，必须用 1/2W 以上。
+
+【第 7 题】
+   ✅ 对的部分：引脚上量到的确实是 5V。因为串电阻只在【有电流】时才有压降，
+      而输入引脚是高阻态，电流极小 → 电阻上几乎没有压降 → 电压没被降下来。
+   ❌ 错的部分：「所以这个电阻根本没用」。它的作用不是降压，而是
+      【限制灌进引脚保护二极管的电流】：5V 经过 10kΩ 时电流
+      i ≈ (5 − 4.0)/10kΩ = 0.1mA，远低于 ±5mA 的注入电流上限，
+      所以芯片不会立刻损坏。
+   ⚠ 但正确的做法仍然是分压 / 电平转换 / 换 3.3V 器件：
+      这 0.1mA 是灌进 VDD 网络的，会抬高电源轨、干扰 ADC，
+      而且多路信号叠加时问题会放大。
+   ★ 一句话：它确实「有用」，但它的用途和你以为的不是一回事 ——
+      这就是第 5 节坑 9 的内容。</code></pre>
+          </div>
+
+          <h3 id="practice" class="mt-8 text-base font-semibold">练习（动手做，比看答案有用十倍）</h3>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">练习 1：把你手边任意一块开发板的 LED 电路「算回来」。</b>找到板载 LED 和它的限流电阻（蓝药丸上是 PC13 + 一颗贴片电阻，常见 470Ω 或 1kΩ），用万用表或丝印确认阻值，然后算出：电阻上的电压是多少、电流是多少、电阻耗散多少功率、IO 引脚是否超过它的上限。<b>把过程和结论写在纸上拍照存档</b>——这是你第一份「电路分析报告」。</li>
+            <li><b class="font-semibold text-ink">练习 2：用万用表验证参考方向的含义。</b>搭一个 5V 电源 + 330Ω + 红色 LED 的回路，用电流档串进去测电流。然后把红黑表笔对调再测一次，记录两次的读数。<b>写下你的结论</b>：为什么两次读数差一个负号，而真实电流并没有变？</li>
+            <li><b class="font-semibold text-ink">练习 3：设计一个 24V 转 3.0V 的分压采样网络。</b>要求 ADC 引脚上的电压在 24V 输入时为 3.0V，且源阻抗不超过 10kΩ。给出 R₁、R₂ 的取值（靠到 E24 标准值）、静态电流、以及满量程对应的最大可测电压。<b>提示</b>：先定分压比 3.0/24 = 1/8，再用「源阻抗 = R₁∥R₂ ≤ 10kΩ」这个约束去反推。</li>
+            <li><b class="font-semibold text-ink">练习 4：做一张自己的「功率预算表」。</b>假设你要做一个项目：STM32F103 + 8 颗 LED（各 10mA）+ OLED（20mA）+ 一个 5V 继电器模块（线圈 70Ω，经三极管驱动）。逐项列出：谁耗多少功率、总电流是多少、3.3V 电源（LDO，标称 800mA）够不够、GND 回路要过多大电流。<b>这张表就是第 4 节代码注释里那份账本的完整版。</b></li>
+          </ul>
+
+          <div class="callout callout-tip mt-6">
+            <div class="callout-title">学完这一篇，你应该能做到的三件事</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li>看到任何一个两元件以上的电路，能<b>独立列出 KCL 与 KVL 方程</b>并解出未知量。</li>
+              <li>看到任何一个元件，能判断它是<b>电源还是负载</b>，并算出它的功率。</li>
+              <li>拿到一个 LED 或者一个分压需求，能<b>从零把电阻值和功率等级算出来</b>，而不是抄别人的原理图。</li>
+            </ul>
+            <p class="mt-2">如果这三件事你现在还做不到，别急着往下走——把第 3 节的四道例题盖住答案自己重做一遍，比读下一篇的效率高得多。</p>
+          </div>
+
+          <h3 id="next-read" class="mt-7 text-base font-semibold">下一篇讲什么</h3>
+          <p class="mt-3">这一篇给了你两条定律和一条元件规律，但它们都是「对着一整个电路列方程」。下一篇《电阻电路的等效变换与分压分流》会教你一套<b>简化技巧</b>：串并联公式的系统用法、Y-Δ 变换、以及「电源加内阻」怎么等效成一个电压源加一个电阻（戴维南等效）。<b>学会等效以后，你面对一个复杂的采样网络，可以几秒钟就看出它的分压比和源阻抗</b>——那是这一篇的自然延伸。</p>
+
+          <h3 id="refs" class="mt-7 text-base font-semibold">延伸阅读</h3>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>回到知识地图看完整书单与顺序 → <a class="text-brand-600 dark:text-brand-300" href="../knowledge.html#layer-1">知识地图 · 学科基础（第 1 层）</a></li>
+            <li>电路理论第 2 篇：串并联、Y-Δ 与戴维南等效 → <a class="text-brand-600 dark:text-brand-300" href="ee-circuit-equivalent.html">电阻电路的等效变换与分压分流</a></li>
+            <li>这些定律在真实板子上的第一次应用（3.3V 与 5V 器件怎么对接） → <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-level.html">3.3V 电平与硬件安全</a></li>
+            <li>算好的电阻值想去查标准档位 → <a class="text-brand-600 dark:text-brand-300" href="../tools.html">在线工具</a>里的电阻色环与分压计算器</li>
+          </ul>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="../knowledge.html#layer-1" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">知识地图 · 学科基础</p>
+          </a>
+          <a href="ee-circuit-equivalent.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：继续电路理论 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">电阻电路的等效变换与分压分流</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

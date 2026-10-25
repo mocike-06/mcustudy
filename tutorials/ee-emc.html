@@ -1,0 +1,2150 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>电磁兼容与抗干扰基础 - McuStudy</title>
+  <meta name="description" content="知识体系第一篇电路理论第 7 篇：代码没错、板子却抽风，八成是干扰。干扰的三要素、五种常见来源、传导与辐射、共模与差模怎么判别、单点接地与地环路、屏蔽与双绞线、去耦电容/磁珠/共模电感/TVS 怎么选、光耦与继电器隔离、续流二极管为什么必须加、PCB 抗干扰布局、软件抗干扰（看门狗/指令冗余/软件陷阱/数字滤波/表决），含三道数值例题与 ASCII 电路图。">
+  <meta name="keywords" content="电磁兼容,EMC,抗干扰,干扰三要素,共模干扰,差模干扰,单点接地,模拟地数字地,地环路,屏蔽,双绞线,去耦电容,磁珠,共模电感,TVS,压敏电阻,光电隔离,续流二极管,反电动势,PCB布局,晶振包地,看门狗,指令冗余,软件陷阱,数字滤波,多次采样表决,RS485,继电器干扰">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">电磁兼容与抗干扰基础</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          电磁兼容与抗干扰基础
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你一定遇到过这种场面：板子单独放在桌上跑得好好的，一接上继电器、电机或者旁边那台变频器，程序就开始抽风——屏幕花屏、串口收到乱码、ADC 读数上下乱跳，严重的时候几秒钟复位一次。你把代码翻来覆去改了三遍，寄存器配置一个字都没错，可问题依旧。<b class="font-semibold text-ink">这一篇讲的就是这类「代码解释不了的故障」</b>：干扰从哪来、怎么钻进你的板子、又该怎么在原理图、PCB 和代码三个层面把它挡住。它是张毅刚《单片机原理及应用》第 13 章「抗干扰与可靠性设计」的通俗版，也是你把作品从「实验台上能跑」做到「现场能用」之间必须跨过的那道坎。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="badge-brand">学科基础</span>
+          <span class="stat-pill">第 1 层 · 电路理论</span>
+          <span class="stat-pill">第 <b>7</b> 篇</span>
+          <span class="stat-pill">教材：<b>张毅刚 第 13 章</b></span>
+          <span class="stat-pill">平台：<b>51 / STM32 通用</b></span>
+          <span class="stat-pill">阅读约 <b>34</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-three-elements">干扰的三要素</a>
+          <a class="toc-link is-sub" href="#sub-sources">干扰从哪里来</a>
+          <a class="toc-link is-sub" href="#sub-conducted-radiated">传导干扰与辐射干扰</a>
+          <a class="toc-link is-sub" href="#sub-cm-dm">共模与差模：怎么区分</a>
+          <a class="toc-link is-sub" href="#sub-grounding">接地：一门关于回路的学问</a>
+          <a class="toc-link is-sub" href="#sub-shield">屏蔽与双绞线</a>
+          <a class="toc-link is-sub" href="#sub-filter">滤波器件四件套</a>
+          <a class="toc-link is-sub" href="#sub-isolation">隔离与续流</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-relay-drive">驱动继电器：续流二极管</a>
+          <a class="toc-link is-sub" href="#sub-key-long">长导线按键与 ADC 跳动</a>
+          <a class="toc-link is-sub" href="#sub-long-comm">长距离通信与地环路</a>
+          <a class="toc-link is-sub" href="#sub-pcb">PCB 抗干扰布局要点</a>
+          <a class="toc-link is-sub" href="#sub-software">软件抗干扰</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-three-elements">干扰的三要素</a>
+            <a class="toc-link is-sub" href="#sub-sources">干扰从哪里来</a>
+            <a class="toc-link is-sub" href="#sub-conducted-radiated">传导干扰与辐射干扰</a>
+            <a class="toc-link is-sub" href="#sub-cm-dm">共模与差模：怎么区分</a>
+            <a class="toc-link is-sub" href="#sub-grounding">接地：一门关于回路的学问</a>
+            <a class="toc-link is-sub" href="#sub-shield">屏蔽与双绞线</a>
+            <a class="toc-link is-sub" href="#sub-filter">滤波器件四件套</a>
+            <a class="toc-link is-sub" href="#sub-isolation">隔离与续流</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-relay-drive">驱动继电器：续流二极管</a>
+            <a class="toc-link is-sub" href="#sub-key-long">长导线按键与 ADC 跳动</a>
+            <a class="toc-link is-sub" href="#sub-long-comm">长距离通信与地环路</a>
+            <a class="toc-link is-sub" href="#sub-pcb">PCB 抗干扰布局要点</a>
+            <a class="toc-link is-sub" href="#sub-software">软件抗干扰</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先说三个我亲眼见过的现场。它们有一个共同点：<b class="font-semibold text-ink">用调试器单步跑，一切都是对的；一放进真实环境，就全错了。</b></p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="三个「代码没问题但板子抽风」的现场">
+            <pre><code>【现场一】继电器一吸合，液晶就花屏
+   现象：温度采集仪平时显示正常，每次继电器动作的瞬间，
+         液晶屏上出现一片乱码，1 秒后又恢复正常。
+   查代码：显示刷新逻辑没有任何问题；单步调试一切正常。
+   真实原因：继电器线圈断电瞬间产生上千伏的感应尖峰，
+             顺着电源线和地线窜进单片机，把液晶的数据线"打乱"了。
+
+【现场二】电机一转，ADC 读数就跳
+   现象：用 ADC 读电位器，静止时读数稳定在 2048 附近；
+         旁边的直流电机一启动，读数在 1900 ~ 2200 之间乱跳。
+   查代码：已经做了 8 次求平均，还是跳。
+   真实原因：电机换向时产生的噪声通过【共用的那段地线】传过来，
+             叠加在 ADC 的参考地和输入上；求平均只能压随机噪声，
+             压不住这种周期性干扰。
+
+【现场三】实验室通信正常，到了现场就掉线
+   现象：RS-485 总线在实验室 5 米双绞线上跑得好好的，
+         装到车间的设备上，每隔十几分钟丢一帧。
+   查代码：波特率、校验、超时重发都写了。
+   真实原因：两端设备的地之间存在几伏的电位差（地电位差），
+             这条"地环路"把变频器的干扰直接耦合进了差分线。</code></pre>
+          </div>
+
+          <p class="mt-3">看出共同点了吗？<b class="font-semibold text-ink">这些故障的根源不在你的代码里，而在「电」这个层面。</b>你的程序没错，是芯片在某个瞬间被外部的电压尖峰、电流突变或者空间电磁场「推」了一下：某个引脚误读了一个跳变、复位脚被拉低了几十纳秒、ADC 的参考电压抖了一下。程序只会忠实地按照读到的错误数据做出错误的动作。</p>
+
+          <p class="mt-3">而这些「推一下」的来源，可以统一用三个词描述清楚，这就是抗干扰理论里最基础、也是最有用的一个模型——<b class="font-semibold text-ink">干扰的三要素</b>：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="干扰的三要素：源 — 路径 — 受害者">
+            <pre><code>                    ┌───────────────────┐
+                    │     ① 干扰源       │   电网波动 / 继电器线圈 / 电机电刷
+                    │  （噪声发生器）    │   静电放电 / 射频发射 / 开关电源
+                    └─────────┬─────────┘   晶闸管调功器 / 变频器 / 电焊机
+                              │
+                              │  ② 耦合路径（噪声的"运输方式"）
+                              │     · 传导：顺着导线、地线、电源线跑
+                              │     · 辐射：以电磁波的形式穿过空间
+                              │     · 容性耦合：两条线之间的杂散电容
+                              │     · 感性耦合：两条线之间的互感
+                              ▼
+                    ┌───────────────────┐
+                    │    ③ 敏感设备      │   单片机本体 / ADC / 复位脚
+                    │   （受害者）       │   晶振 / 通信芯片 / 小信号传感器线
+                    └───────────────────┘
+
+【最重要的一句话】
+    三要素缺一不可。所以抗干扰只有三条路，打断任意一条就赢了：
+
+    ① 掐掉干扰源：加续流二极管、加 RC 吸收、给电机加滤波、换用软开关
+    ② 切断耦合路径：屏蔽、双绞、隔离、滤波、拉开距离、缩小环路面积
+    ③ 加固受害者：去耦电容、降低输入阻抗、软件滤波、看门狗、重复表决
+
+    新手最容易犯的错：只盯着第③条（在代码里加滤波），
+    而现场 80% 的问题应该在第①②条解决。</code></pre>
+          </div>
+
+          <p class="mt-3">这门知识在你的单片机开发生涯里长什么样？它不是一门独立的课，而是<b class="font-semibold text-ink">分散在你每天都要碰的三样东西里</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>你手上的东西</th><th>抗干扰的体现</th><th>不懂的人会怎样</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>原理图上那些"多余"的元件</b></td>
+                  <td>每个电源脚旁的 100nF 去耦电容、继电器线圈上反并联的 1N4148、通信线上的共模电感、入口处的 TVS 管</td>
+                  <td>觉得「这些不影响功能」就全部省掉，板子做出来在实验室能用、在现场天天死机</td>
+                </tr>
+                <tr>
+                  <td><b>PCB 上的铜皮和走线</b></td>
+                  <td>地平面、电源分区、晶振四周的包地过孔、模拟地与数字地的单点汇接、大电流回路的面积</td>
+                  <td>用自动布线一把梭，地线走成细细的树杈状，结果 ADC 精度上不去、复位随机触发</td>
+                </tr>
+                <tr>
+                  <td><b>代码里的守护逻辑</b></td>
+                  <td>看门狗、指令冗余、软件陷阱、数字滤波、多次采样表决、通信校验与重发</td>
+                  <td>程序跑飞以后再也回不来，只能靠人拔电重启——工业现场这是不可接受的</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">接下来这三条「卡点」，几乎是每个从实验台走向现场的人都会撞上的，你可以对号入座：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">卡点一：分不清现象是软件问题还是干扰问题。</b>程序复位、数据错乱、通信丢包，这三件事的软件原因和硬件原因长得一模一样。分不清，你就会在代码里反复折腾，永远修不好。</li>
+            <li><b class="font-semibold text-ink">卡点二：知道要加电容、加二极管，但不知道该加多大、加在哪。</b>去耦电容放远了等于没放；续流二极管接反了等于没接；磁珠选错频段，噪声照样过去。这一篇会把这些「怎么选、放哪里」讲清楚。</li>
+            <li><b class="font-semibold text-ink">卡点三：遇到干扰没有系统的排查顺序。</b>正确的顺序是：先断开干扰源 → 再确认耦合路径 → 最后才动代码。顺序反了，你会把时间全花在最不该花的地方。</li>
+          </ul>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一篇在知识体系里的位置</div>
+            <p>它是「第 1 层 · 学科基础 → 电路理论」的第 7 篇，教材出处是张毅刚《单片机原理及应用》第 4 版第 13 章「抗干扰与可靠性设计」。前面几篇讲的是「怎么让电路按你的意思工作」（电阻、电容、正弦稳态、半导体、电源），这一篇讲的是<b>「怎么让电路在别人捣乱的时候也能按你的意思工作」</b>——这是从「功能正确」到「产品可靠」的那一级台阶。</p>
+            <p class="mt-2">本篇不要求你会解麦克斯韦方程。所有结论都落在「你该在原理图上加什么、PCB 上怎么走、代码里写什么」这三件事上。<b>凡是涉及数值的地方，我都会写清出处或注明是「按典型值估算」。</b></p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+          <p class="mt-4">这一节是全文的主体，八个概念一个扣一个：先认识敌人（三要素、五种来源），再看它怎么走路（传导与辐射、共模与差模），然后学三套挡它的办法（接地、屏蔽与双绞、滤波与隔离）。<b class="font-semibold text-ink">建议按顺序读，不要跳。</b></p>
+
+          <h3 id="sub-three-elements" class="mt-7 text-base font-semibold">一、干扰的三要素：源、路径、受害者</h3>
+          <p class="mt-3">抗干扰这件事，最怕的是「凭感觉治」。你听说去耦电容有用就到处加电容，听说屏蔽有用就给所有线套上屏蔽层，结果钱花了、板子重了，问题还在。要治得准，就得先把一次干扰事件拆成三段：<b class="font-semibold text-ink">谁在制造噪声（干扰源）、噪声走哪条路过来（耦合路径）、谁被它害了（敏感设备）。</b></p>
+
+          <p class="mt-3">这三段串起来才构成一次干扰。反过来说，<b class="font-semibold text-ink">你只要切断其中任意一段，这次干扰就不成立了</b>。这就是抗干扰的全部方法论，剩下的都是具体手段。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>要素</th><th>在你板子上的具体身份</th><th>对应的手段</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>① 干扰源</b></td>
+                  <td>继电器/接触器线圈、直流电机与电刷、开关电源的开关管、变频器、可控硅调功器、日光灯镇流器、电焊机、人体静电、手机与对讲机的射频、雷电</td>
+                  <td>加续流二极管、加 RC 吸收（snubber）、加磁环、给电机端子加滤波、选用带滤波的电源模块</td>
+                </tr>
+                <tr>
+                  <td><b>② 耦合路径</b></td>
+                  <td>共用的电源线、共用的地线、平行走的两条长线、空间里的电磁场、电缆之间的杂散电容与互感</td>
+                  <td>屏蔽、双绞、光电隔离、共模电感、拉开距离、缩小回路面积、单点接地</td>
+                </tr>
+                <tr>
+                  <td><b>③ 敏感设备</b></td>
+                  <td>单片机本体（尤其是复位脚、时钟脚、中断脚）、ADC 输入、运放的小信号输入、I²C/SPI 的时钟线、晶振电路</td>
+                  <td>去耦电容、降低输入阻抗、缩短敏感走线、加软件滤波与看门狗、多次采样表决</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">排查时按「源 → 路径 → 受害者」的顺序问自己三个问题</div>
+            <p><b>问题一：干扰源是什么时候动作的？</b>把现象的时间点和现场的动作对起来。如果每次都是「继电器吸合的那一瞬间」出问题，那干扰源基本就锁定了。这一步能省掉你一半的排查时间。</p>
+            <p class="mt-2"><b>问题二：它可能走哪条路？</b>看看干扰源和你的板子之间，有没有共用的导线（电源、地）、平行的长线、或者靠得很近的电缆。有共用导线，就是传导；只是靠得近没有电气连接，就是辐射或场耦合。</p>
+            <p class="mt-2"><b>问题三：哪个环节最敏感？</b>做个实验：把怀疑的引脚（比如复位脚）直接短接到地或者加上电容试试，如果现象消失，说明受害者就是它。找到了最敏感的点，就可以针对性地加固，而不必整板大改。</p>
+          </div>
+
+          <p class="mt-3">还有一个很重要的观念：<b class="font-semibold text-ink">干扰不可能被「消灭」，只能被「压低」。</b>工程上追求的是「把干扰压到设备能正常工作的水平」，而不是「完全没有干扰」。所以抗干扰设计是一个成本与可靠性之间的平衡：实验室里的玩具可以什么都不加，工业现场的设备必须层层设防。你以后看到那些「看起来很啰嗦」的电路（一堆电容、电感、二极管、光耦），其实每一颗都在挡某一条特定的路径。</p>
+
+          <h3 id="sub-sources" class="mt-7 text-base font-semibold">二、干扰从哪里来：五种你天天都会遇到的源头</h3>
+          <p class="mt-3">干扰源的种类千千万，但在单片机开发这个场景里，<b class="font-semibold text-ink">95% 的麻烦来自下面五种</b>。认识它们各自的「脾气」，你就知道该在哪儿下手。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">来源一：电网波动与电源噪声。</b>市电并不是干净的 220V 正弦波。同一个插线板上的电钻、空调、日光灯，都会把尖峰、凹陷、谐波灌进电网。典型的表现是：<b>电网电压在几十微秒内出现几百伏的尖峰</b>（感性负载断开时产生），或者电压瞬间跌落到额定值的 60%（大负载启动时）。这些噪声沿着你的电源适配器、LDO 一路传进单片机。这是最普遍、也最容易被忽略的一条——因为你「看不见」它。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">来源二：继电器与电机的反电动势。</b>这是本章的主角，也是新手第一次栽跟头的地方。继电器线圈和电机绕组都是<b>电感</b>，而电感的脾气是「电流不能突变」：你给它的电流一旦被强行切断，它就会用极高的反向电压来「反抗」，试图维持原来的电流。这个电压有多高？在后面的例题里我们会算出来——<b>对于一只普通的 5V 继电器，理论上可以到几千伏</b>。它足以击穿驱动三极管，并且顺着电源线和地线窜进单片机。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="为什么电感会产生高压尖峰（直观理解）">
+            <pre><code>【电感的基本关系】      u = L × (di / dt)
+
+    u  ：电感两端的电压（V）
+    L  ：电感量（H，亨利）
+    di ：电流的变化量（A）
+    dt ：变化所用的时间（s）
+
+【看懂这个公式的两句话】
+   ① 电流变化越快（dt 越小），电压越高。
+      开关断开的时间通常在微秒甚至纳秒级，dt 极小 → u 极大。
+   ② 电流变化越大（di 越大），电压越高。
+      继电器线圈 71mA 的电流在 1 微秒内被切断：
+          u = 0.1H × 0.071A / 0.000001s = 7100V（理论峰值）
+
+【物理图像】
+   稳态时：线圈里流着电流，能量以磁场的形式存在，
+           储能 W = ½ × L × I²
+   断开瞬间：磁场要塌缩，电感拼命想维持电流，
+             于是把电压"顶"得很高，直到找到另一条路把电流放掉。
+   续流二极管做的事：给它一条安全的回流的路径，
+             让电流慢慢衰减，而不是硬生生被切断。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">来源三：静电放电（ESD）。</b>冬天你摸门把手被电一下，那个电压大概是 <b>2kV ~ 15kV</b>，放电电流的上升时间可以短到 <b>1ns 以内</b>，峰值电流几安培到几十安培。对芯片来说，这是一次实实在在的「雷击」。它主要有两条危害路径：一是直接打在你裸露的接口（USB 口、按键、外接端子）上，二是通过人手接触到板子。注意：<b>芯片内部的 ESD 保护二极管只能扛住人体模型（HBM）等级的两千伏左右，而且只有一次机会——扛过一次之后它就弱了。</b>所以接口处该加的 TVS 一定要加。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">来源四：射频干扰（RF）。</b>对讲机、手机、WiFi 路由器、无线路由器、开关电源的辐射，都会在导线上感应出高频电压。射频干扰的两个特点是：<b>频率高（几十 MHz 到几 GHz）、能量小但足以让数字电路误判</b>。为什么小能量也能捣乱？因为数字电路判断高低电平靠的是电压门限，一根长导线在射频下就变成了天线，只要感应出几百毫伏，就足以让一个本来应该是低电平的引脚被读成高电平——尤其在<b>时钟线、复位线和中断线</b>上，一次误判就是一次系统级故障。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">来源五：地线噪声（也叫「地弹」或公共阻抗耦合）。</b>这一条最抽象，但也是最容易被误判的一条。<b>很多人以为「地」是绝对的 0V，事实并非如此。</b>地线是有电阻和电感的，只要有电流流过，地线上就一定有电压差：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">电阻性压降：</b>一段 10cm 长、1mm 宽的 PCB 铜箔，电阻约 5mΩ。当 1A 的电流（比如电机启动）流过时，这段「地」上就有 5mV 的压降。听起来很小，但 ADC 的 12 位分辨率在 3.3V 下每个 LSB 只有 0.8mV——<b>5mV 已经是 6 个 LSB 的误差了。</b></li>
+            <li><b class="font-semibold text-ink">电感性压降：</b>同样一段铜箔的电感约 10nH。如果流过它的电流在 100ns 内变化 1A（数字电路翻转的典型速度），感应电压 = L × di/dt = 10nH × 1A / 100ns = <b>0.1V</b>。这个量级足够让一个 3.3V 系统的逻辑判断出错。</li>
+          </ul>
+
+          <p class="mt-3">所以「地线噪声」的本质是：<b>两个本该各自安好的电路，因为共用了一段地线，通过这段地线的阻抗互相干扰。</b>你板子上那根细长的、从板子一头绕到另一头的地线，就是最典型的「公共阻抗」。这也是下一节讲「接地」时要重点解决的问题。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>来源</th><th>典型幅度 / 特征</th><th>主要耦合方式</th><th>第一道防线</th></tr></thead>
+              <tbody>
+                <tr><td><b>电网波动</b></td><td>尖峰几百伏；跌落至额定 60%</td><td>传导（电源线）</td><td>电源入口加 TVS + 压敏电阻 + 共模电感；加大滤波电容</td></tr>
+                <tr><td><b>继电器 / 电机反电动势</b></td><td>理论峰值可达数千伏；实际几十~几百伏</td><td>传导（电源、地）+ 辐射（触点火花）</td><td>线圈反并联续流二极管；触点加 RC 吸收；负载独立供电</td></tr>
+                <tr><td><b>静电 ESD</b></td><td>2kV ~ 15kV；上升时间小于 1ns</td><td>传导（直接注入）+ 辐射</td><td>接口处加 TVS（如 SMBJ5.0A）；金属外壳就近泄放</td></tr>
+                <tr><td><b>射频 RF</b></td><td>场强几 V/m；线上感应几百 mV</td><td>辐射 → 导线天线效应</td><td>缩短敏感走线；加磁珠/共模电感；必要时屏蔽</td></tr>
+                <tr><td><b>地线噪声</b></td><td>mV ~ 百 mV 级</td><td>传导（公共地阻抗）</td><td>单点接地 / 分区铺地 / 加粗地线 / 降低回路面积</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-conducted-radiated" class="mt-7 text-base font-semibold">三、传导干扰与辐射干扰：噪声的两种走路方式</h3>
+          <p class="mt-3">按「噪声怎么从 A 走到 B」来分，干扰只有两大类，这个分类决定了你要用什么手段去挡它。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">传导干扰（Conducted）：噪声顺着导体跑。</b>它的载体是实实在在的金属：电源线、信号线、地线、机壳。因为噪声和你的有用信号在同一条线上，所以<b>对付它的手段是「滤波」和「隔离」</b>——在噪声进入你的电路之前把它滤掉，或者干脆用光耦、变压器把两边的电气连接切断。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">辐射干扰（Radiated）：噪声以电磁波的形式穿过空间。</b>它不需要任何导体连接，只要有交变电流，就会向空间发射电磁波（这就是「天线」的定义）。<b>对付它的手段是「屏蔽」「双绞」「缩小回路面积」</b>——要么把电磁波挡在外面，要么让导线不去接收它。辐射强度与频率的平方成正比，所以<b>高频噪声哪怕电流很小，辐射能力也可能很强</b>。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">一个实用的分界线：30MHz</div>
+            <p>在电磁兼容的行业标准里（比如 GB/T 17626 系列、CISPR 系列），<b>30MHz 通常被当作传导与辐射的分界参考</b>：低于 30MHz 时，干扰主要通过导线传导（因为这个时候要把信号有效辐射出去，需要很长的天线）；高于 30MHz 时，辐射耦合开始占主导。这个数字不是物理定律，而是一个工程上的经验分界。</p>
+            <p class="mt-2">对你最有用的一条推论是：<b>30MHz 以下的问题优先查导线和滤波，30MHz 以上的问题优先查空间布局和屏蔽。</b>而你的板子上最容易产生高频的，恰恰是那些「看起来很干净」的数字信号——它们的上升时间只有几纳秒，谐波能一直延伸到几百 MHz。</p>
+          </div>
+
+          <p class="mt-3">两种干扰的对比，连同它们的「近亲」——容性耦合与感性耦合——一起放在这张表里：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>角度</th><th>传导干扰</th><th>辐射干扰</th></tr></thead>
+              <tbody>
+                <tr><td>传播介质</td><td>金属导体（导线、铜箔、机壳）</td><td>空间（不需要导体相连）</td></tr>
+                <tr><td>主要频段</td><td>150kHz ~ 30MHz（行业惯例）</td><td>30MHz 以上为主</td></tr>
+                <tr><td>典型来源</td><td>开关电源纹波、继电器尖峰、电机换向、电网谐波</td><td>数字信号的高次谐波、开关节点、晶振、电缆天线效应</td></tr>
+                <tr><td>在你的板子上表现为</td><td>电源轨上的纹波与尖峰、地线上的压降</td><td>附近收音机有噪声、对讲机一发射板子就死、辐射发射测试超标</td></tr>
+                <tr><td>主要对策</td><td>去耦电容、共模电感、磁珠、TVS、光电隔离、LC 滤波</td><td>缩小回路面积、双绞、屏蔽、铺地平面、缩短走线、降低上升速度</td></tr>
+                <tr><td>新手常犯的错</td><td>只加大电容不管高频，把电解电容当万能药</td><td>把敏感信号线走得又长又直，等于给自己装了一根天线</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">还有两种「近场」耦合，值得单独记一下，因为它们解释了「为什么两根线并排走会串扰」：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">容性耦合（电场耦合）：</b>两条平行走线之间存在杂散电容（几十皮法很常见）。一条线上的电压跳变会通过这个电容在另一条线上「推」出一个电流尖峰。<b>电压变化越快（dv/dt 越大），串扰越严重。</b>对策：拉开距离、走线之间加地线隔离（guard trace）。</li>
+            <li><b class="font-semibold text-ink">感性耦合（磁场耦合）：</b>两条线之间存在互感。一条线上的电流变化会在另一条线上感应出电压。<b>电流变化越快（di/dt 越大）、环路面积越大，串扰越严重。</b>对策：双绞、缩小回路面积、正交走线（两条线垂直交叉时互感最小）。</li>
+          </ul>
+
+          <h3 id="sub-cm-dm" class="mt-7 text-base font-semibold">四、共模与差模：怎么区分、怎么判别</h3>
+          <p class="mt-3">这是本章最核心、也最容易讲糊涂的一对概念。<b class="font-semibold text-ink">不要从「数学定义」去记，要从「电流走哪条路回家」去理解。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="共模与差模：看噪声电流怎么「回家」">
+            <pre><code>【差模干扰（Differential Mode，DM）】
+   噪声电流从一条线去，从另一条线回 —— 走的是一条正常的"来回"回路。
+
+        ┌────────── 信号线 A ──────────►─────────┐
+        │        （噪声电流 I 出去）              │   负载
+        └────────── 信号线 B ──────────◄─────────┘
+                 （噪声电流 I 回来）
+
+    特征：两条线上的噪声【幅度相等、方向相反】
+    危害：直接叠加在有用信号上（因为它和信号走同一条回路）
+    双绞线：能自动抵消（两条线扭在一起，接收到的磁场干扰互相抵消）
+
+
+【共模干扰（Common Mode，CM）】
+   噪声电流从两条线【一起】去，从「地」回来 —— 回路里包含大地。
+
+        ┌────────── 信号线 A ──────────►─────────┐
+        │                                        │   负载
+        └────────── 信号线 B ──────────►─────────┘
+                     │              │
+                     └──────┬───────┘
+                            │  ← 噪声电流从两条线一起流出去，
+                            ▼     再通过【地线 / 大地】流回来
+                    GND / 大地 / 机壳
+
+    特征：两条线上的噪声【幅度相等、方向相同】
+    危害：把两条线整体对地的电位"抬"起来。
+          单端输入电路会把这个电位当成信号读进去（错误）；
+          差分输入电路本来能抑制它，但共模电压太高会超出
+          接收芯片的共模输入范围（比如 RS-485 收发器的
+          共模范围是 −7V ~ +12V），超了就收不到数据。
+    双绞线：无效！必须用共模电感 / 隔离 / 屏蔽
+
+【一句话记忆】
+   差模 = 两条线"互相之间"有噪声        → 影响信号本身
+   共模 = 两条线"一起"相对大地有噪声    → 影响对地参考电位</code></pre>
+          </div>
+
+          <p class="mt-3">为什么这个区分如此重要？因为<b class="font-semibold text-ink">对付它们的器件完全不同</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>差模干扰</th><th>共模干扰</th></tr></thead>
+              <tbody>
+                <tr><td>电流回路</td><td>去与回都在信号线之间</td><td>去在信号线，回在地线/大地</td></tr>
+                <tr><td>两线电压关系</td><td>V<sub>A</sub> 升高、V<sub>B</sub> 降低（大小相等）</td><td>V<sub>A</sub>、V<sub>B</sub> 同时升高（大小相等、方向相同）</td></tr>
+                <tr><td>常见来源</td><td>电源纹波、同一回路上的开关噪声</td><td>地电位差、电缆接收的空间电磁场、静电放电</td></tr>
+                <tr><td>有效对策</td><td><b>X 电容</b>（跨接在两条线之间）、LC 滤波、双绞线</td><td><b>Y 电容</b>（线对地）、<b>共模电感</b>、屏蔽、光电隔离、浮地</td></tr>
+                <tr><td>双绞线有没有用</td><td><b>有用</b>，绞合让两线接收的干扰互相抵消</td><td><b>没用</b>（两条线同时被抬高，绞在一起也抵消不掉）</td></tr>
+                <tr><td>对 ADC 的影响</td><td>读数整体偏移或有规律的跳动</td><td>整个模拟系统的参考点被抬高，可能出现「读数正常但计算全错」</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">那在实验室里，怎么判断自己遇到的是共模还是差模？</b>有三种不需要专业设备就能做的判别方法：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种实用的共模 / 差模判别法">
+            <pre><code>【方法一】万用表法：分别量两条线对地的电压（最常用）
+
+   黑表笔固定在【板子的 GND】，红表笔分别量信号线 A 和 B 对地的电压。
+
+   · 如果 A 和 B 的电压【一高一低、变化方向相反】→ 差模为主
+       例：A 从 2.5V 升到 3.0V，同时 B 从 2.5V 降到 2.0V
+   · 如果 A 和 B 的电压【一起升高、一起降低】→ 共模为主
+       例：A 从 2.5V 升到 3.0V，同时 B 也从 2.5V 升到 3.0V
+   · 实际现场通常是"差模上面叠着共模"，先解决幅度大的那个。
+
+【方法二】示波器双通道相减法
+
+   通道 1 接 A，通道 2 接 B，用示波器的【数学运算 CH1 − CH2】：
+       · 做差之后的波形仍然有噪声 → 这部分是差模
+       · 做差之后波形干净，但两根线各自对地都有一模一样的噪声
+         → 这部分是共模
+   注意：两个探头的【地夹子要夹在同一点】，否则会引入新的地环路。
+
+【方法三】电感/电容试探法（工程上最快的验证）
+
+   · 在两条线之间跨接一个 0.1µF 电容（X 电容接法）：
+       噪声明显变小 → 以差模为主
+   · 在每条线对地各接一个 1nF 电容（Y 电容接法）：
+       噪声明显变小 → 以共模为主
+   · 在线上串一个共模电感（两线同向绕）：
+       噪声明显变小 → 确认是共模
+   ⚠ 这个只能用来【判断】，正式设计时电容容量要按安规要求选，
+      Y 电容尤其不能随便加大（涉及漏电流与安全）。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">共模干扰最阴的地方：它常常以「地电位差」的形式出现</div>
+            <p>两台设备分别插在不同的插座上，它们各自的「地」其实并不是同一个电位。由于供电线路的阻抗、负载电流的不同，<b>两个接地点之间可能存在几伏甚至几十伏的电位差</b>。当你用一根信号线把两台设备连起来时，这个电位差就会在信号线的屏蔽层或者回流路径上产生电流——<b>这就是所谓的「地环路（ground loop）」</b>，也是现场通信失败、模拟信号测量错误最常见的元凶。</p>
+            <p class="mt-2">它的可怕之处在于「实验室复现不出来」：实验室里所有设备插在同一个插线板上，地电位差几乎为零，于是怎么测都是好的。到了现场，两台设备相隔几十米，各有各的供电，问题立刻出现。<b>这也是为什么工业现场的长距离通信一定要用差分传输 + 隔离。</b></p>
+          </div>
+
+          <h3 id="sub-grounding" class="mt-7 text-base font-semibold">五、接地：一门关于「回路」的学问</h3>
+          <p class="mt-3">接地是抗干扰里被误解最深的一环。新手通常以为「地就是 0V，把所有 GND 连在一起天经地义」。但看完前面地线噪声的分析你应该已经明白了：<b class="font-semibold text-ink">地是一根有电阻、有电感的导线，上面流过的每一安培电流都会变成电压差。</b>所以接地的核心问题不是「连不连」，而是<b>「电流从哪条路流回源头」</b>。</p>
+
+          <p class="mt-3">接下来三种基本接地方式，你需要在不同的场合用不同的那一种。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种接地方式：串联单点、并联单点、多点">
+            <pre><code>【方式一】串联单点接地（最省事，但会互相干扰）
+   所有电路的地依次串在一根地线上：
+
+    电路A ──┬── 电路B ──┬── 电路C ──┬── 电源地
+            │           │           │
+          (iA+iB+iC)  (iB+iC)      (iC)
+          ↑ 地线电流叠加，越靠电源侧电流越大，压降越大
+          → 前面电路的动作会干扰后面电路的"地"参考点
+   适用：各电路电流都很小、且互不敏感的场合（比如纯数字逻辑板）
+
+【方式二】并联单点接地（噪声隔离最好，推荐用在混合信号板上）
+   每个电路各拉一根独立的地线，只在一个点上汇合：
+
+    电路A ──┐
+    电路B ──┼──────● 单点汇接（星型中心，一般选在电源滤波电容的负极）
+    电路C ──┘
+   优点：A 的电流不流过 B 的地线，彻底消除公共阻抗耦合
+   缺点：每个电路都要单独拉一根线，走线多；不适合高频
+         （长地线在高频下电感大，反而变成天线）
+
+【方式三】多点接地（高频必须这么做）
+   每个电路就近接到一块大的地平面（或机壳）上：
+
+    ┌──────────────────────────────────────┐
+    │  ═══════════ 整块地平面 ═══════════  │
+    └──┬──────────┬──────────┬─────────┬───┘
+       │          │          │         │
+     电路A      电路B      电路C     电源地
+   优点：每条接地路径都极短，高频阻抗低（平面电感小）
+   缺点：地平面本身成为公共阻抗，低频时容易引入地环路
+   适用：频率高于 10MHz 的数字电路、开关电源、射频电路
+
+【方式四】混合接地（实际工程中最常见）
+   低频部分（模拟、电源）用单点接地，高频部分（数字、射频）用多点接地，
+   两者在【一个点】上汇合。
+
+   → 单片机系统正是典型的混合系统：
+     模拟部分（ADC、传感器）低频、敏感 → 单点接
+     数字部分（MCU、SPI 时钟）高频、噪声大 → 就近接平面
+     两者的地在 ADC 芯片下方或电源滤波电容处【一点相连】</code></pre>
+          </div>
+
+          <p class="mt-3">接下来是单片机系统里必须分清的一对概念：<b class="font-semibold text-ink">模拟地（AGND）与数字地（DGND）</b>。它们本来是同一种铜，为什么要分开？</p>
+
+          <p class="mt-3">原因在于两者的「电流性格」完全不同。<b>数字地上的电流是脉冲式的</b>：单片机每次翻转 IO、每次 SPI 传输，都会瞬间抽取几十毫安的电流，上升沿只有几纳秒，因此 di/dt 极大，即使地线上只有 10nH 的电感，也会产生几十毫伏的尖峰。<b>模拟地上的电流是连续、微弱的</b>：ADC 和运放需要的是一个「安静」的参考点，任何几十毫伏的抖动都会变成几十个 LSB 的读数误差。</p>
+
+          <p class="mt-3">把这两种电流放在同一段地线上，就是让一个吵闹的邻居和一个需要安静的人共用一堵墙。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="模拟地与数字地：正确的做法是「分开走、一点连」">
+            <pre><code>【错误做法】模拟地和数字地完全分开，各自回电源
+
+   AGND ──────► 电源 ──────► DGND
+   问题：两边没有共同的参考点，ADC 测出来的电压
+         相对于数字侧是"浮动"的，读数会一直漂。
+   ★ 记住：模拟地和数字地【必须有电气连接】，只是要选对连接点。
+
+【错误做法】把 AGND 和 DGND 大面积连成一片
+
+   ┌────────── 一整块铜 ──────────┐
+   问题：数字电路的脉冲电流会在地平面上到处跑，
+         数字地电流恰好从 ADC 的参考脚下流过 → 直接污染模拟参考。
+
+【正确做法】分区铺地 + 单点汇接
+
+   ┌───────────────┬────────────────┐
+   │               │                │
+   │   模拟地区域   │   数字地区域    │
+   │  (ADC/运放/    │  (MCU/晶振/    │
+   │   传感器接口)  │   SPI/继电器)  │
+   │               │                │
+   └───────┬───────┴────────┬───────┘
+           │                │
+           └───────●────────┘
+                   │
+             单点汇接（桥接点）
+                   │
+              电源滤波电容的负极 / ADC 芯片正下方
+
+   汇接点的选择原则：
+     ① 尽量靠近 ADC 或电源入口
+     ② 让数字地电流【不经过】模拟区域的任何部分
+     ③ 汇接用一小段铜箔或 0Ω 电阻（方便调试时改成磁珠或电感）</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">最后是本章最重要的一条禁令：不要形成地环路。</b></p>
+
+          <p class="mt-3">地环路的定义是：<b>信号的回流路径不止一条，于是两条「地」之间围成了一个闭合的回路。</b>这个回路就是一个单匝的「天线」——空间里任何交变的磁场穿过它，都会在里面感应出电压；而 50Hz 的工频磁场无处不在（变压器、电机、输电线）。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="地环路：怎么形成、为什么危险、怎么断">
+            <pre><code>【地环路是怎么形成的】
+
+   设备 A ────── 信号线 ──────► 设备 B
+      │                            │
+      │                            │
+      └──── 路径 1：信号回流地 ─────┘
+      │                            │
+      └──── 路径 2：机壳/安全地 ────┘
+                   ↑
+        这两条"地"围成了一个闭合回路 → 地环路
+
+【为什么危险】
+   ① 空间磁场穿过回路 → 感应出干扰电压
+      V = −dΦ/dt ；50Hz 磁场下，1 平方米的回路
+      可以感应出几毫伏到几伏的电压
+   ② 两个设备的接地电位本来就不同 → 产生"地环流"
+      这个大电流流过信号线的屏蔽层，把屏蔽层变成了干扰源
+   ③ 结果：模拟信号测不准（叠加了工频），
+           数字通信丢包（差分对共模电压超出接收范围）
+
+【断开地环路的三招】
+
+   招数一：光电隔离（最彻底）
+      在信号线上放一个光耦或数字隔离器，把电气连接彻底切断。
+      信号靠光传递，两边的地可以相差几百伏也不影响。
+
+   招数二：差分传输 + 共模电感
+      用 RS-485 / CAN 这样的差分总线。有用信号是两条线的"差"，
+      地电位差作为共模被差分接收器抑制掉（RS-485 可抑制 ±7V 以上）。
+
+   招数三：屏蔽层单端接地（低频场合）
+      屏蔽层【只在一端接地】，另一端悬空。
+      这样感应出的电流没有回路，就不会有环流。
+      ⚠ 只适用于频率低于 1MHz 的场合；
+        高频时单端接地会让屏蔽层变成天线，要改成两端接地。
+        （高频时两端接地形成的是"屏蔽层回路"，但因为高频下
+          屏蔽层电流主要是趋肤效应产生的反向电流，反而能抵消磁场。）</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一条速记口诀：地是用来「回流」的，不是用来「等电位」的</div>
+            <p>新手把地当成「所有 0V 点的集合」，于是随便连、怎么方便怎么连。正确的想法是：<b>电流从哪里出去，就必须有一条明确的、短的、不打扰别人的路回来。</b>你在画 PCB 时每走一根信号线，脑子里都要同时画出它的回流路径——如果回流路径是绕一大圈回去的，那这个圈就是一根天线。</p>
+            <p class="mt-2">这也是「铺地」这个动作的本质：一个好的地平面，能让每一根信号线的回流电流<b>紧贴着信号线正下方的铜皮流回去</b>，环路面积趋近于零，辐射和感应同时被压到最低。反过来，一条跨越了地平面裂缝（split）的信号线，回流被迫绕行，环路面积立刻变成几十平方厘米——这就是高速设计里「禁止跨分割」这条铁律的由来。</p>
+          </div>
+
+          <h3 id="sub-shield" class="mt-7 text-base font-semibold">六、屏蔽与双绞线：让噪声「自己抵消自己」</h3>
+          <p class="mt-3">前面说过，辐射干扰的载体是空间电磁场。挡住它有两个思路：<b>把噪声挡在外面（屏蔽），或者让导线对噪声「不敏感」（双绞）。</b>后者的物理思想非常巧妙，值得先讲。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">双绞线的原理：面积抵消。</b>两根线扭成麻花以后，每一个绞距内，两根线的位置互相交换了一次。空间里均匀的磁场穿过这个小环时，<b>在两根线上感应出的电压大小相等、方向相同（共模）</b>；而差分接收器只关心两根线的「差」，这个共模电压就被减掉了。更妙的是，相邻两个绞距里的感应方向相反，所以整根线累积起来的感应电压几乎为零。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="为什么双绞线能抗干扰：看图就懂">
+            <pre><code>【两根平行线】面积大，感应电压大
+
+   ┌──────────────────────────────────────┐
+   │      两条线之间形成一个大回路          │
+   │      磁场 Φ 穿过 → 感应电压 V1         │
+   └──────────────────────────────────────┘
+   回路面积 A 大 → 感应电压 V = −d(BA)/dt 大
+
+【双绞线】相邻绞距的感应方向相反，互相抵消
+
+   绞距 1        绞距 2        绞距 3
+   ╭──╮         ╭──╮         ╭──╮
+   │╲╱│         │╲╱│         │╲╱│
+   线A 在上一圈在左，下一圈在右 —— 位置不断交换
+   → 均匀磁场下，累计感应电压 ≈ 0
+
+【双绞线的三条使用要点】
+   ① 必须是【差分信号】才有效。
+      如果一根线传信号、另一根线接地（单端传输），
+      绞合的作用就大打折扣。
+   ② 绞距越小越好，而且两根线要【一直绞到底】。
+      在接线端子处拆开 5cm 平行走线，
+      这 5cm 就白绞了（现场最常见的错误）。
+   ③ 双绞线【不能】抗共模干扰。共模要靠共模电感、
+      屏蔽或隔离。这就是 RS-485 要"双绞 + 共模电感"的原因。
+
+【屏蔽层怎么接：看频率】
+   · 低频（小于 1MHz）：屏蔽层【单端接地】，防止地环路
+   · 高频（大于 1MHz）：屏蔽层【两端接地】，形成屏蔽回路
+   · 混合场合：一端直接接地，另一端通过 1nF ~ 10nF 电容接地
+     （高频时电容相当于短路，低频时相当于开路，兼顾两者）</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>手段</th><th>挡住什么</th><th>原理</th><th>典型用法</th></tr></thead>
+              <tbody>
+                <tr><td><b>双绞线</b></td><td>磁场耦合（差模）</td><td>绞合让相邻绞距的感应电压反向抵消</td><td>RS-485、CAN、传感器差分信号、以太网</td></tr>
+                <tr><td><b>屏蔽电缆</b></td><td>电场耦合与辐射</td><td>金属层把电场终止在屏蔽层上，使其进不到芯线</td><td>模拟小信号、编码器、长距离通信线</td></tr>
+                <tr><td><b>金属机壳</b></td><td>空间辐射与静电</td><td>导体表面对电磁波反射与吸收，并为静电提供泄放路径</td><td>工业仪表、变频器、开关电源外壳</td></tr>
+                <tr><td><b>拉开距离</b></td><td>容性、感性耦合</td><td>耦合强度随距离迅速下降（容性按距离、感性按距离平方）</td><td>强电与弱电分槽走线，间距至少 20cm；动力线与信号线不平行</td></tr>
+                <tr><td><b>正交走线</b></td><td>感性耦合</td><td>两条线垂直时互感最小</td><td>PCB 上双层走线尽量交叉而不是平行</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-filter" class="mt-7 text-base font-semibold">七、滤波器件四件套：去耦电容、磁珠、共模电感、TVS</h3>
+          <p class="mt-3">滤波是切断传导路径的主力。器件很多，但在单片机这个尺度上真正天天用的就四类。<b class="font-semibold text-ink">它们各自对应不同的频率段和不同的干扰类型，用错了就等于没装。</b></p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">① 去耦电容（Decoupling Capacitor）：给高频电流准备一个「本地水库」。</b>数字芯片每次翻转都会瞬间抽取一个大电流尖峰，如果这个电流必须从远处的电源模块经长长的走线送过来，走线电感就会在芯片的电源脚上产生一个电压跌落。去耦电容的作用就是<b>把这个瞬间电流就地供应掉</b>，不让它去麻烦远处的电源。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="去耦电容：不只是「滤波」，更是「本地供能」">
+            <pre><code>【没有去耦电容时】电流要从远处的电源跑来
+
+   电源模块 ═══════ 长走线（有电感）═══════ 芯片 VDD
+                                              │
+                                          芯片内部
+                                              │
+                                          ────┴──── GND
+   芯片瞬态抽取 50mA，走线电感 20nH，
+   在 100ns 内完成 → 压降 = 20nH × 0.05A / 100ns = 10mV
+   （实际多路同时翻转时能达到几十到几百毫伏）
+
+【有去耦电容时】电容就近供电
+
+   电源模块 ═══════ 长走线 ═══════┬═══════ 芯片 VDD
+                                  │
+                               [100nF]  ← 紧贴芯片电源脚
+                                  │
+                              ────┴──── GND
+   瞬态电流由电容提供，电容离得越近，回路电感越小，效果越好。
+   ★ 这就是"去耦电容必须紧贴引脚"的全部道理：
+     电容本身没问题，问题是【电容到芯片之间的那段走线】。
+
+【容值怎么选：大小搭配，各管一个频段】
+   · 10µF ~ 100µF（钽电容或陶瓷）：管低频（几十 kHz 以下），
+     相当于板级储能，对付负载突变和电源纹波
+   · 100nF（0.1µF，最经典）：管中高频（1MHz ~ 50MHz），
+     每个电源脚一颗，这是行业惯例
+   · 1nF ~ 10nF：管更高频（50MHz 以上），
+     一般只在射频或高速电路上才需要
+   ★ 大电容【不能】替代小电容：大电容的等效电感大，
+     在高频下会变成"电感"，反而失去滤波作用。两者要并联使用。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">② 磁珠（Ferrite Bead）：把高频噪声变成热。</b>磁珠是一个「频率相关的电阻」：在直流和低频时阻抗很低（几乎不影响信号），频率越高阻抗越大，而且它以<b>电阻性</b>为主——也就是说，它把高频噪声的能量<b>吸收并转化为热量</b>消耗掉，而不是像电感那样反射回去。这一点很重要：纯电感会把噪声反射回源头，容易在别处引起谐振；磁珠是吃掉它。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">③ 共模电感（Common Mode Choke）：专治共模。</b>两根线在同一个磁环上<b>同向</b>绕制。差模电流（一去一回）在磁芯里产生的磁通互相抵消，所以电感量为零，信号畅通无阻；共模电流（两线同向）产生的磁通叠加，呈现很大阻抗，被挡住。这是对付共模干扰最经济有效的器件，RS-485、USB、以太网口上都能看到它。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">④ TVS 与压敏电阻：一次性或反复地「削」掉高压尖峰。</b>它们都是<b>钳位器件</b>：正常电压下不导通（相当于开路），电压超过门限后迅速导通，把尖峰能量泄放掉。区别在于速度和耐受能力。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>器件</th><th>响应速度</th><th>钳位特性</th><th>典型用途</th><th>注意事项</th></tr></thead>
+              <tbody>
+                <tr><td><b>TVS 二极管</b><br><code class="icode">SMBJ5.0A</code></td><td>皮秒级（PS 级）</td><td>钳位精准，击穿电压误差 ±5% 左右</td><td>板级 ESD 防护、信号线、USB、RS-485 接口</td><td>通流能力有限（几百瓦到几千瓦脉冲），要选对工作电压（要高于信号最高电平）</td></tr>
+                <tr><td><b>压敏电阻</b><br><code class="icode">07D471K</code></td><td>纳秒级（ns 级）</td><td>钳位较粗糙，非线性不如 TVS</td><td>交流电源入口、220V 侧、大能量浪涌（雷击）</td><td>通流大（几 kA），但有<b>老化</b>问题：每吸收一次浪涌就退化一点，多次之后可能短路起火，需配合保险丝</td></tr>
+                <tr><td><b>共模电感</b></td><td>—（无源滤波）</td><td>对共模呈高阻抗，对差模几乎无影响</td><td>RS-485、CAN、USB、电源入口</td><td>注意额定电流（大电流会让磁芯饱和而失效）和漏感（漏感会影响高速信号边沿）</td></tr>
+                <tr><td><b>磁珠</b></td><td>—（无源滤波）</td><td>高频阻抗呈电阻性，吸收噪声</td><td>电源分支、数字信号线、复位线、晶振供电</td><td>要按频段选（常见 100MHz 下 600Ω）；注意额定电流与直流电阻压降</td></tr>
+                <tr><td><b>去耦电容</b></td><td>—（无源滤波）</td><td>高频低阻抗，为瞬态电流提供本地回路</td><td>每个芯片电源脚</td><td>必须紧贴引脚；注意自谐振频率（后面的例题会算）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">滤波器件选型最容易踩的三个坑</div>
+            <ul class="mt-2 list-disc space-y-2 pl-5">
+              <li><b>用错频段。</b>磁珠的阻抗是「某个频率下的标称值」，比如「100MHz 时 600Ω」——它在 1MHz 时可能只有几欧姆。如果你的干扰是 1MHz 的开关电源纹波，选一颗 100MHz 的磁珠基本没用。<b>选型时一定要看阻抗-频率曲线，而不是只看那个标称数字。</b></li>
+              <li><b>把 X 电容和 Y 电容接反。</b>X 电容跨接在两条线<b>之间</b>（对付差模），Y 电容接在<b>线对地之间</b>（对付共模）。Y 电容涉及漏电流和安规（一般要求容量不超过几 nF，且有耐压认证），绝对不能随便加大。板级设计里更常用的是共模电感 + 磁珠的组合。</li>
+              <li><b>以为加了滤波就万事大吉。</b>滤波器只在它设计的频段内有效，而且<b>滤波器本身需要良好的接地参考</b>——一个共模电感的「地端」如果接得不好，共模噪声照样绕过去。滤波 + 接地 + 布局是一整套，缺一不可。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-isolation" class="mt-7 text-base font-semibold">八、隔离与续流：直接把「路」切断</h3>
+          <p class="mt-3">前面讲的屏蔽、双绞、滤波都是「削弱」噪声。而隔离（Isolation）是唯一一种<b>把噪声的传播路径从物理上彻底切断</b>的办法：两边的电路之间没有电气连接，只通过光、磁或者电容传递信号。<b class="font-semibold text-ink">隔离是抗干扰手段里的"核武器"，也是最贵的一种，所以用在最需要的地方。</b></p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">光电隔离（光耦）：</b>输入端是一个 LED，输出端是一个光敏器件。信号以光的形式跨过中间的绝缘层，两边可以承受上千伏的电位差（常见的光耦隔离电压 3750V ~ 5000V）。这是单片机系统里最常用的隔离方式：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">开关量隔离：</b>用 <code class="icode">PC817</code> 这类通用光耦隔离按钮输入、继电器输出、限位开关。注意普通光耦的传输速度只有几十 kHz，而且电流传输比（CTR）会随温度和时间衰减。</li>
+            <li><b class="font-semibold text-ink">高速隔离：</b>用 <code class="icode">6N137</code>（10Mbit/s）或者数字隔离器（如 ADuM 系列、Si86xx 系列）隔离串口、SPI、CAN。数字隔离器用变压器或电容耦合，速度快、寿命长、功耗低，单价也更高。</li>
+            <li><b class="font-semibold text-ink">隔离电源：</b>光耦只隔离信号，两边的电源必须各自独立——<b>如果两边共用了同一个电源，隔离就白做了</b>（噪声顺着电源又跑过去了）。这一点新手最容易漏：要么加一个隔离 DC-DC 模块，要么两边分别供电。这是现场调试时很常见的一个"隔离失效"原因。</li>
+          </ul>
+
+          <p class="mt-3"><b class="font-semibold text-ink">继电器隔离：</b>用继电器的触点去控制大功率负载，线圈和触点之间在物理上是分开的（爬电距离足够时耐压可达几千伏）。它的优点是<b>触点断开时是真正的物理断路</b>，隔离效果彻底；缺点是速度慢（毫秒级）、有机械寿命限制（十万次量级）、触点断开会拉弧并产生射频干扰。<b>所以继电器隔离常常和 RC 吸收电路配套使用。</b></p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">反并联续流二极管：抑制反电动势的第一选择。</b>这就是前面反复提到的那个元件。它的接法只有一个要点，但接错了就完全没有效果：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="续流二极管的接法与原理（接反了等于没接）">
+            <pre><code>【正确接法】二极管【反并联】在电感负载两端
+             阴极（有环的一端）接电源正极
+
+                 +5V
+                  │
+        ┌─────────┴─────────┐
+        │                   │
+       ─┴─ 线圈            ─┴─ 二极管
+       ─┬─ (继电器/        ─┬─ 1N4148 / 1N4007
+        │   电机/电磁阀)    │   阴极 ▲ 朝上（接 +5V 侧）
+        │                   │
+        └─────────┬─────────┘
+                  │
+                  ▼ 三极管集电极
+                ┌───┐
+        IO ─────┤ B │  NPN（S8050）
+                └───┘
+                  │
+                 GND
+
+【工作原理】
+   · 三极管导通时：二极管【反向截止】（因为阴极接 +5V，
+     阳极电位接近 0V），所以它不影响线圈正常工作。
+   · 三极管关断瞬间：线圈想维持电流，感应出反向高压，
+     二极管立刻【正向导通】，为线圈电流提供一条回路：
+         线圈 → 二极管 → 线圈
+     线圈的电流在这个回路里慢慢衰减，两端电压被钳位在
+     二极管的导通压降（约 0.7V）附近。
+   · 结果：三极管集电极上不再出现上千伏的尖峰，
+     干扰源在源头就被"短路"掉了。
+
+【★ 判断接反的最快方法】
+   断电，用万用表二极管档：
+     红表笔接线圈的【负极侧】（靠三极管那侧），
+     黑表笔接线圈的【正极侧】（靠 +5V 那侧），
+     应该显示 0.5V ~ 0.7V（正向导通）。
+   反过来量应该显示"OL"（截止）。
+   如果反了，把二极管转 180 度重新焊。
+
+【为什么不能只靠三极管自己扛】
+   2N3904 的 Vceo 是 40V，S8050 是 25V，S8050 的很多国产
+   替代品只有 20V。而线圈产生的尖峰轻松超过 100V —— 
+   三极管会被击穿（C-E 之间短路），于是线圈直接连在
+   电源和地之间持续通电 → 冒烟。这是烧三极管最常见的原因。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">续流二极管也有代价：慢</div>
+            <p>加了续流二极管以后，线圈电流不再「瞬间切断」，而是以 τ = L / R 的时间常数慢慢衰减（下一节例题会算出来，典型是 1ms 量级）。对大多数应用这没有任何影响，但<b>对要求继电器快速释放的场合（比如高速分选、脉冲电磁阀）会明显拖慢动作速度</b>。</p>
+            <p class="mt-2">这种场合的替代方案是：<b>在线圈两端并联一个稳压管（如 12V~24V），或者二极管串联一个电阻</b>。这样电流衰减时可以「顶」出一个更高的电压，衰减更快（电压越高衰减越快），同时仍然把尖峰限制在三极管能承受的范围内。<b>这是一个典型的「速度与保护」权衡</b>——理解它，你就理解了工程设计的本质。</p>
+          </div>
+        </section>
+
+      <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+          <p class="mt-4">抗干扰这件事最容易变成「玄学」，是因为很多人只会背结论：「要加续流二极管」「去耦电容要靠近芯片」。可一旦有人问你「为什么」「多大」「放多近」，就答不上来了。<b class="font-semibold text-ink">下面三道题，就是要让你亲手把这三个「为什么」算出来。</b>算完一遍，你会发现自己对干扰的直觉完全不一样了。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">关于数字的说明</div>
+            <p>下面用到的器件参数都注明了出处：继电器线圈、二极管、电容的参数取自常见器件的<b>典型值</b>（比如「5V 小型继电器线圈电阻约 70Ω」是市面上常见的 5V 信号继电器的典型值，实际请以你手上器件的手册为准）。凡是我写「按典型值估算」的地方，结果就只用于<b>判断量级和选择器件</b>，不要当成精确设计值。<b>工程上「量级对了」就已经足够做出正确决策了</b>——比如算出来是 7000V 还是 1400V，结论都是「必须加续流二极管」。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例题一：继电器线圈断电瞬间的反电动势峰值，以及续流二极管怎么选</h3>
+          <p class="mt-3">这是本章最经典的一道题，也是「为什么必须加续流二极管」这个结论的定量来源。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知条件：</b></p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>5V 小型继电器，线圈直流电阻 <b>R = 70Ω</b>（典型值）</li>
+            <li>线圈电感 <b>L = 0.1H</b>（按典型值估算，实际 0.03H ~ 0.2H 都有）</li>
+            <li>驱动三极管：<b>S8050</b>（NPN，集电极-发射极击穿电压 V<sub>CEO</sub> = 25V）</li>
+            <li>工作电压 5V，三极管饱和压降按 0.2V 计</li>
+          </ul>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 1 步：算稳态电流与线圈储能">
+            <pre><code>【稳态电流】三极管完全导通时，线圈两端的电压：
+    U = 5V − 0.2V（Vce 饱和压降）= 4.8V
+
+    I = U / R = 4.8V / 70Ω = 0.0686A ≈ 68.6mA
+
+    （如果忽略饱和压降，按 5V/70Ω 算就是 71.4mA。
+      两种算法差别不大，下面统一按 I = 70mA 估算。）
+
+【线圈储能】能量以磁场的形式存在：
+    W = ½ × L × I²
+      = 0.5 × 0.1H × (0.07A)²
+      = 0.5 × 0.1 × 0.0049
+      = 0.000245 J
+      = 0.245 mJ
+
+    单位说明：H（亨利）× A²（安培的平方）= J（焦耳）
+    0.245mJ 听起来很小 —— 就是这点能量，
+    在微秒级释放出来会变成上千伏的电压。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 2 步：没有续流二极管时，尖峰有多高">
+            <pre><code>【公式】电感的伏安关系：u = L × Δi / Δt
+    u  ：感应电压（V）
+    L  ：电感量（H）
+    Δi ：电流的变化量（A）
+    Δt ：电流被切断所用的时间（s）
+
+【情况一】用三极管（S8050）驱动，关断时间约 1µs
+    Δi = 70mA = 0.07A
+    Δt = 1µs  = 0.000001s
+
+    u = 0.1 × 0.07 / 0.000001
+      = 0.007 / 0.000001
+      = 7000V   ← 七千伏！
+
+【情况二】用 MOS 管驱动，关断时间可到 100ns
+    u = 0.1 × 0.07 / 0.0000001 = 70000V   ← 理论峰值七万伏
+
+【怎么理解这个"离谱"的数字？】
+    这两个数字是【理论上限】，现实中不可能达到，因为：
+      · 电感的匝间电容、三极管的反向雪崩、导线的分布电容，
+        会为电流提供"寄生通路"，把电压限制住；
+      · 实际的关断时间也没那么快。
+
+    但即使实际的尖峰只有理论值的 1/50，那也有 140V —— 
+    而 S8050 的 Vceo 只有 25V。留 5 倍余量都不够，
+    这就是三极管会被击穿（冒烟）的原因。
+
+【结论一】不加续流二极管 → 三极管必烧，而且尖峰会顺着
+          电源线和地线窜进单片机，把整个系统带崩。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 3 步：加了续流二极管之后，电压被钳位到多少">
+            <pre><code>【电路】二极管反并联在线圈两端，阴极接 +5V 侧
+
+                 +5V （记作节点 A）
+                  │
+        ┌─────────┴─────────┐
+        │                   │
+       ─┴─ 线圈 L=0.1H     ─┴─ 二极管
+       ─┬─ R=70Ω           ─┬─ 阴极在上（接 A）
+        │                   │
+        └─────────┬─────────┘
+                  │ （记作节点 B，接三极管集电极）
+                ┌─┴─┐
+        IO ─────┤ B │  S8050
+                └─┬─┘
+                  │
+                 GND
+
+【三极管导通时】节点 B 电位 ≈ 0.2V，二极管两端电压为
+    V_AK = 0.2V − 5V = −4.8V   → 反向偏置，截止，不导通。
+    二极管对正常工作的影响：几乎没有（只有极小的漏电流）。
+
+【三极管关断瞬间】线圈想维持 70mA 的电流，唯一的通路是二极管：
+    线圈（从 A 到 B）→ 二极管（从 B 到 A）
+    二极管正向导通 → 
+    节点 B 的电位被"钉"在 5V + 0.7V = 5.7V
+
+    所以三极管集电极-发射极之间的电压 = 5.7V，
+    远小于它的 25V 耐压 ✅ 三极管安全了。
+
+【电流衰减时间】加二极管后，线圈电流按指数规律衰减：
+    时间常数 τ = L / R = 0.1H / 70Ω = 0.00143s = 1.43ms
+
+    衰减到初始值的 10% 需要：
+        t = τ × ln(10) = 1.43ms × 2.303 = 3.29ms
+    衰减到接近零（约 1%）需要：
+        t ≈ τ × ln(100) = 1.43ms × 4.605 = 6.6ms
+
+    这就是"续流二极管会让继电器释放变慢"的定量解释：
+    多花了几毫秒。对绝大多数应用无所谓，
+    对高速分选、脉冲阀这类要求快速释放的场合就要换方案。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 4 步：续流二极管怎么选（三个参数逐个定）">
+            <pre><code>【参数一】反向耐压 V_RRM —— 二极管截止时两端承受的最大反向电压
+
+    三极管导通时：二极管的阴极在 5V，阳极在 0.2V
+                  → 承受的反向电压 = 5V − 0.2V = 4.8V
+    工程惯例：按【工作电压的 2 倍以上】留余量
+                  → 需要 ≥ 10V
+
+    ★ 选型结论：1N4148 的 V_RRM = 100V，1N4007 的 V_RRM = 1000V，
+      两者都远远够用。所以对 5V 系统，"耐压"不是选型瓶颈。
+
+【参数二】正向电流 —— 续流期间流过二极管的电流
+
+    峰值电流 = 线圈稳态电流 = 70mA（衰减过程中只会更小）
+    1N4148 的额定正向电流 I_F = 300mA（25℃ 时）
+    → 70mA 只用了不到 1/4，安全 ✅
+
+    ⚠ 但要注意：1N4148 是【小信号二极管】，额定值随温度下降得很快。
+      如果线圈电流超过 150mA（比如 12V/24V 的大继电器），
+      就换成 1N4007（I_F = 1A）更稳妥。
+
+【参数三】反向恢复时间 —— 对续流应用【不重要】
+
+    续流二极管的电流方向是"慢慢衰减到零"的，
+    不涉及高频开关，所以 1N4007 这种"慢管"完全够用。
+    （1N4148 是快速开关管，反向恢复时间 4ns；
+      1N4007 是工频整流管，反向恢复时间约 2µs —— 
+      在这里两者都无所谓。）
+
+【最终选型（针对这道题）】
+    · 5V 小型继电器、线圈电流小于 150mA
+      → 1N4148（便宜、体积小、100V/300mA）★ 推荐
+    · 12V / 24V 继电器，或线圈电流 150mA 以上
+      → 1N4007（1000V/1A，结实抗造）★ 推荐
+    · 多路驱动（3 路以上）
+      → 直接用 ULN2003 达林顿阵列，内部已集成续流二极管，
+        但【第 9 脚 COM 必须接到负载电源的正极】，
+        否则内部的续流二极管不起作用 —— 这一条新手几乎必踩。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这道题真正要你记住的三件事</div>
+            <p><b>① 0.245mJ 的能量，可以产生上千伏的电压。</b>能量的绝对值不重要，「释放的速度」才决定电压的高低。所以凡是电感负载，就必须给它一条慢慢放电的回路。</p>
+            <p class="mt-2"><b>② 续流二极管保护的不只是三极管，还有整个系统。</b>没有它，尖峰会顺着共用的电源线和地线传到单片机、ADC、通信芯片上。你在原理图上画的那一颗二极管，同时在做「保护驱动管」和「掐掉干扰源」两件事——它同时打断了三要素里的第①条。</p>
+            <p class="mt-2"><b>③ 代价是几毫秒的延迟。</b>1.43ms 的时间常数、3.29ms 衰减到 10%——这就是「保护」和「速度」之间的交换。记住这个数字量级，以后遇到「继电器动作变慢」的抱怨时，你就知道原因在哪。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例题二：开关电源的高频谐波，与「多长的导线会变成天线」</h3>
+          <p class="mt-3">这道题解释一个反直觉的现象：<b class="font-semibold text-ink">为什么一个只有 500kHz 的开关电源，会干扰到几百 MHz 的收音机和 WiFi？</b>答案藏在「上升时间」里。同时我们会算出「多长的导线开始变成有效天线」，这个数字直接决定了你的布局策略。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知条件：</b></p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>开关频率 <b>f<sub>sw</sub> = 500kHz</b>（开关电源常见值）</li>
+            <li>开关节点电压的上升时间 <b>t<sub>r</sub> = 5ns</b>（按现代 MOS 管配强驱动的典型值估算）</li>
+            <li>开关电流峰值 <b>I = 1A</b>，开关回路面积 <b>A = 10cm²</b>（约 10cm × 1cm 的一个环路，很常见）</li>
+            <li>观察距离 <b>r = 3m</b>（辐射发射测试的常用距离）</li>
+          </ul>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 1 步：算出「最该关心的最高频率」——转折频率">
+            <pre><code>【方波的频谱包络】一个理想方波（上升时间为 0）含有无穷多高次谐波，
+    第 n 次谐波的频率是 n × f_sw。
+    但真实方波有上升时间 t_r，它像一把"刀"，把高频成分砍掉了。
+
+【转折频率（knee frequency）】业界通用公式：
+
+              f_knee = 1 / (π × t_r)
+
+    t_r = 5ns = 5 × 10⁻⁹ s
+
+    f_knee = 1 / (3.1416 × 5 × 10⁻⁹)
+           = 1 / (1.571 × 10⁻⁸)
+           = 6.37 × 10⁷ Hz
+           ≈ 63.7MHz
+
+【这个数字的意思】
+    · 在 63.7MHz【以下】：谐波幅度按 −20dB/十倍频 下降（比较缓慢）
+    · 在 63.7MHz【以上】：谐波幅度按 −40dB/十倍频 急剧下降（可以忽略）
+
+    → 所以我们真正需要对付的频段是
+      "从 f_sw 一直到大约 3 倍 f_knee"，即 500kHz ~ 190MHz。
+
+【对应到第几次谐波】
+    63.7MHz ÷ 500kHz = 127.4
+
+    → 第 127 次谐波！一个 500kHz 的开关电源，
+      必须按"能干扰 60MHz 设备"来设计。
+      这就是为什么它会影响收音机和 WiFi。
+
+【如果上升时间变慢会怎样】把 t_r 从 5ns 放到 100ns：
+    f_knee = 1 / (3.1416 × 100 × 10⁻⁹) = 3.18MHz
+
+    → 需要对付的最高频率从 63.7MHz 降到 3.18MHz，
+      整整低了 20 倍。
+    ★ 这就是"在 MOS 管栅极串一个电阻，减慢开关速度"
+      能改善 EMC 的定量原因 —— 代价是开关损耗增大、效率降低。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 2 步：多长的导线会变成「有效天线」">
+            <pre><code>【天线的基本条件】天线尺寸要和波长可比。工程上的经验判据：
+
+    · 导线长度 ℓ 接近 λ/20 时 → 开始成为"有效天线"，辐射明显
+    · 导线长度 ℓ 接近 λ/4 时  → 谐振，辐射效率最高，最麻烦
+    · 导线长度 ℓ 远小于 λ/20 时 → 辐射可以忽略
+
+【波长公式】  λ = v / f
+    λ ：波长（m）
+    v ：电磁波在介质中的传播速度（空气中约 3 × 10⁸ m/s）
+    f ：频率（Hz）
+
+【算 63.7MHz 的波长】（对应上面算出来的转折频率）
+    λ = 3 × 10⁸ / 6.37 × 10⁷ = 4.71m
+
+    λ/20 = 4.71 / 20 = 0.236m ≈ 23.6cm
+
+    ★ 结论：一根 24cm 长的导线（比如开关电源到负载的那段
+      电源线、电机的引出线），在 63.7MHz 上就已经是一个
+      有效天线了。
+      而你桌子上随手一根杜邦线就有 20cm —— 
+      所以"板子旁边放个对讲机就死机"一点都不奇怪。
+
+【对比：如果上升时间是 100ns】
+    f = 3.18MHz
+    λ = 3 × 10⁸ / 3.18 × 10⁶ = 94.3m
+    λ/20 = 4.7m
+
+    ★ 4.7m 的判据意味着：30cm 的导线完全安全。
+
+【再对比：只看开关基波 500kHz】
+    λ = 3 × 10⁸ / 5 × 10⁵ = 600m
+    λ/20 = 30m
+    → 只看基波的话，什么线都不是天线。
+    → 所以【问题从来不在基波，而在快沿产生的高频谐波】。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 3 步：环路面积每缩小一半，辐射降多少">
+            <pre><code>【小环天线的远场辐射估算公式】（出自电磁兼容经典教材，
+  用于估算差模电流产生的辐射电场强度）
+
+              E = 263 × 10⁻¹⁶ × f² × A × I / r
+
+    E ：远场电场强度（V/m）
+    f ：频率（Hz）
+    A ：环路面积（m²）
+    I ：环路中的电流（A）
+    r ：观察距离（m）
+    （263 × 10⁻¹⁶ 是一个由自由空间波阻抗推导出来的常数）
+
+【代入本题数值】
+    f = 6.37 × 10⁷ Hz
+    A = 10cm² = 10 × 10⁻⁴ m² = 1 × 10⁻³ m²
+    I = 1A
+    r = 3m
+
+    E = 263 × 10⁻¹⁶ × (6.37 × 10⁷)² × (1 × 10⁻³) × 1 / 3
+
+    先算频率项：(6.37 × 10⁷)² = 4.058 × 10¹⁵
+
+    E = 263 × 10⁻¹⁶ × 4.058 × 10¹⁵ × 10⁻³ / 3
+      = (263 × 4.058 × 10⁻¹) × 10⁻³ / 3
+      = 106.7 × 10⁻³ / 3
+      = 0.0356 V/m
+      = 35.6 mV/m
+
+【换成工程上常用的单位】dBµV/m = 20 × log₁₀(E / 1µV/m)
+    E = 35.6 mV/m = 35600 µV/m
+    20 × log₁₀(35600) = 20 × 4.551 = 91 dBµV/m
+
+【最有价值的一步：比较相对大小，而不是绝对值】
+    ⚠ 绝对值和限值比较需要专业的测试环境和标准条文，
+      这里不做合规判断。真正有用的是【比例关系】：
+
+    · 环路面积缩小到 1/10（A 从 10cm² 减到 1cm²）：
+        E 也变成 1/10 → 降低 20dB
+    · 频率减半（t_r 从 5ns 放到 10ns）：
+        E 变成 1/4 → 降低 12dB
+    · 电流减半：E 降低 6dB
+
+【结论：布局上的三个动作，按性价比排序】
+    ① 【缩小环路面积】最有效（线性关系，直接 1:1）
+       做法：开关回路的走线尽量短、尽量宽、
+             输入电容紧贴开关管、用地平面做回流
+    ② 【减慢边沿】很有效（平方关系）
+       做法：栅极串电阻、加 RC 吸收、选用慢一点的器件
+    ③ 【拉开距离】有效但通常受限（反比关系）
+       做法：把干扰源和敏感电路分开放</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">这道题解释了两个你一定会遇到的怪现象</div>
+            <p><b>怪现象一：「我的开关电源才 500kHz，怎么会干扰 WiFi？」</b>因为真正在辐射的不是 500kHz，而是 5ns 上升沿带来的 60MHz 以上的谐波。开关频率决定了「噪声重复出现的节奏」，上升时间才决定「噪声的频率上限」。<b>这就是为什么用示波器看电源纹波时波形很干净，辐射测试却照样超标。</b></p>
+            <p class="mt-2"><b>怪现象二：「同一块板子，换了个长一点的接线端子就不过测试了。」</b>因为线的长度一旦跨过 λ/20 这条线，它就从「一段导线」变成了「一根天线」，辐射效率会突然上升。这也解释了为什么工业设备的所有进出线都要考虑滤波和屏蔽——<b>板子做得好，线一长照样前功尽弃。</b></p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例题三：去耦电容到底能管到多高的频率</h3>
+          <p class="mt-3">「每个电源脚放一个 100nF 电容」是行业惯例，但很少有人问：<b class="font-semibold text-ink">这颗电容到底在什么频率范围内有效？超出这个范围又该怎么办？</b>这道题用三个参数就能算清楚，而且它会直接告诉你「电容为什么要紧贴芯片」。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">已知条件（0402 封装 100nF X7R 陶瓷电容的典型值）：</b></p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>容值 <b>C = 100nF = 100 × 10⁻⁹ F</b></li>
+            <li>等效串联电感 <b>ESL ≈ 0.5nH</b>（封装越小，ESL 越小）</li>
+            <li>等效串联电阻 <b>ESR ≈ 30mΩ</b></li>
+            <li>PCB 走线电感经验值：<b>约 1nH/mm</b>（0.8 ~ 1.2nH/mm，按走线宽度和距地平面高度变化）</li>
+          </ul>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 1 步：算自谐振频率，看这颗电容的有效频段">
+            <pre><code>【真实电容的等效电路】不是纯电容，而是 C、L、R 串联：
+
+    ──┬── ESL ── ESR ── C ──┬──
+      │                      │
+      └──────────────────────┘
+
+【自谐振频率】感抗与容抗相等的那一点：
+
+              f_res = 1 / (2π × √(L × C))
+
+    L × C = 0.5 × 10⁻⁹ × 100 × 10⁻⁹ = 5 × 10⁻¹⁷
+    √(L × C) = √(5 × 10⁻¹⁷) = 7.071 × 10⁻⁹
+    2π × 7.071 × 10⁻⁹ = 4.443 × 10⁻⁸
+
+    f_res = 1 / (4.443 × 10⁻⁸) = 2.25 × 10⁷ Hz
+          ≈ 22.5MHz
+
+【这颗电容的阻抗在三个频点的值】
+
+    ① 1MHz（低于谐振点，呈容性）：
+         Z = 1 / (2π × f × C)
+           = 1 / (2π × 10⁶ × 100 × 10⁻⁹)
+           = 1 / 0.6283
+           = 1.59Ω
+
+    ② 22.5MHz（谐振点，阻抗最低）：
+         Z = ESR = 0.03Ω = 30mΩ
+         ★ 这是它能提供的最强去耦能力。
+
+    ③ 100MHz（高于谐振点，呈【感性】！）：
+         Z = 2π × f × ESL
+           = 2π × 10⁸ × 0.5 × 10⁻⁹
+           = 0.314Ω
+
+    ★ 关键认识：超过 22.5MHz 以后，这颗 100nF 电容
+      【不再是电容】，而变成了一个 0.5nH 的小电感。
+      它对 100MHz 的噪声几乎没有旁路作用。</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="第 2 步：把走线电感加进来，看「放远一点」有多致命">
+            <pre><code>【场景】电容放在离芯片电源脚 10mm 远的地方
+    走线电感 L_trace ≈ 10mm × 1nH/mm = 10nH
+
+【在 100MHz 时，各部分阻抗对比】
+
+    电容自己的阻抗（感性）：    0.314Ω
+    走线的感抗：  2π × 10⁸ × 10 × 10⁻⁹ = 6.28Ω
+
+    总阻抗 ≈ 6.28Ω + 0.314Ω ≈ 6.6Ω
+
+    ★ 走线的阻抗是电容自身阻抗的 20 倍！
+      也就是说：这颗电容在高频段【被自己的走线彻底废掉了】。
+      你把电容放在 10mm 外，等于给芯片接了一个 6.6Ω 的电阻 —— 
+      它已经不是去耦电容了。
+
+【同样算一遍 2mm 的情况】
+    L_trace ≈ 2nH
+    100MHz 时的感抗 = 2π × 10⁸ × 2 × 10⁻⁹ = 1.26Ω
+    → 比 10mm 时小了 5 倍。
+
+【结论：关于去耦电容三条可执行的规则】
+
+    ① 【距离 ≤ 2mm】电容必须紧贴芯片的电源脚，
+       中间不能有长的支线（"猪尾巴"走线最要命）。
+    ② 【就近打过孔】电容的另一端要就近打到地平面上，
+       过孔本身也有约 1nH 电感，不要共用远端的过孔。
+    ③ 【大小搭配】大电容管低频、小电容管高频：
+        · 10µF（0805 或更大）：管 1MHz 以下
+        · 100nF（0402）：管 1MHz ~ 22.5MHz
+        · 1nF（0201）：管 22.5MHz 以上
+       ⚠ 不要指望一颗大电容通吃所有频段 —— 
+         大封装的 ESL 更大，高频下更早变成电感。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这道题给你的一把「尺子」</div>
+            <p>以后你在 PCB 上看到一个去耦电容，用这三步快速判断它有没有用：<b>第一步，看它离芯片电源脚多远（超过 2mm 就要打问号）；第二步，看它的接地端是不是就近打了过孔；第三步，看它旁边有没有一颗更大的电容做低频搭档。</b>这三步不需要任何仪器，但能筛出你板子上 80% 的「装了等于没装」的电容。</p>
+            <p class="mt-2">顺便说一句：这也是为什么很多芯片手册在绘制推荐布局图时，会把去耦电容画得<b>严丝合缝地贴在引脚旁边</b>，甚至连过孔的位置都标出来。那不是画得好看，那是在告诉你「这颗电容的位置本身就是设计的一部分」。</p>
+          </div>
+        </section>
+
+      <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+          <p class="mt-4">前面三节讲的是原理和计算。这一节全部落地：<b class="font-semibold text-ink">六个你在做课设、毕设、小产品时一定会遇到的现场，每个都给出「现象 → 原因 → 具体怎么改」。</b>如果你时间紧，这一节可以先看，遇到问题时再回头查前面的原理。</p>
+
+          <h3 id="sub-relay-drive" class="mt-7 text-base font-semibold">场景一：单片机驱动继电器——为什么必须加续流二极管</h3>
+          <p class="mt-3">现象：<b class="font-semibold text-ink">一按继电器，液晶花屏／程序复位／过几天三极管冒烟。</b>三个现象，同一个根源。</p>
+
+          <p class="mt-3">先把完整的正确电路画出来。注意这里画的是一条完整的链路：<b class="font-semibold text-ink">单片机引脚 → 基极电阻 → 三极管 → 线圈 + 续流二极管</b>，四样东西缺一不可。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="单片机驱动继电器的正确电路（完整版）">
+            <pre><code>                        +5V（负载电源，建议与单片机电源分开走线）
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+        ──┴──  继电器线圈                │   ◄── 【续流二极管】
+        ──┬──  R ≈ 70Ω  L ≈ 0.1H        │        1N4148 / 1N4007
+          │                             │        阴极（有色环那端）朝上
+          │                             │        接 +5V 一侧！
+          └──────────────┬──────────────┘
+                         │
+                         │ 集电极 C
+                       ┌─┴─┐
+   PA0 ───[1kΩ]────────┤ B │   S8050（NPN 三极管）
+   （推挽输出）         └─┬─┘
+                         │ 发射极 E
+                        GND ─────────────── 与单片机的 GND 相连（必须共地）
+
+   ┌────────────────────────────────────────────────────────────┐
+   │ 四个元件各自的作用（少一个都不行）                          │
+   ├────────────────────────────────────────────────────────────┤
+   │ 1kΩ 基极电阻：限制基极电流。3.3V 驱动时 Ib ≈ (3.3−0.7)/1k   │
+   │              ≈ 2.6mA，乘上 S8050 的放大倍数（约 100）        │
+   │              可以支持 260mA 的集电极电流，足够驱动 70mA 线圈 │
+   │ S8050 三极管：把 IO 的几毫安放大成几十毫安，让 IO 只管"发号 │
+   │              施令"。STM32 单个 IO 上限 20mA，直接驱动会烧    │
+   │ 续流二极管： 吸收线圈断电瞬间的反向尖峰（见第 3 节例题一）  │
+   │ 共地：       两边的 GND 必须连在一起，否则基极电流没有回路   │
+   └────────────────────────────────────────────────────────────┘</code></pre>
+          </div>
+
+          <p class="mt-3">另外提一句：靠放大倍数 β 反推基极电阻是最不保险的算法——β 的离散性很大，同一型号不同批次能差好几倍。工程上按 <code class="icode">I_B = I_C / 10</code> 取更稳妥：70mA 的集电极电流对应 <code class="icode">I_B = 7mA</code>，3.3V 驱动下 <code class="icode">R_B ≈ (3.3 − 0.7) / 7mA ≈ 370Ω</code>，取 <b>330Ω</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="反面教材：省掉续流二极管会发生什么">
+            <pre><code>【省掉二极管的电路】         【断电瞬间发生了什么】
+
+        +5V                          +5V
+         │                            │
+      ──┴── 线圈                   ──┴── 线圈
+      ──┬──                        ──┬──
+         │                             │  ← 线圈感应出上 kV 的反向电压
+         │ C                           │ C   （正极在下方，与电源方向相反）
+       ┌─┴─┐                       ┌─┴─┐
+       │ B │ S8050                 │ B │ S8050  ← 集电极承受 100V 以上
+       └─┬─┘                       └─┬─┘     而它的耐压只有 25V
+         │                             │
+        GND                          GND
+
+【故障链条，一步步发生】
+   ① 三极管关断 → 线圈产生反向高压尖峰（理论峰值数千伏，
+      实际被寄生参数限制在几十到几百伏）
+   ② 尖峰电压加在集电极-发射极之间 → 超过 25V 耐压 → 
+      三极管雪崩击穿，C-E 之间变成短路
+   ③ 线圈直接接在 5V 和 GND 之间 → 持续通电 → 线圈发热
+      → 三极管冒烟（这也是为什么很多人"烧了三极管却找不到原因"）
+   ④ 与此同时，尖峰顺着 +5V 和 GND 传播 → 单片机的电源被"顶"了一下
+      → 触发复位／液晶花屏／ADC 读数跳到满量程
+   ⑤ 尖峰还会通过空间辐射出去 → 旁边的收音机、对讲机都受影响
+
+【★ 一句话检查法】
+   拿起你的板子，找到每一个继电器／电磁阀／电机端子，
+   数一数它两端有没有一颗【反并联的二极管】。
+   没有的话，你的板子就是一个"定时炸弹"。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">用继电器模块时的两个隐藏坑</div>
+            <p><b>坑一：模块自带的续流二极管可能"没通电"。</b>很多继电器模块用的是 ULN2003 驱动，而 ULN2003 内部的续流二极管必须通过第 9 脚（COM）接到<b>负载电源的正极</b>才能工作。如果模块的 COM 脚悬空，内部二极管形同虚设，你照样会烧管子。<b>验证方法：复现一下「继电器断开」的动作，同时用示波器（或万用表直流档）量线圈两端，看有没有超过电源电压的尖峰。</b></p>
+            <p class="mt-2"><b>坑二：继电器控制 220V 时，干扰从触点侧窜回来。</b>触点断开交流负载时会拉弧，产生强烈的射频干扰，同时通过触点与线圈之间的杂散电容耦合到控制侧。<b>标准做法：触点两端并联 RC 吸收电路（比如 100Ω 串 0.1µF / 630V 的 X2 电容），并且让强电区和弱电区在 PCB 上彻底分开、爬电距离足够。</b>如果要求更高，就用光耦 + 可控硅/固态继电器，把控制侧和负载侧彻底隔开。</p>
+          </div>
+
+          <h3 id="sub-key-long" class="mt-7 text-base font-semibold">场景二：长导线按键——为什么必须加「上拉 + 电容」，以及 ADC 为什么乱跳</h3>
+          <p class="mt-3">现象：<b class="font-semibold text-ink">按钮没按，程序却检测到几十次按下；或者旁边的 ADC 读数无缘无故跳动。</b>这两个现象经常同时出现，因为它们的根源是同一类东西：<b>长导线把空间里的噪声"收集"回来送进了引脚。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="长导线按键的接法：上拉 + 串联电阻 + 并联电容 + 双绞">
+            <pre><code>【错误接法：一根长线直接接按键】
+
+   PA0（浮空输入）──────── 长导线 1m ────────[按键]──── GND
+       ↑
+   导线悬空时是高阻抗的，相当于一根天线。
+   空间中的工频、射频干扰在它上面感应出电压 →
+   引脚在 0 和 1 之间乱跳 → 程序读到几十次"按下"。
+
+
+【正确接法：四个细节】
+
+                        3.3V
+                         │
+                      [10kΩ]        ← ① 上拉电阻（放在单片机这一侧）
+                         │
+                         ├───────────●──── PA0（配置为【上拉输入】）
+                         │           │
+                      [100nF]        │      ② 电容就近接在引脚旁，
+                         │           │          为高频干扰提供一条低阻抗回路
+                        GND          │
+                                     │
+                                     ├──── 长导线（0.5 ~ 2m）────┬──[按键]── GND
+                                     │                          │
+                                     └──────────────────────────┘
+                                        ③ 信号线与地线【绞在一起】走
+
+   ④ 如果环境特别恶劣，还可以在导线上串一个 100Ω 电阻
+      （靠近引脚一侧），配合 100nF 电容构成一级 RC 低通滤波。
+
+
+【③ 为什么信号线要和地线绞在一起走？】
+   不是"为了整齐"。绞合以后：
+     · 两条线接收到的空间干扰【幅度相等、方向相同】（共模）
+     · 但按键读的是"信号线相对地线"的电平差
+     · 两线一起被抬高 → 差值不变 → 干扰被抵消
+   如果不绞、或者信号线单独走，干扰就只有信号线接收，
+   差值立刻变化 → 误判。
+
+
+【② 加了电容之后，按键会不会变慢？算一下】
+
+   RC 时间常数 τ = R × C = 10kΩ × 100nF = 0.001s = 1ms
+
+   → 引脚电平从高变到低的"建立时间"大约是 3τ = 3ms
+   → 人手按键的最短时间也有几十毫秒（20ms 以上）
+   → 所以 1ms 的延迟【完全不影响】按键
+
+   ⚠ 但如果这根线要传的是【高速信号】（比如 1kHz 以上的编码器脉冲），
+     同样的 RC 就会把信号边沿彻底抹平，就不能这么加了。
+     "加电容"永远是在"抗干扰"和"响应速度"之间做交换。</code></pre>
+          </div>
+
+          <p class="mt-3">同一个道理，换到 ADC 上就变成了另一种现象：<b class="font-semibold text-ink">读数上下跳动，稳定不下来。</b>很多人第一反应是「代码里加个平均值滤波」，但如果根源在硬件，滤波只是把错误的数据变得更平滑而已。下面是 ADC 跳动的几种典型原因和它们各自的特征：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>现象特征</th><th>硬件原因</th><th>怎么改</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>读数在几十个 LSB 范围内<b>随机</b>跳动，规律性不强</td>
+                  <td>输入引脚的导线太长，拾取了空间噪声；源阻抗太高</td>
+                  <td>缩短输入走线；在 ADC 引脚旁加 100nF 到地；降低源阻抗（分压电阻总阻值降到 10k~20kΩ）</td>
+                </tr>
+                <tr>
+                  <td>读数出现<b>周期性</b>的规律跳动，比如每秒固定跳几次</td>
+                  <td>旁边的继电器／电机动作时，数字地的脉冲电流流过模拟参考路径（公共阻抗耦合）</td>
+                  <td><b>把模拟地与数字地在一点汇接</b>；ADC 的参考脚（VREF+/VDDA）单独去耦；传感器与单片机的地线分开走，只在一点相连</td>
+                </tr>
+                <tr>
+                  <td>读数整体偏高或偏低，且<b>数值稳定</b></td>
+                  <td>参考电压不准：VDDA 没有去耦，或者被数字电路的电流拉低了</td>
+                  <td>VDDA 引脚旁放 100nF + 1µF；VDDA 与 VDD 之间串一个磁珠做隔离</td>
+                </tr>
+                <tr>
+                  <td>读数在大电流负载启动的<b>瞬间</b>冲一下</td>
+                  <td>负载抽取大电流，整块板的地电位被抬高</td>
+                  <td>大负载用独立电源、只共地；地线加粗；加大电源电容</td>
+                </tr>
+                <tr>
+                  <td>读数在<b>低温或长时间工作后</b>才出现异常</td>
+                  <td>不是干扰，是基准源或电阻的温漂</td>
+                  <td>这一条不属于抗干扰范畴，要选低温漂器件，别在软件里瞎折腾</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">排查 ADC 跳动的标准顺序（照这个顺序做，别跳步）</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>先把输入短路到 GND</b>，看读数是不是稳定在 0 附近。如果短接了还在跳，问题在参考电压或地，不在信号源。</li>
+              <li><b>再把输入接到一个稳定的基准</b>（比如用一节电池经分压），看读数是否稳定。稳定 → 信号源那边有问题；不稳定 → 板子本身有问题。</li>
+              <li><b>用示波器看 VDDA 和 VREF 的纹波</b>（交流耦合档）。有几十毫伏的纹波，就去处理去耦和地。</li>
+              <li><b>把怀疑的干扰源（继电器、电机）断开</b>，看跳动是否消失。消失 → 确认是干扰，按三要素去找路径。</li>
+              <li>以上都排除干净以后，<b>再考虑软件滤波</b>。软件滤波是最后一道防线，不是第一道。</li>
+            </ol>
+          </div>
+
+          <h3 id="sub-long-comm" class="mt-7 text-base font-semibold">场景三：SPI / I²C 长距离通信失败，以及 RS-485 为什么要「双绞 + 共模电感」</h3>
+          <p class="mt-3">现象：<b class="font-semibold text-ink">在桌子上用 10cm 杜邦线通信一切正常，接上 1 米排线就开始丢数据；RS-485 在实验室好，到了现场就掉线。</b>这不是芯片的能力问题，而是「单端信号 + 长导线」这个组合本身的物理限制。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="长距离通信失败的三种原因与对策">
+            <pre><code>【原因一】地环路：两端设备的地电位不同
+
+   设备 A（接电源插座 1）              设备 B（接电源插座 2）
+        GND_A = 0V                        GND_B = 2.3V（相对 A 的地）
+          │                                     │
+          └────────── 信号线 ──────────────────┘
+          └────────── 地线   ──────────────────┘
+                            ↑
+                 这条地线上流着"地环流"，它产生的压降
+                 直接叠加在信号上。同时空间磁场穿过
+                 "信号线 + 地线"围成的回路，再感应出一份干扰。
+
+   ★ 表现：白天设备多的时候掉线多，夜里就好；或者换个插座现象就变。
+   ★ 对策：RS-485 / CAN 这类差分总线 + 光电隔离。不要用普通单端
+           SPI / I²C 拉长线 —— 它们从设计上就不是为长距离准备的。
+
+【原因二】总线电容：I²C 的硬性上限
+
+   I²C 规范规定：总线总电容【不得超过 400pF】。
+   普通排线或双绞线的线间电容大约 50 ~ 100pF/m，
+   按 60pF/m 估算：
+
+       400pF ÷ 60pF/m ≈ 6.7m
+
+   这还没算挂在总线上的每个器件引脚本身的电容（每个几 pF）。
+   实际上挂 3~4 个器件以后，能拉的线往往不到 3 米。
+   → 超了会怎样：上升沿被电容拖慢，波形变成"圆弧"，
+     高速下直接读不到正确的电平。
+
+   ★ 对策：① 缩短线长；② 降低速率（100kHz 比 400kHz 宽容）；
+           ③ 减小上拉电阻（但会增加功耗和低电平抬升风险）；
+           ④ 长距离改用 RS-485 或 CAN。
+
+【原因三】反射：边沿太快、线太长
+
+   信号在导线上的传播速度约 15cm/ns（FR4 上约 0.5c）。
+   如果信号的上升时间和"线长的往返时间"可比，
+   信号会在末端反射回来，与原始信号叠加形成振铃。
+
+   经验判据：当【线长 &gt; 上升时间对应的电气长度 / 6】时，
+             就必须按传输线处理（考虑阻抗匹配）。
+
+   例：上升时间 5ns 的数字信号，在 FR4 上的电气长度约
+       5ns × 15cm/ns = 75cm；除以 6 约 12.5cm。
+   → 超过 12.5cm 的走线就要考虑终端匹配（串阻或端接）。
+
+   ★ 对策：① 串一个 22Ω ~ 33Ω 的源端匹配电阻；
+           ② 降低速率；③ 缩短线长；④ 用差分总线。</code></pre>
+          </div>
+
+          <p class="mt-3">所以工业现场的长距离通信几乎一律用 <b class="font-semibold text-ink">RS-485</b>。它的抗干扰设计不是随便定的，每一样都对应着前面讲过的原理：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="RS-485 接口的完整抗干扰设计">
+            <pre><code>【为什么是 RS-485 而不是 UART 直接拉长线】
+   ① 差分传输：信号是 A、B 两条线的【电压差】。
+      空间干扰同时抬高 A 和 B（共模）→ 差值不变 → 干扰被抵消。
+      这就是"双绞"必须配合"差分"才有意义的原因。
+   ② 共模输入范围宽：-7V ~ +12V。
+      也就是说两端设备的地差上几伏，它照样能正确接收。
+   ③ 用双绞线传：绞合让两线接收的磁场干扰互相抵消。
+
+
+【完整电路（一端为例，另一端对称）】
+
+   ┌────────┐    ┌─────────┐   ┌──────────┐   ┌──────────────┐
+   │  MCU   │    │ MAX485  │   │ 共模电感  │   │  双绞线 A ───┼──► 到对端
+   │  UART  ├───►│ 收发器   ├──►│ (两线同向 ├──►│  双绞线 B ───┼──► 到对端
+   │        │◄───┤         │◄──┤  绕制)    │◄──┤  地线(可选)─┼──► 到对端
+   └────────┘    └────┬────┘   └──────────┘   └──────────────┘
+                      │
+                 ┌────┴────┐
+                 │ 120Ω 终端│  ← 只在总线的【两个最远端】各接一个
+                 │  电阻    │     中间节点不接
+                 └────┬────┘
+                     GND
+
+
+【每个元件的作用（逐个说清）】
+   · 共模电感：双绞线挡不住的共模干扰，由它来挡。
+               差模信号（A-B 的差）在磁芯里磁通抵消 → 畅通；
+               共模噪声（A、B 同向）磁通叠加 → 被高阻抗挡住。
+   · 120Ω 终端电阻：匹配电缆的特性阻抗（双绞线约 120Ω），
+               消除信号在末端的反射。★ 只有两端需要，
+               中间节点的收发器不要接，否则负载过重、信号幅度下降。
+   · 双绞线：抵消磁场耦合（差模）。
+   · 屏蔽层：如果有，按"低频单端接地、高频两端接地"的原则处理。
+   · 隔离（进阶）：要求高的场合，在 MCU 和 MAX485 之间加光耦或
+               数字隔离器，并给收发器配独立的隔离电源。
+               这样地环路被彻底切断，现场雷击也不容易打坏主板。
+
+【现场最常见的三个失败原因】
+   ① 忘了接终端电阻，或者【每个节点都接了】→ 信号反射/幅度不足
+   ② 双绞线在接线端子处拆开了 10cm 平行走线 → 这一段白绞了
+   ③ A、B 接反了（不同厂家的定义可能相反）
+      → 现象是"完全收不到数据"而不是"偶尔丢包"，
+        这两个现象可以帮助你快速区分是接反还是干扰。</code></pre>
+          </div>
+
+          <h3 id="sub-pcb" class="mt-7 text-base font-semibold">场景四：PCB 抗干扰布局要点</h3>
+          <p class="mt-3">原理图决定了「有哪些保护器件」，PCB 决定了「这些器件到底起不起作用」。<b class="font-semibold text-ink">同一张原理图，两种布局方式做出来的板子，抗干扰能力可以差一个数量级。</b>下面五条是优先级最高的要点。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>要点</th><th>具体怎么做</th><th>为什么（对应前面的哪个原理）</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>走线</b></td>
+                  <td>信号线尽量短；两条信号线不要长距离平行走，必要时中间加一根接地线隔离；双层板正反面的走线尽量<b>正交</b>（垂直交叉）而不是平行；时钟线、复位线要特别短，远离 I/O 和接口</td>
+                  <td>走线越长，天线效应越明显（第 3 节例题二）；平行走线的容性/感性耦合会造成串扰；正交时互感最小</td>
+                </tr>
+                <tr>
+                  <td><b>铺地</b></td>
+                  <td>双层板尽量<b>整层铺地</b>，不要用细长的"树杈状"地线；地平面不要被走线割裂；信号线不跨越地平面的裂缝；重要信号线的正下方必须有连续的地</td>
+                  <td>地平面的作用是给回流电流提供一条紧贴信号线的低阻抗路径，让环路面积趋近于零；跨分割会让回流被迫绕行，环路面积暴涨</td>
+                </tr>
+                <tr>
+                  <td><b>晶振包地</b></td>
+                  <td>晶振和负载电容尽量靠近芯片的 OSC 引脚，走线短而粗；晶振外壳接地；四周打一圈接地过孔把晶振"围"起来（guard ring）；<b>晶振正下方不走任何其它信号线</b></td>
+                  <td>晶振既是高频噪声源（几十 MHz 的方波），又是极敏感的模拟电路。包地既挡住它向外辐射，也挡住外部干扰进来</td>
+                </tr>
+                <tr>
+                  <td><b>电源分区</b></td>
+                  <td>按"电流大小"和"噪声等级"把板子分成几块：功率区（继电器、电机驱动、电源模块）、数字区（MCU、通信）、模拟区（ADC、传感器接口）。<b>大电流回路的面积做到最小</b>；各分区的电源走线从入口各自分支，不要串联</td>
+                  <td>大电流回路的面积决定了辐射强度（E 与 A 成正比）；分区分割让噪声电流没有机会流经敏感电路的地</td>
+                </tr>
+                <tr>
+                  <td><b>去耦与接口</b></td>
+                  <td>每个电源脚一颗 100nF，<b>紧贴引脚（2mm 以内）</b>，接地端就近打过孔；所有对外接口（端子、USB、按键）旁边放 TVS 或 RC 滤波；接口的地就近接到机壳地</td>
+                  <td>去耦电容在 22.5MHz 以上就变成电感了，走线电感会把它彻底废掉（第 3 节例题三）；接口是外部干扰进入板子的主要入口，必须在入口处拦下</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">三句在实验室里最实用的布局口诀</div>
+            <p><b>「电流从哪里来，就从哪里回去，而且要走最近的路。」</b>每画一根线，都想一下它的回流路径在哪。想不到回流路径的那根线，就是一根天线。</p>
+            <p class="mt-2"><b>「大电流靠边站，小信号住中间。」</b>继电器、电机驱动、开关电源这些「脏」的东西放在板子边缘、靠近接口的一侧；MCU、ADC、晶振放在中间。这样噪声要先穿过一段距离才可能到达敏感电路。</p>
+            <p class="mt-2"><b>「宁可我多打几个过孔，也不让地平面被割断。」</b>走线换层的时候，记得在信号过孔旁边放一个地过孔，给回流电流一条「跟着换层」的路。这个动作叫「伴随地过孔」，是高速设计里的基本要求。</p>
+          </div>
+
+          <h3 id="sub-software" class="mt-7 text-base font-semibold">场景五：软件抗干扰——代码里的五道防线</h3>
+          <p class="mt-3">硬件做得再好，也不可能 100% 挡住所有干扰。总会有那么一些极端情况，让程序计数器（PC）跳到一个不该去的地方，或者让某个变量被改写。<b class="font-semibold text-ink">软件抗干扰的思路是：假设「程序一定会跑飞」，然后让它在跑飞之后能自己回来。</b>这是工业设备能连续运行几个月的关键。</p>
+
+          <p class="mt-3">为什么工业现场尤其需要它？因为它要满足两个硬指标：<b>无人值守（没人给你拔电重启）</b>和<b>不能出错（一次误动作可能造成设备损坏或安全事故）</b>。下面五种手段按「从必备到进阶」排列。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>手段</th><th>解决什么问题</th><th>代价</th></tr></thead>
+              <tbody>
+                <tr><td><b>看门狗</b></td><td>程序跑飞、死循环、卡在某个 while 里出不来</td><td>无（独立看门狗用内部 LSI 时钟，几乎不占资源）</td></tr>
+                <tr><td><b>指令冗余</b></td><td>PC 跳错一两个字节，落在一条指令中间，把后面的指令解释错</td><td>少量代码空间和执行时间</td></tr>
+                <tr><td><b>软件陷阱</b></td><td>PC 跳到未使用的程序区或中断向量表，执行垃圾数据</td><td>占用少量未使用的代码空间</td></tr>
+                <tr><td><b>数字滤波</b></td><td>ADC 采样值上的随机噪声与单个尖峰</td><td>响应变慢，需要额外的 RAM</td></tr>
+                <tr><td><b>多次采样表决</b></td><td>数字量输入（按键、限位开关）被干扰误判</td><td>响应变慢，逻辑略微复杂</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="main.c — 五道防线的完整实现">
+            <pre><code>/* ============================================================================
+ * 软件抗干扰的五道防线（基于 STM32 HAL，思路对 51 同样适用）
+ *
+ * 核心思想：假设程序【一定会跑飞】，让它在跑飞之后能自己回来，
+ *           并且在数据被干扰污染时能识别出来。
+ * ============================================================================ */
+
+#include "main.h"
+#include &lt;string.h&gt;
+
+extern ADC_HandleTypeDef hadc1;
+IWDG_HandleTypeDef hiwdg;
+
+/* 共享变量必须加 volatile：防止编译器把它优化到寄存器里，
+   导致中断里的修改在主循环里看不见。 */
+static volatile uint32_t g_loop_counter = 0;
+
+/* ============================================================================
+ * ① 独立看门狗：工业现场的"保命符"
+ *    独立看门狗由芯片内部的 LSI 振荡器（约 40kHz）驱动，
+ *    与主时钟无关 —— 即使主时钟被干扰搞停了，它照样能复位芯片。
+ * ============================================================================ */
+void MX_IWDG_Init(void)
+{
+  hiwdg.Instance = IWDG;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_64;   /* 40kHz / 64 = 625Hz */
+  hiwdg.Init.Reload    = 2500;                /* 625Hz / 2500 ≈ 0.25Hz */
+  if (HAL_IWDG_Init(&amp;hiwdg) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* 溢出时间 = Reload / 计数频率 = 2500 / 625Hz = 4 秒
+     ★ 这个时间要【大于】主循环最坏情况的执行时间，
+       但也不能太大 —— 一般取正常循环时间的 3~5 倍。 */
+}
+
+/* ============================================================================
+ * ② 数字滤波：中值滤波 + 滑动平均，两级串联
+ *    中值滤波专治"单个尖峰"（干扰造成的偶发野值），
+ *    滑动平均专治"随机噪声"。
+ *    顺序不能反：先去掉野值，再平均，否则尖峰会被平均进结果里。
+ * ============================================================================ */
+#define MED_N   5      /* 中值滤波取 5 个点 */
+#define AVG_N   8      /* 滑动平均取 8 个点 */
+
+static uint16_t median_filter(const uint16_t *buf, uint8_t n)
+{
+  uint16_t tmp[MED_N];
+  uint8_t i, j;
+
+  memcpy(tmp, buf, n * sizeof(uint16_t));
+
+  /* 冒泡排序（数据量小，够用且好懂） */
+  for (i = 0; i &lt; n - 1; i++)
+  {
+    for (j = 0; j &lt; n - 1 - i; j++)
+    {
+      if (tmp[j] &gt; tmp[j + 1])
+      {
+        uint16_t t = tmp[j];
+        tmp[j]     = tmp[j + 1];
+        tmp[j + 1] = t;
+      }
+    }
+  }
+  return tmp[n / 2];          /* 取中间那个，野值自动被排除 */
+}
+
+uint16_t adc_read_filtered(void)
+{
+  uint16_t med_buf[MED_N];
+  uint32_t sum = 0;
+  uint8_t  i;
+
+  for (i = 0; i &lt; MED_N; i++)
+  {
+    HAL_ADC_Start(&amp;hadc1);
+    if (HAL_ADC_PollForConversion(&amp;hadc1, 10) != HAL_OK)
+    {
+      HAL_ADC_Stop(&amp;hadc1);
+      return 0xFFFF;          /* 明显错误值，让上层能识别出来 */
+    }
+    med_buf[i] = (uint16_t)HAL_ADC_GetValue(&amp;hadc1);
+    HAL_ADC_Stop(&amp;hadc1);
+  }
+
+  /* 中值滤波后的结果，再和前面 7 次结果一起做滑动平均 */
+  static uint16_t avg_buf[AVG_N] = {0};
+  static uint8_t  avg_idx = 0;
+
+  avg_buf[avg_idx] = median_filter(med_buf, MED_N);
+  avg_idx = (avg_idx + 1) % AVG_N;
+
+  for (i = 0; i &lt; AVG_N; i++)
+  {
+    sum += avg_buf[i];
+  }
+  return (uint16_t)(sum / AVG_N);
+}
+
+/* ============================================================================
+ * ③ 多次采样表决：专治数字量输入的误判
+ *    连续读 3 次，两次以上相同才认可。这就是"三取二"表决。
+ *    按键、限位开关、急停按钮都应该这么读。
+ * ============================================================================ */
+GPIO_PinState read_pin_voted(GPIO_TypeDef *port, uint16_t pin)
+{
+  uint8_t high_cnt = 0;
+  uint8_t i;
+
+  for (i = 0; i &lt; 3; i++)
+  {
+    if (HAL_GPIO_ReadPin(port, pin) == GPIO_PIN_SET)
+    {
+      high_cnt++;
+    }
+  }
+  /* 3 次里至少 2 次是高，才认为是高 */
+  return (high_cnt &gt;= 2) ? GPIO_PIN_SET : GPIO_PIN_RESET;
+}
+
+/* ============================================================================
+ * ④ 指令冗余与软件陷阱
+ *    —— 这两条在 51 上是经典做法，在 Cortex-M 上要靠链接脚本配合，
+ *       这里给出思路和做法说明。
+ *
+ * 【指令冗余】在关键的跳转、判断指令前重复写几条 NOP，
+ *   这样即使 PC 跳错一两个字节，落到 NOP 上也能"滑"过去，
+ *   重新对齐到正确的指令边界。
+ *
+ *   51 上的经典写法（在 LJMP / LCALL 前加两条 NOP）：
+ *       NOP
+ *       NOP
+ *       LCALL  key_scan
+ *
+ *   Cortex-M 上等价的做法：
+ *       在关键函数入口前留出对齐填充，或者在关键分支前插入
+ *       几条 __NOP()，配合编译器的对齐选项使用。
+ *
+ * 【软件陷阱】把未使用的程序空间填满"跳转到陷阱处理"的指令，
+ *   一旦 PC 跑飞落进来，立刻被捕获并复位。
+ *
+ *   51 的经典做法：未用空间填 02 00 00（LJMP 0000H）或 00 00，
+ *                   并在几个特定地址放 LJMP ERR_HANDLE。
+ *
+ *   Cortex-M 的常见做法：把未使用的 Flash 区间填成 0xFFFFFFFF，
+ *       它在 Thumb 指令集里不是合法指令，会立刻触发 HardFault；
+ *       然后在 HardFault_Handler 里做一次系统复位。
+ * ============================================================================ */
+
+void trap_handler(void)
+{
+  /* 陷阱处理：记录现场（可选），然后复位 */
+  /* 建议在这里点亮一个指示灯或者往 EEPROM 写一条记录，
+     方便事后统计"这块板子跑飞过几次"。 */
+  NVIC_SystemReset();
+}
+
+/* ============================================================================
+ * ⑤ 主循环：看门狗必须在【所有任务都正常】的前提下才喂
+ * ============================================================================ */
+int main(void)
+{
+  uint16_t adc_val;
+  uint8_t  flags = 0;
+
+  HAL_Init();
+  SystemClock_Config();
+  MX_GPIO_Init();
+  MX_ADC1_Init();
+  MX_IWDG_Init();          /* ★ 尽早在初始化阶段就打开看门狗 */
+
+  while (1)
+  {
+    /* ---- 任务一：采集 ---- */
+    adc_val = adc_read_filtered();
+    if (adc_val == 0xFFFF)
+    {
+      flags |= 0x01;       /* ADC 出错，置个标志，不喂狗 */
+    }
+
+    /* ---- 任务二：读按键（三取二表决） ---- */
+    if (read_pin_voted(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET)
+    {
+      /* 确认按下：再等 20ms 复读一次，做软件消抖 */
+      HAL_Delay(20);
+      if (read_pin_voted(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET)
+      {
+        flags |= 0x02;
+      }
+    }
+
+    /* ---- 任务三：处理 ---- */
+    if (flags == 0)
+    {
+      /* 所有任务都正常完成，才喂狗。
+         ★ 关键：不要在主循环的第一行无条件喂狗 ——
+           那样即使后面的任务全部卡死，狗也不会咬。 */
+      HAL_IWDG_Refresh(&amp;hiwdg);
+    }
+    flags = 0;
+
+    g_loop_counter++;
+    HAL_Delay(10);
+  }
+}
+
+/* ============================================================================
+ * 【几个必须注意的点】
+ *
+ * ① 看门狗一定要在【初始化阶段就打开】，而且要在初始化完成后立刻
+ *    确认它没有溢出。如果初始化代码本身就可能卡死（比如等一个
+ *    永远不来的外部芯片），看门狗就是唯一的出路。
+ *
+ * ② 喂狗的位置比喂狗这个动作本身更重要。
+ *    错误做法：while(1) { HAL_IWDG_Refresh(&amp;hiwdg); 干活(); }
+ *              → 干活的部分卡死了，狗照样被喂，永远不会复位。
+ *    正确做法：每个任务完成时置一个标志，全部标志都置位才喂狗；
+ *              或者用【窗口看门狗（WWDG）】——喂早了也会复位，
+ *              能额外发现"程序跑得太快"这类异常。
+ *
+ * ③ 数字滤波会让响应变慢，要算清楚代价。
+ *    本例中：中值滤波取 5 个点 + 平均取 8 个点，
+ *    每采一个点要几微秒，一轮下来大约几十微秒到几毫秒，
+ *    对温度、电压这类慢变量完全没问题；
+ *    但如果是要测 1kHz 以上的动态信号，这套滤波就不能用。
+ *
+ * ④ 表决的次数不是越多越好。
+ *    三取二能挡掉单次干扰；要挡掉连续两次干扰就得上五取三。
+ *    但次数越多响应越慢，而且如果干扰是【持续性】的
+ *    （比如地线接错了），表决也救不了 —— 那必须回到硬件去解决。
+ *
+ * ⑤ 软件抗干扰只能在【硬件已经做到位】的前提下发挥作用。
+ *    如果续流二极管没加、去耦电容没放，软件这边再怎么加固，
+ *    也只是在一个漏水的桶里舀水。
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么工业现场特别强调看门狗</div>
+            <p>你可以做一个小实验：拿一块板子，在程序里把某个数组的下标故意写溢出，或者用一个野指针，观察程序是怎么"死"的。<b>你会发现绝大多数情况下程序不是停在某一行，而是跳到一个随机的地方继续执行垃圾指令</b>——可能是在改一个无关的寄存器，可能是进入了某个中断的死循环。这种状态下，只有两类东西能救你：硬件看门狗，和掉电重启。</p>
+            <p class="mt-2">在实验室里，你可以随时拔电重启；在车间的一台设备上，这意味着停线。<b>所以工业设备的设计准则里有一条：「任何一块 PCB 上都必须有一颗能独立于主程序运行的看门狗。」</b>STM32 的独立看门狗（IWDG）由内部 LSI 时钟驱动，是最合适的选择；51 系统可以用专门的看门狗芯片（比如 MAX813、X5045），或者用定时器 + 复位引脚自己搭一个。</p>
+          </div>
+        </section>
+
+      <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见误解与坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误解与坑</h2>
+          <p class="mt-4">这一节收集的是<b class="font-semibold text-ink">我自己踩过、以及在别人的板子上见过最多的十个误解</b>。它们的共同特点是：听起来很有道理，做起来很省事，但结果是「你以为你防住了，其实没有」。每一条都按「错误认知 → 为什么错 → 正确做法」来说，你可以当成一份检查表用。</p>
+
+          <div class="card card-pad mt-5">
+            <p class="text-[15px] font-semibold text-ink">坑 ①　「我加了续流二极管，继电器这块就没问题了。」</p>
+            <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>在继电器线圈两端并了一颗 1N4148，电感尖峰的问题就彻底解决了。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>续流二极管只掐掉了<b>五类干扰源里的一个</b>——线圈断电瞬间的反电动势。而继电器这个器件本身还有另外两条作恶途径：<b>一是触点拉弧</b>，触点断开 220V 交流负载时会拉出电弧，产生覆盖几十 MHz 的宽带射频噪声，顺着空间和电源线两头跑；<b>二是线圈与触点之间的杂散电容</b>，高压侧的高 dv/dt 会通过这几 pF 的电容耦合到控制侧。另外，二极管本身也有三个「装了但没起作用」的姿势：方向接反（不是反并联）、接在三极管两端而不是线圈两端、用 ULN2003 时第 9 脚 COM 没接负载电源正极。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>把续流二极管当成第一道防线而不是全部。① 确认它是<b>反并联在线圈两端</b>（阴极朝电源正极）；② 用继电器模块时量一下 COM 脚的电位，确认它接到了负载电源正极；③ 触点侧加 RC 吸收（典型 100Ω + 0.1µF/630V）或压敏电阻；④ 强电区和弱电区在 PCB 上物理分开，爬电距离留够；⑤ 要求高的场合直接上光耦 + 固态继电器，把两边彻底隔开。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p class="text-[15px] font-semibold text-ink">坑 ②　「地就是零电位，所有的地最后连在一起就好了。」</p>
+            <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>地是电路的公共参考点，理论上电位处处为零，所以随便连，连上就行。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>地线不是理想导体，它有电阻也有电感。<b>只要有电流流过，地线上就一定有压降</b>——这就是「公共阻抗耦合」。算一笔账：一小段地线的电阻 10mΩ、电感 10nH，当数字电路在这段地上流过 100mA 的脉冲电流、边沿 5ns 时，感抗上的压降是 <b>u = L·di/dt = 10nH × 0.1A / 5ns = 0.2V</b>。零点二伏！对 3.3V 系统来说这是 6% 的电源波动，对 ADC 来说相当于几百个 LSB 的误差。更麻烦的是：模拟电路和 ADC 的参考基准就是「地」，地一抖，测量值就跟着抖。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>承认「地是一个有阻抗的网络」，然后按电流分区：数字地、模拟地、功率地、机壳地各自在自己的区域内流动，<b>最后在一个点汇接</b>（单点接地）。ADC 的模拟地要和数字地分开走线，只在 ADC 芯片下方一点相连。大电流负载的回流路径要单独走，绝不能让电机电流穿过 MCU 脚下的地平面。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p class="text-[15px] font-semibold text-ink">坑 ③　「去耦电容放哪儿都一样，反正都连到 5V 和 GND。」</p>
+            <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>电容连的是同一对网络，放远一点只是多几毫米走线，影响不大。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>第 3 节例题三已经算过了：走线电感约 1nH/mm，10mm 走线在 100MHz 上的感抗是 6.28Ω，而 100nF 电容自身的阻抗只有 0.314Ω——<b>走线的阻抗是电容的 20 倍</b>。换句话说，在高频段这颗电容已经被自己的走线废掉了，它不再是「给芯片供电的储能器」，而是「一段 10mm 的电感」。而恰恰是高频噪声（开关电源的谐波、数字电路的边沿）最需要就地旁路。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>① 距离控制在 <b>2mm 以内</b>，走线短而宽，不要用「猪尾巴」式的细长支线；② 电容的接地端<b>就近打地过孔</b>，不要绕到远处的公共过孔；③ 大小搭配：10µF 管低频、100nF 管中频、1nF 管高频，不要指望一颗通吃；④ 每个电源脚一颗，包括那些「看起来不重要」的 VDD 引脚。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p class="text-[15px] font-semibold text-ink">坑 ④　「磁珠能滤高频，电源线上多串几个总没坏处。」</p>
+            <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>磁珠是「高频电阻」，串得越多，电源越干净。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>磁珠有四个副作用经常被忽略。<b>① 直流压降和发热</b>：磁珠有直流电阻（几十毫欧到几百毫欧），大电流场合串一颗会造成明显的压降与温升，磁珠一旦饱和就彻底失效。<b>② 与去耦电容形成谐振</b>：磁珠（电感性质）+ 电容构成 LC 谐振回路，在谐振频率上不但不衰减，反而会<b>放大</b>噪声，同时让电源的阻抗在那一段变得很高。<b>③ 把电源的瞬态响应拖坏</b>：负载突然抽取大电流时，磁珠挡住了电流的补充，电压瞬间跌落——这恰恰会引发复位，很多人「加了磁珠反而更容易死机」就是这个原因。<b>④ 选型看错了参数</b>：磁珠的标称值是「100MHz 时的阻抗」，不是直流电阻，也不是通流能力。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>只在真正需要的支路上串——比如 VDDA（模拟电源）、PLL 电源、晶振电源这些「对噪声敏感但电流很小」的节点。选型必须同时看三个参数：<b>100MHz 阻抗、直流电阻、额定电流</b>。电源主干道上一般不串磁珠；如果担心以后要改，就先用 0Ω 电阻占位，需要的时候再换。串了磁珠以后，磁珠两端各要有一颗去耦电容。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p class="text-[15px] font-semibold text-ink">坑 ⑤　「双绞线就是为了两根线整齐一点、不容易散。」</p>
+            <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>双绞只是线材工艺，对电气性能没什么影响。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>绞合是一个纯粹的电磁设计。两条线拧在一起之后，它们在空间里交替地处在磁场中的<b>不同位置</b>，于是空间磁场在两条线上感应出的电动势方向相反、大小接近，在差分接收端<b>相互抵消</b>。绞距越短，抵消得越彻底。反过来，如果不绞、或者把两根线在端子处拆开平行走了 10cm，那 10cm 就是一个效率很高的接收天线，前面的绞合全部白费。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>① RS-485、CAN 这类差分总线必须用双绞线，绞距越密越好；② <b>接线端子处不要拆开</b>，尽量绞到端子上；③ 差分对的两根线要等长，不要一根绕远路；④ 单端信号（比如长导线按键）可以让信号线与它的地线绞在一起走，也能收到一部分共模抵消的效果。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p class="text-[15px] font-semibold text-ink">坑 ⑥　「加了光耦就隔离了，两边可以共用电源。」</p>
+            <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>光耦是隔离器件，装上去之后控制侧和负载侧就互不影响了。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>光耦隔离的是<b>信号</b>，不是<b>电源</b>。如果两侧还共用一个电源或者共地，那么地环路依然存在、地电位差依然存在、高压侧的共模干扰依然会通过地线窜到 MCU 侧——光耦只是把信号「翻译」过去，两边的参考电位还是同一个。更糟的是，高压侧的地噪声现在会直接打在你的 MCU 地线上。隔离的完整含义是：<b>信号隔离 + 电源隔离 + 地隔离</b>，三者缺一不可。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>① 两侧必须用<b>独立的电源</b>，负载侧那一份可以用隔离 DC-DC 模块（比如 B0505S）从主电源「隔」出来；② 两侧的地分别接各自的区域，中间绝不连；③ 注意光耦的实际隔离能力：PC817 标称 5kV 交流 1 分钟，但如果 PCB 上光耦两侧的<b>爬电距离不够</b>（或者中间走了别的线），实际耐压会大打折扣——光耦下方要挖空或不开铜，两侧之间留出足够的间距。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p class="text-[15px] font-semibold text-ink">坑 ⑦　「屏蔽线两端都接地，屏蔽效果才最好。」</p>
+            <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>既然是屏蔽层，两端都接地，把干扰都导走，肯定最保险。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>屏蔽层两端接地以后，它会和信号线（以及两端设备的地）构成一个<b>闭合回路</b>。空间中的磁场穿过这个回路，会在屏蔽层上感应出电流。这个电流又通过屏蔽层与芯线之间的分布电容耦合进信号里——<b>你想屏蔽的是磁场干扰，结果自己造了一个更大的接收环。</b>这就是低频场合「两端接地反而更差」的原因。判别标准是电缆长度与波长的关系：长度小于约 1/20 波长（低频）时，单端接地更优；长度达到波长量级（高频）时，两端接地才能有效泄放共模电荷。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>① 低频信号（音频、传感器、直流）→ <b>屏蔽层单端接地</b>，接在信号源侧或接收侧的一端，另一端悬空；② 高频信号（MHz 以上）或长电缆 → 两端接地，并且最好再接一层；③ 两端地电位差很大（雷击、大功率设备）→ 用双层屏蔽（内层单端、外层两端）或者加隔离；④ 无论哪种接法，<b>屏蔽层都要在接口处做 360° 的环形连接</b>，不要只用一根「猪尾巴」导线接过去——那根线本身就是个电感，会把屏蔽效果抵消掉。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p class="text-[15px] font-semibold text-ink">坑 ⑧　「我在主循环里加了喂狗，看门狗就起作用了。」</p>
+            <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>看门狗的用法就是 while(1) 里写一句刷新，程序卡住不刷新就复位，结束。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>问题出在<b>喂狗的位置</b>。如果刷新语句写在主循环的第一行、无条件执行，那么循环里后面的任务即使全部卡死，狗照样被喂得饱饱的——它只能发现「整个循环停下来了」这一种故障，而工业现场最常见的恰恰是「循环还在跑，但某个任务卡住了」。另一个盲区是中断：如果某个中断服务函数里陷入死循环，主循环和喂狗都还在正常跑，看门狗永远不会咬。还有一种更隐蔽的：任务执行时间变短了（比如某个判断被干扰改成了永远为真，跳过了耗时的分支），主循环飞快地转，喂狗也更频繁——这属于「跑得太快」的异常。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>① 用<b>任务标志法</b>喂狗：每个任务完成时置自己的标志位，所有标志都置位后才喂一次狗，然后清空标志（第 4 节的代码就是这么写的）；② 关键中断也要参与——在中断里置标志，主循环检查；③ 需要检测「跑得太快」时，用<b>窗口看门狗（WWDG）</b>，喂早了也会复位；④ 调试时可以用 DBGMCU 冻结看门狗（否则单步调试一定会被复位打断），但必须记得在发布版本里恢复；⑤ 看门狗的溢出时间取「正常循环时间的 3~5 倍」。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p class="text-[15px] font-semibold text-ink">坑 ⑨　「ADC 读数在跳？代码里加个平均值滤波就好了。」</p>
+            <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>软件滤波是万能的，能解决所有的读数不稳。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>软件滤波只能处理两类东西：<b>随机噪声</b>和<b>偶发野值</b>。而 ADC 跳动的常见原因里，有一大半是滤波解决不了的：<b>① 周期性干扰</b>（继电器一动就跳）——平均会给它「抹平」，但如果干扰是持续占空比固定的，平均值会稳定在一个<b>错误的值</b>上，这比跳动更危险，因为你看不出来；<b>② 参考电压纹波</b>——参考都不准了，采样再平均也是不准的；<b>③ 地电位漂移</b>——同样会被平均成错误的稳定值；<b>④ 噪声幅度过大导致 ADC 溢出/饱和</b>——采到的就是 0 或者满量程，平均之后仍然错。一句话总结：<b>滤波让读数变漂亮，不代表让读数变正确。</b></p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>① 先按第 4 节给的排查顺序<b>从硬件找根源</b>（短路输入 → 接基准 → 看参考纹波 → 断开干扰源），这一步不能跳；② 软件上用「中值滤波去野值 + 滑动平均去随机噪声」两级串联，顺序不能反；③ <b>把采样时刻与干扰源错开</b>：比如在继电器不动的时间窗口里采样，或者采完等 1ms 再采一次比对；④ 用硬件过采样（比如采 16 次求平均，由 ADC 或 DMA 完成）提高有效位数；⑤ 高精度场合用差分输入 + 仪表放大器，从根上提高共模抑制能力。</p>
+          </div>
+
+          <div class="card card-pad mt-5">
+            <p class="text-[15px] font-semibold text-ink">坑 ⑩　「TVS 和压敏电阻都是过压保护，随便用哪个都行。」</p>
+            <p class="mt-3"><b class="font-semibold text-ink">错误认知：</b>两者都是「电压一高就导通」的保护器件，功能重复，选便宜的就行。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">为什么错：</b>它们的原理、速度和适用场合完全不同。<b>压敏电阻（MOV）</b>是钳位型器件：响应慢（微秒级）、通流能力大（几十安到几十千安，能扛雷击浪涌）、但每次动作都会老化（漏电流逐渐增大，最终发热失效）、结电容很大（几百 pF 以上，绝不能用在信号线上）。<b>TVS 二极管</b>是雪崩型器件：响应极快（纳秒级）、钳位电压精确、几乎没有老化问题、结电容可以做到几 pF 以下（适合高速数据线），缺点是通流能力远小于压敏电阻。<b>把它们混用的典型后果是：数据线上并了一颗压敏电阻，结果通信直接不通（电容太大把信号吃掉了）；或者电源口只放了一颗小 TVS，遇到雷击浪涌直接炸掉。</b></p>
+            <p class="mt-2"><b class="font-semibold text-ink">正确做法：</b>① 先分清要防什么：<b>雷击/浪涌</b>（能量大、上升慢，对应 IEC 61000-4-5）还是 <b>ESD</b>（能量小、上升极快，IEC 61000-4-2 接触放电 8kV、空气放电 15kV）；② 电源入口：压敏电阻或大功率 TVS，或者两者组合（压敏扛大能量、TVS 做精确钳位）；③ 数据线/信号线：<b>低电容 TVS</b>（几 pF 以内），绝不使用压敏电阻；④ 压敏电阻的额定电压选工作电压的 1.2~1.4 倍左右，并注意它是有寿命的耗材；⑤ TVS 的选型看三个参数：<b>反向关断电压 V_RWM（要高于工作电压）、击穿电压 V_BR、钳位电压 V_C（要低于被保护器件的耐压）</b>。</p>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">这十条里，最致命的是这三条</div>
+            <p><b>第 ② 条（地随便连）</b>——它造成的故障最难查，因为现象是「偶尔」和「说不清」，而且它同时污染 ADC、通信和复位电路。90% 的「莫名其妙」问题最后都追到地上。</p>
+            <p class="mt-2"><b>第 ⑧ 条（看门狗喂错位置）</b>——它造成的故障最危险，因为设备「看起来有看门狗」，但在真正需要它的时候不会动作，属于「保护措施形同虚设」。</p>
+            <p class="mt-2"><b>第 ⑨ 条（用滤波掩盖问题）</b>——它造成的后果最隐蔽，因为读数从「跳动的错」变成了「稳定的错」，你反而失去了发现问题的那条线索。<b>记住这条原则：软件滤波是用来处理「随机误差」的，不是用来掩盖「系统性错误」的。</b></p>
+          </div>
+        </section>
+
+      <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与自检 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自检</h2>
+          <p class="mt-4">这一章的内容很多，但骨架其实只有一条：<b class="font-semibold text-ink">干扰的传播一定有三要素，你要做的永远是「掐掉其中一个」。</b>下面把所有知识点压成一份清单，然后是自测题和练习。<b>建议你先看清单，然后合上页面做自测题，再回来对答案。</b></p>
+
+          <h3 class="mt-7 text-base font-semibold">一、要点清单</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>主题</th><th>必须记住的核心结论</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><b>干扰三要素</b></td>
+                  <td>干扰源 + 耦合路径 + 敏感设备，<b>缺一不可</b>。抗干扰就是掐掉其中任意一条：掐源头（加续流二极管、RC 吸收）、断路径（加滤波、屏蔽、隔离、缩短走线）、护自己（去耦、滤波、软件冗余）。</td>
+                </tr>
+                <tr>
+                  <td><b>五种干扰来源</b></td>
+                  <td>① 电网波动（浪涌、跌落、谐波）；② 继电器与电机的<b>反电动势</b>（能量以磁场储存，断电瞬间释放）；③ 静电 ESD（人体可达几千伏到十几千伏，纳秒级边沿）；④ 射频干扰（对讲机、WiFi、开关电源的谐波）；⑤ 地线噪声（公共阻抗耦合，最阴险的一类）。</td>
+                </tr>
+                <tr>
+                  <td><b>传导与辐射</b></td>
+                  <td>传导干扰沿着导线走，频率较低（工程上以 <b>30MHz</b> 为大致分界）；辐射干扰通过空间走，频率较高。<b>但真正的分界不是频率，而是「尺寸与波长的比值」</b>——导线长度接近 λ/20 就会变成有效天线。</td>
+                </tr>
+                <tr>
+                  <td><b>共模与差模</b></td>
+                  <td>差模是两个输入端之间电位差的变化（往返电流方向相反），共模是两个输入端<b>同时</b>升高或降低（电流同向，经大地返回）。通信线用差分就是为了天然地抑制共模。<b>判别法：分别测两端对地电压，同升同降是共模，一升一降是差模。</b></td>
+                </tr>
+                <tr>
+                  <td><b>接地</b></td>
+                  <td>低频（小于约 1MHz）用<b>单点接地</b>，高频用<b>多点接地</b>，混合系统用<b>混合接地</b>。数字地与模拟地分开走、<b>在一点汇接</b>。绝不形成地环路——把「信号线 + 地线」围成的面积做到最小，就是最简单的防环路方法。</td>
+                </tr>
+                <tr>
+                  <td><b>屏蔽与双绞</b></td>
+                  <td>屏蔽层<b>低频单端接地、高频两端接地</b>；接口处要 360° 环形连接，不能用「猪尾巴」。双绞线让两根线处的磁场位置交替，干扰相互抵消，<b>必须配合差分信号</b>才发挥全部威力，端子处不能拆开。</td>
+                </tr>
+                <tr>
+                  <td><b>滤波四件套</b></td>
+                  <td><b>去耦电容</b>：管到自谐振频率为止（100nF/0402 约 22.5MHz），必须紧贴引脚 2mm 以内；<b>磁珠</b>：只串在敏感小电流支路，注意直流电阻、额定电流与谐振；<b>共模电感</b>：只挡共模、放行差模，用在 RS-485 等差分口；<b>TVS 与压敏电阻</b>：TVS 快而无老化（适合信号线，选低电容型），压敏能扛大能量但有寿命（适合电源入口防雷）。</td>
+                </tr>
+                <tr>
+                  <td><b>隔离</b></td>
+                  <td>光电隔离、继电器隔离的共同前提是<b>两侧独立电源 + 两地不连</b>；只有信号隔离没有电源隔离等于没隔离。隔离器件下方要留足爬电距离。</td>
+                </tr>
+                <tr>
+                  <td><b>续流二极管</b></td>
+                  <td>反并联在线圈两端，阴极朝电源正极。5V/70mA 的小继电器用 1N4148 足够（100V/300mA），12V 以上或 150mA 以上用 1N4007。<b>ULN2003 的第 9 脚 COM 必须接负载电源正极</b>，否则内部二极管不起作用。代价是释放延迟（τ = L/R）。</td>
+                </tr>
+                <tr>
+                  <td><b>PCB 布局</b></td>
+                  <td>走线短、避免长距离平行、正反面正交；<b>整层铺地、不跨分割</b>；晶振包地、下方不走线；按电流大小与噪声等级分区，大电流回路面积最小；去耦电容就近打过孔；接口处放 TVS 或 RC。</td>
+                </tr>
+                <tr>
+                  <td><b>软件抗干扰</b></td>
+                  <td>看门狗（按任务标志喂，不能用无条件喂）、指令冗余（关键跳转前重复 NOP）、软件陷阱（未用空间填陷阱指令）、数字滤波（中值 + 滑动平均，顺序不能反）、多次采样表决（三取二）。<b>软件是最后一道防线，前提是硬件已经做到位。</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">二、自测题（先自己答，再看答案）</h3>
+
+          <div class="mt-4">
+            <p class="font-semibold text-ink">自测 1：干扰的三要素是什么？只掐掉其中一个，干扰能被消除吗？举一个你自己板子上的例子。</p>
+            <div class="callout callout-info mt-2">
+              <div class="callout-title">参考答案</div>
+              <p>三要素是<b>干扰源、耦合路径、敏感设备</b>。只要掐掉其中任意一条，干扰就不会造成危害——所以三条路径你选一条最容易做的下手就行。例子：单片机驱动继电器，干扰源是线圈断电的反电动势；① 掐源头 = 加续流二极管；② 断路径 = 电源加去耦、缩短驱动回路面积、必要时加光耦隔离；③ 护敏感设备 = MCU 电源去耦、ADC 加滤波、软件加表决。<b>实际工程里通常是三条一起做，因为每条都只能降低一部分，而不是完全消除。</b></p>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p class="font-semibold text-ink">自测 2：为什么一根只有 24cm 的导线，也可能变成一个「有效天线」？请用算式说明。</p>
+            <div class="callout callout-info mt-2">
+              <div class="callout-title">参考答案</div>
+              <p>天线的判据是「尺寸与波长可比」。λ = v/f，取 v = 3×10⁸ m/s（空气中）。工程上用 λ/20 作为「开始成为有效天线」的门槛。<b>关键是频率有多高</b>：若信号边沿是 5ns，转折频率 f<sub>knee</sub> = 1/(π·t<sub>r</sub>) = 1/(3.1416×5×10⁻⁹) ≈ 63.7MHz；此时 λ = 3×10⁸/6.37×10⁷ = 4.71m，λ/20 = <b>23.6cm</b>。所以 24cm 的线在 63.7MHz 上已经是有效天线（接近门槛；若取 λ/10 = 47cm 则为谐振前的过渡区，仍不容忽视）。<b>结论：问题不在基波，而在快边沿产生的高频谐波；把上升时间放慢 20 倍（到 100ns），门槛就升到 4.7m，30cm 的线完全安全。</b></p>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p class="font-semibold text-ink">自测 3：共模干扰和差模干扰怎么区分？手头只有一块万用表时，你怎么判别？</p>
+            <div class="callout callout-info mt-2">
+              <div class="callout-title">参考答案</div>
+              <p><b>差模</b>：两条信号线之间的电位差发生变化，电流一去一回，走的是信号线本身。<b>共模</b>：两条线对地的电位<b>同时、同向</b>变化，电流同向流出、经大地返回。判别方法：用万用表（或示波器）分别测两条线对<b>地</b>的电压——<b>两个电压一起升高或一起降低 → 共模；一个升一个降 → 差模</b>。实际干扰往往是两者叠加，需要分别测量后判断哪一项占主导。对策也不同：差模用电容、电感、差模滤波；共模用共模电感、共模电容（Y 电容）、屏蔽与双绞。</p>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p class="font-semibold text-ink">自测 4：续流二极管为什么必须反并联在<b>线圈两端</b>？把它接在三极管的集电极和发射极之间行不行？</p>
+            <div class="callout callout-info mt-2">
+              <div class="callout-title">参考答案</div>
+              <p>不行，或者说不完全行。<b>接在线圈两端时</b>，断电瞬间线圈电流通过二极管在原线圈回路里继续流动——电感电流有了回路，两端电压被钳位在 5V + 0.7V = 5.7V，能量在线圈的电阻上慢慢变成热（τ = L/R = 1.43ms）。<b>接在三极管 C-E 之间时</b>，二极管只能把 C-E 的电压钳住，但线圈电流仍然没有回路，线圈上的电压照样是反向高压——只是三极管这一侧被保护了，而尖峰仍然会顺着电源线和地线传播出去，干扰其他电路。所以位置必须是<b>线圈两端</b>（阴极朝电源正极，即反并联）。</p>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p class="font-semibold text-ink">自测 5：屏蔽电缆的屏蔽层，什么时候单端接地、什么时候两端接地？为什么？</p>
+            <div class="callout callout-info mt-2">
+              <div class="callout-title">参考答案</div>
+              <p><b>低频（电缆长度小于约 1/20 波长）→ 单端接地</b>：两端接地会与信号线、两端设备的地构成闭合回路，空间磁场穿过回路会在屏蔽层上感应出电流，这个电流又通过分布电容耦合进芯线，反而引入干扰。<b>高频（长度达到波长量级）→ 两端接地</b>：此时需要靠两端接地来泄放共模电荷、抑制共模电压，单端接地会在悬空端形成高的共模电压。<b>另外两点</b>：① 屏蔽层必须在接口处做 360° 环形连接，用一根导线接（猪尾巴）会引入很大的共模阻抗；② 两端地电位差太大时，用双层屏蔽（内层单端、外层两端）或加隔离。</p>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p class="font-semibold text-ink">自测 6：看门狗应该在什么地方刷新？为什么不能写在主循环的第一行？</p>
+            <div class="callout callout-info mt-2">
+              <div class="callout-title">参考答案</div>
+              <p>应该<b>在所有任务都确认正常完成之后</b>刷新——典型做法是每个任务完成时置一个标志位，全部标志都置位才喂一次狗，喂完清空标志（第 4 节的代码就是这个结构）。如果写在主循环第一行无条件执行，那么循环里后面的任务即使全部卡死，程序仍然每次都能走到喂狗那一句，<b>看门狗永远不会复位</b>，它就只能发现「整个循环都停了」这一种故障，而这恰恰是较少见的一种。补充：关键中断也要通过标志参与喂狗的判断；需要检测「跑得太快」时用窗口看门狗（WWDG）。</p>
+            </div>
+          </div>
+
+          <div class="mt-5">
+            <p class="font-semibold text-ink">自测 7：一颗 100nF/0402 的去耦电容，为什么放在离芯片 10mm 远的地方就基本失效了？用数字说明。</p>
+            <div class="callout callout-info mt-2">
+              <div class="callout-title">参考答案</div>
+              <p>因为这颗电容的自谐振频率是 f<sub>res</sub> = 1/(2π√(L·C))，代入 ESL = 0.5nH、C = 100nF 得 <b>≈ 22.5MHz</b>；超过这个频率它已经变成电感（100MHz 时自身阻抗 0.314Ω）。而 PCB 走线的电感约 <b>1nH/mm</b>，10mm 就是 10nH，在 100MHz 上的感抗是 2π×10⁸×10×10⁻⁹ = <b>6.28Ω</b>，是电容自身阻抗的 20 倍。<b>也就是说，在高频段你实际给芯片接上的是那 10mm 走线的 6.28Ω 感抗，电容已经不起作用了。</b>所以规则是：距离控制在 2mm 以内，接地端就近打过孔，并且用大小电容搭配覆盖不同频段。</p>
+            </div>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">三、练习（动手做，做完才算学会）</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li><b>测量续流二极管的效果。</b>用一块面包板搭出「单片机 IO 经三极管驱动 5V 继电器」的电路，先用示波器（探头用 10× 档，避免引入额外干扰）观察 5V 电源上的波形，然后做两件事：① 拆掉续流二极管，反复通断继电器，记录尖峰峰值和它对 MCU 的影响；② 装回二极管，重复观察。<b>提醒：拆掉二极管时三极管随时可能被击穿，请多备几只 S8050。</b></li>
+            <li><b>给开发板做一次「去耦电容普查」。</b>找出每个电源脚旁边的电容，用卡尺或参照丝印量出它到引脚的距离，把超过 2mm 的标出来；再看它的接地端是就近打过孔还是绕了远路。做完写一份清单，说明哪些电容「装了等于没装」。</li>
+            <li><b>算一算你手上那根线。</b>量出你常用的一根杜邦线或电源线的长度，用 λ = 3×10⁸/f 和 λ/20 的判据，算出它在什么频率上会成为有效天线；再假设你的板子上有一个上升时间 10ns 的信号，算出它的转折频率和对应的 λ/20 长度，判断这根线有没有风险。</li>
+            <li><b>验证你的看门狗。</b>在第 4 节的代码基础上做三次实验：① 把喂狗放在主循环第一行，然后在某个任务里插一句 while(1)，看会不会复位；② 改成任务标志法，重复同样的实验，看会不会复位；③ 记录从卡死到复位的时间，和我在代码里算的 4 秒超时对比。<b>这个实验会让「喂狗位置」这件事刻进你的记忆里。</b></li>
+            <li><b>完整排查一次 ADC 跳动。</b>按第 4 节的五步顺序走：输入短接到地 → 接稳定基准 → 看 VDDA/VREF 纹波 → 断开干扰源 → 最后才上软件滤波。每一步把现象记下来，看问题到底出在哪一步。<b>如果你手上暂时没有条件做全部五步，至少把前两步做完——它们能帮你排除掉一大半的怀疑对象。</b></li>
+          </ol>
+
+          <div class="callout callout-tip mt-6">
+            <div class="callout-title">学完这一章，你现在应该能回答这些问题了</div>
+            <p>为什么继电器线圈两端必须有一颗反并联的二极管？为什么去耦电容不能放远？为什么模拟地和数字地要分开、又要在一点相连？为什么 RS-485 要用双绞线加共模电感？为什么看门狗不能无条件喂？为什么长导线按键要加上拉和电容？<b>如果你能用自己的话把这六个问题讲清楚，这一章就算真正过关了。</b></p>
+            <p class="mt-2">本章内容依据张毅刚《单片机原理及应用》第 4 版第 13 章「抗干扰与可靠性设计」的知识框架编写，并按实际工程需要做了展开与补充；文中所有器件参数的出处与估算说明已在各例题中逐条注明。</p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 页尾导航 ---------------------------- -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="ee-power-supply.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">电源与功率：整流滤波、LDO 与 DC-DC</p>
+            <p class="mt-1 text-[12.5px] text-muted">整流滤波、LDO 与 DC-DC：给单片机系统提供稳定的能量</p>
+          </a>
+          <a href="ee-semiconductor.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">半导体器件：二极管、稳压管、三极管与 MOS 管</p>
+            <p class="mt-1 text-[12.5px] text-muted">二极管、稳压管、三极管与 MOS 管：所有保护电路的基本元件</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

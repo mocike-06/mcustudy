@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3.3V 供电与 GPIO 安全 - McuStudy</title>
+  <meta name="description" content="ESP32 新手最容易烧板子的一课：IO 绝对最大额定只有 3.6V，接 5V 会烧；WiFi 发射瞬间峰值电流超过 500mA，供电不足就会不断重启。讲清电流预算、供电方案对比、GPIO 电流能力、ADC 输入范围与分压算式、ADC2 与 WiFi 的硬件冲突、输入专用引脚，并给出「能不能接」对照表和实测判据表。">
+  <meta name="keywords" content="ESP32,3.3V,5V容忍,GPIO安全,峰值电流500mA,brownout重启,AMS1117,ADC 4095,ADC2 WiFi冲突,GPIO34,INPUT_PULLUP,分压电路,电平转换">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="esp32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../esp32.html" class="hover:text-brand-600 dark:hover:text-brand-300">ESP32</a>
+          <span>/</span>
+          <span class="text-muted">3.3V 供电与 GPIO 安全</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          3.3V 供电与 GPIO 安全
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          在 51 上你可以把 5V 传感器随手接上去，在 ESP32 上这么干会直接烧引脚。
+          这一篇讲两件新手最常翻车的事：<b class="font-semibold text-ink">电供不供得上</b>（WiFi 发射瞬间要 500mA，
+          电脑 USB 口经常给不出，于是板子不停重启）和<b class="font-semibold text-ink">电压接得对不对</b>
+          （IO 绝对最大 3.6V、ADC 只能量 0~3.3V、用 WiFi 时 ADC2 直接失效）。
+          最后给出一张「能不能接」对照表和一张万用表实测判据表，照着做就不会烧板子。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">芯片：<b>ESP32-WROOM-32</b></span>
+          <span class="stat-pill">前置：<b>会 C、懂 GPIO</b></span>
+          <span class="stat-pill">阅读约 <b>20</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-33v">ESP32 是 3.3V 器件</a>
+          <a class="toc-link is-sub" href="#sub-current">电流需求：平均要多少</a>
+          <a class="toc-link is-sub" href="#sub-peak">峰值电流：500mA 从哪来</a>
+          <a class="toc-link is-sub" href="#sub-power-source">四种供电方案对比</a>
+          <a class="toc-link is-sub" href="#sub-gpio-current">GPIO 能输出多少电流</a>
+          <a class="toc-link is-sub" href="#sub-adc-range">ADC 输入范围与换算</a>
+          <a class="toc-link is-sub" href="#sub-adc2-wifi">ADC2 与 WiFi 的冲突</a>
+          <a class="toc-link is-sub" href="#sub-input-only">输入专用引脚 34/35/36/39</a>
+          <a class="toc-link is-sub" href="#sub-pullup">内部上拉与下拉</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线与「能不能接」</a>
+          <a class="toc-link is-sub" href="#sub-connect-table">能不能接：对照表</a>
+          <a class="toc-link is-sub" href="#sub-divider">分压电路怎么算</a>
+          <a class="toc-link is-sub" href="#sub-power-wiring">供电接线图</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-adc">实验一：ADC 读数换算电压</a>
+          <a class="toc-link is-sub" href="#sub-code-divider">实验二：分压测 5V</a>
+          <a class="toc-link is-sub" href="#sub-code-button">实验三：INPUT_PULLUP 读按键</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-33v">ESP32 是 3.3V 器件</a>
+            <a class="toc-link is-sub" href="#sub-current">电流需求：平均要多少</a>
+            <a class="toc-link is-sub" href="#sub-peak">峰值电流：500mA 从哪来</a>
+            <a class="toc-link is-sub" href="#sub-power-source">四种供电方案对比</a>
+            <a class="toc-link is-sub" href="#sub-gpio-current">GPIO 能输出多少电流</a>
+            <a class="toc-link is-sub" href="#sub-adc-range">ADC 输入范围与换算</a>
+            <a class="toc-link is-sub" href="#sub-adc2-wifi">ADC2 与 WiFi 的冲突</a>
+            <a class="toc-link is-sub" href="#sub-input-only">输入专用引脚 34/35/36/39</a>
+            <a class="toc-link is-sub" href="#sub-pullup">内部上拉与下拉</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线与「能不能接」</a>
+            <a class="toc-link is-sub" href="#sub-connect-table">能不能接：对照表</a>
+            <a class="toc-link is-sub" href="#sub-divider">分压电路怎么算</a>
+            <a class="toc-link is-sub" href="#sub-power-wiring">供电接线图</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-adc">实验一：ADC 读数换算电压</a>
+            <a class="toc-link is-sub" href="#sub-code-divider">实验二：分压测 5V</a>
+            <a class="toc-link is-sub" href="#sub-code-button">实验三：INPUT_PULLUP 读按键</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            学 51 的时候，你几乎不用想「电」的问题：5V 电源、5V 传感器、5V 单片机，全部直连，
+            引脚灌进去 20mA 也没人心疼。换到 ESP32 之后，规则全变了：
+            <b class="font-semibold text-ink">它是 3.3V 器件，IO 的绝对最大额定只有 3.6V</b>；
+            同时它内部还塞了一个 WiFi 发射机，<b class="font-semibold text-ink">瞬时电流能冲到 500mA 以上</b>。
+            前者会烧引脚，后者会让板子莫名其妙地重启。这两件事合起来，就是新手「板子又坏了」的九成原因。
+          </p>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">先记住这三句话，本节所有内容都是它们的展开</div>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b class="font-semibold">电压上界 3.3V</b>：IO 脚上出现 5V 就是超规格，哪怕只有一瞬间。</li>
+              <li><b class="font-semibold">电流下界要够</b>：电源必须能顶住 500mA 的瞬时峰值，否则复位。</li>
+              <li><b class="font-semibold">用 WiFi 就别碰 ADC2</b>：那是硬件占用，不是软件 bug，换到 ADC1 的引脚就好。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-33v" class="mt-7 text-base font-semibold">ESP32 是 3.3V 器件</h3>
+
+          <p class="mt-3">
+            打开 ESP32 的 datasheet，在「Absolute Maximum Ratings（绝对最大额定值）」一节会看到：
+            任何 IO 引脚上的电压范围是 <b class="font-semibold text-ink">-0.3V ~ 3.6V</b>。
+            注意「绝对最大额定」的意思不是「在这个范围内可以正常工作」，而是
+            <b class="font-semibold">超过就可能永久损坏</b>——它是破坏性极限，不是工作范围。
+            正常工作范围是 0 ~ 3.3V（VDD33）。
+          </p>
+
+          <p class="mt-3">
+            更坑的是：ESP32 的 IO <b class="font-semibold">不是 5V 容忍（not 5V tolerant）</b>。
+            很多 STM32 的引脚标着 FT（Five-volt Tolerant），可以直接吃 5V 输入——ESP32 一个都没有。
+            你在 STM32 上养成的「反正 FT 脚能接 5V」的习惯，必须在这里停住。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>平台</th><th>IO 工作电压</th><th>5V 输入能不能直连</th><th>典型坑</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>51（STC89C52RC，5V 供电）</td><td>5V</td><td>能</td><td>3.3V 器件接到 51 上反而可能识别不到高电平</td></tr>
+                <tr><td>STM32F103（3.3V 供电）</td><td>3.3V</td><td>标注 FT 的引脚能，其余不能</td><td>忘记查引脚是否带 FT，直接接 5V</td></tr>
+                <tr><td><b class="font-semibold">ESP32</b></td><td>3.3V</td><td><b class="font-semibold text-ink">全部不能</b></td><td>5V 传感器直连 → 引脚击穿，常伴随整片 IO 失效</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">3.6V 这条线为什么这么容易踩</div>
+            <p>
+              因为很多模块「看起来是 3.3V 的」：DHT11 有 3.3V 版本也有 5V 版本，HC-SR04 是 5V 供电、
+              它的 Echo 输出也是 5V 电平（Trig 可以 3.3V 驱动，Echo 不能直接读），
+              某宝上大量「5V 继电器模块」的控制脚内部上拉到 5V。
+              接之前唯一可靠的做法是：<b class="font-semibold">给模块单独供电后用万用表量一下它的信号脚对地电压</b>，
+              量到 5V 就必须做电平处理。
+            </p>
+          </div>
+
+          <h3 id="sub-current" class="mt-7 text-base font-semibold">电流需求：平均要多少</h3>
+
+          <p class="mt-3">
+            估算供电够不够，先看「平均电流」。平均值决定你的电源会不会发烫、电池能用多久；
+            而下面要讲的峰值决定板子会不会重启。ESP32 的平均电流和它「在干什么」强相关：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>工作状态</th><th>典型电流（3.3V 侧）</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>深度睡眠（Deep Sleep，只留 RTC）</td><td>约 10 µA</td><td>电池设备靠它续命；WiFi 断开</td></tr>
+                <tr><td>轻度睡眠 / Modem-sleep（WiFi 保持连接）</td><td>约 3 ~ 20 mA</td><td>会周期性醒来听 AP 的信标</td></tr>
+                <tr><td>CPU 全速空转（240MHz，不开射频）</td><td>约 30 ~ 50 mA</td><td>你的 <code class="icode">loop()</code> 死循环大概就是这个量级</td></tr>
+                <tr><td>WiFi 已连接、无数据收发</td><td><b class="font-semibold">约 80 ~ 100 mA</b></td><td>新手最常待的状态，也是多数教程给的「平均值」</td></tr>
+                <tr><td>WiFi 持续收发数据</td><td>约 120 ~ 160 mA</td><td>跑 MQTT 上报、HTTP 请求时</td></tr>
+                <tr><td>WiFi 发射瞬间（TX burst）</td><td><b class="font-semibold text-ink">500 mA 以上（峰值）</b></td><td>只持续几百微秒，但足以把弱电源拉垮</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            把这张表翻译成一句话：<b class="font-semibold text-ink">你要准备的是一个「能持续给 150mA、瞬时给 500mA」的 3.3V 电源</b>。
+            只按平均电流选电源，是新手供电翻车的根本原因。
+          </p>
+
+          <h3 id="sub-peak" class="mt-7 text-base font-semibold">峰值电流：500mA 从哪来</h3>
+
+          <p class="mt-3">
+            WiFi 是射频发射机，发射瞬间功放要把能量在极短时间里推出去，电流自然是一个个尖峰。
+            下面这张示意图能解释为什么「万用表量着电压正常，一连 WiFi 就重启」：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="ESP32 供电电流随时间变化示意（连上 WiFi 之后）">
+            <pre><code>电流 (mA)
+ 600 |                    ██                        ██
+     |                   ████                      ████          &lt;- WiFi TX 峰值 500mA+
+ 500 |                   ████                      ████             持续几百微秒
+     |                   ████                      ████
+ 400 |                   ████                      ████
+     |                   ████                      ████
+ 300 |                   ████                      ████
+     |        ▄▄▄▄       ████       ▄▄▄▄           ████
+ 150 |   ▄▄▄▄████████▄▄▄▄████▄▄▄▄▄▄▄████████▄▄▄▄▄▄▄▄████▄▄▄▄      &lt;- 常态 80~160mA
+ 100 |   ████████████████████████████████████████████████
+     |   ████████████████████████████████████████████████
+   0 +------------------------------------------------&gt; 时间
+        上电   连接AP    心跳      上报数据     心跳
+
+ 结论：电源要按「尖峰 500mA」设计，而不是按「平均 100mA」设计。
+       模组 datasheet 给的峰值指标就是 0.5A。</code></pre>
+          </div>
+
+          <p class="mt-3">
+            板子上有一颗 <code class="icode">AMS1117-3.3</code> 稳压芯片（能输出 800mA~1A），
+            它本身是够的；真正拖后腿的经常是它<b class="font-semibold">前面的那条路</b>：
+            电脑 USB 口的限流、劣质 USB 线的线阻、面包板/杜邦线的接触电阻。
+            当 3.3V 轨瞬间跌破 Brownout 检测阈值（默认约 2.43V）时，
+            芯片会主动复位保护自己——这就是你在串口里看到的
+            <code class="icode">Brownout detector was triggered</code>。
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">为什么「同一个程序，昨天还好好的」</div>
+            <p>
+              因为峰值是随机的：离路由器近、信道拥挤、重传次数多，峰值就更高更频繁。
+              这也解释了为什么「手机热点一连就重启、家里路由器就正常」——
+              不是代码问题，是发射功率和重传策略不同导致的电流差异。
+            </p>
+          </div>
+
+          <h3 id="sub-power-source" class="mt-7 text-base font-semibold">四种供电方案对比</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>供电方案</th><th>能提供多少电流</th><th>能撑住 WiFi 峰值吗</th><th>说明与建议</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>电脑 USB 口（板载 USB 线）</td>
+                  <td>理论 500mA，实测常更少</td>
+                  <td><b class="font-semibold text-ink">经常不行</b></td>
+                  <td>机箱前面板 USB、USB 延长线、USB Hub 都会进一步压降。调试时尽量插机箱后面的口，用短而粗的数据线</td>
+                </tr>
+                <tr>
+                  <td>USB 充电头（5V / 1A 以上）+ 数据线</td>
+                  <td>1000mA 以上</td>
+                  <td>能</td>
+                  <td><b class="font-semibold">最省事的稳定方案</b>。注意要能同时烧录就得用数据线接电脑，或用充电头供电 + 独立 USB-TTL 下载</td>
+                </tr>
+                <tr>
+                  <td>外部 5V 稳压模块 → 接板子 VIN / 5V 脚</td>
+                  <td>取决于模块（选 1A 以上）</td>
+                  <td>能</td>
+                  <td>必须与 ESP32 <b class="font-semibold">共地</b>；5V 进入板载 AMS1117 再降到 3.3V</td>
+                </tr>
+                <tr>
+                  <td>直接给 3V3 脚供 3.3V</td>
+                  <td>取决于电源</td>
+                  <td>能（前提是电源本身够干净够大）</td>
+                  <td>绕过板载稳压，电源纹波会直接进芯片。除非你确定电源质量，否则不推荐</td>
+                </tr>
+                <tr>
+                  <td>单节锂电池 3.7V → 3V3</td>
+                  <td>电池能给的电流够</td>
+                  <td><b class="font-semibold text-ink">不能这样接</b></td>
+                  <td>AMS1117 需要约 1.1V 压差，3.7V 输入只能输出 2.6V，不够 3.3V。要么升压到 5V 再进 VIN，要么用低压差/升降压模块</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-gpio-current" class="mt-7 text-base font-semibold">GPIO 能输出多少电流</h3>
+
+          <p class="mt-3">
+            第三个电流概念是引脚自己的：每个 GPIO 能「源出（source，输出高电平）」或
+            「灌入（sink，输出低电平）」多少电流。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>项目</th><th>规格值</th><th>工程建议</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>单脚绝对最大</td><td>官方没有这一项</td><td>Absolute Maximum Ratings 表里唯一的电流项是全芯片累积 IO 输出电流 <b class="font-semibold">1200 mA</b>，表中没有单脚电流上限</td></tr>
+                <tr><td>DC 特性表可查的上限</td><td>I_OH 40 mA / I_OL 28 mA</td><td>I_OH 40 mA 是 VDD3P3_CPU 与 VDD3P3_RTC 域在驱动档位最大时的值；域内同时拉高的脚越多，会从约 40 mA 降到约 29 mA。VDD_SDIO 域 I_OH 只有 20 mA</td></tr>
+                <tr><td>IO_MUX 驱动档位</td><td>0≈5 / 1≈10 / 2≈20（默认）/ 3≈40 mA</td><td>按默认档位（≈20 mA）的一半以内、即 ≈10 mA 长期使用留余量；确实需要更大电流，就显式把驱动档位调到 3，并接受域内降额</td></tr>
+                <tr><td>所有 IO 合计</td><td>受芯片供电与封装限制</td><td>保守按 ≤ 100 mA 算，并把这部分算进上文的供电预算</td></tr>
+                <tr><td>驱动 LED</td><td>—</td><td>必须串限流电阻：3.3V − 2.0V(红灯 Vf) = 1.3V，1.3V / 10mA ≈ 130Ω，取 220Ω 更安全</td></tr>
+                <tr><td>驱动电机 / 继电器 / 有源蜂鸣器</td><td>远超 20 mA</td><td>一律用三极管或 MOS 管，感性负载还要加续流二极管</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="为什么不能直接用 GPIO 驱动负载">
+            <pre><code>错误接法（会烧引脚）：                正确接法（用 MOS / 三极管做开关）：
+
+  GPIO4 ────────── 电机                GPIO4 ──[1k]── Gate
+     |                |                              │
+    GND ──────────────┘                         MOS 管（或 NPN + 1k 基极电阻）
+                                                      │
+  问题：电机堵转电流可达 500mA，                    负载 ── 独立电源正极
+        远超 GPIO 的可查上限，10 倍以上。           源极/发射极 ── GND（与 ESP32 共地）
+
+  再提醒一次：电机、舵机必须用独立电源，
+              并且独立电源的 GND 一定要和 ESP32 的 GND 连在一起（共地）。</code></pre>
+          </div>
+
+          <h3 id="sub-adc-range" class="mt-7 text-base font-semibold">ADC 输入范围与换算</h3>
+
+          <p class="mt-3">
+            ESP32 的 ADC 是 12 位的，<code class="icode">analogRead()</code> 返回
+            <b class="font-semibold text-ink">0 ~ 4095</b>，默认量程对应 <b class="font-semibold text-ink">0 ~ 3.3V</b>
+            （Arduino-ESP32 默认使用 11dB 衰减档，把满量程拉到约 3.3V）。换算公式简单到只需要一步除法：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="ADC 原始值 → 电压">
+            <pre><code>电压(V) = analogRead(引脚) / 4095.0 * 3.3
+
+例：读到 2048  -&gt;  2048 / 4095 * 3.3 = 1.650 V
+    读到 4095  -&gt;  3.300 V（满量程，通常说明输入已经到顶或超范围）
+    读到    0  -&gt;  0.000 V（可能是真的接地，也可能是引脚悬空/读不到）</code></pre>
+          </div>
+
+          <p class="mt-3">
+            但真实芯片有三个必须知道的现实：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>
+              <b class="font-semibold">两端不线性</b>：大约低于 0.15V、高于 3.15V 的区段，读数会明显偏离理想直线。
+              做精确测量时把信号限制在 <b class="font-semibold">0.15V ~ 3.15V</b> 之间。
+            </li>
+            <li>
+              <b class="font-semibold">单次读数有噪声</b>：同一根线连续读 10 次，最大最小值可能差几十个字。
+              工程做法是连续采样 16 次取平均（本页代码示例就是这么写的）。
+            </li>
+            <li>
+              <b class="font-semibold">有零点偏移</b>：接到 GND 时读数可能不是 0 而是几到几十。
+              要求高的场合要实测两点（GND 与已知电压）做线性校正。
+            </li>
+          </ul>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">ADC 引脚本身也不是 5V 容忍的</div>
+            <p>
+              很多人以为「ADC 可以量电压，那我量 5V 电池电压也行」——不行。
+              往 ADC 引脚上直接灌 5V，和往普通 IO 上灌 5V 一样会烧。
+              要量超过 3.3V 的电压，必须先用电阻分压（见
+              <a href="#sub-divider" class="text-brand-600 dark:text-brand-300">分压电路怎么算</a>）。
+            </p>
+          </div>
+
+          <h3 id="sub-adc2-wifi" class="mt-7 text-base font-semibold">ADC2 与 WiFi 的冲突</h3>
+
+          <p class="mt-3">
+            这是 ESP32 最著名、也最容易被误判成「代码写错了」的硬件限制：
+            <b class="font-semibold text-ink">一旦启用 WiFi，ADC2 就归 WiFi 驱动使用，你的 <code class="icode">analogRead()</code> 会读不到值</b>
+            （返回 0、要么一直不变、要么直接报错）。这不是 bug，是芯片内部 ADC2 被射频子系统接管的既定事实，
+            连 ESP-IDF 官方文档都专门写了一段说明。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>ADC 单元</th><th>通道对应的引脚</th><th>能不能和 WiFi 同时用</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b class="font-semibold">ADC1</b></td>
+                  <td>GPIO36、GPIO37、GPIO38、GPIO39、GPIO32、GPIO33、GPIO34、GPIO35</td>
+                  <td><b class="font-semibold text-ink">能</b>（做联网项目就用这一组）</td>
+                </tr>
+                <tr>
+                  <td>ADC2</td>
+                  <td>GPIO4、GPIO0、GPIO2、GPIO15、GPIO13、GPIO12、GPIO14、GPIO27、GPIO25、GPIO26</td>
+                  <td>不能（WiFi 启动后失效）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">实战结论</div>
+            <p>
+              只要你的项目要联网，就把所有模拟量采集固定放在
+              <b class="font-semibold">GPIO32、GPIO33、GPIO34、GPIO35、GPIO36、GPIO39</b> 上
+              （GPIO37、GPIO38 在 WROOM-32 模组上没有引出）。
+              记住这个六脚清单，以后看到「我的光敏电阻一联网就读不到值」立刻就能反应过来。
+            </p>
+          </div>
+
+          <h3 id="sub-input-only" class="mt-7 text-base font-semibold">输入专用引脚 34/35/36/39</h3>
+
+          <p class="mt-3">
+            ESP32 有四个「只能输入」的引脚：<b class="font-semibold">GPIO34、GPIO35、GPIO36、GPIO39</b>。
+            它们的特点和坑都在下面这张表里：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>引脚</th><th>能做输入吗</th><th>能做输出吗</th><th>有内部上拉吗</th><th>典型用途</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>GPIO34</td><td>能</td><td><b class="font-semibold text-ink">不能</b></td><td>没有</td><td>ADC 采样、外部上拉的按键</td></tr>
+                <tr><td>GPIO35</td><td>能</td><td><b class="font-semibold text-ink">不能</b></td><td>没有</td><td>ADC 采样</td></tr>
+                <tr><td>GPIO36（VP）</td><td>能</td><td><b class="font-semibold text-ink">不能</b></td><td>没有</td><td>ADC 采样</td></tr>
+                <tr><td>GPIO39（VN）</td><td>能</td><td><b class="font-semibold text-ink">不能</b></td><td>没有</td><td>ADC 采样</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">
+            典型事故：把按键接在 GPIO34 上，代码写 <code class="icode">pinMode(34, INPUT_PULLUP)</code>，
+            结果读出来一直是同一个值。<b class="font-semibold">原因就是这四个脚没有内部上拉电阻</b>，
+            <code class="icode">INPUT_PULLUP</code> 在这里是空操作（编译不报错，运行也不报错，就是没用）。
+            正确做法是外接一只 10kΩ 电阻到 3.3V，或者把按键换到 GPIO4、GPIO13 这种带内部上拉的普通引脚上。
+          </p>
+
+          <h3 id="sub-pullup" class="mt-7 text-base font-semibold">内部上拉与下拉</h3>
+
+          <p class="mt-3">
+            除了那四个输入专用引脚，其余 GPIO 都有可软件开关的内部上拉/下拉电阻，对应
+            <code class="icode">INPUT_PULLUP</code>。它们的阻值大约在 <b class="font-semibold">30kΩ ~ 80kΩ</b>
+            （典型 45kΩ），属于「弱上拉」。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>场景</th><th>用内部上拉够吗</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>板上一只按键，引线几厘米</td><td>够</td><td>教学实验的标准做法：按键一端接 GPIO、一端接 GND，<code class="icode">pinMode(pin, INPUT_PULLUP)</code></td></tr>
+                <tr><td>引线几十厘米、或走在电机旁边</td><td><b class="font-semibold text-ink">不够</b></td><td>弱上拉抗干扰差，改成外接 10kΩ 上拉（阻值小、抗干扰强，代价是按键电流变大到 0.33mA，可忽略）</td></tr>
+                <tr><td>I2C 总线（SDA/SCL）</td><td>勉强</td><td>多数模块自带上拉；长线或多设备时用外部 4.7kΩ</td></tr>
+                <tr><td>GPIO34/35/36/39</td><td><b class="font-semibold text-ink">根本没有</b></td><td>必须外接上拉，或改用别的引脚</td></tr>
+                <tr><td>需要「默认低、按下变高」</td><td>用下拉</td><td>Arduino-ESP32 的 <code class="icode">pinMode()</code> 支持 <code class="icode">INPUT</code>、<code class="icode">OUTPUT</code>、<code class="icode">INPUT_PULLUP</code>、<code class="icode">INPUT_PULLDOWN</code> 四种模式，写 <code class="icode">INPUT_PULLDOWN</code> 就能启用内部下拉；但 GPIO34~39 内部没有上拉/下拉，这四个脚仍要外接电阻</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线与「能不能接」</h2>
+
+          <p class="mt-4">
+            这一节把上面所有规则变成一个可以查表的东西。遇到任何模块，先用第一张表判断「能不能接」，
+            再按后两张图处理分压与供电。
+          </p>
+
+          <h3 id="sub-connect-table" class="mt-7 text-base font-semibold">能不能接：对照表</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>信号源 / 负载</th><th>接到哪里</th><th>结论</th><th>处理办法</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>3.3V 传感器输出（如 3.3V 版 DHT11、BH1750）</td><td>任意 GPIO（输入）</td><td>能直连</td><td>注意共地；I2C 器件接 GPIO21/22</td></tr>
+                <tr><td>5V 传感器输出（HC-SR04 的 Echo、5V 霍尔、5V 版 DHT11）</td><td>GPIO（输入）</td><td><b class="font-semibold text-ink">不能直连</b></td><td>Echo 经 1kΩ/2kΩ 分压到 3.3V；或换 3.3V 版本；或用 TXS0108E 电平转换模块</td></tr>
+                <tr><td>5V 按键模块（信号脚内部上拉到 5V）</td><td>GPIO（输入）</td><td><b class="font-semibold text-ink">不能直连</b></td><td>改用「一端接 GPIO、一端接 GND + INPUT_PULLUP」的裸按键接法；模块版需加电平转换</td></tr>
+                <tr><td>5V 串口模块的 TX</td><td>ESP32 的 RX（GPIO3）</td><td><b class="font-semibold text-ink">不能直连</b></td><td>串一个 1kΩ，另一端再接 2kΩ 到地（分压到 3.3V）；或直接用板载 USB</td></tr>
+                <tr><td>ESP32 的 TX（3.3V）</td><td>5V 单片机（51）的 RX</td><td>看情况</td><td>51 在 5V 下高电平门限约 3.5V，3.3V 可能识别不稳。教学上多数能用，要求可靠就加电平转换</td></tr>
+                <tr><td>LED + 限流电阻</td><td>任意普通 GPIO（输出）</td><td>能</td><td>串 220Ω ~ 1kΩ，电流控制在 5 ~ 10mA</td></tr>
+                <tr><td>5V 继电器模块（线圈）</td><td>GPIO 直驱</td><td><b class="font-semibold text-ink">不能</b></td><td>线圈电流远超 40mA。用三极管/MOS 驱动，感性负载加续流二极管；或买带光耦、支持 3.3V 控制的模块</td></tr>
+                <tr><td>直流电机 / 水泵</td><td>GPIO 直驱</td><td><b class="font-semibold text-ink">不能</b></td><td>MOS 管 + 独立电源 + 共地 + 续流二极管</td></tr>
+                <tr><td>舵机 SG90（5V）</td><td>信号线接 GPIO，电源接外部 5V</td><td>信号能直连，电源不能从板子取</td><td>堵转峰值可达 700mA，必须独立供电并共地</td></tr>
+                <tr><td>有源蜂鸣器（5V）</td><td>GPIO 直驱</td><td><b class="font-semibold text-ink">不能</b></td><td>用 NPN 三极管 + 1kΩ 基极电阻驱动，或改用 3.3V 有源蜂鸣器（电流通常也偏大，仍建议加三极管）</td></tr>
+                <tr><td>电位器（三端）</td><td>两端接 3.3V/GND，中间接 ADC 引脚</td><td>能</td><td>用 ADC1 的引脚；量程正好 0~3.3V，无需分压</td></tr>
+                <tr><td>5V 电源</td><td>GPIO</td><td><b class="font-semibold text-ink">绝对不能</b></td><td>直接烧芯片。5V 只能进 VIN / 5V 引脚（经板载稳压）</td></tr>
+                <tr><td>5V 电源</td><td>VIN / 5V 引脚</td><td>能</td><td>板载 AMS1117 降到 3.3V；外部电源必须能提供 500mA 峰值</td></tr>
+                <tr><td>12V 电源</td><td>VIN / 5V 引脚</td><td><b class="font-semibold text-ink">不能</b></td><td>超过板载稳压与外围元件的耐压。要 12V 就先经 DC-DC 降到 5V</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-divider" class="mt-7 text-base font-semibold">分压电路怎么算</h3>
+
+          <p class="mt-3">
+            把高于 3.3V 的电压降到 ADC 能接受的范围，最便宜的办法就是两个电阻分压。
+            公式是：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电阻分压公式与取值">
+            <pre><code>              R1（上电阻）
+    Vin ────────[======]────────┬──────── Vout（送给 ADC 引脚）
+                               │
+                            [======] R2（下电阻）
+                               │
+                              GND
+
+    Vout = Vin * R2 / (R1 + R2)
+    分压比 k = R2 / (R1 + R2)       -&gt;      Vin = Vout / k
+
+  取 R1 = 10kΩ，R2 = 15kΩ：
+    k = 15 / 25 = 0.6
+    Vin = 5V   -&gt;  Vout = 3.00V     （安全，留了 0.3V 余量）
+    Vin = 12V  -&gt;  Vout = 7.20V     （仍然超范围！12V 要重新选电阻）
+
+  反例：网上常见的 R1 = 10kΩ，R2 = 20kΩ：
+    Vout = 5 * 20/30 = 3.33V         （已经贴到 3.3V 上限，没有余量，不推荐）</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">分压电路的三个注意点</div>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b class="font-semibold">总阻值别太大</b>：R1 + R2 建议控制在 10k ~ 100k 之间。太大（比如 1MΩ 级）会被 ADC 采样电路的输入阻抗影响，读数偏低。</li>
+              <li><b class="font-semibold">加一只 0.1µF 电容</b>：在 ADC 引脚与 GND 之间并一只 0.1µF 陶瓷电容，能明显压掉读数抖动。</li>
+              <li><b class="font-semibold">软件里要除回分压比</b>：代码读到的只是分压后的电压，记得 <code class="icode">Vin = Vout / 0.6</code>，并且把这个系数写成常量，方便校正。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-power-wiring" class="mt-7 text-base font-semibold">供电接线图</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="供电与共地的正确接法">
+            <pre><code>方案 A：只用 USB（最简，但峰值可能不够）
+
+   电脑 USB 口 ──[短而粗的数据线]── ESP32 Micro-USB
+                                      │
+                                   板载 AMS1117 -&gt; 3.3V
+                                      │
+                                   3V3 引脚（可给少量 3.3V 小外设，合计 100mA 以内）
+
+方案 B：外部 5V 电源供电（推荐，做联网项目就用这个）
+
+   5V/2A 电源适配器
+        │
+        ├─── +5V ──&gt; ESP32 的 VIN（或 5V）引脚
+        │
+        └─── GND ──┬── ESP32 的 GND 引脚
+                   │
+                   └── 外设（舵机 / 继电器 / 电机驱动）的 GND   &lt;-- 共地，必须接！
+
+   注意：外设的电源正极从 5V 电源直接取，绝对不要从 ESP32 的 3V3 引脚取。
+
+方案 C：面包板供电轨
+
+   电源模块 5V 轨 ── ESP32 VIN
+   电源模块 GND 轨 ── ESP32 GND ── 所有外设 GND
+   3V3 轨：只接电平参考和小电流器件（如 I2C 上拉），不要接电机
+
+   在 ESP32 的 3V3 与 GND 之间就近并一只 100µF 电解 + 0.1µF 陶瓷电容，
+   可以显著减少 WiFi 发射时的电压跌落（很多开发板已经焊了，自己再加一只更保险）。</code></pre>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            三个实验从易到难：先学会把 ADC 原始值变成电压，再学分压测 5V，
+            最后学「带内部上拉的按键」以及输入专用引脚的正确接法。
+            三份代码都是完整可编译的，直接复制进 Arduino IDE 就能跑。
+          </p>
+
+          <h3 id="sub-code-adc" class="mt-7 text-base font-semibold">实验一：ADC 读数换算电压</h3>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="esp32-basic-level-adc.ino —— ADC 采样 + 平均值滤波 + 电压换算">
+            <pre><code>/*
+ * ESP32 基础篇 / 3.3V 供电与 GPIO 安全
+ * 实验一：读取 ADC1 引脚的电压
+ *
+ * 接线：GPIO34 &lt;--- 待测电压（0 ~ 3.3V）
+ *       GND    &lt;--- 与待测电路共地
+ *
+ * 安全提示：待测电压绝对不能超过 3.3V！要测 5V 请看实验二的分压接法。
+ */
+
+const int PIN_ADC   = 34;      // 必须用 ADC1 的引脚（32/33/34/35/36/39）
+const int SAMPLES   = 16;      // 每次取 16 个样本做平均
+const float VREF    = 3.3;     // 满量程参考电压
+const float MAX_RAW = 4095.0;  // 12 位 ADC 满量程
+
+void setup() {
+  Serial.begin(115200);
+  delay(300);                  // 等 USB 串口稳定，否则前几行会丢
+
+  // 12 位分辨率（默认就是 12 位，写出来是为了让你知道这个设置存在）
+  analogReadResolution(12);
+
+  // 11dB 衰减：把量程拉到约 0 ~ 3.3V（Arduino-ESP32 默认值）
+  analogSetPinAttenuation(PIN_ADC, ADC_11db);
+
+  Serial.println("========================================");
+  Serial.println("ADC 采样实验开始");
+  Serial.printf("引脚：GPIO%d  分辨率：12 位  采样次数：%d\n", PIN_ADC, SAMPLES);
+  Serial.println("========================================");
+}
+
+void loop() {
+  // ① 连续采样 SAMPLES 次，累加后取平均，压掉随机噪声
+  long sum = 0;
+  int  rawMin = 4096;
+  int  rawMax = -1;
+
+  for (int i = 0; i &lt; SAMPLES; i++) {
+    int raw = analogRead(PIN_ADC);
+    sum += raw;
+    if (raw &lt; rawMin) rawMin = raw;
+    if (raw &gt; rawMax) rawMax = raw;
+    delay(2);                  // 每次采样间隔 2ms，避免采到同一时刻的噪声
+  }
+
+  float rawAvg = sum / (float)SAMPLES;
+  float voltage = rawAvg / MAX_RAW * VREF;
+
+  // ② 打印：原始值、平均值、波动范围、换算出的电压
+  Serial.printf("原始值 %4d ~ %4d | 平均 %7.2f | 波动 %3d | 电压 %.3f V\n",
+                rawMin, rawMax, rawAvg, rawMax - rawMin, voltage);
+
+  // ③ 顺手做个体检：读数贴顶或贴底时给出提示
+  if (rawAvg &gt; 4080) {
+    Serial.println("  ! 读数已到满量程：输入可能超过 3.3V，或引脚悬空。先断电检查接线！");
+  } else if (rawAvg &lt; 15) {
+    Serial.println("  ! 读数接近 0：可能真的接地，也可能是引脚没接上 / 忘记共地。");
+  }
+
+  delay(500);
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-divider" class="mt-7 text-base font-semibold">实验二：分压测 5V</h3>
+
+          <p class="mt-3">
+            这个实验给出一套「测量高于 3.3V 电压」的完整做法：硬件用 R1 = 10kΩ、R2 = 15kΩ 分压，
+            软件把分压比除回去，并用万用表读数校正系数。
+          </p>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="esp32-basic-level-divider.ino —— 用分压电路测 5V 电源电压">
+            <pre><code>/*
+ * 实验二：分压测 5V
+ *
+ * 接线：
+ *   5V 电源正极 ──[ R1 = 10kΩ ]──┬── GPIO34
+ *                                │
+ *                             [ R2 = 15kΩ ]
+ *                                │
+ *   5V 电源负极 ─────────────────┴── ESP32 GND（共地！）
+ *
+ *   ADC 引脚对地再并一只 0.1µF 电容，读数会稳很多。
+ *
+ * 原理：Vout = Vin * R2/(R1+R2) = Vin * 0.6
+ *       所以 Vin = Vout / 0.6
+ */
+
+const int   PIN_ADC   = 34;
+const int   SAMPLES   = 32;
+const float VREF      = 3.3;
+const float MAX_RAW   = 4095.0;
+
+// 分压比 = R2 / (R1 + R2)
+const float DIVIDER_K = 15.0 / (10.0 + 15.0);   // = 0.6
+
+// 校正系数：用万用表量出真实电压后微调这个值
+// 例如万用表读 5.02V、串口算出 4.95V，就让 CAL = 5.02/4.95 ≈ 1.014
+const float CAL       = 1.000;
+
+void setup() {
+  Serial.begin(115200);
+  delay(300);
+  analogReadResolution(12);
+  analogSetPinAttenuation(PIN_ADC, ADC_11db);
+
+  Serial.println("========================================");
+  Serial.println("分压测 5V 实验");
+  Serial.printf("R1 = 10kΩ  R2 = 15kΩ  分压比 k = %.3f\n", DIVIDER_K);
+  Serial.println("提示：用万用表量同一个点（GPIO34 对 GND），与下面的");
+  Serial.println("      「分压点电压」对照，两者应当接近。");
+  Serial.println("========================================");
+}
+
+void loop() {
+  long sum = 0;
+  for (int i = 0; i &lt; SAMPLES; i++) {
+    sum += analogRead(PIN_ADC);
+    delay(2);
+  }
+
+  float rawAvg  = sum / (float)SAMPLES;
+  float vPin    = rawAvg / MAX_RAW * VREF;      // ADC 引脚上的电压（分压后）
+  float vInput  = vPin / DIVIDER_K * CAL;       // 还原成被测电源电压
+
+  Serial.printf("ADC 平均 %7.2f | 分压点 %.3f V | 被测电压 %.3f V",
+                rawAvg, vPin, vInput);
+
+  if (vInput &lt; 3.0)      Serial.println("   (偏低，检查 5V 电源或接线)");
+  else if (vInput &gt; 5.5) Serial.println("   (偏高，确认你测的是不是 5V 电源)");
+  else                   Serial.println("   (正常范围内)");
+
+  delay(1000);
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-button" class="mt-7 text-base font-semibold">实验三：INPUT_PULLUP 读按键</h3>
+
+          <p class="mt-3">
+            按键接法只有两种正确姿势：<b class="font-semibold">普通 GPIO 用内部上拉</b>，
+            <b class="font-semibold">输入专用引脚必须外接上拉</b>。下面的代码同时演示这两种，
+            并带上消抖，你可以直接对照自己的接线。
+          </p>
+
+          <div class="code-block mt-3" data-lang="cpp" data-title="esp32-basic-level-button.ino —— 内部上拉 / 外部上拉两种按键读法">
+            <pre><code>/*
+ * 实验三：按键读取（含消抖）
+ *
+ * 接法 A（推荐）：GPIO4 ── 按键 ── GND        使用内部上拉
+ * 接法 B（输入专用脚）：GPIO34 ── 按键 ── GND
+ *                      GPIO34 ──[10kΩ]── 3.3V  必须外接上拉！
+ *
+ * 注意：不要用 GPIO0 / GPIO2 / GPIO12 / GPIO15 接按键，
+ *       它们是启动绑带引脚，上电瞬间的电平会影响芯片启动模式。
+ */
+
+const int PIN_BTN_INTERNAL = 4;    // 普通 GPIO：有内部上拉
+const int PIN_BTN_EXTERNAL = 34;   // 输入专用：没有内部上拉，必须外接
+
+const unsigned long DEBOUNCE_MS = 30;
+
+// 每个按键各自记录「上一次的稳定电平」与「上一次变化的时间」
+int           lastStable[2]  = { HIGH, HIGH };
+unsigned long lastChange[2]  = { 0, 0 };
+
+void setup() {
+  Serial.begin(115200);
+  delay(300);
+
+  // ① 普通 GPIO：一行搞定内部上拉
+  pinMode(PIN_BTN_INTERNAL, INPUT_PULLUP);
+
+  // ② 输入专用引脚：这里写 INPUT_PULLUP 也不会报错，但内部没有上拉电阻，
+  //    实际不起作用（这是新手最常踩的坑）。必须外接 10kΩ 到 3.3V。
+  pinMode(PIN_BTN_EXTERNAL, INPUT);
+
+  Serial.println("========================================");
+  Serial.println("按键实验");
+  Serial.printf("接法 A：GPIO%d（内部上拉）\n", PIN_BTN_INTERNAL);
+  Serial.printf("接法 B：GPIO%d（必须外接 10kΩ 上拉到 3.3V）\n", PIN_BTN_EXTERNAL);
+  Serial.println("按下按键应看到「按下」，松开看到「松开」");
+  Serial.println("========================================");
+}
+
+// 带消抖的读取：返回 true 表示「这一刻刚刚按下」
+bool buttonPressed(int idx, int pin) {
+  int now = digitalRead(pin);
+
+  if (now != lastStable[idx]) {
+    // 电平变了，先怀疑是抖动，等 DEBOUNCE_MS 再确认
+    if (millis() - lastChange[idx] &gt;= DEBOUNCE_MS) {
+      lastChange[idx] = millis();
+      lastStable[idx] = now;
+      if (now == LOW) return true;    // 上拉接法：按下 = 接地 = 低电平
+    }
+  } else {
+    lastChange[idx] = millis();
+  }
+  return false;
+}
+
+void loop() {
+  if (buttonPressed(0, PIN_BTN_INTERNAL)) {
+    Serial.printf("[%8lu ms] 接法 A（GPIO%d）：按下\n", millis(), PIN_BTN_INTERNAL);
+  }
+  if (buttonPressed(1, PIN_BTN_EXTERNAL)) {
+    Serial.printf("[%8lu ms] 接法 B（GPIO%d）：按下\n", millis(), PIN_BTN_EXTERNAL);
+  }
+
+  // 每秒打印一次两个引脚的实时电平，方便接线排查
+  static unsigned long lastReport = 0;
+  if (millis() - lastReport &gt;= 1000) {
+    lastReport = millis();
+    Serial.printf("实时电平： GPIO%d = %d   GPIO%d = %d   (1=松开/高，0=按下/低)\n",
+                  PIN_BTN_INTERNAL, digitalRead(PIN_BTN_INTERNAL),
+                  PIN_BTN_EXTERNAL, digitalRead(PIN_BTN_EXTERNAL));
+  }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>代码</th><th>作用</th><th>新手要注意的点</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">analogReadResolution(12)</code></td><td>设置 ADC 位数，返回 0~4095</td><td>ESP32 默认就是 12 位；写成 10 位会变成 0~1023，很多示例代码是从 Arduino UNO 抄来的，会误导你</td></tr>
+                <tr><td><code class="icode">analogSetPinAttenuation(pin, ADC_11db)</code></td><td>设置输入衰减，决定量程上限</td><td>11dB 档才对应约 3.3V 满量程；换 0dB 档满量程只有约 1.1V，超了就一直读 4095</td></tr>
+                <tr><td><code class="icode">analogRead(pin)</code></td><td>读一次原始值</td><td>读 ADC2 的引脚在 WiFi 启动后无效；读悬空引脚会得到漂移的乱数，不是芯片坏了</td></tr>
+                <tr><td><code class="icode">raw / 4095.0 * 3.3</code></td><td>原始值换算成电压</td><td>分母必须写 <code class="icode">4095.0</code>（浮点），否则整数除法会把小数全丢掉，结果永远是 0 或 1</td></tr>
+                <tr><td>连续采样 N 次取平均</td><td>抑制随机噪声</td><td>N 取 16~32 比较均衡；N 太大反而会让响应变慢</td></tr>
+                <tr><td><code class="icode">pinMode(pin, INPUT_PULLUP)</code></td><td>启用内部上拉</td><td>对 GPIO34/35/36/39 无效（没有内部上拉），必须外接电阻</td></tr>
+                <tr><td><code class="icode">millis()</code> 消抖</td><td>过滤按键机械抖动</td><td>不要用 <code class="icode">delay()</code> 消抖，那样会卡住整个程序</td></tr>
+                <tr><td><code class="icode">analogSetPinAttenuation</code> / 分压系数</td><td>把量程与量程换算解耦</td><td>分压比、校正系数都写成 <code class="icode">const float</code> 常量，换硬件时只改一处</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            把实验二烧进去，用万用表配合观察。串口监视器波特率设 115200，
+            下面是应该看到的输出（数值因硬件而异，重点看结构和你自己的实测值是否对得上）。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="实验二（分压测 5V）串口应有的输出">
+            <pre><code>========================================
+分压测 5V 实验
+R1 = 10kΩ  R2 = 15kΩ  分压比 k = 0.600
+提示：用万用表量同一个点（GPIO34 对 GND），与下面的
+      「分压点电压」对照，两者应当接近。
+========================================
+ADC 平均 3724.31 | 分压点 3.001 V | 被测电压 5.002 V   (正常范围内)
+ADC 平均 3723.88 | 分压点 3.001 V | 被测电压 5.001 V   (正常范围内)
+ADC 平均 3725.02 | 分压点 3.002 V | 被测电压 5.003 V   (正常范围内)
+ADC 平均 3724.44 | 分压点 3.001 V | 被测电压 5.002 V   (正常范围内)</code></pre>
+          </div>
+
+          <p class="mt-3">
+            实验一的输出长这样（如果你把 GPIO34 直接用杜邦线接到 3V3 引脚）：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="实验一（ADC 直读 3.3V）串口应有的输出">
+            <pre><code>========================================
+ADC 采样实验开始
+引脚：GPIO34  分辨率：12 位  采样次数：16
+========================================
+原始值 4085 ~ 4095 | 平均 4091.25 | 波动  10 | 电压 3.297 V
+原始值 4086 ~ 4095 | 平均 4092.06 | 波动   9 | 电压 3.298 V
+原始值 4084 ~ 4095 | 平均 4090.88 | 波动  11 | 电压 3.296 V
+  ! 读数已到满量程：输入可能超过 3.3V，或引脚悬空。先断电检查接线！</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">为什么读到 3.3V 就会触发「满量程」提示</div>
+            <p>
+              因为 3.3V 正好是满量程边界，加上 11dB 档的非线性区（3.15V 以上），
+              读数会贴到 4095 附近。这不是故障，是设计使然。
+              要留出余量，可以把被测电压设计成最高只到 3.0V——这也是实验二
+              把分压比选成 0.6（5V → 3.0V）而不是 0.667（5V → 3.33V）的原因。
+            </p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">实测判据表（万用表 × 串口对照）</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>测量点</th><th>万用表怎么量</th><th>应该读到</th><th>不对时说明什么</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>3.3V 轨</td>
+                  <td>黑表笔接 GND，红表笔接 3V3 引脚（直流 20V 档）</td>
+                  <td>3.25 ~ 3.35 V</td>
+                  <td>低于 3.2V：供电不足或线损太大；高于 3.4V：稳压芯片异常，别接外设了</td>
+                </tr>
+                <tr>
+                  <td>5V 轨（VIN 引脚）</td>
+                  <td>黑接 GND，红接 VIN</td>
+                  <td>4.75 ~ 5.25 V（USB 供电时）</td>
+                  <td>低于 4.5V：USB 线太细或口限流，WiFi 峰值时必然复位</td>
+                </tr>
+                <tr>
+                  <td>ADC 输入点（实验一）</td>
+                  <td>黑接 GND，红接 GPIO34 上那根线</td>
+                  <td>与串口打印的「电压」相差在 ±0.05V 以内</td>
+                  <td>差得多：万用表量到 3.3V 而串口显示 0.5V，多半是没共地或引脚接错</td>
+                </tr>
+                <tr>
+                  <td>分压点（实验二）</td>
+                  <td>黑接 GND，红接 R1/R2 中间那一点</td>
+                  <td>约等于被测电压 × 0.6，与串口「分压点电压」一致</td>
+                  <td>万用表 3.0V、串口 1.8V：分压电阻取值或接线错了（R1/R2 位置颠倒）</td>
+                </tr>
+                <tr>
+                  <td>按键两端电平</td>
+                  <td>黑接 GND，红接 GPIO 引脚，按压与松开各量一次</td>
+                  <td>松开 ≈ 3.3V，按下 ≈ 0V</td>
+                  <td>松开时读到 0.4V 之类的中间值：GPIO34 忘了外接上拉，引脚在悬空</td>
+                </tr>
+                <tr>
+                  <td>系统电流（可选）</td>
+                  <td>把万用表串在 5V 供电路径上（10A 档），观察连 WiFi 时的摆动</td>
+                  <td>常态 80 ~ 160mA，连接瞬间有跳变</td>
+                  <td>指针/数字大幅摆动同时板子复位：峰值供不上，换电源或加电容</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">把实测数据抄进实验报告</div>
+            <p>
+              「3.3V 轨实测 3.29V、分压点实测 3.00V、串口算出 5.00V、误差 0.04%」
+              这样一行数据，比十张接线照片都更能说明你真的做出来了。
+              顺带说一句：<b class="font-semibold">万用表是你唯一能验证「电到底对不对」的工具</b>，
+              做硬件的人不能只信串口打印。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            下面八条覆盖了「供电」与「电平」两类翻车现场，每条按
+            <b class="font-semibold">现象 → 原因 → 解决</b> 写。遇到问题时按编号顺序排查，
+            前三条能解决九成的「一联网就重启」。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">现象：WiFi 一连上板子就重启，串口打印 Brownout detector was triggered 或 rst:0x8 (TG1WDT_SYS_RESET)</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              供电顶不住 WiFi 发射的峰值电流。3.3V 轨在发射瞬间被拉到 Brownout 阈值（约 2.43V）以下，
+              芯片主动复位保护自己。典型诱因：电脑前面板 USB 口、又细又长的充电线、
+              带限流的 USB Hub、劣质面包板电源模块。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 换一个 5V/1A 以上的充电头供电（别用电脑 USB 口）；
+              ② 换一根短而粗的 USB 数据线，插机箱后面的 USB 口；
+              ③ 在 3V3 与 GND 之间就近并 100µF 电解 + 0.1µF 陶瓷电容；
+              ④ 拔掉一起挂在 3V3 上的外设（舵机、继电器），让它们单独供电。
+              验证方法：串口能正常打印 IP 且连续跑十分钟不重启，就算解决了。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：ADC 读数一直是 4095，怎么改代码都不变</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              三种可能：① 输入电压真的超过量程（比如把 5V 直接接到了 ADC 引脚）；
+              ② 引脚悬空没接任何东西，高阻输入被环境噪声拉满；
+              ③ 衰减档位设成了 0dB（满量程只有约 1.1V），1.5V 的输入就已经贴顶了。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 先用万用表量 ADC 引脚对地电压，超过 3.3V 立刻断电，改成分压输入；
+              ② 悬空引脚改用 <code class="icode">analogSetPinAttenuation(pin, ADC_11db)</code> 并把引脚接地试验，
+              接地应读到接近 0；
+              ③ 确认代码里没有被显式改成 <code class="icode">ADC_0db</code>——analogRead() 默认就在 11 dB 档（约 150~3100 mV），降档是要自己写出来的；
+              ④ 顺便检查有没有共地——不共地时读数同样不可信。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：没联网时 ADC 正常，一开 WiFi 读数就变成 0 或不变</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              你把模拟量接在了 <b class="font-semibold">ADC2</b> 的引脚上（GPIO4、0、2、15、13、12、14、27、25、26）。
+              WiFi 驱动启动后会接管 ADC2，你的 <code class="icode">analogRead()</code> 自然读不到东西。
+              这是芯片硬件限制，ESP-IDF 官方文档有明确说明。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 把模拟量全部改接到 ADC1 的引脚：<b class="font-semibold">GPIO32、33、34、35、36、39</b>
+              （GPIO37/38 在 WROOM-32 模组上没引出）；
+              ② 改线后确认引脚没有别的复用功能冲突；
+              ③ 记住这个结论：<b class="font-semibold text-ink">联网项目 = 只用 ADC1</b>。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：按键接在 GPIO34 上，代码写了 INPUT_PULLUP，但读出来一直是 0（或一直是 1）</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              GPIO34/35/36/39 是输入专用引脚，<b class="font-semibold">芯片内部没有上拉/下拉电阻</b>。
+              <code class="icode">pinMode(34, INPUT_PULLUP)</code> 不会报错，但也不起任何作用，
+              引脚实际处于悬空状态，电平随机。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 在 GPIO34 与 3.3V 之间外接一只 10kΩ 电阻做上拉，代码改成 <code class="icode">pinMode(34, INPUT)</code>；
+              ② 或者把按键换到 GPIO4、GPIO13、GPIO14、GPIO27 这类带内部上拉的普通引脚上，直接用 <code class="icode">INPUT_PULLUP</code>；
+              ③ 无论哪种接法，按键另一端都接 GND，不要接 5V。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：接上 5V 传感器后某个引脚永久失效，程序里那个脚再也没反应（或者整片 IO 都异常）</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              往 GPIO 上直接灌了 5V，超过 3.6V 绝对最大额定，输入保护结构被击穿。
+              这类损坏通常不可逆，而且可能连带影响相邻引脚。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 立刻断电，拔掉那个模块，逐个引脚用「输出方波 + LED」的办法确认哪些脚还活着；
+              ② 报废的引脚在代码里标注出来（<code class="icode">// GPIOxx 已损坏，勿用</code>），先换个脚继续做；
+              ③ 之后所有 5V 信号必须经分压或电平转换模块（TXS0108E、四路双向电平转换板）；
+              ④ 养成习惯：<b class="font-semibold text-ink">接任何新模块前，先给模块单独上电量它的信号脚电压</b>。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：程序能上传、能打印，但一接上舵机或继电器就重启，拔掉就正常</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              外设的电流是从板子的 3V3 引脚（或同一个 USB 口）里抢的。
+              舵机堵转峰值可达 700mA，远超板载稳压和 USB 口能提供的余量，
+              结果就是 ESP32 被「饿」到复位。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 外设改为独立电源供电（舵机用 5V/2A 适配器或电池组）；
+              ② <b class="font-semibold">外设电源的 GND 必须与 ESP32 的 GND 连在一起</b>，否则信号无效；
+              ③ 在舵机电源端就近并 470µF 以上的电容吸收堵转冲击；
+              ④ 控制信号线（橙色）可以直接接 GPIO，信号电流很小，不在限制之内。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：ADC 读数一直在跳，同一根线两次读数能差 100 以上</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              ① 引脚悬空或被测源内阻过高（高阻节点容易拾取噪声）；
+              ② 引线太长，和电机、继电器、WiFi 天线走在一起；
+              ③ 电源纹波大（USB 供电 + 大量数字负载）；
+              ④ 没有做软件平均。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① ADC 引脚对地并 0.1µF 陶瓷电容，就近焊接；
+              ② 缩短信号线，远离大电流走线；
+              ③ 软件连续采样 16~32 次取平均（本页实验一、二的写法）；
+              ④ 要求高的场合改用外部 ADC（如 ADS1115，I2C 接口，16 位）绕开 ESP32 内置 ADC 的噪声与非线性。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：LED 一开始很亮，工作几分钟后这个引脚彻底不亮了，量电压一直是 0</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              没串限流电阻（或者把 LED 直接怼在 3.3V 与 GPIO 之间），
+              引脚被逼着持续输出远超安全值的电流（默认驱动档位约 20 mA，可查上限 40 mA），输出级被烧毁。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 每个 LED 必须串限流电阻，3.3V 供电下取 220Ω ~ 1kΩ，电流控制在 5 ~ 10mA；
+              ② 用 <code class="icode">digitalWrite</code> 做呼吸灯之类的 PWM 时留意平均电流；
+              ③ 检查是不是把 LED 接成了「GPIO 高电平点亮、不串电阻」——这是最经典的烧脚方式；
+              ④ 已损坏的引脚在代码里标注弃用，换一个脚。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <h3 class="mt-7 text-base font-semibold">这一页要你记住的六件事</h3>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>ESP32 是 3.3V 器件，IO 绝对最大额定 3.6V，<b class="font-semibold">没有 5V 容忍引脚</b>。</li>
+            <li>供电要按<b class="font-semibold">峰值 500mA</b> 设计，只按平均 100mA 选电源必然翻车。</li>
+            <li>GPIO 单脚推荐 ≤ 20mA，所有 IO 合计保守按 ≤ 100mA 算；电机、继电器、舵机一律用独立电源 + 开关管。</li>
+            <li>ADC 满量程 0~3.3V 对应 0~4095，两端非线性，测高压必须先分压。</li>
+            <li><b class="font-semibold">用 WiFi 就用 ADC1</b>（GPIO32/33/34/35/36/39），ADC2 会被 WiFi 占用。</li>
+            <li>GPIO34/35/36/39 只能输入、<b class="font-semibold">没有内部上拉</b>，按键要外接 10kΩ。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">自检题</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>你手上有一个 5V 供电的霍尔传感器，输出信号也是 5V 电平。有哪三种办法能安全接到 ESP32？（至少写出两种并说明取值）</li>
+            <li>为什么单节锂电池 3.7V 不能直接接到开发板的 3V3 引脚？（要从 AMS1117 的压差说起）</li>
+            <li>板子连着电脑 USB 口时一切正常，插到充电宝上就反复重启，最可能的原因是什么？怎么验证？</li>
+            <li>读到 <code class="icode">analogRead(34)</code> 返回 4095，请给出三种不同的原因和各自的验证方法。</li>
+            <li>为什么「用 WiFi 时 ADC2 读不到值」不是代码 bug？遇到这种情况你会怎么改接线？</li>
+            <li>按键接在 GPIO34 上，<code class="icode">INPUT_PULLUP</code> 为什么没用？正确接法是什么？</li>
+            <li>你的 LED 亮度很高，同事说「不用串电阻，ESP32 脚能出 40mA」。这句话哪里对、哪里危险？</li>
+            <li>分压测 5V 时你选了 R1 = 10kΩ、R2 = 20kΩ，为什么这个取值不推荐？改成什么更好？</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>
+              <b class="font-semibold">做一次供电压力实验</b>：分别用「电脑 USB 口」和「5V/1A 充电头」给同一块板子供电，
+              各跑一遍「连 WiFi + 每 200ms 发一次 MQTT/HTTP 请求」的程序，记录是否出现 brownout 复位。
+              结论写进实验报告：<b class="font-semibold">峰值电流不是理论，是可以复现的现象</b>。
+            </li>
+            <li>
+              <b class="font-semibold">做一次 ADC 精度标定</b>：用 R1 = 10kΩ、R2 = 15kΩ 量一节 5V 电源，
+              同时用万用表量分压点，把两者差值填入 <code class="icode">CAL</code> 校正系数，
+              观察校正前后误差从百分之几降到千分之几。
+            </li>
+            <li>
+              <b class="font-semibold">故意制造一次「ADC2 失灵」</b>：把光敏电阻先接 GPIO4（ADC2）读一遍，
+              再连上 WiFi 读一遍，然后把线换到 GPIO34 再读。亲手复现这个现象，
+              比背十遍文档都记得牢。
+            </li>
+          </ol>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">下一步</div>
+            <p>
+              电和电平这两关过了，接下来该搞清楚「你写的那几行代码到底跑在什么之上」——
+              下一篇 <a href="esp32-basic-arduino.html" class="text-brand-600 dark:text-brand-300">Arduino 框架与 ESP-IDF</a>
+              会把编译、烧录、运行的全过程拆开给你看，顺便解释为什么板子型号选错会直接 Flash 溢出。
+            </p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="esp32-basic-compare.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">从 51 和 STM32 到 ESP32：它到底多了什么</p>
+          </a>
+          <a href="esp32-basic-arduino.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">Arduino 框架与 ESP-IDF：你写的代码经历了什么</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

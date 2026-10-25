@@ -1,0 +1,1556 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>从 51 和 STM32 到 ESP32：它到底多了什么 - McuStudy</title>
+  <meta name="description" content="给学过 51 或 STM32 的学生的 ESP32 入门第一课：ESP32 不是单片机加 WiFi 模块，而是把射频、协议栈、双核 CPU 塞进一颗芯片的 SoC。讲清双核分工、FreeRTOS 为什么取代 while(1)、520KB SRAM 与 4MB Flash 的内存布局、外设清单、WiFi 与蓝牙协议栈，并给出一张能安全使用的引脚表。">
+  <meta name="keywords" content="ESP32,ESP32-WROOM-32,SoC,双核,Xtensa LX6,FreeRTOS,任务,xTaskCreatePinnedToCore,IRAM,PROGMEM,strapping引脚,GPIO6-11,ESP32与STM32区别">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="esp32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资源下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../esp32.html" class="hover:text-brand-600 dark:hover:text-brand-300">ESP32</a>
+          <span>/</span>
+          <span class="text-muted">从 51 和 STM32 到 ESP32</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          从 51 和 STM32 到 ESP32：它到底多了什么
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          你已经会点灯、会读寄存器、会写 <code class="icode">while(1)</code> 大循环，那换到 ESP32 为什么会处处别扭？
+          因为 ESP32 根本不是「51 加一个 WiFi 模块」，而是把射频、协议栈和两个 CPU 核塞进同一颗芯片的
+          <b class="font-semibold text-ink">SoC</b>。这一篇把双核分工、FreeRTOS 任务、内存布局、外设资源、
+          WiFi 协议栈一次讲清，最后给出一张新手最需要的「能安全使用的引脚表」。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">芯片：<b>ESP32-WROOM-32</b></span>
+          <span class="stat-pill">前置：<b>会 C、懂 GPIO</b></span>
+          <span class="stat-pill">阅读约 <b>18</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-what">ESP32 到底是什么</a>
+          <a class="toc-link is-sub" href="#sub-soc">SoC：一整块电路板塞进一颗芯片</a>
+          <a class="toc-link is-sub" href="#sub-dualcore">双核：Core0 与 Core1 的分工</a>
+          <a class="toc-link is-sub" href="#sub-rtos">FreeRTOS：为什么不能再写 while(1)</a>
+          <a class="toc-link is-sub" href="#sub-memory">内存：520KB SRAM 与 4MB Flash</a>
+          <a class="toc-link is-sub" href="#sub-peripheral">外设清单</a>
+          <a class="toc-link is-sub" href="#sub-wifi-bt">WiFi 与蓝牙：协议栈意味着什么</a>
+          <a class="toc-link is-sub" href="#sub-vs-stm32">与 STM32F103 的关键差异</a>
+          <a class="toc-link" href="#sec-hardware">硬件资源与引脚安全</a>
+          <a class="toc-link is-sub" href="#sub-pinout">开发板引脚全景</a>
+          <a class="toc-link is-sub" href="#sub-flash-pin">绝对不能碰的 6 个引脚</a>
+          <a class="toc-link is-sub" href="#sub-strapping">启动绑带引脚</a>
+          <a class="toc-link is-sub" href="#sub-safe-pin">能安全使用的引脚表</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-min">最小程序：setup 与 loop</a>
+          <a class="toc-link is-sub" href="#sub-info">芯片信息打印程序</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-what">ESP32 到底是什么</a>
+            <a class="toc-link is-sub" href="#sub-soc">SoC：一整块电路板塞进一颗芯片</a>
+            <a class="toc-link is-sub" href="#sub-dualcore">双核：Core0 与 Core1 的分工</a>
+            <a class="toc-link is-sub" href="#sub-rtos">FreeRTOS：为什么不能再写 while(1)</a>
+            <a class="toc-link is-sub" href="#sub-memory">内存：520KB SRAM 与 4MB Flash</a>
+            <a class="toc-link is-sub" href="#sub-peripheral">外设清单</a>
+            <a class="toc-link is-sub" href="#sub-wifi-bt">WiFi 与蓝牙：协议栈意味着什么</a>
+            <a class="toc-link is-sub" href="#sub-vs-stm32">与 STM32F103 的关键差异</a>
+            <a class="toc-link" href="#sec-hardware">硬件资源与引脚安全</a>
+            <a class="toc-link is-sub" href="#sub-pinout">开发板引脚全景</a>
+            <a class="toc-link is-sub" href="#sub-flash-pin">绝对不能碰的 6 个引脚</a>
+            <a class="toc-link is-sub" href="#sub-strapping">启动绑带引脚</a>
+            <a class="toc-link is-sub" href="#sub-safe-pin">能安全使用的引脚表</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-min">最小程序：setup 与 loop</a>
+            <a class="toc-link is-sub" href="#sub-info">芯片信息打印程序</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            从 51 换到 ESP32，很多人第一周的感受是「代码明明没错，但行为完全不像我预期」：
+            多打印一行字就重启、加个 <code class="icode">delay</code> 就掉线、内存还越用越少。
+            这些都不是错觉，而是因为 ESP32 的「身体结构」和 51 完全不是一类。
+            这一节先把这个结构讲清楚，后面所有的坑都能自己推出来。
+          </p>
+
+          <h3 id="sub-what" class="mt-7 text-base font-semibold">ESP32 到底是什么</h3>
+          <p class="mt-3">
+            先破除一个流传很广的说法：<b class="font-semibold text-ink">ESP32 不等于「单片机 + WiFi 模块」</b>。
+            用 51 做联网项目时，你的典型方案是 STC89C52 加一块 ESP8266 模块，两块板子用串口连起来。
+            那种结构里，51 干自己的活，ESP8266 干联网的活，两者之间靠一串「AT 指令」文本互相喊话。
+          </p>
+          <p class="mt-3">
+            打个比方：这就像<b class="font-semibold text-ink">两个人隔着墙用对讲机喊话</b>。
+            一个人负责车间里的活（你的 51 程序），另一个人在门口负责收发信件（ESP8266）。
+            想让车间把温度发出去，你得先教会他喊「AT+CIPSEND」这种暗号，
+            喊错了、喊慢了、对方没听清，事情就办不成。这也是为什么用 AT 指令做项目时，
+            代码里一半篇幅都在等回复、判断「OK」。
+          </p>
+          <p class="mt-3">
+            ESP32 换了一种做法：<b class="font-semibold text-ink">把收发信件的那个部门整个搬进同一个人的脑子里</b>。
+            射频电路、WiFi 协议栈、蓝牙协议栈、两个 CPU 核，全都在同一颗硅片上，
+            内部用总线和共享内存通信，而不是用串口喊暗号。
+            于是你在代码里写一句 <code class="icode">WiFi.begin(ssid, password)</code>，
+            调用关系是直接的函数调用，不再有「等对方回 OK」这回事。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="「51 + ESP8266 模块」与「一颗 ESP32」的本质区别">
+            <pre><code>【方案 A：51 + ESP8266 模块】两块芯片，串口喊话
+
+  ┌──────────────────┐   串口 / AT 指令   ┌──────────────────┐
+  │  STC89C52RC      │  ──────────────▶  │  ESP8266         │
+  │  （你的程序）     │  ◀──────────────  │  （WiFi 协议栈）  │
+  │  128 字节 RAM    │   "AT+CIPSEND"     │  自己一个 CPU     │
+  └──────────────────┘   "OK" / "ERROR"  └────────┬─────────┘
+                                                  │ 天线
+                                                  ▼
+                                              路由器
+
+  特点：两个 CPU，用串口通信；协议栈的细节对你完全不可见，
+        你只能通过文本指令去"请求"它做事。
+
+【方案 B：一颗 ESP32】一颗芯片，内部总线
+
+  ┌────────────────────────────────────────────────────────────┐
+  │                     ESP32 芯片内部                          │
+  │  ┌──────────────┐   共享内存 / 内部总线   ┌──────────────┐  │
+  │  │ Core0        │ ◀────────────────────▶ │ Core1        │  │
+  │  │ WiFi 协议栈   │                        │ 你的程序      │  │
+  │  │ 蓝牙协议栈    │                        │ loop()       │  │
+  │  └──────┬───────┘                        └──────────────┘  │
+  │         │ 射频前端（2.4GHz 收发器）                          │
+  └─────────┼──────────────────────────────────────────────────┘
+            │ 天线（模组上的金属屏蔽罩下面）
+            ▼
+         路由器
+
+  特点：两个 CPU 在同一颗芯片里，直接共享内存；你调用的
+        WiFi.begin() 就是一次普通的函数调用，协议栈是"自己人"。</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">SoC 这个词</div>
+            <p>
+              <b class="font-semibold text-ink">SoC</b> 是 System on Chip 的缩写，中文叫「片上系统」。
+              字面意思就是：以前需要好几颗芯片加一堆外围元件才能组成的一个「系统」，
+              现在全部集成到一颗芯片里。ESP32 就是典型的 SoC——
+              它内部除了 CPU，还塞进了射频收发器、内存、各种外设控制器，
+              所以它工作时几乎不需要外部元件，只有一颗存程序的 Flash 芯片和几颗退耦电容。
+            </p>
+          </div>
+
+          <h3 id="sub-soc" class="mt-7 text-base font-semibold">SoC：一整块电路板塞进一颗芯片</h3>
+          <p class="mt-3">
+            理解 SoC 的分层结构，对后面写代码很重要。因为 ESP32 内部是「分层」的，
+            你的代码处在这一摞的最上层，向下每一层都在替你完成越来越细的杂活：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="ESP32 的分层结构：你的代码住在最上层">
+            <pre><code>  ┌───────────────────────────────────────────────────────────┐
+  │ 第 5 层  你的代码                                          │
+  │          setup() / loop()：读传感器、控继电器、做判断       │
+  ├───────────────────────────────────────────────────────────┤
+  │ 第 4 层  Arduino-ESP32 封装层                              │
+  │          digitalWrite() / analogRead() / WiFi.begin()      │
+  │          把复杂的底层调用包装成一行好记的函数               │
+  ├───────────────────────────────────────────────────────────┤
+  │ 第 3 层  ESP-IDF（乐鑫官方 SDK）                            │
+  │          任务调度、WiFi 状态机、TCP/IP 协议栈、文件系统      │
+  ├───────────────────────────────────────────────────────────┤
+  │ 第 2 层  FreeRTOS 实时操作系统内核                          │
+  │          决定此刻哪个任务在用 CPU、谁在等、谁被唤醒          │
+  ├───────────────────────────────────────────────────────────┤
+  │ 第 1 层  硬件寄存器 + 射频电路                              │
+  │          真正翻转电平、真正把 2.4GHz 电磁波发出去的地方      │
+  └───────────────────────────────────────────────────────────┘
+
+  你在 51 上的经验：直接在第 1 层和第 5 层之间来回，
+  写 P1 = 0xFE 就是直接操作寄存器。
+
+  你在 ESP32 上要做的事：大部分时间待在第 5 层。
+  但要知道下面还有 4 层，出问题时才知道该往哪一层找原因。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            用 51 的视角对照一下就很清楚：51 上你写 <code class="icode">P1 = 0xFE;</code>，
+            这一行直接落到「寄存器」这一层，中间没有别的东西。
+            而 ESP32 上你写 <code class="icode">digitalWrite(2, LOW);</code>，
+            这个调用要穿过封装层、IDF 层，最后才去改 GPIO 的输出寄存器。
+            中间这几层不是「多余的累赘」——它们顺便帮你做了引脚复用配置、输入输出方向检查、
+            以及和 WiFi 抢引脚时的冲突处理。
+          </p>
+
+          <h3 id="sub-dualcore" class="mt-7 text-base font-semibold">双核：Core0 与 Core1 的分工</h3>
+          <p class="mt-3">
+            ESP32-WROOM-32 里面的主控是 <b class="font-semibold text-ink">Xtensa LX6</b>，
+            而且有两颗，官方叫 <b class="font-semibold text-ink">双核</b>。
+            两个核都能独立执行指令，主频最高 240MHz。
+            在 Arduino 里查看主频就是 <code class="icode">ESP.getCpuFreqMHz()</code> 这一句，正常返回 240。
+          </p>
+          <p class="mt-3">
+            这两颗核不是随便分的，乐鑫在出厂时就给它们定了角色：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>核</th><th>官方名字</th><th>默认负责什么</th><th>对你的影响</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Core 0</td><td class="font-mono text-xs">PRO_CPU</td><td>WiFi 协议栈、蓝牙协议栈、大部分系统任务</td><td>这里已经有很多活，别再往里塞重活，否则 WiFi 会卡</td></tr>
+                <tr><td>Core 1</td><td class="font-mono text-xs">APP_CPU</td><td>Arduino 的 <code class="icode">loop()</code> 任务默认跑在这里</td><td>这里是「你的地盘」，放耗时的计算、刷屏、读传感器</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            为什么这么分？因为 WiFi 协议栈是一个<b class="font-semibold text-ink">对时间极其敏感</b>的东西。
+            无线通信有严格的时序：信标帧每隔约 100ms 来一次，收到数据后必须在几十微秒内回应确认帧，
+            晚了对方就认为丢包要重发。如果这段时间 CPU 正在跑你的图形刷新循环，
+            协议栈就只能干等，表现出来就是「一刷屏 WiFi 就掉线」。
+            把协议栈单独放到 Core0，再用 FreeRTOS 的优先级保证它随时能抢到 CPU，
+            这个矛盾就解决了。
+          </p>
+          <p class="mt-3">
+            那怎么知道自己写的代码跑在哪颗核上？Arduino 提供了 FreeRTOS 的函数
+            <code class="icode">xPortGetCoreID()</code>，它返回当前正在执行这行代码的核编号（0 或 1）。
+            你可以用下面这一句打印出来：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="查看当前代码跑在哪颗核上">
+            <pre><code>void setup() {
+    Serial.begin(115200);
+    delay(1500);
+    /* xPortGetCoreID() 来自 FreeRTOS，Arduino 环境里已经自动包含，
+     * 不需要额外 #include。返回 0 或 1，
+     * 也可以打印宏 ARDUINO_RUNNING_CORE 做对照。 */
+    Serial.printf("setup() 跑在 Core%d\n", xPortGetCoreID());
+    Serial.printf("Arduino 定义的工作核是 Core%d\n", ARDUINO_RUNNING_CORE);
+}
+
+void loop() {
+    Serial.printf("loop()  跑在 Core%d\n", xPortGetCoreID());
+    delay(2000);
+}</code></pre>
+          </div>
+
+          <p class="mt-4">
+            当你想把一段任务<b class="font-semibold text-ink">明确指定</b>到某一颗核上时，
+            用的是 FreeRTOS 的函数 <code class="icode">xTaskCreatePinnedToCore()</code>。
+            先只看它的概念（函数的完整参数在本页
+            <a class="text-brand-600 dark:text-brand-300" href="#sub-code-key">关键代码解析</a>里逐项拆开）：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>「<b class="font-semibold text-ink">Task</b>」= 任务，就是一段可以独立运行的函数，这个概念下一节细讲。</li>
+            <li>「<b class="font-semibold text-ink">Pinned</b>」= 钉住、绑定。表示这个任务只许在指定的那颗核上跑，不许调度器把它挪到另一颗核。</li>
+            <li>「<b class="font-semibold text-ink">ToCore</b>」= 目标是哪颗核，末尾的参数写 0 或 1。</li>
+          </ul>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">常见误解：两个核 = 程序快一倍</div>
+            <p>
+              不会。双核只在你的程序真的能拆成<b class="font-semibold">两件互不依赖的事</b>时才有用，
+              比如一颗核负责刷新屏幕、另一颗负责读传感器并联网上报。
+              如果两件事都要访问同一份数据，就还需要加锁（信号量、互斥量）来防止打架，反而更慢。
+              新手阶段最正确的做法是：<b class="font-semibold text-ink">什么都不指定</b>，
+              让 Arduino 把 <code class="icode">loop()</code> 放在 Core1，WiFi 自己待在 Core0，各干各的。
+            </p>
+          </div>
+
+          <h3 id="sub-rtos" class="mt-7 text-base font-semibold">FreeRTOS：为什么不能再写 while(1) 大循环</h3>
+          <p class="mt-3">
+            这是 51 学生转 ESP32 时最需要「换脑子」的一处。在 51 上，标准写法是：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="51 的超级循环结构（Super Loop）">
+            <pre><code>/* STC89C52RC 的典型结构 */
+void main(void) {
+    init_timer0();      /* 初始化：只做一次 */
+    init_uart();
+
+    while (1) {         /* 超级循环：反复做 */
+        scan_key();     /* 读按键 */
+        update_led();   /* 刷新显示 */
+        report_temp();  /* 上报温度 */
+    }
+}</code></pre>
+          </div>
+
+          <p class="mt-4">
+            这个结构叫 <b class="font-semibold text-ink">超级循环（Super Loop）</b>，
+            或者叫「前后台系统」：中断是前台，<code class="icode">while(1)</code> 里的代码是后台。
+            它的隐含假设是：<b class="font-semibold text-ink">每一件事都足够快，并且必须等别人做完才能做</b>。
+            如果 <code class="icode">report_temp()</code> 里要等 WiFi 回应、耗时 800ms，
+            那这 800ms 里按键完全不会被扫描——按下去没反应。
+          </p>
+          <p class="mt-3">
+            用过 51 的人会想到「那就放中断里」。但在 ESP32 上这条路走不通，原因有三条：
+          </p>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>WiFi 的连接、握手、收发数据包本身就要等几百毫秒到几秒，中断里不能等这么久。</li>
+            <li>中断服务函数要求执行时间极短（微秒级），做长操作会触发「中断看门狗」直接复位。</li>
+            <li>协议栈内部的状态机需要「在等待时让出 CPU」的能力，这是中断做不到的。</li>
+          </ol>
+          <p class="mt-4">
+            所以 ESP32 用的是完全不同的模型：<b class="font-semibold text-ink">FreeRTOS 任务（Task）</b>。
+            一句话解释：<b class="font-semibold text-ink">任务就是一段「能随时被暂停、也能随时被恢复」的函数</b>。
+            每个任务有自己独立的栈空间和优先级，操作系统内核（调度器）负责决定此刻让谁用 CPU。
+          </p>
+          <p class="mt-3">
+            打个比方。超级循环像<b class="font-semibold text-ink">一个厨师从头到尾做一桌菜</b>：
+            必须先把汤炖上，炖的时候他只能站着等，什么也做不了。
+            任务模型像<b class="font-semibold text-ink">餐厅的后厨</b>：
+            炖汤的厨师把汤放到灶上就转身去切菜了，灶上的汤好了会有人喊他。
+            多个厨师（多个任务）同时在场，谁手上有活谁就干活，灶（CPU）只有两个，但没人闲着。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>对比项</th><th>51 的超级循环</th><th>ESP32 的 FreeRTOS 任务</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>并发单位</td><td>整个 <code class="icode">while(1)</code> 是一个整体</td><td>每个任务是一段独立的函数</td></tr>
+                <tr><td>栈空间</td><td>全局共用（51 靠编译器分配，128 字节 RAM 根本没得选）</td><td>每个任务独立分配，Arduino 的 loop 任务默认 8KB</td></tr>
+                <tr><td>等待时</td><td>只能原地空转（忙等），CPU 被白白浪费</td><td>调用 <code class="icode">vTaskDelay()</code> 让出 CPU，其他任务接着跑</td></tr>
+                <tr><td>优先级</td><td>没有，中断优先级另算</td><td>每个任务有自己的优先级，高的可以抢占低的</td></tr>
+                <tr><td>典型数量</td><td>1 个</td><td>ESP32 开机后系统就有十几个任务在跑，再加上你的</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            现在回答最关键的一个问题：<b class="font-semibold text-ink">那我写的 setup() 和 loop() 算什么？</b>
+            答案是——它们本身就是一个 FreeRTOS 任务。
+            你在 Arduino 里写的代码并不是「裸机程序」，而是被包装成了一个叫
+            <code class="icode">loopTask</code> 的任务。核心源码里的结构（为便于理解做了简化）大致是这样：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="Arduino-ESP32 核心内部：loop() 是怎么被跑起来的（简化版）">
+            <pre><code>/* 这段代码在 Arduino-ESP32 核心内部，你不需要自己写，看懂即可 */
+
+/* 第一步：芯片上电后，ESP-IDF 会调用 app_main() */
+extern "C" void app_main(void) {
+    initArduino();                 /* 初始化串口、GPIO 等基础设施 */
+
+    /* 第二步：创建一个任务，把这个任务"钉"在 ARDUINO_RUNNING_CORE 上。
+     * 第 2 个参数 "loopTask" 是任务名（调试时能看到），
+     * 第 3 个参数是给这个任务分配的栈大小（默认 8192 字节）。 */
+    xTaskCreatePinnedToCore(loopTask, "loopTask", 8192, NULL, 1, NULL,
+                            ARDUINO_RUNNING_CORE);
+}
+
+/* 第三步：任务体。注意它是一个「永不返回」的函数 */
+void loopTask(void *pvParameters) {
+    setup();                       /* 只执行一次 */
+
+    for (;;) {                     /* 相当于 51 的 while(1) */
+        loop();                    /* 反复执行 */
+        /* 这里还有一些看门狗喂狗动作，省略 */
+    }
+}</code></pre>
+          </div>
+
+          <p class="mt-4">
+            看懂这三步，很多困惑就自动消失了：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">「setup 执行几次？」</b>一次。它在 <code class="icode">for(;;)</code> 之前，只在任务启动时执行。</li>
+            <li><b class="font-semibold text-ink">「loop 返回后会怎样？」</b>立刻被再调一次。你写 <code class="icode">return;</code> 不等于结束程序，只等于「这次循环到此为止」。</li>
+            <li><b class="font-semibold text-ink">「我怎么没看到 main()？」</b>因为 <code class="icode">main()</code> 由核心库提供，它负责启动 FreeRTOS 调度器，然后才有 <code class="icode">app_main()</code>。所以 Arduino 程序里写 <code class="icode">int main(void)</code> 会和核心库冲突。</li>
+            <li><b class="font-semibold text-ink">「那 loop 卡住会怎样？」</b>整个 <code class="icode">loopTask</code> 卡住，其他任务（包括 WiFi）照跑，但你的程序不再响应。而且核心默认开启了任务看门狗，<code class="icode">loop()</code> 连续 5 秒不返回就会打印报错并复位。</li>
+          </ul>
+
+          <div class="code-block mt-3" data-lang="text" data-title="你的 loop 与系统任务共存示意图">
+            <pre><code>  时间轴 ──────────────────────────────────────────────────────▶
+
+  Core0 │ [WiFi 协议栈任务] [WiFi] [蓝牙任务] [IDF 系统任务] [WiFi] …
+        │  优先级较高，随时可以抢占，你基本感觉不到它们的存在
+        │
+  Core1 │ [loopTask: 你的 loop()] [空闲] [loopTask: 你的 loop()] …
+        │  优先级 1（最低的一档之一），没人抢时就一直跑你
+        │
+        └─ 你调用 delay(1000) 的那 1 秒里，Core1 会去跑"空闲任务"，
+           同时把 CPU 让给任何就绪的高优先级任务；
+           这就是 delay() 和 51 上"空转 for 循环延时"的本质区别。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一句话记住 delay 与 vTaskDelay</div>
+            <p>
+              Arduino 的 <code class="icode">delay(ms)</code> 在 ESP32 上内部就是调用 FreeRTOS 的
+              <code class="icode">vTaskDelay(ms / portTICK_PERIOD_MS)</code>。
+              它的含义不是「死等」，而是「<b class="font-semibold text-ink">我暂时不用 CPU 了，谁要用谁拿去</b>」。
+              所以在 ESP32 上用 <code class="icode">delay()</code> 并不会像 51 那样把整个系统卡死——
+              但它会卡住<b class="font-semibold">你自己这个任务</b>，
+              按键扫描、状态机全都会停摆，所以长延时依然要尽量避免。
+            </p>
+          </div>
+
+          <h3 id="sub-memory" class="mt-7 text-base font-semibold">内存：520KB SRAM 与 4MB Flash</h3>
+          <p class="mt-3">
+            51 最让人难受的就是内存：STC89C52RC 一共 512 字节 RAM，其中真正能随便用的内部 RAM 只有 128 字节，
+            还要分给位寻址区、寄存器组、堆栈。写个 20 个元素的 <code class="icode">int</code> 数组就要开始算账。
+          </p>
+          <p class="mt-3">
+            ESP32 在这方面的感受是<b class="font-semibold text-ink">降维的宽裕</b>：
+            芯片内部有 <b class="font-semibold text-ink">520KB SRAM</b> 给程序运行用，
+            模组上还另焊了一颗 <b class="font-semibold text-ink">4MB Flash</b> 用来存程序。
+            但这两块内存的分工和 51 的「内部 RAM / 外部 XRAM」不是一回事，值得单独讲清楚：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="ESP32-WROOM-32 的内存布局">
+            <pre><code>  两块物理上完全不同的存储：
+
+  ┌────────────── ESP32 芯片内部（SoC 的一部分）───────────────┐
+  │  SRAM  520 KB   —— 掉电就丢，程序运行时的工作台            │
+  │    ├─ DRAM 区：全局变量、堆(heap)、各个任务的栈             │
+  │    ├─ IRAM 区：指令，中断服务函数必须放在这里               │
+  │    └─ RTC 慢速内存 8KB：深度睡眠时唯一还活着的部分          │
+  │         （注意：520KB 不是全部给你用，WiFi 协议栈、蓝牙、   │
+  │           IDF 内核会先占掉一大块。Arduino 里开机后           │
+  │           用 ESP.getFreeHeap() 看到的通常是 30 万字节上下）  │
+  └─────────────────────────────────────────────────────────────┘
+
+  ┌────────── 模组上另一颗芯片（WROOM 模组里，不在 SoC 内）────┐
+  │  Flash  4 MB    —— 掉电不丢，存放程序本体和常量数据         │
+  │    默认分区：bootloader / 分区表 / NVS / app0 / app1 / SPIFFS│
+  │    其中 app0 这块应用程序分区默认约 1.2MB，                   │
+  │    这就是编译时提示 "Sketch uses ... of program storage" 的 │
+  │    那个 100% 到底指多少。                                    │
+  └─────────────────────────────────────────────────────────────┘
+
+  在 51 上的对应关系（便于你迁移概念）：
+    51 的 128 字节内部 RAM   ≈  ESP32 的 SRAM（工作台）
+    51 的 4KB 程序 Flash     ≈  ESP32 的 4MB Flash（存程序）
+    51 的 XRAM（外扩）        ≈  ESP32 没有这个必要，SRAM 已经够用</code></pre>
+          </div>
+
+          <p class="mt-4">
+            为什么要在意「一个变量放在哪」？因为 ESP32 有一个 51 上不存在的限制：
+            <b class="font-semibold text-ink">CPU 读取 Flash 要走缓存（cache）</b>。
+            平时这没问题，但当你正在擦写 Flash 的时候，缓存是失效的——
+            如果此刻恰好发生中断，而中断服务函数的代码还在 Flash 里，CPU 就取不到指令，直接崩溃。
+            这就是两个特殊宏存在的原因：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>宏</th><th>作用</th><th>什么时候必须用</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">IRAM_ATTR</code></td><td>把这个函数编译到 IRAM（内部 RAM）里，而不是留在 Flash</td><td>写中断服务函数时。例如 <code class="icode">void IRAM_ATTR onButton() { }</code>。不写它，中断偶尔会崩，而且这种崩极难复现</td></tr>
+                <tr><td><code class="icode">PROGMEM</code></td><td>在 AVR（Arduino UNO）上用来把常量放进 Flash 省 RAM</td><td>在 ESP32 上<b class="font-semibold">基本不需要</b>。因为 ESP32 的 Flash 被映射进地址空间，普通的 <code class="icode">const</code> 全局数组本来就已经在 Flash 里，写了也不会报错，但没用处。看到老教程里的 <code class="icode">PROGMEM</code> 不用照抄</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">常见误解：520KB 很大，随便用</div>
+            <p>
+              520KB 是<b class="font-semibold">芯片的 SRAM 总容量</b>，不是你能用的堆大小。
+              WiFi 一连上，协议栈、缓冲区、TCP/IP 状态就要吃掉几十 KB；再开蓝牙又是几十 KB。
+              典型 Arduino ESP32 程序开机后 <code class="icode">ESP.getFreeHeap()</code> 报 30 万字节左右，
+              连着 WiFi 做收发时会掉到 20 万上下。
+              所以「堆内存还够不够」是 ESP32 程序必须持续观察的指标，
+              这一点和 51 上「RAM 不够编译器会直接报错」完全不同——
+              ESP32 的堆不够是<b class="font-semibold">运行时</b>才炸，表现为莫名其妙的死机重启。
+              这个坑在第 4 篇讲 <code class="icode">String</code> 时会详细展开。
+            </p>
+          </div>
+
+          <h3 id="sub-peripheral" class="mt-7 text-base font-semibold">外设清单</h3>
+          <p class="mt-3">
+            外设就是芯片内部那些「专门干某件事的小电路」：串口、定时器、ADC 都算。
+            在 51 上，外设数量固定且很少；ESP32 的外设不但多，而且
+            <b class="font-semibold text-ink">大部分外设可以用任意引脚</b>
+            （下面 <a class="text-brand-600 dark:text-brand-300" href="#sub-vs-stm32">与 STM32 的差异</a> 里会讲这意味着什么）。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>外设</th><th>ESP32 提供的数量 / 规格</th><th>典型用途</th><th>对应 51 上的什么</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>GPIO</td><td>总共 34 个可编程引脚（编号 0~19、21~23、25~27、32~39）</td><td>点灯、读按键、驱动继电器</td><td>P0~P3 共 32 个 IO</td></tr>
+                <tr><td>ADC</td><td>2 组 12 位逐次逼近型 ADC，共 18 个通道；返回值 0~4095</td><td>读电位器、光敏电阻、电池电压</td><td>STC89C52RC 内部没有 ADC，要外挂 ADC0809</td></tr>
+                <tr><td>DAC</td><td>2 路 8 位，固定在 GPIO25 与 GPIO26</td><td>输出模拟电压、做简易波形</td><td>没有</td></tr>
+                <tr><td>触摸传感</td><td>10 路电容触摸通道（GPIO4/0/2/15/13/12/14/27/33/32）</td><td>不用按键，手指碰一下导线就能触发</td><td>没有</td></tr>
+                <tr><td>I2C</td><td>2 组控制器，引脚可任意指定</td><td>接 OLED 屏、温湿度传感器、EEPROM</td><td>没有硬件 I2C，只能用 IO 模拟</td></tr>
+                <tr><td>SPI</td><td>4 组（其中 SPI0/SPI1 内部给 Flash 用，你能用的是 SPI2、SPI3）</td><td>接 SD 卡、TFT 彩屏、无线模块</td><td>没有</td></tr>
+                <tr><td>UART</td><td>3 组（UART0 接了 USB 转串口，你能自由用 UART1、UART2）</td><td>接 GPS、指纹模块、串口屏</td><td>1 个 UART</td></tr>
+                <tr><td>PWM</td><td>LEDC 控制器，16 路通道，最高 20 位分辨率</td><td>调光、调速、控制舵机</td><td>没有硬件 PWM，靠定时器模拟</td></tr>
+                <tr><td>定时器</td><td>4 个 64 位通用定时器，另有独立的看门狗定时器</td><td>精确定时、产生周期中断、测频率</td><td>2 个 16 位定时器 T0、T1</td></tr>
+                <tr><td>霍尔传感器</td><td>芯片内置 1 个，检测磁场强弱</td><td>做非接触开关、转速测量（要配合磁铁）</td><td>没有</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            这张表里最需要提前记住的是 ADC 那一行：<b class="font-semibold text-ink">18 个通道被分成了 ADC1 和 ADC2 两组，
+            而 ADC2 和 WiFi 是冲突的</b>——只要 WiFi 开着，ADC2 的引脚就读不出值。
+            这是 ESP32 的硬件限制，踩过的人不计其数。完整的引脚归属表和解决办法在下一篇
+            3.3V 供电与 GPIO 安全里单独讲，这里先记住结论：
+            <b class="font-semibold text-ink">要同时用 WiFi 和 ADC，只能用 GPIO32、33、34、35、36、39 这六个引脚</b>。
+          </p>
+
+          <h3 id="sub-wifi-bt" class="mt-7 text-base font-semibold">WiFi 与蓝牙：协议栈意味着什么</h3>
+          <p class="mt-3">
+            ESP32 的无线能力是它和 51、STM32F103 最大的区别，规格如下：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>项目</th><th>规格</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>WiFi 频段</td><td class="font-mono text-xs">2.4 GHz</td><td>只支持 2.4GHz，<b class="font-semibold">连不上 5GHz 的路由器信号</b></td></tr>
+                <tr><td>WiFi 协议</td><td class="font-mono text-xs">802.11 b / g / n</td><td>n 是主流，理论速率 72Mbps，实际透传几百 KB/s</td></tr>
+                <tr><td>工作模式</td><td>STA / AP / STA+AP 共存</td><td>STA = 连别人的路由器；AP = 自己当热点；可以同时</td></tr>
+                <tr><td>经典蓝牙</td><td class="font-mono text-xs">Bluetooth BR/EDR</td><td>就是手机连耳机那种蓝牙，能做「蓝牙串口」持续传数据</td></tr>
+                <tr><td>低功耗蓝牙</td><td class="font-mono text-xs">BLE 4.2</td><td>省电、数据量小，手机 App 读一个温度值最合适</td></tr>
+                <tr><td>协议栈</td><td>内置，占用约 40KB 堆内存（WiFi）</td><td>代码烧在 Flash 里，运行时从堆里分配缓冲区</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            什么叫「内置协议栈」？用打电话类比就清楚了。
+            <b class="font-semibold text-ink">你以为 <code class="icode">WiFi.begin()</code> 只是「打开开关」，
+            实际上它触发了一整套跨设备的握手流程</b>：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="WiFi.begin() 之后，硬件上真实发生的事">
+            <pre><code>  WiFi.begin("MyHome", "12345678");
+        │
+        ▼
+  ① 扫描（Scan）
+     在 2.4GHz 的 13 个信道上来回听，找出哪个信道上有名叫
+     "MyHome" 的路由器，并记下它的信号强度、加密方式。
+     耗时：约 1~3 秒
+
+        ▼
+  ② 认证（Authentication）
+     向路由器证明"我知道密码"。密码不是直接发出去的，
+     而是用 WPA2 算法算出一个摘要，路由器用同样的算法验证。
+     密码错了就卡在这一步，Arduino 表现为 WiFi.status() 一直是
+     WL_DISCONNECTED，什么提示都没有。
+
+        ▼
+  ③ 关联（Association）
+     路由器同意你接入，给你分配一个"连接编号"（AID），
+     从此你俩之间建立了一条独占的无线链路。
+
+        ▼
+  ④ 四次握手（4-Way Handshake）
+     协商出真正的数据加密密钥。到这一步之前，你发的所有数据
+     都是密文，连路由器都解不开（这是 WPA2 的设计目标）。
+
+        ▼
+  ⑤ 请求 IP（DHCP）
+     广播"我是新来的，谁给我个地址？"，路由器（DHCP 服务器）
+     回一个 192.168.1.103 这样的地址，连同子网掩码、网关、
+     DNS 服务器一起给你。这几样东西的含义在第 5 篇细讲。
+
+        ▼
+  ⑥ 连接完成
+     WiFi.status() 返回 WL_CONNECTED，
+     此时你才能用 WiFi.localIP() 拿到自己的地址。
+
+  整段流程通常 3~8 秒。这就是为什么 setup() 里连 WiFi
+  必须写成"循环等待 + 超时"，而不能连上就直接往下跑。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            看懂这六步，就能理解一个新手最常见的困惑：<b class="font-semibold text-ink">为什么密码打错了不报错？</b>
+            因为在第 ② 步失败时，协议栈只会「断开重试」，没有给 Arduino 层提供「密码错误」这种细分状态。
+            这是无线通信的特点：<b class="font-semibold text-ink">失败原因经常是不可观测的</b>，
+            你只能通过「连不上」这个结果去反推。第 5 篇会给出完整的排查顺序。
+          </p>
+
+          <h3 id="sub-vs-stm32" class="mt-7 text-base font-semibold">与 STM32F103 的关键差异</h3>
+          <p class="mt-3">
+            如果你学过 STM32F103C8T6，下面的对照会更有针对性。
+            这两颗芯片的定位差别很大：STM32F103 是「通用 MCU」，强调外设丰富、实时性好；
+            ESP32 是「物联网 SoC」，强调集成度和联网能力。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>对比项</th><th>STC89C52RC（51）</th><th>STM32F103C8T6</th><th>ESP32-WROOM-32</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>内核</td><td>8051，8 位</td><td>Cortex-M3，32 位</td><td>Xtensa LX6，32 位，<b class="font-semibold">双核</b></td></tr>
+                <tr><td>主频</td><td class="font-mono text-xs">11.0592 / 12 MHz</td><td class="font-mono text-xs">72 MHz</td><td class="font-mono text-xs">240 MHz</td></tr>
+                <tr><td>SRAM</td><td class="font-mono text-xs">512 字节（可用约 128）</td><td class="font-mono text-xs">20 KB</td><td class="font-mono text-xs">520 KB</td></tr>
+                <tr><td>Flash</td><td class="font-mono text-xs">8 KB（片内）</td><td class="font-mono text-xs">64 KB（片内）</td><td class="font-mono text-xs">4 MB（模组上外挂）</td></tr>
+                <tr><td>无线</td><td>无</td><td>无</td><td>WiFi + 经典蓝牙 + BLE</td></tr>
+                <tr><td>运行模型</td><td>裸机超级循环</td><td>裸机超级循环，或自己移植 RTOS</td><td><b class="font-semibold">默认就在 FreeRTOS 上跑</b></td></tr>
+                <tr><td>开发方式</td><td>Keil C51，直接操作 SFR</td><td>Keil / CubeMX + HAL 库</td><td>Arduino IDE 或 ESP-IDF（命令行）</td></tr>
+                <tr><td>时钟配置</td><td>晶振 + 定时器初值手算</td><td><b class="font-semibold">复杂</b>：要配 RCC、PLL、各总线分频</td><td><b class="font-semibold">不用管</b>：上电就是 240MHz，核心已配好</td></tr>
+                <tr><td>引脚复用</td><td>固定功能，P3.0 就是 RXD</td><td>靠 AFIO 重映射，同一外设只能选几个固定引脚</td><td><b class="font-semibold">GPIO 矩阵</b>：几乎任意外设可以放到任意引脚</td></tr>
+                <tr><td>下载方式</td><td>串口 / STC-ISP</td><td>SWD（ST-Link）</td><td>串口（USB 转串口芯片已焊在板上）</td></tr>
+                <tr><td>调试器</td><td>基本没有</td><td>ST-Link 单步调试，体验好</td><td>没有硬件调试口，<b class="font-semibold">主要靠串口打印</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            表里有两行值得单独说：
+          </p>
+          <p class="mt-3">
+            <b class="font-semibold text-ink">第一，时钟树不用你操心了。</b>
+            在 STM32 上开一个新工程，光 RCC 配置就要选 HSE、配 PLL 倍频、设 AHB/APB 分频，
+            配错了串口波特率就不对。ESP32 的 Arduino 环境里，这些核心库已经做完，
+            上电跑 240MHz，<code class="icode">Serial.begin(115200)</code> 就是 115200。
+            代价是你失去了精细控制，需要改主频时要到 ESP-IDF 层去调
+            （Arduino 里也有 <code class="icode">setCpuFrequencyMhz()</code> 可以改，
+            但它会影响串口时钟，新手别动）。
+          </p>
+          <p class="mt-3">
+            <b class="font-semibold text-ink">第二，GPIO 矩阵是个巨大的便利。</b>
+            STM32 上想把 UART 换一组引脚，要去查数据手册的复用表，还要开 AFIO 时钟。
+            ESP32 上你写 <code class="icode">Serial2.begin(9600, SERIAL_8N1, 16, 17)</code>，
+            意思是「把第二路串口的 TX 放 GPIO16、RX 放 GPIO17」，
+            换成任何两个空闲引脚都行，芯片内部有个交换矩阵自动接线。
+            这就是为什么 ESP32 的接线教程看起来「很随意」——它是真的随意。
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">但它有代价：没有 SWD 调试</div>
+            <p>
+              ESP32-WROOM-32 没有像 ST-Link 那样好用的单步调试通道
+              （要用 JTAG 得另外接一堆线，而且会占用 GPIO12~15）。
+              所以玩 ESP32 的核心技能是<b class="font-semibold text-ink">串口打印</b>：
+              在关键位置打印变量、打印状态、打印内存，用日志反推程序走到哪一步。
+              这也是第 4 篇把「串口是调试的眼睛」单独作为一节的原因。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件资源与引脚安全 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件资源与引脚安全</h2>
+
+          <p class="mt-4">
+            这一节是全篇最「能救命」的部分。51 的引脚几乎可以随便接，接错了最多是不工作；
+            而 ESP32 有一批引脚<b class="font-semibold text-ink">接了就会让板子起不来</b>，
+            而且现象是「程序上传失败」或「一上电就重启」，很容易误判成软件问题。
+            先把引脚图看清楚。
+          </p>
+
+          <h3 id="sub-pinout" class="mt-7 text-base font-semibold">开发板引脚全景</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="ESP32-WROOM-32 开发板俯视示意">
+            <pre><code>        ┌──────────────────────────────────────────────┐
+        │            ESP32-WROOM-32 模组                │
+        │   ┌────────────────────────────────────┐     │
+        │   │  金属屏蔽罩（下面是天线与射频电路）  │     │
+        │   └────────────────────────────────────┘     │
+        │                                              │
+        │  [EN] 按键          [BOOT] 按键              │
+        │   ↑ 复位键            ↑ 下载模式键            │
+        │   按下 = 重启芯片      按住 + 按 EN = 进下载模式 │
+        │                                              │
+        │  ● 电源指示灯(PWR)    ● 板载 LED（多数为 GPIO2）│
+        │                                              │
+        │  ┌──────────┐                                │
+        │  │ USB 母座 │   Micro-USB 或 Type-C          │
+        │  └──────────┘   ↑ 必须用「数据线」，不能是纯充电线│
+        └──────────────────────────────────────────────┘
+
+  排针侧（两侧各 19 个脚，标注了每个脚的"身份"）：
+
+    左侧                    右侧
+    3V3    ── 3.3V 输出     GND
+    EN     ── 复位           GPIO23 ── 安全
+    GPIO36 ── 只能输入/ADC1  GPIO22 ── 安全
+    GPIO39 ── 只能输入/ADC1  GPIO1  ── TX0（串口，别用）
+    GPIO34 ── 只能输入/ADC1  GPIO3  ── RX0（串口，别用）
+    GPIO35 ── 只能输入/ADC1  GPIO21 ── 安全
+    GPIO32 ── 安全/ADC1      GND
+    GPIO33 ── 安全/ADC1      GPIO19 ── 安全
+    GPIO25 ── 安全/DAC1      GPIO18 ── 安全
+    GPIO26 ── 安全/DAC2      GPIO5  ── 绑带脚，小心
+    GPIO27 ── 安全           GPIO17 ── 安全
+    GPIO14 ── 安全           GPIO16 ── 安全
+    GPIO12 ── 绑带脚，危险！  GPIO4  ── 安全
+    GND                      GPIO0  ── 绑带脚 / BOOT 键
+    GPIO13 ── 安全           GPIO2  ── 绑带脚 / 板载 LED
+    GPIO9  ── 内部 Flash，禁用 GPIO15 ── 绑带脚，小心
+    GPIO10 ── 内部 Flash，禁用 GPIO8  ── 内部 Flash，禁用
+    GPIO11 ── 内部 Flash，禁用 GPIO7  ── 内部 Flash，禁用
+    VIN/5V ── 5V 输入        GPIO6  ── 内部 Flash，禁用
+
+  记忆口诀：6、7、8、9、10、11 一个都别碰；
+            34、35、36、39 只能当输入；
+            真正"随便用"的是 13、14、16、17、18、19、21、22、23、25、26、27、32、33。</code></pre>
+          </div>
+
+          <h3 id="sub-flash-pin" class="mt-7 text-base font-semibold">绝对不能碰的 6 个引脚</h3>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">GPIO6 / 7 / 8 / 9 / 10 / 11：接上任何东西都可能让板子变砖</div>
+            <p>
+              这六个引脚在模组内部已经连到 SPI Flash 芯片上了——Flash 就是存放你程序的那颗存储器。
+              它们承担的是 SPI 总线的时钟、数据、片选信号。
+              你在外面接一个 LED、接一根杜邦线、甚至只是接一根长导线当天线，
+              都会给这条高速总线引入额外的电容和干扰。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold text-ink">后果分三档：</b>
+              轻则程序时好时坏、偶尔跑飞；中度则无法上传（esptool 读 Flash 校验失败）；
+              最重则写坏了 bootloader 或分区表，板子从此只能靠串口手动救砖。
+              这不是「概率很低的小问题」，是新手烧板子的头号原因。
+            </p>
+            <p class="mt-2">
+              开发板上之所以还印着 GPIO9、GPIO10，是因为有些 ESP32 模组没占用它们。
+              ESP32-WROOM-32 用满了，<b class="font-semibold">你就当这几个脚不存在</b>。
+            </p>
+          </div>
+
+          <h3 id="sub-strapping" class="mt-7 text-base font-semibold">启动绑带引脚</h3>
+          <p class="mt-3">
+            <b class="font-semibold text-ink">绑带引脚（strapping pin）</b>这个名字听起来很怪，
+            但机制很简单：ESP32 每次上电或复位的最初几微秒里，会去「读」几个特定引脚的电平高低，
+            用读到的组合来决定<b class="font-semibold text-ink">以什么模式启动</b>。
+            就像开机时按着 F2 进 BIOS 一样——这几个脚就是「开机时要检查的按键」。
+          </p>
+          <p class="mt-3">
+            这个「检查」只在上电瞬间发生。之后这几个脚就变回普通 GPIO，可以正常用。
+            问题在于：如果你给它们接的下拉或上拉电路恰好把电平定在了「另一种模式」上，
+            芯片开机就走错了路。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>引脚</th><th>开机瞬间它决定什么</th><th>芯片内部默认</th><th>你要注意什么</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">GPIO0</code></td><td>低 = 进入下载模式（等串口烧录）；高 = 正常运行程序</td><td>内部上拉（默认高）</td><td>板上的 BOOT 键就是把它拉低。你外接电路如果长期把它拉到低电平，板子每次上电都停在下载模式，程序永远不跑</td></tr>
+                <tr><td><code class="icode">GPIO2</code></td><td>正常启动时取任意值、不被检查（<code class="icode">GPIO0=1</code> → SPI Boot Mode）；只有进串口/联合下载模式（<code class="icode">GPIO0=0</code>）才要求 GPIO2=0</td><td>内部下拉（默认低）</td><td>板上 LED 就接在这里。正常启动不受它影响；下载/烧录时被外接电路顶在高电平会导致连不上</td></tr>
+                <tr><td><code class="icode">GPIO12</code></td><td>低 = Flash 供电用 3.3V（正常）；高 = 用 1.8V（WROOM 模组会直接起不来）</td><td><b class="font-semibold">内部下拉</b></td><td><b class="font-semibold text-ink">最危险的一个</b>。它是内部下拉的，所以你外接的上拉电阻或某个模块的漏电流很容易把它抬到高电平，结果就是「上电后串口一片乱码、程序不跑」</td></tr>
+                <tr><td><code class="icode">GPIO15</code></td><td>高（默认，内部上拉）= 输出启动日志；低 = 关闭启动日志（MTDO=1 使能 U0TXD 打印，拉低反而关掉）</td><td>内部上拉</td><td>拉低不影响运行，只是看不到 bootloader 的启动信息；但接上拉负载时要小心</td></tr>
+                <tr><td><code class="icode">GPIO5</code></td><td>决定开机时 SDIO 的时序延迟</td><td>内部上拉</td><td>影响很小，一般可以正常使用</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">实用结论</div>
+            <p>
+              绑带脚不是「不能用」，而是「<b class="font-semibold">上电瞬间的电平不能被你带偏</b>」。
+              给新手的安全用法是：
+            </p>
+            <ul class="list-disc space-y-1.5 pl-5 mt-2">
+              <li>接 LED、继电器这类<b class="font-semibold">输出</b>负载：可以，但先上电再让它动作。</li>
+              <li>接按键、传感器这类<b class="font-semibold">输入</b>：尽量换到 GPIO13、14、16~19、21~23、25~27 上。</li>
+              <li>一定要用 GPIO12 时，确认它外接的东西在断电时不会给它灌电流（比如传感器模块自己的上拉电阻就可能坏事）。</li>
+              <li>调试阶段如果板子莫名其妙不启动，<b class="font-semibold text-ink">第一件事就是把这几个脚上的线全部拔掉再上电</b>。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-safe-pin" class="mt-7 text-base font-semibold">能安全使用的引脚表</h3>
+          <p class="mt-3">
+            下面这张表按「新手能不能直接用」排了序，建议做实验时从这里挑引脚：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>分组</th><th>引脚号</th><th>能做输出吗</th><th>能做输入吗</th><th>有无内部上拉</th><th>结论</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><b class="font-semibold text-ink">推荐随便用</b></td><td class="font-mono text-xs">13, 14, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33</td><td>可以</td><td>可以</td><td>有</td><td>新手的默认选择，其中 25/26 还能当 DAC 输出</td></tr>
+                <tr><td>推荐但只能输入</td><td class="font-mono text-xs">34, 35, 36, 39</td><td><b class="font-semibold">不可以</b></td><td>可以</td><td><b class="font-semibold">没有</b></td><td>这 4 个是 ADC1 的通道，用 WiFi 时也能读。但不能输出、没有内部上拉，读按键必须外接一个 10kΩ 上拉电阻</td></tr>
+                <tr><td>绑带脚，谨慎用</td><td class="font-mono text-xs">0, 2, 4, 5, 12, 15</td><td>可以</td><td>可以</td><td>有</td><td>上电瞬间的电平会影响启动。GPIO0 接 BOOT 键、GPIO2 接板载 LED 已被占用</td></tr>
+                <tr><td>串口占用，别用</td><td class="font-mono text-xs">1, 3</td><td>—</td><td>—</td><td>—</td><td>TX0 / RX0，上传程序和串口打印都靠它。占用会导致上传失败或打印乱码</td></tr>
+                <tr><td><b class="font-semibold text-ink">绝对禁用</b></td><td class="font-mono text-xs">6, 7, 8, 9, 10, 11</td><td>—</td><td>—</td><td>—</td><td>接了内部 SPI Flash。接任何外部电路都可能导致程序跑飞或无法上传</td></tr>
+                <tr><td>开发板上没有</td><td class="font-mono text-xs">20, 24, 28, 29, 30, 31, 37, 38</td><td>—</td><td>—</td><td>—</td><td>这些引脚在 ESP32-WROOM-32 模组上没有引出到排针，教程里看到它们说明用的是别的模组，不要照抄</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么 34~39 不能输出，也没有内部上拉</div>
+            <p>
+              因为这 4 个引脚在芯片里只接到了 ADC 的输入多路选择器上，
+              <b class="font-semibold">根本没有接输出驱动电路</b>，也没有接上拉/下拉的 MOS 管。
+              这是芯片设计时的取舍：把引脚资源省下来给别的功能。
+              所以你在代码里写 <code class="icode">pinMode(34, OUTPUT)</code> 不会报错，
+              编译也能通过，但引脚上永远不会有电平变化——这是最容易被误判成
+              「代码有问题」的一类现象，其实是硬件根本不支持。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            这一节给两段代码。第一段是「最小程序」，用来看清 Arduino 的运行结构；
+            第二段是「芯片信息打印程序」，把你刚学到的双核、内存、外设概念在真实硬件上验证一遍。
+            两段都用标准 Arduino-ESP32 核心编写，可以直接编译上传。
+          </p>
+
+          <h3 id="sub-min" class="mt-7 text-base font-semibold">最小程序：setup 与 loop</h3>
+          <p class="mt-3">
+            先建立最朴素的对应关系：<code class="icode">setup()</code> 相当于 51 里
+            <code class="icode">while(1)</code> 之前的那段初始化代码，
+            <code class="icode">loop()</code> 相当于 <code class="icode">while(1)</code> 的花括号内部。
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="结构对照：51 的 main() 与 Arduino 的 setup()/loop()">
+            <pre><code>/* ========== 51（STC89C52RC）的写法 ========== */
+#include &lt;reg52.h&gt;
+
+void main(void) {
+    P1 = 0xFE;              /* 初始化：只做一次 */
+
+    while (1) {             /* 反复做 */
+        P1 = 0xFD;
+        delay_ms(500);
+        P1 = 0xFE;
+        delay_ms(500);
+    }
+}
+
+/* ========== 等价的 ESP32 Arduino 写法 ========== */
+/* 注意：Arduino 的 .ino 文件不需要 #include &lt;Arduino.h&gt;，
+ * IDE 会在编译前自动帮你补上（这也是为什么 .ino 里能直接用
+ * pinMode、Serial、delay 这些函数）。 */
+
+void setup() {
+    /* 这里 = 51 里 while(1) 之前的部分：只执行一次 */
+    pinMode(2, OUTPUT);
+}
+
+void loop() {
+    /* 这里 = 51 里 while(1) 的花括号内部：反复执行 */
+    digitalWrite(2, LOW);       /* 板载 LED 多数接 GPIO2，低电平点亮 */
+    delay(500);
+    digitalWrite(2, HIGH);
+    delay(500);
+}</code></pre>
+          </div>
+
+          <h3 id="sub-info" class="mt-7 text-base font-semibold">芯片信息打印程序</h3>
+          <p class="mt-3">
+            下面这段程序把本篇讲到的每一个概念都在真实硬件上「量」出来：
+            芯片型号、核数、主频、Flash 容量、堆内存、当前核编号、复位原因。
+            建议先原样跑一遍，再逐行删掉看看会发生什么，这是理解 API 最快的办法。
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="esp32-basic-compare-info.ino —— 认识你的芯片">
+            <pre><code>/* =====================================================================
+ *  esp32-basic-compare-info.ino
+ *  目标板：ESP32 Dev Module（ESP32-WROOM-32）
+ *  作用：把"双核 / 内存 / 协议栈版本 / 复位原因"这些抽象概念
+ *        在真实硬件上量出来，建立对 ESP32 的直观认识
+ *  波特率：115200（串口监视器右下角必须选同一个值）
+ * ===================================================================== */
+
+#include &lt;esp_system.h&gt;    /* esp_reset_reason()：判断上次为什么复位 */
+#include &lt;esp_heap_caps.h&gt; /* heap_caps_get_free_size()：分类看内存 */
+
+/* 把复位原因翻译成中文。ESP32 会自己复位，而复位原因会明确
+ * 告诉你是供电问题还是代码问题，这是排查"反复重启"的第一现场证据。 */
+const char* resetReasonText(esp_reset_reason_t r) {
+    switch (r) {
+        case ESP_RST_POWERON:   return "上电复位 / 按了 EN 键（正常）";
+        case ESP_RST_SW:        return "软件复位（调用了 ESP.restart()）";
+        case ESP_RST_PANIC:     return "程序崩溃复位（空指针、越界、除零等）";
+        case ESP_RST_INT_WDT:   return "中断看门狗复位（中断里耗时太久）";
+        case ESP_RST_TASK_WDT:  return "任务看门狗复位（loop 被阻塞超过 5 秒）";
+        case ESP_RST_BROWNOUT:  return "掉电复位：供电不足！换 USB 口或换线";
+        case ESP_RST_DEEPSLEEP: return "深度睡眠唤醒（正常）";
+        default:                return "其他原因";
+    }
+}
+
+void setup() {
+    Serial.begin(115200);
+
+    /* 这个延时不是可选项：USB 转串口芯片上电后要等电脑完成枚举，
+     * 这期间发出去的数据没人接收，会直接丢掉。
+     * 不加它，开机头几行最容易丢失，容易被误判成"程序没跑"。 */
+    delay(1500);
+
+    Serial.println();
+    Serial.println("========== ESP32 认识实验 ==========");
+
+    /* ---------- [1] 芯片身份 ---------- */
+    Serial.println("[1] 芯片身份");
+    Serial.printf("    型号     : %s\n", ESP.getChipModel());
+    Serial.printf("    版本     : v%d\n", ESP.getChipRevision());
+    Serial.printf("    核心数量 : %d  &lt;- 双核的证据\n", ESP.getChipCores());
+    Serial.printf("    CPU 主频 : %d MHz\n", ESP.getCpuFreqMHz());
+    Serial.printf("    唯一 MAC : %04X%08X\n",
+                  (uint16_t)(ESP.getEfuseMac() &gt;&gt; 32),
+                  (uint32_t)ESP.getEfuseMac());
+
+    /* ---------- [2] 我在哪颗核上 ----------
+     * 这一行直接回答"双核到底怎么分工"这个问题。
+     * xPortGetCoreID() 是 FreeRTOS 提供的函数，返回 0 或 1。 */
+    Serial.println("[2] 双核分工");
+    Serial.printf("    当前代码跑在 : Core%d\n", xPortGetCoreID());
+    Serial.printf("    Arduino 定义的工作核 : Core%d\n", ARDUINO_RUNNING_CORE);
+    Serial.println("    （WiFi / 蓝牙协议栈固定在另一颗核上，不用你管）");
+
+    /* ---------- [3] 内存三类 ----------
+     * ESP32 的内存要分三个角度看，混在一起看会得出错误结论。 */
+    Serial.println("[3] 内存");
+    Serial.printf("    总堆 (可寻址堆)     : %u 字节\n", ESP.getHeapSize());
+    Serial.printf("    当前空闲堆          : %u 字节\n", ESP.getFreeHeap());
+    Serial.printf("    历史最小空闲堆      : %u 字节  &lt;- 越小说明峰值占用越高\n",
+                  ESP.getMinFreeHeap());
+    Serial.printf("    可 DMA 的空闲内存   : %u 字节\n",
+                  heap_caps_get_free_size(MALLOC_CAP_DMA));
+    Serial.printf("    内部 RAM 空闲       : %u 字节\n",
+                  heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    Serial.printf("    PSRAM（本板通常无） : %u 字节\n", ESP.getPsramSize());
+
+    /* ---------- [4] 程序存储 ---------- */
+    Serial.println("[4] Flash 与程序体积");
+    Serial.printf("    Flash 容量     : %u 字节（约 %.1f MB）\n",
+                  ESP.getFlashChipSize(), ESP.getFlashChipSize() / 1048576.0f);
+    Serial.printf("    当前程序占用   : %u 字节\n", ESP.getSketchSize());
+    Serial.printf("    程序分区剩余   : %u 字节\n", ESP.getFreeSketchSpace());
+    Serial.printf("    核心 / SDK 版本: %s / %s\n",
+                  ESP.getCoreVersion().c_str(), ESP.getSdkVersion());
+
+    /* ---------- [5] 本次启动原因 ---------- */
+    Serial.println("[5] 本次启动原因");
+    Serial.printf("    %s\n", resetReasonText(esp_reset_reason()));
+
+    Serial.println("====================================");
+}
+
+void loop() {
+    /* 每 3 秒报一次心跳，观察堆内存有没有持续下降。
+     * 用 millis() 做非阻塞定时而不是 delay(3000)：
+     * delay 会让 loop 停住，以后加了 WiFi 或按键就会出问题，
+     * 从一开始就养成"用时间戳判断"的习惯。 */
+    static uint32_t lastTick = 0;   /* static：值在两次 loop 之间保留 */
+    if (millis() - lastTick &gt;= 3000) {
+        lastTick = millis();
+        Serial.printf("[心跳] 运行 %lu 秒 | 空闲堆 %u | 当前核 Core%d\n",
+                      millis() / 1000, ESP.getFreeHeap(), xPortGetCoreID());
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><code class="icode">.ino</code> 文件不需要写 <code class="icode">#include &lt;Arduino.h&gt;</code>——Arduino IDE 在编译前会自动加。但如果你把代码拆成 <code class="icode">.cpp</code> 文件，就必须自己写这一行，否则 <code class="icode">Serial</code>、<code class="icode">pinMode</code> 全都找不到。这是从单文件走向多文件时第一个会撞到的墙。</li>
+            <li><code class="icode">xPortGetCoreID()</code>——返回当前代码实际执行所在的核编号。它比看文档可靠得多：<b class="font-semibold text-ink">你的板子到底把 loop 放在哪颗核上，跑一次就知道</b>。Arduino 用宏 <code class="icode">ARDUINO_RUNNING_CORE</code> 定义这个默认值，两个值都打印出来对照，比记结论强。</li>
+            <li><code class="icode">xTaskCreatePinnedToCore(函数名, "任务名", 栈大小, 参数, 优先级, 句柄, 核编号)</code>——七个参数一次说清：① 要执行的函数（必须是 <code class="icode">void 函数名(void *参数)</code> 形式）；② 任务名，字符串，调试时能看见，最长 16 字符；③ 栈大小，单位是<b class="font-semibold">字节</b>（不是字），常用 2048~8192；④ 传给函数的参数，不需要就写 <code class="icode">NULL</code>；⑤ 优先级，数字越大越优先，Arduino 的 loop 任务用的是 1；⑥ 任务句柄的地址，想以后删除或控制这个任务就传变量地址，不需要写 <code class="icode">NULL</code>；⑦ 钉在哪颗核，写 0 或 1。返回值是 <code class="icode">pdPASS</code>（成功）或 <code class="icode">pdFAIL</code>（通常是内存不够建栈）。</li>
+            <li><code class="icode">ESP.getHeapSize()</code> 与 <code class="icode">ESP.getFreeHeap()</code>——前者是「堆的总容量」，后者是「当前还能用多少」。两者的差就是被系统和你自己吃掉的量。<b class="font-semibold text-ink">做联网项目时请习惯性打印这两个数</b>，它们能在死机之前几秒钟给你预警。</li>
+            <li><code class="icode">heap_caps_get_free_size(MALLOC_CAP_DMA)</code>——ESP32 的内存不是「一块」而是「好几块」，有的区域能被 DMA（直接内存访问，外设自己搬数据）访问，有的不能。WiFi 收发缓冲区必须在 DMA 区域里，所以有时候「总空闲堆还有 100KB，但 WiFi 就是连不上」——因为 DMA 区域已经空了。这个坑在后面的网络篇会再遇到。</li>
+            <li><code class="icode">ESP.getSketchSize()</code> 与 <code class="icode">ESP.getFreeSketchSpace()</code>——前者是你的程序编译后占了多少字节，后者是应用程序分区还剩多少。把这两个数和编译时那句 <code class="icode">Sketch uses 823456 bytes (62%) of program storage space</code> 对照着看，就明白百分比是怎么来的。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">在第二颗核上跑一个任务（进阶，但值得看一遍）</h3>
+          <p class="mt-3">
+            下面这段代码演示「把一件事交给另一颗核去做」。它做的事情本身很无聊（每 500ms 闪一次灯），
+            但你要看的是<b class="font-semibold text-ink">结构</b>：
+            任务的函数形态、怎么传参数、怎么确认它真的跑在另一颗核上。
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="esp32-dualcore-demo.ino —— 两颗核各干一件事">
+            <pre><code>/* =====================================================================
+ *  esp32-dualcore-demo.ino
+ *  目标板：ESP32 Dev Module（ESP32-WROOM-32）
+ *  作用：演示 xTaskCreatePinnedToCore 的完整用法
+ *        Core1（默认）：loop() 负责串口打印
+ *        Core0：一个独立任务负责闪灯
+ *  注意：Core0 上还住着 WiFi 协议栈，所以这个任务里
+ *        绝对不能出现长时间阻塞（不要在里面写 delay(5000)）
+ * ===================================================================== */
+
+#define LED_PIN   2        /* 多数 ESP32-WROOM-32 开发板的板载 LED */
+
+/* ---------------------------------------------------------------------
+ * 任务的函数形态是固定的，必须长这样：
+ *     void 函数名(void *参数)
+ * 不能是 void 函数名(void)，也不能有返回值。
+ * 参数是一个 void 指针，表示"什么都能传"，实际类型由你自己约定。
+ * ------------------------------------------------------------------- */
+void ledTask(void *pvParameters) {
+    /* 把传进来的参数还原成整数。这里传的是闪烁周期（毫秒）。
+     * 先转 intptr_t 再转 int，是嵌入式里的惯例写法。 */
+    const int period = (int)(intptr_t)pvParameters;
+
+    Serial.printf("[ledTask] 启动，跑在 Core%d，周期 %d ms\n",
+                  xPortGetCoreID(), period);
+
+    for (;;) {                      /* 任务体必须永不返回 */
+        digitalWrite(LED_PIN, LOW); /* 板载 LED 低电平点亮 */
+        vTaskDelay(pdMS_TO_TICKS(period));
+
+        digitalWrite(LED_PIN, HIGH);
+        vTaskDelay(pdMS_TO_TICKS(period));
+    }
+    /* 如果这里真的返回了，FreeRTOS 会认为任务异常结束并触发断言，
+     * 所以任务函数最后一行永远写不到，也不需要写 vTaskDelete(NULL)。 */
+}
+
+void setup() {
+    Serial.begin(115200);
+    delay(1500);
+
+    pinMode(LED_PIN, OUTPUT);
+
+    Serial.printf("setup() 跑在 Core%d\n", xPortGetCoreID());
+
+    /* 把闪灯任务钉到 Core0 上。
+     * 参数顺序：函数 / 名字 / 栈字节数 / 传参 / 优先级 / 句柄 / 核编号 */
+    BaseType_t ok = xTaskCreatePinnedToCore(
+        ledTask,               /* 任务函数 */
+        "ledTask",             /* 任务名 */
+        2048,                  /* 栈大小，单位字节。这个任务很简单，2KB 够用 */
+        (void *)(intptr_t)500, /* 传给任务的参数：闪烁周期 500ms */
+        1,                     /* 优先级，和 loop 任务同级 */
+        NULL,                  /* 不需要句柄，传 NULL */
+        0                      /* 钉在 Core0 上 */
+    );
+
+    if (ok != pdPASS) {
+        Serial.println("任务创建失败：通常是内存不足（栈申请不到）");
+    } else {
+        Serial.println("任务创建成功，观察 Core0 的闪灯日志与 Core1 的心跳交替出现");
+    }
+}
+
+void loop() {
+    /* loop 默认跑在 Core1。它和 ledTask 是并发的：
+     * 你会看到串口打印和闪灯同时进行，互不干扰。 */
+    static uint32_t lastTick = 0;
+    if (millis() - lastTick &gt;= 2000) {
+        lastTick = millis();
+        Serial.printf("[loop] 我是 Core%d，空闲堆 %u\n",
+                      xPortGetCoreID(), ESP.getFreeHeap());
+    }
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">新手的纪律：先不要用 xTaskCreatePinnedToCore</div>
+            <p>
+              这段代码是给你「看懂」的，不是给你「照抄到项目里」的。
+              理由很实际：一旦程序里有多个任务同时访问同一个变量（比如一个任务在改
+              <code class="icode">float temperature</code>，另一个任务在读它），
+              就必须用信号量或互斥量保护，否则会读到「改了一半」的数据，
+              而且这种 bug 出现的概率很低、极难复现。
+              <b class="font-semibold text-ink">在你能熟练写出稳定的单任务程序之前，
+              所有逻辑都放在 loop() 里就够了。</b>
+              绝大多数 ESP32 项目根本不需要你自己建任务。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            上传完成后打开「工具 → 串口监视器」，把右下角波特率设为
+            <b class="font-semibold text-ink">115200</b>，再按一下板子上的 EN 键。
+            下面是你应该看到的内容（数值因板子而异，重点看结构是否完整）。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象（esp32-basic-compare-info）</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="串口监视器应有的输出（示例）">
+            <pre><code>========== ESP32 认识实验 ==========
+[1] 芯片身份
+    型号     : ESP32-D0WD-V3
+    版本     : v3
+    核心数量 : 2  &lt;- 双核的证据
+    CPU 主频 : 240 MHz
+    唯一 MAC : 246F28A1B3C4
+[2] 双核分工
+    当前代码跑在 : Core1
+    Arduino 定义的工作核 : Core1
+    （WiFi / 蓝牙协议栈固定在另一颗核上，不用你管）
+[3] 内存
+    总堆 (可寻址堆)     : 337936 字节
+    当前空闲堆          : 311224 字节
+    历史最小空闲堆      : 305880 字节  &lt;- 越小说明峰值占用越高
+    可 DMA 的空闲内存   : 289632 字节
+    内部 RAM 空闲       : 311224 字节
+    PSRAM（本板通常无） : 0 字节
+[4] Flash 与程序体积
+    Flash 容量     : 4194304 字节（约 4.0 MB）
+    当前程序占用   : 273940 字节
+    程序分区剩余   : 1035928 字节
+    核心 / SDK 版本: 3.0.7 / v5.1.4
+[5] 本次启动原因
+    上电复位 / 按了 EN 键（正常）
+====================================
+[心跳] 运行 3 秒 | 空闲堆 311224 | 当前核 Core1
+[心跳] 运行 6 秒 | 空闲堆 311224 | 当前核 Core1
+[心跳] 运行 9 秒 | 空闲堆 311224 | 当前核 Core1</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">对照检查表</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>你看到的</th><th>说明什么</th><th>下一步</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">核心数量 : 2</code></td><td>确认你手里是双核 ESP32</td><td>可以继续</td></tr>
+                <tr><td><code class="icode">当前代码跑在 : Core1</code></td><td>Arduino 把 <code class="icode">loop()</code> 放在了 APP_CPU 上，WiFi 独占 PRO_CPU</td><td>记住这个结论，后面 pin 任务时别再往 Core0 塞重活</td></tr>
+                <tr><td>空闲堆 30 万字节上下</td><td>正常。520KB SRAM 里有约 15 万字节被 IDF 内核、协议栈缓冲区提前占掉了</td><td>连上 WiFi 后再看一次，会掉到 26 万左右，这是正常的，不是泄漏</td></tr>
+                <tr><td><code class="icode">可 DMA 的空闲内存</code>明显小于总空闲堆</td><td>正常。WiFi 缓冲区只能放在 DMA 区域，所以这个数才是联网时的真正瓶颈</td><td>做大量网络收发时盯住这个数</td></tr>
+                <tr><td><code class="icode">Flash 容量 : 4194304</code></td><td>4MB Flash 识别正常，分区表按 4MB 配置</td><td>如果这里显示 2097152（2MB），说明板子选错了或模组是 2MB 版本</td></tr>
+                <tr><td>空闲堆数字始终不变</td><td>没有内存泄漏，程序健康</td><td>如果每几秒掉一点，说明有代码在不断申请内存却不释放</td></tr>
+                <tr><td><code class="icode">[5]</code> 显示「掉电复位：供电不足」</td><td>芯片检测到 3.3V 电压瞬间跌落，主动复位保护自己</td><td>换短而粗的 USB 数据线、换机箱后面板 USB 口，详见下一篇</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">把这次的数据抄在实验报告里</div>
+            <p>
+              这份输出是你这块板子的「身份证」。写实验报告时，
+              <b class="font-semibold">芯片型号、核心数、主频、Flash 容量、空闲堆、MAC 地址</b>
+              这六项是实打实的实测数据，比只贴一张「Hello World」截图有说服力得多。
+              而且做课设时 MAC 地址可以直接当设备编号用——它全球唯一、出厂烧死、改不了。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            下面七条覆盖了「从 51/STM32 转 ESP32」阶段绝大多数「代码看着没问题但就是不对」的情况。
+            每条都按「现象 → 原因 → 解决」写。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">现象：接上外设后板子根本不启动，串口一片空白或只有乱码，拔掉外设就正常</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              你碰了 GPIO6~GPIO11。这六个脚在模组内部连着 SPI Flash 的总线，
+              外部接线的分布电容和漏电流会干扰 Flash 通信。
+              表现为三个阶段：能开机但偶尔跑飞 → 开机就乱码 → 完全无法上传。
+              另一个常见变体是：接的是 GPIO12，你的模块自带的上拉电阻把它抬到高电平，
+              芯片按「Flash 用 1.8V 供电」启动，而 WROOM 模组的 Flash 是 3.3V 的，直接起不来。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 把所有杜邦线拔掉，只留 USB，确认板子能正常跑；
+              ② 对照本页的引脚表，把外设换到 GPIO13、14、16~19、21~23、25~27、32、33 上；
+              ③ 如果确实要留在 GPIO12 上，检查那条线上的模块是否自带 10kΩ 上拉，
+              有的话串一个 1kΩ 以上的电阻或改用其他引脚。
+              <b class="font-semibold text-ink">记牢：6、7、8、9、10、11 永远不接任何东西。</b>
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：上传总是失败（Failed to connect to ESP32），或者按了 EN 后程序不跑，非要按一下 BOOT 才正常</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              绑带引脚被外部电路拉到了「下载模式」的电平。
+              <code class="icode">GPIO0</code> 在上电瞬间是低电平的话，芯片会停在下载模式等串口烧录，
+              程序永远不会开始执行。你外接的按键、传感器、或者一根没焊好、一直碰着 GND 的线，
+              都可能造成这个结果。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 先断开所有外接电路，只留 USB，重新上传一次，确认板子本身没问题；
+              ② 检查 GPIO0、GPIO2、GPIO12、GPIO15 上有没有外接电路；
+              ③ 如果外设确实要接在 GPIO0 上（比如做唤醒按键），
+              确认它在断电和上电瞬间都是「断开（高电平）」状态，而不是「闭合（低电平）」；
+              ④ 记住 BOOT 键与 GPIO0 是同一个网络，按下去就等于把 GPIO0 接地。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：连上 WiFi 后程序变得一卡一卡，串口打印断断续续，甚至掉线重连</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              你把耗时的工作 pin 到了 Core0，和 WiFi 协议栈抢 CPU。
+              典型写法是 <code class="icode">xTaskCreatePinnedToCore(heavyTask, "heavy", 4096, NULL, 5, NULL, 0)</code>，
+              而且这个任务里还有大循环、忙等或长计算。
+              协议栈被饿到，收发时序错过，就表现为卡顿、掉线。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 最省事的做法：把这类任务钉到 <b class="font-semibold text-ink">Core1</b>（也就是和 loop 同一颗核），
+              让 WiFi 独占 Core0；
+              ② 如果一定要用 Core0，就在任务的大循环里插入
+              <code class="icode">vTaskDelay(pdMS_TO_TICKS(1))</code> 或更长的让出时间，
+              别让循环里出现「永不阻塞」的忙等；
+              ③ 检查任务优先级：给自定义任务一个不高于 WiFi 的优先级（写 1 或 2），不要写 10 这种高优先级；
+              ④ 用 <code class="icode">xPortGetCoreID()</code> 在任务里打印一次，确认它真的跑在你以为的核上。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错：Guru Meditation Error: Core 1 panic'ed ... / Task watchdog got triggered</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              两种情况，靠报错文字区分：
+              <br>① 出现 <code class="icode">Task watchdog got triggered</code>：你的
+              <code class="icode">loop()</code> 或某个任务连续 5 秒没有「让出 CPU」。
+              典型元凶是 <code class="icode">delay(10000)</code> 这种超长延时，
+              或者 <code class="icode">while (!WiFi.isConnected()) { }</code> 这种没有超时的死等。
+              <br>② 出现 <code class="icode">Guru Meditation Error</code> 加一串
+              <code class="icode">Backtrace:</code>：程序真的崩了，常见原因是空指针、
+              数组越界、用了已经释放的内存。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 看门狗问题：把长延时改成循环里的小延时，
+              所有「等待某个条件成立」的循环都加上超时计数，例如
+              <code class="icode">while (!WiFi.isConnected() &amp;&amp; millis() - t0 &lt; 10000) { delay(100); }</code>；
+              ② 崩溃问题：把 <code class="icode">Backtrace</code> 那一串地址复制下来，
+              用 Arduino IDE 自带的 ESP32 Exception Decoder 或在线的解码工具还原成函数名与行号，
+              它会直接告诉你崩在哪一行，比猜快得多。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：程序跑十几分钟或几小时后突然重启，复位原因显示 PANIC 或 BROWNOUT</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              堆内存被慢慢吃光。ESP32 上堆不足不会在编译期报错，
+              而是在运行到某个时刻 <code class="icode">malloc()</code> 返回
+              <code class="icode">NULL</code>，代码没检查就用了这个空指针，于是崩溃。
+              最常见的两种吃法：在 <code class="icode">loop()</code> 里不断用
+              <code class="icode">String</code> 拼接字符串（产生内存碎片），
+              以及 <code class="icode">new</code> 了对象从来不 <code class="icode">delete</code>。
+              BROWNOUT 则是另一回事——那是供电问题，不是内存问题。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 在心跳打印里加上 <code class="icode">ESP.getFreeHeap()</code> 与
+              <code class="icode">ESP.getMinFreeHeap()</code>，让它长期挂着跑，观察曲线；
+              ② 如果空闲堆持续下降，就是泄漏；
+              ③ 拼字符串改用 <code class="icode">char buf[64]</code> 加
+              <code class="icode">snprintf()</code>，这一点在第 4 篇有完整对比；
+              ④ BROWNOUT 就去查供电：换线、换 USB 口、别用没独立供电的集线器。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错：region iram0_0_seg overflowed by N bytes（IRAM 溢出）</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              你放进 IRAM 的东西太多了。IRAM 是专门放「必须在内部 RAM 里执行的代码」的区域，
+              容量有限（约 128KB，还要分给中断向量表和 WiFi 的关键代码）。
+              这条报错通常出现在：给一堆函数加了 <code class="icode">IRAM_ATTR</code>、
+              或者开了蓝牙之后又加了很多中断处理、或者固件本身就很大。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 检查 <code class="icode">IRAM_ATTR</code> 是不是加得太随意——
+              只有真正的中断服务函数才需要，普通函数加了只会白占 IRAM；
+              ② 关掉不需要的功能：Arduino IDE 的「工具」菜单里把
+              <code class="icode">Core Debug Level</code> 设为「无」，能省下一些空间；
+              ③ 如果同时开了 WiFi 和蓝牙，确认两者是否都必要——同时开启会显著抬高 IRAM 占用。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：程序一启动就复位，报错里出现 assert failed / cpu_id 相关内容</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              <code class="icode">xTaskCreatePinnedToCore()</code> 的最后一个参数（核编号）
+              传了非法值。合法值只有 <code class="icode">0</code>、
+              <code class="icode">1</code>，或者表示「不限定」的
+              <code class="icode">tskNO_AFFINITY</code>。
+              常见的错误是顺手写了 <code class="icode">2</code>，
+              或者把参数顺序记错、把优先级填到了核编号的位置上。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              ① 老老实实按七个参数的顺序数一遍：
+              <b class="font-semibold text-ink">函数、名字、栈字节数、参数、优先级、句柄、核编号</b>；
+              ② 核编号只写 0 或 1；
+              ③ 顺便检查第五个参数（优先级）是不是写成了 0——
+              FreeRTOS 不允许优先级为 0 的任务被创建，空闲任务占着那一档。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇的目的是「换脑子」，不需要记住任何 API，只需要把三个认知装进去：
+          </p>
+          <p class="mt-3">
+            <b class="font-semibold text-ink">第一，ESP32 是 SoC，不是单片机加模块。</b>
+            射频、协议栈、双核 CPU 都在同一颗芯片里，
+            所以 <code class="icode">WiFi.begin()</code> 只是一次函数调用，
+            不用再像 AT 指令那样靠文本喊话。
+            <b class="font-semibold text-ink">第二，你的程序天生就跑在 RTOS 上。</b>
+            <code class="icode">setup()</code> 和 <code class="icode">loop()</code> 本身就是一个任务，
+            系统里还有十几个任务在同时跑。这既解释了为什么
+            <code class="icode">delay()</code> 不会像 51 那样卡死整个系统，
+            也解释了为什么长时间阻塞 <code class="icode">loop()</code> 会触发看门狗。
+            <b class="font-semibold text-ink">第三，引脚不是等价的。</b>
+            GPIO6~11 禁用、34~39 只能输入、0/2/12/15 是绑带脚，
+            这三句话能挡掉新手一半的「玄学故障」。
+          </p>
+
+          <div class="stat mt-6">
+            <span class="stat-k">核心数量 / 主频</span>
+            <span class="stat-v">2 核 / 240 MHz</span>
+          </div>
+
+          <div class="stat mt-3">
+            <span class="stat-k">SRAM / Flash</span>
+            <span class="stat-v">520 KB / 4 MB</span>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">自检练习（做完再看答案）</div>
+            <ol class="list-decimal space-y-3 pl-5">
+              <li><b class="font-semibold text-ink">题 1：</b>在 <code class="icode">setup()</code> 里写 <code class="icode">pinMode(34, OUTPUT);</code> 然后 <code class="icode">digitalWrite(34, HIGH);</code>，接一个 LED 到 GPIO34 对地。LED 会亮吗？为什么？<br><b class="font-semibold">答：</b>不会亮。<code class="icode">pinMode(34, OUTPUT)</code> 会编译通过、运行也不报错，但 GPIO34~39 在芯片内部<b class="font-semibold">根本没有输出驱动电路</b>，它们只接到了 ADC 的输入选择器上。判据：用万用表量 GPIO34 对 GND 的电压，写 HIGH 后仍然接近 0V。这就是「编译通过不等于硬件支持」的典型例子。</li>
+              <li><b class="font-semibold text-ink">题 2：</b>你的程序在 <code class="icode">loop()</code> 开头写了 <code class="icode">delay(8000);</code>，上电后大约 5 秒会看到什么？<br><b class="font-semibold">答：</b>会看到任务看门狗报错并复位，报错文本是 <code class="icode">Task watchdog got triggered</code>，并指出是 <code class="icode">loopTask</code> 没有喂狗。原因是 Arduino 的 loop 任务默认开启了看门狗，超时 5 秒，而 <code class="icode">delay(8000)</code> 让这个任务连续 8 秒没有回到 <code class="icode">for(;;)</code> 的喂狗点。解决办法是把长延时拆成多次短延时，或者在循环里调用 <code class="icode">vTaskDelay()</code> 分批等待。</li>
+              <li><b class="font-semibold text-ink">题 3：</b>你的板子接了一个继电器模块到 GPIO12，每次断电再上电，串口都会先出现一段乱码，然后程序才开始跑。拔掉继电器就正常。问题在哪？<br><b class="font-semibold">答：</b>GPIO12 是绑带脚，内部默认下拉，它在上电瞬间的电平决定 Flash 的供电电压选择（3.3V 还是 1.8V）。继电器模块上的上拉电阻或驱动电路把它抬到了高电平，芯片于是以为 Flash 是 1.8V 的，用错误的方式去读 Flash，读出来的是垃圾数据，所以串口出现乱码。解决：换到 GPIO13、14、16~19、21~23、25~27 上；实在要留在 GPIO12，就确认上电瞬间这条线上没有外部上拉。</li>
+              <li><b class="font-semibold text-ink">题 4：</b>你的程序编译通过、上传成功，串口打印的 <code class="icode">[心跳]</code> 每 3 秒一行，但「空闲堆」的数字每行都比上一行少 200 字节左右。这说明什么？怎么查？<br><b class="font-semibold">答：</b>存在内存泄漏。每 3 秒少 200 字节，说明每轮 <code class="icode">loop()</code> 都在申请内存而不释放。查法：先看 <code class="icode">loop()</code> 里有没有 <code class="icode">String</code> 拼接、<code class="icode">new</code>、<code class="icode">malloc</code>，有没有对应的 <code class="icode">delete</code> / <code class="icode">free</code>；重点怀疑把 <code class="icode">String</code> 当全局累加器用（拼得越长，碎片越多）。判据：把可疑代码注释掉重新跑，数字稳定不变就锁定了它。</li>
+              <li><b class="font-semibold text-ink">题 5：</b>为什么 <code class="icode">xTaskCreatePinnedToCore()</code> 的第三个参数写 <code class="icode">2048</code> 就够，而写 <code class="icode">8192</code> 也不算浪费？<br><b class="font-semibold">答：</b>因为这个参数的单位是<b class="font-semibold">字节</b>，不是字。一个简单的闪灯任务只需要几百字节栈，2048 字节已经很宽裕。但栈太小的后果很严重：任务一旦调用层级变深（比如里面调了 <code class="icode">Serial.printf</code> 加格式化大字符串），就会栈溢出并触发 <code class="icode">***ERROR*** A stack overflow in task ...</code> 复位。而 ESP32 有 520KB SRAM，多给几 KB 完全负担得起。判据：宁可一次给够，也不要为了「省内存」把栈压到 512 这种危险值。</li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-basic-level.html">3.3V 供电与 GPIO 安全</a>——本篇提到的「供电不足」「ADC2 与 WiFi 冲突」「34 号脚读不到按键」在那一篇里逐条解决。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-env.html">Arduino IDE 环境搭建</a>——如果环境还没搭好，先回去把工具链装通。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-gpio.html">ESP32 GPIO 控制</a>——概念清楚了，开始动手点灯、读按键、输出 PWM。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="../esp32.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 返回栏目</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">ESP32 全部教程</p>
+          </a>
+          <a href="esp32-basic-level.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">3.3V 供电与 GPIO 安全</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

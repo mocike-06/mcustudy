@@ -1,0 +1,3288 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 网络编程：Socket 与 HTTP - McuStudy</title>
+  <meta name="description" content="知识体系第 42 篇：ESP32 怎么和外面的世界说话——落到代码与排障层面。ESP-IDF 网络栈分层（lwIP → ESP-NETIF → 你的 socket 代码）与 esp_netif_init / esp_event_loop_create_default / esp_netif_create_default_wifi_sta 各做了什么，socket → connect → send/recv → close 全流程的返回值与 errno 速查表，getaddrinfo 为什么取代 gethostbyname，阻塞 socket 配 SO_RCVTIMEO/SO_SNDTIMEO 与 select 的取舍，TCP 客户端指数退避重连状态机与应用层心跳（TCP 半开连接、SO_KEEPALIVE 靠不住的原因），TCP 服务端 bind/listen/accept 与「每连接一个任务 vs 单任务 select」的 RAM 账，UDP 的 sendto/recvfrom 与选型，esp_http_client 三种读响应体方式与内存账、HTTPS 证书，esp_http_server 的 URI handler 与 query 解析，cJSON 解析与内存释放纪律，以及 CONFIG_LWIP_MAX_SOCKETS 文件描述符上限、socket 泄漏排查、esp_get_free_heap_size 对比、WiFi 断开时 socket 会发生什么、用 nc 与 curl 做对端验证的完整方法。">
+  <meta name="keywords" content="ESP32网络编程,ESP-IDF socket,lwIP,ESP-NETIF,esp_netif_init,esp_event_loop_create_default,esp_netif_create_default_wifi_sta,getaddrinfo,gethostbyname,errno,EAGAIN,EWOULDBLOCK,ECONNRESET,ETIMEDOUT,ECONNREFUSED,SO_RCVTIMEO,SO_SNDTIMEO,select,fcntl,O_NONBLOCK,阻塞socket,TCP客户端,指数退避重连,心跳包,TCP半开连接,SO_KEEPALIVE,TCP_KEEPIDLE,断线重连状态机,TCP服务端,bind,listen,accept,SO_REUSEADDR,多客户端,select轮询,UDP,sendto,recvfrom,广播,esp_http_client,esp_http_server,cJSON,cJSON_Delete,cJSON_PrintUnformatted,cJSON_PrintPreallocated,esp_crt_bundle_attach,HTTPS证书,CONFIG_LWIP_MAX_SOCKETS,socket泄漏,文件描述符,esp_get_free_heap_size,esp_get_minimum_free_heap_size,nc,ncat,curl,ESP32排障">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">ESP32 网络编程：Socket 与 HTTP</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          ESP32 网络编程：Socket 与 HTTP
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          上一篇讲完任务间通信，这一篇讲<b class="font-semibold text-ink">「ESP32 怎么和外面的世界说话」</b>。
+          前面的《网络基础》已经把概念铺完了——IP 地址、子网掩码、网关、端口、TCP 和 UDP 是什么、HTTP 与 MQTT 长什么样；
+          《WiFi 连接与 STA 模式》也把「怎么连上路由器、怎么拿到 IP」讲透了。
+          <b class="font-semibold text-ink">这一篇不再重复那些概念，直接从「拿到 IP 之后的第一行 C 代码」开始。</b>
+        </p>
+
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+          但要先给你一句实话：<b class="font-semibold text-ink">网络编程的难点从来不是「把数据发出去」</b>。
+          照着例程抄，你能在十分钟内让 ESP32 把一条 JSON 发到服务器上。
+          真正的分水岭出现在三种情况下：<b class="font-semibold text-ink">没发出去、发了一半、对方不见了</b>——
+          这三种情况发生时，你的程序还活着吗？它是卡死在 <code class="icode">connect()</code> 里被看门狗复位，
+          还是假装一切正常地往一个已经死掉的连接里继续写数据，直到三天后现场打电话来问「为什么数据断了」？
+        </p>
+
+        <p class="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+          所以这一篇的写法是：<b class="font-semibold text-ink">每一个系统调用都盯住它的返回值，每一个错误码都给出处置办法，每一个循环都有退出条件</b>。
+          三个可以直接编译的完整程序——带重连状态机的 TCP 客户端、带 <code class="icode">select</code> 的多客户端 TCP 服务端、
+          会上报 JSON 的 HTTP 客户端——都是按「跑在现场一年」的标准写的，不是按「跑通一次」的标准写的。
+          再加上四道必须自己算一遍的账：流量、文件描述符、重试次数、心跳参数。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="badge-brand">ESP-IDF 实战</span>
+          <span class="stat-pill">第 3 层 · ESP32 与工程实践</span>
+          <span class="stat-pill">第 <b>42</b> 篇</span>
+          <span class="stat-pill">教材：康玮剑 第 8、9 章</span>
+          <span class="stat-pill">阅读约 <b>62</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-stack">网络栈分层：lwIP、ESP-NETIF 与你的代码</a>
+          <a class="toc-link is-sub" href="#sub-socket">socket 全流程：从 socket() 到 close()</a>
+          <a class="toc-link is-sub" href="#sub-block">阻塞、非阻塞与超时：最省心的组合</a>
+          <a class="toc-link is-sub" href="#sub-retry">重连：指数退避与断线重连状态机</a>
+          <a class="toc-link is-sub" href="#sub-heartbeat">心跳：为什么 TCP 自己发现不了断线</a>
+          <a class="toc-link is-sub" href="#sub-server">TCP 服务端与两种多客户端架构</a>
+          <a class="toc-link is-sub" href="#sub-udp">UDP：无连接的自由与代价</a>
+          <a class="toc-link is-sub" href="#sub-http">HTTP：esp_http_client 与 esp_http_server</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link is-sub" href="#calc-1">例 1：200 字节每 5 秒上报，一年多少流量</a>
+          <a class="toc-link is-sub" href="#calc-2">例 2：socket 泄漏，第几次开始连不上</a>
+          <a class="toc-link is-sub" href="#calc-3">例 3：指数退避一小时能重试多少次</a>
+          <a class="toc-link is-sub" href="#calc-4">例 4：心跳参数怎么定，多久发现断线</a>
+          <a class="toc-link is-sub" href="#calc-5">例 5：多客户端架构的 RAM 账</a>
+          <a class="toc-link is-sub" href="#calc-6">例 6：fd 预算——还能挂几个浏览器</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#mcu-init">初始化：三行调用各自做了什么</a>
+          <a class="toc-link is-sub" href="#mcu-client">程序一：TCP 客户端（退避 + 心跳）</a>
+          <a class="toc-link is-sub" href="#mcu-server">程序二：TCP 服务端（select 版）</a>
+          <a class="toc-link is-sub" href="#mcu-http">程序三：HTTP 上报 JSON</a>
+          <a class="toc-link is-sub" href="#mcu-read">响应体的三种读法与内存账</a>
+          <a class="toc-link is-sub" href="#mcu-json">cJSON：防御式解析与内存纪律</a>
+          <a class="toc-link is-sub" href="#mcu-httpd">esp_http_server：URI 与 query</a>
+          <a class="toc-link is-sub" href="#mcu-pc">PC 端验证：nc 与 curl</a>
+          <a class="toc-link is-sub" href="#mcu-diag">排障三件套：fd、堆水位、复位原因</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-stack">网络栈分层：lwIP、ESP-NETIF 与你的代码</a>
+            <a class="toc-link is-sub" href="#sub-socket">socket 全流程：从 socket() 到 close()</a>
+            <a class="toc-link is-sub" href="#sub-block">阻塞、非阻塞与超时：最省心的组合</a>
+            <a class="toc-link is-sub" href="#sub-retry">重连：指数退避与断线重连状态机</a>
+            <a class="toc-link is-sub" href="#sub-heartbeat">心跳：为什么 TCP 自己发现不了断线</a>
+            <a class="toc-link is-sub" href="#sub-server">TCP 服务端与两种多客户端架构</a>
+            <a class="toc-link is-sub" href="#sub-udp">UDP：无连接的自由与代价</a>
+            <a class="toc-link is-sub" href="#sub-http">HTTP：esp_http_client 与 esp_http_server</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link is-sub" href="#calc-1">例 1：200 字节每 5 秒上报，一年多少流量</a>
+            <a class="toc-link is-sub" href="#calc-2">例 2：socket 泄漏，第几次开始连不上</a>
+            <a class="toc-link is-sub" href="#calc-3">例 3：指数退避一小时能重试多少次</a>
+            <a class="toc-link is-sub" href="#calc-4">例 4：心跳参数怎么定，多久发现断线</a>
+            <a class="toc-link is-sub" href="#calc-5">例 5：多客户端架构的 RAM 账</a>
+            <a class="toc-link is-sub" href="#calc-6">例 6：fd 预算——还能挂几个浏览器</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#mcu-init">初始化：三行调用各自做了什么</a>
+            <a class="toc-link is-sub" href="#mcu-client">程序一：TCP 客户端（退避 + 心跳）</a>
+            <a class="toc-link is-sub" href="#mcu-server">程序二：TCP 服务端（select 版）</a>
+            <a class="toc-link is-sub" href="#mcu-http">程序三：HTTP 上报 JSON</a>
+            <a class="toc-link is-sub" href="#mcu-read">响应体的三种读法与内存账</a>
+            <a class="toc-link is-sub" href="#mcu-json">cJSON：防御式解析与内存纪律</a>
+            <a class="toc-link is-sub" href="#mcu-httpd">esp_http_server：URI 与 query</a>
+            <a class="toc-link is-sub" href="#mcu-pc">PC 端验证：nc 与 curl</a>
+            <a class="toc-link is-sub" href="#mcu-diag">排障三件套：fd、堆水位、复位原因</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section id="sec-why">
+          <h2 class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先给你看一个真实的故障现场。你的设备在实验室连了七天，串口日志漂漂亮亮，每 5 秒一条上报，一条不少。装到现场第三天，客户打电话来：<b class="font-semibold text-ink">「数据从昨天下午就停了，但你们设备上的灯还在闪。」</b></p>
+
+          <p class="mt-3">你把日志抓回来，看到的是这样一串东西：</p>
+
+          <div class="code-block" data-lang="text" data-title="现场日志（关键行）"><pre><code>I (3520000) report: HTTP 200, content-length=42, body={"ok":true}
+I (3525000) report: HTTP 200, content-length=42, body={"ok":true}
+E (3530000) report: perform: ESP_ERR_HTTP_CONNECT       &lt;-- 从这里开始
+E (3535000) report: perform: ESP_ERR_HTTP_CONNECT
+E (3540000) report: perform: ESP_ERR_HTTP_CONNECT
+... （一直刷到重启）
+I (200) net: 拿到 IP: 192.168.1.187                     &lt;-- 看门狗复位后重启，一切又正常了
+I (2400) report: HTTP 200, content-length=42, body={"ok":true}</code></pre></div>
+
+          <p class="mt-3">这个故障的可怕之处不在于它坏了，而在于它<b class="font-semibold text-ink">「重启一下就好了」</b>。重启之后设备又正常跑了一天，然后再次卡死——因为根本原因没被找到，只是被复位掩盖了。而现场那句「灯还在闪」，说明主循环和 WiFi 状态机都还活着，<b class="font-semibold text-ink">只有网络这一条路断了</b>。</p>
+
+          <p class="mt-4">这类问题可以归成三种形态，本篇的全部内容都是围绕它们展开的：</p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">网络程序的三种失败形态——难点全在这里</div>
+            <ul class="mt-2 list-disc space-y-2.5 pl-5">
+              <li><b class="font-semibold text-ink">第一种：没发出去。</b>WiFi 掉了、DNS 解析不出来、服务器没开机、端口写错了。表现是 <code class="icode">connect()</code> 返回 −1 或者 <code class="icode">perform()</code> 报错。<b>这是最好处理的一种</b>——因为它明确告诉你失败了。但如果你不判返回值，它就会变成「静默丢数据」。</li>
+              <li><b class="font-semibold text-ink">第二种：发了一半。</b>TCP 是字节流，<code class="icode">send()</code> 写了 400 字节的请求、实际只进去 300 字节是<b>完全合法</b>的；反过来，<code class="icode">recv()</code> 拿到半条 JSON、你就 <code class="icode">cJSON_Parse()</code>，得到的一定是解析失败。<b>这一类错误不会报错，只会「数据不对」</b>，最难查。</li>
+              <li><b class="font-semibold text-ink">第三种：对方不见了。</b>对端断电、网线被拔、路由器重启、运营商的 NAT 表项老化——<b>没有任何一个数据包会被发出来通知你</b>。你的 socket 依然「连接着」，<code class="icode">send()</code> 依然返回成功（数据进了本地缓冲），直到几分钟后重传耗尽才报 <code class="icode">ETIMEDOUT</code>。这就是上面那串日志的真正原因。</li>
+            </ul>
+          </div>
+
+          <p class="mt-4">所以这一篇不打算再讲「TCP 是什么」（那是 <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-network.html">网络基础</a> 那一篇的事），也不重讲「怎么连上路由器」（那是 <a class="text-brand-600 dark:text-brand-300" href="esp32-wifi.html">WiFi 连接与 STA 模式</a> 那一篇的事），更不重讲 MQTT 客户端怎么用（那是 <a class="text-brand-600 dark:text-brand-300" href="esp32-mqtt.html">MQTT 接入物联网平台</a> 那一篇的事）。<b class="font-semibold text-ink">本篇假设你已经连上路由器、已经拿到了 IP，从拿到 IP 之后的第一行代码讲起。</b></p>
+
+          <p class="mt-3">你会看到四类东西，缺一不可：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">分层。</b>你写的是 socket，下面压着 lwIP 和 ESP-NETIF。知道每一层负责什么，你才知道错误是「我的代码错了」还是「配置不够」。</li>
+            <li><b class="font-semibold text-ink">返回值与 errno。</b>每一个系统调用都会失败，每一种失败都有名字。这份对照表比任何例程都值钱。</li>
+            <li><b class="font-semibold text-ink">状态机。</b>把断线、重连、心跳写成一个能画出来的状态机，而不是一串 if-else。这是「现场跑一年」和「实验室跑通」的分界线。</li>
+            <li><b class="font-semibold text-ink">算术。</b>流量、文件描述符、重试次数、心跳周期——这四个数不算清楚，代码写得再漂亮也会在现场翻车。</li>
+          </ul>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">先给结论：网络任务的骨架长什么样</div>
+            <p>整篇看下来其实就是这一个循环。后面所有代码都是它的展开：</p>
+            <p class="mt-2"><b class="font-semibold text-ink">判断网络是否可用 → 不可用就退避等待 → 可用就建立连接 → 连接成功就收发 + 周期性探活 → 任何一步出错就关闭连接、回到等待</b>。</p>
+            <p class="mt-2">关键在于：<b>这条链上的每一步都必须有超时，每一次失败都必须回到这个循环的起点，而不是原地重试或者退出任务。</b></p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section id="sec-concept">
+          <h2 class="text-xl font-semibold">核心概念</h2>
+
+          <h3 id="sub-stack" class="mt-7 text-base font-semibold">网络栈分层：lwIP、ESP-NETIF 与你的代码</h3>
+
+          <p class="mt-3">你在 ESP32 上写 <code class="icode">socket()</code>、<code class="icode">connect()</code>，用的是和 Linux 上几乎一样的函数名。但底下这条链路和 PC 完全不同，先把它画出来：</p>
+
+          <div class="code-block" data-lang="text" data-title="ESP-IDF 网络栈分层"><pre><code>┌──────────────────────────────────────────────────────────────┐
+│  你的应用代码                                                │
+│  socket() / connect() / send() / recv() / close()            │
+│  esp_http_client / esp_http_server / MQTT / cJSON            │
+└───────────────────────────┬──────────────────────────────────┘
+                            │  BSD socket API（fd + errno）
+┌───────────────────────────▼──────────────────────────────────┐
+│  lwIP —— 轻量级 TCP/IP 协议栈                                │
+│  TCP 状态机、重传、滑动窗口、UDP、ICMP、DHCP 客户端、DNS     │
+│  收发缓冲（pbuf 池）、超时重传定时器                          │
+└───────────────────────────┬──────────────────────────────────┘
+                            │  netif（网络接口结构体）
+┌───────────────────────────▼──────────────────────────────────┐
+│  ESP-NETIF —— ESP-IDF 的「接口统一层」                       │
+│  把 WiFi STA / WiFi AP / 以太网 / PPP / USB 网卡 都包装成    │
+│  同一个 esp_netif_t：统一的 IP 配置、DHCP、事件上报           │
+└───────────────────────────┬──────────────────────────────────┘
+                            │  驱动回调（收包 / 发包 / 链路状态）
+┌───────────────────────────▼──────────────────────────────────┐
+│  WiFi 驱动（esp_wifi）→ PHY → 天线 → 2.4GHz 空气            │
+│  或者：以太网 MAC（RMII）→ PHY 芯片 → 网线                   │
+└──────────────────────────────────────────────────────────────┘</code></pre></div>
+
+          <p class="mt-3">这张图里最值得记住的，是<b class="font-semibold text-ink">中间那层 ESP-NETIF 为什么存在</b>。</p>
+
+          <p class="mt-3">lwIP 是一个通用的协议栈，它认识的是「一个能收发以太网帧的接口」——在 lwIP 里叫 <code class="icode">netif</code>。而 ESP32 上这个接口可能是 WiFi STA、可能是 WiFi AP（同时开热点）、可能是外挂的以太网 PHY、可能是 4G 模块走的 PPP。如果每个驱动都要自己去填 lwIP 的 <code class="icode">netif</code> 结构、自己实现 DHCP 客户端、自己管 IP 事件，那这些代码会散落在每个驱动里，而且换一种联网方式就要改一次上层。</p>
+
+          <p class="mt-3">ESP-NETIF 就是把这件事收口：<b class="font-semibold text-ink">所有联网方式都先变成一个 <code class="icode">esp_netif_t</code>，由它统一去接 lwIP，统一分发 IP 事件</b>。带来的直接好处是：你的 socket 代码、你的 <code class="icode">esp_http_client</code>、你的 MQTT 客户端，<b>一行都不用改</b>，就能从 WiFi 换到以太网，或者让 WiFi 和以太网同时在线（多 netif，路由按默认接口走）。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">三行初始化，各干各的事</div>
+            <p class="mt-2"><b class="font-semibold text-ink"><code class="icode">esp_netif_init()</code></b> —— 初始化 ESP-NETIF 这一层本身：建立 netif 对象的管理链表、初始化它内部依赖的 lwIP（包括那个跑协议栈的 tcpip 线程和它的事件邮箱）。<b>必须在创建任何 netif 之前调用，且整个程序只能调一次。</b></p>
+            <p class="mt-2"><b class="font-semibold text-ink"><code class="icode">esp_event_loop_create_default()</code></b> —— 创建「默认事件循环」。WiFi 驱动和 ESP-NETIF 都往这个循环里投递事件：<code class="icode">WIFI_EVENT_STA_CONNECTED</code>、<code class="icode">WIFI_EVENT_STA_DISCONNECTED</code>、<code class="icode">IP_EVENT_STA_GOT_IP</code>、<code class="icode">IP_EVENT_STA_LOST_IP</code>。<b>你的 <code class="icode">esp_event_handler_instance_register()</code> 注册的回调，就是被这个循环调起来的</b>——它不是中断，是一个独立任务在跑你的函数。</p>
+            <p class="mt-2"><b class="font-semibold text-ink"><code class="icode">esp_netif_create_default_wifi_sta()</code></b> —— 创建一个「默认的 WiFi STA 网卡」：把 WiFi 驱动的收发函数挂到 lwIP 的 netif 上、建好 DHCP 客户端、并约定「收到 <code class="icode">WIFI_EVENT_STA_CONNECTED</code> 就自动开始 DHCP」。对应的 AP 版本是 <code class="icode">esp_netif_create_default_wifi_ap()</code>（它会跑一个 DHCP 服务端给连进来的手机分 IP）。</p>
+            <p class="mt-2">三行的顺序不能换：<b>先有 netif 层 → 再有能力接事件 → 最后才能把 WiFi 挂上去。</b>这也是为什么例程里这三行总是紧挨着出现。</p>
+          </div>
+
+          <p class="mt-4">还有一个隐含的分工要知道：<b class="font-semibold text-ink">socket 的收发是在两个不同的上下文里发生的</b>。<code class="icode">send()</code> 把数据交给 lwIP 之后就返回，真正的发送由 lwIP 的 tcpip 线程在你背后完成；收到数据时，也是 tcpip 线程先把包放进 socket 的接收队列，你的 <code class="icode">recv()</code> 才有东西可拿。这意味着两件事：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><code class="icode">send()</code> 返回成功，<b>只代表数据被放进了发送缓冲</b>，不代表已经出门，更不代表对方收到。</li>
+            <li>你在多个任务里同时操作<b>同一个</b> socket（一个发、一个收）是有风险的，除非你清楚它们的边界。稳妥做法是<b>一个 socket 只由一个任务负责</b>，任务之间用队列传数据（这正是 <a class="text-brand-600 dark:text-brand-300" href="adv-esp32-ipc.html">任务间通信</a> 那一篇的用法）。</li>
+          </ul>
+
+          <h3 id="sub-socket" class="mt-7 text-base font-semibold">socket 全流程：从 socket() 到 close()</h3>
+
+          <p class="mt-3">一个 TCP 客户端的一生只有五步，但每一步都有返回值要判、都有失败要处理。先把流程画出来，再逐个说：</p>
+
+          <div class="code-block" data-lang="text" data-title="TCP 客户端：五个系统调用与它们的返回值"><pre><code>        你的代码                    网络上的动作                 返回值语义
+─────────────────────────────────────────────────────────────────────────────
+ ① fd = socket(...)          分配一个 fd 和 PCB             ≥0 成功 / −1 失败
+                             （内存不够就失败）              errno=ENFILE 表示 fd 用光
+
+ ② connect(fd, 服务器)   ──→  SYN ──────────→               0 成功 / −1 失败
+                             ←── SYN+ACK ──                  errno=ECONNREFUSED 对端没监听
+                             ──→ ACK ──────→                 errno=ETIMEDOUT   没人应答
+                                                             errno=EHOSTUNREACH 路由不通
+
+ ③ send(fd, buf, len)    ──→ 数据段 ────────→               >0 = 实际写入的字节数
+                             ←── ACK ──────                  （可能小于 len！）
+                                                             −1 失败，看 errno
+
+ ④ recv(fd, buf, cap)    ←── 数据段 ────────                >0 = 读到的字节数
+                             ──→ ACK ──────→                 0  = 对端正常关闭（FIN）
+                                                             −1 = 出错或超时
+
+ ⑤ close(fd)                 发 FIN，进入四次挥手            0 成功 / −1 失败
+                             （fd 立刻被回收）               —— 不 close 就是泄漏</code></pre></div>
+
+          <p class="mt-3">下面这张表把它写成人话。<b class="font-semibold text-ink">请把「怎么判」这一列读三遍</b>，因为初学者犯的错几乎都在这</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>调用</th>
+                  <th>成功返回</th>
+                  <th>失败返回</th>
+                  <th>最容易写错的地方</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">socket()</code></td>
+                  <td>非负的 fd</td>
+                  <td>−1，看 <code class="icode">errno</code></td>
+                  <td>返回 0 也是<b>合法</b>的（fd 0 只是编号），所以判断必须写 <code class="icode">fd &lt; 0</code> 而不是 <code class="icode">!fd</code></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">connect()</code></td>
+                  <td><b>0</b></td>
+                  <td>−1</td>
+                  <td>成功返回的是 <b>0</b> 不是字节数，别写成 <code class="icode">if (connect(...) &gt; 0)</code></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">send()</code></td>
+                  <td>实际写入的字节数</td>
+                  <td>−1</td>
+                  <td>返回值<b>可能小于 len</b>，必须循环写到写完为止；发出去了不等于对方收到了</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">recv()</code></td>
+                  <td>读到的字节数</td>
+                  <td>−1（含超时）</td>
+                  <td><b>返回 0 不是「没数据」，是「对端关闭了连接」</b>——必须当作断线处理并 close</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">close()</code></td>
+                  <td>0</td>
+                  <td>−1</td>
+                  <td>每条 return 路径都要 close；close 之后 fd 立即失效，再 close 一次是未定义行为</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">地址怎么写？IPv4 用 <code class="icode">struct sockaddr_in</code>，三个字段必须填对：</p>
+
+          <div class="code-block" data-lang="c" data-title="地址结构体与字节序"><pre><code>#include &lt;sys/socket.h&gt;
+#include &lt;netinet/in.h&gt;
+#include &lt;arpa/inet.h&gt;
+
+struct sockaddr_in dest;
+memset(&amp;dest, 0, sizeof(dest));
+dest.sin_family = AF_INET;                  /* 固定 AF_INET，表示 IPv4 */
+dest.sin_port   = htons(8888);              /* 端口必须转成「网络字节序」 */
+inet_pton(AF_INET, "192.168.1.100", &amp;dest.sin_addr);   /* 文本 IP → 二进制 */
+
+/* 想监听本机所有网卡（服务端）： */
+/* dest.sin_addr.s_addr = htonl(INADDR_ANY); */
+
+/* 错误写法：dest.sin_port = 8888;
+ * 因为你和小端 CPU 的字节序与网络字节序相反，
+ * 8888（0x22B8）会被对面解释成 0xB822 = 47138 端口。
+ * 规则很简单：只要往 sin_port / sin_addr 里写数字，就套一层 htons / htonl。*/</code></pre></div>
+
+          <p class="mt-4">如果服务器地址是域名（比如 <code class="icode">api.example.com</code>），就需要 DNS 解析。<b class="font-semibold text-ink">在 ESP-IDF 上请用 <code class="icode">getaddrinfo()</code>，不要用 <code class="icode">gethostbyname()</code></b>。原因有三条，每一条都很实际：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th><code class="icode">gethostbyname()</code></th>
+                  <th><code class="icode">getaddrinfo()</code></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>线程安全</td>
+                  <td><b>不安全</b>：返回值指向一个全局静态缓冲，下一个任务再调用一次就把你的结果覆盖了</td>
+                  <td>安全：结果通过出参返回，由你负责 <code class="icode">freeaddrinfo()</code></td>
+                </tr>
+                <tr>
+                  <td>协议支持</td>
+                  <td>只支持 IPv4（<code class="icode">struct hostent</code> 里装的就是 4 字节地址）</td>
+                  <td>IPv4 / IPv6 通吃，可以用 <code class="icode">hints.ai_family</code> 指定</td>
+                </tr>
+                <tr>
+                  <td>能否指定端口与服务类型</td>
+                  <td>不能，端口要自己填、自己转字节序</td>
+                  <td>可以：直接把端口字符串传进去，还会按 <code class="icode">SOCK_STREAM</code> 过滤</td>
+                </tr>
+                <tr>
+                  <td>一台主机有多个 IP 时</td>
+                  <td>只给你第一个</td>
+                  <td>返回一个链表，<b>可以逐个尝试</b>——这正是「连不上就换一个地址」的天然实现</td>
+                </tr>
+                <tr>
+                  <td>错误信息</td>
+                  <td>只能看 <code class="icode">h_errno</code>，含义模糊</td>
+                  <td>返回标准错误码，可直接交给 <code class="icode">gai_strerror()</code> 打印</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block" data-lang="c" data-title="getaddrinfo 的标准用法（可直接抄）"><pre><code>#include &lt;netdb.h&gt;
+
+/* 返回值：成功 0，失败返回非 0 错误码（注意：不是 errno！） */
+static int resolve(const char *host, uint16_t port,
+                   struct addrinfo **out)
+{
+    char portstr[8];
+    snprintf(portstr, sizeof(portstr), "%u", (unsigned)port);
+
+    struct addrinfo hints;
+    memset(&amp;hints, 0, sizeof(hints));
+    hints.ai_family   = AF_INET;        /* 只要 IPv4；AF_UNSPEC 则两者都要 */
+    hints.ai_socktype = SOCK_STREAM;    /* 只要 TCP；UDP 写 SOCK_DGRAM */
+    hints.ai_protocol = IPPROTO_TCP;
+
+    int rc = getaddrinfo(host, portstr, &amp;hints, out);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "DNS 解析失败: %s (host=%s)", gai_strerror(rc), host);
+        return -1;
+    }
+    return 0;                            /* 用完记得 freeaddrinfo(*out) */
+}</code></pre></div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">DNS 解析会阻塞，而且可能很久</div>
+            <p><code class="icode">getaddrinfo()</code> 内部要发 UDP 查询并等待应答，<b>默认没有超时上限</b>（lwIP 会给几次重传，最坏情况能卡到十几秒）。所以：</p>
+            <p class="mt-2">① 不要在事件回调里做 DNS，也不要在高优先级任务里做；<b>专门留给一个「网络任务」</b>。</p>
+            <p class="mt-2">② 生产设备更稳的做法是<b>把 IP 写死、只把域名当备用</b>，或者启动时解析一次、把结果缓存起来，失败就用上次的 IP。</p>
+            <p class="mt-2">③ 如果 DNS 服务器挂了但你连的是公网 IP，<code class="icode">getaddrinfo()</code> 会照样卡住——<b>这也是「设备明明能上网却上报失败」的一个常见原因</b>。</p>
+          </div>
+
+        <h3 id="sub-block" class="mt-7 text-base font-semibold">阻塞、非阻塞与超时：最省心的组合</h3>
+
+          <p class="mt-3">默认创建的 socket 是<b class="font-semibold text-ink">阻塞</b>的：<code class="icode">recv()</code> 发现接收缓冲里没数据，就把当前任务挂起，一直等到有数据为止；<code class="icode">connect()</code> 会等到握手完成或者协议栈放弃为止。挂起本身不耗 CPU，听起来挺美好——<b class="font-semibold text-ink">问题在于「一直」这两个字</b>。</p>
+
+          <p class="mt-3">如果对方永远不回数据，你的任务就永远醒不过来。你的采集任务还在往队列里塞数据、队列很快满了、系统看起来「卡死」，最后被任务看门狗复位。<b class="font-semibold text-ink">一个没有超时的阻塞调用，等于把任务的生死交给了对面那台你控制不了的机器。</b></p>
+
+          <div class="code-block" data-lang="text" data-title="三种模式的时间线对比"><pre><code>① 阻塞、无超时（危险！）
+   任务 A ── recv() ───────────────────────────────────────────► 永远等下去
+              ↑ 对方掉线了，没有任何数据会来
+   结果：任务卡死 → 队列塞满 → 看门狗复位
+
+② 阻塞 + 超时（推荐，嵌入式首选）
+   任务 A ── recv() ──等 3 秒──► 返回 −1，errno=EAGAIN
+              ↑ 有上限，任务醒过来收尾、看看 WiFi 状态、下一轮再来
+   代码读起来还是同步的，但「最坏情况」被框住了
+
+③ 非阻塞 + select（服务端首选）
+   任务 A ── select(所有 fd, 1 秒) ──► 返回「哪几个 fd 可读」
+                                        ├─ listen_fd  → accept 新客户端
+                                        ├─ cli[0].fd  → recv 它的数据
+                                        └─ cli[3].fd  → recv 它的数据
+   一个任务管 N 个连接，谁有事就处理谁，谁都没事就睡 1 秒</code></pre></div>
+
+          <p class="mt-4">给阻塞 socket 加超时，只要两行 <code class="icode">setsockopt</code>：</p>
+
+          <div class="code-block" data-lang="c" data-title="给 socket 设置收发超时"><pre><code>#include &lt;sys/socket.h&gt;
+
+/* timeval 的单位是「秒 + 微秒」，不是毫秒 */
+struct timeval tv;
+tv.tv_sec  = 3;        /* 3 秒 */
+tv.tv_usec = 0;
+
+/* 收不到数据最多等 3 秒，超时后 recv 返回 −1，errno = EAGAIN / EWOULDBLOCK */
+setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &amp;tv, sizeof(tv));
+
+/* 发送缓冲满时最多等 3 秒 */
+setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &amp;tv, sizeof(tv));
+
+/* 注意：这两个选项是「每次调用的等待上限」，不是「总超时」。
+ * 循环里调 10 次 recv，最坏可以是 10 × 3 = 30 秒，
+ * 所以循环本身还要有次数或总时间的上限。 */</code></pre></div>
+
+          <p class="mt-4">需要非阻塞时，用 <code class="icode">fcntl()</code> 打开 <code class="icode">O_NONBLOCK</code>：</p>
+
+          <div class="code-block" data-lang="c" data-title="把 socket 切成非阻塞"><pre><code>#include &lt;fcntl.h&gt;
+
+int flags = fcntl(fd, F_GETFL, 0);       /* 先读出现有标志 */
+if (flags &lt; 0) { ESP_LOGE(TAG, "F_GETFL: errno=%d", errno); }
+fcntl(fd, F_SETFL, flags | O_NONBLOCK);  /* 再加上非阻塞位 */
+
+/* 切换之后：
+ *   recv() 没数据 → 立刻返回 −1，errno = EAGAIN / EWOULDBLOCK
+ *   send() 缓冲满 → 立刻返回 −1，errno = EAGAIN / EWOULDBLOCK
+ *   connect()     → 立刻返回 −1，errno = EINPROGRESS（注意！这个不是错误）
+ *
+ * 非阻塞 connect 的正确收尾：
+ *   把 fd 放进 select 的「可写集合」，等它可写之后用
+ *   getsockopt(fd, SOL_SOCKET, SO_ERROR, &amp;err, &amp;len)
+ *   取出真正的连接结果（err == 0 才是连上了）。 */</code></pre></div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">两个必须记住的细节</div>
+            <p class="mt-2"><b class="font-semibold text-ink">① <code class="icode">select()</code> 会改写你传进去的 <code class="icode">timeval</code>。</b>很多实现（包括 lwIP）会把它改成「剩余时间」。所以<b>每次调用 <code class="icode">select()</code> 之前都要重新赋值</b>，不能在循环外定义一次就用到底——否则第二次调用时它可能已经变成 <code class="icode">{0, 0}</code>，也就是「不等，立刻返回」。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">② <code class="icode">EAGAIN</code> 和 <code class="icode">EWOULDBLOCK</code> 在 ESP-IDF 里是同一个值。</b>写判断时两个都列上（<code class="icode">errno == EAGAIN || errno == EWOULDBLOCK</code>）是习惯，也是可移植性保险；它们<b>表示「现在不行」，不表示「坏了」</b>——不要看到它就 close 重连。</p>
+          </div>
+
+          <p class="mt-4">下面这张表是这一篇里最该抄进笔记本的东西。<b class="font-semibold text-ink">不必背编号</b>（不同工具链的编号不完全一样），要背的是「符号 → 意味着什么 → 我该做什么」这条链：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>errno</th>
+                  <th>含义</th>
+                  <th>典型原因</th>
+                  <th>你该怎么做</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">EAGAIN</code> / <code class="icode">EWOULDBLOCK</code></td>
+                  <td>现在做不了（<b>不是错误</b>）</td>
+                  <td>非阻塞 recv 暂时没数据；设了超时的 recv 等超时了；send 缓冲满</td>
+                  <td>什么都不做，回到 select 或下一轮循环再试；<b>不要 close</b></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">EINPROGRESS</code></td>
+                  <td>非阻塞 connect 正在进行</td>
+                  <td>正常中间态</td>
+                  <td>把 fd 加进 select 可写集合，可写后用 <code class="icode">getsockopt(SO_ERROR)</code> 取结果</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">EALREADY</code></td>
+                  <td>上一次 connect 还没结束</td>
+                  <td>同一个 fd 上重复调了 connect</td>
+                  <td>别重复调；等上一次的结果</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">EISCONN</code></td>
+                  <td>这个 fd 已经连上了</td>
+                  <td>又调了一次 connect</td>
+                  <td>当成「已连接」处理，继续收发</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ENOTCONN</code></td>
+                  <td>socket 没连上</td>
+                  <td>对未连接的 socket 收发</td>
+                  <td>检查状态机，先 connect</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ECONNREFUSED</code></td>
+                  <td>对端拒绝连接</td>
+                  <td><b>服务器没开、端口写错、被防火墙拒绝</b></td>
+                  <td>退避重试（但先确认端口和服务器状态，这多半是配置问题）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ECONNRESET</code></td>
+                  <td>连接被对端强制重置（收到 RST）</td>
+                  <td>对端进程崩溃/被杀、对端重启、连接被中间设备掐断</td>
+                  <td><b>立刻 close 并重连</b>；这一条几乎一定意味着连接已死</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ECONNABORTED</code></td>
+                  <td>连接被中止</td>
+                  <td>握手过程中被打断</td>
+                  <td>同 ECONNRESET，close 重连</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ETIMEDOUT</code></td>
+                  <td>等待超时，没有应答</td>
+                  <td><b>对端消失了（拔网线、断电、NAT 老化）</b>；网络不通</td>
+                  <td>close 重连；如果反复出现，去检查心跳参数（见例 4）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">EHOSTUNREACH</code></td>
+                  <td>主机不可达</td>
+                  <td>目标 IP 不在同一网段、没有路由</td>
+                  <td>先确认网关和 WiFi 是否正常，别急着重连</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ENETUNREACH</code></td>
+                  <td>网络不可达</td>
+                  <td><b>WiFi 断了、IP 丢了</b></td>
+                  <td>等 <code class="icode">IP_EVENT_STA_GOT_IP</code> 再来</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">EADDRINUSE</code></td>
+                  <td>端口已被占用</td>
+                  <td>上次的服务端还在 TIME_WAIT 里没退干净</td>
+                  <td>服务端 socket 打开 <code class="icode">SO_REUSEADDR</code></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">EADDRNOTAVAIL</code></td>
+                  <td>地址不可用</td>
+                  <td>bind 了一个不属于本机的 IP</td>
+                  <td>服务端一律用 <code class="icode">INADDR_ANY</code></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ENFILE</code>（部分实现报 <code class="icode">EMFILE</code>）</td>
+                  <td><b>文件描述符用光了</b></td>
+                  <td><b>socket 泄漏</b>：开了没关，攒到 <code class="icode">CONFIG_LWIP_MAX_SOCKETS</code> 上限</td>
+                  <td>查例 2 的账；所有 return 路径都要 close</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ENOBUFS</code> / <code class="icode">ENOMEM</code></td>
+                  <td>内存或 pbuf 池耗尽</td>
+                  <td>连接数太多、缓冲配置太小、堆碎片</td>
+                  <td>降并发、调大 lwIP 缓冲配置、查内存泄漏</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">EPIPE</code></td>
+                  <td>往已关闭的连接写</td>
+                  <td>对端已经发了 FIN，你还在写</td>
+                  <td>当成断线：close、回到重连状态机</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">EMSGSIZE</code></td>
+                  <td>报文太大</td>
+                  <td>UDP 数据报超过了 MTU</td>
+                  <td>拆包；UDP 单包控制在 1472 字节以内</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">EINVAL</code></td>
+                  <td>参数非法</td>
+                  <td>端口写成 0、结构体长度传错、timeval 为负</td>
+                  <td>检查代码，这类错误一定是自己写错了</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">打印 errno 的正确姿势</div>
+            <p>只打印数字等于没打印——半夜看日志的人（可能是三个月后的你）不会去翻 errno 表。<b>符号 + 文字说明一起打出来</b>：</p>
+            <p class="mt-2"><code class="icode">ESP_LOGE(TAG, "recv: errno=%d (%s)", errno, strerror(errno));</code></p>
+            <p class="mt-2">输出长这样：<code class="icode">E (12034) tcp: recv: errno=104 (Connection reset by peer)</code>。一眼就知道该 close 重连还是该继续等。</p>
+          </div>
+
+          <h3 id="sub-retry" class="mt-7 text-base font-semibold">重连：指数退避与断线重连状态机</h3>
+
+          <p class="mt-3">先说清楚「为什么要重连」：现场的断线绝大多数是<b class="font-semibold text-ink">暂时的</b>——路由器重启、AP 换信道、服务器打个补丁、运营商回收一下空闲连接、隔壁微波炉干扰。这些都不需要你人工干预，等几秒到几十秒就会恢复。<b class="font-semibold text-ink">所以「断线」不是异常，而是正常运行的一部分</b>，你的程序必须把它当成一个正常状态来处理。</p>
+
+          <p class="mt-3">但「立刻重连、死循环重连」是另一种灾难。看下面这张对照表：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>做法</th>
+                  <th>会发生什么</th>
+                  <th>后果</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">while (1) { connect(...); }</code> 死循环</td>
+                  <td>每秒尝试成百上千次</td>
+                  <td>CPU 被一个任务吃满、低优先级任务饿死；<b>电池设备永远没机会进省电模式</b>；日志刷屏把真正的错误淹掉</td>
+                </tr>
+                <tr>
+                  <td>失败就 <code class="icode">vTaskDelay(1000)</code> 固定 1 秒</td>
+                  <td>服务器重启要 30 秒，你白白打了 30 次无用连接</td>
+                  <td>单台设备不算什么，<b>1000 台设备同时这么干就是一次小型 DDoS</b></td>
+                </tr>
+                <tr>
+                  <td><b>指数退避</b>：100ms → 200ms → 400ms … 上限 30s</td>
+                  <td>秒级故障秒级恢复，长时间故障时安静等待</td>
+                  <td>既快又克制；配合「抖动」还能避免所有设备同时重连</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">指数退避就一个公式：</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">指数退避公式</div>
+            <p class="mt-2"><b class="font-semibold text-ink">第 n 次重试前的等待时间：t<sub>n</sub> = min( t<sub>0</sub> × 2<sup>n</sup> , t<sub>max</sub> )</b></p>
+            <p class="mt-2">t<sub>0</sub> 是首次等待（常用 100ms~1s），t<sub>max</sub> 是上限（常用 30s~60s）。<b>上限必须有</b>，否则第 20 次重试要等 100ms × 2<sup>20</sup> ≈ 29 小时——那已经不是退避，是把设备弄丢了。</p>
+            <p class="mt-2"><b>再加一点抖动（jitter）</b>：实际等待 = t<sub>n</sub> 的 50%~100% 之间的随机值。作用是把 1000 台设备的首次重连时间打散，避免它们在同一毫秒撞上服务器。</p>
+            <p class="mt-2">一句话记法：<b>「连上就复位，失败就翻倍，翻到上限就停在那儿」</b>。</p>
+          </div>
+
+          <p class="mt-4">然后是状态机。别把它想复杂，网络任务一共就四个状态，画出来长这样：</p>
+
+          <div class="code-block" data-lang="text" data-title="断线重连状态机"><pre><code>                    ┌──────────────────────────────────────────────┐
+                    │                                              │
+                    ▼                                              │
+        ┌──────────────────────┐   调用 connect()   ┌───────────────────────┐
+        │   DISCONNECTED       │──────────────────►│    CONNECTING         │
+        │   没连接 / 等网络     │                   │   正在握手（有超时）   │
+        └──────────▲───────────┘                   └───────────┬───────────┘
+                   │                                           │
+      WiFi 断开或   │                              connect 成功 │  connect 失败
+      IP 丢失，     │                                           │
+      或主动放弃     │                                           ▼
+                   │                           ┌───────────────────────────────┐
+        ┌──────────┴───────────┐               │        CONNECTED              │
+        │  （回到 DISCONNECTED  │               │  正常收发 + 周期性心跳         │
+        │    等 GOT_IP 事件）   │               └───────────┬───────────────────┘
+        └──────────────────────┘                           │
+                   ▲                              send/recv 失败 │
+                   │                              或心跳连续失败  │
+                   │                                           ▼
+                   │                           ┌───────────────────────────────┐
+                   └───────────────────────────│       RECONNECTING            │
+                        退避时间到，回到         │  关闭 socket，退避等待中       │
+                        CONNECTING              └───────────────────────────────┘</code></pre></div>
+
+          <p class="mt-4">四个状态的职责，以及每次进入/离开时该做什么，写成表格更清楚：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>状态</th>
+                  <th>进入时做什么</th>
+                  <th>在这个状态里做什么</th>
+                  <th>什么条件下出去</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>DISCONNECTED</b></td>
+                  <td>确认 <code class="icode">fd = −1</code>；退避值复位到 t<sub>0</sub></td>
+                  <td>检查「网络是否可用」标志（由 <code class="icode">IP_EVENT_STA_GOT_IP</code> 置位）</td>
+                  <td>网络可用 → CONNECTING；网络不可用 → 停在这儿等事件</td>
+                </tr>
+                <tr>
+                  <td><b>CONNECTING</b></td>
+                  <td>记下开始时间，作为超时基准</td>
+                  <td>调 <code class="icode">connect()</code>（阻塞式，最多等 5 秒）</td>
+                  <td>返回 0 → CONNECTED；返回 −1 → RECONNECTING</td>
+                </tr>
+                <tr>
+                  <td><b>CONNECTED</b></td>
+                  <td>退避值<b>复位</b>；心跳计数清零；记录「最后一次收到数据的时间」</td>
+                  <td>收发业务数据；到点发心跳并等应答</td>
+                  <td>任何收发失败，或心跳连续失败 N 次 → RECONNECTING</td>
+                </tr>
+                <tr>
+                  <td><b>RECONNECTING</b></td>
+                  <td><code class="icode">close(fd)</code> 并把 fd 置 −1；<b>日志上报「断线 + 原因 + 重试次数」</b></td>
+                  <td><code class="icode">vTaskDelay(退避时间)</code>，并把退避值翻倍（封顶）</td>
+                  <td>延时结束 → CONNECTING</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">三条容易被忽略的纪律</div>
+            <p class="mt-2"><b class="font-semibold text-ink">① 退避值必须在「连上」的那一刻复位。</b>否则一次偶发失败会让设备在之后很长时间里都「反应迟钝」——明明服务器已经好了，它还在等 30 秒。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">② 重连前必须 close 掉旧的 fd。</b>很多人只把 fd 重新赋值，旧的 fd 就永远泄漏了——这就是例 2 那道题的主角。</p>
+            <p class="mt-2"><b class="font-semibold text-ink">③ 断线要上报，不要只重连。</b>把「第几次重连、errno 是多少、已经断了多久」打进日志甚至上报给平台。<b>现场排障时，这一条信息比任何代码注释都有用。</b></p>
+          </div>
+
+          <h3 id="sub-heartbeat" class="mt-7 text-base font-semibold">心跳：为什么 TCP 自己发现不了断线</h3>
+
+          <p class="mt-3">「TCP 不是可靠协议吗？对方不见了它不应该告诉我吗？」——这是关于网络编程最普遍的一个误解。<b class="font-semibold text-ink">TCP 的「可靠」指的是「数据在连接存在期间不会丢、不会乱序」，它从来不负责「帮你发现对方还在不在」。</b></p>
+
+          <p class="mt-3">对方消失的方式有三种，TCP 的反应完全不同：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对方怎么消失的</th>
+                  <th>网络上会发生什么</th>
+                  <th>你的程序多久能知道</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>对端的<b>进程</b>崩溃或被 kill</td>
+                  <td>操作系统替你发一个 FIN（正常关闭）或 RST（强制重置）</td>
+                  <td><b>立刻</b>：<code class="icode">recv()</code> 返回 0，或返回 −1 且 <code class="icode">errno = ECONNRESET</code></td>
+                </tr>
+                <tr>
+                  <td>对端的<b>机器</b>断电、死机</td>
+                  <td>来不及发任何东西，包就这么停了</td>
+                  <td>要等你下次发数据、并且 TCP 重传全部失败——<b>几十秒到几分钟</b>，而且期间你以为一切正常</td>
+                </tr>
+                <tr>
+                  <td>中间的<b>链路/路径</b>断了：拔网线、路由器重启、NAT 表项老化、WiFi 掉线</td>
+                  <td>包被静默丢弃，没有任何一方会通知你</td>
+                  <td><b>同上，甚至永远不知道</b>——如果应用不发数据，TCP 也不会主动探测</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">后两种情况叫<b class="font-semibold text-ink">半开连接（half-open）</b>：一端认为连接还在，另一端已经不在了。它长这样：</p>
+
+          <div class="code-block" data-lang="text" data-title="半开连接：send() 依然返回成功"><pre><code>   ESP32                路由器 / AP              服务器
+     │                       │                      │
+     │◄────────── TCP 连接已建立（三次握手完成）──────────►│
+     │                       │                      │
+     │  send("T=25.5") ────► │ ────────────────────►│  正常
+     │◄──────────────── ACK ─│ ◄────────────────────│
+     │                       │                      │
+   ╳ 就在这一刻：网线被拔 / 服务器断电 / NAT 表项被回收 ╳
+     │                       │                      │
+     │  send("T=25.6") ────► │  包被丢弃，没人回应    │
+     │      ↑ 返回 370（成功！）                      │
+     │        因为数据只是进了本地的发送缓冲           │
+     │                       │                      │
+     │  send("T=25.7") ────► │  包被丢弃             │
+     │      ↑ 还是「成功」，直到发送缓冲被重传数据占满  │
+     │                       │                      │
+     │  ... 几十秒后 TCP 重传耗尽 ...                │
+     │      recv() 终于返回 −1，errno = ETIMEDOUT    │
+     │      或者 send() 返回 −1                      │
+     │                       │                      │
+     这期间你已经往「黑洞」里写了 N 条数据，全部石沉大海，
+     而你的程序以为它们都发出去了。</code></pre></div>
+
+          <p class="mt-4">所以结论很硬：<b class="font-semibold text-ink">「对方还在不在」这件事，TCP 不管，必须由应用层自己定义并检测。</b>这个定义就是心跳。</p>
+
+          <h4 class="mt-7 text-[15px] font-semibold">SO_KEEPALIVE 为什么不能当主力</h4>
+
+          <p class="mt-3">你可能会说：「协议栈不是有个 keepalive 选项吗？」有，但它解决不了你的问题，原因有四条，每一条都够致命：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">默认参数是「两小时」。</b>TCP keepalive 的三个参数默认值分别是：空闲 <b>7200 秒</b>（2 小时）后才发第一个探测包，之后每 <b>75 秒</b>发一次，连续 <b>9 次</b>无应答才判定连接断开。合计 <b>7200 + 75 × 9 = 7875 秒 ≈ 2 小时 11 分</b>。你的现场数据两小时前就断了，两小时后程序才反应过来——这段时间里它一直在「假装正常」。</li>
+            <li><b class="font-semibold text-ink">在你的设备上它可能压根没生效。</b>ESP-IDF 的 lwIP 里，想用 <code class="icode">TCP_KEEPIDLE</code> / <code class="icode">TCP_KEEPINTVL</code> / <code class="icode">TCP_KEEPCNT</code> 调参数，需要先打开 <code class="icode">CONFIG_LWIP_TCP_KEEPALIVE</code>（以你手上 IDF 版本的 menuconfig 为准）；不开的话，<code class="icode">setsockopt(SO_KEEPALIVE)</code> 只能用编译时的默认时间。</li>
+            <li><b class="font-semibold text-ink">空闲计时器会被你的数据不断重置。</b>keepalive 只在<b>连接空闲</b>时才开始计数。你的设备每 5 秒上报一次数据，空闲计时器永远回到 0——<b>探测包永远不会发出来</b>。「开着 keepalive 却从没触发过」，这是很常见的情况。</li>
+            <li><b class="font-semibold text-ink">它只能证明「TCP 栈还活着」，不能证明「应用还活着」。</b>服务器那边的进程可能已经死循环卡住了，但内核还在正常回 ACK——keepalive 认为连接健康，可你的业务请求根本没人处理。反过来，探测包还可能被中间的防火墙直接丢掉，产生「假断线」。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">正确的做法：应用层心跳</div>
+            <p class="mt-2">只有应用自己知道「对方的应用还活着」，所以心跳必须由应用层定义。<b>核心不是「定时发一个包」，而是「发出去之后必须等一个回应」</b>——只发不等，等于没做。</p>
+            <p class="mt-2">三种常见形式，按推荐程度排：</p>
+            <p class="mt-2"><b>① 拿业务数据当心跳（最省）。</b>如果本来就在每 5 秒上报一次数据、而且服务端会回一个「收到了」，那么<b>「最近一次上报成功」本身就是最好的心跳</b>，一条额外的包都不用发。判据变成：距离上次成功收发超过 3 个周期 → 判定断线。</p>
+            <p class="mt-2"><b>② 独立的 PING / PONG（最通用）。</b>客户端每 T 秒发一个 <code class="icode">PING</code>（或 <code class="icode">{"type":"hb"}</code>），服务端必须回一个 <code class="icode">PONG</code>。连续 N 次没等到 PONG → 判定断线并重连。长连接协议（WebSocket、MQTT）用的就是这一套。</p>
+            <p class="mt-2"><b>③ 双向心跳（最稳）。</b>两边都发、两边都判。服务端也要有「多久没收到客户端的心跳就主动关掉这个连接」的逻辑，否则半开连接会一直占着服务器的 fd 和内存。很多 Web 框架默认有 60~75 秒的空闲超时，就是干这个的。</p>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>心跳周期 T</th>
+                  <th>一天心跳次数</th>
+                  <th>流量代价（按 100 字节/次算）</th>
+                  <th>连续 3 次失败的判定时间</th>
+                  <th>适合什么场景</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>5 秒</td>
+                  <td>17,280 次</td>
+                  <td>≈ 1.73 MB/天</td>
+                  <td>≈ 15~18 秒</td>
+                  <td>实时控制、遥操作；本来就在高频上报</td>
+                </tr>
+                <tr>
+                  <td><b>10 秒</b></td>
+                  <td>8,640 次</td>
+                  <td>≈ 864 KB/天</td>
+                  <td><b>≈ 30~39 秒</b></td>
+                  <td><b>大多数物联网上报设备的甜点区</b></td>
+                </tr>
+                <tr>
+                  <td>30 秒</td>
+                  <td>2,880 次</td>
+                  <td>≈ 288 KB/天</td>
+                  <td>≈ 90~99 秒</td>
+                  <td>普通环境监测，能接受一分半的检测延迟</td>
+                </tr>
+                <tr>
+                  <td>60 秒</td>
+                  <td>1,440 次</td>
+                  <td>≈ 144 KB/天</td>
+                  <td>≈ 180~189 秒</td>
+                  <td>电池供电、流量受限；能接受 3 分钟延迟</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">这张表的算法在<a class="text-brand-600 dark:text-brand-300" href="#calc-4">例 4</a>里会完整推一遍。这里先记住一个权衡：<b class="font-semibold text-ink">心跳周期每缩短一半，流量翻倍、检测更快；你要根据「数据断多久算事故」来倒推周期，而不是拍脑袋。</b></p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">事件和心跳是互补的，别只用一种</div>
+            <p class="mt-2"><code class="icode">WIFI_EVENT_STA_DISCONNECTED</code> 这类事件告诉你的是<b>「本地链路断了」</b>——它最快，而且对「WiFi 掉线」这种最常见的故障是即时发现的。</p>
+            <p class="mt-2">心跳告诉你的是<b>「远端不见了，或者中间的路径断了」</b>——WiFi 还好好的、路由器也正常，但从你到服务器这条路走不通（服务器宕机、云端限流、运营商回收连接）。这种情况本地事件不会响，只有心跳能发现。</p>
+            <p class="mt-2"><b>两个都要有</b>：事件负责快速反应，心跳负责兜底。</p>
+          </div>
+
+          <h3 id="sub-server" class="mt-7 text-base font-semibold">TCP 服务端与两种多客户端架构</h3>
+
+          <p class="mt-3">服务端比客户端多三个调用，但思维方式的差别更大：<b class="font-semibold text-ink">客户端只需要管「一个连接」，服务端要管「很多个连接 + 一个监听口」，而且这些连接随时会来、随时会走。</b></p>
+
+          <div class="code-block" data-lang="text" data-title="服务端的调用顺序与各自的作用"><pre><code> ①  listen_fd = socket(...)        创建「监听 socket」，它本身不传数据
+ ②  setsockopt(SO_REUSEADDR)       允许 bind 到处于 TIME_WAIT 的端口（必须写在 bind 之前）
+ ③  bind(listen_fd, INADDR_ANY, 8888)   把这个端口「占下来」
+ ④  listen(listen_fd, backlog)     告诉协议栈：开始接受连接请求
+ ⑤  while (1) {
+        new_fd = accept(listen_fd, ...)   ← 有客户端来了，返回一个**新的 fd**
+        ...用 new_fd 收发...
+        close(new_fd)                     ← 这个也要关！忘了它 = 泄漏
+     }
+
+ 注意：listen_fd 从头到尾都不关（除非你要停掉服务）；
+       accept 返回的 new_fd 才是「这个客户端专属」的通道。</code></pre></div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>调用</th>
+                  <th>作用</th>
+                  <th>返回值与常见错误</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">bind()</code></td>
+                  <td>把 socket 和「本机某个 IP + 端口」绑定</td>
+                  <td>0 成功 / −1 失败。<code class="icode">EADDRINUSE</code> = 端口被占（见 SO_REUSEADDR）；<code class="icode">EADDRNOTAVAIL</code> = 绑了不属于本机的 IP</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">listen()</code></td>
+                  <td>把 socket 变成监听态，并声明「等待握手完成的连接队列」有多长（backlog）</td>
+                  <td>0 / −1。backlog 只是上限声明，真正的并发数受<b>内存和 fd 上限</b>约束；backlog 给小了，高峰期的连接会被直接丢弃（对端表现为连接超时）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">accept()</code></td>
+                  <td>从已完成的连接队列里取出一个，<b>返回一个全新的 fd</b> 专门服务它</td>
+                  <td>≥0 新 fd / −1 失败。第 3 个参数是「值-结果」参数，<b>必须初始化为 <code class="icode">sizeof(cli)</code></b>，否则会拿到垃圾地址</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">SO_REUSEADDR 到底解决什么问题</div>
+            <p class="mt-2">你的服务端被关闭时，那些由你主动发起的连接会进入 <code class="icode">TIME_WAIT</code> 状态，停留一小段时间（Linux 上是 2×MSL ≈ 60 秒）才真正消失。<b>这段时间里，那个「本地 IP + 端口」还被内核认为在用</b>。</p>
+            <p class="mt-2">于是你改完代码重启服务端，<code class="icode">bind()</code> 直接返回 −1，<code class="icode">errno = EADDRINUSE</code>——「端口被占用」，可你明明已经关掉上一个进程了。</p>
+            <p class="mt-2">解法就是在 <code class="icode">bind()</code> <b>之前</b>加上：</p>
+            <p class="mt-2"><code class="icode">int yes = 1;</code><br><code class="icode">setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &amp;yes, sizeof(yes));</code></p>
+            <p class="mt-2">两个细节：<b>① 必须在 bind 之前设置</b>，bind 之后再设是无效的；<b>② 它的语义是「允许复用处于 TIME_WAIT 的本地地址」，不是「允许多个程序同时监听同一个端口」</b>——后者需要 <code class="icode">SO_REUSEPORT</code>，语义完全不同，别混用。<b>服务端代码里这一行几乎是标配，写上去不会错。</b></p>
+          </div>
+
+          <p class="mt-4">接下来是这一节的核心问题：<b class="font-semibold text-ink">多个客户端同时连上来，你怎么同时服务它们？</b>两条主流路线，各有明确的适用场景：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th>架构 A：每个连接开一个任务</th>
+                  <th>架构 B：单任务 select 轮询</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>怎么写的</td>
+                  <td><code class="icode">accept()</code> 之后 <code class="icode">xTaskCreate()</code> 起一个任务，任务里阻塞 <code class="icode">recv()</code>，连接断了任务自己退出</td>
+                  <td>一个任务，把所有 fd 丢进 <code class="icode">select()</code>，谁可读就处理谁</td>
+                </tr>
+                <tr>
+                  <td>RAM 开销</td>
+                  <td><b>高</b>：每个客户端要一份任务栈（3~4 KB）+ TCB，<b>再加</b>一份 socket 缓冲（约 11 KB，见例 5）</td>
+                  <td><b>低</b>：只有一个任务栈，省下的是「每个连接一份栈 + 上下文切换」</td>
+                </tr>
+                <tr>
+                  <td>代码复杂度</td>
+                  <td><b>低</b>：每个任务里就是「读—处理—写」的顺序代码，逻辑清晰，接近单连接的写法</td>
+                  <td><b>高</b>：要自己维护 fd 集合、每个客户端的接收缓冲、断线清理，还要处理「一次收到半条消息」</td>
+                </tr>
+                <tr>
+                  <td>并发上限</td>
+                  <td>受 RAM 限制（每个连接约 15 KB，见例 5），10 个客户端就吃掉 150 KB</td>
+                  <td>受 fd 上限（<code class="icode">CONFIG_LWIP_MAX_SOCKETS</code>）与内存限制，但每个连接省掉一份栈</td>
+                </tr>
+                <tr>
+                  <td>慢客户端的影响</td>
+                  <td><b>只影响它自己那个任务</b>，别的客户端不受牵连——这是它最大的优点</td>
+                  <td><b>拖累所有人</b>：只要有一处用了阻塞调用或者处理耗时太长，整个服务端都卡住</td>
+                </tr>
+                <tr>
+                  <td>超时控制</td>
+                  <td>每个任务独立设超时，互不干扰</td>
+                  <td>统一由 <code class="icode">select()</code> 的超时控制，粒度粗但很省心</td>
+                </tr>
+                <tr>
+                  <td>什么时候用</td>
+                  <td>连接数少（≤5）、每个连接逻辑复杂、需要长时间会话（比如给上位机做的配置通道）</td>
+                  <td>连接数可能到 8~10、逻辑简单（透传、回显、状态查询）、RAM 紧张</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">TCP 是字节流：不要假设「一次 recv = 一条完整消息」</div>
+            <p class="mt-2">这是服务端代码里最常见的 bug，而且它在实验室里几乎不会出现——因为你一次只发一条、网络又很快，<b>你看到的永远是「刚好一条」</b>。到了现场就会出现两种表现：</p>
+            <p class="mt-2"><b>粘包</b>：两次 <code class="icode">send()</code> 的内容被合并到一个 <code class="icode">recv()</code> 里返回（网络快、协议栈会合并小包）。<b>拆包</b>：一次 <code class="icode">send()</code> 的内容被拆成两次 <code class="icode">recv()</code> 返回（包太大，或路径上 MTU 小）。</p>
+            <p class="mt-2">正确做法是<b>自己定义消息边界</b>，在接收缓冲里攒够了再处理。两种常用分帧方式：</p>
+            <p class="mt-2"><b>① 分隔符法</b>：每条消息以 <code class="icode">\n</code> 结尾，收到就按 <code class="icode">\n</code> 切，剩下的留在缓冲区等下一段——<b>简单、可读、适合文本协议（本例用的就是它）</b>。</p>
+            <p class="mt-2"><b>② 长度前缀法</b>：前 2 或 4 个字节是本条消息的字节数，按长度精确读取——<b>适合二进制数据，不会因为数据里出现 <code class="icode">\n</code> 而出错</b>。</p>
+            <p class="mt-2">无论哪种，都要给缓冲设上限：一条超长的「消息」可能是一次攻击，也可能是一次解析错误，<b>该丢就丢、该断开就断开</b>。</p>
+          </div>
+
+          <h3 id="sub-udp" class="mt-7 text-base font-semibold">UDP：无连接的自由与代价</h3>
+
+          <p class="mt-3">UDP 常被说成「不可靠协议」，这个说法容易误导。<b class="font-semibold text-ink">UDP 不是「不可靠」，而是「不负责」——它把「可靠性」这件事的决定权交回给你：你要，就自己实现；不要，就享受它的轻快。</b></p>
+
+          <div class="code-block" data-lang="c" data-title="UDP 的收发：sendto / recvfrom"><pre><code>int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);   /* 注意是 SOCK_DGRAM */
+if (fd &lt; 0) {
+    ESP_LOGE(TAG, "socket 失败: errno=%d", errno);
+    return;
+}
+
+/* 发：必须指定目标地址 */
+struct sockaddr_in dest = {
+    .sin_family = AF_INET,
+    .sin_port   = htons(9000),
+};
+inet_pton(AF_INET, "192.168.1.100", &amp;dest.sin_addr);
+
+const char *msg = "T=25.5,H=60\n";
+int sent = sendto(fd, msg, strlen(msg), 0,
+                  (struct sockaddr *)&amp;dest, sizeof(dest));
+/* sent == 12 只说明「交给了协议栈」，不说明对方收到了 */
+if (sent &lt; 0) {
+    ESP_LOGW(TAG, "sendto 失败: errno=%d (%s)", errno, strerror(errno));
+}
+
+/* 收：必须接住来源地址，否则不知道怎么回 */
+struct sockaddr_in src;
+socklen_t slen = sizeof(src);
+char buf[512];
+int n = recvfrom(fd, buf, sizeof(buf) - 1, 0,
+                 (struct sockaddr *)&amp;src, &amp;slen);
+if (n &gt; 0) {
+    buf[n] = '\0';
+    char ip[16];
+    inet_ntoa_r(src.sin_addr, ip, sizeof(ip));   /* 谁发来的 */
+    ESP_LOGI(TAG, "收到来自 %s:%u 的 %d 字节: %s", ip, ntohs(src.sin_port), n, buf);
+}</code></pre></div>
+
+          <p class="mt-4">几个必须记住的点：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">不需要 connect，也不需要 accept。</b>一个 UDP socket 就能和任意多个对端通信（只要你保存了对方的地址）。服务端只需要一个 fd，天然「支持多客户端」——这是它最讨喜的地方，也是它最容易被滥用（反射攻击）的地方。</li>
+            <li><b class="font-semibold text-ink">没有连接状态，也就没有「连接断了」这个概念。</b>WiFi 断了又连上，你的 UDP socket 依然可用，不需要任何重连逻辑。这一点对「周期遥测」这类场景是巨大的简化。</li>
+            <li><b class="font-semibold text-ink">sendto 成功不代表送达。</b>没有 ACK、没有重传、没有顺序保证。返回 12 只说明这 12 个字节被放进了本机的发送缓冲。</li>
+            <li><b class="font-semibold text-ink">recvfrom 的两个「值-结果」参数必须初始化。</b><code class="icode">slen</code> 进去时是缓冲区大小，出来时是实际地址长度；忘了初始化就会拿到垃圾来源地址。</li>
+            <li><b class="font-semibold text-ink">UDP socket 也可以 connect。</b>那不建立连接，只是给这个 socket 设一个「默认对端」，之后可以用 <code class="icode">send()</code>/<code class="icode">recv()</code>。副作用是：只有 connect 过的 UDP socket，下次发送时才可能拿到 <code class="icode">ECONNREFUSED</code>（对方端口没人监听，ICMP 端口不可达被回报上来）。</li>
+          </ul>
+
+          <h4 class="mt-7 text-[15px] font-semibold">丢包、乱序、重复：三种异常与各自的应对</h4>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>异常</th>
+                  <th>为什么会发生</th>
+                  <th>应对方式</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>丢包</b></td>
+                  <td>路径拥塞、WiFi 重传次数用尽、接收方缓冲满（<code class="icode">recvfrom</code> 太慢），都会被<b>静默丢弃</b>，发送方永远不知道</td>
+                  <td>接受它：靠「下一条数据马上就到」自然补上。要可靠就加序号 + 重传 + 去重（等于自己实现 TCP），或者干脆改用 TCP</td>
+                </tr>
+                <tr>
+                  <td><b>乱序</b></td>
+                  <td>IP 层不保证顺序，多路径或重传会让后发的包先到</td>
+                  <td>每条数据带上<b>序号或时间戳</b>，收到旧数据就丢弃——比追求排序简单得多</td>
+                </tr>
+                <tr>
+                  <td><b>重复</b></td>
+                  <td>网络中的重传/环路会产生副本</td>
+                  <td>同样用序号去重；带时间戳的数据天然可以用「时间更旧的丢弃」处理</td>
+                </tr>
+                <tr>
+                  <td><b>分片丢失</b></td>
+                  <td>一个 UDP 数据报超过 MTU 会被 IP 分片，<b>任何一片丢了，整个数据报都作废</b></td>
+                  <td>控制单包大小：以太网 MTU 1500 − IP 头 20 − UDP 头 8 = <b>1472 字节</b>是不分片的理论上限；实测建议<b>不超过 1200 字节</b>，给 PPPoE、VPN 等额外封装留余量</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">广播与组播：UDP 独有的能力</div>
+            <p class="mt-2">UDP 能干的、TCP 干不了的事，主要是这两个：</p>
+            <p class="mt-2"><b>① 广播（设备发现）。</b>想让局域网里所有人听到，先打开 <code class="icode">SO_BROADCAST</code>，再往 <code class="icode">255.255.255.255</code>（受限广播）或子网广播地址（如 <code class="icode">192.168.1.255</code>）发。典型用法：设备上电后喊一声「我是 <code class="icode">McuStudy-01</code>，我的 IP 是 x.x.x.x，谁能管我？」——上位机收到就能登记。</p>
+            <p class="mt-2"><b>② 组播（一对多分发）。</b>加入 <code class="icode">224.0.0.0/4</code> 中的某个组播地址（<code class="icode">IP_ADD_MEMBERSHIP</code>），只有加入该组的主机收包。适合「一个控制器同时给多个执行器发指令」。</p>
+            <p class="mt-2">两者的共同代价：<b>本地网络里所有主机都会被打扰</b>。在别人家的 WiFi 里乱广播，会被当成异常设备。</p>
+          </div>
+
+          <p class="mt-4">那什么时候该选 UDP？一张表说清：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>场景</th>
+                  <th>选谁</th>
+                  <th>理由</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>周期遥测（温湿度、电流，每 5~60 秒一条）</td>
+                  <td><b>UDP 可以，HTTP/MQTT 也行</b></td>
+                  <td>丢一条无所谓，下一条马上补上；用 UDP 省掉连接维护，用 MQTT 省掉自己写服务端</td>
+                </tr>
+                <tr>
+                  <td>设备发现 / 局域网寻址</td>
+                  <td><b>UDP 广播</b></td>
+                  <td>TCP 做不到「喊一嗓子给所有人」</td>
+                </tr>
+                <tr>
+                  <td>低延迟控制指令（摇杆、云台角度）</td>
+                  <td><b>UDP</b></td>
+                  <td>旧数据没有价值，重传不如直接发新值；TCP 的队头阻塞会带来额外延迟</td>
+                </tr>
+                <tr>
+                  <td>固件 OTA、配置下发、开关柜控制</td>
+                  <td><b>TCP / HTTPS</b></td>
+                  <td>必须确认送达且完整，一个字节都不能错</td>
+                </tr>
+                <tr>
+                  <td>要跨公网、要穿透 NAT、要平台托管</td>
+                  <td><b>MQTT（基于 TCP）/ HTTP</b></td>
+                  <td>选型理由见<a class="text-brand-600 dark:text-brand-300" href="esp32-basic-network.html#sub-mqtt">网络基础篇的 MQTT 一节</a>：平台、鉴权、离线消息都现成</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-http" class="mt-7 text-base font-semibold">HTTP：esp_http_client 与 esp_http_server</h3>
+
+          <p class="mt-3">按<a class="text-brand-600 dark:text-brand-300" href="#sub-stack">分层图</a>，HTTP 是架在 socket 之上的<b>应用层协议</b>。ESP-IDF 把客户端和服务端都做好了：<code class="icode">esp_http_client</code> 负责「我去请求别人」，<code class="icode">esp_http_server</code> 负责「别人来请求我」。</p>
+
+          <p class="mt-3">「既然有了 socket，为什么还要用它？」——因为 HTTP 是文本协议，但细节一点不少：<code class="icode">Content-Length</code>、分块传输（chunked）、keep-alive 连接复用、URL 解析与百分号编码、重定向、TLS 握手与证书校验。<b class="font-semibold text-ink">这些你手写一遍至少要几百行，而且第一版一定有 bug。</b>除非你在实现私有二进制协议，否则都应该直接用 <code class="icode">esp_http_client</code>——它是本层里唯一值得依赖的「外挂」。</p>
+
+          <h4 class="mt-7 text-[15px] font-semibold">esp_http_client_config_t 的关键字段</h4>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>字段</th>
+                  <th>作用</th>
+                  <th>踩坑提醒</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">url</code></td>
+                  <td>完整 URL，含 <code class="icode">http://</code> 或 <code class="icode">https://</code>、主机、路径、查询串</td>
+                  <td>只支持 <code class="icode">http</code>/<code class="icode">https</code> 两种 scheme；中文或空格参数要自己百分号编码</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">method</code></td>
+                  <td>请求方法（<code class="icode">HTTP_METHOD_GET</code> / <code class="icode">POST</code> / <code class="icode">PUT</code> / <code class="icode">DELETE</code>）</td>
+                  <td>也可以在 <code class="icode">open()</code> 之前用 <code class="icode">esp_http_client_set_method()</code> 改</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">timeout_ms</code></td>
+                  <td><b>单次操作的超时</b>：连接、读、写每一步分别计时</td>
+                  <td><b>它不是「整个请求的总超时」。</b>一个 30 秒的大响应可能由很多次「小于 timeout_ms」的读操作拼成，总耗时远超它。<code class="icode">esp_http_client_set_timeout_ms()</code> 可以在运行期调整</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">event_handler</code> + <code class="icode">user_data</code></td>
+                  <td>事件回调，用来观察连接、响应头、数据到达、结束、出错</td>
+                  <td>回调是<b>同步</b>调用的，里面绝不能做耗时操作（详见下节）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">cert_pem</code> / <code class="icode">crt_bundle_attach</code></td>
+                  <td>HTTPS 的证书来源：自己带的 PEM 字符串，或 IDF 内置根证书包</td>
+                  <td>二者选一；都不给且用 https → 握手失败</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">keep_alive_enable</code></td>
+                  <td>开启 HTTP keep-alive，复用同一条 TCP 连接</td>
+                  <td>省掉每次上报的握手/挥手（见<a class="text-brand-600 dark:text-brand-300" href="#calc-1">例 1</a>）；服务端不支持时会自动退化</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">buffer_size</code> / <code class="icode">buffer_size_tx</code></td>
+                  <td>内部收/发缓冲大小</td>
+                  <td>直接决定能「一次读多少」，也直接占用堆内存（见<a class="text-brand-600 dark:text-brand-300" href="#mcu-read">响应体三种读法</a>）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">skip_cert_common_name_check</code></td>
+                  <td>跳过证书域名（CN/SAN）校验</td>
+                  <td><b>只用于调试</b>，上线就是给中间人攻击开门</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">事件回调里能做什么、不能做什么</div>
+            <p class="mt-2">常用事件与它们的含义：</p>
+            <p class="mt-2"><code class="icode">HTTP_EVENT_ON_CONNECTED</code> —— TCP（或 TLS）连上了；<br><code class="icode">HTTP_EVENT_ON_HEADER</code> —— 每收到一行响应头就回调一次（<b>响应体还没开始</b>）；<br><code class="icode">HTTP_EVENT_ON_DATA</code> —— 有响应体数据到达，可以在这里增量解析；<br><code class="icode">HTTP_EVENT_ON_FINISH</code> —— 响应读完了；<br><code class="icode">HTTP_EVENT_ON_DISCONNECTED</code> —— 连接关闭；<br><code class="icode">HTTP_EVENT_ERROR</code> —— 出错了（DNS 失败、连不上、超时、TLS 失败）。</p>
+            <p class="mt-2"><b>可以做</b>：累计字节数、记录状态、置位标志、把数据拷进自己的缓冲、打印日志。这些操作都是微秒级的。</p>
+            <p class="mt-2"><b>不能做</b>：再发起一次网络请求、长延时（<code class="icode">vTaskDelay</code>）、大量 <code class="icode">malloc</code>、等待信号量、写 flash。</p>
+            <p class="mt-2">原因是它<b>运行在 esp_http_client 的执行流里</b>——你在回调里卡住，整个 HTTP 客户端（包括超时计时）就跟着卡住，看起来像「莫名其妙地超时」，实际是你自己堵的。</p>
+          </div>
+
+          <h4 class="mt-7 text-[15px] font-semibold">响应体的三种读法：先在脑子里算一笔内存账</h4>
+
+          <p class="mt-3">同样一个 10 KB 的 JSON 响应，三种读法的峰值内存差出两个数量级。<b class="font-semibold text-ink">在 ESP32 上，「能不能读下来」往往不是网络问题，而是堆内存问题。</b>详细实现放在<a class="text-brand-600 dark:text-brand-300" href="#mcu-read">响应体的三种读法与内存账</a>一节，这里先给出结论对照：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>读法</th>
+                  <th>调用方式</th>
+                  <th>峰值额外内存（10 KB 响应）</th>
+                  <th>什么时候用</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>① 一次性 perform</b></td>
+                  <td><code class="icode">esp_http_client_perform()</code>，响应由内部缓冲 + <code class="icode">ON_DATA</code> 回调分片吐出</td>
+                  <td>≈ <code class="icode">buffer_size</code>（建议 1024~2048）+ 你自己的解析缓冲</td>
+                  <td>响应很小（几百字节的状态回执）、或者你只关心状态码</td>
+                </tr>
+                <tr>
+                  <td><b>② 分块主动读</b></td>
+                  <td><code class="icode">open()</code> → <code class="icode">fetch_headers()</code> → 循环 <code class="icode">read()</code></td>
+                  <td>≈ <code class="icode">buffer_size</code>（512~1024）+ 一行缓冲（256 B）</td>
+                  <td><b>推荐默认做法</b>：响应较大、要边收边解析、要配合 cJSON 固定缓冲</td>
+                </tr>
+                <tr>
+                  <td><b>③ read_response</b></td>
+                  <td><code class="icode">esp_http_client_read_response()</code>，一次把整个响应体读进它自己 malloc 的缓冲</td>
+                  <td>≈ <code class="icode">content_length</code>（10 KB）<b>外加</b>一份拷贝</td>
+                  <td>只在确定响应很小（&lt; 1 KB）时用；服务器一返回 1 MB 就直接失败</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">「读法 ③ 崩了」是怎么发生的</div>
+            <p class="mt-2"><code class="icode">esp_http_client_read_response()</code> 会按 <code class="icode">Content-Length</code> 去 <code class="icode">malloc</code> 一整块连续内存。<b>设备运行几小时后堆已经碎片化，即使总剩余堆还有 40 KB，也未必能找到一块 10 KB 的连续空间</b>——于是返回失败，或者你后续的解析直接越界。</p>
+            <p class="mt-2">表现极具迷惑性：<b>刚上电测试一切正常，跑一晚上就开始失败</b>；重启就好，几小时后又犯。凡是「重启能好、跑久了才坏」的内存类故障，都要先怀疑这种「一次分配一整块」的写法。</p>
+            <p class="mt-2">正确心态：<b>永远假设服务器可能返回任意大的响应</b>。先看 <code class="icode">esp_http_client_get_content_length()</code>，超过阈值就拒绝或者改分块读，绝不让一个远端决定的数字来决定你的内存分配。</p>
+          </div>
+
+          <p class="mt-4">还有几件与 HTTP 强相关的事，一次说清：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">状态码要分类处理，不要只判「成功/失败」。</b>2xx 成功；3xx 重定向（<code class="icode">disable_auto_redirect</code> 关闭时库会自动跟，一般不用管）；4xx 是你这边的错——400 参数写错、401/403 鉴权失败、404 路径错、<b>429 被限流</b>；5xx 是服务端的错——500/502/503 要退避后重试。<b>4xx 重试没有意义（要改代码），5xx 和 429 才值得退避重试</b>，这个区分能省掉大量无谓流量。</li>
+            <li><b class="font-semibold text-ink">HTTPS 的证书有两条路。</b>公网服务用 IDF 内置根证书包：配置里写 <code class="icode">.crt_bundle_attach = esp_crt_bundle_attach</code>（需要打开 <code class="icode">CONFIG_MBEDTLS_CERTIFICATE_BUNDLE</code>，证书包会占几十 KB flash）；自签/私有服务器用 <code class="icode">.cert_pem</code> 直接嵌入 PEM 字符串。注意两点：<b>① 证书包是「快照」，服务器换 CA 后旧固件会突然连不上</b>；<b>② TLS 校验依赖正确的系统时间</b>，没做 SNTP 对时的设备会把没过期的证书判成过期。</li>
+            <li><b class="font-semibold text-ink">TLS 握手本身很贵。</b>一次握手要几秒、几十 KB 堆，堆紧张时可能直接失败。所以 HTTPS 场景下 keep-alive 的价值比 HTTP 更大——省掉的不只是 TCP 三次握手，还有整个 TLS 握手。</li>
+            <li><b class="font-semibold text-ink">写服务端要注意并发上限。</b><code class="icode">esp_http_server</code> 的 <code class="icode">max_open_sockets</code>（默认 7）和 lwIP 的 <code class="icode">CONFIG_LWIP_MAX_SOCKETS</code>（默认 10）是两道闸门，<b>真正卡住你的是后一个</b>：每个浏览器连接都要占一个 fd，WiFi、上报客户端还要各占一个（见<a class="text-brand-600 dark:text-brand-300" href="#calc-6">例 6</a>）。另外每个连接的 handler 都跑在 <code class="icode">httpd</code> 的任务上下文里，<b>慢 handler 会拖住其他请求</b>——所以不要在 handler 里做长耗时操作；需要慢慢干的活，扔进队列交给工作任务。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">JSON 用 cJSON，但内存纪律要自己守</div>
+            <p class="mt-2">上报的报文几乎都是 JSON。ESP-IDF 自带 <code class="icode">cJSON</code>：构造用 <code class="icode">cJSON_CreateObject()</code> 系列，解析用 <code class="icode">cJSON_ParseWithLength()</code>。</p>
+            <p class="mt-2">记住三条：<b>① <code class="icode">cJSON_PrintUnformatted()</code> 返回的字符串是堆内存，用完必须 <code class="icode">free()</code>；② 整棵树用完必须 <code class="icode">cJSON_Delete()</code>；③ 取字段之前先判 NULL 和类型。</b>第 ③ 条是防御式解析的核心——对方发来的报文永远可能缺字段、类型不对。</p>
+            <p class="mt-2">完整的构造、释放与防御式解析写在<a class="text-brand-600 dark:text-brand-300" href="#mcu-json">cJSON：防御式解析与内存纪律</a>，程序三里会用到。</p>
+          </div>
+
+        </section>
+
+        <hr class="hr-soft my-10">
+
+<section id="sec-calc">
+          <h2 class="text-xl font-semibold">动手算一遍</h2>
+          <p class="mt-3">网络编程里所有的「大概」「差不多」最后都要变成一个具体数字：流量、次数、内存、时间。这一节把六个最常被问到的问题算到底，每个都给出完整算式和明确答案。</p>
+
+          <h3 id="calc-1" class="mt-7 text-base font-semibold">例 1：200 字节每 5 秒上报一次，一年多少流量？</h3>
+
+          <p class="mt-3">一台设备每 5 秒用 HTTP POST 上报一条 <b>200 字节</b>的 JSON。<b>① 一天上报多少条？② 一天的真实网络流量是多少？③ 一年呢？</b></p>
+
+          <p class="mt-3"><b>第一步：先算条数。</b></p>
+
+          <div class="code-block" data-lang="text" data-title="每天上报条数"><pre><code>一天 = 24 × 60 × 60 = 86,400 秒
+每 5 秒一条 → 86,400 ÷ 5 = 17,280 条/天
+
+一个月（按 30 天）: 17,280 × 30  = 518,400 条
+一年（按 365 天） : 17,280 × 365 = 6,307,200 条</code></pre></div>
+
+          <p class="mt-4"><b>第二步：算「看起来的流量」。</b>很多人算到这里就停了：</p>
+
+          <div class="code-block" data-lang="text" data-title="只算 JSON 载荷（错，但常被当成答案）"><pre><code>3,456,000 B ÷ 1,048,576 = 3.30 MiB/天
+3.30 MiB × 365 = 1,204 MiB ≈ 1.18 GiB/年（约 1.26 GB/年）</code></pre></div>
+
+          <p class="mt-4"><b>第三步：算真实流量——把「信封」也算进去。</b>一次 HTTP POST 在网络上真正跑过的字节数，远不止那 200 字节：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>组成部分</th>
+                  <th>大致字节数</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>TCP 三次握手</td>
+                  <td>≈ 120 B</td>
+                  <td>SYN + SYN-ACK + ACK，每个包 40 字节（IP 头 20 + TCP 头 20）</td>
+                </tr>
+                <tr>
+                  <td>HTTP 请求头</td>
+                  <td>≈ 190 B</td>
+                  <td>请求行 + <code class="icode">Host</code> + <code class="icode">Content-Type</code> + <code class="icode">Content-Length</code> + <code class="icode">User-Agent</code></td>
+                </tr>
+                <tr>
+                  <td>JSON 载荷</td>
+                  <td>200 B</td>
+                  <td>你真正想传的数据</td>
+                </tr>
+                <tr>
+                  <td>HTTP 响应</td>
+                  <td>≈ 150 B</td>
+                  <td>状态行 + 响应头 + 一个简短的 body（如 <code class="icode">{"ok":1}</code>）</td>
+                </tr>
+                <tr>
+                  <td>TCP 四次挥手</td>
+                  <td>≈ 120 B</td>
+                  <td>FIN + FIN-ACK + ACK 等</td>
+                </tr>
+                <tr>
+                  <td>各类 ACK 与重传余量</td>
+                  <td>≈ 70 B</td>
+                  <td>数据包的确认、偶发重传</td>
+                </tr>
+                <tr>
+                  <td><b>合计</b></td>
+                  <td><b>≈ 850 B</b></td>
+                  <td><b>载荷只占 200 ÷ 850 ≈ 23.5%</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block" data-lang="text" data-title="真实流量账"><pre><code>每次上报 ≈ 850 B（不是 200 B！）
+一天    = 17,280 × 850 = 14,688,000 B ÷ 1,048,576 ≈ 14.0 MiB/天
+一年    = 6,307,200 × 850 = 5,361,120,000 B ≈ 5.36 GB/年（约 4.99 GiB）
+
+结论：真实流量是「载荷流量」的 850 ÷ 200 = 4.25 倍。
+      你按 3.3 MB/天 买的流量包，实际会跑掉 14 MB/天。</code></pre></div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">答案</div>
+            <p class="mt-2"><b>① 一天 17,280 条，一年 6,307,200 条。</b></p>
+            <p class="mt-2"><b>② 真实流量约 14.0 MiB/天（≈ 14.7 MB/天）</b>，其中纯 JSON 载荷只有 3.30 MiB —— <b>约 76% 的流量花在协议头上</b>。</p>
+            <p class="mt-2"><b>③ 一年约 5.36 GB（≈ 4.99 GiB）。</b></p>
+            <p class="mt-2">如果开启 HTTP keep-alive 复用连接（假设服务器空闲超时 5 分钟），17,280 条可以压缩进约 <b>288 条</b>连接：<br>
+            省下 = (120 + 120) × (17,280 − 288) ≈ 240 × 16,992 ≈ <b>4.08 MB/天</b>，流量直接降约 28%。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这笔账要算两遍：设备侧和服务器侧</div>
+            <p class="mt-2"><b>设备侧算的是「流量费与电费」</b>：用 4G Cat.1 模组的话，14 MB/天 ≈ 420 MB/月；这决定了你选多大的流量套餐、要不要降频到 10 秒一条（流量减半）、要不要改成 MQTT 长连接（省掉反复握手）。</p>
+            <p class="mt-2"><b>服务器侧算的是「QPS、带宽与存储」</b>——同一批数据，换一个视角：</p>
+            <p class="mt-2"><b>QPS：</b>单台设备 17,280 ÷ 86,400 = <b>0.2 次/秒</b>，看起来微不足道。但 <b>1,000 台设备就是 200 QPS</b>；而且设备往往在同一时刻（整分、整秒）上报，<b>峰值瞬时 QPS 可能是平均值的好几倍</b>——这才是真正压垮服务器的东西，所以要给上报时间加 0~5 秒的随机抖动。</p>
+            <p class="mt-2"><b>入口带宽：</b>14.0 MiB/天 × 1,000 台 ≈ <b>14 GiB/天</b>，平均下来只要 1.4 Mbps，但峰值要按 10 倍留余量。</p>
+            <p class="mt-2"><b>存储：</b>200 B × 6,307,200 条 = <b>1.26 GB/台/年</b>；建索引、做副本、留历史，实际占地通常是原始数据的 2~3 倍，即 <b>3~4 GB/台/年</b>。1,000 台设备一年就是 3~4 TB。</p>
+            <p class="mt-2">记住这句话：<b>设备侧的账决定「发不发得起」，服务器侧的账决定「收不收得住」，两张表都要算。</b></p>
+          </div>
+
+          <h3 id="calc-2" class="mt-7 text-base font-semibold">例 2：socket 泄漏——第几次开始连不上？</h3>
+
+          <p class="mt-3">某设备的代码在 <code class="icode">connect()</code> 失败的分支里忘了 <code class="icode">close(fd)</code>，<b>每 5 分钟重连一次、每次泄漏 1 个 fd</b>。ESP-IDF 默认 <code class="icode">CONFIG_LWIP_MAX_SOCKETS = 10</code>。问：<b>① 第几次 <code class="icode">socket()</code> 会失败？② 多久之后设备就再也连不上了？③ 如果每次泄漏 2 个 fd 呢？</b></p>
+
+          <div class="code-block" data-lang="text" data-title="fd 预算与失败时刻"><pre><code>【第一步】算出真正可用的 fd 数量
+lwIP 的 socket 上限（CONFIG_LWIP_MAX_SOCKETS）      = 10
+WiFi 驱动 / lwIP 内部占用（DHCP、DNS、event 等）    ≈  2
+──────────────────────────────────────────────────
+你的应用真正能用的                                = 10 − 2 = 8
+
+【第二步】每次泄漏 1 个 fd
+第 1~8 次 socket() 成功（每次都占住一个，不释放）
+第 9 次 socket() 返回 −1，errno = ENFILE（No file descriptors available）
+→ 第 9 次开始失败
+
+【第三步】换算成时间（第 n 次重连发生在 (n−1) × 5 分钟）
+第 9 次重连发生在 (9 − 1) × 5 = 40 分钟
+→ 设备上线约 40 分钟后，网络功能集体失效
+
+【对照】如果一次泄漏 2 个 fd（socket() 失败后没关就重新 socket()）
+8 ÷ 2 = 4  → 第 5 次失败
+(5 − 1) × 5 分钟 = 20 分钟 → 二十分钟后就废了</code></pre></div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">答案</div>
+            <p class="mt-2"><b>① 第 9 次 <code class="icode">socket()</code> 失败</b>（错误码 <code class="icode">ENFILE</code>）；前 8 次都能成功。</p>
+            <p class="mt-2"><b>② 约 40 分钟后</b>设备彻底失去网络能力。</p>
+            <p class="mt-2"><b>③ 每次泄漏 2 个则 20 分钟后就废。</b></p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">为什么这类 bug 特别难查</div>
+            <p class="mt-2"><b>它的表现是「运行一段时间后连不上」，而不是崩溃。</b>程序活着、心跳灯还在闪、串口日志在刷——只有网络死了。而且：</p>
+            <p class="mt-2"><b>①「重启大法」永远有效</b>——重启后 fd 全部归还，又能正常 40 分钟。于是现场的人学会了一句口头禅「偶尔会卡，重启一下就好」，bug 就被掩盖了。</p>
+            <p class="mt-2"><b>② 测试阶段发现不了</b>——你在实验室里连上测试 10 次，每次几秒钟，根本到不了 40 分钟。</p>
+            <p class="mt-2"><b>③ 错误信息会误导你</b>——第 9 次之后所有失败都报「连接失败」或「socket 失败」，看起来像 WiFi 问题、像服务器问题，唯独不像自己的代码问题。</p>
+            <p class="mt-2"><b>怎么防：</b>把「每打开一个 socket 就必然会关闭」当作纪律；在每个 <code class="icode">socket()</code> / <code class="icode">close()</code> 处打印一条带计数的日志（自己维护计数器）；在 <code class="icode">connect()</code> 的<b>每一个</b>失败分支里都写上 <code class="icode">close(fd)</code>；把 <code class="icode">errno == ENFILE</code> 单独打一条醒目的日志——<b>看到 ENFILE 就基本等于「你泄漏了 fd」</b>。要观察底层状态，可以在 menuconfig 里打开 lwIP 统计（<code class="icode">LWIP_STATS</code>），或直接在自己的代码里统计打开次数。</p>
+          </div>
+
+          <h3 id="calc-3" class="mt-7 text-base font-semibold">例 3：指数退避重连，一小时最多试多少次？</h3>
+
+          <p class="mt-3">退避参数：<b>首次等待 100 ms，每次翻倍，上限 30 秒</b>（即 <code class="icode">t(n) = min(100ms × 2^(n−1), 30s)</code>）。假设连不上时每次尝试本身耗时很短（可以忽略）。问：<b>① 前几次的等待分别是多少？② 一小时内最多尝试多少次？③ 平均每次等多久？④ 如果写成「失败就立刻重连」，一小时会试多少次？</b></p>
+
+          <div class="code-block" data-lang="text" data-title="等待序列与合计"><pre><code>【第一步】列出每一次的等待时间
+第 1 次后等 0.1 s     第 6 次后等 3.2 s
+第 2 次后等 0.2 s     第 7 次后等 6.4 s
+第 3 次后等 0.4 s     第 8 次后等 12.8 s
+第 4 次后等 0.8 s     第 9 次后等 25.6 s
+第 5 次后等 1.6 s     第 10 次起永远等 30 s（触顶）
+
+【第二步】未触顶的 9 次等待之和（等比数列）
+S9 = 0.1 × (2^9 − 1) = 0.1 × 511 = 51.1 秒
+
+【第三步】一小时内还能再插进多少次 30 秒的等待
+剩余时间 = 3600 − 51.1 = 3548.9 秒
+3548.9 ÷ 30 = 118.29 → 还能插 118 次
+
+【第四步】总尝试次数
+尝试次数 = 9 次（退避期）+ 1 次（第 10 次尝试本身）+ 118 次 = 128 次
+（检验：第 128 次尝试发生在 51.1 + 30 × 118 = 3591.1 秒 ≈ 59.9 分钟，刚好卡在一小时内）</code></pre></div>
+
+          <div class="code-block" data-lang="text" data-title="平均等待与「死循环重连」的对照"><pre><code>【平均每次等多久】
+一小时总等待 ≈ 3600 − 最后一次尝试的时刻误差 ≈ 3550 秒
+平均 = 3550 ÷ 128 ≈ 27.7 秒
+——注意：绝大多数的等待都贴着 30 秒上限，
+  所以"平均"其实非常接近上限，早期那 51 秒可以忽略不计。
+
+【如果每次 connect 本身还要耗 3 秒（连不可达服务器）】
+一轮 = 30（等）+ 3（连）= 33 秒
+(3600 − 81) ÷ 33 ≈ 106 → 加上退避期的 10 次 ≈ 116 次/小时
+（比 128 次少，因为时间被 connect 超时吃掉了）
+
+【如果写成「失败就立刻重连，1 秒一次」】
+3600 ÷ 1 = 3600 次/小时
+—— 是退避方案的 28 倍，而且是毫无意义的 28 倍：
+    服务器不会因为你问得更勤就更快恢复。</code></pre></div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">答案</div>
+            <p class="mt-2"><b>① 等待序列：</b>0.1 / 0.2 / 0.4 / 0.8 / 1.6 / 3.2 / 6.4 / 12.8 / 25.6 / 30 / 30 …（秒），前 9 次合计 <b>51.1 秒</b>。</p>
+            <p class="mt-2"><b>② 一小时内最多尝试约 128 次</b>。</p>
+            <p class="mt-2"><b>③ 平均等待约 27.7 秒</b>（因为绝大部分时间都在 30 秒上限上）。</p>
+            <p class="mt-2"><b>④「失败就立刻重连」一小时会试 3600 次</b>，是退避方案的 28 倍。</p>
+            <p class="mt-2"><b>结论：对于一个「服务器宕机」这种你无能为力的故障，一小时 128 次探测已经足够密集（平均 28 秒一次），3600 次纯属浪费。</b>退避的真正价值不是「省流量」——128 次连接尝试本身也没多少流量——而是<b>给对端留出恢复的时间</b>，并且让你的日志保持可读。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">两个工程细节：抖动与上限</div>
+            <p class="mt-2"><b>① 一定要加抖动（jitter）。</b>如果 1,000 台设备都写死「100 ms 起、上限 30 秒、无抖动」，那么服务器重启后，它们会在同一毫秒集体涌上来——这叫<b>惊群（thundering herd）</b>，足以把刚恢复的服务器再打挂一次。做法很简单：<b>每次等待乘一个 0.8~1.2 的随机系数</b>，设备就自然散开了。</p>
+            <p class="mt-2"><b>② 上限不要太大，也不要太小。</b>上限 30 秒意味着「服务器恢复后最多 30 秒就重新连上」，对大多数应用够用。如果你要求「恢复后 5 秒内重连」，就把上限压到 5 秒，但代价是长时间断网时探测次数变多。<b>上限的取值 = 你能容忍的最长恢复延迟。</b></p>
+          </div>
+
+          <h3 id="calc-4" class="mt-7 text-base font-semibold">例 4：心跳参数怎么定？最长多久发现断线？</h3>
+
+          <p class="mt-3">方案：心跳周期 <b>T = 10 秒</b>，每次发出后等 <b>Tout = 3 秒</b>要 PONG，<b>连续 N = 3 次</b>失败就判定断线。问：<b>① 最坏多久发现断线？② 最好的情况呢？③ 平均呢？④ 和 TCP 默认 keepalive 比是几倍差距？</b></p>
+
+          <div class="code-block" data-lang="text" data-title="检测延迟推算（最坏情况）"><pre><code>设断线恰好发生在一次成功心跳之后（t = 0）：
+
+  t =  0 s   最后一次心跳成功（PONG 正常回来）
+  t =  0+    链路断了（服务器宕机 / 拔网线 / NAT 老化）
+  t = 10 s   第 1 次失败心跳发出 → 等 3 s 没等到 PONG
+  t = 13 s   失败计数 = 1
+  t = 20 s   第 2 次失败心跳发出 → 又等 3 s
+  t = 23 s   失败计数 = 2
+  t = 30 s   第 3 次失败心跳发出 → 再等 3 s
+  t = 33 s   失败计数 = 3 → 判定断线，触发重连
+
+最坏检测延迟 = N × T + Tout = 3 × 10 + 3 = 33 秒
+
+最好情况（断线发生在第 1 次心跳发出前的一瞬间）：
+  第 1 次心跳就失败 → 3 次失败仍需 2 × 10 + 3 = 23 秒？
+  不对——最好情况是「断线后马上就是心跳时刻」：
+  第 1 次失败在 3 s，第 2 次在 13 s，第 3 次在 23 s → 23 秒
+  若心跳循环里"先等 Tout 再等 T"，则是 3 + 10 + 3 + 10 + 3 = 29 秒
+
+平均检测延迟 ≈ （33 + 3）÷ 2 ≈ 18 秒
+（把断线时刻看作在心跳周期内均匀分布：0~10 s 之后首次心跳 + 2 个周期 + Tout）</code></pre></div>
+
+          <div class="code-block" data-lang="text" data-title="与 TCP 默认 keepalive 对比"><pre><code>TCP keepalive 的默认参数（Linux 与 lwIP 默认值一致）：
+  TCP_KEEPIDLE  = 7200 秒（空闲 2 小时后才发第一个探测包）
+  TCP_KEEPINTVL =   75 秒（探测间隔）
+  TCP_KEEPCNT   =    9 次（连续 9 次无应答才判死）
+
+最长发现时间 = 7200 + 75 × 9 = 7200 + 675 = 7875 秒
+             = 131 分 15 秒 ≈ 2 小时 11 分
+
+对比：
+  心跳方案     33 秒
+  keepalive  7875 秒
+  比值 = 7875 ÷ 33 ≈ 239 倍
+
+也就是说：等你靠 keepalive 发现断线时，
+心跳方案已经重连并正常上报了 2 个多小时的数据。</code></pre></div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">答案</div>
+            <p class="mt-2"><b>① 最坏 33 秒</b>（<code class="icode">N × T + Tout = 3 × 10 + 3</code>）。</p>
+            <p class="mt-2"><b>② 最好约 3 秒</b>（断线恰好发生在下一次心跳之前，第一次就失败——但要连失败 3 次，所以实际最好约 23~29 秒，取决于心跳循环的写法）。</p>
+            <p class="mt-2"><b>③ 平均约 18 秒。</b></p>
+            <p class="mt-2"><b>④ TCP 默认 keepalive 需要 7875 秒（2 小时 11 分），是心跳方案的约 239 倍。</b></p>
+            <p class="mt-2">补充一个常被忽略的事实：<b>keepalive 的空闲计时器会被你的业务数据不断重置</b>。如果设备本来就在每 5 秒上报一次，那个「空闲 7200 秒」永远攒不满，<b>探测包根本不会发出去</b>——这种配置下，靠 keepalive 发现断线的时间是「永远」。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">反过来选参数：先定「多久发现算合格」</div>
+            <p class="mt-2">工程上正确的顺序不是「先挑 T 再算延迟」，而是：</p>
+            <p class="mt-2"><b>第一步：定业务指标。</b>比如「数据断流超过 60 秒必须告警」。</p>
+            <p class="mt-2"><b>第二步：用公式卡住上限。</b><code class="icode">N × T + Tout ≤ 60</code>。</p>
+            <p class="mt-2"><b>第三步：选一组值并算流量。</b>取 <code class="icode">T = 15 s、N = 3、Tout = 5 s</code> → <code class="icode">3 × 15 + 5 = 50 秒 ≤ 60</code> ✓。流量 = 100 B × (86,400 ÷ 15) = 100 × 5,760 = <b>576 KB/天</b>。</p>
+            <p class="mt-2"><b>第四步：检查最坏情况的代价。</b>Tout 不能太大（会拖长检测时间），也不能太小（网络抖动会造成误判重连）。<b>经验值：Tout 取 T 的 1/3 ~ 1/2</b>，连续失败次数取 3 —— 这个组合对偶发的网络抖动有足够的容忍度，又不会太迟钝。</p>
+          </div>
+
+          <h3 id="calc-5" class="mt-7 text-base font-semibold">例 5：多客户端架构的 RAM 账</h3>
+
+          <p class="mt-3">服务端要同时服务 <b>10 个客户端</b>。已知：每个任务栈 4 KB、TCB 约 0.6 KB；lwIP 每个 TCP 连接的发送缓冲 <code class="icode">TCP_SND_BUF</code> 默认 5744 B、接收窗口 <code class="icode">TCP_WND</code> 默认 5744 B。问：<b>①「每连接一个任务」要多少 RAM？②「单任务 select」要多少？③ 省下来的够干别的吗？</b></p>
+
+          <div class="code-block" data-lang="text" data-title="单个连接的成本"><pre><code>任务栈（xTaskCreate 的 stack 参数）        4,000 B  ≈ 4.0 KB
+任务控制块 TCB（FreeRTOS 内部）            ≈  600 B  ≈ 0.6 KB
+TCP 发送缓冲 TCP_SND_BUF                    5,744 B  ≈ 5.6 KB
+TCP 接收窗口 TCP_WND                        5,744 B  ≈ 5.6 KB
+socket 结构体与 lwIP 连接控制块              ≈  100 B  ≈ 0.1 KB
+──────────────────────────────────────────────────────
+每个客户端 ≈ 16.2 KB
+（其中真正的"网络缓冲"是 5.6 + 5.6 = 11.2 KB，与架构无关；
+  两种架构的差别只在"任务栈 + TCB"这 4.6 KB）</code></pre></div>
+
+          <div class="code-block" data-lang="text" data-title="两种架构的总账（10 个客户端）"><pre><code>【架构 A：每连接一个任务】
+  10 × (4.0 + 0.6 + 11.2) = 10 × 15.8 = 158.0 KB
+  + 监听任务 1 个（accept 循环）          4.6 KB
+  ────────────────────────────────────────────
+  合计 ≈ 162.6 KB
+
+【架构 B：单任务 select 轮询】
+  1 个服务任务                            4.6 KB
+  10 × 11.2 KB（网络缓冲还是跑不掉）     112.0 KB
+  ────────────────────────────────────────────
+  合计 ≈ 116.6 KB
+
+省下 = 162.6 − 116.6 = 46.0 KB（约 28%）</code></pre></div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">答案</div>
+            <p class="mt-2"><b>① 每连接一任务：约 158 KB（含监听任务约 163 KB）。</b></p>
+            <p class="mt-2"><b>② 单任务 select：约 117 KB。</b></p>
+            <p class="mt-2"><b>③ 省下约 46 KB，相当于省掉 28%。</b></p>
+            <p class="mt-2"><b>但这个数字要放到上下文里看：</b>ESP32 在 WiFi 连接建立后，可用堆通常只剩 <b>250~300 KB</b> 左右（受 menuconfig 里 WiFi 缓冲、日志缓冲等影响，以实测 <code class="icode">esp_get_free_heap_size()</code> 为准）。<b>163 KB 已经吃掉了可用堆的一半以上</b>，而 TLS 握手要几十 KB、cJSON 解析要几 KB、你的应用缓冲还要一些——所以「10 个客户端 + 每连接一任务」在 ESP32 上是很紧的配置。</p>
+            <p class="mt-2"><b>结论：</b>连接数 ≤ 5 时，用「每连接一任务」换代码清晰度是划算的；<b>6~10 个连接时，select 版省下的 46 KB 往往就是「能不能同时开 TLS」的区别</b>；超过 10 个连接，光靠换架构已经不够了，必须去调 <code class="icode">CONFIG_LWIP_MAX_SOCKETS</code> 并重新算这笔账。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">还有两个可以拧的旋钮</div>
+            <p class="mt-2"><b>① 调小 <code class="icode">TCP_SND_BUF</code> / <code class="icode">TCP_WND</code>。</b>把每个连接的 11.2 KB 压到 4 KB（2 KB + 2 KB），10 个连接立刻省下 72 KB。代价是：发送缓冲小，一次能塞进网络的未确认数据变少，<b>吞吐量下降</b>——对「每 5 秒发 200 字节」的遥测完全无感，对「传固件」就是灾难。<b>按业务选，别照抄别人的配置。</b></p>
+            <p class="mt-2"><b>② 调小任务栈。</b>服务任务的栈给 4 KB 是保守值。如果你的 handler 里没有大数组、没有深层递归、不用 <code class="icode">printf</code> 格式化长字符串，2.5~3 KB 通常够用。<b>但栈溢出比内存不足危险得多</b>（表现为随机崩溃、复位原因写着 <code class="icode">StoreProhibited</code>），所以要用 <code class="icode">uxTaskGetStackHighWaterMark()</code> 实测后再往下调，别凭感觉减。</p>
+          </div>
+
+          <h3 id="calc-6" class="mt-7 text-base font-semibold">例 6：fd 预算——这块板子还能挂几个浏览器？</h3>
+
+          <p class="mt-3">一块 ESP32 同时干三件事：<b>① 跑 <code class="icode">esp_http_server</code> 提供配置页面；② 每 5 秒向云端 POST 一次数据；③ 开着 MQTT 连接接收指令。</b>默认 socket 上限 <code class="icode">CONFIG_LWIP_MAX_SOCKETS = 10</code>。问：<b>最多能同时打开几个浏览器页面？</b></p>
+
+          <div class="code-block" data-lang="text" data-title="fd 预算表"><pre><code>总额度（CONFIG_LWIP_MAX_SOCKETS）                 10
+────────────────────────────────────────────────
+监听 socket（httpd 的 listen fd）                 −1  →  9
+HTTP 上报客户端（POST 期间占用）                  −1  →  8
+MQTT 长连接（常驻，收发都要它）                   −1  →  7
+DNS / SNTP / 其他临时请求的预留                   −1  →  6
+lwIP 内部与保险余量                              −1  →  5
+────────────────────────────────────────────────
+真正能给浏览器的                                 ≈ 5 个
+
+（如果 httpd 的 max_open_sockets 还设成默认的 7，
+  那么第 6、7 个浏览器会连上却拿不到响应，
+  表现为"页面一直转圈"，比直接连不上更难查。）</code></pre></div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">答案</div>
+            <p class="mt-2"><b>最多约 5 个浏览器同时在线。</b>算式：<code class="icode">10 − 1（监听）− 1（上报）− 1（MQTT）− 1（预留）− 1（余量）= 5</code>。</p>
+            <p class="mt-2">而且这 5 个是<b>「同时」</b>的上限：浏览器打开页面后会保持连接（尤其是 keep-alive 和长轮询），关掉标签页也要等超时才释放。<b>现场最常见的现象是「人一多，配置页面就打不开」</b>——不是网络问题，是 fd 用完了。</p>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对策</th>
+                  <th>怎么做</th>
+                  <th>代价 / 注意</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>调大 socket 上限</td>
+                  <td>menuconfig → <code class="icode">CONFIG_LWIP_MAX_SOCKETS</code> 从 10 调到 16</td>
+                  <td><b>每个 TCP socket 会多占约 11 KB 网络缓冲</b>（见例 5），16 个连接可能要多花 60 KB 以上的堆——先看剩余堆够不够</td>
+                </tr>
+                <tr>
+                  <td>让 httpd 主动踢掉旧连接</td>
+                  <td><code class="icode">httpd_config_t</code> 里设 <code class="icode">lru_purge_enable = true</code>，满了就淘汰最久未活动的连接</td>
+                  <td>被踢的浏览器需要刷新页面；<b>但它把「全部卡死」变成了「偶发刷新」，可用性反而更高</b></td>
+                </tr>
+                <tr>
+                  <td>把 httpd 的连接数压下来</td>
+                  <td><code class="icode">max_open_sockets</code> 设成 3~4（小于你的真实预算）</td>
+                  <td>明确放弃「很多人同时看」这个需求，保住上报和 MQTT 不受影响</td>
+                </tr>
+                <tr>
+                  <td>上报串行化、复用连接</td>
+                  <td>一个上报任务复用一个 <code class="icode">esp_http_client</code> 句柄 + keep-alive，不要每次新建</td>
+                  <td>代码要处理「句柄失效后重建」；省下的是 fd 峰值而不是平均值</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">怎么确认「真的是 fd 用完了」</div>
+            <p class="mt-2"><b>看 errno。</b>日志里出现 <code class="icode">ENFILE</code>（No file descriptors available）或 <code class="icode">EMFILE</code>，基本可以定案。</p>
+            <p class="mt-2"><b>数连接。</b>较新版本的 <code class="icode">esp_http_server</code> 提供 <code class="icode">httpd_get_client_list()</code>，可以把当前挂着的客户端 fd 全打出来（具体 API 以你手上的 IDF 版本为准）；更土但永远有效的办法是在自己代码里维护一个「当前打开数」计数器。</p>
+            <p class="mt-2"><b>做对照实验。</b>把上报任务临时关掉，看浏览器是不是就能多开几个——如果多开了，说明是被上报抢走的 fd，而不是浏览器太多。</p>
+          </div>
+
+        </section>
+
+        <hr class="hr-soft my-10">
+
+<section id="sec-mcu">
+          <h2 class="text-xl font-semibold">在单片机上的样子</h2>
+          <p class="mt-3">前面讲的是道理，这一节全部是可编译的代码。<b class="font-semibold text-ink">三个完整程序分别是：TCP 客户端（退避 + 心跳）、TCP 服务端（select 版多客户端回显）、HTTP 上报 JSON（含 cJSON 与重试）。</b>每个程序都可以直接放进一个 ESP-IDF 工程的 <code class="icode">main/main.c</code> 里编译运行。</p>
+
+          <h3 id="mcu-init" class="mt-7 text-base font-semibold">初始化：三行调用各自做了什么</h3>
+
+          <p class="mt-3">在写任何 socket 代码之前，这三行必须先执行。<b class="font-semibold text-ink">顺序不能颠倒</b>，因为它们之间有依赖关系：</p>
+
+          <div class="code-block" data-lang="c" data-title="网络栈初始化（放在 app_main 开头，只做一次）"><pre><code>#include "esp_netif.h"
+#include "esp_event.h"
+#include "esp_wifi.h"
+
+ESP_ERROR_CHECK(esp_netif_init());                 /* ① */
+ESP_ERROR_CHECK(esp_event_loop_create_default());  /* ② */
+esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();  /* ③ */
+assert(sta_netif);                                 /* 失败必须立刻暴露 */
+
+/* 之后才是 wifi_init_config_t / esp_wifi_start() 那一套（见 WiFi 篇） */</code></pre></div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>调用</th>
+                  <th>它到底做了什么</th>
+                  <th>少了它会怎样</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">esp_netif_init()</code></td>
+                  <td>初始化 ESP-NETIF 这一层：创建内部的对象池和锁，把 lwIP 的网卡列表准备好</td>
+                  <td>后面创建 netif 会返回 NULL 或直接 abort；<code class="icode">assert</code> 会当场告诉你</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">esp_event_loop_create_default()</code></td>
+                  <td>创建默认事件循环——<b>WiFi 驱动的所有事件都往这里投递</b>（<code class="icode">WIFI_EVENT_STA_START</code>、<code class="icode">WIFI_EVENT_STA_DISCONNECTED</code>、<code class="icode">IP_EVENT_STA_GOT_IP</code> …）</td>
+                  <td>WiFi 能启动但事件没人收：你既不知道什么时候连上、也不知道什么时候掉线（<code class="icode">esp_wifi_start()</code> 甚至可能返回 <code class="icode">ESP_ERR_INVALID_STATE</code>）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">esp_netif_create_default_wifi_sta()</code></td>
+                  <td>创建一个 netif 对象并<b>绑定 WiFi STA 驱动</b>，同时把它挂进 lwIP：分配 IP、掩码、网关、DHCP 客户端，接通「协议栈 ↔ 网卡」的数据通道。返回的句柄还能用来查 IP（<code class="icode">esp_netif_get_ip_info()</code>）、做 SNTP 绑定等</td>
+                  <td>WiFi 连上了也没有 netif：<code class="icode">socket()</code> 能创建，但 <code class="icode">connect()</code> 永远失败（没有路由）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么要有「ESP-NETIF」这一层？</div>
+            <p class="mt-2">它存在的唯一理由，是<b>给你的应用一个不随底层变化的接口</b>：</p>
+            <p class="mt-2"><b>没有 ESP-NETIF 的世界：</b>你的代码要自己去问 WiFi 驱动「你连上了吗？」「你的 IP 是多少？」；换成以太网（ESP32 有内置 EMAC）时，这些调用全都要改；再加一个 4G 模组走 PPP，就又是一套。你的业务代码被「我用的是什么网卡」这件事绑死了。</p>
+            <p class="mt-2"><b>有 ESP-NETIF 的世界：</b>WiFi、以太网、PPP 都注册成「一个 netif」，统一向上提供 IP 信息、DHCP、DNS 和 lwIP 网卡；<b>你的 socket 代码一行都不用改，换硬件只是换一行初始化调用</b>（<code class="icode">create_default_wifi_sta</code> → <code class="icode">create_default_eth</code>）。</p>
+            <p class="mt-2">这与<a class="text-brand-600 dark:text-brand-300" href="#sub-stack">分层图</a>是同一件事的两面：<b>分层的价值，就是把「变化」关在下面，把「稳定」留给你。</b></p>
+          </div>
+
+          <p class="mt-4">顺带一个实用小函数——<b>任何时候都能查当前 IP</b>，排障时第一个要看的就是它：</p>
+
+          <div class="code-block" data-lang="c" data-title="查 IP：确认「我真的拿到地址了吗」"><pre><code>static void log_my_ip(const char *tag)
+{
+    esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (netif == NULL) { ESP_LOGW(tag, "还没有 netif"); return; }
+
+    esp_netif_ip_info_t ip;
+    if (esp_netif_get_ip_info(netif, &amp;ip) != ESP_OK) {
+        ESP_LOGW(tag, "取 IP 失败");
+        return;
+    }
+    /* 注意：ip.ip.addr 是 32 位小端整数，要打印必须转成点分十进制 */
+    ESP_LOGI(tag, "本机 IP=" IPSTR " 掩码=" IPSTR " 网关=" IPSTR,
+             IP2STR(&amp;ip.ip), IP2STR(&amp;ip.netmask), IP2STR(&amp;ip.gw));
+}</code></pre></div>
+
+          <h3 id="mcu-client" class="mt-7 text-base font-semibold">程序一：TCP 客户端（退避 + 心跳 + 状态机）</h3>
+
+          <p class="mt-3">这个程序的全部目标：<b>在「服务器不存在、网络时断时续、对端半开」这些情况下，依然安静地工作，并且永远不泄漏一个 fd。</b>它把前面所有概念串了起来——<code class="icode">getaddrinfo</code> 解析、超时设置、失败分支关闭 fd、指数退避加抖动、用业务上报兼作心跳、连续失败判死。</p>
+
+          <div class="code-block" data-lang="c" data-title="main/main.c —— TCP 客户端完整实现"><pre><code>#include &lt;string.h&gt;
+#include &lt;errno.h&gt;
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "esp_random.h"
+#include "esp_system.h"
+#include "lwip/sockets.h"
+#include "lwip/netdb.h"
+#include "lwip/inet.h"
+
+#define SERVER_HOST     "192.168.1.100"   /* 改成你 PC 的局域网 IP */
+#define SERVER_PORT     8888
+#define REPORT_PERIOD_S 5                 /* 上报周期，同时也是心跳周期 */
+#define REPLY_WAIT_S    3                 /* 等回应的超时（Tout） */
+#define HB_FAIL_MAX     3                 /* 连续几次没回应就判死（N） */
+#define BACKOFF_MIN_MS  100
+#define BACKOFF_MAX_MS  30000
+
+static const char *TAG = "tcp_cli";
+
+/* —— 连接状态机：每个状态负责一件事 —— */
+typedef enum {
+    ST_DISCONNECTED,      /* 还没开始 / 已断开 */
+    ST_CONNECTING,        /* 正在 connect */
+    ST_CONNECTED,         /* 会话进行中：上报 + 等回应 */
+    ST_RECONNECTING,      /* 退避等待中，等待后回到 CONNECTING */
+} conn_state_t;
+
+static const char *state_name(conn_state_t s)
+{
+    static const char *names[] = { "DISCONNECTED", "CONNECTING", "CONNECTED", "RECONNECTING" };
+    return names[s];
+}
+
+/* 传感器读取：换成你自己的驱动 */
+static float read_temp(void) { return 25.0f; }
+static float read_hum(void)  { return 60.0f; }
+
+/* —— 建立连接：DNS → socket → 超时 → connect，任何失败都不留 fd —— */
+static int tcp_connect(const char *host, uint16_t port, int timeout_ms)
+{
+    char port_str[8];
+    snprintf(port_str, sizeof(port_str), "%u", (unsigned)port);
+
+    struct addrinfo hints = {
+        .ai_family   = AF_INET,
+        .ai_socktype = SOCK_STREAM,
+    };
+    struct addrinfo *res = NULL;
+    int err = getaddrinfo(host, port_str, &amp;hints, &amp;res);
+    if (err != 0 || res == NULL) {
+        ESP_LOGW(TAG, "DNS 解析失败: %d", err);
+        return -1;
+    }
+
+    int fd = -1;
+    for (struct addrinfo *p = res; p != NULL; p = p-&gt;ai_next) {
+        fd = socket(p-&gt;ai_family, p-&gt;ai_socktype, p-&gt;ai_protocol);
+        if (fd &lt; 0) {
+            ESP_LOGW(TAG, "socket 失败: errno=%d (%s)", errno, strerror(errno));
+            continue;
+        }
+
+        /* 阻塞 + 超时：嵌入式里最省心的组合 */
+        struct timeval tv = {
+            .tv_sec  = timeout_ms / 1000,
+            .tv_usec = (timeout_ms % 1000) * 1000,
+        };
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &amp;tv, sizeof(tv));
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &amp;tv, sizeof(tv));
+
+        /* 遥测是「五秒一条小包」，关闭 Nagle 让包立刻出去 */
+        int yes = 1;
+        setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &amp;yes, sizeof(yes));
+
+        if (connect(fd, p-&gt;ai_addr, p-&gt;ai_addrlen) == 0) {
+            break;                                  /* 连上了 */
+        }
+        ESP_LOGW(TAG, "connect 失败: errno=%d (%s)", errno, strerror(errno));
+        close(fd);          /* ★★ 关键：失败分支必须关闭，否则 fd 泄漏 */
+        fd = -1;
+    }
+
+    freeaddrinfo(res);      /* ★ getaddrinfo 的结果必须释放 */
+    return fd;
+}
+
+/* —— 一次会话：上报 → 等回应；返回 0=对端关闭，-1=出错，-2=心跳超时 —— */
+static int run_session(int fd)
+{
+    char tx[160];
+    char rx[256];
+    int  hb_fail = 0;
+
+    for (;;) {
+        int len = snprintf(tx, sizeof(tx), "DATA %.1f %.1f\n",
+                           read_temp(), read_hum());
+        if (send(fd, tx, len, 0) &lt; 0) {
+            ESP_LOGW(TAG, "send 失败: errno=%d (%s)", errno, strerror(errno));
+            return -1;
+        }
+        ESP_LOGI(TAG, "已发送 %d 字节: %s", len, tx);
+
+        int n = recv(fd, rx, sizeof(rx) - 1, 0);
+        if (n &gt; 0) {
+            rx[n] = '\0';
+            ESP_LOGI(TAG, "收到 %d 字节回应: %s", n, rx);
+            hb_fail = 0;                     /* 收到回应 = 心跳成功 */
+        } else if (n == 0) {
+            ESP_LOGW(TAG, "对端正常关闭连接（recv 返回 0）");
+            return 0;
+        } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            hb_fail++;                       /* 超时：对方没回，可能就是它不见了 */
+            ESP_LOGW(TAG, "等回应超时 %d/%d", hb_fail, HB_FAIL_MAX);
+            if (hb_fail &gt;= HB_FAIL_MAX) {
+                ESP_LOGE(TAG, "连续 %d 个周期没有回应，判定断线", hb_fail);
+                return -2;
+            }
+        } else if (errno == ECONNRESET) {
+            ESP_LOGW(TAG, "连接被重置（对端进程消失）");
+            return -1;
+        } else {
+            ESP_LOGW(TAG, "recv 失败: errno=%d (%s)", errno, strerror(errno));
+            return -1;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(REPORT_PERIOD_S * 1000));
+    }
+}
+
+/* —— 退避等待：翻倍 + 上限 + 抖动 —— */
+static void backoff_wait(uint32_t *backoff_ms, conn_state_t *state)
+{
+    uint32_t jitter = 80 + (esp_random() % 41);          /* 80% ~ 120% */
+    uint32_t wait_ms = (uint32_t)((uint64_t)(*backoff_ms) * jitter / 100);
+
+    *state = ST_RECONNECTING;
+    ESP_LOGW(TAG, "状态 %s：%.1f 秒后重连（基准 %u ms × %u%%）",
+             state_name(*state), wait_ms / 1000.0f, (unsigned)*backoff_ms, (unsigned)jitter);
+    vTaskDelay(pdMS_TO_TICKS(wait_ms));
+
+    *backoff_ms = (*backoff_ms * 2 &gt; BACKOFF_MAX_MS)
+                ? BACKOFF_MAX_MS : (*backoff_ms * 2);
+}
+
+void app_main(void)
+{
+    /* 网络栈初始化（前提：WiFi 已连上，见 WiFi 篇） */
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    ESP_ERROR_CHECK(esp_netif_create_default_wifi_sta() ? ESP_OK : ESP_FAIL);
+    /* ... 这里是你已有的 WiFi 连接代码 ... */
+
+    conn_state_t state = ST_DISCONNECTED;
+    uint32_t backoff_ms = BACKOFF_MIN_MS;
+
+    for (;;) {
+        switch (state) {
+        case ST_DISCONNECTED:
+            ESP_LOGI(TAG, "状态 %s：开始第一次连接", state_name(state));
+            state = ST_CONNECTING;
+            break;
+
+        case ST_CONNECTING: {
+            ESP_LOGI(TAG, "状态 %s：连接 %s:%d，剩余堆=%u",
+                     state_name(state), SERVER_HOST, SERVER_PORT,
+                     (unsigned)esp_get_free_heap_size());
+            int fd = tcp_connect(SERVER_HOST, SERVER_PORT, 5000);
+            if (fd &lt; 0) {
+                backoff_wait(&amp;backoff_ms, &amp;state);
+                break;
+            }
+            backoff_ms = BACKOFF_MIN_MS;      /* ★ 连上就复位退避 */
+            state = ST_CONNECTED;
+            ESP_LOGI(TAG, "状态 %s：fd=%d，剩余堆=%u",
+                     state_name(state), fd, (unsigned)esp_get_free_heap_size());
+
+            int reason = run_session(fd);      /* 阻塞在这里，直到断线 */
+            close(fd);                        /* ★ 会话结束必须关 */
+            ESP_LOGW(TAG, "会话结束（reason=%d），剩余堆=%u",
+                     reason, (unsigned)esp_get_free_heap_size());
+            backoff_wait(&amp;backoff_ms, &amp;state);
+            break;
+        }
+
+        case ST_CONNECTED:
+        case ST_RECONNECTING:
+            /* run_session / backoff_wait 会负责跳到下一个状态 */
+            state = ST_CONNECTING;
+            break;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));   /* 让出 CPU，避免其他任务饿死 */
+    }
+}</code></pre></div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这段代码里每一个「多余」的动作都是必要的</div>
+            <p class="mt-2"><b>① <code class="icode">getaddrinfo</code> 的结果必须 <code class="icode">freeaddrinfo</code>。</b>它内部会 <code class="icode">malloc</code> 链表，漏掉就是每次重连泄漏一块堆——比 fd 泄漏更隐蔽。</p>
+            <p class="mt-2"><b>② 每个 <code class="icode">connect</code> 失败分支里都有 <code class="icode">close(fd)</code>。</b>这正是<a class="text-brand-600 dark:text-brand-300" href="#calc-2">例 2</a> 要防的事。</p>
+            <p class="mt-2"><b>③ 用 <code class="icode">errno</code> 区分失败原因。</b><code class="icode">EAGAIN</code>（超时）算「心跳失败一次」，<code class="icode">ECONNRESET</code>（对端进程没了）直接判死——两者混为一谈会让你误判现场情况。</p>
+            <p class="mt-2"><b>④ 退避在连接成功那一刻复位。</b>否则一次偶发失败会让设备在之后很长时间里都反应迟钝（这条纪律在<a class="text-brand-600 dark:text-brand-300" href="#sub-retry">重连状态机</a>里列过）。</p>
+            <p class="mt-2"><b>⑤ close 之后才退避，退避之后才重连。</b>顺序反了（先重连再 close）就是一次泄漏两个 fd 的那种写法。</p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这里的心跳是「免费」的</div>
+            <p class="mt-2">注意 <code class="icode">run_session</code> 里没有任何专门的 PING 包——<b>每次业务上报后等服务器回一行，就是心跳</b>。连续 3 个周期没等到回应就判定断线。</p>
+            <p class="mt-2">这是<a class="text-brand-600 dark:text-brand-300" href="#calc-4">例 4</a> 里推荐的方案 ①：<b>零额外流量，检测延迟 = N × T + Tout = 3 × 5 + 3 = 18 秒</b>（这里 T 取上报周期 5 秒，所以比例子里的 33 秒还快）。</p>
+            <p class="mt-2">代价是：<b>如果业务数据本身是「只发不收」的（服务端不回包），这个方案就失效了</b>——那时就得老老实实加一个 PING/PONG。选哪种，取决于你的服务端能不能配合。</p>
+          </div>
+
+<h3 id="mcu-server" class="mt-7 text-base font-semibold">程序二：TCP 服务端（select 版多客户端回显）</h3>
+
+          <p class="mt-3">这个服务端<b>只用一个任务</b>同时服务最多 5 个客户端，支持按 <code class="icode">\n</code> 分帧的命令解析。它示范了服务端编程里最容易写错的三件事：<b>accept 满了怎么办、半条消息怎么办、fd 怎么回收。</b></p>
+
+          <div class="code-block" data-lang="c" data-title="main/main.c —— select 版多客户端 TCP 服务端"><pre><code>#include &lt;string.h&gt;
+#include &lt;errno.h&gt;
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "esp_system.h"
+#include "lwip/sockets.h"
+
+#define LISTEN_PORT  8888
+#define MAX_CLI      5            /* 留出余量，别把 10 个 fd 全占了 */
+#define RX_MAX       256          /* 单客户端接收缓冲 */
+
+static const char *TAG = "tcp_srv";
+
+typedef struct {
+    int    fd;                    /* -1 表示空槽 */
+    char   rx[RX_MAX];
+    size_t len;                   /* 已缓存但还没成行的字节数 */
+} client_t;
+
+static void client_close(client_t *c)
+{
+    if (c-&gt;fd &gt;= 0) {
+        close(c-&gt;fd);             /* ★ 每一处清理都必须走这里，绝不能只把 fd 置 -1 */
+        c-&gt;fd = -1;
+    }
+    c-&gt;len = 0;
+}
+
+/* 处理一条「以 \n 结尾」的完整命令 */
+static void handle_line(client_t *c, const char *line)
+{
+    ESP_LOGI(TAG, "fd=%d 收到命令: %s", c-&gt;fd, line);
+
+    if (strcmp(line, "PING") == 0) {
+        send(c-&gt;fd, "PONG\n", 5, 0);
+    } else if (strcmp(line, "STAT") == 0) {
+        char out[96];
+        int n = snprintf(out, sizeof(out), "{\"heap\":%u}\n",
+                         (unsigned)esp_get_free_heap_size());
+        send(c-&gt;fd, out, n, 0);
+    } else {
+        char out[RX_MAX + 8];
+        int n = snprintf(out, sizeof(out), "ECHO:%s\n", line);
+        send(c-&gt;fd, out, n, 0);
+    }
+}
+
+/* 把新收到的字节拼进缓冲，按 \n 切出完整命令行；残片搬回开头等下一段 */
+static void feed(client_t *c, const char *data, size_t n)
+{
+    if (c-&gt;len + n &gt; RX_MAX) {
+        ESP_LOGW(TAG, "fd=%d 单行超过 %d 字节，断开", c-&gt;fd, RX_MAX);
+        client_close(c);
+        return;
+    }
+    memcpy(c-&gt;rx + c-&gt;len, data, n);
+    c-&gt;len += n;
+
+    char  *start = c-&gt;rx;
+    size_t avail = c-&gt;len;
+    for (;;) {
+        char *nl = memchr(start, '\n', avail);
+        if (nl == NULL) break;
+        *nl = '\0';                        /* 切成 C 字符串 */
+        handle_line(c, start);
+        if (c-&gt;fd &lt; 0) return;             /* handle_line 里可能已断开 */
+        avail -= (nl + 1 - start);
+        start  = nl + 1;
+    }
+    size_t rest = c-&gt;len - (start - c-&gt;rx);
+    memmove(c-&gt;rx, start, rest);           /* 残片搬到开头 */
+    c-&gt;len = rest;
+}
+
+static void server_task(void *arg)
+{
+    int listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (listen_fd &lt; 0) {
+        ESP_LOGE(TAG, "socket 失败: errno=%d", errno);
+        vTaskDelete(NULL);
+        return;
+    }
+
+    int yes = 1;
+    setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &amp;yes, sizeof(yes));  /* bind 之前！ */
+
+    struct sockaddr_in addr = {
+        .sin_family      = AF_INET,
+        .sin_addr.s_addr = htonl(INADDR_ANY),   /* 监听本机所有网卡 */
+        .sin_port        = htons(LISTEN_PORT),
+    };
+    if (bind(listen_fd, (struct sockaddr *)&amp;addr, sizeof(addr)) != 0) {
+        ESP_LOGE(TAG, "bind 失败: errno=%d (%s)", errno, strerror(errno));
+        close(listen_fd);
+        vTaskDelete(NULL);
+        return;
+    }
+    if (listen(listen_fd, 4) != 0) {            /* backlog=4 */
+        ESP_LOGE(TAG, "listen 失败: errno=%d", errno);
+        close(listen_fd);
+        vTaskDelete(NULL);
+        return;
+    }
+    ESP_LOGI(TAG, "服务端已启动，端口 %d，剩余堆=%u",
+             LISTEN_PORT, (unsigned)esp_get_free_heap_size());
+
+    client_t cli[MAX_CLI];
+    for (int i = 0; i &lt; MAX_CLI; i++) { cli[i].fd = -1; cli[i].len = 0; }
+
+    for (;;) {
+        fd_set rfds;
+        FD_ZERO(&amp;rfds);
+        FD_SET(listen_fd, &amp;rfds);
+        int maxfd = listen_fd;
+        for (int i = 0; i &lt; MAX_CLI; i++) {
+            if (cli[i].fd &gt;= 0) {
+                FD_SET(cli[i].fd, &amp;rfds);
+                if (cli[i].fd &gt; maxfd) maxfd = cli[i].fd;
+            }
+        }
+
+        struct timeval tv = { .tv_sec = 1, .tv_usec = 0 };   /* 每秒醒一次 */
+        int ready = select(maxfd + 1, &amp;rfds, NULL, NULL, &amp;tv);
+        if (ready &lt; 0) {
+            if (errno == EINTR) continue;      /* 被信号打断，重来即可 */
+            ESP_LOGE(TAG, "select 失败: errno=%d", errno);
+            break;
+        }
+        if (ready == 0) continue;              /* 超时：可以做点周期性的事 */
+
+        /* —— 有新连接 —— */
+        if (FD_ISSET(listen_fd, &amp;rfds)) {
+            struct sockaddr_in peer;
+            socklen_t plen = sizeof(peer);
+            int fd = accept(listen_fd, (struct sockaddr *)&amp;peer, &amp;plen);
+            if (fd &gt;= 0) {
+                int slot = -1;
+                for (int i = 0; i &lt; MAX_CLI; i++) {
+                    if (cli[i].fd &lt; 0) { slot = i; break; }
+                }
+                if (slot &lt; 0) {
+                    ESP_LOGW(TAG, "客户端已满 %d 个，拒绝新连接", MAX_CLI);
+                    send(fd, "BUSY\n", 5, 0);   /* 友好一点：告诉对方原因再关 */
+                    close(fd);                  /* ★ accept 返回的 fd 也要关 */
+                } else {
+                    struct timeval to = { .tv_sec = 30, .tv_usec = 0 };
+                    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &amp;to, sizeof(to));
+                    cli[slot].fd  = fd;
+                    cli[slot].len = 0;
+                    char ip[16];
+                    inet_ntoa_r(peer.sin_addr, ip, sizeof(ip));
+                    ESP_LOGI(TAG, "新客户端 %s:%u → slot %d (fd=%d)",
+                             ip, ntohs(peer.sin_port), slot, fd);
+                }
+            } else {
+                ESP_LOGW(TAG, "accept 失败: errno=%d", errno);
+            }
+        }
+
+        /* —— 已有客户端有数据 —— */
+        for (int i = 0; i &lt; MAX_CLI; i++) {
+            if (cli[i].fd &lt; 0 || !FD_ISSET(cli[i].fd, &amp;rfds)) continue;
+
+            char buf[128];
+            int n = recv(cli[i].fd, buf, sizeof(buf), 0);
+            if (n &gt; 0) {
+                feed(&amp;cli[i], buf, (size_t)n);
+            } else if (n == 0) {
+                ESP_LOGI(TAG, "fd=%d 对端关闭", cli[i].fd);
+                client_close(&amp;cli[i]);
+            } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                continue;                            /* 30 秒没数据，不算错 */
+            } else {
+                ESP_LOGW(TAG, "fd=%d recv 失败: errno=%d (%s)",
+                         cli[i].fd, errno, strerror(errno));
+                client_close(&amp;cli[i]);
+            }
+        }
+    }
+
+    for (int i = 0; i &lt; MAX_CLI; i++) client_close(&amp;cli[i]);
+    close(listen_fd);
+    vTaskDelete(NULL);
+}</code></pre></div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">服务端三个「一定会踩」的点</div>
+            <p class="mt-2"><b>① <code class="icode">accept()</code> 返回的 fd 也必须 <code class="icode">close()</code>。</b><code class="icode">listen_fd</code> 只是「门」，<code class="icode">accept</code> 给你的是「房间里的一条专线」。只关 <code class="icode">listen_fd</code> 或者只把结构体里的 fd 置 −1，都是泄漏——客户端连一次漏一个，连到第 9 次就不再有新连接能进来了（<a class="text-brand-600 dark:text-brand-300" href="#calc-2">例 2</a>）。<b>所以清理逻辑必须收进一个 <code class="icode">client_close()</code>，任何地方都只调它。</b></p>
+            <p class="mt-2"><b>② 接收缓冲必须处理「半条消息」。</b><code class="icode">feed()</code> 里那三行才是精髓：收到 <code class="icode">\n</code> 就切一条走、剩下的残片 <code class="icode">memmove</code> 回开头。<b>如果你偷懒写成「recv 到什么就当一条命令处理」，那么当客户端一次发两条、或一条被拆成两半时，你的服务端就会答非所问。</b></p>
+            <p class="mt-2"><b>③ 缓冲要有上限。</b><code class="icode">c-&gt;len + n &gt; RX_MAX</code> 这一条判断挡住了两种灾难：一次畸形攻击（发 100 KB 不带换行）、以及一个 bug 客户端。此时正确做法是<b>断开这个连接</b>，而不是继续攒。</p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">select 版的关键细节</div>
+            <p class="mt-2"><b>① <code class="icode">FD_SET</code> 的集合每次循环都要重建。</b><code class="icode">select()</code> 会<b>修改</b>你传进去的 <code class="icode">fd_set</code>（只留下就绪的那些位），所以不能只在循环外 <code class="icode">FD_ZERO</code> 一次——这是 select 的经典陷阱。</p>
+            <p class="mt-2"><b>② <code class="icode">maxfd</code> 必须是最大 fd + 1。</b>传错了不会报错，但会漏掉就绪的连接，表现为「某个客户端的数据永远收不到」。</p>
+            <p class="mt-2"><b>③ 客户端「满了」要礼貌拒绝。</b>先 <code class="icode">send(fd, "BUSY\n", 5, 0)</code> 再 <code class="icode">close(fd)</code>，比直接关掉体验好得多——对端至少知道不是网络问题。</p>
+            <p class="mt-2"><b>④ 阻塞 socket + <code class="icode">select</code> 超时是兼容的。</b>本例没有把 fd 设成非阻塞：<code class="icode">select</code> 已经告诉我们「可读」，此时再 <code class="icode">recv</code> 不会长时间阻塞；而 <code class="icode">SO_RCVTIMEO</code> 是第二道保险，防止「可读但读不满」的边角情况。</p>
+          </div>
+
+          <h3 id="mcu-http" class="mt-7 text-base font-semibold">程序三：HTTP 上报 JSON（cJSON + 状态码 + 退避重试）</h3>
+
+          <p class="mt-3">第三个程序把 <code class="icode">esp_http_client</code>、cJSON 和重试策略拼成一个完整的「上报任务」——<b>这是实际项目里出现频率最高的一段代码</b>。</p>
+
+          <div class="code-block" data-lang="c" data-title="main/main.c —— HTTP POST 上报 JSON"><pre><code>#include &lt;string.h&gt;
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "esp_random.h"
+#include "esp_http_client.h"
+#include "cJSON.h"
+
+/* HTTPS 时必须打开（同时 menuconfig 里启用证书包）：
+ *   #include "esp_crt_bundle.h"
+ *   并在 config 里写 .crt_bundle_attach = esp_crt_bundle_attach,
+ */
+#define API_URL       "http://192.168.1.100:5000/api/v1/report"
+#define POST_PERIOD_S 5
+#define BACKOFF_MIN_MS 1000
+#define BACKOFF_MAX_MS 60000
+#define RESP_MAX      512          /* 响应体上限：超过就放弃，绝不为远端买单 */
+
+static const char *TAG = "http_up";
+static uint32_t g_seq = 0;
+
+static float read_temp(void) { return 25.0f; }
+static float read_hum(void)  { return 60.0f; }
+
+/* —— 一次 POST。返回 0=2xx 成功，1=有响应但状态码不对，-1=传输层失败 —— */
+static int http_post_json(const char *url, const char *body, int *out_status)
+{
+    esp_http_client_config_t cfg = {
+        .url               = url,
+        .method            = HTTP_METHOD_POST,
+        .timeout_ms        = 5000,          /* 单次操作超时，不是总超时 */
+        .keep_alive_enable = true,          /* 复用 TCP 连接，省握手 */
+        .buffer_size       = 1024,
+        .buffer_size_tx    = 512,
+        /* .crt_bundle_attach = esp_crt_bundle_attach, */
+    };
+
+    esp_http_client_handle_t cli = esp_http_client_init(&amp;cfg);
+    if (cli == NULL) {
+        ESP_LOGE(TAG, "esp_http_client_init 失败（堆不够？剩余 %u）",
+                 (unsigned)esp_get_free_heap_size());
+        if (out_status) *out_status = 0;
+        return -1;
+    }
+
+    esp_http_client_set_header(cli, "Content-Type", "application/json");
+    esp_http_client_set_post_field(cli, body, strlen(body));
+
+    esp_err_t err = esp_http_client_perform(cli);
+    int status    = esp_http_client_get_status_code(cli);
+    int64_t clen  = esp_http_client_get_content_length(cli);   /* 有些资料写作 get_response_content_length */
+    if (out_status) *out_status = status;
+
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "请求失败: %s（errno 类错误看串口）", esp_err_to_name(err));
+        esp_http_client_cleanup(cli);       /* ★ 失败也要 cleanup，否则 fd + 内存双泄漏 */
+        return -1;
+    }
+
+    ESP_LOGI(TAG, "HTTP %d，响应体 %lld 字节", status, clen);
+    if (clen &gt; RESP_MAX) {
+        ESP_LOGW(TAG, "响应过大，直接放弃解析");
+    }
+    esp_http_client_cleanup(cli);           /* ★★ 成功路径同样必须 cleanup */
+    return (status &gt;= 200 &amp;&amp; status &lt; 300) ? 0 : 1;
+}
+
+/* —— 构造 JSON 并上报一次。返回同上 —— */
+static int report_once(int *out_status)
+{
+    cJSON *root = cJSON_CreateObject();
+    if (root == NULL) {
+        ESP_LOGE(TAG, "cJSON_CreateObject 失败");
+        return -1;
+    }
+    cJSON_AddStringToObject(root, "dev", "esp32-01");
+    cJSON_AddNumberToObject(root, "t",   read_temp());
+    cJSON_AddNumberToObject(root, "h",   read_hum());
+    cJSON_AddNumberToObject(root, "seq", ++g_seq);
+
+    char *body = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);                     /* ★ 树用完立刻删，与打印无关 */
+    if (body == NULL) {
+        ESP_LOGE(TAG, "cJSON_PrintUnformatted 失败");
+        return -1;
+    }
+
+    ESP_LOGI(TAG, "上报报文(%u 字节): %s", (unsigned)strlen(body), body);
+    int rc = http_post_json(API_URL, body, out_status);
+
+    free(body);                             /* ★★ PrintUnformatted 的返回值必须 free */
+    return rc;
+}
+
+void report_task(void *arg)
+{
+    uint32_t backoff_ms = BACKOFF_MIN_MS;
+
+    for (;;) {
+        int status = 0;
+        int rc = report_once(&amp;status);
+
+        if (rc == 0) {
+            backoff_ms = BACKOFF_MIN_MS;             /* 成功复位退避 */
+            vTaskDelay(pdMS_TO_TICKS(POST_PERIOD_S * 1000));
+            continue;
+        }
+
+        if (rc == 1) {
+            /* 有响应，只是状态码不对 */
+            if (status == 429 || status &gt;= 500) {
+                ESP_LOGW(TAG, "HTTP %d（服务端/限流），退避后重试", status);
+            } else {
+                ESP_LOGE(TAG, "HTTP %d（客户端错误，重试无意义，检查 URL/参数/鉴权）", status);
+                vTaskDelay(pdMS_TO_TICKS(POST_PERIOD_S * 1000));
+                continue;
+            }
+        } else {
+            ESP_LOGW(TAG, "传输层失败（DNS/连接/超时），退避后重试");
+        }
+
+        uint32_t jitter   = 80 + (esp_random() % 41);        /* 80%~120% */
+        uint32_t wait_ms  = (uint32_t)((uint64_t)backoff_ms * jitter / 100);
+        ESP_LOGW(TAG, "%.1f 秒后重试（基准 %u ms，剩余堆 %u）",
+                 wait_ms / 1000.0f, (unsigned)backoff_ms,
+                 (unsigned)esp_get_free_heap_size());
+        vTaskDelay(pdMS_TO_TICKS(wait_ms));
+
+        backoff_ms = (backoff_ms * 2 &gt; BACKOFF_MAX_MS) ? BACKOFF_MAX_MS : backoff_ms * 2;
+    }
+}</code></pre></div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>状态码</th>
+                  <th>含义</th>
+                  <th>正确反应</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>200 / 201 / 204</td>
+                  <td>成功（204 表示「收到了但没内容要回」）</td>
+                  <td>复位退避，正常等下一个周期</td>
+                </tr>
+                <tr>
+                  <td>301 / 302</td>
+                  <td>重定向</td>
+                  <td>库默认自动跟随；如果关掉了自动重定向，就把 URL 改对</td>
+                </tr>
+                <tr>
+                  <td>400 / 404 / 422</td>
+                  <td>请求参数或路径不对</td>
+                  <td><b>不要重试</b>——重试一万次还是同样的错。打日志、报警、改代码</td>
+                </tr>
+                <tr>
+                  <td>401 / 403</td>
+                  <td>鉴权失败或权限不足</td>
+                  <td><b>不要重试</b>。检查 token 是否过期、时间是否正确（很多鉴权带时间戳）</td>
+                </tr>
+                <tr>
+                  <td><b>429</b></td>
+                  <td>被限流</td>
+                  <td><b>要退避重试</b>，而且退避要更长；有条件就读 <code class="icode">Retry-After</code> 响应头按它说的等</td>
+                </tr>
+                <tr>
+                  <td>500 / 502 / 503</td>
+                  <td>服务端出错或正在重启</td>
+                  <td><b>要退避重试</b>。这是退避机制最主要服务的场景</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">三处内存释放，漏一处就会「跑一晚就坏」</div>
+            <p class="mt-2"><b>① <code class="icode">cJSON_Delete(root)</code></b>——整棵 JSON 树。<b>注意：<code class="icode">cJSON_AddItemToObject</code> 之后，子对象的所有权就交给父对象了，你不能再单独删子对象</b>（删两次 = 堆被破坏 = 随机崩溃，而且崩的位置离现场很远）。</p>
+            <p class="mt-2"><b>② <code class="icode">free(body)</code></b>——<code class="icode">cJSON_PrintUnformatted()</code> 返回的是堆上的字符串。<b>它和 <code class="icode">cJSON_Delete</code> 是两笔独立的账</b>，很多人只删了树、忘了字符串，每次上报泄漏几十字节，跑一晚上就明显了。</p>
+            <p class="mt-2"><b>③ <code class="icode">esp_http_client_cleanup(cli)</code></b>——HTTP 客户端句柄，内部包含 socket、缓冲和 TLS 上下文。<b>失败路径和成功路径都要调</b>：只在成功时 cleanup，是「一发失败就永久少一个 fd」的经典写法。</p>
+            <p class="mt-2">判断是否中了这三招，看一个现象就够了：<b>剩余堆随上报次数阶梯式下降、fd 数量只增不减。</b>所以日志里要长期带着 <code class="icode">esp_get_free_heap_size()</code>（本例每一处都打了）。</p>
+          </div>
+
+          <h3 id="mcu-read" class="mt-7 text-base font-semibold">响应体的三种读法与内存账</h3>
+
+          <p class="mt-3">上报只需要「状态码」，但很多时候你要读回内容：查配置、拉指令、取列表。<b>读法的选择直接决定设备的稳定性</b>，因为响应体的大小是<b>远端决定</b>的，而内存是你的。三种写法逐个看。</p>
+
+          <h4 class="mt-7 text-[15px] font-semibold">读法 ①：perform + 事件回调增量攒（适合小响应）</h4>
+
+          <div class="code-block" data-lang="c" data-title="回调里把响应体攒进固定缓冲，永不 malloc"><pre><code>typedef struct {
+    char   buf[512];        /* 固定缓冲：栈上或静态，不占堆 */
+    int    len;
+    bool   overflow;        /* 装不下时置位，而不是越界写 */
+} rx_ctx_t;
+
+static esp_err_t http_event_cb(esp_http_client_event_t *e)
+{
+    rx_ctx_t *ctx = (rx_ctx_t *)e-&gt;user_data;
+
+    switch (e-&gt;event_id) {
+    case HTTP_EVENT_ON_CONNECTED:
+        ESP_LOGI(TAG, "TCP/TLS 已连接");
+        break;
+    case HTTP_EVENT_ON_HEADER:
+        ESP_LOGD(TAG, "响应头 %s: %s", e-&gt;header_key, e-&gt;header_value);
+        break;
+    case HTTP_EVENT_ON_DATA: {
+        int room = (int)sizeof(ctx-&gt;buf) - 1 - ctx-&gt;len;
+        if (e-&gt;data_len &gt; room) {
+            ctx-&gt;overflow = true;              /* 明确记录「没装下」 */
+            if (room &lt;= 0) break;
+        }
+        int copy = (e-&gt;data_len &gt; room) ? room : e-&gt;data_len;
+        memcpy(ctx-&gt;buf + ctx-&gt;len, e-&gt;data, copy);
+        ctx-&gt;len += copy;
+        break;
+    }
+    case HTTP_EVENT_ON_FINISH:
+        ctx-&gt;buf[ctx-&gt;len] = '\0';
+        ESP_LOGI(TAG, "响应结束，共 %d 字节%s", ctx-&gt;len, ctx-&gt;overflow ? "（被截断！）" : "");
+        break;
+    case HTTP_EVENT_ERROR:
+        ESP_LOGE(TAG, "HTTP 出错");
+        break;
+    default:
+        break;
+    }
+    return ESP_OK;      /* 返回非 ESP_OK 会中断请求 */
+}
+
+static void http_get_with_cb(const char *url)
+{
+    rx_ctx_t ctx = { .len = 0, .overflow = false };
+    esp_http_client_config_t cfg = {
+        .url           = url,
+        .method        = HTTP_METHOD_GET,
+        .timeout_ms    = 5000,
+        .buffer_size   = 512,
+        .event_handler = http_event_cb,
+        .user_data     = &amp;ctx,          /* ★ 把上下文传进去，别用全局变量 */
+    };
+    esp_http_client_handle_t c = esp_http_client_init(&amp;cfg);
+    if (c == NULL) return;
+
+    esp_err_t err = esp_http_client_perform(c);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "状态码 %d，收到 %d 字节", esp_http_client_get_status_code(c), ctx.len);
+        /* 这里解析 ctx.buf：它一定是以 \0 结尾的合法字符串 */
+    }
+    esp_http_client_cleanup(c);
+}</code></pre></div>
+
+          <h4 class="mt-7 text-[15px] font-semibold">读法 ②：open + fetch_headers + read 循环（推荐默认）</h4>
+
+          <div class="code-block" data-lang="c" data-title="先看长度再决定读不读——把决定权拿回自己手里"><pre><code>static void http_get_stream(const char *url)
+{
+    esp_http_client_config_t cfg = {
+        .url        = url,
+        .method     = HTTP_METHOD_GET,
+        .timeout_ms = 5000,
+        .buffer_size = 512,          /* 每次最多读这么多，堆占用固定 */
+    };
+    esp_http_client_handle_t c = esp_http_client_init(&amp;cfg);
+    if (c == NULL) return;
+
+    if (esp_http_client_open(c, 0) != ESP_OK) {     /* 0 = 没有请求体 */
+        ESP_LOGW(TAG, "open 失败");
+        esp_http_client_cleanup(c);
+        return;
+    }
+
+    int64_t total  = esp_http_client_fetch_headers(c);   /* 解析响应头，返回 Content-Length */
+    int     status = esp_http_client_get_status_code(c);
+    ESP_LOGI(TAG, "status=%d content_length=%lld", status, total);
+
+    if (total &gt; 4096) {
+        /* ★ 关键：远端说的长度，绝不直接用来 malloc */
+        ESP_LOGW(TAG, "响应过大（%lld 字节），放弃读取", total);
+        esp_http_client_close(c);
+        esp_http_client_cleanup(c);
+        return;
+    }
+
+    char line[257];
+    int  n;
+    int  total_read = 0;
+    while ((n = esp_http_client_read(c, line, sizeof(line) - 1)) &gt; 0) {
+        line[n] = '\0';
+        total_read += n;
+        /* 边收边处理：查找关键字、喂给增量解析器、写进环形缓冲 */
+    }
+    if (n &lt; 0) ESP_LOGW(TAG, "read 出错");
+
+    ESP_LOGI(TAG, "读完 %d 字节", total_read);
+    esp_http_client_close(c);        /* 显式关连接（keep-alive 时会保留，按需取舍） */
+    esp_http_client_cleanup(c);
+}</code></pre></div>
+
+          <h4 class="mt-7 text-[15px] font-semibold">读法 ③：一次读整个响应（要知道自己在干什么）</h4>
+
+          <div class="code-block" data-lang="c" data-title="危险写法与安全写法"><pre><code>/* ✗ 危险写法：拿远端给的数字直接分配内存 */
+int len = esp_http_client_get_content_length(c);
+char *buf = malloc(len);                         /* len 可能是 -1（chunked）！
+                                                    len 也可能是 1,000,000！ */
+esp_http_client_read_response(c, buf, len);      /* buf 得自己准备，函数不会替你分配 */
+free(buf);
+
+/* ✓ 安全写法：先卡上限，再分配，失败就走人 */
+int len = esp_http_client_get_content_length(c);
+if (len &lt;= 0 || len &gt; RESP_MAX) {
+    ESP_LOGW(TAG, "长度 %d 超出可接受范围，改为分块读或直接放弃", len);
+    return;
+}
+char *buf = malloc(len + 1);
+if (buf == NULL) {
+    ESP_LOGW(TAG, "malloc %d 失败（剩余堆 %u）——改成读法 ②",
+             len, (unsigned)esp_get_free_heap_size());
+    return;
+}
+esp_err_t err = esp_http_client_read_response(c, buf, len);
+if (err == ESP_OK) {
+    buf[len] = '\0';
+    /* 解析 buf ... */
+}
+free(buf);</code></pre></div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>读法</th>
+                  <th>峰值额外内存</th>
+                  <th>谁来控制上限</th>
+                  <th>适用场景</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>① perform + 回调</td>
+                  <td><code class="icode">buffer_size</code> + 你的固定缓冲（512 B）</td>
+                  <td><b>你</b>（缓冲满了置 <code class="icode">overflow</code>，不崩）</td>
+                  <td>响应小且结构固定：状态回执、单条配置</td>
+                </tr>
+                <tr>
+                  <td>② open + read 循环</td>
+                  <td><code class="icode">buffer_size</code> + 一行缓冲（≤ 1 KB）</td>
+                  <td><b>你</b>（先看 <code class="icode">content_length</code> 再决定）</td>
+                  <td><b>默认选它</b>：响应可能较大、要边收边解析</td>
+                </tr>
+                <tr>
+                  <td>③ read_response 一次读完</td>
+                  <td>≈ <code class="icode">content_length</code> + 一份拷贝</td>
+                  <td><b>远端</b>——服务器说多大就是多大</td>
+                  <td>只在「确定是自家服务器、响应 &lt; 1 KB」时用，且必须自己加长度校验</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">「上电正常、跑一晚上就失败」的最常见原因</div>
+            <p class="mt-2">危险写法的四个坑，每一个都能单独让设备挂掉：</p>
+            <p class="mt-2"><b>① <code class="icode">content_length</code> 可能是 −1。</b>服务器用 chunked 传输（分块编码）时，响应头里没有 <code class="icode">Content-Length</code>，这个函数返回 −1。<code class="icode">malloc(-1)</code> 会转成一个巨大的 <code class="icode">size_t</code>，必然失败——如果没判返回值就往下写，就是野指针。</p>
+            <p class="mt-2"><b>② 服务器可能返回 1 MB。<b>报错页、限流页、被劫持的响应都可能突然变大。</b>你的代码要能承受「服务端行为变化」</b>，因为它不受你控制。</p>
+            <p class="mt-2"><b>③ 堆碎片化。</b>设备跑几小时后，堆里可能只剩一些 1~2 KB 的碎块。<b>此时即使「总剩余堆 40 KB」，<code class="icode">malloc(20 * 1024)</code> 依然会失败</b>——这解释了为什么「刚上电好好的，跑一晚上就不行」。</p>
+            <p class="mt-2"><b>④ 忘了 <code class="icode">free</code>。</b>和 cJSON 那两条一样，每次多泄漏一块，直到堆见底。</p>
+            <p class="mt-2"><b>结论：读法 ② 是嵌入式的默认答案。</b>它把「内存上限」这个决定权从远端拿回到你手里，而且额外开销只有一个 512 B 的缓冲。只有当响应确实很小、且你能容忍它偶尔变大时，才用 ①；读法 ③ 请当作「需要签名确认的危险操作」。</p>
+          </div>
+
+<h3 id="mcu-json" class="mt-7 text-base font-semibold">cJSON 防御式解析：字段可以缺，程序不能死</h3>
+
+          <p class="mt-3">HTTP 和 MQTT 的载荷都是 JSON，而 <b class="font-semibold text-ink">JSON 是对方生成的</b>——它可能缺字段、类型不对、值离谱、甚至根本不是合法 JSON。<b>解析器写得好不好，决定了「服务器端改了一个字段」是变成一次日志告警，还是变成现场设备死机。</b></p>
+
+          <p class="mt-3">先看一个反面教材。假设服务器下发配置 <code class="icode">{"led":1,"period":30,"site":"lab-3"}</code>，很多人会这么写：</p>
+
+          <div class="code-block" data-lang="c" data-title="✗ 不判空、不判类型的写法"><pre><code>cJSON *root = cJSON_Parse(payload);
+cJSON *period = cJSON_GetObjectItem(root, "period");
+int p = period-&gt;valueint;                     /* ① root 可能是 NULL */
+                                              /* ② period 可能是 NULL */
+                                              /* ③ period 可能是字符串，这里读出来的是垃圾 */
+strcpy(g_site, cJSON_GetObjectItem(root, "site")-&gt;valuestring);   /* ④ 长度不限，栈溢出 */
+vTaskDelay(pdMS_TO_TICKS(p * 1000));          /* ⑤ p 可能是负数或 10 亿 */
+cJSON_Delete(root);</code></pre></div>
+
+          <p class="mt-4">这五行里有五个能独立让设备挂掉的问题，而且<b>它们在实验室里一个都不会出现</b>——因为你自己构造的 JSON 永远是对的。下面这张表是它们在现场的触发条件：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>服务器发来的</th>
+                  <th>不设防的程序会怎样</th>
+                  <th>正确做法</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>没有 <code class="icode">period</code> 字段</td>
+                  <td><code class="icode">cJSON_GetObjectItem</code> 返回 <code class="icode">NULL</code>，紧接着解引用它 → <b>LoadProhibited 崩溃重启</b></td>
+                  <td>判 <code class="icode">NULL</code>，用默认值</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">"period":"30"</code>（字符串而不是数字）</td>
+                  <td>cJSON 用联合体存值，读 <code class="icode">valueint</code> 读到的是别的成员的位，得到一个荒谬的数字</td>
+                  <td><code class="icode">cJSON_IsNumber()</code> 先判类型</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">"site"</code> 是一个 200 字符的站点名</td>
+                  <td><code class="icode">strcpy</code> 溢出，破坏栈上的返回地址 → 崩溃点出现在函数返回时，现场极难定位</td>
+                  <td><code class="icode">strlcpy()</code> 有界拷贝</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">"period":-5</code> 或 <code class="icode">999999999</code></td>
+                  <td>逻辑异常：<code class="icode">vTaskDelay</code> 得到负值、定时器算溢出，表现为「设备卡住」或「疯狂上报」</td>
+                  <td><b>范围钳制</b>：把值夹到合理区间</td>
+                </tr>
+                <tr>
+                  <td>根节点是数组或字符串，不是对象</td>
+                  <td>在非法节点上查找字段，行为不确定</td>
+                  <td><code class="icode">cJSON_IsObject(root)</code> 先判，否则整包丢弃</td>
+                </tr>
+                <tr>
+                  <td>报文被截断，根本不是合法 JSON</td>
+                  <td><code class="icode">cJSON_Parse</code> 返回 <code class="icode">NULL</code>，后续全部崩溃</td>
+                  <td>判 <code class="icode">NULL</code>，用 <code class="icode">cJSON_GetErrorPtr()</code> 打出出错位置</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">把这六条全部落实，就是下面这段可直接用的解析函数。<b>注意它接受「指针 + 长度」而不是「以 \0 结尾的字符串」——因为你收到的 HTTP 响应体或 MQTT 载荷很可能不是以 <code class="icode">\0</code> 结尾的。</b></p>
+
+          <div class="code-block" data-lang="c" data-title="防御式解析：任何字段缺失或类型不符都不会崩"><pre><code>#include "cJSON.h"
+
+typedef struct {
+    bool led;
+    int  period;          /* 秒 */
+    char site[16];
+} cfg_t;
+
+static bool parse_cfg(const char *json, size_t len, cfg_t *out)
+{
+    if (json == NULL || len == 0 || out == NULL) return false;
+
+    /* 带长度的版本：不要求 \0 结尾，也不会读过界（IDF v5 推荐） */
+    cJSON *root = cJSON_ParseWithLength(json, len);
+    if (root == NULL) {
+        const char *err = cJSON_GetErrorPtr();      /* 解析失败的位置附近 */
+        ESP_LOGW(TAG, "JSON 解析失败，位置附近: %.20s", err ? err : "(未知)");
+        return false;
+    }
+    if (!cJSON_IsObject(root)) {                    /* 根必须是对象 */
+        ESP_LOGW(TAG, "JSON 根节点不是对象，丢弃");
+        cJSON_Delete(root);
+        return false;
+    }
+
+    /* —— 先填默认值：任何字段缺失时程序照常往下走 —— */
+    out-&gt;led    = false;
+    out-&gt;period = 30;
+    strlcpy(out-&gt;site, "unknown", sizeof(out-&gt;site));
+
+    /* ① 数字型 */
+    const cJSON *period = cJSON_GetObjectItemCaseSensitive(root, "period");
+    if (cJSON_IsNumber(period)) {
+        int v = period-&gt;valueint;
+        out-&gt;period = (v &lt; 1) ? 1 : (v &gt; 3600 ? 3600 : v);   /* ★ 范围钳制 */
+    } else if (period != NULL) {
+        ESP_LOGW(TAG, "period 类型不对，用默认值 %d", out-&gt;period);
+    }
+
+    /* ② 布尔型：同时容忍 true/false 和 1/0 两种写法 */
+    const cJSON *led = cJSON_GetObjectItemCaseSensitive(root, "led");
+    if (cJSON_IsBool(led)) {
+        out-&gt;led = cJSON_IsTrue(led);
+    } else if (cJSON_IsNumber(led)) {
+        out-&gt;led = (led-&gt;valuedouble != 0);
+    }
+
+    /* ③ 字符串型：判类型 + 判指针 + 有界拷贝 */
+    const cJSON *site = cJSON_GetObjectItemCaseSensitive(root, "site");
+    if (cJSON_IsString(site) &amp;&amp; site-&gt;valuestring != NULL) {
+        strlcpy(out-&gt;site, site-&gt;valuestring, sizeof(out-&gt;site));
+    }
+
+    cJSON_Delete(root);            /* ★ 树用完必须删：里面有 N 次 malloc */
+    return true;
+}</code></pre></div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">cJSON 的内存账：解析 1 KB 的 JSON 要花多少堆</div>
+            <p class="mt-2"><code class="icode">cJSON_Parse</code> 会为<b>每一个节点</b>（每个对象、每个键值对、每个数组元素）分配一个结构体。<b>每个节点约 50~60 字节（32 位目标上结构体本身约 40 字节，再加 malloc 的块头）</b>，字符串值还要再单独分配一份拷贝。</p>
+            <p class="mt-2">所以账是这样算的：<b>一个 200 字节、含 10 个节点的 JSON，解析后大约占用 600~800 字节堆，是原报文体积的 3~4 倍</b>；而 <code class="icode">cJSON_PrintUnformatted()</code> 还要再分配一份输出字符串。<b>这就是为什么「解析大 JSON」在 ESP32 上是危险动作：10 KB 的报文可能吃掉 30~40 KB 堆，再加上碎片化，失败就来了。</b></p>
+            <p class="mt-2">三条纪律：<b>① 限制输入大小</b>——超过 4 KB 的 JSON 直接拒绝，而不是硬着头皮解析；<b>② 随解析随删</b>，不要把解析出来的树长期挂在全局变量上；<b>③ 解析失败也要保证不泄漏</b>——判断顺序永远是「先判空、再用、最后删」。</p>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>方案</th>
+                  <th>堆开销</th>
+                  <th>代码量</th>
+                  <th>健壮性</th>
+                  <th>什么时候选它</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>自己用 <code class="icode">strstr</code> / <code class="icode">sscanf</code> 抠字段</td>
+                  <td><b>0</b>（全在固定缓冲里）</td>
+                  <td>少（但边界情况多）</td>
+                  <td><b>差</b>：空格、换行、字段顺序、嵌套一变就出错</td>
+                  <td>只在自己能完全控制双方格式、且内存真的抠到极限时</td>
+                </tr>
+                <tr>
+                  <td><b>cJSON</b></td>
+                  <td>报文体积的 3~4 倍</td>
+                  <td><b>少</b>（几行就能取字段）</td>
+                  <td><b>好</b>（只要按上面的模板判空判类型）</td>
+                  <td><b>绝大多数场景的默认选择</b></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">jsmn</code> 等无分配词法解析器</td>
+                  <td><b>0 堆分配</b>（token 数组放栈或静态区）</td>
+                  <td>多（要自己遍历 token）</td>
+                  <td>中（不做类型校验，需要自己写）</td>
+                  <td>要解析很大或很频繁的 JSON，且堆实在不够</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">两个容易忽略的 cJSON 细节</div>
+            <p class="mt-2"><b>① <code class="icode">cJSON_GetErrorPtr()</code> 用的是全局变量。</b>cJSON 内部把「最后一次出错的位置」存在一个全局指针里。<b>如果两个任务同时在解析 JSON，你打出来的错误位置可能是别的任务的</b>——不影响正确性，但会让日志误导你。多任务环境下要么只在出错时打日志、要么给解析过程加一把互斥锁。</p>
+            <p class="mt-2"><b>② 键名匹配默认区分大小写。</b><code class="icode">cJSON_GetObjectItem()</code> 是<b>不区分</b>大小写的（内部先试精确匹配、再试忽略大小写），而 <code class="icode">cJSON_GetObjectItemCaseSensitive()</code> 严格区分。<b>建议统一用后者</b>：协议里写了 <code class="icode">"period"</code>，就只认 <code class="icode">"period"</code>——这样服务器把字段名打成 <code class="icode">"Period"</code> 时你会立刻发现，而不是默默取到一个默认值。</p>
+          </div>
+
+          <h3 id="mcu-httpd" class="mt-7 text-base font-semibold">给 ESP32 装一个 HTTP 接口（esp_http_server）</h3>
+
+          <p class="mt-3">前面都是「设备去连别人」。很多时候你要反过来：<b>让 ESP32 当一个小服务器</b>，手机或电脑浏览器打开一个地址就能看状态、点按钮——这是调试和现场配置最方便的方式，因为它不需要装任何 App，<b>不需要额外的 MQTT 账号，也不需要连外网</b>。</p>
+
+          <div class="code-block" data-lang="c" data-title="main/main.c —— HTTP 服务端：GET 查询 + 返回 JSON"><pre><code>#include "esp_http_server.h"
+#include "cJSON.h"
+
+/* GET /api/status?led=1  →  {"led":1,"heap":123456,"rssi":-58} */
+static esp_err_t status_get_handler(httpd_req_t *req)
+{
+    /* —— ① 解析 query 参数（?led=1）—— */
+    char query[64] = {0};
+    int  led = -1;
+    if (httpd_req_get_url_query_len(req) &gt; 0 &amp;&amp;
+        httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK) {
+        char val[8] = {0};
+        if (httpd_query_key_value(query, "led", val, sizeof(val)) == ESP_OK) {
+            led = atoi(val);
+            ESP_LOGI(TAG, "收到 led=%d", led);
+            /* 这里执行动作：gpio_set_level(...) */
+        } else {
+            ESP_LOGW(TAG, "query 里没有 led 参数: %s", query);
+        }
+    }
+
+    /* —— ② 组 JSON —— */
+    cJSON *root = cJSON_CreateObject();
+    if (root == NULL) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+    cJSON_AddNumberToObject(root, "led",   led &lt; 0 ? 0 : led);
+    cJSON_AddNumberToObject(root, "heap",  (double)esp_get_free_heap_size());
+    cJSON_AddNumberToObject(root, "rssi",  -58);
+
+    char *out = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    if (out == NULL) {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
+    /* —— ③ 发送：一定要先设 Content-Type —— */
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");   /* 方便网页直接调 */
+    esp_err_t err = httpd_resp_send(req, out, HTTPD_RESP_USE_STRLEN);
+
+    free(out);                       /* ★ PrintUnformatted 的账 */
+    return err;
+}
+
+static const httpd_uri_t uri_status = {
+    .uri      = "/api/status",
+    .method   = HTTP_GET,
+    .handler  = status_get_handler,
+    .user_ctx = NULL,
+};
+
+void http_server_start(void)
+{
+    httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
+    cfg.max_open_sockets = 4;             /* 默认 7；要给上报/MQTT 留出 fd */
+    cfg.lru_purge_enable = true;          /* fd 紧张时回收最久未用的连接，而不是拒绝新连接 */
+    cfg.uri_match_fn     = httpd_uri_match_wildcard;
+
+    httpd_handle_t srv = NULL;
+    esp_err_t err = httpd_start(&amp;srv, &amp;cfg);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "httpd_start 失败: %s（fd 不够？剩余堆 %u）",
+                 esp_err_to_name(err), (unsigned)esp_get_free_heap_size());
+        return;
+    }
+    httpd_register_uri_handler(srv, &amp;uri_status);
+    ESP_LOGI(TAG, "HTTP 服务已启动，请访问 http://&lt;设备IP&gt;/api/status?led=1");
+}</code></pre></div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你想要的</th>
+                  <th>要调的函数 / 字段</th>
+                  <th>要点</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>注册一个接口</td>
+                  <td><code class="icode">httpd_uri_t</code> + <code class="icode">httpd_register_uri_handler()</code></td>
+                  <td><code class="icode">.uri</code> 要完全匹配（除非设了通配匹配函数）；<code class="icode">.method</code> 写错会返回 405</td>
+                </tr>
+                <tr>
+                  <td>取 query 参数</td>
+                  <td><code class="icode">httpd_req_get_url_query_len</code> → <code class="icode">..._query_str</code> → <code class="icode">httpd_query_key_value</code></td>
+                  <td><b>三步都要判返回值</b>；缓冲给够（query 会被 URL 解码）</td>
+                </tr>
+                <tr>
+                  <td>返回 JSON</td>
+                  <td><code class="icode">httpd_resp_set_type(req, "application/json")</code> + <code class="icode">httpd_resp_send()</code></td>
+                  <td><b>不设 Content-Type，浏览器和 axios 会当成纯文本</b>；<code class="icode">HTTPD_RESP_USE_STRLEN</code> 表示按 <code class="icode">\0</code> 判长度</td>
+                </tr>
+                <tr>
+                  <td>读 POST 请求体</td>
+                  <td><code class="icode">httpd_req_recv()</code> 循环读 <code class="icode">req-&gt;content_len</code> 字节</td>
+                  <td>必须先判 <code class="icode">content_len</code> 上限；返回 <code class="icode">HTTPD_SOCK_ERR_TIMEOUT</code> 要重试而不是当失败</td>
+                </tr>
+                <tr>
+                  <td>发送大响应（网页、长 JSON）</td>
+                  <td><code class="icode">httpd_resp_send_chunk()</code> 多次 + 最后 <code class="icode">(req, NULL, 0)</code> 结束</td>
+                  <td>分块发送不需要一次性把整个响应放进内存</td>
+                </tr>
+                <tr>
+                  <td>控制并发连接数</td>
+                  <td><code class="icode">cfg.max_open_sockets</code>（默认 7）</td>
+                  <td>它是「本服务器同时服务几个客户端」；<b>而总上限是 <code class="icode">CONFIG_LWIP_MAX_SOCKETS</code>（默认 10）</b>，两者要一起算（<a class="text-brand-600 dark:text-brand-300" href="#calc-6">例 6</a>）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">HTTP 服务端的两个限制要知道</div>
+            <p class="mt-2"><b>① handler 跑在 httpd 自己的任务里，栈默认只有 4 KB。</b>别在 handler 里定义大数组（比如 <code class="icode">char buf[2048]</code>），也别做深递归的 cJSON 解析——<b>宁可用堆（<code class="icode">malloc</code>/<code class="icode">cJSON_PrintUnformatted</code>），或者把 <code class="icode">cfg.stack_size</code> 调大。</b>栈溢出在 ESP32 上的表现是「一访问某个接口设备就重启」，很容易误判成网络问题。</p>
+            <p class="mt-2"><b>② 设备同时能服务的浏览器数量是「预算」问题，不是「配置」问题。</b>默认 <code class="icode">CONFIG_LWIP_MAX_SOCKETS = 10</code>，而 WiFi 自己要占、你的上报客户端要占、MQTT 要占。<b>真的把 10 个 fd 全部开满时，你会看到「网页打不开，但 ping 得通、数据也在上报」这种诡异现象</b>（<a class="text-brand-600 dark:text-brand-300" href="#calc-6">例 6</a> 会把这笔账算清）。调试阶段的做法很简单：<b>把 <code class="icode">max_open_sockets</code> 设成 2~3</b>，让 fd 紧张提前暴露，而不是等现场才发现。</p>
+          </div>
+
+          <h3 id="mcu-pc" class="mt-7 text-base font-semibold">在 PC 上做对端验证：nc 与 curl</h3>
+
+          <p class="mt-3">网络程序出问题时，最省时间的做法不是盯着串口日志，而是<b>先确定「到底是哪一头的问题」</b>。PC 上有两个神器，几分钟就能把问题范围缩小一半。</p>
+
+          <div class="code-block" data-lang="bash" data-title="用 nc（netcat）验证自己的 TCP 代码"><pre><code># 场景 A：ESP32 是客户端，要验证「它到底发出了什么」
+#   在 PC 上开一个假服务器，把收到的原始字节打出来
+nc -l -p 8888                 # Windows 用 ncat -l 8888 或 WSL 里跑 nc
+# 或：nc -l 8888（macOS）；Linux 新版：nc -l -p 8888
+
+# 想让它回一句话，验证 ESP32 的接收分支：
+{ printf 'ACK 1\n'; sleep 5; } | nc -l -p 8888
+
+# 场景 B：ESP32 是服务端，验证「它是否真的在监听」
+nc 192.168.1.50 8888          # 连上后手打 PING 回车，应看到 PONG
+printf 'PING\nSTAT\n' | nc 192.168.1.50 8888    # 一次性发两条命令</code></pre></div>
+
+          <div class="code-block" data-lang="bash" data-title="用 curl 验证 HTTP（客户端与设备服务器都能测）"><pre><code># 测「设备上报的接口」是否正常（假装自己是设备）
+curl -v -X POST -H "Content-Type: application/json" \
+     -d '{"dev":"pc","t":25.5,"seq":1}' \
+     http://192.168.1.100:5000/api/v1/report
+
+# 测「设备自己的 HTTP 服务器」
+curl -v http://192.168.1.50/api/status?led=1
+
+# 只关心状态码和耗时，不打印响应体
+curl -s -o /dev/null -w "code=%{http_code} time=%{time_total}s\n" \
+     http://192.168.1.50/api/status
+
+# 强制 3 秒超时（模拟设备侧的短超时）
+curl --max-time 3 http://192.168.1.50/api/status
+
+# 看响应头里有没有 Content-Length（判断会不会走到 chunked 分支）
+curl -sI http://192.168.1.50/api/status</code></pre></div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>症状</th>
+                  <th>PC 上的一条命令</th>
+                  <th>结论</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>设备说连不上服务器</td>
+                  <td><code class="icode">ping 192.168.1.100</code></td>
+                  <td>ping 不通 = 网络/网段/防火墙问题，<b>与代码无关</b>，先解决网络</td>
+                </tr>
+                <tr>
+                  <td>ping 得通但 connect 超时</td>
+                  <td>PC 上 <code class="icode">curl -v http://192.168.1.100:5000/</code> 看是否也超时</td>
+                  <td>PC 也超时 = 目标服务没在监听（端口写错/程序没起/只听了 127.0.0.1）；PC 正常 = 设备侧问题</td>
+                </tr>
+                <tr>
+                  <td>设备服务端「连不上」</td>
+                  <td><code class="icode">Test-NetConnection 192.168.1.50 -Port 8888</code>（Windows）</td>
+                  <td>端口不通 = 监听没起来或 IP 变了；端口通 = 代码逻辑问题</td>
+                </tr>
+                <tr>
+                  <td>连接成功但收不到数据</td>
+                  <td><code class="icode">printf 'PING\n' | nc -v 192.168.1.50 8888</code></td>
+                  <td>nc 能收到回显 = 设备侧 OK，问题在下行或对端；收不到 = 设备的分帧/发送逻辑有 bug</td>
+                </tr>
+                <tr>
+                  <td>HTTP 返回奇怪内容</td>
+                  <td><code class="icode">curl -v -X POST ...</code> 看完整的请求头与响应头</td>
+                  <td>能立刻看出是 <code class="icode">Content-Type</code> 不对、状态码不是 2xx、还是被重定向了</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">两种「假服务器」的取舍</div>
+            <p class="mt-2"><b><code class="icode">nc</code> 适合回答「字节层面到底发了什么」</b>：它不做任何协议解析，你看到的就是原始字节——粘包、少了换行、多了 <code class="icode">\r</code>，一眼就看出来。</p>
+            <p class="mt-2"><b><code class="icode">python -m http.server 8000</code> 适合快速验证设备能不能完成一次 HTTP GET</b>（它只支持 GET/HEAD），要收 POST 就写十行 Flask，或者直接用 <code class="icode">nc</code> 看原始请求——<b>后者往往更快</b>，因为你能看到设备发出来的完整请求头，而 Flask 只会告诉你「400 Bad Request」。</p>
+            <p class="mt-2">还有一个万能的中间人技巧：<b>让 PC 上的 <code class="icode">nc</code> 当「转发器」</b>——设备连 PC，PC 再连真正的服务器，把两个方向的数据都打印出来。<b>这是排查「设备发的和服务器收到的对不上」这类问题的终极手段。</b></p>
+          </div>
+
+          <h3 id="mcu-diag" class="mt-7 text-base font-semibold">三个保命指标与 socket 泄漏的识别</h3>
+
+          <p class="mt-3">网络程序跑起来之后，你需要一组「不看代码就知道它还健康」的指标。ESP32 上就三个，建议长期打印：</p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>指标</th>
+                  <th>怎么取</th>
+                  <th>正常表现</th>
+                  <th>危险信号</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>剩余堆</b></td>
+                  <td><code class="icode">esp_get_free_heap_size()</code></td>
+                  <td>每个通信周期结束后<b>回到同一个基线</b>（波动 &lt; 1 KB）</td>
+                  <td>阶梯式下降、或每次连接下降一点不回来 → <b>内存/句柄泄漏</b></td>
+                </tr>
+                <tr>
+                  <td><b>最近一次 errno</b></td>
+                  <td>失败时立刻 <code class="icode">strerror(errno)</code> 存进一个全局变量并打印</td>
+                  <td>绝大多数时候是 <code class="icode">EAGAIN</code>（超时，正常）</td>
+                  <td>出现 <code class="icode">ENFILE</code> / <code class="icode">EMFILE</code> → <b>fd 用光了</b>；<code class="icode">ECONNRESET</code> 频繁 → 对端在踢你</td>
+                </tr>
+                <tr>
+                  <td><b>状态机当前状态</b></td>
+                  <td>你的 <code class="icode">conn_state_t</code> 变量</td>
+                  <td>长时间停在 <code class="icode">ST_CONNECTED</code></td>
+                  <td>反复在 <code class="icode">CONNECTING</code>/<code class="icode">RECONNECTING</code> 之间跳 → 网络或服务器有问题</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block" data-lang="c" data-title="一个够用的诊断打印（放个定时任务里，每 30 秒一条）"><pre><code>static const char *g_last_err = "-";
+
+/* 每次 socket 调用失败时：g_last_err = strerror(errno); */
+
+static void diag_task(void *arg)
+{
+    for (;;) {
+        ESP_LOGI(TAG, "状态=%-12s 堆=%6u 最小堆=%6u 上次错误=%s",
+                 state_name(g_state),
+                 (unsigned)esp_get_free_heap_size(),
+                 (unsigned)esp_get_minimum_free_heap_size(),   /* ★ 历史最低水位 */
+                 g_last_err);
+        vTaskDelay(pdMS_TO_TICKS(30000));
+    }
+}</code></pre></div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么一定要看 <code class="icode">esp_get_minimum_free_heap_size()</code></div>
+            <p class="mt-2"><code class="icode">esp_get_free_heap_size()</code> 是<b>此刻</b>的剩余量，而 <code class="icode">esp_get_minimum_free_heap_size()</code> 是<b>开机以来的最低水位</b>。</p>
+            <p class="mt-2">很多时候泄漏是这样表现的：当前剩余堆看起来很正常（因为刚释放过），<b>但最低水位在一次次地创新低</b>——这等于提前告诉你「下一次大分配就会失败」。<b>把最低水位当成一个长期趋势看，比盯着当前值有用得多。</b></p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">socket 泄漏的典型症状：连几次之后，所有连接都失败</div>
+            <p class="mt-2">最常见的表现是这样一段现场描述：<b>「设备刚上电一切正常，跑了半小时就开始连不上；但 ping 得通、WiFi 也显示连着；重启一下又能好半小时。」</b>这就是 fd 泄漏的标准长相，因为：</p>
+            <p class="mt-2"><b>① 每个 socket 都占用一个 fd，fd 用光后 <code class="icode">socket()</code> 直接失败</b>，返回 −1、<code class="icode">errno = ENFILE</code>。<b>此时网络完全是好的</b>——ping 用的是另一套（ICMP），照样通，所以你会误以为「网络没问题，是服务器的问题」。</p>
+            <p class="mt-2"><b>② 泄漏点几乎总是这几个</b>：失败分支忘了 <code class="icode">close()</code>；<code class="icode">getaddrinfo</code> 忘了 <code class="icode">freeaddrinfo()</code>（它内部也会占资源）；<code class="icode">esp_http_client</code> 忘了 <code class="icode">cleanup</code>；<code class="icode">accept</code> 出来的 fd 忘了关；连接超时后直接 <code class="icode">return</code> 而没有关 fd。</p>
+            <p class="mt-2"><b>③ 有一个把故障提前的调试技巧</b>：把 <code class="icode">CONFIG_LWIP_MAX_SOCKETS</code> 暂时调到 <b>6</b>。这样泄漏在几分钟内就会暴露，而不是等你测完一整天、以为没问题之后才在现场爆发。<b>「让故障在实验室里更快出现」是嵌入式调试里非常有效的一招。</b></p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">WiFi 断开时，已经建立的 socket 会怎样</div>
+            <p class="mt-2">这是现场最常遇到、又最容易被写错的一环。WiFi 断开后，<b>已经建立的 TCP 连接不会「立刻」给你一个明确的错误</b>，可能的表现有三种，而且它们取决于断开的方式和 lwIP 的实现细节：</p>
+            <p class="mt-2"><b>① 连接被中止</b>：下面的 netif 关闭时，协议栈可能直接中止这条连接，你的 <code class="icode">recv()</code> 会返回 −1（<code class="icode">ECONNABORTED</code> / <code class="icode">ECONNRESET</code> 之类），或返回 0。</p>
+            <p class="mt-2"><b>② 发送立刻失败</b>：<code class="icode">send()</code> 发现没有可用路由，返回 −1，<code class="icode">errno = ENETUNREACH</code>（网络不可达）或 <code class="icode">EHOSTUNREACH</code>。</p>
+            <p class="mt-2"><b>③ 暂时毫无反应</b>：socket 对象还留着，但数据发不出去也收不到，错误要等到超时（<code class="icode">ETIMEDOUT</code>）才出现。这是最坏的一种，因为你的程序会在这段时间里「以为自己在正常工作」。</p>
+            <p class="mt-2"><b>正确的应对不是去猜是哪一种，而是两条都做：</b></p>
+            <p class="mt-2"><b>（a）在 WiFi 事件里主动收尾。</b>收到 <code class="icode">WIFI_EVENT_STA_DISCONNECTED</code> 时，<b>主动 <code class="icode">close()</code> 掉 socket、把状态机复位成 <code class="icode">ST_DISCONNECTED</code></b>。这比等错误码快得多、也干净得多——事件是即时到达的。</p>
+            <p class="mt-2"><b>（b）对「<code class="icode">send</code>/<code class="icode">recv</code> 返回 −1」一律走重连。</b>不管 errno 是哪一个，只要不是 <code class="icode">EAGAIN</code>/<code class="icode">EWOULDBLOCK</code>（超时，还可以再等），就当作连接已死，关掉、退避、重连。<b>这样无论底层表现为三种中的哪一种，你的程序都是对的。</b></p>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">本节收尾：网络程序的三条铁律</div>
+            <p class="mt-2"><b>① 每一个可能返回 −1 的调用都要判返回值、看 errno。</b>不是「看一遍文档」，而是代码里真的写了 <code class="icode">if (ret &lt; 0)</code> 和 <code class="icode">strerror(errno)</code>。<b>不判返回值的网络代码不是「简化」，是「没写完」。</b></p>
+            <p class="mt-2"><b>② 每一个打开的 fd 都要有明确的关闭路径，包括所有失败分支。</b>写完之后回头数一遍：<code class="icode">socket</code>/<code class="icode">accept</code> 出来的 fd、<code class="icode">getaddrinfo</code> 的链表、<code class="icode">esp_http_client</code> 的句柄、<code class="icode">cJSON</code> 的树和字符串——<b>每一个都要能说出「它在哪里被释放」。</b></p>
+            <p class="mt-2"><b>③ 每一次失败都要有退避，每一个连接都要有超时。</b>没有超时的阻塞调用 = 设备会永久卡死在那里；没有退避的重连 = 你在用设备给服务器做拒绝服务攻击。<b>这两句是本节最重要的两句话。</b></p>
+          </div>
+
+        </section>
+
+        <hr class="hr-soft my-10">
+
+<section id="sec-pitfall">
+          <p class="sec-eyebrow">避坑清单</p>
+          <h2 class="text-xl font-semibold">十个最贵的坑</h2>
+          <p class="sec-desc">下面每一条都来自真实的现场故障。它们的共同特点是：<b>在实验室里基本不会出现，在客户那里一定会出现</b>。建议逐条对照自己的代码检查一遍。</p>
+
+          <h3 id="pit-1" class="mt-7 text-base font-semibold">坑 1：把 <code class="icode">send()</code> 的返回值当成「对方收到了」</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">常见认知：</b>「<code class="icode">send()</code> 返回了 370，和我的字符串长度一样，说明发出去了、对方也收到了。」</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b><code class="icode">send()</code> 返回的是<b>「有多少字节被复制进了本地发送缓冲区」</b>，仅此而已。数据后面要经过协议栈、网卡、AP、路由器……任何一段出问题，对方都收不到，而你这边<b>永远不会知道</b>。更麻烦的是：如果发送缓冲区满了，<code class="icode">send()</code> 会返回一个<b>比请求长度小</b>的值（部分发送），此时剩下的字节还躺在你的数组里，没人替你补发。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>要知道对方收到了，只能<b>让对方回一个应答</b>——这也是心跳和 ACK 存在的意义。至于部分发送，规范写法是循环发完：</p>
+
+          <div class="code-block" data-lang="c" data-title="循环发送：直到全部发完或彻底失败"><pre><code>static int send_all(int fd, const char *buf, size_t len)
+{
+    size_t sent = 0;
+    while (sent &lt; len) {
+        int n = send(fd, buf + sent, len - sent, 0);
+        if (n &lt; 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) continue;  /* 缓冲满，稍后重试 */
+            return -1;                                              /* 真失败 */
+        }
+        if (n == 0) return -1;                                      /* 对端已关闭 */
+        sent += (size_t)n;
+    }
+    return 0;
+}</code></pre></div>
+
+          <h3 id="pit-2" class="mt-7 text-base font-semibold">坑 2：不设超时，让阻塞调用永久等待</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">常见认知：</b>「<code class="icode">connect()</code> 会失败的，失败了我再重试，不用设超时。」</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>默认的阻塞 socket 会一直等下去。网络上的「黑洞」（对端不回任何包）能让 <code class="icode">connect()</code> 卡几十秒到几分钟；<code class="icode">recv()</code> 更是可以卡到永远。这期间<b>你的整个任务都停在这一行</b>：喂不了看门狗、采不了数据、响应不了按键——用户看到的就是「设备死了」。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>每一个 socket 都要设超时，而且超时值要配套：</p>
+
+          <div class="code-block" data-lang="c" data-title="socket 超时的标准配置"><pre><code>struct timeval tv;
+tv.tv_sec  = 5;  tv.tv_usec = 0;
+setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &amp;tv, sizeof(tv));   /* recv 最多等 5 秒 */
+setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &amp;tv, sizeof(tv));   /* send  最多等 5 秒 */
+
+/* 注意：SO_SNDTIMEO / SO_RCVTIMEO 不影响 connect()。
+ * connect 的超时要在 menuconfig 里配：
+ *   CONFIG_LWIP_TCP_SYNMAXRTX（SYN 重传次数）与
+ *   CONFIG_LWIP_TCP_MSL / CONFIG_LWIP_TCP_FIN_WAIT_TIMEOUT 等，按你手上 IDF 的菜单为准。
+ * 更省心的做法是用非阻塞 connect + select 自己控时（见 sub-block 一节）。 */</code></pre></div>
+
+          <h3 id="pit-3" class="mt-7 text-base font-semibold">坑 3：断线重连写成「死循环 + 固定延时」</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">常见认知：</b>「连不上就一直重连呗，<code class="icode">while(1) { if (connect() == 0) break; vTaskDelay(1000); }</code>，简单可靠。」</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>三个问题叠在一起。<b>① 服务器被打垮</b>：服务器重启的那一分钟里，每一台设备都在以每秒一次的频率敲它，几百台设备就是几百 QPS 的无用连接请求，<b>服务器可能因此永远起不来</b>——这就是自己给自己做的拒绝服务攻击。<b>② 设备被拖死</b>：频繁的 <code class="icode">connect</code> 会反复分配 fd、反复做 DNS、反复申请内存，堆和 fd 都被这种无效循环消耗掉。<b>③ 全员同步</b>：所有设备同时掉线、同时以 1 秒周期重连，请求会永远撞在一起（惊群），永远没有设备能成功。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>指数退避 + 上限 + 随机抖动（<a class="text-brand-600 dark:text-brand-300" href="#sub-retry">重连策略</a>与<a class="text-brand-600 dark:text-brand-300" href="#calc-3">例 3</a>）：等待时间从 100 ms 开始翻倍，上限 30 s，并乘以 0.8~1.2 的随机系数；<b>一旦成功，立刻把退避复位成最小值</b>。<b>「重试得越来越慢」不是态度问题，是让对方有机会恢复。</b></p>
+
+          <h3 id="pit-4" class="mt-7 text-base font-semibold">坑 4：相信 TCP 会自己发现断线</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">常见认知：</b>「TCP 有 keepalive，断线它会告诉我；实在不行，我发数据的时候也会知道。」</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>默认 keepalive 要 <b>2 小时 11 分</b>才判定断开（<a class="text-brand-600 dark:text-brand-300" href="#calc-4">例 4</a>）；<b>而且你一直在发数据的话，它的空闲计时器永远被重置，探测包根本不会发出来</b>。「发数据时能发现」也不成立：TCP 要重传耗尽才报错，你的数据在这期间全部写进了黑洞，而程序以为发出去了。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>① 应用层心跳：<b>发出去 + 等应答 + 连续 N 次失败判定</b>（<a class="text-brand-600 dark:text-brand-300" href="#sub-heartbeat">心跳</a>）；② 本地 WiFi 事件做快速反应；③ <code class="icode">SO_KEEPALIVE</code> 可以开着当兜底（防止彻底僵死的连接永远占着 fd），但<b>绝不能当主力</b>。这三层叠起来，才是完整的断线检测。</p>
+
+          <h3 id="pit-5" class="mt-7 text-base font-semibold">坑 5：fd 泄漏——「跑半小时就再也连不上」</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">常见认知：</b>「<code class="icode">socket()</code> 失败会返回 −1，我判了；关闭嘛，正常流程里关了就行。」</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>泄漏几乎永远发生在<b>失败分支</b>和<b>别人给的资源</b>上。默认只有 10 个 fd，其中 WiFi 自己还要占几个（<a class="text-brand-600 dark:text-brand-300" href="#calc-2">例 2</a>），<b>泄漏 8 个就彻底连不上了</b>。而它的症状极具误导性：<b>ping 得通、WiFi 显示已连接、只有你的连接失败</b>——于是你会去查服务器、查运营商，就是想不到是自己没关 fd。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>过一遍这五个高危点：<b>① <code class="icode">connect()</code> 失败后忘了 <code class="icode">close()</code>；② <code class="icode">accept()</code> 出来的 fd 忘了关；③ <code class="icode">getaddrinfo()</code> 没配 <code class="icode">freeaddrinfo()</code>；④ <code class="icode">esp_http_client</code> 没 <code class="icode">cleanup</code>（失败路径也要）；⑤ 超时/异常路径直接 <code class="icode">return</code> 跳过了关闭。</b>调试阶段把 <code class="icode">CONFIG_LWIP_MAX_SOCKETS</code> 调到 6，让泄漏几分钟内就暴露。</p>
+
+          <h3 id="pit-6" class="mt-7 text-base font-semibold">坑 6：把「一次 recv」当成「一条消息」</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">常见认知：</b>「我发一条它就收一条，实验室里跑了几百次都没错。」</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>TCP 是<b>字节流</b>，没有消息边界这个概念。协议栈为了效率会合并小包（粘包），也会因为缓冲区或 MTU 拆开大包（拆包）。<b>实验室里不错，是因为数据小、网络快、两条消息之间有时间间隔</b>；现场一旦数据变多、网络变慢，粘包就会突然出现，表现为「偶尔漏处理一条命令」或「解析出一个乱七八糟的字符串」——而且无法稳定复现。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>自己定义边界并缓冲：<b>分隔符法</b>（<code class="icode">\n</code> 结尾，收到就切、剩下 <code class="icode">memmove</code> 回开头，见<a class="text-brand-600 dark:text-brand-300" href="#mcu-server">程序二</a>的 <code class="icode">feed()</code>）或<b>长度前缀法</b>。别忘给缓冲设上限，超长就断开。</p>
+
+          <h3 id="pit-7" class="mt-7 text-base font-semibold">坑 7：cJSON 不判空、不判类型、忘记释放</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">常见认知：</b>「字段肯定有啊，协议是我和服务端一起定的；<code class="icode">cJSON_Delete</code> 我删了，没泄漏。」</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>协议会变、服务端会出 bug、报文会被截断——<b>你控制不了对方的输出</b>。<code class="icode">cJSON_GetObjectItem()</code> 取不到字段时返回 <code class="icode">NULL</code>，紧接着的 <code class="icode">-&gt;valueint</code> 就是一次空指针解引用（崩溃重启）；类型不符时读到的是联合体里的别的成员（得到一个荒谬数字）。而内存上，<b><code class="icode">cJSON_Delete</code> 删的是树，<code class="icode">cJSON_PrintUnformatted</code> 返回的字符串是另一笔账，必须 <code class="icode">free</code></b>——只删一个，每次通信泄漏几十字节。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>照抄<a class="text-brand-600 dark:text-brand-300" href="#mcu-json">防御式解析模板</a>：先判 <code class="icode">NULL</code>、再判类型（<code class="icode">cJSON_IsNumber</code>/<code class="icode">IsString</code>/<code class="icode">IsObject</code>）、字符串用 <code class="icode">strlcpy</code>、数字做范围钳制、先填默认值。<b>口诀：先判空、再用、最后删；树和字符串两笔账都要清。</b></p>
+
+          <h3 id="pit-8" class="mt-7 text-base font-semibold">坑 8：按 <code class="icode">Content-Length</code> 一次 malloc 读整个响应</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">常见认知：</b>「先拿到长度再分配，这是最标准的做法，零拷贝、效率高。」</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>这个长度<b>是远端给的</b>。它可能是 −1（chunked 传输没有这个头，<code class="icode">malloc(-1)</code> 会转成一个巨大的 <code class="icode">size_t</code>）；可能突然变成 1 MB（服务器开始返错页、被限流页、被劫持）；更隐蔽的是<b>即使总剩余堆够，碎片化也会让这次分配失败</b>——于是出现「刚上电正常、跑一晚上就失败」这种最难查的故障。<b>用远端给的数字决定自己的内存分配，等于把内存管理权交出去。</b></p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b>默认用<a class="text-brand-600 dark:text-brand-300" href="#mcu-read">读法 ②</a>：<code class="icode">open</code> → <code class="icode">fetch_headers</code> → <b>先看长度是否超过你设定的上限</b>（比如 4 KB）→ 循环 <code class="icode">read</code> 分块处理。<b>把内存上限的决定权拿回自己手里，只接受「我愿意处理的大小」。</b></p>
+
+          <h3 id="pit-9" class="mt-7 text-base font-semibold">坑 9：在多任务 / 事件回调里并发操作同一个 socket</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">常见认知：</b>「发送任务负责发、心跳任务负责发心跳，各发各的，反正 <code class="icode">send()</code> 是线程安全的。」</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b><code class="icode">send()</code> 本身不会崩，但<b>两个任务分别 send 的两条消息会在 TCP 字节流里交错</b>：心跳任务发出去的 <code class="icode">"PING\n"</code> 可能正好插在发送任务那条 JSON 的中间，于是对端收到的是一条谁都不认识的乱七八糟的数据。同理，两个任务同时 <code class="icode">recv()</code> 同一 socket 时，<b>谁拿到哪一段是随机的</b>，两个任务都会拿到「半条」。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错（第二层）：</b>系统事件回调也有同样的坑。<code class="icode">WIFI_EVENT</code> 的回调运行在<b>系统事件任务</b>上（栈不大），在里面做阻塞的 <code class="icode">connect()</code>、长时间的 <code class="icode">vTaskDelay</code>、或者等待需要事件循环才能完成的动作，都会<b>拖住整个事件循环</b>，导致其他事件（包括 WiFi 自己的状态机推进）被延迟甚至死锁。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b><b>① 一个 socket 只归一个任务所有</b>：其他任务要发数据，就往一个 FreeRTOS 队列里投递（<a class="text-brand-600 dark:text-brand-300" href="adv-esp32-ipc.html">任务间通信</a>），由那个任务统一 <code class="icode">send</code>。<b>② 事件回调只做「记录 + 通知」</b>：置一个标志位、发一个队列消息或任务通知，真正的连接、关闭、重连都在普通任务里做。<b>回调越短越好，这是硬规则。</b></p>
+
+          <h3 id="pit-10" class="mt-7 text-base font-semibold">坑 10：HTTPS 一连就失败，于是直接关掉证书校验</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">常见认知：</b>「<code class="icode">ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED</code> 太麻烦了，把这行校验去掉就好了。」</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么错：</b>两个层面。<b>① 安全上</b>：关掉校验等于放弃了「你在跟谁说话」这件事，中间人可以任意伪造服务器、任意下发假配置——对于联网设备，这是真实风险，不是理论问题。<b>② 它通常根本不是证书的问题</b>：TLS 握手要校验证书的有效期，而 ESP32 上电后的时间默认是「未同步」的（1970 年或出厂时间）——<b>时间不对，任何合法证书都会被判为「尚未生效」或「已过期」，握手直接失败</b>。所以很多「HTTPS 连不上」的真正原因是<b>没校时</b>，关掉校验只是把症状盖住了。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正确做法：</b><b>① 先让设备有正确时间</b>：连上 WiFi 后用 SNTP 同步（<code class="icode">esp_sntp</code>/<code class="icode">esp_netif_sntp</code>，配 <code class="icode">pool.ntp.org</code>），等时间有效后再发第一个 HTTPS 请求。<b>② 用证书包</b>：menuconfig 里启用 <code class="icode">CONFIG_MBEDTLS_CERTIFICATE_BUNDLE</code>，并在配置里写 <code class="icode">.crt_bundle_attach = esp_crt_bundle_attach</code>，这样对常见的公共 CA 都能校验通过。<b>③ 私有服务器</b>就用 <code class="icode">.cert_pem</code> 把服务器证书（或私有 CA）嵌进固件。<b>④ 只有在开发调试阶段</b>才可以临时跳过校验（<code class="icode">skip_cert_common_name_check</code> 等），并且<b>上线前必须改回来</b>——这一点写进代码注释里，否则一定会带着上生产。</p>
+
+        </section>
+
+        <hr class="hr-soft my-10">
+
+<section id="sec-summary">
+          <p class="sec-eyebrow">本节小结</p>
+          <h2 class="text-xl font-semibold">把「和外面说话」变成一件可靠的事</h2>
+          <p class="sec-desc">这一篇没有讲「网络是什么」——那些概念在<a class="text-brand-600 dark:text-brand-300" href="esp32-basic-network.html">网络基础</a>里。它讲的是<b>把网络接进一个必须 24 小时不重启的设备里</b>，需要额外做哪些事。</p>
+
+          <h3 class="mt-7 text-base font-semibold">要点回顾</h3>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">分清三层：</b>lwIP（协议栈）→ ESP-NETIF（把 WiFi/以太网统一成 netif）→ 你的 Socket 代码。<b>写业务时你只碰最上面一层</b>，另外两层的存在是为了「换硬件不用改上层」。</li>
+            <li><b class="font-semibold text-ink">Socket 五步：</b><code class="icode">socket</code> → <code class="icode">connect</code> → <code class="icode">send</code>/<code class="icode">recv</code> → <code class="icode">close</code>（服务端多 <code class="icode">bind</code>/<code class="icode">listen</code>/<code class="icode">accept</code>）。<b>每一步都要判 −1 并看 errno。</b></li>
+            <li><b class="font-semibold text-ink">嵌入式的最优组合是「阻塞 + 超时」</b>（<code class="icode">SO_RCVTIMEO</code>/<code class="icode">SO_SNDTIMEO</code>）；要同时看多个连接时才上 <code class="icode">select</code>；非阻塞是第三种选择，不是默认答案。</li>
+            <li><b class="font-semibold text-ink">errno 是你的第一手信息：</b><code class="icode">EAGAIN</code>/<code class="icode">EWOULDBLOCK</code> = 超时（正常）；<code class="icode">ECONNRESET</code> = 对方重置；<code class="icode">ETIMEDOUT</code> = 石沉大海；<code class="icode">ENFILE</code>/<code class="icode">EMFILE</code> = fd 用光了。</li>
+            <li><b class="font-semibold text-ink">可靠性靠自己补：</b>超时、重试（指数退避 + 上限 + 抖动）、心跳（发出 + 等应答 + 连续失败判定）、状态机（DISCONNECTED→CONNECTING→CONNECTED→RECONNECTING）。<b>TCP 一件都不管。</b></li>
+            <li><b class="font-semibold text-ink">资源是有限的：</b>默认 10 个 fd、每个连接约 15.8 KB RAM。<b>每一次连接都要能说出「fd 在哪里关、内存在哪里放」</b>，否则现场表现就是「跑半小时就废」。</li>
+            <li><b class="font-semibold text-ink">HTTP 的两条内存纪律：</b>响应体分块读（不信任远端的 <code class="icode">Content-Length</code>）；<code class="icode">esp_http_client_cleanup</code> 在成功和失败路径都要调。</li>
+            <li><b class="font-semibold text-ink">JSON 的两笔账：</b><code class="icode">cJSON_Delete(树)</code> + <code class="icode">free(PrintUnformatted 的返回值)</code>；解析要判空、判类型、限长度、钳范围。</li>
+            <li><b class="font-semibold text-ink">排障先分半：</b>用 <code class="icode">ping</code> 分「网络问题/代码问题」，用 <code class="icode">nc</code> 分「发送端/接收端」，用 <code class="icode">curl -v</code> 看 HTTP 到底哪里不对。<b>先确定是哪一头的问题，再去看代码。</b></li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">自检题</h3>
+
+          <p class="mt-3">先自己想一遍再看答案。这些题目覆盖了本篇 90% 的考点。</p>
+
+          <ul class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li><code class="icode">esp_netif_create_default_wifi_sta()</code> 做了什么？如果漏掉 <code class="icode">esp_netif_init()</code> 和 <code class="icode">esp_event_loop_create_default()</code> 会发生什么？</li>
+            <li><code class="icode">send()</code> 返回 370（等于你的字符串长度）——它证明了什么、没证明什么？如果它返回 200 呢？</li>
+            <li><code class="icode">errno = EAGAIN</code> 和 <code class="icode">errno = ECONNRESET</code> 分别意味着什么？你的代码该怎么反应？</li>
+            <li>为什么不能依赖 <code class="icode">SO_KEEPALIVE</code> 检测断线？至少说出两条理由，其中一条要提到「你一直在发数据」。</li>
+            <li>10 个客户端时，「每连接一个任务」比「单任务 select」大约多花多少 RAM？这个差值主要来自哪里？</li>
+            <li><code class="icode">cJSON_PrintUnformatted()</code> 返回之后，你要做哪两件释放的事？少做一件会有什么现象？</li>
+            <li>设备跑半小时后连不上服务器，但 <code class="icode">ping</code> 得通、WiFi 也连着。最可能是什么问题？用哪两个办法可以快速确认？</li>
+          </ul>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">自检题答案</div>
+            <p class="mt-2"><b>1.</b> 它创建默认的 STA 网络接口（netif），并把它和 WiFi 驱动挂上钩。<b>漏掉 <code class="icode">esp_netif_init()</code> 会直接失败或没有 netif；漏掉事件循环则 IP 事件无法上报，你永远等不到 <code class="icode">IP_EVENT_STA_GOT_IP</code></b>——表现为「WiFi 显示连上了，但拿不到 IP、也发不出数据」。</p>
+            <p class="mt-2"><b>2.</b> 它只证明<b>数据进了本地发送缓冲区</b>（内核接受了），<b>不证明</b>对方收到了、也不证明后面能被处理。返回 200 说明<b>发生了部分发送</b>——还有 170 字节要你自己补发，直接用返回值和长度比较就判断「发完了」是错的。</p>
+            <p class="mt-2"><b>3.</b> <code class="icode">EAGAIN</code>/<code class="icode">EWOULDBLOCK</code> = 超时时间内没有数据或缓冲区满，<b>连接是好的</b>，继续用（心跳里记一次失败即可）。<code class="icode">ECONNRESET</code> = 对端发了 RST（进程崩溃或被重启），<b>连接已死</b>，必须关闭 fd、走重连。</p>
+            <p class="mt-2"><b>4.</b> ① 默认要 <b>2 小时 11 分</b>才判定断开；② <b>它的空闲计时器会被你的业务数据不断重置，所以你可能一直在发数据、探测包从来没发出去过</b>；③ 它只能证明 TCP 栈还活着，不能证明对方的应用还活着；④ 探测包还可能被中间设备丢弃，造成假断线。</p>
+            <p class="mt-2"><b>5.</b> 大约多花 <b>46 KB</b>（<b>162.6 KB vs 116.6 KB</b>，162.6 KB 含监听任务，见<a class="text-brand-600 dark:text-brand-300" href="#calc-5">例 5</a>）。差值主要由两部分构成：<b>每个连接一份任务栈（4 KB × 10 = 40 KB）+ 每份 TCB（约 0.6 KB × 10）</b>；TCP 收发缓冲两边都有，不构成差值。</p>
+            <p class="mt-2"><b>6.</b> ① <code class="icode">cJSON_Delete(root)</code> 释放整棵树；② <code class="icode">free(body)</code> 释放打印出来的字符串。<b>少做 ② 的现象是每次上报泄漏几十字节，剩余堆阶梯式下降，跑几小时到几天后 <code class="icode">malloc</code> 开始失败</b>（表现为「上电正常、跑久了就坏」）。</p>
+            <p class="mt-2"><b>7.</b> 最可能是 <b>fd 泄漏（socket 没关干净）</b>——因为 ping 通说明网络好，而 fd 用光后 <code class="icode">socket()</code> 会直接返回 −1、<code class="icode">errno = ENFILE</code>。快速确认的两个办法：<b>① <code class="icode">errno</code> 是不是 <code class="icode">ENFILE</code>/<code class="icode">EMFILE</code></b>（打印 <code class="icode">strerror(errno)</code>）；<b>② 把 <code class="icode">CONFIG_LWIP_MAX_SOCKETS</code> 调到 6 复现，看失败是不是来得更快</b>；同时对比每次连接前后的 <code class="icode">esp_get_free_heap_size()</code> 和「最小堆水位」。</p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">改程序一：</b>改成「连上后每 5 秒发一条 <code class="icode">DATA ...</code>，服务端回 <code class="icode">ACK</code>，连续 3 次没等到 ACK 就重连」，<b>并在状态机每次跳转时打印一行日志</b>。然后在 PC 上用 <code class="icode">nc</code> 当假服务器，手动控制「回 ACK / 不回 ACK / 直接关连接」三种情况，观察状态机是否正确。</li>
+            <li><b class="font-semibold text-ink">改程序二：</b>加一个文本命令 <code class="icode">GET /heap\n</code>，返回剩余堆与最小堆水位；再用 <code class="icode">nc</code> 一次性发三条命令（<code class="icode">PING</code>、<code class="icode">GET /heap</code>、<code class="icode">PING</code>）验证<b>粘包处理</b>是否正确——三条都应该有响应。</li>
+            <li><b class="font-semibold text-ink">故意制造拆包：</b>让假服务器把一条 300 字节的消息分三次、每次间隔 100 ms 发出，验证你的客户端能正确拼出完整消息（把 <code class="icode">SO_RCVTIMEO</code> 设成 200 ms 观察差异）。</li>
+            <li><b class="font-semibold text-ink">验证内存纪律：</b>在 HTTP 上报程序里每 10 次打印一次 <code class="icode">esp_get_free_heap_size()</code> 与 <code class="icode">esp_get_minimum_free_heap_size()</code>，跑 30 分钟。<b>然后故意去掉一处 <code class="icode">free</code> 再跑一次，对比两条曲线的差别</b>——亲眼看到泄漏的样子，比看十篇文章都有用。</li>
+            <li><b class="font-semibold text-ink">放大故障：</b>把 <code class="icode">CONFIG_LWIP_MAX_SOCKETS</code> 调到 6，去掉一处 <code class="icode">close()</code>，测量多久之后开始失败，并把 <code class="icode">errno</code> 记录下来（应该是 <code class="icode">ENFILE</code>）。<b>学会「让故障提前出现」，是嵌入式排障最重要的技巧之一。</b></li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">延伸阅读</h3>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><a class="text-brand-600 dark:text-brand-300" href="esp32-basic-network.html">ESP32 网络基础：IP、TCP 与 MQTT</a> —— 不理解 IP、端口、DNS、TCP/UDP 差别的话，先回这一篇补概念。</li>
+            <li><a class="text-brand-600 dark:text-brand-300" href="esp32-wifi.html">ESP32 WiFi 连接与 STA 模式</a> —— 配网、连接状态机、<code class="icode">WIFI_EVENT</code>/<code class="icode">IP_EVENT</code> 的完整用法。</li>
+            <li><a class="text-brand-600 dark:text-brand-300" href="esp32-mqtt.html">ESP32 MQTT 接入物联网平台</a> —— 如果你要做的是「上报到云平台」，MQTT 往往比裸 Socket 更省事。</li>
+            <li><a class="text-brand-600 dark:text-brand-300" href="adv-esp32-ipc.html">任务间通信：队列、信号量与互斥量</a> —— 多任务架构下，网络任务与其他任务之间的数据传递全靠它。</li>
+            <li><a class="text-brand-600 dark:text-brand-300" href="../esp32.html">ESP32 物联网学习路线</a> —— 回到方向页，看看这一篇在整条路线里的位置。</li>
+          </ul>
+
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="adv-esp32-ipc.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">任务间通信：队列、信号量与互斥量</p>
+          </a>
+          <a href="adv-esp32-lowpower.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：继续 ESP32 方向 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">ESP32 低功耗与电源管理</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

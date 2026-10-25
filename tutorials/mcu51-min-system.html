@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>51 最小系统电路原理 - McuStudy</title>
+  <meta name="description" content="51 单片机最小系统四要素逐项讲透：晶振电路为什么配 22~30pF 电容、11.0592 与 12MHz 怎么选、上电复位 RC 计算（10uF + 10kΩ）与按键复位、EA/VPP 第 31 脚接高电平的意义、每个电源引脚旁 104 去耦电容的作用、P0 口开漏为什么必须外接上拉电阻。附全部 40 个引脚的接线表。">
+  <meta name="keywords" content="51最小系统,晶振负载电容,上电复位,RC复位,EA引脚,P0上拉电阻,去耦电容,STC89C52引脚图">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="mcu51" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../mcu51.html" class="hover:text-brand-600 dark:hover:text-brand-300">51单片机</a>
+          <span>/</span>
+          <span class="text-muted">51 最小系统电路原理</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          51 最小系统电路原理
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          一块只有单片机、晶振、复位、电源四部分的板子，为什么就能跑程序？
+          这一篇把 40 个引脚一个一个讲清楚：晶振为什么要配 22~30pF 电容、上电复位的 RC 值怎么算、
+          第 31 脚 EA 为什么必须接高电平、104 电容到底滤了什么、P0 口为什么离了上拉电阻就输出不了高电平。
+          读完你能自己画出一张最小系统原理图，并说清每一根线的理由。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">芯片：<b>STC89C52RC</b></span>
+          <span class="stat-pill">晶振：<b>11.0592MHz</b></span>
+          <span class="stat-pill">阅读约 <b>14</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>最小系统就是「让芯片能跑起来的最少元件」。这一篇要用到欧姆定律、电容的作用和复位电路， 下面几篇是它的直接前置。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-electricity.html">电学基础：电压、电流与电阻</a> —— 算限流电阻、看懂电源与地的接法</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-components.html">常用元件：从色环电阻到三极管</a> —— 晶振、复位电容、上拉电阻分别是什么、长什么样</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-digital.html">数字电路与电平</a> —— 复位为什么是低电平有效、高低电平怎么判定</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-register.html">单片机内部结构与寄存器</a> —— 复位之后各寄存器的初值，以及 P0 口为什么要外接上拉</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-clock">晶振电路与负载电容</a>
+          <a class="toc-link is-sub" href="#sub-reset">复位电路与 RC 计算</a>
+          <a class="toc-link is-sub" href="#sub-ea">EA/VPP 第 31 脚</a>
+          <a class="toc-link is-sub" href="#sub-power">电源与去耦电容</a>
+          <a class="toc-link is-sub" href="#sub-p0">P0 口为什么必须上拉</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-clock">晶振电路与负载电容</a>
+            <a class="toc-link is-sub" href="#sub-reset">复位电路与 RC 计算</a>
+            <a class="toc-link is-sub" href="#sub-ea">EA/VPP 第 31 脚</a>
+            <a class="toc-link is-sub" href="#sub-power">电源与去耦电容</a>
+            <a class="toc-link is-sub" href="#sub-p0">P0 口为什么必须上拉</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            「最小系统」的意思是：<b class="font-semibold text-ink">把一切外设都拆掉之后，还能让单片机正常执行程序的最少电路</b>。
+            拆到不能再拆，剩下的就是四部分。任何一部分缺失或接错，单片机的表现都是一样的——
+            <b class="font-semibold text-ink">纹丝不动，像块砖头</b>。这就是为什么新手最怕硬件问题：
+            现象完全相同，原因却可能在四个地方。
+          </p>
+
+          <div class="mt-6 grid gap-6 sm:grid-cols-2">
+            <div class="mini-step">
+              <span class="step-num">1</span>
+              <div>
+                <h3 class="text-[15px] font-semibold">单片机本体</h3>
+                <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                  STC89C52RC，40 脚 DIP。内含 CPU、8KB Flash、512B RAM、4 个 8 位 IO 口、3 个定时器。
+                </p>
+              </div>
+            </div>
+            <div class="mini-step">
+              <span class="step-num">2</span>
+              <div>
+                <h3 class="text-[15px] font-semibold">晶振电路</h3>
+                <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                  晶振 + 两个 22~30pF 电容。它是 CPU 的心跳，没有它 CPU 一条指令都不执行。
+                </p>
+              </div>
+            </div>
+            <div class="mini-step">
+              <span class="step-num">3</span>
+              <div>
+                <h3 class="text-[15px] font-semibold">复位电路</h3>
+                <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                  10µF + 10kΩ 上电复位，加一个按键做手动复位。它保证 CPU 从确定的起点开始跑。
+                </p>
+              </div>
+            </div>
+            <div class="mini-step">
+              <span class="step-num">4</span>
+              <div>
+                <h3 class="text-[15px] font-semibold">电源</h3>
+                <p class="mt-1.5 text-[13px] leading-relaxed text-muted">
+                  稳定的 5V，每个电源引脚旁一个 104 电容。电源不稳，一切时序都无从谈起。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <p class="mt-5">
+            除了这四部分，还有两个「不算元件但必须处理」的引脚：第 31 脚 <b class="font-semibold text-ink">EA/VPP</b>
+            （决定从哪里取指令）和 P0 口的<b class="font-semibold text-ink">上拉电阻</b>（决定 P0 能不能输出高电平）。
+            这两处是画原理图时最容易漏、也最容易被老师扣分的地方，下面各用一节讲。
+          </p>
+
+          <h3 id="sub-clock" class="mt-7 text-base font-semibold">晶振电路与负载电容</h3>
+          <p class="mt-3">
+            51 内部有一个反相放大器：<code class="icode">XTAL1</code>（第 19 脚）是放大器输入，
+            <code class="icode">XTAL2</code>（第 18 脚）是输出。把晶振和两个电容接在这两个脚之间，
+            就构成了经典的<b class="font-semibold text-ink">皮尔斯振荡器（Pierce Oscillator）</b>——
+            晶振在它的固有谐振频率上形成正反馈，放大器持续输出方波，这个方波再被 12 分频成机器周期。
+          </p>
+
+          <p class="mt-3">
+            两个电容不是「随便加的」，它们的作用有两个：
+            <b class="font-semibold text-ink">一是给晶振提供规定的负载电容</b>（晶振的频率是在特定负载电容下标定的，容值不对频率就偏），
+            <b class="font-semibold text-ink">二是和晶振一起决定振荡的相位条件</b>（提供 180° 相移，让正反馈成立）。
+            工厂给出的容量范围 22~30pF，来自下面这个式子：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="负载电容怎么算（以标称 CL = 20pF 的晶振为例）">
+            <pre><code>晶振手册给出的负载电容 CL = 20pF（也有 30pF 的型号，看规格书）
+
+两个匹配电容一般取相同值 C1 = C2 = C，则：
+
+        CL  =  (C1 × C2) / (C1 + C2)  +  Cs        Cs = 杂散电容（PCB 走线、引脚、焊盘）
+            =  C / 2  +  Cs                        Cs 实测一般 3 ~ 5pF
+
+  →  C  =  2 × (CL - Cs)  =  2 × (20 - 5)  =  30pF
+
+结论：CL = 20pF 的晶振配两个 30pF；CL = 12pF 的晶振配两个 15pF
+     （2 × (12 - 5) = 14pF，取 E12 标准值 15pF；Cs 仍按 5pF 估）。
+     成品板上常见的 22pF 对应 CL ≈ 16pF 的晶振（2 × (16 - 5) = 22pF）——
+     所以「22~30pF」不是随手定的经验值，而是从晶振规格书的 CL 反推出来的；
+     照抄别人的匹配电容之前，先看清自己晶振规格书上的 CL。
+
+电容取大了会怎样：起振变慢、甚至在某些批次上根本不起振（表现为上电偶尔不跑）
+电容取小了会怎样：频率偏高、受温度与湿度影响更大，串口通信偶发乱码
+电路板布线越长，Cs 越大，越应该取小一点的匹配电容</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th>11.0592MHz（推荐）</th>
+                  <th>12.000MHz</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1 个机器周期</td>
+                  <td class="font-mono text-xs">1.085µs</td>
+                  <td class="font-mono text-xs">1.000µs（好算）</td>
+                </tr>
+                <tr>
+                  <td>定时器 T1 方式 2 作波特率发生器</td>
+                  <td>9600bps：<code class="icode">TH1 = 0xFD</code>，误差 <b>0%</b></td>
+                  <td>9600bps：<code class="icode">TH1 = 0xFD</code> 时实际 10417bps，误差 <b>+8.5%</b></td>
+                </tr>
+                <tr>
+                  <td>12MHz 下能凑出的标准波特率</td>
+                  <td>—</td>
+                  <td>2400bps（误差 0.16%）或 4800bps（SMOD=1，误差 0.16%）</td>
+                </tr>
+                <tr>
+                  <td>方式 1 最大定时</td>
+                  <td class="font-mono text-xs">71.11ms</td>
+                  <td class="font-mono text-xs">65.536ms</td>
+                </tr>
+                <tr>
+                  <td>什么时候选它</td>
+                  <td>只要用了串口，尤其是要 9600 / 19200 等标准波特率</td>
+                  <td>纯 IO 实验、要「1µs 一个好算」的教学场景</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            这就是那个奇怪数字的来历：11.0592MHz = 9600 × 32 × 36，能被串口所需的分频链整除，
+            所以误差为 0。UART 一帧 10 位、接收方在中间采样，总波特率误差超过约 2%~3% 就会开始出错，
+            12MHz 的 8.5% 已经远超这个限度——
+            <b class="font-semibold text-ink">不是 12MHz 不好，而是它天生不适合标准波特率</b>。
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">晶振电路的三个常见错误</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>把电容<b>串</b>在晶振与引脚之间——必须是从每个引脚<b>分别对地</b>接一个电容。</li>
+              <li>晶振离芯片太远（超过 1cm）。走线电感会让振荡不稳定，请紧贴第 18、19 脚放置。</li>
+              <li>用万用表去量晶振两端电压判断好坏。万用表的输入电容会直接让振荡停摆，测出来「没电压」不代表坏了，正确做法是用示波器（10× 探头）或频率档看 XTAL2。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-reset" class="mt-7 text-base font-semibold">复位电路与 RC 计算</h3>
+          <p class="mt-3">
+            复位的作用是把 CPU 拉回一个<b class="font-semibold text-ink">确定的初始状态</b>：
+            程序计数器 PC 清零（从 0000H 开始执行）、各 SFR 恢复默认值、IO 口输出高电平。
+            51 的 RST（第 9 脚）是<b class="font-semibold text-ink">高电平有效</b>：
+            只要 RST 上的电压高于输入高电平门限，并<b>保持两个机器周期以上</b>，芯片就会复位。
+          </p>
+
+          <p class="mt-3">
+            12MHz 晶振下一个机器周期是 1µs，所以理论上只要高电平持续 <b>2µs</b> 就能复位。
+            我们用的是 10µF + 10kΩ，时间常数 <code class="icode">τ = R × C = 10kΩ × 10µF = 100ms</code>，
+            也就是把复位电平（RST ≥ 2.0V）保持了约 92ms——<b class="font-semibold text-ink">富余了四万六千倍</b>。
+            这不是浪费，而是在为电源上升时间、晶振起振时间、按键抖动留余量。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>上电后时间 t</th>
+                  <th>RST 电压 V(t) = 5 × e<sup>−t/τ</sup></th>
+                  <th>是否高于复位门限（约 2.0V）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">0</td><td class="font-mono text-xs">5.00V</td><td>是（正在复位）</td></tr>
+                <tr><td class="font-mono text-xs">0.5τ = 50ms</td><td class="font-mono text-xs">3.03V</td><td>是（仍在复位）</td></tr>
+                <tr><td class="font-mono text-xs">0.92τ = 92ms</td><td class="font-mono text-xs">1.99V</td><td>否（复位在此前后释放）</td></tr>
+                <tr><td class="font-mono text-xs">1τ = 100ms</td><td class="font-mono text-xs">1.84V</td><td>否（已释放）</td></tr>
+                <tr><td class="font-mono text-xs">3τ = 300ms</td><td class="font-mono text-xs">0.25V</td><td>否（已接近 0V）</td></tr>
+                <tr><td class="font-mono text-xs">5τ = 500ms</td><td class="font-mono text-xs">0.03V</td><td>否（基本为 0V）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            反过来，<b class="font-semibold text-ink">断电时这个电容必须能放掉电</b>，
+            否则再次上电时它还是满电的：RST 电压等于 5V 减去电容上存的电压，几乎是 0V，
+            压根够不到 2.0V 的复位门限，芯片这一次上电根本不会复位（现象：程序不从头跑，甚至像没启动一样）。
+            电容通过同一个 10kΩ 电阻放电，放电时间常数也是 100ms，
+            所以「关掉电源后等半秒以上再开」是个好习惯；实验室里那种「关了马上开、板子就不启动」的怪现象，
+            基本都出在这里。
+          </p>
+
+          <p class="mt-3">
+            手动复位按键的做法是<b class="font-semibold text-ink">把它并在电容两端</b>：
+            按下时 RST 通过按键直接接 +5V，立刻拉高复位；松开后电容重新充电。
+            工程上通常在按键回路里串一个 100Ω 左右的电阻，用来限制电容瞬间放电的电流
+            （不串的话，触点瞬间电流可达安培级，长期使用会烧蚀按键触点）。
+          </p>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">电解电容极性不能接反</div>
+            <p>
+              10µF 通常用电解电容，<b class="font-semibold">正极接 +5V，负极接 RST</b>。
+              接反的后果不是「复位慢一点」，而是电容漏液、鼓包甚至炸开；
+              即使没炸，反向漏电流也会让 RST 电压异常，表现为上电时跑时不跑。
+              拿不准方向时，选无极性的 10µF 钽电容或陶瓷电容更省心。
+            </p>
+          </div>
+
+          <h3 id="sub-ea" class="mt-7 text-base font-semibold">EA/VPP 第 31 脚：从哪里取指令</h3>
+          <p class="mt-3">
+            <code class="icode">EA</code> 是 <b class="font-semibold text-ink">External Access Enable</b>（外部访问允许）的缩写，
+            它决定 CPU 复位后第一条指令从哪里取：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">EA = 1（接 VCC / 高电平）</b>——先访问<b>片内</b>程序存储器，地址超过片内容量后再自动转向片外。STC89C52RC 片内有 8KB Flash，我们的程序都写在这里，所以<b>必须接高电平</b>。</li>
+            <li><b class="font-semibold text-ink">EA = 0（接 GND / 低电平）</b>——所有取指都去片外 ROM。片外没有接程序存储器时，CPU 读到的是总线上的浮空数据（通常是 0xFF），执行结果就是「跑飞」。现象是灯完全不亮，或者随机乱闪。</li>
+          </ul>
+
+          <p class="mt-4">
+            为什么这个脚特别容易出问题？因为很多开发板把它做成<b class="font-semibold text-ink">跳线帽</b>，
+            方便你切换「用片内 Flash」和「扩展外部 ROM」。跳线帽松动、掉落、或者被同学拔去别处，
+            都会让 EA 悬空——悬空时电平不确定，可能这次上电是 1、下次是 0，
+            于是你就遇到了最折磨人的「有时能跑有时不跑」。
+            <b class="font-semibold text-ink">做最小系统时，直接把它焊死在 VCC 上最省事。</b>
+          </p>
+
+          <h3 id="sub-power" class="mt-7 text-base font-semibold">电源与 104 去耦电容</h3>
+          <p class="mt-3">
+            STC89C52RC 的标称工作电压是 5V；STC 资料上常见的下限写法是 3.8V（部分批次/资料写 3.4V）。
+            工程上按 <b class="font-semibold text-ink">5V ±10%（4.5V~5.5V）</b> 设计，低于 3.8V 不要用，用 5V 最稳；
+            低压下若要跑高晶振频率（比如 11.0592MHz），先降频再试。
+            第 40 脚 VCC、第 20 脚 GND 之间的距离越短越好，供电回路的线要粗一点（或铺铜）。
+          </p>
+
+          <p class="mt-3">
+            每个电源引脚旁要并一个 <b class="font-semibold text-ink">104 电容 = 0.1µF = 100nF</b> 的陶瓷电容，
+            位置尽量在 1cm 以内。它的作用不是「滤波」两个字能说清的，具体是：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>
+              <b class="font-semibold text-ink">提供本地电荷储备</b>——CPU 内部几百万个晶体管在时钟沿同时翻转，
+              瞬间电流变化率 di/dt 极大；电流要从电源经导线过来，导线电感会立刻产生压降
+              （<code class="icode">u = L · di/dt</code>），VCC 上就会出现几十毫伏的尖峰。
+              贴在引脚旁的电容能在纳秒级内补上这部分电流，让 VCC 稳住。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">给高频噪声提供低阻抗回路</b>——数字噪声被就近旁路到地，
+              不会沿着电源线扩散到模拟部分（ADC 采样、传感器供电）。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">抑制电源线上已有的纹波</b>——与电源入口的大电解电容配合，
+              大电容管低频、104 管高频，各管一段。
+            </li>
+          </ul>
+
+          <p class="mt-4">
+            缺了 104 的典型症状很有辨识度：<b class="font-semibold text-ink">程序平时跑得好好的，
+            一按复位键就死机、或者手机一来电话就重启、串口下载偶发失败</b>。
+            它不属于「能不能跑」的问题，而是「能不能稳定跑」的问题——
+            做课程设计时，去耦电容是评委一眼就能看出你有没有工程素养的细节。
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">大电容与小电容怎么配</div>
+            <p>
+              常见做法是：电源入口放一个 <b>100µF 电解</b>（管低频、储能）+ 每个芯片电源脚一个 <b>104 陶瓷</b>（管高频）。
+              只放 104 会导致电源缓慢波动无人处理，只放电解则因为电解电容自身电感大、响应慢，对高频尖峰几乎无效。
+            </p>
+          </div>
+
+          <h3 id="sub-p0" class="mt-7 text-base font-semibold">P0 口为什么必须外接上拉电阻</h3>
+          <p class="mt-3">
+            这是 51 内部结构里最值得单独讲的一件事。四个 IO 口的输出级结构并不一样：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>IO 口</th>
+                  <th>内部输出结构</th>
+                  <th>输出高电平时</th>
+                  <th>能不能直接输出高电平</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">P1 / P2 / P3</td>
+                  <td>准双向口：一个上拉场效应管 + 一个下拉场效应管</td>
+                  <td>上拉管导通，但有较大的等效内阻，只能给出几百微安</td>
+                  <td>能（弱高电平，拉电流能力很小）</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">P0</td>
+                  <td><b>开漏（Open Drain）</b>：只有下拉管，没有上拉管</td>
+                  <td>两个管子都关断，引脚呈<b>高阻态（浮空）</b></td>
+                  <td><b>不能</b>，必须外接 10kΩ 上拉电阻</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            为什么 P0 要设计成开漏？因为它还要兼职做<b class="font-semibold text-ink">地址/数据复用总线</b>
+            （外扩存储器时低 8 位地址和数据分时共用 P0）。做总线时多个器件要挂在一根线上，
+            如果都有强上拉就会「打架」，所以 P0 只保留下拉驱动能力，高电平靠外部上拉电阻提供——
+            这是典型的「线与」总线设计思路。
+          </p>
+
+          <p class="mt-3">
+            对最小系统的影响是：<b class="font-semibold text-ink">只要你想用 P0 输出高电平（比如用 P0 驱动 LED、读按键），
+            就必须接 10kΩ 上拉电阻</b>，常用一整个 10kΩ × 8 的排阻（9 脚排阻，公共端接 VCC）最省地方。
+            不接的现象非常具有迷惑性：用万用表量 P0 引脚，写 1 时电压只有 1V 多一点（不是 0 也不是 5V），
+            接 LED 会微亮或不亮，你会以为是程序问题，其实是引脚根本没被拉上去。
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">P3 口的第二功能要注意</div>
+            <p>
+              P3 的 8 个引脚每一个都有第二功能：P3.0/P3.1 是串口 RXD/TXD，
+              P3.2/P3.3 是外部中断 INT0/INT1，P3.4/P3.5 是定时器计数输入 T0/T1，
+              P3.6/P3.7 是外部存储器写/读选通。做最小系统时把它们留空即可，
+              但<b>不要把它们接到固定电平</b>，否则以后想用外部中断或串口时会很麻烦。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            下面这张表把 40 个引脚<b class="font-semibold text-ink">一个不落地列全</b>了。
+            最小系统的原则是：用不到的引脚一律悬空，绝不乱接高低电平。
+            照着接完，再对照下一节的接线示意图复核一遍。
+          </p>
+
+          <h3 class="mt-7" id="sub-pin-table">全部 40 个引脚的接法</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>引脚号</th>
+                  <th>名称</th>
+                  <th>最小系统怎么接</th>
+                  <th>为什么这么接</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">1 ~ 8</td>
+                  <td class="font-mono text-xs">P1.0 ~ P1.7</td>
+                  <td>接 8 路 LED 的负极（灌电流接法）</td>
+                  <td>准双向口，输出低电平能力强，适合吸电流点灯</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">9</td>
+                  <td class="font-mono text-xs">RST</td>
+                  <td>10µF 到 +5V，10kΩ 到 GND，按键并在电容两端</td>
+                  <td>高电平复位，RC 保证上电时高电平持续 60ms 以上</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">10</td>
+                  <td class="font-mono text-xs">P3.0 / RXD</td>
+                  <td>接 USB 转串口模块的 TXD</td>
+                  <td>串口接收端，下载程序时也用这一路</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">11</td>
+                  <td class="font-mono text-xs">P3.1 / TXD</td>
+                  <td>接 USB 转串口模块的 RXD</td>
+                  <td>串口发送端，与上面的 TXD 交叉连接</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">12 ~ 17</td>
+                  <td class="font-mono text-xs">P3.2 ~ P3.7</td>
+                  <td>悬空（需要按键时再接到按键）</td>
+                  <td>INT0/INT1/T0/T1/WR/RD 第二功能，留出来以后用</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">18</td>
+                  <td class="font-mono text-xs">XTAL2</td>
+                  <td>晶振一端 + 30pF 到 GND</td>
+                  <td>内部振荡放大器输出</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">19</td>
+                  <td class="font-mono text-xs">XTAL1</td>
+                  <td>晶振另一端 + 30pF 到 GND</td>
+                  <td>内部振荡放大器输入</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">20</td>
+                  <td class="font-mono text-xs">GND</td>
+                  <td>接电源地，并与下载模块共地</td>
+                  <td>所有电平的参考点，不共地一切通信都失败</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">21 ~ 28</td>
+                  <td class="font-mono text-xs">P2.0 ~ P2.7</td>
+                  <td>悬空（可接 LCD 数据线等外设）</td>
+                  <td>准双向口，内部有弱上拉，不需要外接上拉电阻</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">29</td>
+                  <td class="font-mono text-xs">PSEN</td>
+                  <td>悬空</td>
+                  <td>读片外程序存储器选通，最小系统不用片外 ROM</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">30</td>
+                  <td class="font-mono text-xs">ALE / PROG</td>
+                  <td>悬空</td>
+                  <td>外扩时输出 fosc/6 供地址锁存，最小系统用不到</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">31</td>
+                  <td class="font-mono text-xs">EA / VPP</td>
+                  <td><b>直接接 +5V</b>（不要用跳线帽）</td>
+                  <td>置 1 才从片内 8KB Flash 取指令执行</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">32 ~ 39</td>
+                  <td class="font-mono text-xs">P0.7 ~ P0.0</td>
+                  <td>不用时悬空；要用则经 10kΩ 排阻上拉到 +5V</td>
+                  <td>开漏结构，输出高电平必须靠外部上拉</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">40</td>
+                  <td class="font-mono text-xs">VCC</td>
+                  <td>接 +5V，并在引脚旁对地接一个 104 电容</td>
+                  <td>供电；104 吸收芯片开关瞬间的高频电流</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">元件清单（BOM）</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>元件</th>
+                  <th>规格</th>
+                  <th>数量</th>
+                  <th>作用</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>单片机</td><td class="font-mono text-xs">STC89C52RC（DIP40）</td><td>1</td><td>核心</td></tr>
+                <tr><td>晶振</td><td class="font-mono text-xs">11.0592MHz（或 12MHz）</td><td>1</td><td>提供时钟</td></tr>
+                <tr><td>陶瓷电容</td><td class="font-mono text-xs">30pF</td><td>2</td><td>晶振负载电容</td></tr>
+                <tr><td>电解电容</td><td class="font-mono text-xs">10µF / 16V</td><td>1</td><td>上电复位（正极接 VCC）</td></tr>
+                <tr><td>电阻</td><td class="font-mono text-xs">10kΩ</td><td>1</td><td>复位放电电阻</td></tr>
+                <tr><td>轻触按键</td><td class="font-mono text-xs">6×6mm</td><td>1</td><td>手动复位</td></tr>
+                <tr><td>电阻</td><td class="font-mono text-xs">100Ω</td><td>1</td><td>按键限流（保护触点）</td></tr>
+                <tr><td>陶瓷电容</td><td class="font-mono text-xs">104（0.1µF）</td><td>1 ~ 2</td><td>电源去耦，紧贴第 40 脚</td></tr>
+                <tr><td>电解电容</td><td class="font-mono text-xs">100µF</td><td>1</td><td>电源入口储能（可选，建议加）</td></tr>
+                <tr><td>排阻</td><td class="font-mono text-xs">10kΩ × 8（9 脚）</td><td>1</td><td>P0 口上拉（用到 P0 时才需要）</td></tr>
+                <tr><td>LED + 限流电阻</td><td class="font-mono text-xs">470Ω × 8</td><td>8 组</td><td>验证程序是否在跑</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意图</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="51 最小系统完整接线示意">
+            <pre><code>                        +5V
+                         │
+        ┌────────────────┼─────────────────────┬──────────────┐
+        │                │                     │              │
+      [104]           [10µF]              [100µF]         [10kΩ 排阻]
+        │             (+)│                 (可选)             │
+        │                │                     │              │
+        │                │                     │          P0.0~P0.7
+        │                │                     │        （用到 P0 才接）
+        │                │                     │
+   ┌────┴────────────────┴─────────────────────┴──────────────────────┐
+   │ 40 VCC                                           P0.7~P0.0  32~39 │
+   │                                                                  │
+   │ 19 XTAL1 ──┬── 11.0592MHz ──┬── XTAL2  18                       │
+   │            │                │                                   │
+   │          [30pF]           [30pF]                                │
+   │            │                │                                   │
+   │           GND              GND                                  │
+   │                                                                  │
+   │  9 RST ──┬── [10kΩ] ── GND          STC89C52RC                  │
+   │          │                                                       │
+   │          ├── (−)[10µF](+) ── +5V                                 │
+   │          │                                                       │
+   │          └── [100Ω] ── 按键 ── +5V      （按键并在电容两端）      │
+   │                                                                  │
+   │ 31 EA/VPP ────────────────────── +5V    （焊死在 VCC，最稳）      │
+   │                                                                  │
+   │ 20 GND ───────────────────────── GND                             │
+   │                                                                  │
+   │  1~8 P1.0~P1.7 ──► LED ×8 ──[470Ω] ── +5V   （灌电流接法）        │
+   │                                                                  │
+   │ 10 P3.0 RXD ◄──── USB 转串口模块 TXD                             │
+   │ 11 P3.1 TXD ────► USB 转串口模块 RXD                             │
+   │ 29 PSEN  悬空        30 ALE 悬空                                  │
+   └──────────────────────────────────────────────────────────────────┘
+
+   四要素：电源(40/20 脚) + 晶振(18/19 脚) + 复位(9 脚) + 单片机本体
+   两个必须处理：EA(31 脚) 接高电平；P0 口要用就加上拉电阻</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线顺序建议</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>先只焊电源：VCC、GND、104 电容。上电用万用表量 VCC 对 GND 是 4.9~5.1V，<b class="font-semibold">并确认没有短路</b>。</li>
+            <li>接晶振与两个 30pF 电容。注意是从第 18、19 脚<b>分别对地</b>接，不是串在中间。</li>
+            <li>接复位电路：10kΩ 到地、10µF 正极到 VCC、按键串 100Ω 后并在电容两端。</li>
+            <li>把第 31 脚 EA 接到 VCC——建议直接焊接，不用跳线帽。</li>
+            <li>把第 10、11 脚引到排针，方便插 USB 转串口模块。</li>
+            <li>最后接 P1 口的 8 组 LED 与 470Ω 限流电阻。</li>
+            <li>全部接完后<b class="font-semibold">再断电目视检查一遍</b>（电容极性、二极管方向、有没有连焊），然后上电。</li>
+          </ol>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">上电前必查</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>电源正负极有没有接反——反接一次就可能烧掉芯片，40 脚器件的 VCC/GND 是斜对角的，最容易插反。</li>
+              <li>10µF 电解电容的极性：<b>正极接 +5V，负极接 RST</b>，反了会鼓包。</li>
+              <li>第 31 脚 EA 是否确实接在 VCC 上（这是最隐蔽的一处）。</li>
+              <li>晶振的两个 30pF 是否装齐——省掉它们最常见的现象是「有时能跑、有时不跑」。</li>
+              <li>如果用到 P0 口，10kΩ 排阻的公共端（通常是红线那一脚）是否接到了 VCC。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            最小系统搭好之后，需要一段程序来<b class="font-semibold text-ink">逐项验证四要素</b>。
+            下面这段「上电自检程序」把四种状态用灯的语言报告出来：
+            全亮 1 秒（电源与 EA 正常）→ 慢闪 3 次（复位正常，每次都从头开始）→
+            1Hz 心跳（晶振在起振，程序稳定运行）。
+            如果心跳明显比 1 秒快或慢，说明板上晶振的频率和你以为的不一样。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— 最小系统四要素自检程序">
+            <pre><code>#include &lt;reg52.h&gt;                  /* 51 寄存器定义头文件 */
+
+/* 自检协议（用 8 颗 LED 报告最小系统状态）：
+ *   阶段 1：8 灯全亮 1 秒      → 芯片在执行指令，说明电源与 EA(31 脚) 正常
+ *   阶段 2：8 灯慢闪 3 次      → 程序每次上电都从头执行，说明复位电路正常
+ *   阶段 3：1Hz 心跳（全亮全灭）→ 时钟在稳定振荡，说明晶振电路正常
+ *   心跳明显变快或变慢         → 晶振实际频率与预期不符，需回查晶振型号
+ */
+
+/* ------------------------------------------------------------------
+ * 软件延时：12MHz 晶振下内层循环约 1ms
+ * 11.0592MHz 时机器周期长 8.5%，同样的循环次数实际约 1.09ms
+ * ------------------------------------------------------------------ */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i, j;
+    for (i = ms; i &gt; 0; i--)
+        for (j = 110; j &gt; 0; j--);
+}
+
+void main(void)
+{
+    unsigned char i;
+
+    P1 = 0xFF;                      /* 上电先把 8 个引脚拉高，灯全灭（灌电流接法） */
+
+    /* ---------- 阶段 1：全亮 1 秒，证明电源与 EA 正常 ---------- */
+    P1 = 0x00;                      /* 全部拉低 → 8 颗灯同时点亮 */
+    Delay_ms(1000);
+
+    /* ---------- 阶段 2：慢闪 3 次，证明复位电路正常 ---------- */
+    for (i = 0; i &lt; 3; i++)
+    {
+        P1 = 0xFF;                  /* 全灭 */
+        Delay_ms(300);
+        P1 = 0x00;                  /* 全亮 */
+        Delay_ms(300);
+    }
+
+    /* ---------- 阶段 3：1Hz 心跳，证明晶振在稳定工作 ---------- */
+    while (1)
+    {
+        P1 = 0x00;                  /* 亮 */
+        Delay_ms(500);
+        P1 = 0xFF;                  /* 灭 */
+        Delay_ms(500);
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">P1 = 0x00;</code> 与 <code class="icode">P1 = 0xFF;</code>——
+              这里不需要 <code class="icode">sbit</code> 位定义，直接对整个字节赋值就能同时控制 8 个引脚。
+              这也顺便证明了 P1 口「8 位并行输出」的本质：写一个字节，8 个引脚的锁存器同时更新。
+            </li>
+            <li>
+              <code class="icode">P1 = 0xFF;</code> 是上电第一件事——为什么强调这个？
+              因为 51 复位后各 IO 口的默认值就是 0xFF（全高），
+              我们显式写一遍，是为了让代码意图明确，也便于以后换成 P0 口时提醒自己别忘了上拉电阻。
+            </li>
+            <li>
+              <code class="icode">Delay_ms(1000)</code>——延时循环靠 CPU 空转实现，
+              它<b>依赖晶振频率</b>：晶振停了，CPU 就不执行指令，灯会停在某个固定状态一动不动；
+              晶振频率翻倍，所有延时都会减半。这就是「用灯的快慢反推晶振」的原理。
+            </li>
+            <li>
+              <code class="icode">while (1)</code>——主循环只做一件事：翻转 P1。
+              阶段 3 的输出（全亮/全灭）比单个 LED 心跳更容易远距离观察，
+              也更方便你用手机秒表在几步外计时。
+            </li>
+            <li>
+              自检的<b>顺序</b>有讲究：先验证「能不能执行指令」，再验证「是不是从头开始」，
+              最后验证「时钟准不准」。这样一旦灯在阶段 1 就没反应，
+              你可以立刻断定问题出在电源/EA/晶振，而不用怀疑复位电路。
+            </li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">想直接测晶振频率？</div>
+            <p>
+              上面用灯来间接判断。如果你有示波器，把探头打到 XTAL2（第 18 脚），
+              应该看到一个峰峰值 4V 左右的近似正弦波，频率就是晶振频率。
+              也可以用带频率档的万用表（把量程放到 MHz 档）读一个近似值——
+              注意读数通常比标称值低百分之几，那是探头与万用表输入电容把负载电容拉大了，属正常现象。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            最小系统是一个「全有或全无」的电路：四要素都对了，现象会严格按阶段出现；
+            任何一个不对，现象都会停在整个流程的某一步。所以下面这张判据表
+            本质上是把「症状」映射到「四要素中的哪一个」。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象（按时间顺序）</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>合上电源开关的瞬间，<b class="font-semibold text-ink">8 颗灯同时全亮</b>，持续约 1 秒。</li>
+            <li>随后全灭 0.3 秒、全亮 0.3 秒，<b class="font-semibold text-ink">不快不慢地重复 3 次</b>——这就是肉眼可数的「自检闪」。</li>
+            <li>第 4 次起进入心跳：全亮 0.5 秒、全灭 0.5 秒，长期不停。</li>
+            <li>按一下复位键，<b class="font-semibold text-ink">整套现象立即从头重演</b>（又先全亮 1 秒、再闪 3 次）。</li>
+            <li>断开电源后立刻再上电，现象同样从头开始（说明复位电容已经放完电）。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>8 颗灯全灭，一动不动，按键也没反应</td>
+                  <td>CPU 一条指令都没执行：供电、晶振、EA 三选一</td>
+                  <td>依次量：VCC 是否 5V → XTAL2 是否振荡 → 第 31 脚 EA 是否 5V</td>
+                </tr>
+                <tr>
+                  <td>灯<b>常亮不灭</b>，永远停在阶段 1</td>
+                  <td>RST 一直是高电平，芯片一直处在复位态（最常见是 10µF 接反或短路）</td>
+                  <td>断电后量 RST 对地电压：正常上电瞬间约 5V，约 92ms 后降到 2.0V 以下，500ms 后接近 0V</td>
+                </tr>
+                <tr>
+                  <td>现象正确，但断电后<b>马上</b>再上电就不启动了</td>
+                  <td>复位电容来不及放电：电容上还存着接近 5V，RST 被顶在 0V 附近，芯片压根不复位（少了一次上电复位）</td>
+                  <td>断电后等 0.5 秒以上再上电即可确认；也可在复位电容上并一个反向二极管加速放电</td>
+                </tr>
+                <tr>
+                  <td>心跳明显偏快（比如 0.5 秒一个周期）</td>
+                  <td>板上晶振频率比预期高一倍，或 Keil 里 Xtal 设置与实际不一致</td>
+                  <td>看晶振外壳上印的频率；重新按实际频率核算延时循环次数</td>
+                </tr>
+                <tr>
+                  <td>灯能亮但<b>亮度很弱</b>，或者只有个别灯微亮</td>
+                  <td>限流电阻太大 / LED 接反 / 该引脚灌电流不足（若用的是 P0 口则可能是没接上拉）</td>
+                  <td>量 LED 两端压降；把该引脚直接对地短接看是否正常亮，以排除 LED 本身的问题</td>
+                </tr>
+                <tr>
+                  <td>一按复位键就死机，或运行中随机重启</td>
+                  <td>电源缺去耦电容，开关瞬间的电源尖峰干扰了 CPU</td>
+                  <td>补上第 40 脚旁的 104 电容；电源入口加 100µF 电解电容</td>
+                </tr>
+                <tr>
+                  <td>有时能跑、有时不跑，无规律</td>
+                  <td>接触不良或电平悬空（EA 跳线帽、晶振虚焊、面包板接触电阻大）</td>
+                  <td>把 EA 直接焊到 VCC；用万用表通断档逐个量关键连接的电阻</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">把这张表当成实验报告的目录</div>
+            <p>
+              做课程设计时，「最小系统是否可靠」通常占总分的很大一块。
+              建议在报告里写清：晶振型号与负载电容的计算过程、复位 RC 的时间常数计算、
+              EA 与 P0 的处理方式、去耦电容的位置，再附一张上电波形（有示波器的话量 RST 上电后从 5V 降到 0V 的那条曲线）。
+              这些内容比贴一张「灯亮了」的照片有说服力得多。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            硬件问题没有编译器给你的报错文字，但有同样明确的「症状原文」。
+            下面按「症状 → 原因 → 解决」列了六条，也是实验室里问得最多的六种。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">症状：下载成功，但上电后 8 颗灯全灭、一动不动</div>
+            <p><b class="font-semibold">原因：</b>CPU 没有执行指令。按可能性排序：① 晶振没有起振（电容漏装、晶振虚焊、晶振损坏）；② 第 31 脚 EA 悬空或接地；③ 电源电压不足 4.5V。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>先量 VCC（应为 4.9~5.1V）；再用示波器看 XTAL2 有无振荡波形（有波形说明晶振没问题）；最后用万用表量第 31 脚对地电压，必须是 5V。三步定位。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">症状：上电后 8 颗灯常亮不灭，按复位键也没变化</div>
+            <p><b class="font-semibold">原因：</b>RST 被持续拉高，芯片始终处于复位状态。最常见是 10µF 电解电容<b>接反</b>（漏电流大）、电容击穿短路，或者按键焊反/被压住导致 RST 常年接在 VCC 上。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>断电量 RST 与 GND 之间是否短路；确认电容正极接 VCC、负极接 RST；拔掉按键再试。可以临时把 10µF 拆掉（只用 10kΩ 对地），看程序是否能跑——能跑就说明问题在复位电路。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">症状：用 P0 口写 1，万用表量到只有 1V 左右，LED 微亮</div>
+            <p><b class="font-semibold">原因：</b>P0 是<b>开漏</b>结构，内部没有上拉场效应管。输出 1 时引脚是高阻态，电压由外部电路决定，自然到不了 5V。这不是程序写错了。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>给 P0 口加 10kΩ 上拉电阻（推荐 10kΩ × 8 的 9 脚排阻，公共端接 VCC）。如果只是点灯，直接用 P1/P2/P3 口更省事——它们内部有弱上拉。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">症状：程序「有时能跑、有时不跑」，复位按住时间长短会影响结果</div>
+            <p><b class="font-semibold">原因：</b>晶振起振余量不足。匹配电容取太大（如用 47pF 代替 30pF）、晶体老化、或者布线过长引入额外杂散电容，都会让振荡要「挣扎」一下才起振。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>把两个电容换成 22pF 或 30pF（按晶振规格书的 CL 反算）；把晶振尽量贴近第 18、19 脚；换一颗新的晶振。注意：不要试图用万用表去量晶振引脚，那会让它停振。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">症状：STC-ISP 提示「正在检测目标单片机 ...」后超时，反复上电也不行</div>
+            <p><b class="font-semibold">原因：</b>虽然看起来是软件问题，但在最小系统板上有两个硬件根源：① 晶振没起振——STC 芯片靠串口波特率与内部时钟配合握手，时钟不对就握不上；② 串口线与 P3.0/P3.1 接错或没共地。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>先确认 P3.0 接模块 TXD、P3.1 接模块 RXD、GND 共地；再把 STC-ISP 的最高波特率降到 4800 甚至 2400 后重试；最后用示波器确认晶振在工作。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">症状：运行中偶尔自己重启，手机靠近时更明显</div>
+            <p>
+              <b class="font-semibold">原因：</b>这是典型的电源完整性问题——缺去耦电容，或者电源本身用的是劣质 USB 口/长杜邦线，抗干扰能力差。
+              <b class="font-semibold">解决：</b>在第 40 脚旁紧贴一个 104 陶瓷电容；电源入口加 100µF 电解；缩短供电线；有条件时用独立稳压电源（如 7805 + 变压器）而不是电脑 USB 口。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇的核心是一张「四要素 + 两处必查」的清单：
+            <b class="font-semibold text-ink">电源（5V + 104）、晶振（+ 两个 30pF）、复位（10µF + 10kΩ）、单片机本体</b>，
+            外加 <b class="font-semibold text-ink">EA 接高电平</b> 与 <b class="font-semibold text-ink">P0 口要上拉</b>。
+            每一个元件的参数都不是经验口诀，而是从器件手册的指标反算出来的：
+            负载电容来自晶振的 CL，复位 RC 来自「两个机器周期」这个最低要求，去耦电容来自 di/dt 引起的电源跌落。
+          </p>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b>把复位 RC 改小算一遍</b>：把 10µF 换成 1µF（τ = 10ms），重新算出 RST 电压从 5V 降到 2.0V 以下的时间点（约 9ms），
+                再对比「两机器周期 = 2µs」的要求，说说为什么仍然够用、以及在什么情况下会不够用。
+              </li>
+              <li>
+                <b>验证 EA 的作用</b>：把第 31 脚从 VCC 改接到 GND，重新上电，记录现象；
+                再改回 VCC 确认程序恢复。如果你的板子是 Proteus 仿真，这一项不用改硬件就能做，也一样要记录现象。
+              </li>
+              <li>
+                <b>在 Proteus 里搭最小系统并量波形</b>：画出最小系统原理图，用虚拟示波器同时看 XTAL2 与 RST 两个点，
+                截下上电瞬间的波形，标注出 RST 从 5V 降到 2V 门限的时间，与本文表格里算出的 92ms 对比。
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-led.html">IO 口输出：LED 流水灯</a>——用最小系统的 P1 口驱动 8 颗灯，讲透灌电流与循环移位。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-timer.html">定时器原理与定时</a>——把本文里「靠延时估算」的节拍换成精确的硬件定时。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-env.html">开发环境搭建</a>——如果还没把下载链路跑通，先回到这一篇。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="mcu51-env.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">开发环境搭建</p>
+          </a>
+          <a href="mcu51-led.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">IO 口输出：LED 流水灯</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

@@ -1,0 +1,2692 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>基本放大电路：静态工作点与三种组态 - McuStudy</title>
+  <meta name="description" content="知识体系第九篇模拟电子：被传感器折磨过的人都该补的一课。从「放大的本质是用小信号控制大能量、能量全部来自电源」讲起，说清为什么必须设置静态工作点 Q、截止失真与饱和失真在示波器上长什么样怎么判别，然后手把手教你画共射极放大电路的直流通路与交流通路、估算 I_BQ / I_CQ / U_CEQ、看懂电压放大倍数与输入输出电阻。三种组态一次讲透：共射反相、共集（射极跟随器）增益约等于 1 但输出阻抗极低、共基高频好；再讲射极跟随器为什么能当缓冲级、差分放大电路与共模抑制比为什么是运放输入级的必然选择、零点漂移与温漂的成因、多级放大与级间耦合。含 5 道数值例题（含麦克风前置放大与 100kΩ 源阻抗变 25Ω 输出的完整推演），以及在单片机上的真实场景：高阻传感器为什么必须加电压跟随器再进 ADC、单管共射去做麦克风前置放大、差分输入怎么抑制电机噪声、运放同相反相输入端为什么不能直接接低阻源。">
+  <meta name="keywords" content="放大电路,放大的本质,静态工作点,Q点,IBQ,ICQ,UCEQ,直流通路,交流通路,共射极放大电路,分压式偏置,射极偏置,截止失真,饱和失真,顶部削平,底部削平,示波器判别失真,电压放大倍数,输入电阻,输出电阻,微变等效电路,rbe,三种组态,共射,共集,共基,射极跟随器,电压跟随器,缓冲级,阻抗变换,差分放大电路,差模,共模,共模抑制比,CMRR,零点漂移,温漂,多级放大,级间耦合,阻容耦合,直接耦合,运放输入级,ADC采样误差,采样保持电容,麦克风前置放大,驻极体话筒,电机噪声,共模干扰">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">基本放大电路：静态工作点与三种组态</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          基本放大电路：静态工作点与三种组态
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          上一篇你学会了把三极管当开关用——要么全开，要么全关。可现实里最难对付的信号，恰恰落在开关的中间地带：麦克风出来的几十微伏、热电偶出来的几毫伏、称重传感器出来的一点点电压差。<b class="font-semibold text-ink">这些东西不放大，ADC 连一个码都变不了。</b>这一篇要解决的，是模拟电路里最基础也最容易糊过去的三件事：<b class="font-semibold text-ink">为什么放大电路必须先设一个静态工作点 Q</b>、<b class="font-semibold text-ink">怎么用直流通路和交流通路两套图把一个电路算清楚</b>、以及<b class="font-semibold text-ink">共射、共集、共基这三种接法到底各自适合干什么</b>。看完它，「跟随器」「差分」「共模抑制比」「输出阻抗」这些你在手册上见过无数次却始终没落地的词，会变成你选电路时的判断依据。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="stat-pill">层级：<b>第 1 层 · 学科基础</b></span>
+          <span class="stat-pill">第 <b>9</b> 篇</span>
+          <span class="stat-pill">教材：<b>童诗白《模拟电子技术基础》第 2、3 章</b></span>
+          <span class="stat-pill">阅读约 <b>42</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-essence">放大的本质：小信号控制大能量</a>
+          <a class="toc-link is-sub" href="#sub-qpoint">静态工作点 Q：为什么必须先「垫」一个直流</a>
+          <a class="toc-link is-sub" href="#sub-distortion">截止失真与饱和失真的波形与判别</a>
+          <a class="toc-link is-sub" href="#sub-analysis">直流通路与交流通路：两套图分析法</a>
+          <a class="toc-link is-sub" href="#sub-gain">电压放大倍数与输入输出电阻</a>
+          <a class="toc-link is-sub" href="#sub-three">三种组态：共射、共集、共基</a>
+          <a class="toc-link is-sub" href="#sub-follower">射极跟随器为什么能当缓冲级</a>
+          <a class="toc-link is-sub" href="#sub-diff">差分放大与共模抑制比</a>
+          <a class="toc-link is-sub" href="#sub-drift">零点漂移与温漂：直接耦合的代价</a>
+          <a class="toc-link is-sub" href="#sub-multistage">多级放大与级间耦合</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link is-sub" href="#sub-mcu-follower">高阻传感器与 ADC：跟随器为什么不能省</a>
+          <a class="toc-link is-sub" href="#sub-mcu-mic">单管共射做麦克风前置放大</a>
+          <a class="toc-link is-sub" href="#sub-mcu-diff">差分输入怎么压掉电机噪声</a>
+          <a class="toc-link is-sub" href="#sub-mcu-source">为什么两个输入端都不能直接接低阻源</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-essence">放大的本质：小信号控制大能量</a>
+            <a class="toc-link is-sub" href="#sub-qpoint">静态工作点 Q：为什么必须先「垫」一个直流</a>
+            <a class="toc-link is-sub" href="#sub-distortion">截止失真与饱和失真的波形与判别</a>
+            <a class="toc-link is-sub" href="#sub-analysis">直流通路与交流通路：两套图分析法</a>
+            <a class="toc-link is-sub" href="#sub-gain">电压放大倍数与输入输出电阻</a>
+            <a class="toc-link is-sub" href="#sub-three">三种组态：共射、共集、共基</a>
+            <a class="toc-link is-sub" href="#sub-follower">射极跟随器为什么能当缓冲级</a>
+            <a class="toc-link is-sub" href="#sub-diff">差分放大与共模抑制比</a>
+            <a class="toc-link is-sub" href="#sub-drift">零点漂移与温漂：直接耦合的代价</a>
+            <a class="toc-link is-sub" href="#sub-multistage">多级放大与级间耦合</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link is-sub" href="#sub-mcu-follower">高阻传感器与 ADC：跟随器为什么不能省</a>
+            <a class="toc-link is-sub" href="#sub-mcu-mic">单管共射做麦克风前置放大</a>
+            <a class="toc-link is-sub" href="#sub-mcu-diff">差分输入怎么压掉电机噪声</a>
+            <a class="toc-link is-sub" href="#sub-mcu-source">为什么两个输入端都不能直接接低阻源</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">先看三个真实发生过的现场。只要你做过一次「模拟量采集」，几乎必然会撞上其中一个。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三个现场：都是「信号太小 / 太软」惹的祸">
+            <pre><code>【现场 A】麦克风接进 ADC，采出来是一条直线
+
+    电路：驻极体话筒 ──两根线──&gt; STM32 的 PA0（ADC 输入）
+    程序跑起来：采样值在 2045 ~ 2055 之间抖动，也就是 ±2 个码。
+    你对着话筒喊，数字几乎不动。
+    你怀疑话筒坏了，换一个新的，还是一样。
+
+   → 真相：话筒输出的交流信号大约只有 5 ~ 20 mV（峰峰值）。
+      而 3.3V / 4096 的一码 = 0.8 mV。
+      ±2 码 = ±1.6 mV 的抖动，正好把你要的信号埋掉了。
+      想让 10 mV 的信号占满量程的 1/3，你需要先把它放大 100 倍左右。
+
+【现场 B】电池电压采不准，一接上探头读数就往下掉
+
+    电路：12V 电池 ──[100kΩ]──┬──[10kΩ]── GND
+                              └── 万用表 / ADC 输入端
+    理论上分压比 10/(100+10) = 0.0909，12V 应该读 1.09V。
+    实际读数：万用表的读数勉强对（1.05V 左右），
+              换成单片机的 ADC 直接读，掉到 0.9V 甚至更低。
+
+   → 真相：分压点的等效输出电阻是 100k ∥ 10k = 9.09kΩ，
+      这已经是个「软」源了。万用表输入阻抗 10MΩ，可以忽略；
+      但 ADC 的采样保持电容要在很短时间内把这个节点充到目标电压，
+      源阻抗一大，就充不满 —— 误差直接出现在读数里。
+
+【现场 C】电机一转，其他通道的 ADC 全部发疯
+
+    电路：ADC 通道 0 接传感器，通道 1 空着（悬空）。
+    电机静止：通道 1 读 300 左右（悬空耦合到的噪声）。
+    电机启动：通道 0 和通道 1 同时上下狂跳，通道 1 跳得更凶，
+              有时候直接打到 4095。
+
+   → 真相：电机电刷打火产生的干扰，是同时加在所有导线上的
+      「共模电压」。单端输入（一根信号线对地）没法区分
+      「信号变了」和「整根线的电位都被抬高了」。
+      而差分输入只关心两根线之间的差，共模部分会被压掉。</code></pre>
+          </div>
+
+          <p class="mt-4">这三个现场看起来是三个问题，其实是同一件事的三个侧面：<b class="font-semibold text-ink">信号既可能太小（需要放大），也可能太软（需要缓冲），还可能被共模噪声淹没（需要差分）</b>。而解决这三件事的基本元件同一个——放大器；解决它们的基本方法也同一套——先设好静态工作点，再按直流通路和交流通路分开算。</p>
+
+          <p class="mt-4">你可能会问：我要的不就是放大吗，为什么非得先学「静态工作点」这么个听起来很静态、很不像在干活的东西？</p>
+
+          <p class="mt-3">用一个比喻先垫一下。想象你在秤东西，你要称的是±5 克的重量变化，但秤的量程是 0~500 克。如果你什么都不放，直接放一个±5 克的东西上去，指针在零点附近挪了一点点，几乎看不清。正确的做法是：<b class="font-semibold text-ink">先在秤上放一个 250 克的砝码，把指针压到量程中间</b>，然后再看那±5 克怎么让指针左右摆。那个 250 克的砝码，就是静态工作点 Q。它本身不携带任何信息，但它决定了你的小信号能有多大的摆动空间。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一篇在整个知识体系里的位置</div>
+            <p>上一篇《半导体器件》把二极管、三极管、MOS 管当成<b>开关</b>来讲——目标是「导通或者断开」。这一篇换一个视角，把三极管放在<b>放大区</b>里用，目标是「输出忠实地跟着输入变」。下一篇《集成运放与信号调理》会告诉你，工程师们早就把几十个三极管集成在一起，做成了一颗运放，你只要记住「虚短虚断」两条规则就能用。</p>
+            <p class="mt-2"><b>但运放的每一个指标，来源都在这一篇里</b>：为什么运放要标输入阻抗、为什么要标共模抑制比、为什么输出能接很重的负载——答案分别是输入级的差分结构、镜像电流源和输出缓冲级。先把这一篇的三极管放大电路看懂，下一篇的指标才不是死记硬背。</p>
+          </div>
+
+          <p class="mt-4">还有一个很现实的理由：<b class="font-semibold text-ink">你迟早要在手册里读到这些词</b>。选型时看到「输出阻抗 50Ω」「CMRR 80dB」，读运放数据手册时看到「输入偏置电流」「共模输入范围」，画 PCB 时被师兄提醒「这里要加个跟随器」——这些词不是给设计芯片的人准备的，是给<b>接电路的人</b>准备的。这一篇讲的就是怎么用它们做判断。</p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+
+          <p class="mt-4">这一节是全文的骨架。八个概念按「为什么放大 → 怎么让放大能工作 → 怎么算 → 三种接法怎么选 → 怎么对付噪声和级联」的顺序排下来，建议按顺序看。</p>
+
+          <h3 id="sub-essence" class="mt-7 text-base font-semibold">放大的本质：小信号控制大能量</h3>
+
+          <p class="mt-3">先破一个几乎所有人都有的错误直觉：<b class="font-semibold text-ink">三极管不能把信号的能量「放大」出来</b>。它不是一个能量发生器，它是一个「阀门」。</p>
+
+          <p class="mt-3">看下面这张图。左侧是输入回路（基极），右侧是输出回路（集电极），两者唯一的联系是同一个三极管：基极电流稍微变一点，集电极电流就跟着变β倍。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="放大的能量从哪来：阀门 vs 水塔">
+            <pre><code>        输入回路（小信号，小能量）        输出回路（大能量）
+                                        ┌─────── +VCC ← 能量从这里来
+                                        │
+                                        │
+    ui ──┬──[ RB ]──┬── b             c ┴
+         │          │                      │
+        ─┴─ 小       │    ┌───────────────┘
+         │ 信         └───►│  NPN
+        ─┬─ 号             │
+         │               e │
+        ─┴─                 │
+                           ─┴─
+                            │
+                           ─── GND
+
+    基极回路：ui 让 iB 变化一点点（微安级）
+    β 放大：  iC = β · iB 变化几十倍（毫安级）
+    输出回路：iC 流过 RC，在 RC 上压降变化 → uo 变化（伏特级）
+
+    ★ 关键：uo 这个电压的「功率」全部来自右侧的 +VCC。
+      ui 只是「告诉」三极管该开多大。
+      就像水塔（VCC）的高度决定水压，
+      你手指的力（ui）只是决定阀门开度，
+      水力发电的能量不是你手指给的。
+
+    ★ 推论 1：放大器一定有电源。没有 VCC 的「放大器」不存在。
+    ★ 推论 2：输出信号的功率可以远大于输入信号的功率，
+              但绝不可能超过电源提供的功率。
+    ★ 推论 3：放大的是「变化的量」，不是「绝对的电平」。
+              三极管放大的是 iB 的增量 diB，不是 iB 本身。</code></pre>
+          </div>
+
+          <p class="mt-4">这个「阀门」的比喻解释了放大器最容易被忽略的两条性质：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">放大器一定有电源，而且电源的质量决定输出的质量</b>。VCC 上叠了 50mV 的纹波，这个纹波会被「当成输入」一样传下去（这叫电源抑制比 PSRR，下一篇细讲）。所以模拟电路的电源去耦电容永远比数字电路讲究。</li>
+            <li><b class="font-semibold text-ink">放大器只能放大变化量</b>。你给一个恒定的直流输入，输出也是一个恒定的直流——它不会「越放越大」。这直接引出下一个概念：既然只有变化量能被放大，那么变化量的「活动空间」就必须由直流来提供，而这个直流就是工作点。</li>
+          </ul>
+
+          <h3 id="sub-qpoint" class="mt-7 text-base font-semibold">静态工作点 Q：为什么必须先「垫」一个直流</h3>
+
+          <p class="mt-3">「静态」的意思是：<b class="font-semibold text-ink">输入信号为零（ui = 0）时电路的状态</b>。「工作点」的意思是：这时候三极管落在输出特性曲线的哪一点上。合起来，静态工作点 Q 就是这三个数：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>符号</th><th>含义</th><th>典型量级（小信号放大）</th><th>它决定了什么</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code class="icode">I_BQ</code></td><td>静态基极电流</td><td>10 ~ 50 μA</td><td>三极管的「开关开度」</td></tr>
+                <tr><td><code class="icode">I_CQ</code></td><td>静态集电极电流</td><td>0.5 ~ 5 mA</td><td>电路的耗电、输出能摆多大</td></tr>
+                <tr><td><code class="icode">U_CEQ</code></td><td>静态集电极-发射极电压</td><td>VCC 的 1/3 ~ 1/2</td><td>输出电压能往上、往下各摆多少</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">为什么非要有这几个直流？因为三极管的输出特性是<b class="font-semibold text-ink">非线性</b>的。看这张输出特性曲线族（横轴 u_CE，纵轴 i_C，每条曲线对应一个 i_B）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="输出特性曲线族：为什么工作点必须在「放大区」中间">
+            <pre><code>   iC (mA)
+    │
+  6 ┤────────────────────────────────────────────  iB = 60μA
+    │                                             ╱ 饱和区边界
+  5 ┤───────────────────────────────────────╱────  iB = 50μA
+    │                                  ╱
+  4 ┤─────────────────────────────╱─────────────   iB = 40μA
+    │                        ╱
+  3 ┤──────────────────╱────────────────────────   iB = 30μA
+    │             ╱
+  2 ┤────────╱─────────────────────────────────    iB = 20μA
+    │    ╱
+  1 ┤╱─────────────────────────────────────────    iB = 10μA
+    │
+  0 ┼────┬────┬────┬────┬────┬────┬────┬────┬───► uCE (V)
+    0   1    2    3    4    5    6    7    8
+
+    ┌── 饱和区（左窄条）──┐┌──────── 放大区 ────────┐
+    │ uCE &lt; 0.3V          ││ 曲线近似水平            │
+    │ iC 由外电路决定      ││ iC ≈ β·iB（几乎与 uCE 无关）│
+    │ 曲线陡峭上升         ││ 这才是放大要用的区域     │
+    └─────────────────────┘└────────────────────────┘
+
+    ★ 三个致命区域：
+      截止区（iB = 0，iC ≈ 0）：曲线贴着横轴
+      放大区（中间大片）：曲线平坦，iC 只跟 iB 走 ← 工作点必须在这里
+      饱和区（uCE 很小）：曲线陡升，iC 被 uCE 卡住，不再跟 iB 走</code></pre>
+          </div>
+
+          <p class="mt-4">现在关键的问题来了。假设你<b class="font-semibold text-ink">不设静态工作点</b>，直接把小信号接到基极，会发生什么？</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="不设 Q 点：只有半个波形被放大了（半波失真）">
+            <pre><code>【情况 1：Q 点在截止区（iBQ = 0）】
+
+   iB 波形（输入）：          iC 波形（输出）：
+      ╱╲                        ╱╲
+     ╱  ╲                      ╱  ╲
+   ─╱────╲── 0 ──          ──╱────╲─────     ← 只在正半周有电流
+   ╲      ╱                  ╲      ╱
+    ╲    ╱                    ╲    ╱
+     ╲  ╱                       ╲╱
+      ╲╱                        （负半周被切掉）
+
+   原因：iB 在 0 附近摆动，负半周想把 iB 压到 0 以下 —— 不可能，
+        三极管的基极电流不能为负。负半周整个被丢弃。
+
+   → 这叫「截止失真」的原型：没有直流偏置，
+     交流信号只有一半能被放大。
+
+【情况 2：设了 Q 点，但 Q 点太高（靠饱和区）】
+
+   iC 波形：
+       ┌──────┐        ← 顶部被削平（撞到饱和）
+      ╱        ╲
+     ╱          ╲
+    ╱            ╲
+   ─              ──────
+
+   → 这叫「饱和失真」：正半周把 iC 顶到了饱和区上限。
+
+【情况 3：Q 点设在放大区中间（正确）】
+
+   iC 波形：
+         ╱╲
+       ╱    ╲
+      ╱      ╲
+     ╱        ╲
+    ╱          ╲
+   ─            ──────     ← 完整、对称、和输入同形状
+
+   → 输出「忠实复现」输入的形状（可能同时反相，见三种组态那一节）。</code></pre>
+          </div>
+
+          <p class="mt-4">所以设置静态工作点的目的可以一句话概括：<b class="font-semibold text-ink">给交流信号准备一块「上下都够用」的活动空间，让整个信号周期都待在放大区里</b>。工程上的经验法则是把 U_CEQ 设在 VCC 的 1/3 到 1/2 之间：太低则往下摆不动（撞饱和），太高则往上摆不动（撞截止）。</p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">「垫直流」这件事，你其实见过很多次</div>
+            <p>运放单电源供电时，工程师会在同相端接一个 VCC/2 的分压——那就是给运放「垫工作点」，让输出能围绕 1.65V 上下摆，而不是撞在 0V 上。示波器探头上的 AC/DC 耦合开关，本质也是同一个问题：把直流分量去掉之后，信号的活动空间就只剩一半。这一篇学的 Q 点，是这个思路最原始、最直白的形式。</p>
+          </div>
+
+          <h3 id="sub-distortion" class="mt-7 text-base font-semibold">截止失真与饱和失真的波形与判别</h3>
+
+          <p class="mt-3">失真（distortion）的意思是：输出波形和输入波形形状不一样了。放大电路最典型的两种失真是<b class="font-semibold text-ink">截止失真</b>和<b class="font-semibold text-ink">饱和失真</b>。它们有一个非常实用的判别口诀，但在讲口诀之前，先把原理说清楚，否则你会记反。</p>
+
+          <p class="mt-3">关键点：<b class="font-semibold text-ink">共射极放大电路的输出是反相的</b>（输入升高，输出降低，见后面三种组态）。这个反相特性会让「失真出现在波形的哪一侧」变得反直觉。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两种失真的完整推演（共射极，输出反相）">
+            <pre><code>【截止失真】Q 点太低，靠近截止区
+
+  输入 ui 正半周 → iB 增大 → iC 增大 → RC 压降增大 → uo = VCC - iC·RC 减小
+  输入 ui 负半周 → iB 减小 → iC 减小 → RC 压降减小 → uo 增大
+
+  负半周时 iB 想变成负的 → 三极管截止 → iC = 0 → uo = VCC（顶到最高）
+
+  输入 ui：                输出 uo：
+     ╱╲                      ┌────┐     ← 顶部被削平（uo 被顶到 VCC）
+    ╱  ╲                    ╱      ╲
+   ╱    ╲        ===&gt;      ╱        ╲
+  ╱      ╲                ╱          ╲
+ ─        ──            ─             ────
+
+  ★ 特征：输出波形的【顶部】被削平 → 峰值幅度变小 → 这叫截止失真
+  ★ 物理原因：uo 已经顶到 VCC 了，再往上没有了（电源是天花板）
+
+【饱和失真】Q 点太高，靠近饱和区
+
+  输入 ui 正半周 → iB 大增 → 三极管进入饱和 → uo 被压到 U_CES ≈ 0.3V
+
+  输入 ui：                输出 uo：
+     ╱╲                    ╱╲
+    ╱  ╲                  ╱  ╲
+   ╱    ╲      ===&gt;      ╱    ╲
+  ╱      ╲              ╱      ╲
+ ─        ──          ─────────────────  ← 底部被削平
+                       └────┘       （uo 被压到 0.3V 左右）
+
+  ★ 特征：输出波形的【底部】被削平 → 这叫饱和失真
+  ★ 物理原因：uo 已经贴到地了，再往下没有了（地是地板）
+
+【判别口诀 —— 记这一条就够了】
+
+        共射极电路： 顶部削平 = 截止失真（Q 点太低）
+                     底部削平 = 饱和失真（Q 点太高）
+
+        ★ 反过来调：截止失真 → 减小 RB（基极电流变大 → iC 变大 → uo 下降）
+                    饱和失真 → 增大 RB（基极电流变小 → iC 变小 → uo 上升）
+
+        ★ 注意：射极跟随器（共集电极）输出不反相，
+                两种失真的方向会反过来，不要照搬这个口诀。</code></pre>
+          </div>
+
+          <p class="mt-4">判别失真，实操上有三步：</p>
+
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">先看削平的是哪一侧。</b>一侧被平掉、另一侧完好——这是典型的单边失真，一定是 Q 点偏了。如果两侧<b>同时</b>被削平，那是输入信号太大了（超出输出摆动范围），跟 Q 点无关，正确做法是减小输入幅度或降低放大倍数。</li>
+            <li><b class="font-semibold text-ink">再用万用表量 U_CEQ。</b>断开交流输入，量静态的集电极对地电压。如果是 VCC（或接近 VCC），说明管子已经截止；如果是 0.3V 左右，说明管子已经饱和。</li>
+            <li><b class="font-semibold text-ink">再调偏置电阻观察。</b>调 RB 让 U_CEQ 回到 VCC/2 附近，失真应该消失。这一步能确认你的判别是对的——不要只靠波形猜。</li>
+          </ol>
+
+          <div class="code-block mt-3" data-lang="text" data-title="失真判别决策树">
+            <pre><code>看到示波器上输出波形被削平
+        │
+        ├── 两侧都被削平
+        │      → 输入信号太大，不是 Q 点问题
+        │      → 减小输入幅度 / 降低增益 / 提高 VCC
+        │
+        └── 只有一侧被削平
+               │
+               ├── 共射极（输出反相）
+               │     ├── 顶部平 → 截止失真 → 减小 RB（或增大 RC 的余量）
+               │     └── 底部平 → 饱和失真 → 增大 RB / 减小 RC
+               │
+               └── 共集电极（射极跟随器，输出不反相）
+                     ├── 顶部平 → 输出顶到 VCC → 输入太大或 Q 点太高
+                     └── 底部平 → 输出贴到地  → 输入太大或负载太重
+
+    ★ 检查顺序永远是：量 U_CEQ → 判断区域 → 再调电阻。</code></pre>
+          </div>
+
+          <h3 id="sub-analysis" class="mt-7 text-base font-semibold">直流通路与交流通路：两套图分析法</h3>
+
+          <p class="mt-3">这是整篇文章最重要的方法。放大电路里同时存在直流（偏置）和交流（信号）两个世界，它们互相影响却不能放在一张图里算。<b class="font-semibold text-ink">办法是画两张图，分开算</b>。</p>
+
+          <p class="mt-3">先看完整的共射极放大电路。它一共只有五个元件加一个三极管，但每一根线都有讲究：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="共射极放大电路（分压式偏置 + 发射极电阻，完整电路）">
+            <pre><code>                  +VCC (12V)
+                    │
+        ┌───────────┼───────────┐
+        │           │           │
+       RB1          RC          │
+       47k         3k           │
+        │           │           │
+        ├───────────┼───┬       │
+        │     C1    │   │  C2   │
+        │    ─┤├────┤   └──┤├───┴──── uo（输出）
+        │    10μF   │      10μF
+       RB2         b│c     │
+       10k          │      │
+        │        ┌──┴──┐   │
+        │   ui ──┤ NPN ├───┘      ← 集电极在这里
+        │        └──┬──┘
+        │           │e
+        │           ├──── RE (1k)
+        │           │
+        │           └──── CE (100μF)  ← 发射极旁路电容
+        │                       │
+       ─┴─                     ─┴─
+        │                       │
+       ─── GND ───────────────────
+
+    ★ 五个元件各自的作用（这是考试和面试都爱问的）：
+      RB1 / RB2 ：分压给基极一个固定电压 UB ≈ VCC · RB2/(RB1+RB2)
+      RC        ：把集电极电流的变化「翻译」成电压变化（关键！）
+      RE        ：直流负反馈，稳住 Q 点（下面单独讲）
+      CE        ：交流旁路，让 RE 对交流「短路」，不损失增益
+      C1 / C2   ：隔直通交，把前后级的直流状态隔开
+
+    ★ 为什么 RC 必须存在？
+      如果 RC = 0，集电极直接接 VCC，iC 怎么变 uo 都是 VCC 不动。
+      电压放大的本质就是「让电流变化流过电阻变成电压变化」。</code></pre>
+          </div>
+
+          <p class="mt-4">现在把这张图拆成两张。规则只有四条，但必须记牢：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>元件</th><th>画直流通路时</th><th>画交流通路时</th><th>为什么这样处理</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>电容 C</td><td><b>开路</b>（去掉）</td><td><b>短路</b>（一根导线）</td><td>直流不能过电容；交流信号频率够高时容抗近似为 0</td></tr>
+                <tr><td>直流电源 VCC</td><td>保留（就是电源）</td><td><b>接地</b>（对地短路）</td><td>理想电压源内阻为 0，对交流而言正端和地是同一电位</td></tr>
+                <tr><td>电阻</td><td>原样保留</td><td>原样保留</td><td>电阻对交直流一视同仁</td></tr>
+                <tr><td>三极管</td><td>用直流量算（I_BQ、I_CQ）</td><td>换成微变等效电路（r_be）</td><td>直流用大信号模型，交流用小信号线性化模型</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="两张图分开画：直流通路（算 Q 点）与交流通路（算增益）">
+            <pre><code>【直流通路】把 C1、C2、CE 全部去掉（开路），VCC 保留
+
+                  +VCC (12V)
+                    │
+        ┌───────────┼───────────┐
+       RB1          RC          │
+       47k          3k          │
+        │           │           │
+        ├───────────┤           │
+        │           │           │
+       RB2         b│c          │
+       10k          │           │
+        │        ┌──┴──┐        │
+        │        │ NPN │        │
+        │        └──┬──┘        │
+        │           │e          │
+        │           │           │
+        │           ├── RE 1k ──┤
+        │           │           │
+       ─┴─         ─┴─         ─┴─
+       ─── GND ───────────────────
+
+    UB  = VCC · RB2/(RB1+RB2) = 12 · 10/57 = 2.105V
+    UE  = UB - UBE = 2.105 - 0.7 = 1.405V
+    IEQ = UE/RE = 1.405mA ≈ ICQ
+    UCEQ = VCC - ICQ·RC - IEQ·RE = 12 - 1.405·3 - 1.405·1 = 6.38V
+
+【交流通路】C1、C2、CE 全部短路（导线），VCC 接地
+
+        ┌───────────┬───────────┐
+       RB1          RC          │
+       47k          3k          │
+        │           │           │
+        ├───────────┴───────────┴── 地（VCC 变地）
+        │           │
+       RB2         b│c                    
+       10k          │     └────── uo
+        │        ┌──┴──┐        │
+   ui ──┴────────┤ NPN │        │
+                 └──┬──┘        │
+                    │e          │
+                    │           │
+                    └───────────┘ ← CE 短路，RE 被短路掉了！
+                       （发射极交流直接接地）
+
+    ★ 注意：RE 被 CE 短路了，所以交流通路里 RE 不见了。
+      这就是「旁路电容」的作用：直流上有 RE（稳 Q 点），
+      交流上没有 RE（不损失增益）。
+
+    ★ 交流通路长这样 → 输入回路：ui → RB1∥RB2 → r_be → 地
+                       输出回路：uo = -β·ib·(RC∥RL)</code></pre>
+          </div>
+
+          <p class="mt-4">两张图一分开，所有的量都有了明确的归属：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">直流通路算静态量</b>：I_BQ、I_CQ、U_CEQ。目的是检查 Q 点是否合适。</li>
+            <li><b class="font-semibold text-ink">交流通路算动态量</b>：电压放大倍数 Au、输入电阻 Ri、输出电阻 Ro。目的是判断这个电路能不能用。</li>
+            <li><b class="font-semibold text-ink">两者通过三极管的参数发生联系</b>：交流参数 r_be 的数值要用静态的 I_CQ 算出来（r_be 随 I_CQ 变化）。所以算增益之前必须先算 Q 点，这不是老师故意加步骤。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">r_be 怎么算：一个必须背下来的公式</div>
+            <p>三极管在放大区的交流等效，可以看成一个电阻 <code class="icode">r_be</code>（发射结电阻）。公式是：<b>r_be = r_bb' + (1 + β) · 26mV / I_EQ(mA)</b>，其中 r_bb' 是基区体电阻，小功率管取 200Ω 左右；也可以用简化形式 <b>r_be ≈ 200Ω + (1+β)·26mV/I_EQ</b>。</p>
+            <p class="mt-2">代入常用数值体会一下：β = 100、I_EQ = 1.4mA 时，(1+100)×26/1.4 = 1876Ω ≈ 1.88kΩ，加上 200Ω 得 <b>r_be ≈ 2.08kΩ</b>。</p>
+            <p class="mt-2">这个公式的三条推论很有用：① <b>I_CQ 越大，r_be 越小</b>——电流大，发射结「更容易导通」，等效电阻就小；② <b>r_be 通常在千欧量级</b>——这决定共射电路的输入电阻往往是 kΩ 级，这是它的短板；③ 因为 r_be 依赖 I_EQ，所以 <b>改变 Q 点会改变增益</b>，两者不能独立设计。</p>
+          </div>
+
+          <h3 id="sub-gain" class="mt-7 text-base font-semibold">电压放大倍数与输入输出电阻</h3>
+
+          <p class="mt-3">这三个量是放大电路的「体检报告」。放大倍数告诉你「放大了多少」，输入电阻和输出电阻告诉你「它跟前后级合不合得来」。<b class="font-semibold text-ink">实际工程中，输入输出电阻的重要性经常超过放大倍数</b>——现场 A/B/C 三个坑，全都是阻抗问题。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三个指标的定义与直觉理解">
+            <pre><code>【电压放大倍数 Au】
+
+             uo
+      Au = ──────        带负载时记作 Aus（考虑源电阻）或 Aul（带 RL）
+             ui
+
+    ★ 共射极的 Au 是负数（反相）：ui 升高 10mV，uo 下降 500mV
+      所以常说「共射极放大倍数的绝对值 |Au| = 50」。
+    ★ 分贝表示：20·log10(|Au|)。|Au| = 100 就是 40dB。
+
+【输入电阻 Ri】—— 从信号源的角度看，这个电路「有多重」
+
+     信号源 ui ──[ Rs 源内阻 ]──┬── Ri（放大电路输入电阻）
+                                │
+                               ─┴─
+
+     实际加到放大器输入端的电压： ui' = ui · Ri/(Rs + Ri)
+
+    ★ Ri 越大，从信号源「拿走的」电流越小，分压损失越小。
+    ★ 所以对电压放大的场合，Ri 越大越好（理想是无穷大）。
+    ★ 共射极的 Ri ≈ RB1∥RB2∥r_be，通常在 kΩ 级。
+    ★ 如果传感器的输出阻抗 Rs = 100kΩ，而 Ri = 2kΩ，
+      那么只有 2/(100+2) ≈ 2% 的信号电压能落到输入端！
+      这就是现场 B 的病根。
+
+【输出电阻 Ro】—— 从负载的角度看，这个电路「有多硬」
+
+                    ┌───[ Ro ]───┬──── uo（开路电压）
+                    │            │
+                 放大器         RL（负载）
+                                 │
+                                ─┴─
+
+     接上负载后的输出电压： uo = uo_oc · RL/(Ro + RL)
+
+    ★ Ro 越小，带负载能力越强，接上 RL 后电压掉得越少。
+    ★ 所以对输出级的场合，Ro 越小越好（理想是 0）。
+    ★ 共射极的 Ro ≈ RC（因为集电极看进去，VCC 是地，RC 就是那个电阻）。
+    ★ 共集电极（射极跟随器）的 Ro 非常小，这就是它的价值所在。
+
+【三者之间的关系：一条完整的信号链】
+
+   信号源(Rs)  →  [ Ri  放大器  Ro ]  →  负载(RL)
+    ui            └─────────────────┘      uo
+
+   uo/ui = [Ri/(Rs+Ri)] · Aul · [RL/(Ro+RL)]
+            └ 输入分压 ┘         └ 输出分压 ┘
+           前一项由 Ri 决定       后一项由 Ro 决定
+
+   ★ 这句话值得抄在笔记本上：
+     放大器真正的效果，是「输入分压 × 增益 × 输出分压」三者的乘积。
+     光有大的 Au，两头阻抗不匹配，照样什么都得不到。</code></pre>
+          </div>
+
+          <h3 id="sub-three" class="mt-7 text-base font-semibold">三种组态：共射、共集、共基</h3>
+
+          <p class="mt-3">「组态」说的是：<b class="font-semibold text-ink">输入回路和输出回路共用三极管的哪一个电极</b>（哪个电极对交流来说是「接地」的公共端）。三极管只有三个电极，所以财务上说只有三种接法——这就是全部。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种组态的交流通路骨架（一眼看出差别）">
+            <pre><code>【共射极 CE】发射极接地（公共端 = e）
+
+   ui ──┤b        c├──┬── uo
+                    │
+                   [RC]
+                    │
+                   ─┴─ 地
+        └───────────┘  e 接地
+
+   输入在 b-e 之间，输出在 c-e 之间，e 是公共端。
+   uo 与 ui 反相（iC 增大 → RC 压降增大 → uo 减小）
+
+【共集电极 CC = 射极跟随器】集电极接 VCC（对交流是地）
+
+   ui ──┤b        c├──── +VCC（交流接地）
+                    │
+              uo ───┤e
+                    │
+                   [RE]
+                    │
+                   ─┴─ 地
+
+   输入在 b 与 VCC 之间，输出在 e 与 VCC 之间，c 是公共端。
+   uo 与 ui 同相，且 uo ≈ ui - 0.7V（所以叫「跟随器」）
+
+【共基极 CB】基极接地（公共端 = b）
+
+   ui ──┤e        c├──┬── uo
+                    │
+                   [RC]
+                    │
+                   ─┴─ 地
+        ┌───────────┘  b 经电容接地
+
+   输入在 e-b 之间，输出在 c-b 之间，b 是公共端。
+   uo 与 ui 同相，输入电阻极小（几十欧）。</code></pre>
+          </div>
+
+          <p class="mt-4">三种组态的横向对比，这张表值得多读几遍：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>指标</th>
+                  <th>共射极 CE</th>
+                  <th>共集电极 CC（射极跟随器）</th>
+                  <th>共基极 CB</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>电压增益 |Au|</b></td>
+                  <td><b>大</b>（几十 ~ 几百）</td>
+                  <td>≈ 1（略小于 1，0.95 ~ 0.99）</td>
+                  <td><b>大</b>（和共射差不多）</td>
+                </tr>
+                <tr>
+                  <td><b>相位关系</b></td>
+                  <td><b>反相</b>（180°）</td>
+                  <td><b>同相</b>（0°）</td>
+                  <td><b>同相</b>（0°）</td>
+                </tr>
+                <tr>
+                  <td><b>电流增益</b></td>
+                  <td>大（≈ β）</td>
+                  <td>大（≈ 1+β）</td>
+                  <td>≈ 1（略小于 1）</td>
+                </tr>
+                <tr>
+                  <td><b>输入电阻 Ri</b></td>
+                  <td>中（kΩ 级）</td>
+                  <td><b>大</b>（几十 kΩ ~ 几百 kΩ）</td>
+                  <td><b>极小</b>（几十 Ω）</td>
+                </tr>
+                <tr>
+                  <td><b>输出电阻 Ro</b></td>
+                  <td>中（≈ RC，kΩ 级）</td>
+                  <td><b>极小</b>（几十 Ω 以下）</td>
+                  <td>中（≈ RC）</td>
+                </tr>
+                <tr>
+                  <td><b>高频性能</b></td>
+                  <td>差（米勒效应放大结电容）</td>
+                  <td>好</td>
+                  <td><b>最好</b>（无米勒效应）</td>
+                </tr>
+                <tr>
+                  <td><b>典型用途</b></td>
+                  <td>主放大级、电压增益</td>
+                  <td><b>缓冲级、阻抗变换</b>、输出级</td>
+                  <td>高频放大、宽带放大、电流缓冲</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">一句话记住三种组态的性格</div>
+            <p><b>共射</b>——力气大但脾气倔（增益高、反相、两头阻抗都一般）。<br>
+            <b>共集</b>——脾气好但没力气（不放大电压，但特别会「和稀泥」，谁来都能接得上）。<br>
+            <b>共基</b>——跑得快但不好接近（频带宽、输入阻抗极低，必须有人给它做前级）。</p>
+            <p class="mt-2">所以实际电路里，它们几乎总是<b>搭配出现</b>：共集做输入级（提高输入阻抗）→ 共射做中间级（提供增益）→ 共集做输出级（降低输出阻抗）。这个「三明治」结构，就是运放内部的典型架构。</p>
+          </div>
+
+          <h3 id="sub-follower" class="mt-7 text-base font-semibold">射极跟随器为什么能当缓冲级</h3>
+
+          <p class="mt-3">这是本篇最值得「想通」的一个点，因为它解释了 90% 的模拟前端为什么要多放一颗芯片。</p>
+
+          <p class="mt-3">先把结论摆出来：<b class="font-semibold text-ink">射极跟随器不放大电压（Au ≈ 1），它放大的是「功率」和「驱动能力」</b>。它做了两件事：把输入电阻变得很大，把输出电阻变得很小。用一个词概括就是——<b>阻抗变换</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="缓冲级的作用：把「软源」变成「硬源」">
+            <pre><code>【没有缓冲级】高阻源直接驱动低阻负载
+
+   源（Rs = 100kΩ）        负载（RL = 1kΩ）
+        ┌──[100k]──┬──────────┬───┐
+        │          │          │   │
+      us=1V       ui          RL  uo
+        │          │          │   │
+       ─┴─        ─┴─        ─┴─ ─┴─
+
+   uo = us · RL/(Rs + RL) = 1 · 1/(100+1) = 9.9 mV
+
+   ★ 只剩 1%！你辛辛苦苦采到的信号，99% 掉在源内阻上了。
+   ★ 更糟的是：这个分压比还会随温度、随接线长度变化，
+     所以不是「乘以一个固定系数就能修正」那么简单。
+
+【加了缓冲级（射极跟随器）】
+
+   源（100kΩ）      跟随器              负载（1kΩ）
+        ┌──[100k]──┬──┤b      e├──┬──────┬───┐
+        │          │            │  │      │   │
+      us=1V     Ri=200k      Ro=25Ω RL=1k  uo
+        │          │            │  │      │   │
+       ─┴─        ─┴─          ─┴─ ─┴─   ─┴─ ─┴─
+
+   第一步（输入侧）：Ri = 200kΩ 远大于 100kΩ，分压损失很小
+        ui = us · 200/(100+200) = 1 · 0.667 = 667 mV
+
+   第二步（跟随器）：Au ≈ 1
+        uo_oc ≈ 667 mV
+
+   第三步（输出侧）：Ro = 25Ω 远小于 1kΩ，几乎不掉
+        uo = 667 · 1000/(25+1000) = 650 mV
+
+   ★ 结果对比：9.9mV → 650mV，提高了 66 倍。
+   ★ 而且这个值对负载的变化不敏感：RL 从 1k 变成 2k，
+     uo 只从 650mV 变到 659mV（约 1.4%），而不是翻倍。
+     「带得动」的真正含义是：输出不随负载变化。
+
+【为什么跟随器的输出电阻这么小？—— 直观理解】
+
+   负载想要更多电流时会发生什么？
+     RL 变小 → uo 想往下掉 → 但 e 点电压下降 → UBE = Ub - Ue 增大
+     → iB 增大 → iC 增大（β 倍）→ 从 VCC 拉来大量电流补给负载
+     → uo 被「顶」回去
+
+   这就是负反馈：输出被负载往下拽，电路自动加大电流把它抬回来。
+   Ro ≈ (Rs' + r_be)/(1 + β)，分母上的 (1+β) 就是它的底气。</code></pre>
+          </div>
+
+          <p class="mt-4">所以「缓冲级」这个概念可以精确地定义为：<b class="font-semibold text-ink">一个输入电阻很大、输出电阻很小、电压增益约等于 1 的中间级</b>。它的存在让 «高阻源 → 低阻负载» 这种本来不匹配的组合变得能工作。</p>
+
+          <p class="mt-4">什么时候必须加缓冲级？记住四个信号：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">源内阻大于后级输入阻抗的 1/10</b>——信号会被分压吃掉一大半。分压电阻、高阻传感器、pH 电极、压电陶瓷都属于这一类。</li>
+            <li><b class="font-semibold text-ink">后级是 ADC</b>——ADC 采样瞬间要从输入节点抽取电荷给采样电容充电，源阻抗大就充不满（下一节细讲）。</li>
+            <li><b class="font-semibold text-ink">信号要经过长导线或接插件</b>——导线有分布电容，源阻抗大时它构成低通滤波器，把高频成分滤掉。</li>
+            <li><b class="font-semibold text-ink">负载会变化</b>——如果你需要「换一个负载，输出读数还一样」，那必须让 Ro 远小于 RL。</li>
+          </ul>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">跟随器不是万能的：三个使用边界</div>
+            <p>① <b>它不放大电压</b>。如果信号本身只有 5mV，加多少个跟随器也还是 5mV，你还是得先想办法放大。<br>
+            ② <b>它有失调和偏置电流</b>。三极管跟随器有约 0.7V 的直流偏移（BE 结压降），运放跟随器有输入失调电压（几毫伏）。高阻源 + 大偏置电流的运放，会在源内阻上产生可观的误差电压。<br>
+            ③ <b>它不能突破电源轨</b>。输入接近 VCC 或接近 0V 时，跟随器会失去跟随能力（输出饱和）。所以信号要留出裕量，或者选轨到轨（rail-to-rail）的运放。</p>
+          </div>
+
+          <h3 id="sub-diff" class="mt-7 text-base font-semibold">差分放大与共模抑制比</h3>
+
+          <p class="mt-3">到目前为止，我们讲的都是「一根信号线对地」的<b>单端</b>电路。现场 C 说明单端电路有个致命弱点：<b class="font-semibold text-ink">它分不清「信号变了」和「整根线的对地电位被抬高了」</b>。解决方法是给信号两根线，只看它们之间的差。</p>
+
+          <p class="mt-3">先定义两个词，这是理解后面一切的基础：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="差模与共模：两种输入的定义">
+            <pre><code>两根输入线上的电压分别记作 u1、u2。
+
+【差模分量 ud】—— 两根线「不一样」的部分，这才是信号
+      ud = u1 - u2
+
+【共模分量 uc】—— 两根线「一起变」的部分，这是干扰
+      uc = (u1 + u2) / 2
+
+   反过来写：
+      u1 = uc + ud/2
+      u2 = uc - ud/2
+
+【举个例子（就是现场 C 的场景）】
+
+   电机静止时：u1 = 1.000V，u2 = 0.900V
+      → ud = 100mV，uc = 0.950V
+
+   电机启动，整条地线被抬高 1V、并且叠加了 200mV 的尖峰：
+      u1 = 2.100V，u2 = 2.000V
+      → ud = 100mV ← 信号完全没变！
+      → uc = 2.050V ← 干扰全跑到这里来了
+
+   ★ 关键洞察：干扰在两根线上几乎完全相同，
+     所以它只影响 uc，不影响 ud。
+     「只看 ud、不理 uc」的电路，就天然免疫这种干扰。
+
+【差分放大器的两个增益指标】
+
+   Ad = uo / ud   差模增益（我们要的，越大越好）
+   Ac = uo / uc   共模增益（我们不要的，越小越好）
+
+   CMRR = |Ad / Ac|        共模抑制比
+   常用分贝表示：CMRR(dB) = 20·log10(|Ad/Ac|)
+
+   ★ 一颗通用运放的 CMRR 典型值 80 ~ 100dB，
+     换算成倍数就是 10000 ~ 100000 倍。
+     意思是共模干扰被压掉了 4 ~ 5 个数量级。</code></pre>
+          </div>
+
+          <p class="mt-4">现在看差分放大电路最经典的形状——<b class="font-semibold text-ink">长尾对</b>（long-tailed pair）。这是所有运放输入级的原形：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="长尾对（差分放大电路）与恒流源尾巴">
+            <pre><code>                  +VCC
+                    │
+        ┌───────────┼───────────┐
+       RC1          │          RC2
+       5.1k        │          5.1k
+        │          │           │
+        ├──────────┤           ├──── uo2
+   uo1  │          │           │
+        │         ┌┴┐          │
+        └─────────┤ ├──────────┘     ← 两个管子参数完全相同
+       u1 ──┤b    └┬┘    b├── u2
+                  │ e1  e2 │
+                  └────┬────┘
+                       │
+                    ┌──┴──┐
+                    │ I0  │  ← 恒流源（「长尾巴」）
+                    │ 2mA │
+                    └──┬──┘
+                      ─┴─
+                       │
+                      ─── GND
+
+    ★ 恒流源是差分电路的灵魂：
+      I0 = 2mA 是固定的，所以 iE1 + iE2 = 2mA 永远成立。
+      于是：iE1 增大多少，iE2 就必须减小多少。
+      → 差模信号：一个管子电流上升，另一个下降，输出变化被「翻倍」
+      → 共模信号：两个管子想同时上升，但 I0 不许（总电流固定）
+                  → 两管电流都不变 → 输出不变 → 共模被抑制！
+
+    ★ 这就是共模抑制的物理机制：
+      不是靠什么神奇的补偿，而是靠【总电流守恒】这一条硬约束。
+      恒流源的交流等效电阻越大（理想为无穷大），共模抑制越好。
+      所以实际电路里，那个「长尾巴」用一个三极管 + 基准电阻做成
+      恒流源，而不是简单的一个大电阻。
+
+【四种接法的输出（教材里的经典分类）】
+
+   双端输入双端输出：Ad = -β·RC/r_be，CMRR 最高（靠对称性）
+   双端输入单端输出：Ad 减半，CMRR 降低（RC 的不匹配变成共模误差）
+   单端输入双端输出：与双端输入等价（单端信号可以分解成差模 + 共模）
+   单端输入单端输出：最简单，用于把单端信号转成差分再放大
+
+   ★ 差分放大电路是「有一种输入方式都成立」的通用结构。</code></pre>
+          </div>
+
+          <p class="mt-4">「为什么运放的输入级一定要用差分？」答案现在很清楚了，有三层理由：</p>
+
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">为了抑制共模干扰。</b>这是最直接的理由。传感器接在长线上、地和电源都不干净，共模干扰是常态。单端放大器会把干扰当信号一起放大；差分放大器只看两根线的差，共模部分被 CMRR 压掉。</li>
+            <li><b class="font-semibold text-ink">为了抑制零点漂移（下一小节详解）。</b>差分结构里，两个管子的温漂方向相同、大小相近，在输出端<b>相减抵消</b>。这是直接耦合放大器能工作的前提——不然温度一变，输出就跑偏了。</li>
+            <li><b class="font-semibold text-ink">为了提供一个「能自己定零点」的输入结构。</b>差分放大器不要求输入以地为参考，它可以放大一个「浮空」的电压差（比如采样电阻两端的电压）。这让它成为电流检测、电桥测量、热电偶测量的天然选择。</li>
+          </ol>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">CMRR 是有限的：四个会「吃掉」它的现实因素</div>
+            <p>① <b>电阻不匹配</b>。长尾对里 RC1 和 RC2 差 1%，共模抑制就会掉到 40dB 左右。这就是为什么集成差分放大器（如 INA 系列）要把电阻做在芯片内部并激光修调。<br>
+            ② <b>信号源内阻不匹配</b>。两根输入线的源内阻差 1kΩ，在偏置电流的作用下就会产生一个差模误差电压。精密差分测量要求源阻抗尽量相等。<br>
+            ③ <b>CMRR 随频率下降</b>。手册标的 80dB 通常是直流或低频的，到 10kHz 可能只剩 50dB。数据手册里有 CMRR-频率曲线。<br>
+            ④ <b>共模输入范围有限</b>。输入共模电压超出手册规定的范围，输入级会截止或饱和，CMRR 直接崩溃——这也是「仪表放大器」存在的理由。</p>
+          </div>
+
+          <h3 id="sub-drift" class="mt-7 text-base font-semibold">零点漂移与温漂：直接耦合的代价</h3>
+
+          <p class="mt-3">「零点漂移」是指：<b class="font-semibold text-ink">输入信号为零（或不变）时，输出却缓慢地偏离原来位置</b>。缓慢是关键——它不是噪声（噪声是快速随机抖动），而是像潮水一样的慢性偏移。</p>
+
+          <p class="mt-3">漂移的来源主要有四个，按严重程度排：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>来源</th><th>机制</th><th>典型量级</th><th>怎么对付</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>温度（温漂）</b></td>
+                  <td>U_BE 的温度系数约 -2mV/℃；β 也随温度变化（约 +0.5%/℃）</td>
+                  <td>折合到输入端 <b>10 ~ 20 μV/℃</b></td>
+                  <td>差分结构对称抵消、恒流源偏置、加温度补偿、选低漂移器件</td>
+                </tr>
+                <tr>
+                  <td><b>电源波动</b></td>
+                  <td>VCC 变化直接改变各级的工作点，逐级放大</td>
+                  <td>取决于 PSRR</td>
+                  <td>稳压、加大去耦电容、提高电源抑制比</td>
+                </tr>
+                <tr>
+                  <td><b>器件老化</b></td>
+                  <td>长期使用后 β、漏电流缓慢变化</td>
+                  <td>月/年级别，很慢</td>
+                  <td>定期校准；用软件零点校准</td>
+                </tr>
+                <tr>
+                  <td><b>噪声（1/f 噪声）</b></td>
+                  <td>低频段闪烁噪声，频谱密度随频率下降而上升</td>
+                  <td>与带宽有关</td>
+                  <td>斩波稳零运放、限制带宽、多次平均</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">为什么说温漂是「直接耦合的代价」？把它和阻容耦合对比一下就清楚了：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="为什么阻容耦合没有漂移问题，直接耦合却有">
+            <pre><code>【阻容耦合：每一级之间用电容隔开】
+
+   前级 ──[ C ]──  后级
+   直流被电容挡住，前级工作点的漂移传不到后级。
+
+   ★ 效果：漂移被「隔离」了，不会逐级累积。
+   ★ 代价：电容隔掉了直流，所以【没法传递缓慢变化的信号】。
+     一个 0.1Hz 的信号过不去 10μF 的耦合电容
+     （容抗 = 1/(2πfC) = 159kΩ）。心电图、热电偶、
+     应变片这些「慢信号」，用阻容耦合是采不到的。
+
+【直接耦合：级与级之间直接连（运放内部就是这样）】
+
+   前级 ────────────  后级
+   直流直接通过。
+
+   ★ 效果：能放大任意慢的信号，包括直流。运放能测直流就是这个原因。
+   ★ 代价：前级的漂移会被后级【当成信号继续放大】，逐级累积。
+
+   算一笔账：
+      单级漂移折合到输入 20μV/℃
+      三级直接耦合，每级增益 50 倍：
+      第一级漂移 20μV → 在输出端变成 20μV × 50 × 50 × 50 = 2.5V/℃
+      ★ 温度变 1℃，输出就跑掉 2.5V —— 电路彻底没法用。
+
+   ★ 这就是为什么「多级直接耦合放大器」必须解决零点漂移，
+     而唯一的实用解法就是【差分输入级 + 恒流源】。
+     所以运放的第一级永远是差分放大电路，这不是设计风格，
+     是数学上必须这么做。
+
+【温漂怎么算：折合到输入端（RTI）与折合到输出端（RTO）】
+
+   折合到输入端（RTI）= 折合到输出端（RTO）/ 总增益
+   ← 讨论漂移和噪声时，一律用 RTI，因为它不随增益变化，
+     可以直接和信号幅度比较。
+
+   例：信号 10mV，运放失调温漂 5μV/℃，
+       温度变化 30℃ → 漂移 150μV → 占信号的 1.5%（可以接受）
+   例：信号 100μV，同一颗运放，
+       30℃ 漂移 150μV → 占信号的 150%（完全不可用）
+   ★ 结论：信号越小，越要选低漂移运放。</code></pre>
+          </div>
+
+          <p class="mt-4">工程上的处理顺序是这样的：<b class="font-semibold text-ink">先靠电路结构（差分、对称、恒流源）把漂移压下去，再靠选型（低漂移运放）把残余压下去，最后靠软件（开机零点校准）把剩下的消掉</b>。三级都用上，才能测 μV 级的慢信号。</p>
+
+          <h3 id="sub-multistage" class="mt-7 text-base font-semibold">多级放大与级间耦合</h3>
+
+          <p class="mt-3">一级共射的增益大约几十倍，要放大 1000 倍就得串联多级。多级放大的总增益、总输入输出电阻，有三条必须记住的规律：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="多级放大的三条基本规律">
+            <pre><code>【规律 1】总电压增益 = 各级增益之积
+
+   Au_total = Au1 · Au2 · Au3 ···
+   用分贝：Au(dB) = Au1(dB) + Au2(dB) + Au3(dB) + ···
+   （这就是分贝好用的地方：乘变加）
+
+   例：三级各 20dB → 总 60dB → 1000 倍
+
+【规律 2】总输入电阻 = 第一级的输入电阻
+           总输出电阻 = 最后一级的输出电阻
+
+   信号链： 源 → [ Ri1 级1 Ro1 ] → [ Ri2 级2 Ro2 ] → 负载
+
+   ★ 所以：
+     - 想要高输入阻抗，就【把跟随器放在最前面】
+     - 想要低输出阻抗，就【把跟随器放在最后面】
+     - 中间级用共射，专心提供增益（它不用管阻抗的事）
+
+【规律 3】后一级是前一级的「负载」
+
+   算第一级的增益时，必须把第二级的输入电阻当作负载 RL：
+      Aul1 = -β · (RC1 ∥ Ri2) / r_be1
+
+   ★ 这条最容易被漏掉。如果第二级输入电阻很小，
+     第一级的增益会大幅下降 —— 你按空载算出来的增益是假的。
+
+【带宽的代价：增益带宽积是常数】
+
+   单级共射的增益带宽积（GBW）由三极管和 RC 决定，是个常数。
+   放大 100 倍 → 带宽 10kHz
+   放大 10 倍  → 带宽 100kHz
+
+   ★ 想要「又高增益又宽带宽」，不能靠加级数硬堆，
+     必须换器件、换组态（共基）或者引入负反馈（下一篇讲）。
+
+【一个真实的多级前端长什么样】
+
+                        ┌─────────── 12V ───────────┐
+   传感器 ──┬── CC1 ──┬── CE1 ──┬── CC2 ──┬── 到 ADC
+   (高阻)   │ 跟随器  │ 主放大 │ 跟随器  │
+            │ Ri 很大 │ Au = 50│ Ro 很小 │
+            └─────────┴────────┴─────────┘
+
+   第一级：共集（射极跟随器）→ 解决「源太软」的问题
+   第二级：共射            → 提供主要的电压增益
+   第三级：共集（射极跟随器）→ 解决「带不动负载/ADC」的问题
+
+   ★ 记住这个「跟随 - 放大 - 跟随」的三明治结构。
+     你在各种传感器模块上看到的电路，八成就是这个形状。</code></pre>
+          </div>
+
+          <p class="mt-4">级与级之间怎么连，有四种方式，它们的取舍构成了模拟电路设计的一条主线：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>耦合方式</th><th>怎么连</th><th>优点</th><th>缺点</th><th>用在哪</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>阻容耦合</b></td>
+                  <td>用电容隔开</td>
+                  <td>直流彼此独立，Q 点好设计，漂移不传递</td>
+                  <td>不能传直流和慢信号；大电容体积大、有低频截止</td>
+                  <td>音频放大、交流放大</td>
+                </tr>
+                <tr>
+                  <td><b>直接耦合</b></td>
+                  <td>导线直连</td>
+                  <td>能放大直流和任意慢的信号；便于集成（省掉大电容）</td>
+                  <td>Q 点互相牵连；<b>零点漂移逐级累积</b></td>
+                  <td>运放内部、精密直流放大</td>
+                </tr>
+                <tr>
+                  <td><b>变压器耦合</b></td>
+                  <td>用变压器</td>
+                  <td>阻抗变换灵活、能传输功率、级间天然隔离</td>
+                  <td>体积大、笨重、不能传直流、高频低频都受限</td>
+                  <td>老式功放、隔离电源</td>
+                </tr>
+                <tr>
+                  <td><b>光电耦合</b></td>
+                  <td>用光耦</td>
+                  <td><b>电气完全隔离</b>，共模干扰彻底切断</td>
+                  <td>速度受限、有非线性、需要两侧电源</td>
+                  <td>隔离测量、工业现场、开关电源反馈</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">看到「直接耦合」四个字，就该条件反射想到漂移</div>
+            <p>这条反射在单片机现场特别有用。当你用运放搭一个直接耦合的直流放大电路时，如果遇到「开机时零点是对的，跑一段时间读数慢慢偏」或者「用手摸一下芯片读数就变」，那几乎一定是漂移问题，而不是代码问题。处理方向：先查温度（芯片是否发烫）、再查电源（是否稳定）、最后才考虑换低漂移运放。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 动手算一遍 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="text-xl font-semibold">动手算一遍</h2>
+
+          <p class="mt-4">这一节有五个例题，全部是真实数值，不用查表就能跟着算。前四个是必做的，第五个是把它们串起来的设计题。<b class="font-semibold text-ink">请准备一张纸，跟着算一遍</b>——看懂和会算是两件事。</p>
+
+          <h3 class="mt-7 text-base font-semibold">例题 1：固定偏置共射电路，算 Q 点并判断是否在放大区</h3>
+
+          <p class="mt-3">这是最简单的共射电路（只用一只 RB 给基极供电），先拿它把流程走一遍。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 1 电路与参数">
+            <pre><code>                  +VCC = 12V
+                    │
+        ┌───────────┼───────────┐
+        │           │           │
+       RB = 470k    RC = 3k     │
+        │           │           │
+        │           ├─── uC      │
+        │          c│           │
+        └─── b ──┌──┴──┐        │
+                │ NPN │        │
+        ui ─────┤     │        │
+                └──┬──┘        │
+                   │e          │
+                  ─┴─          │
+                  ─── GND ──────
+
+   已知：VCC = 12V，RB = 470kΩ，RC = 3kΩ
+        三极管 β = 50，UBE = 0.7V（硅管，导通后近似恒定）
+   求：IBQ、ICQ、UCEQ，并判断是否工作在放大区</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 1 解答">
+            <pre><code>【第一步：画直流通路】
+   本电路没有耦合电容，直流通路就是原电路。
+
+【第二步：列输入回路的方程求 IBQ】
+   基极回路：VCC → RB → 基极 → 发射极 → 地
+   所以：  VCC = IBQ · RB + UBE
+
+   IBQ = (VCC - UBE) / RB
+       = (12 - 0.7) / 470k
+       = 11.3 / 470000
+       = 24.0 μA          ← 记作 2.40 × 10^-5 A
+
+   ★ 注意这个「24 微安」。它小得几乎测不出来，
+     但正是它控制着后面毫安级的电流。
+
+【第三步：用 β 求 ICQ】
+   ICQ = β · IBQ = 50 × 24.0μA = 1.20 mA
+
+【第四步：列输出回路求 UCEQ】
+   集电极回路：VCC → RC → 集电极 → 发射极 → 地
+   UCEQ = VCC - ICQ · RC
+        = 12 - 1.20mA × 3kΩ
+        = 12 - 3.6
+        = 8.4V
+
+【第五步：判断工作区（这一步必须做，不能省）】
+
+   判据一：UBE 是否正偏？
+      0.7V 正偏 ✓ → 不是截止区
+
+   判据二：UCEQ 是否大于 U_CES（饱和压降，一般取 0.3V）？
+      8.4V 远大于 0.3V ✓ → 不是饱和区
+
+   判据三（更严格的写法）：iC 是否等于 β·iB？
+      1.20mA = 50 × 24μA ✓ 成立 → 确认在放大区
+
+   ★ 结论：工作在放大区。
+
+【第六步：评估这个 Q 点好不好 —— 分析最大不失真幅度】
+
+   输出 uo = uC，它上下能摆多少？
+
+   往上摆（uC 升高）：受限于截止
+      极限是 uC = VCC = 12V，能往上摆 12 - 8.4 = 3.6V
+
+   往下摆（uC 降低）：受限于饱和
+      极限是 uC = U_CES ≈ 0.3V，能往下摆 8.4 - 0.3 = 8.1V
+
+   ★ 严重不对称！往上只有 3.6V 的空间，往下有 8.1V。
+   ★ 这意味着：只要输入信号大到让输出往上摆超过 3.6V，
+     就会出现【截止失真】（顶部削平）。
+
+【第七步：把 Q 点调到中间 —— 这就是「设计」的含义】
+
+   想让上下对称，希望 UCEQ ≈ VCC/2 = 6V 附近，留出对称裕量。
+   由上已知：UCEQ = VCC - ICQ·RC
+   要 UCEQ = 6V，则 ICQ·RC = 6V，ICQ = 6/3k = 2mA
+   由 ICQ = β·IBQ 得 IBQ = 2mA/50 = 40μA
+   由 IBQ = (VCC - UBE)/RB 得
+      RB = (12 - 0.7)/40μA = 11.3/0.00004 = 282.5 kΩ
+      取标称值 270kΩ
+
+   验证：IBQ = 11.3/270k = 41.9μA
+         ICQ = 50 × 41.9μA = 2.09mA
+         UCEQ = 12 - 2.09mA × 3k = 12 - 6.27 = 5.73V ✓
+         上下摆动空间 ≈ 5.4V / 5.4V，基本对称。
+
+   ★ 体会一下：Q 点的设计其实就是一道【反着算】的题。
+     先定 UCEQ 看要多大的 ICQ，再定 ICQ 看要多大的 IBQ，
+     最后定 IBQ 看要多大的 RB。三步倒推，永远是这个顺序。
+
+【第八步：这个电路的致命弱点】
+
+   回头看 IBQ = (VCC - UBE)/RB 这个式子：
+   UBE 在分母上的系数是 1/RB，而在分压式偏置里，
+   UBE 被 RE 稳住了。这里没有 RE，所以：
+
+      温度升高 10℃ → UBE 下降约 20mV（-2mV/℃）
+      → IBQ 增大 → ICQ 增大 → Q 点整体漂移
+      → 而且 β 也随温度上升（约 +0.5%/℃）
+      → ICQ 的漂移被 β 又放大一次
+
+   定量算一下：温度从 25℃ 升到 55℃（ΔT = 30℃）
+      UBE: 0.7V → 0.7 - 0.06 = 0.64V
+      IBQ = (12 - 0.64)/470k = 24.2μA（几乎没变，只涨了 1%）
+      β:  50 → 50 × (1 + 0.005 × 30) = 57.5
+      ICQ = 57.5 × 24.2μA = 1.39mA（涨了 16%）
+      UCEQ = 12 - 1.39mA × 3k = 12 - 4.17 = 7.83V（从 8.4V 掉到 7.83V）
+
+   ★ 结论：这个电路的 Q 点会随温度跑，输出零点会漂。
+     能用，但只适合对稳定性要求不高的场合（比如教学实验）。
+     想稳，就要用下一题的【分压式偏置 + 发射极电阻】。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例题 2：分压式偏置共射电路（工程上真正会用的那个）</h3>
+
+          <p class="mt-3">这是实际电路里最常见的共射结构。它的精妙之处在于：<b class="font-semibold text-ink">ICQ 几乎只由电阻决定，跟 β 和 UBE 都基本无关</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2 电路与参数">
+            <pre><code>                  +VCC = 12V
+                    │
+        ┌───────────┼───────────┐
+       RB1          RC          │
+       47k          3k          │
+        │           │           │
+        ├───────────┤           │
+        │           │           │
+       RB2         b│c          │
+       10k          │           │
+        │        ┌──┴──┐        │
+        │        │ NPN │        │
+        │        └──┬──┘        │
+        │           │e          │
+        │           ├── RE 1k ──┤
+        │           │           │
+       ─┴─         ─┴─         ─┴─
+       ─── GND ───────────────────
+
+   已知：VCC = 12V，RB1 = 47kΩ，RB2 = 10kΩ，
+        RC = 3kΩ，RE = 1kΩ，UBE = 0.7V，β = 100
+   求：IBQ、ICQ、UCEQ，并判断工作区与稳定性</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2 解答（含「为什么它稳」的定量验证）">
+            <pre><code>【第一步：画直流通路】
+   耦合电容 C1、C2 和旁路电容 CE 全部开路（去掉）。
+   剩下：RB1、RB2 分压 → 基极；RC 在集电极；RE 在发射极。
+
+【第二步：判断能不能用「分压近似」——这一步不能跳】
+
+   近似成立的条件是：流过 RB1、RB2 的分压电流
+   远大于基极电流 IBQ（一般要求大 5 ~ 10 倍）。
+   先算两个极端看看：
+
+   UB(空载) = VCC · RB2/(RB1 + RB2) = 12 × 10/57 = 2.105V
+   如果忽略 IB，UE = 2.105 - 0.7 = 1.405V
+   IE ≈ 1.405V/1kΩ = 1.405mA
+   IB = IE/(1+β) = 1.405mA/101 = 13.9μA
+
+   分压支路电流：I_RB2 = UB/RB2 = 2.105/10k = 210μA
+
+   ★ 210μA 是 13.9μA 的 15 倍，远大于 5 倍 ✓
+     → 分压近似成立，可以用 UB ≈ 2.105V。
+   ★ 如果这个比值只有 2 ~ 3 倍，就必须用戴维南等效
+     老老实实解方程（后面给公式）。
+
+【第三步：求发射极电压与 IEQ】
+
+   UBQ ≈ 2.105 V
+   UEQ = UBQ - UBE = 2.105 - 0.7 = 1.405 V
+   IEQ = UEQ / RE = 1.405 / 1k = 1.405 mA
+
+【第四步：取 ICQ ≈ IEQ，求 IBQ】
+
+   ICQ ≈ IEQ = 1.405 mA         ← 因为 IC = IE - IB，IB 只占 1/101
+   IBQ = ICQ / β = 1.405mA / 100 = 14.05 μA
+
+【第五步：求 UCEQ】
+
+   UCEQ = VCC - ICQ·RC - IEQ·RE
+        = 12 - 1.405mA × 3kΩ - 1.405mA × 1kΩ
+        = 12 - 4.215 - 1.405
+        = 6.38 V
+
+【第六步：判断工作区】
+
+   UCEQ = 6.38V 远大于 U_CES = 0.3V ✓ 放大区
+   而且接近 VCC/2 = 6V，上下摆动空间基本对称：
+      往上：12 - 6.38 = 5.62V
+      往下：6.38 - 0.3 = 6.08V
+   ★ 这是一个设计得相当好的 Q 点。
+
+【第七步：验证「它真的稳」——把 β 换成 200 再算一遍】
+
+   假设换了一只 β = 200 的管子（同一型号不同批次，很常见）：
+
+   UBQ 还是 2.105V（只由电阻决定，与 β 无关）
+   UEQ 还是 1.405V
+   IEQ 还是 1.405mA            ← 完全没变！
+   IBQ = 1.405mA/200 = 7.03μA  ← 基极电流减半，但 IEQ 不变
+   UCEQ 还是 6.38V             ← Q 点完全没动！
+
+   ★ 对比例题 1：那里 β 从 50 变 57.5，ICQ 就涨了 16%。
+     这里 β 翻了一倍，ICQ 一点没变。这就是分压式偏置的价值。
+
+【第八步：为什么它稳？—— 负反馈的直观解释】
+
+   假设某种原因让 ICQ 想增大：
+      ICQ ↑ → IEQ ↑ → UEQ = IEQ·RE ↑
+      → UBQ 是固定的（分压决定）
+      → UBE = UBQ - UEQ ↓
+      → IBQ ↓ → ICQ 被拉回来
+   ★ 这是一个自动的【直流负反馈】环路，RE 就是反馈元件。
+     RE 越大，反馈越强，Q 点越稳。
+     但注意：RE 太大会吃掉输出电压的摆动空间（UCEQ 变小）。
+     工程上一般取 RE 上的压降为 VCC 的 10% ~ 20%
+     （本例 1.405V / 12V = 11.7%，正好在这个范围）。
+
+【第九步：算出 r_be，为算增益做准备】
+
+   r_be = 200Ω + (1 + β)·26mV / IEQ(mA)
+        = 200 + 101 × 26 / 1.405
+        = 200 + 1869
+        = 2069 Ω ≈ 2.07 kΩ
+
+【第十步：算交流指标（带 CE，RE 被交流短路）】
+
+   输入电阻： Ri = RB1 ∥ RB2 ∥ r_be
+                 = 47k ∥ 10k ∥ 2.07k
+                 = (47×10/57) ∥ 2.07k
+                 = 8.246k ∥ 2.07k
+                 = 1.66 kΩ
+
+   ★ 注意：Ri 被 r_be 拉到了 1.66kΩ，
+     远小于分压电阻的 8.25kΩ。这是共射电路的固有短板。
+
+   输出电阻： Ro ≈ RC = 3 kΩ（忽略三极管本身的 ro）
+
+   电压增益（空载）： |Au| = β·RC/r_be = 100 × 3000/2069 = 145
+   电压增益（带 RL = 10kΩ 负载）：
+      R_L' = RC ∥ RL = 3k ∥ 10k = 2.31 kΩ
+      |Aul| = β·R_L'/r_be = 100 × 2310/2069 = 112
+      ★ 负载把增益从 145 拉低到 112，掉了 23%。这就是规律 3。
+
+【第十一步：完整信号链的实际效果】
+
+   假设信号源内阻 Rs = 10kΩ，信号幅度 us = 20mV：
+
+   输入分压： ui = us · Ri/(Rs + Ri) = 20mV × 1.66/(10+1.66)
+                  = 20 × 0.1424 = 2.85 mV
+              ★ 只有 14% 的信号进得来！
+
+   输出：     uo = ui × 112 = 2.85mV × 112 = 319 mV
+
+   如果加一级射极跟随器做输入缓冲（Ri = 100kΩ，Ro = 300Ω）：
+      第一步：ui = 20mV × 100/(10+100) = 18.2 mV
+      第二步：跟随器输出 = 18.2mV
+      第三步：进共射级，ui2 = 18.2 × 1.66/(0.3+1.66) = 15.4 mV
+      输出：  uo = 15.4mV × 112 = 1.72 V
+
+   ★ 对比：319mV → 1.72V，提高 5.4 倍。
+     一个跟随器（成本几毛钱）就把信号提高了 5 倍多。
+     这就是「缓冲级」在真实系统里的价值。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例题 3：射极跟随器的输入输出电阻，与「100kΩ 变 25Ω」的效果</h3>
+
+          <p class="mt-3">这道题直接对应现场 A/B 两个坑，也是本页最实用的一道计算。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 3 电路与参数">
+            <pre><code>                  +VCC = 12V
+                    │
+        ┌───────────┼───────────┐
+       RB1          │           │
+       100k          │           │
+        │            │           │
+        ├────────────┤           │
+        │           b│c          │
+       RB2          │           │
+       100k       ┌──┴──┐        │
+        │         │ NPN │        │
+        │         └──┬──┘        │
+        │            │e          │
+        │            ├── RE 1k ──┤
+        │            │           │
+        │        uo ─┘           │
+        │       （从发射极取出）    │
+       ─┴─          ─┴─         ─┴─
+       ─── GND ───────────────────
+
+   已知：VCC = 12V，RB1 = RB2 = 100kΩ，RE = 1kΩ，
+        β = 100，UBE = 0.7V
+   信号源内阻 Rs = 100 kΩ，负载 RL = 1 kΩ
+   求：Q 点、Ri、Ro，以及与「不加跟随器」的对比</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 3 解答">
+            <pre><code>【第一步：静态工作点（共集的直流通路同样要算）】
+
+   UBQ = VCC · RB2/(RB1 + RB2) = 12 × 100/200 = 6.0 V
+   UEQ = UBQ - UBE = 6.0 - 0.7 = 5.3 V
+   IEQ = UEQ/RE = 5.3/1k = 5.3 mA
+   ICQ ≈ IEQ = 5.3 mA
+   UCEQ = VCC - UEQ = 12 - 5.3 = 6.7 V   ✓ 放大区（远大于 0.3V）
+   IBQ = IEQ/(1+β) = 5.3mA/101 = 52.5 μA
+
+   ★ 验证分压近似：分压支路电流 = 6.0V/100k = 60μA，
+     基极电流 52.5μA —— 只大了 1.14 倍！
+     ✗ 分压近似在这里【不成立】！
+
+   ★ 这是一个非常典型的陷阱：偏置电阻取太大，
+     分压点会被基极电流「拉低」。
+     用戴维南等效老老实实算一遍：
+
+     戴维南电压：  UBB = 6.0 V
+     戴维南电阻：  RB' = RB1 ∥ RB2 = 100k ∥ 100k = 50 kΩ
+     等效回路：    UBB = IBQ·RB' + UBE + IEQ·RE
+                  IEQ = (1+β)·IBQ
+     代入：        6.0 = IBQ·50k + 0.7 + 101·IBQ·1k
+                  5.3 = IBQ × (50k + 101k) = IBQ × 151k
+                  IBQ = 35.1 μA
+                  IEQ = 101 × 35.1μA = 3.54 mA
+                  ICQ ≈ 3.54 mA
+                  UEQ = 3.54mA × 1k = 3.54 V
+                  UCEQ = 12 - 3.54 = 8.46 V   ✓ 仍然在放大区
+
+   ★ 结论：实际 IEQ 是 3.54mA，不是 5.3mA。
+     差 33%。教训：混用近似和精确算法，误差可能超出你的预料。
+
+【第二步：算 r_be】
+
+   r_be = 200 + (1+100) × 26/3.54
+        = 200 + 101 × 7.34
+        = 200 + 742
+        = 942 Ω ≈ 0.94 kΩ
+
+【第三步：算输入电阻 Ri（共集的公式和共射不同！）】
+
+   ★ 共集电极的输入电阻公式：
+      Ri = RB1 ∥ RB2 ∥ [ r_be + (1+β)·(RE ∥ RL) ]
+
+     注意括号里那一项 (1+β)·(RE ∥ RL) ——
+     这是共集电路输入电阻高的原因：负载电阻被放大了 (1+β) 倍
+     之后才「看起来」出现在输入端。
+
+   RL' = RE ∥ RL = 1k ∥ 1k = 500 Ω
+   (1+β)·RL' = 101 × 500 = 50.5 kΩ
+   r_be + 50.5k = 0.94k + 50.5k = 51.44 kΩ
+   Ri = 100k ∥ 100k ∥ 51.44k = 50k ∥ 51.44k = 25.4 kΩ
+
+   ★ Ri = 25.4kΩ。比共射级的 1.66kΩ 大了 15 倍。
+     但注意：它被偏置电阻「封顶」了 ——
+     如果 RB1、RB2 换成 1MΩ，Ri 能到 45kΩ 以上。
+     这也是为什么高阻输入的电路，偏置电阻要取大。
+
+【第四步：算输出电阻 Ro】
+
+   ★ 共集电极的输出电阻公式：
+      Ro = RE ∥ [ (Rs ∥ RB1 ∥ RB2 + r_be) / (1+β) ]
+
+   先算内层：Rs ∥ RB1 ∥ RB2 = 100k ∥ 100k ∥ 100k = 33.3 kΩ
+   分子：33.3k + 0.94k = 34.26 kΩ
+   除以 (1+β)：34.26k/101 = 339 Ω
+   Ro = RE ∥ 339 = 1000 ∥ 339 = 253 Ω
+
+   ★ Ro = 253Ω。比共射的 3kΩ 小了 12 倍。
+     ★ 而且注意分母上的 (1+β)：源内阻被「除掉了 101 倍」。
+       这正是跟随器能把「软源」变「硬源」的数学机制。
+
+【第五步：核心对比 —— 有跟随器和没有跟随器】
+
+   场景：Rs = 100kΩ 的信号源，要驱动 RL = 1kΩ 的负载。
+
+   ── 方案 A：源直接接负载（没有跟随器）──
+
+      uo = us · RL/(Rs + RL) = us × 1/(100+1) = us × 0.0099
+
+      ★ 只有 0.99% 的电压落到负载上。信号几乎全丢了。
+      ★ 而且这个 1% 还会随温度变化（源内阻通常是温度相关的）。
+
+   ── 方案 B：源接跟随器，跟随器接负载 ──
+
+      第一步（输入侧）：跟随器 Ri = 25.4kΩ
+         ui = us · 25.4/(100 + 25.4) = us × 0.2026
+         ★ 20.3% 进来了（比 0.99% 好了 20 倍）
+
+      第二步（跟随器本身）：Au ≈ RL'/(r_be + RL') 方向
+         更准确地用分压模型：
+         uo_oc ≈ ui × (1+β)RL'/(r_be + (1+β)RL')
+                = ui × 50.5/(0.94 + 50.5)
+                = ui × 0.9817
+
+      第三步（输出侧）：跟随器 Ro = 253Ω
+         uo = uo_oc · RL/(Ro + RL) = uo_oc × 1000/(253+1000)
+            = uo_oc × 0.798
+
+      合起来： uo = us × 0.2026 × 0.9817 × 0.798 = us × 0.1587
+
+      ★ 15.9% 的电压传到负载上了。
+
+   ── 最终对比 ──
+
+      方案 A： 0.99%     （us = 1V 时，负载只得到 9.9 mV）
+      方案 B： 15.9%     （us = 1V 时，负载得到 159 mV）
+
+      ★ 提高 16 倍。而且方案 B 的输出对负载变化不敏感：
+        RL 从 1k 变 2k 时，
+          方案 A：0.99% → 1.96%（几乎翻倍，读数不可用）
+          方案 B：15.9% → 0.2026 × 0.9872 × 0.8875 = 17.75%
+                  （只变化 12%，而且是可预测的）
+
+   ★ 一句话总结这道题：
+     跟随器不放大电压，它把「100kΩ 的软源」变成了
+     「253Ω 的硬源」，从而让后面 1kΩ 的负载能够正常工作。
+     这就是「缓冲」两个字的全部含义。
+
+【第六步：如果换成运放跟随器会怎样？】
+
+   同样接法，但用一颗通用运放（如 LM358）接成电压跟随器：
+      Ri ≈ 1 MΩ（甚至更高，取决于输入级）
+      Ro ≈ 几十 Ω（在低频下，由开环增益和输出级决定）
+
+   重新算：
+     第一步：ui = us × 1000/(100+1000) = us × 0.909
+     第二步：Au ≈ 0.9999
+     第三步：uo = uo_oc × 1000/(50+1000) = uo_oc × 0.952
+
+     合计：uo = us × 0.909 × 0.9999 × 0.952 = us × 0.865
+
+   ★ 86.5%！比三极管跟随器的 15.9% 又好了 5.4 倍。
+
+   ★ 这就是为什么实际项目里「缓冲级」几乎都用运放：
+     运放的输入电阻是 MΩ 级（三极管是几十 kΩ），
+     输出电阻是几十 Ω 级（三极管是几百 Ω），
+     而且没有 0.7V 的直流偏移。
+     三极管跟随器只在「成本极敏感」「高频」「大电流输出」
+     这几个场合还有优势。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例题 4：麦克风前置放大器的完整设计</h3>
+
+          <p class="mt-3">这是例题 5 之前的一次完整实战：从「信号有多小」出发，反推出整个电路。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 4：需求与设计过程">
+            <pre><code>【需求】
+   驻极体话筒输出：典型 10 mV 峰峰值（说话时，距离 10cm）
+   ADC 参考电压：3.3V，12 位（一码 = 3.3V/4096 = 0.806 mV）
+   希望话音信号至少占满量程的 1/3 → 目标输出 ≈ 1.1V 峰峰值
+   电源：只有 5V 可用
+   ADC 输入阻抗：等效采样电阻约 50kΩ（会在下一节细说）
+
+【第一步：需要多大的总增益？】
+
+   Au_total = 1.1V / 10mV = 110 倍
+
+   用分贝：20·log10(110) = 40.8 dB
+
+【第二步：单级够不够？】
+
+   单级共射，取 VCC = 5V，RC = 2.2kΩ，目标 ICQ = 1.5mA
+   （UCEQ = 5 - 1.5mA × 2.2k = 5 - 3.3 = 1.7V，略高于 VCC/3，可用）
+
+   r_be = 200 + (1+β)·26/1.5，取 β = 150：
+        = 200 + 151 × 17.3 = 200 + 2612 = 2812 Ω ≈ 2.81 kΩ
+
+   空载增益：|Au| = β·RC/r_be = 150 × 2200/2812 = 117
+
+   ★ 单级就够了（117 > 110）！但这是【空载】的值。
+
+【第三步：加上真实负载后还够吗？】
+
+   后级是 ADC，采样瞬间相当于一个开关闭合到采样电容。
+   为了不让 ADC 拉垮电路，我们在共射级后面加一级跟随器。
+   跟随器的输入电阻很高（按例题 3 的算法约 25kΩ），
+   所以共射级实际负载 ≈ 25kΩ：
+
+   RL' = RC ∥ 25k = 2.2k ∥ 25k = 2.02 kΩ
+   |Aul| = 150 × 2020/2812 = 107.7
+
+   ★ 107.7 倍，仍然够（需求 110，差一点点）。
+     把 RC 从 2.2k 提到 2.7k：
+       ICQ = 1.5mA 时 UCEQ = 5 - 1.5×2.7 = 0.95V → 偏低（接近饱和）
+       改目标 ICQ = 1.2mA：UCEQ = 5 - 1.2×2.7 = 1.76V ✓
+       r_be = 200 + 151×26/1.2 = 200 + 3272 = 3472 Ω
+       RL' = 2.7k ∥ 25k = 2.44 kΩ
+       |Aul| = 150 × 2440/3472 = 105.4   ← 反而更低了
+
+   ★ 结论：靠调 RC 已经到极限了。
+     正确的做法有两种：
+       ① 用两级放大（每级 11 倍，总共 121 倍，绰绰有余）
+       ② 换更大的 β，或者用两级
+
+   ★ 这里的经验值得记住：单级共射在 5V 电源下的实用增益
+     就是 100 倍左右。想要更多，加级数。
+
+【第四步：完整的电路选择（两级方案）】
+
+   话筒 ──┬── CC1（跟随器，Ri 高）──┬── CE1（增益 11）──┬── CE2（增益 11）──┬── CC2（跟随器）── ADC
+          │                          │                    │                   │
+          └──────────────────────────┴────────────────────┴───────────────────┘
+                                  5V 单电源
+
+   ★ 为什么话筒后面也要跟随器？
+     因为话筒（尤其是带偏置电阻的驻极体）输出阻抗常在
+     几 kΩ ~ 几十 kΩ，而且它只能提供极小的电流。
+     直接接共射级的 1.6kΩ 输入电阻，信号会被分掉一半以上。
+     加一级跟随器，把 Ri 提到 100kΩ 以上。
+
+   ★ 为什么前面不加，反而最后加一层跟随器去 ADC？
+     因为最后一级的输出电阻决定了「带得动带不动 ADC」。
+     共射级的 Ro ≈ RC = 2.7kΩ，而 ADC 的采样开关
+     要求源阻抗小于 10kΩ（有些手册要求小于 1kΩ）。
+     加一级跟随器，Ro 降到 250Ω 以下，稳稳满足。
+
+【第五步：增益分配的实际考虑】
+
+   为什么要分两级各 11 倍，而不是一级 121 倍？
+
+   ① 单级 121 倍需要 5V 电源下极大的 RC，Q 点必然偏，
+      动态范围不够（输出摆不起来）
+   ② 分摊增益后，每级的工作点都容易设在中间，
+      不容易失真
+   ③ 但要注意：每级都会放大前级的噪声和漂移，
+      所以第一级要选低噪声器件
+   ④ 两级的带宽也是乘积关系，会变窄
+
+   ★ 工程口诀：单级增益控制在 20 ~ 50 倍（26 ~ 34dB）以内，
+     需要更高的总增益就加级数，不要硬堆单级。
+
+【第六步：耦合电容怎么选？】
+
+   取 C = 10μF，与下一级输入电阻 R = 2kΩ 组成高通：
+
+   截止频率 f_c = 1/(2πRC) = 1/(2π × 2000 × 10μ) = 8.0 Hz
+
+   ★ 8Hz 远低于话音的最低频率（300Hz），所以话音完全不衰减 ✓
+   ★ 但如果要采的是心电信号（0.5Hz 起），8Hz 就完全不够，
+     必须把 C 加到 100μF 以上，或者干脆用直接耦合。
+     这就是「阻容耦合不能传慢信号」的具体体现。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">例题 5：设计题 —— 把 100kΩ 源变成小于 100Ω 输出</h3>
+
+          <p class="mt-3">这道题把前面所有概念串起来，也是你在实际项目里最常遇到的形状。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 5：需求与设计">
+            <pre><code>【需求】
+   一个称重传感器（应变片电桥）：
+   - 输出阻抗（源内阻）：100 kΩ（电桥电阻大，这是常态）
+   - 输出信号：满量程 2 mV/V，用 5V 激励 → 满量程 10 mV
+   - 需要接进 ADC，ADC 采样时要求源阻抗小于 1 kΩ
+   - 目标：让 ADC 看到的源阻抗小于 100 Ω
+
+【第一步：为什么不直接用三极管跟随器？】
+
+   沿用例题 3 的算法，三级管跟随器的输出电阻：
+      Ro = RE ∥ [ (Rs ∥ RB1 ∥ RB2 + r_be)/(1+β) ]
+
+   取 Rs = 100kΩ，RB1 = RB2 = 1MΩ（为了高输入阻抗）
+      Rs ∥ RB1 ∥ RB2 = 100k ∥ 1M ∥ 1M = 83.3 kΩ
+   取 IEQ = 2mA，β = 100：
+      r_be = 200 + 101 × 13 = 1513 Ω
+      Ro = RE ∥ [(83.3k + 1.513k)/101]
+         = RE ∥ 840 Ω
+
+   要 Ro 小于 100Ω，需要 RE 也只有 100Ω 量级 ——
+   但 RE 太小，IEQ = UEQ/RE 就会大到烧管子。
+   ★ 结论：三极管跟随器在这里【做不到】小于 100Ω。
+     实测典型值在 200 ~ 500Ω。
+
+【第二步：用运放跟随器】
+
+   LM358 之类的通用运放，接成电压跟随器：
+      输入电阻 Ri：手册典型值 1 MΩ（差模输入电阻）
+      输出电阻 Ro：在低频下 Ro ≈ 开环输出电阻/(1 + Aol·β)
+                  典型值 几十 Ω（LM358 约 50Ω，精密运放可到 1Ω 以下）
+
+   实际计算 Ro：
+      运放开环增益 Aol = 100 dB = 100000
+      开环输出电阻 ro_ol ≈ 300 Ω（LM358 的典型值）
+      闭环输出电阻 Ro = ro_ol/(1 + Aol·β) = 300/(1 + 100000 × 1)
+                      ≈ 0.003 Ω
+
+   ★ 理论值 3 mΩ！实测受限于输出级、频率和负载，
+     但几十毫欧到几欧是可以达到的。
+   ★ 需求「小于 100Ω」轻松满足，实际上能好 2 ~ 3 个数量级。
+
+【第三步：完整电路】
+
+                        +5V
+                         │
+            ┌────────────┼────────────┐
+            │            │            │
+          电桥        运放 A        运放 B
+          (100kΩ)    (跟随器)      (增益级)
+            │            │            │
+   传感器 ──┴──┬─────────┤+           │
+              │         │     ┌──────┤-
+              │    ┌────┤-    │      │
+              │    │    └──┬──┘      └──┬─── 到 ADC
+              │    │       │            │
+              │    └───────┘            │
+              │   （输出直接接反相端）    │
+              │                         │
+             ─┴─                       ─┴─
+
+   ★ 关键：第一级必须是跟随器（或仪表放大器），
+     因为 100kΩ 的源内阻不允许被任何电阻分压。
+     第二级做增益（10mV → 1V 需要 100 倍），
+     第三级（可选）再跟随一次驱动 ADC。
+
+【第四步：为什么不能用一个电阻分压「凑」出低阻抗？】
+
+   有人会想：在电桥输出后面接一个 100Ω 的电阻到地，
+   这样输出阻抗不就小于 100Ω 了吗？
+
+   ★ 算一下就知道错在哪：
+     电桥源内阻 100kΩ，接 100Ω 到地：
+     uo = us × 100/(100000 + 100) = us × 0.000999
+     ★ 信号衰减到十万分之一。10mV 变成 0.01μV。
+     而且电桥会被这个电阻「拉垮」（电桥本身没法提供这么大电流）。
+
+   ★ 低输出阻抗不是靠「加电阻」得到的，是靠【有源器件提供电流】
+     得到的。这是模拟电路里一个非常根本的观念：
+     阻抗变换必须用有源电路，无源电阻只会分压不会变换。
+
+【第五步：验证 ADC 侧的采样误差】
+
+   ADC 采样过程模型（逐次逼近型）：
+     采样开关闭合 → 外部源通过 (Rs + R_switch) 给 C_sample 充电
+     充电时间常数 τ = (Rs + R_switch) · C_sample
+
+   STM32F103 的典型值：C_sample ≈ 8 pF，R_switch ≈ 1 kΩ
+   采样时间设定为 41.5 个 ADC 时钟周期，ADC 时钟 14MHz：
+     采样时间 t_s = 41.5/(14MHz) = 2.96 μs
+
+   ── 情况 A：源阻抗 100 kΩ（不加缓冲）──
+     τ = (100k + 1k) × 8p = 808 ns
+     充电到 12 位精度需要约 8.3τ（ln(4096) ≈ 8.3）= 6.7 μs
+     ★ 6.7 μs > 2.96 μs → 【充不满】
+     实际误差：1 - e^(-2.96/0.808) = 1 - e^(-3.66) = 0.974
+     ★ 只充到 97.4%，相当于读数偏低 2.6%（106 个码的误差！）
+
+   ── 情况 B：源阻抗 100 Ω（加运放跟随器）──
+     τ = (100 + 1000) × 8p = 8.8 ns
+     充电到 12 位精度：8.3 × 8.8ns = 73 ns
+     ★ 73 ns 远小于 2.96 μs → 充满，误差可以忽略
+     验证：1 - e^(-2960/8.8) = 1 - e^(-336) ≈ 1（误差约 10^-146）
+
+   ★ 结论：同样的 ADC 配置，源阻抗从 100kΩ 降到 100Ω，
+     把测量误差从 2.6%（约 106 个码）降到可以忽略。
+     这就是「跟随器不能省」的定量证据。
+   ★ 而且注意：情况 A 的误差【还跟温度有关】
+     （源阻抗和采样电容都随温度变化），所以不是简单乘个系数能修正的。</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">五道例题的通用流程，抄下来直接用</div>
+            <p><b>① 画直流通路</b>（电容开路、VCC 保留）→ <b>② 算 Q 点</b>（IBQ → ICQ → UCEQ，注意先检查分压近似是否成立）→ <b>③ 判断工作区</b>（UCEQ 是否远大于 0.3V）→ <b>④ 检查摆动空间</b>（UCEQ 是否接近 VCC/2）→ <b>⑤ 算 r_be</b>（要用刚才算出的 IEQ）→ <b>⑥ 画交流通路</b>（电容短路、VCC 接地）→ <b>⑦ 算 Ri、Ro、Au</b>（记得把后级输入电阻当负载）→ <b>⑧ 用完整的信号链公式验证实际效果</b>（输入分压 × 增益 × 输出分压）。</p>
+            <p class="mt-2">这八步对任何单管放大电路都成立。第 2 步和第 4 步最容易被跳过，而它们恰恰是工程上最要紧的两步。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+
+          <p class="mt-4">前面三节都是纸上的。这一节把你实验室里会遇到的东西，一件件对回到前面那些概念上。</p>
+
+          <h3 id="sub-mcu-follower" class="mt-7 text-base font-semibold">高阻传感器与 ADC：跟随器为什么不能省</h3>
+
+          <p class="mt-3">这是模拟前端里出现频率最高、也最容易被忽略的一个问题。<b class="font-semibold text-ink">很多人以为「电压接上去就行了」，但 ADC 不是万用表</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="ADC 采样过程：为什么源阻抗会带来误差">
+            <pre><code>【ADC 内部长什么样（逐次逼近型，SAR）】
+
+                        R_switch ≈ 1kΩ
+   外部输入 ────┬───────[ 开关 ]───────┬──── C_sample ≈ 8pF
+                │                     │
+             源阻抗 Rs                 │
+                │                    ─┴─
+               ─┴─                    ─── GND
+
+   采样阶段（开关闭合）：外部源要通过 (Rs + R_switch) 给 C_sample 充电
+   保持阶段（开关断开）：比较器把电荷一点点转换成数字
+
+【充电过程是个指数曲线】
+
+   u_C(t) = u_in · (1 - e^(-t/τ))，其中 τ = (Rs + R_switch)·C_sample
+
+   要充满到 12 位精度（误差小于 1/2 LSB = 1/8192），
+   需要 t ≥ ln(8192)·τ ≈ 9.01 τ
+
+   ★ 所以：源阻抗越大 → τ 越大 → 需要的采样时间越长
+   ★ 而 ADC 的采样时间是你在 CubeMX 里设定的固定值
+   ★ 固定时间 + 大源阻抗 = 充不满 = 读数偏低
+
+【量化一下（STM32F103，ADC 时钟 14MHz）】
+
+   采样时间设置    实际采样时长    能容忍的最大源阻抗（充满 12 位）
+   ─────────────  ─────────────  ─────────────────────────────
+   1.5 周期        107 ns         约 500 Ω
+   7.5 周期        536 ns         约 6.4 kΩ
+   41.5 周期       2.96 μs        约 39 kΩ
+   239.5 周期      17.1 μs        约 235 kΩ（手册标 NA，按 9τ 自算的估算）
+
+   ★ 这张表值得记住：分压电路取 10kΩ 以内的总阻值，
+     配合 41.5 或 55.5 周期的采样时间，基本就稳了。
+   ★ 数据手册里那个「最大外部阻抗」标注，来源就是这个公式。
+
+【分压电路的等效源阻抗怎么算】
+
+                   R1 = 100k
+        Vin ──────[   ]──────┬────── 到 ADC
+                            │
+                           [   ] R2 = 10k
+                            │
+                           ─┴─ GND
+
+   从 ADC 输入端看进去的等效源阻抗：
+      Rs = R1 ∥ R2（不是 R1 + R2！）
+
+   ★ 算一下：100k ∥ 10k = 9.09 kΩ
+     刚好卡在 41.5 周期能容忍的 39kΩ 以内，勉强能用。
+     但如果 R1 = 1MΩ、R2 = 100kΩ：
+        Rs = 1M ∥ 100k = 90.9 kΩ
+        → 41.5 周期不够了，必须用 239.5 周期，
+          或者加一级跟随器。
+
+   ★ 工程做法：分压电阻总阻值（R1 + R2）控制在
+     10k ~ 30kΩ，兼顾「不太耗电」和「ADC 能充满」。
+
+【加跟随器之后】
+
+   高阻传感器 ──┬── 运放跟随器 ──┬── ADC
+   (Rs = 100k)  │  (Ri = 1MΩ)   │   (看到的 Rs &lt; 100Ω)
+                │  (Ro &lt; 100Ω)  │
+                └───────────────┘
+
+   ★ 跟随器做了完美的「阻抗翻译」：
+     对传感器而言，它看到的是一个 1MΩ 的负载（几乎不取电流）
+     对 ADC 而言，它看到的是一个 100Ω 的源（充得飞快）
+
+   ★ 一个口诀：
+     ADC 前面，遇到「分压电阻大」「传感器阻抗高」
+     「信号要经过长线」，就先放一个跟随器再说话。</code></pre>
+          </div>
+
+          <p class="mt-4">这段代码演示怎么在软件侧配合硬件：如果硬件上没法改（比如买的模块已经定型了），你至少可以<b class="font-semibold text-ink">加大采样时间、多做几次采样丢掉第一次、然后求平均</b>。</p>
+
+          <div class="code-block" data-lang="c" data-title="adc_sampling.c">
+            <pre><code>/* 高阻源下的 ADC 采样策略：三点配合 */
+
+/* ---- 1. 硬件层面的补偿方向（写在注释里提醒自己）----
+ *    源阻抗 Rs 与采样时间 t_s 必须满足 t_s &gt;= 9 * (Rs + R_switch) * C_sample
+ *    STM32F103: R_switch ≈ 1kΩ, C_sample ≈ 8pF
+ *    Rs = 10kΩ  → 需要 t_s &gt;= 9 * 11k * 8p = 792ns  → 选 41.5 周期 (2.96μs) 够
+ *    Rs = 100kΩ → 需要 t_s &gt;= 9 * 101k * 8p = 7.3μs → 必须选 239.5 周期
+ *    结论：改不了硬件，就把采样时间调到最大。
+ */
+
+#include "stm32f1xx_hal.h"
+
+extern ADC_HandleTypeDef hadc1;
+
+/* 单次采样：cu 是通道号，取 N 次平均 */
+#define ADC_AVG_TIMES 16
+
+uint16_t adc_read_avg(uint32_t channel, uint32_t times)
+{
+    ADC_ChannelConfTypeDef cfg = {0};
+    uint32_t sum = 0;
+    uint32_t i;
+
+    cfg.Channel      = channel;
+    cfg.Rank         = ADC_REGULAR_RANK_1;
+    /* 采样时间给到最大：高阻源必须靠时间换精度 */
+    cfg.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+    if (HAL_ADC_ConfigChannel(&amp;hadc1, &amp;cfg) != HAL_OK) {
+        return 0;
+    }
+
+    for (i = 0; i &lt; times; i++) {
+        HAL_ADC_Start(&amp;hadc1);
+        if (HAL_ADC_PollForConversion(&amp;hadc1, 10) == HAL_OK) {
+            /* 第一次采样丢掉：采样电容上一次的残留电荷会影响本次 */
+            if (i &gt; 0 || times == 1) {
+                sum += HAL_ADC_GetValue(&amp;hadc1);
+            }
+        }
+        HAL_ADC_Stop(&amp;hadc1);
+    }
+
+    return (uint16_t)(sum / (times - (times &gt; 1 ? 1 : 0)));
+}
+
+/* ---- 2. 换通道之后必须重新配置并丢弃第一次 ----
+ *    ADC 的采样保持电容是【共用】的。
+ *    从通道 0 切到通道 1，电容上还留着通道 0 的电压。
+ *    源阻抗大时，这点残留电荷要好几微秒才被冲掉，
+ *    所以第一次转换的值系统性偏低或偏高。
+ */
+uint16_t adc_read_channel_switch(uint32_t ch_a, uint32_t ch_b,
+                                 uint16_t *out_a, uint16_t *out_b)
+{
+    ADC_ChannelConfTypeDef cfg = {0};
+    cfg.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+
+    cfg.Channel = ch_a;  cfg.Rank = ADC_REGULAR_RANK_1;
+    HAL_ADC_ConfigChannel(&amp;hadc1, &amp;cfg);
+    HAL_ADC_Start(&amp;hadc1); HAL_ADC_PollForConversion(&amp;hadc1, 10);
+    (void)HAL_ADC_GetValue(&amp;hadc1);          /* 丢弃 */
+    HAL_ADC_Stop(&amp;hadc1);
+    HAL_ADC_Start(&amp;hadc1); HAL_ADC_PollForConversion(&amp;hadc1, 10);
+    *out_a = (uint16_t)HAL_ADC_GetValue(&amp;hadc1);
+    HAL_ADC_Stop(&amp;hadc1);
+
+    cfg.Channel = ch_b;
+    HAL_ADC_ConfigChannel(&amp;hadc1, &amp;cfg);
+    HAL_ADC_Start(&amp;hadc1); HAL_ADC_PollForConversion(&amp;hadc1, 10);
+    (void)HAL_ADC_GetValue(&amp;hadc1);          /* 丢弃 */
+    HAL_ADC_Stop(&amp;hadc1);
+    HAL_ADC_Start(&amp;hadc1); HAL_ADC_PollForConversion(&amp;hadc1, 10);
+    *out_b = (uint16_t)HAL_ADC_GetValue(&amp;hadc1);
+    HAL_ADC_Stop(&amp;hadc1);
+
+    return 0;
+}
+
+/* ---- 3. 判断读数可信度：看抖动，不看绝对值 ----
+ *    源阻抗过大时，读数的抖动会明显变大。
+ *    如果同一个稳定输入的 16 次采样极差超过 30 个码，
+ *    先怀疑硬件，不要先写滤波算法。
+ */
+uint16_t adc_read_with_spread(uint32_t channel, uint16_t *spread)
+{
+    uint16_t v[ADC_AVG_TIMES];
+    uint16_t vmin = 0xFFFF, vmax = 0;
+    uint32_t sum = 0;
+    uint32_t i;
+
+    for (i = 0; i &lt; ADC_AVG_TIMES; i++) {
+        v[i] = adc_read_avg(channel, 1);
+        if (v[i] &lt; vmin) vmin = v[i];
+        if (v[i] &gt; vmax) vmax = v[i];
+        sum += v[i];
+    }
+    *spread = (uint16_t)(vmax - vmin);
+    return (uint16_t)(sum / ADC_AVG_TIMES);
+}</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">一个真实的反面案例</div>
+            <p>有个同学用 NTC 热敏电阻测温，采用「10kΩ 固定电阻 + NTC 分压」的方案。常温下 NTC 也是 10kΩ，分压点 1.65V。他用 ADC 采样时间是 7.5 个周期（默认值），读数一直在 2020 ~ 2080 之间抖。</p>
+            <p class="mt-2">他的第一反应是「ADC 不准，写个滑动平均滤波」。滤波之后确实平滑了，但读数仍然系统性偏低约 40 个码（相当于 3℃ 的误差）。后来他把采样时间改成 239.5 周期，偏低的 40 个码立刻消失，抖动也从 60 个码缩到 8 个码。</p>
+            <p class="mt-2"><b>教训：滤波不能修正系统性误差。</b>源阻抗导致的充电不足是一个「固定的、可预测的偏移」，只能在硬件（加跟随器）或配置（加大采样时间）层面解决。用软件平均一个错误的数，得到的仍然是错误的数。</p>
+          </div>
+
+          <h3 id="sub-mcu-mic" class="mt-7 text-base font-semibold">单管共射做麦克风前置放大</h3>
+
+          <p class="mt-3">这是本篇知识最经典的一个落地场景：<b class="font-semibold text-ink">用一只三极管加几个电阻，把话筒的毫伏级信号抬到单片机 ADC 能看见的电平</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="驻极体话筒前置放大：完整电路与设计过程">
+            <pre><code>【驻极体话筒的两个关键事实】
+
+   ① 它内部有一个结型场效应管（JFET）做阻抗变换，
+      所以它【需要供电】才能工作 —— 通过一个偏置电阻供电。
+   ② 它的输出阻抗典型值 2.2kΩ（型号不同差异大），
+      输出信号 5 ~ 20 mV 峰峰值（说话距离 10cm）。
+
+              +5V
+               │
+              [ R_bias 2.2k ]   ← 话筒的供电电阻，兼做负载
+               │
+        话筒 ──┴──┬── 输出（叠加在 2~3V 的直流上！）
+                  │
+                 [ C1 10μF ]     ← 必须隔直！否则后面全被直流顶住
+                  │
+                  └── 到放大电路
+
+   ★ 注意那 2~3V 的直流：话筒输出是「骑」在直流上的交流。
+     直流不进放大器的输入端（会破坏 Q 点），所以必须 C1 隔直。
+
+【完整电路（单管共射 + 前后各一级跟随器）】
+
+                        +5V
+                         │
+        ┌────────────────┼─────────────────┐
+        │                │                 │
+     R_bias 2.2k      RC 2.7k            │
+        │                │                 │
+   话筒 ┴──┬── C1 ──┬────┤                 │
+          │  10μF   │    │                 │
+         ─┴─       RB1   ├────┬── C2 10μF ──┼── 后级
+                 100k   │    │              │
+                  │    b│c   │              │
+                  ├─────┤    │              │
+                  │  ┌──┴──┐ │              │
+                 RB2 │ NPN │ │              │
+                 47k └──┬──┘ │              │
+                  │     │e   │              │
+                  │     ├─────┤              │
+                  │     │  RE 1k            │
+                  │     │     │              │
+                  │    [CE 100μF]            │
+                  │     │     │              │
+                 ─┴─   ─┴─   ─┴─            │
+                 ─── GND ──────────────────────
+
+   ★ 为什么 RB1/RB2 取 100k/47k 而不是 47k/10k？
+     因为要跟话筒的 2.2kΩ 源阻抗配合。
+     RB1 ∥ RB2 = 100k ∥ 47k = 32 kΩ（交流时还要和 r_be 并联）
+     输入电阻越大，话筒信号的分压损失越小。
+     如果按例题 2 用 47k/10k，输入电阻只有 8.2kΩ，
+     话筒 2.2kΩ 的源阻抗会在它上面分掉 21% 的信号。
+
+【参数计算（承接例题 4 的方法）】
+
+   目标：5V 电源，ICQ = 1mA，β = 150
+   UCEQ 目标 = 2.0V（留出对称摆动空间）
+     由 UCEQ = VCC - ICQ(RC + RE) ：
+     2.0 = 5 - 1mA × (RC + RE) → RC + RE = 3 kΩ
+     取 RC = 2.7kΩ，RE = 300Ω（旁路电容 CE 短路，交流上不存在）
+
+   UBQ 由分压决定，要 UEQ = ICQ·RE = 1mA × 300 = 0.3V
+     UBQ = UEQ + UBE = 0.3 + 0.7 = 1.0 V
+     RB2/(RB1 + RB2) = 1.0/5 = 0.2
+     取 RB1 = 100kΩ，RB2 = 25kΩ（标称 24kΩ）
+     验证分压近似：分压电流 = 1.0/24k = 41.7μA
+                  IBQ = 1mA/150 = 6.7μA
+                  41.7/6.7 = 6.2 倍 ✓ 勉强够（建议再小一点电阻）
+
+   r_be = 200 + 151 × 26/1 = 200 + 3926 = 4126 Ω ≈ 4.1 kΩ
+   空载增益：|Au| = β·RC/r_be = 150 × 2700/4126 = 98
+
+   带负载（后级跟随器 Ri ≈ 50kΩ）：
+     RL' = 2.7k ∥ 50k = 2.56 kΩ
+     |Aul| = 150 × 2560/4126 = 93
+
+   ★ 93 倍。对于 10mV 的话筒信号 → 930mV 输出，够 ADC 用了。
+   ★ 如果嫌不够，把 RC 提到 3.9kΩ（但 UCEQ 会降到 1.4V，
+     动态范围变紧），或者再加一级。
+
+【输出侧：为什么还要一级跟随器】
+
+   共射级的输出电阻 Ro ≈ RC = 2.7 kΩ。
+   如果直接接 ADC（要求源阻抗小于 10kΩ），2700Ω 勉强合格，
+   但如果 ADC 采样时间没设够，就会遇到和前面一样的问题。
+
+   加一级跟随器后 Ro 降到 250Ω 以下，采样时间用 41.5 周期就够，
+   而且后面接耳机、接下一级功放都不怕。
+
+   ★ 如果只是「采个音量包络」这种要求不高的应用，
+     不加跟随器也能用（2700Ω 对 41.5 周期而言够）。
+     ★ 判断依据永远是：Rs 与采样时间的匹配表，而不是「应该加」。</code></pre>
+          </div>
+
+          <div class="code-block" data-lang="c" data-title="mic_level.c">
+            <pre><code>/* 用 ADC 采麦克风的「音量包络」：不采波形，采幅度
+ *
+ * 场景：声控开关、拍手检测、噪声计
+ * 硬件：单管共射前置放大 → 跟随器 → PA0
+ *       输出信号以 UCEQ ≈ 2.0V 为中心摆动（这就是「垫的直流」！）
+ */
+
+#include "stm32f1xx_hal.h"
+
+extern ADC_HandleTypeDef hadc1;
+
+#define ADC_MID    2048     /* 3.3V/2 附近的码值，见下面说明 */
+#define MIC_CH     ADC_CHANNEL_0
+
+/* 采一段时间内的峰峰值，代表「音量」 */
+uint16_t mic_peak_to_peak(uint32_t samples)
+{
+    uint16_t vmin = 0xFFFF, vmax = 0;
+    uint32_t i;
+
+    for (i = 0; i &lt; samples; i++) {
+        HAL_ADC_Start(&amp;hadc1);
+        HAL_ADC_PollForConversion(&amp;hadc1, 5);
+        uint16_t v = (uint16_t)HAL_ADC_GetValue(&amp;hadc1);
+        HAL_ADC_Stop(&amp;hadc1);
+
+        if (v &lt; vmin) vmin = v;
+        if (v &gt; vmax) vmax = v;
+    }
+
+    /* 峰峰值 = 上摆幅度 + 下摆幅度 */
+    return (uint16_t)(vmax - vmin);
+}
+
+/* ---- 三个必须知道的坑 ----
+ *
+ * 坑 1：静态电平不是 0V，而是 UCEQ（约 2.0V，折合 2480 个码）
+ *       共射级输出的中心电压由 Q 点决定，而不是由地决定。
+ *       如果一级一级直接耦合下去，这个直流会累积。
+ *       所以两级之间要有隔直电容（阻容耦合）。
+ *
+ * 坑 2：不要用「减去固定值再取绝对值」来找零点
+ *       Q 点会随着温度漂（这就是温漂）。
+ *       正确做法是【自己估计零点】：采一段静音，取平均。
+ */
+uint16_t mic_dc_level(void)
+{
+    uint32_t sum = 0;
+    uint32_t i;
+    for (i = 0; i &lt; 64; i++) {
+        HAL_ADC_Start(&amp;hadc1);
+        HAL_ADC_PollForConversion(&amp;hadc1, 5);
+        sum += HAL_ADC_GetValue(&amp;hadc1);
+        HAL_ADC_Stop(&amp;hadc1);
+    }
+    return (uint16_t)(sum / 64);      /* 这就是「软件零点校准」 */
+}
+
+/* 坑 3：采样率要够，但也不能盲目提高
+ *       要采出 300~3400Hz 的话音，按奈奎斯特定理需要 &gt; 6.8kHz。
+ *       但如果你只要「音量大小」，2kHz 采样就够 ——
+ *       峰峰值统计不需要还原波形。
+ *       盲目提高采样率只会让 ADC 被中断淹没。
+ */
+uint8_t mic_is_loud(uint16_t threshold, uint16_t dc_level)
+{
+    /* 峰峰值减去静态电平的 2 倍，得到纯交流的峰峰值 */
+    uint16_t pp = mic_peak_to_peak(128);
+    if (dc_level == 0) {
+        dc_level = mic_dc_level();
+    }
+    /* 注意：这里用「超过阈值」而不是「差值超过阈值」，
+     * 因为静音时峰峰值主要是噪声，抬不到阈值上去。 */
+    return (pp &gt; threshold) ? 1 : 0;
+}</code></pre>
+          </div>
+
+          <h3 id="sub-mcu-diff" class="mt-7 text-base font-semibold">差分输入怎么压掉电机噪声</h3>
+
+          <p class="mt-3">这是现场 C 的解法。原理在这一节讲清楚，落地方式分「硬件」和「软件」两条路。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="电机干扰的两种耦合方式，以及差分为什么只管用一半">
+            <pre><code>【电机噪声怎么进来的】
+
+                     ┌────────────── 传感器
+                     │
+      ┌──────────────┼──────────────┐
+      │        长导线（和电机线走在一起）│
+      │              │               │
+      │       ┌──────┴──────┐        │
+      │       │  耦合路径 1   │        │
+      │       │ 【电场耦合】  │        │
+      │       │ 电机线 dv/dt │        │
+      │       │ 通过分布电容  │        │
+      │       │ 把电流注入信号线│       │
+      │       └──────┬──────┘        │
+      │              │               │
+      │       ┌──────┴──────┐        │
+      │       │  耦合路径 2   │        │
+      │       │ 【磁场耦合】  │        │
+      │       │ 电机大电流    │        │
+      │       │ di/dt 在回路  │        │
+      │       │ 里感应出电压  │        │
+      │       └──────┬──────┘        │
+      │              │               │
+      └──────────────┼──────────────┘
+                     │
+                  ADC 输入
+
+   ★ 关键点：两种耦合方式产生的干扰，
+     在「信号线」和「地线」上是差不多相等的。
+     这不是巧合 —— 电场耦合的电容、磁场耦合的环路，
+     对两根线几乎是同一套几何。
+
+【单端输入：干扰和信号混在一起，无法分开】
+
+   传感器 ───[ Rs ]───┬─── ADC 输入（对地测量）
+                      │
+                     ─┴─ GND ← 这根线也在抖（地弹）
+
+   ADC 读到的是 u_signal + u_noise。
+   而 u_noise 可能比 u_signal 大几十倍。
+   ★ 单端输入没有任何办法把两者分开。
+
+【差分输入：只看两根线的差】
+
+   传感器 ───[ Rs ]───┬─┬─ ADC 差分输入 IN+
+                      │ │
+   参考点 ───[ Rs ]───┴─┴─ ADC 差分输入 IN-
+                        │
+                       ─┴─ GND
+
+   ADC 读的是 (IN+ - IN-)。
+   干扰同时抬高 IN+ 和 IN-，相减之后抵消。
+   ★ 抵消得干不干净，取决于两件事：
+     ① 两条路径的阻抗是否对称（Rs 差异、走线长度差异）
+     ② ADC/运放的 CMRR
+
+【定量：CMRR 到底能压掉多少】
+
+   假设干扰在两条线上都是 1V（共模），
+   但两条路径的源阻抗差 1kΩ，偏置电流 1μA：
+     差模误差 = 1μA × 1kΩ = 1mV
+   ★ 这个 1mV 是「源阻抗不匹配」造成的，
+     不是 CMRR 造成的，加多少 CMRR 都救不回来。
+
+   假设源阻抗完全对称，共模 1V 进，运放 CMRR = 80dB：
+     输出端的等效共模 = 1V / 10000 = 100 μV
+   ★ 在 10mV 的信号面前，100μV 相当于 1% 的误差 —— 可以接受。
+
+   ★ 所以差分测量的两条铁律：
+     ① 两根输入线的源阻抗必须尽量相等
+     ② 走线必须并排、等长，最好双绞
+
+【四种实现方式的对比】
+
+   方式                  效果        难度    适合场合
+   ───────────────────  ─────────  ─────  ──────────────
+   两路 ADC 同时采再相减   一般        低     干扰不太大的场合
+   仪表放大器（INA 系列）  最好        中     精密测量、电桥
+   差分运放（如 THS4521）  好          中     驱动差分 ADC
+   差分 ADC 直接接        好          低     现代 MCU 有差分通道的
+
+   ★ STM32 的部分型号（如 F3、G4 系列）支持差分输入模式，
+     可以直接配成差分通道，不需要外部电路。</code></pre>
+          </div>
+
+          <p class="mt-4">下面是软件侧的落地：<b class="font-semibold text-ink">如果硬件只能单端，用「两路同时采、再相减」能挽回一部分共模抑制</b>，但前提是两路要真实同步。</p>
+
+          <div class="code-block" data-lang="c" data-title="diff_measure.c">
+            <pre><code>/* 单端 ADC 做「伪差分」：两路同时采、相减
+ *
+ * 硬件接法：
+ *   通道 0 ← 传感器信号线（含干扰）
+ *   通道 1 ← 传感器的参考地线（同一根地线上取的，含同样的干扰）
+ *
+ * 为什么这样有效：
+ *   干扰在两根线上的瞬时值几乎相同，相减后被压掉。
+ *   如果没有第二根线，可以把通道 1 接在【传感器附近的地】上，
+ *   而不是接在 MCU 的 GND 上 —— 关键是「干扰的取样点要一致」。
+ */
+
+#include "stm32f1xx_hal.h"
+
+extern ADC_HandleTypeDef hadc1;
+
+/* 用 ADC 的扫描模式 + DMA，一次采完两路，保证时间对齐 */
+#define DIFF_BUF_LEN 64
+static uint16_t adc_dma_buf[DIFF_BUF_LEN * 2];
+
+/* 启动一轮双通道 DMA 采集 */
+void diff_start(void)
+{
+    /* CubeMX 里配置：
+     *   ScanConvMode  = ENABLE
+     *   ContinuousConvMode = DISABLE
+     *   ExternalTrigConv = 软件触发
+     *   DMA Continuous Requests = DISABLE
+     * 通道 0 排在 Rank 1，通道 1 排在 Rank 2
+     */
+    HAL_ADC_Start_DMA(&amp;hadc1, (uint32_t *)adc_dma_buf,
+                      DIFF_BUF_LEN * 2);
+}
+
+/* 求差模平均：把每对样本相减再平均 */
+int32_t diff_average(void)
+{
+    int32_t sum = 0;
+    uint32_t i;
+
+    for (i = 0; i &lt; DIFF_BUF_LEN; i++) {
+        int32_t v_plus  = adc_dma_buf[i * 2];
+        int32_t v_minus = adc_dma_buf[i * 2 + 1];
+        sum += (v_plus - v_minus);      /* 共模在这里被减掉 */
+    }
+    return sum / DIFF_BUF_LEN;
+}
+
+/* ---- 关键细节：顺序与时间对齐 ----
+ *
+ * ① 两路必须【相邻采样】，中间不要插别的通道。
+ *    如果中间插了其他通道，两路的采样时刻差得远，
+ *    高频干扰就躲过去了 —— 因为干扰在两次采样之间变了。
+ *
+ * ② 两路的采样时间必须相同，否则充电程度不同，
+ *    会引入一个固定的系统偏差（这和上一节的源阻抗问题是同一个）。
+ *
+ * ③ 差分的好处是「抵消共模」，不是「屏蔽干扰」。
+ *    如果干扰太强，把输入级推到非线性区，差分也救不了。
+ *    所以硬件上仍然要做：屏蔽、双绞、远离电机线、加 RC 滤波。
+ */
+int32_t motor_current_mv(void)
+{
+    /* 典型采样电阻测量：0.1Ω 采样电阻，电机电流 0~2A
+     * → 0~200mV 差模信号
+     * → 用仪表放大器放大 10 倍 → 0~2V 进 ADC
+     * → 共模是电机线的电位，可能高达好几伏的尖峰
+     * 这里演示的是软件侧的一次读取： */
+    int32_t diff = diff_average();
+
+    /* 12 位、3.3V 参考：一码 = 3.3V/4096 = 0.806mV */
+    return (int32_t)((float)diff * 3.3f * 1000.0f / 4096.0f);
+}</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">差分不是万能药：它管「共模」，不管「差模」</div>
+            <p>如果干扰只出现在一根线上（比如信号线和电机线捆在一起，而参考地线单独走），那这份干扰就变成了<b>差模干扰</b>，差分输入照样会把它放大。</p>
+            <p class="mt-2">所以工程上的完整做法是三层：① <b>不让干扰进来</b>——信号线远离动力线、双绞、屏蔽层单端接地；② <b>进来了也一起进来</b>——让两根线走同样的路径，把差模干扰转成共模干扰；③ <b>最后用差分和 CMRR 吃掉</b>。只做第三步而跳过前两步，效果会很有限。</p>
+          </div>
+
+          <h3 id="sub-mcu-source" class="mt-7 text-base font-semibold">为什么两个输入端都不能直接接低阻源</h3>
+
+          <p class="mt-3">这一小节回答一个非常具体的疑问，也是很多人在用运放时反复踩的坑：<b class="font-semibold text-ink">「同相端接低阻源也不行吗？」</b></p>
+
+          <p class="mt-3">先说结论：<b class="font-semibold text-ink">两个输入端「能不能接低阻源」的原因完全不同，要分开看</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="同相端 vs 反相端：两个不同的约束">
+            <pre><code>【同相端（+）：怕的是「共模输入范围」和「低阻源没必要」】
+
+   电路：  源 ──┬──┤+  运放
+                │  │
+              (Rs) └──┬── 输出
+                │     │
+               ─┴─    └──┬──┤-  反馈网络
+                         │
+                        ─┴─
+
+   同相端输入阻抗极高（MΩ~GΩ 级），所以：
+     ✓ 接高阻源：完美，几乎不取电流，不产生分压误差
+     △ 接低阻源：也【能】工作，信号不会被分压，
+                 但你白白浪费了「高输入阻抗」这个优势，
+                 而且低阻源通常意味着更大的驱动电流需求。
+     ✗ 真正的问题是：同相端的电压等于共模输入电压。
+       如果源的低阻特性来自「它连到了电源轨」——
+       比如直接接了 VCC 或 GND 的分压——
+       那共模电压可能超出运放的【共模输入范围】，
+       运放会失去放大能力（输出锁死）。
+       LM358 的共模范围是 VCC-1.5V 到 GND，
+       所以输入接近 VCC 时它就废了。这就是「轨到轨」运放的卖点。
+
+【反相端（-）：怕的是「输入阻抗被反馈电阻拉低」】
+
+   电路：  源 ──[ R1 ]──┬──┤-  运放
+                       │  │
+                      (R2)└──┬── 输出
+                       │     │
+                      ─┴─    └──────┘
+                     （R2 是反馈电阻）
+
+   ★ 反相端的输入阻抗 = R1！
+     这是很多人不知道的事实：
+     反相放大电路的输入电阻，由输入电阻 R1 决定，
+     而不是由运放本身的输入阻抗决定。
+
+   为什么？因为「虚地」：
+     反相端被负反馈强制拉到一个几乎不变的电位（≈ 0V），
+     所以从信号源看进去，路径就是「R1 → 虚地」，
+     等效输入阻抗 = R1 + （虚地的等效阻抗 ≈ 0）= R1。
+
+   ★ 如果你为了让增益大而取 R1 = 1kΩ、R2 = 100kΩ（增益 100），
+     那输入阻抗就只有 1kΩ。
+     一个 100kΩ 的高阻传感器接上去：
+        分压损失 = 1/(100+1) = 0.99%
+     ★ 又是那个 1%！信号几乎全被吃掉。
+
+   ★ 正确做法：
+     ① 先用跟随器缓冲（把源变成低阻），再接反相放大
+     ② 或者改用【同相放大】电路（输入阻抗极高）
+     ③ 或者提高 R1、R2 的值（但噪声和偏置电流误差会变大）
+
+【一张表：什么源接什么端】
+
+   信号源类型          推荐接法
+   ─────────────────  ────────────────────────────
+   高阻传感器（>10kΩ）  先跟随器 → 再进任何电路
+   低阻源（&lt;100Ω）      可以直接接同相端；
+                       接反相端要确保 R1 远大于源阻抗
+   电桥 / 差分信号      仪表放大器（内部已经处理好了）
+   热电偶（μV 级）      低漂移运放 + 直接耦合 + 冷端补偿
+   电流信号（4~20mA）   先接采样电阻变成电压，再放大
+                       （注意采样电阻会引入共模，用差分输入）
+
+【一句话记住】
+
+   ★ 同相端「不怕低阻，但怕共模超范围」
+   ★ 反相端「不怕共模，但输入阻抗 = R1，怕高阻源」
+   ★ 拿不准的时候，前面加一级跟随器，永远是对的。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">两条现实中会烧东西的注意事项</div>
+            <p>① <b>输入端绝对不能超过电源电压</b>。运放的输入端内部有保护二极管，输入电压超出 VCC 或 GND 一个二极管压降，保护二极管就导通，大电流会灌进电源网络。信号源带电源、或者接的是另一个供电域的电路时，这一条尤其危险。</p>
+            <p class="mt-2">② <b>输入端不能悬空</b>。运放的输入偏置电流会在悬空的输入端上慢慢充电，把输入电位推到电源轨，输出就会锁死或乱跳。空余的运放单元要么接成跟随器并把输入接到中点，要么直接接成「不用的运放」的标准处理（同相端接中点、反相端接输出）。悬空是现场最常见也最莫名其妙的故障源。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见误解与坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见误解与坑</h2>
+
+          <p class="mt-4">下面这十条，是本篇内容里最容易被想错的地方。每一条都写成「错误认知 → 为什么错 → 正确做法」。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr><th>错误认知</th><th>为什么错</th><th>正确做法</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>「三极管能把小信号放大成大信号，所以它是个能量放大器」</b></td>
+                  <td>三极管只是「阀门」，它不产生能量。输出信号的全部功率都来自 VCC。基极电流的作用只是「允许」集电极电流通过，它自己没有提供任何功率。这从能量守恒上就能判断：输入 20μW，输出 200mW，多出来的 199.98mW 只能来自电源。</td>
+                  <td>把放大器理解成「用电源的能量、按输入信号的形状去调制输出」。因此：<b>电源质量决定输出质量</b>——去耦电容、稳压、屏蔽一个都不能省。</td>
+                </tr>
+                <tr>
+                  <td><b>「静态工作点是直流，直流不携带信息，所以设 Q 点是浪费电、没必要」</b></td>
+                  <td>Q 点决定了交流信号的「活动空间」。没有 Q 点，三极管在 0 电流附近，负半周直接被丢掉（半波失真）；Q 点偏上，正半周撞饱和。Q 点不是浪费，它是<b>把非线性器件「搬」到近似线性区去用的手段</b>。</td>
+                  <td>接受「静态电流是必要的成本」。要省电就降低 ICQ（但增益和驱动能力会下降），或者干脆用开关电路/运放（运放的静态电流已经优化过了）。</td>
+                </tr>
+                <tr>
+                  <td><b>「Q 点只跟三极管有关，选个好管子就能稳住」</b></td>
+                  <td>Q 点由<b>外电路的偏置电阻</b>决定，管子的参数只是参与运算。而且 β 的离散性极大（同一型号 100~300 都可能），<b>依赖 β 的偏置电路根本不能量产</b>。这就是固定偏置电路在实践中被淘汰的原因。</td>
+                  <td>用分压式偏置 + 发射极电阻，让 ICQ 由电阻比值决定（ICQ ≈ (UBQ - UBE)/RE）。换管子、换温度，Q 点基本不动。</td>
+                </tr>
+                <tr>
+                  <td><b>「射极跟随器既然增益是 1，那它根本没用，不如直接连过去」</b></td>
+                  <td>它放大的不是电压，是<b>驱动能力</b>。它把输入阻抗从 kΩ 提到几十 kΩ、把输出阻抗从 kΩ 降到几百Ω 甚至几十 Ω。前面例题 3 算过：加一级跟随器，信号从 0.99% 提到 15.9%，提高 16 倍。</td>
+                  <td>把跟随器看成「阻抗翻译器」。只要出现「高阻源 + 低阻负载」的组合，就该想到它。ADC 前端、电桥输出、长线驱动，都是它的岗位。</td>
+                </tr>
+                <tr>
+                  <td><b>「隔直电容越大越好，反正容抗越小越好」</b></td>
+                  <td>大电容有三个代价：① 体积大、贵的多（100μF 无极性的比 10μF 贵好几倍）；② <b>上电瞬间的充电浪涌会冲击电源</b>；③ 电解电容有等效串联电阻（ESR）和漏电流，反而引入噪声。而且只要截止频率够低，再大没有额外收益。</td>
+                  <td>按 <b>f_c = 1/(2πRC)</b> 算出所需的最小值，再留 3~5 倍裕量。音频取 10μF 足够；要传慢信号就改用直接耦合，别指望靠加大电容解决。</td>
+                </tr>
+                <tr>
+                  <td><b>「波形被削平了，一定是 Q 点没设好」</b></td>
+                  <td>两侧同时被削平，那是<b>输入信号幅度超过输出摆动范围</b>，跟 Q 点无关；另外，输出级带不动负载（Ro 太大、负载太重）也会在某一侧削平，那是「输出摆幅不够」而不是 Q 点问题。</td>
+                  <td>按三步走：① 看是一侧还是两侧；② 量静态 U_CEQ（是接近 VCC 还是接近 0.3V）；③ 调偏置电阻看是否改善。判别顺序永远是「量电压在前，猜原因在后」。</td>
+                </tr>
+                <tr>
+                  <td><b>「共射电路输入电阻低是天生的，没办法改善」</b></td>
+                  <td>可以改善，只是要付代价。① 前面加一级跟随器——最常用、最有效；② 增大 RB1、RB2（但分压近似会失效，Q 点会漂）；③ 在发射极加一个不被旁路的小电阻，引入交流负反馈提高 Ri（同时增益下降）。</td>
+                  <td>工程上的标准答案是「<b>跟随器放在最前面</b>」。这既解决了输入阻抗，又不会破坏共射级的增益和工作点。</td>
+                </tr>
+                <tr>
+                  <td><b>「共射电路的高频性能和低频一样好，反正音频才 20kHz」</b></td>
+                  <td>共射电路受<b>米勒效应</b>困扰：集电极到基极的结电容 C_b'c 会被放大 (1+|Au|) 倍，等效到输入端变成一个大电容。|Au| = 100 时，5pF 变成 505pF，与源阻抗一起构成低通，带宽可能只有几十 kHz。而且它的<b>增益带宽积是常数</b>——增益越高，带宽越窄。</td>
+                  <td>需要宽带就换共基组态（没有米勒效应），或者引入负反馈用增益换带宽，或者选 f_T 更高的管子。音频应用（20kHz 带宽）用共射一般够，但高增益多级时要算一下总带宽。</td>
+                </tr>
+                <tr>
+                  <td><b>「万用表量到的电压就是 ADC 会读到的电压」</b></td>
+                  <td>万用表输入阻抗 10MΩ，几乎不取电流；ADC 采样瞬间要取电荷。同一个 100kΩ 源阻抗节点，万用表读得很准，ADC 可能偏低 2.6%（例题 5 算过）。<b>万用表是「静态测量」，ADC 是「动态取样」</b>，两者对源阻抗的要求完全不同。</td>
+                  <td>调 ADC 前端时，用<b>示波器</b>看节点波形（探头 10MΩ 也基本不影响），或者直接把 ADC 读数和万用表读数对比。差异超过几个码，就该怀疑源阻抗。</td>
+                </tr>
+                <tr>
+                  <td><b>「差分放大电路的共模抑制比是无穷大，共模干扰完全不用管」</b></td>
+                  <td>CMRR 是有限的（典型 80dB，且随频率下降）。更要命的是：<b>源阻抗不匹配造成的误差，CMRR 一点都管不了</b>——那部分干扰已经变成了差模信号。而且共模输入范围是有限的，超范围直接失效。</td>
+                  <td>三件事一起做：① 两根输入线等长、等阻抗、双绞（把差模干扰转成共模）；② 选 CMRR 高、共模范围宽的器件（仪表放大器）；③ 布局上让干扰别进来（远离动力线、屏蔽）。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">三个「一定会出问题」的接线习惯</div>
+            <p>① <b>把放大电路的输出直接接到另一个放大电路的基极/输入端，中间不加隔直电容</b>。前级的 U_CEQ（几伏的直流）会被后级当成输入信号放大，后级瞬间饱和。除了专门设计的直接耦合电路，级间一定要有电容或经过计算的电平匹配。</p>
+            <p class="mt-2">② <b>把两个电源域的地随便接在一起</b>。放大电路的地和电机、继电器的地共用一段导线时，那段的电压降会直接叠进信号里。模拟地的处理原则是：<b>单点接地、就近接地、大电流回路单独走</b>。</p>
+            <p class="mt-2">③ <b>用面包板搭高增益（&gt;100 倍）的放大器</b>。面包板的接触电阻和分布电容都是毫欧到皮法级别的不确定量，在 100 倍增益下会变成明显的噪声和振荡源。高增益电路至少要焊在洞洞板上，并且输入线尽量短。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与自检 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自检</h2>
+
+          <h3 class="mt-6 text-base font-semibold">这一篇要记住的八句话</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">放大不是创造能量，是控制能量。</b>输出信号的全部功率来自电源，输入信号只负责「告诉」三极管开多大。</li>
+            <li><b class="font-semibold text-ink">静态工作点的唯一目的是给交流信号留出上下都够用的活动空间。</b>U_CEQ 设在 VCC 的 1/3 ~ 1/2，是最朴素也最有效的设计准则。</li>
+            <li><b class="font-semibold text-ink">算放大电路要画两张图。</b>直流通路（电容开路、VCC 保留）算 Q 点；交流通路（电容短路、VCC 接地）算增益和阻抗。两者通过 r_be 发生联系。</li>
+            <li><b class="font-semibold text-ink">共射极：顶部削平是截止失真，底部削平是饱和失真。</b>因为共射输出反相，口诀的方向不要记反；射极跟随器不反相，口诀要反过来用。</li>
+            <li><b class="font-semibold text-ink">三种组态是三种性格。</b>共射力气大但倔（高增益、反相）；共集脾气好（增益≈1、高 Ri、极低 Ro）；共基跑得快但难接近（高频好、Ri 极小）。实际电路里它们总是搭配出现。</li>
+            <li><b class="font-semibold text-ink">射极跟随器的价值在阻抗变换，不在电压增益。</b>它把「软源」变「硬源」，让高阻源能驱动低阻负载。看到「源内阻大于后级输入阻抗的 1/10」，就该加它。</li>
+            <li><b class="font-semibold text-ink">差分和 CMRR 是运放输入级必须用差分结构的原因。</b>共模干扰在两根线上相同，相减即可抵消；但 CMRR 有限、且源阻抗不匹配造成的误差它管不了。</li>
+            <li><b class="font-semibold text-ink">直接耦合能传慢信号，代价是零点漂移逐级累积。</b>阻容耦合能隔掉漂移，代价是传不了慢信号。选哪一种，取决于你要测的信号有多慢。</li>
+          </ul>
+
+          <h3 class="mt-7 text-base font-semibold">自检题</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>用一个比喻解释「放大电路为什么必须有电源」，并说明这个比喻能推出哪两条工程结论。</li>
+            <li>固定偏置共射电路：VCC = 9V，RB = 300kΩ，RC = 2kΩ，β = 100，UBE = 0.7V。求 IBQ、ICQ、UCEQ，并判断它是否适合放大一个输出幅度为 2V（峰峰值）的信号。</li>
+            <li>某共射电路在示波器上输出波形的<b>顶部</b>被削平了。请说出这是什么失真、Q 点是偏高还是偏低，以及你打算调大还是调小 RB。</li>
+            <li>射极跟随器的电压增益约等于 1，那么它在电路里到底起什么作用？请用一个具体的数值例子说明（提示：源阻抗 100kΩ、负载 1kΩ）。</li>
+            <li>为什么说「反相放大电路的输入电阻等于 R1」？这对一个输出阻抗 50kΩ 的传感器意味着什么？该用什么办法解决？</li>
+            <li>差分放大电路的 CMRR = 80dB。如果一个 1V 的共模干扰进入，等效到输出端是多少？如果两根输入线的源阻抗相差 2kΩ、输入偏置电流 0.5μA，请算出这部分误差，并说明它能否被 CMRR 抑制。</li>
+            <li>一个温度传感器用的是 100kΩ + 10kΩ 分压，直接接进 ADC，采样时间设为 7.5 个周期（STM32F103）。请说明会发生什么现象、为什么，并给出两种解决办法。</li>
+            <li>你的电路是「共集 → 共射 → 共集」三级结构。请说出每一级各自解决了什么问题，以及为什么不能把三级的顺序换一换。</li>
+          </ol>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">自检题答案</div>
+            <ol class="mt-2 list-decimal space-y-2 pl-5">
+              <li><b>阀门与水塔的比喻：</b>水塔（VCC）提供水压（电压）和水量（电流），你的手指力（输入信号）只决定阀门开多大。水力发电的能量不是你手指给的。两条工程结论：① <b>放大器一定有电源，且电源质量决定输出质量</b>（纹波会像输入信号一样被传递，所以模拟电路的电源去耦比数字电路讲究）；② <b>放大器只能放大变化量</b>，恒定的直流输入不会「越放越大」——这直接引出「必须用直流垫出活动空间」的 Q 点概念。</li>
+              <li>IBQ = (9 - 0.7)/300k = <b>27.7 μA</b>；ICQ = 100 × 27.7μA = <b>2.77 mA</b>；UCEQ = 9 - 2.77mA × 2kΩ = 9 - 5.54 = <b>3.46 V</b>。<br>摆动空间：往上 9 - 3.46 = 5.54V；往下 3.46 - 0.3 = 3.16V。<b>下限 3.16V 大于 1V</b>（2V 峰峰值需要 ±1V），所以<b>勉强合适</b>，但因为 UCEQ 偏高（9V 的 38%，接近 VCC/2 = 4.5V 但偏下），上下不对称。如果信号增大到 3V 峰峰值（±1.5V），向下的裕量就只有 1.66V，接近极限。<b>建议把 RB 调到 270kΩ 左右，让 UCEQ 靠近 4.5V。</b>（这道题的另一半考点：判断工作区——UCEQ = 3.46V 远大于 0.3V，在放大区 ✓。）</li>
+              <li>这是<b>截止失真</b>。原因：共射极的输出是<b>反相</b>的，顶部被削平意味着 uo 已经顶到 VCC 了，而 uo 顶到 VCC 对应的是 iC = 0，也就是管子<b>截止</b>。iC = 0 意味着一开始的 Q 点选得<b>偏低</b>（ICQ 太小），所以要把 ICQ 调大，即<b>减小 RB</b>（IBQ 增大 → ICQ 增大 → RC 上压降增大 → UCEQ 下降，输出波形整体下移，顶部就不再削平了）。<br><b>判别口诀：共射电路「顶部削平 = 截止失真 = Q 点太低 = 减小 RB」。</b></li>
+              <li>它做的是<b>阻抗变换（缓冲）</b>，不放大电压。<br>数值例子：源内阻 Rs = 100kΩ、信号 1V，负载 RL = 1kΩ。<br>① 直接连接：uo = 1 × 1/(100+1) = <b>9.9 mV</b>（只剩 0.99%）。<br>② 加一级跟随器：输入侧 Ri = 25.4kΩ → ui = 1 × 25.4/125.4 = 202.6mV；跟随器 Au ≈ 0.982 → 198.9mV；输出侧 Ro = 253Ω → uo = 198.9 × 1000/1253 = <b>158.7 mV</b>（15.9%）。<br><b>提高 16 倍</b>，而且对负载变化不敏感。这就是「增益为 1 也有用」的原因。</li>
+              <li>因为反相端被负反馈强制拉到「虚地」（约 0V 且几乎不变），从信号源看进去的路径就是「R1 → 虚地」，虚地的等效阻抗接近 0，所以<b>输入电阻就等于 R1</b>（不是运放本身的 MΩ 级输入阻抗）。<br>对一个 50kΩ 的传感器：如果 R1 = 1kΩ，那么只有 1/(50+1) ≈ <b>2%</b> 的信号电压能落到 R1 上，98% 掉在传感器内阻里。<br>解决办法：① <b>先用电压跟随器缓冲</b>（最常用），把源变成低阻再进反相放大；② 改用<b>同相放大</b>电路（输入阻抗极高）；③ 提高 R1 和 R2 的阻值（但噪声、偏置电流误差、带宽都会变差，要权衡）。</li>
+              <li>CMRR = 80dB 表示倍数 = 10^(80/20) = <b>10000 倍</b>。1V 共模干扰等效到输出端 = 1V/10000 = <b>100 μV</b>。<br>源阻抗不匹配的部分：ΔU = I_b × ΔR = 0.5μA × 2kΩ = <b>1 mV</b>。<br><b>这 1mV 不能被 CMRR 抑制</b>——因为阻抗不匹配使原本的共模干扰在两根线上产生了不同的电压，它已经<b>变成了差模信号</b>，与真正的信号无法区分。这就是为什么精密差分测量要求两根输入线的源阻抗尽量相等（等长走线、同一批电阻）。</li>
+              <li>会发生：<b>读数系统性偏低，而且抖动明显变大</b>。<br>原因：ADC 的采样保持电容（STM32F103 约 8pF）要通过「源阻抗 + 内部开关电阻」充电。100kΩ ∥ 10kΩ = 9.09kΩ，加上内部 1kΩ，时间常数 τ ≈ 10.1k × 8p = 80.8ns。7.5 个周期在 14MHz 下只有 536ns，约 6.6τ，只充到 e^(-6.6) 的剩余误差 = 0.14%，相当于约 6 个码。实测因为分布电容、开关非线性等因素会更差。<b>而且这个误差随温度变化，不能用固定系数修正。</b><br>两种解决办法：① <b>硬件</b>：在分压点加一级运放电压跟随器，把源阻抗降到 100Ω 以下；② <b>配置</b>：把采样时间加到 239.5 个周期（STM32F103 下约 17.1μs，能容忍约 235kΩ），同时把分压电阻总阻值降到 10k~30kΩ。<br>（补充：软件平均不能修正系统性偏差，只能减小随机抖动。）</li>
+              <li>三级各司其职：<br><b>第一级 共集（射极跟随器）</b>——把输入电阻提到几十 kΩ 以上，解决「源太软」（传感器输出阻抗高、不能被分压）的问题。<br><b>第二级 共射</b>——提供主要的电压增益（几十倍），中间的它不需要管阻抗匹配的事，专心放大。<br><b>第三级 共集（射极跟随器）</b>——把输出电阻降到几百 Ω 以下，解决「带不动负载/ADC」的问题。<br><b>为什么不能换顺序：</b>① 如果把共射放在最前面，它的输入电阻只有 1~2kΩ，源信号先被分压掉一大半，后面再放大也没用（噪声和误差已经进来了）；② 如果把共射放在最后，它的输出电阻 ≈ RC（kΩ 级），驱动 ADC 或长线时输出电压会随负载变化；③ 阻抗匹配的位置是<b>由物理位置决定的</b>——输入端必须高阻，输出端必须低阻，这是死约束，不能靠调换顺序绕过。</li>
+            </ol>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">动手练习</h3>
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li><b>用万用表把 Q 点量出来。</b>搭一个分压式偏置共射电路（RB1 = 47kΩ、RB2 = 10kΩ、RC = 3kΩ、RE = 1kΩ、VCC = 12V），上电后用万用表分别量基极、发射极、集电极对地电压，和例题 2 算出的 2.105V / 1.405V / 6.38V 对比。<b>误差超过 10% 就去找原因</b>（电阻精度、UBE 实际值、β 的实际值）。这是把纸上的 Q 点变成手上感觉的第一步。</li>
+            <li><b>亲手制造一次失真，然后修好它。</b>在上面的电路里，把 RB1 换成 100kΩ（基极电压升高 → ICQ 增大 → UCEQ 下降），用示波器（或把输出接到 ADC 用串口画波形）观察底部被削平。然后调回 47kΩ，看失真消失。<b>把这个波形截图存下来——以后判别失真就有参照物了。</b></li>
+            <li><b>做一个「跟随器有用 vs 没用」的对照实验。</b>用 100kΩ + 100kΩ 分压得到 1.65V（等效源阻抗 50kΩ），分别直接接 ADC 和经过一级运放跟随器再接 ADC。两次都用相同的采样时间（7.5 周期），对比读数和抖动。<b>你会亲眼看到「源阻抗」这三个字的分量。</b></li>
+            <li><b>测一次 ADC 的采样时间曲线。</b>固定一个 10kΩ ∥ 10kΩ 的分压源，把采样时间依次设为 1.5 / 7.5 / 41.5 / 239.5 个周期，每个设置下读 100 次求平均和极差，画成表。<b>这张表就是你以后选采样时间的依据</b>，比背手册有用得多。</li>
+            <li><b>搭一个麦克风前置放大并听效果。</b>按第 4 节的电路搭好，把输出接到示波器或电脑声卡（记得加隔直电容）。对着话筒说话，看波形能否从「几乎看不见」变成「占满屏幕的 1/3」。<b>然后故意把 RB1 调偏，听声音变得沙哑——那就是失真的声音。</b></li>
+            <li><b>验证温漂。</b>把一个固定偏置的共射电路（例题 1 那种）接好，量下 U_CEQ；用吹风机（低温档，距离远一点）或电烙铁的余温靠近三极管，再量一次。<b>观察 U_CEQ 漂了多少。</b>然后把电路换成例题 2 的分压式偏置，重复一次，对比两次的漂移量。<b>这是理解「为什么好电路要设计得复杂」最直观的一次实验。</b></li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">延伸阅读</h3>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>三极管的三个工作区、饱和条件与基极电阻怎么算 → <a class="text-brand-600 dark:text-brand-300" href="ee-semiconductor.html">半导体器件：二极管、稳压管、三极管与 MOS 管</a></li>
+            <li>把本篇的差分级、恒流源、跟随器集成到一颗芯片里之后怎么用 → <a class="text-brand-600 dark:text-brand-300" href="ee-opamp.html">集成运放与信号调理</a></li>
+            <li>ADC 前端为什么要抗混叠滤波、比较器为什么要加正反馈 → <a class="text-brand-600 dark:text-brand-300" href="ee-filter-comparator.html">有源滤波与电压比较器</a></li>
+            <li>负反馈如何用增益换带宽、为什么闭环系统会自激振荡 → <a class="text-brand-600 dark:text-brand-300" href="ee-feedback.html">反馈与稳定性入门</a></li>
+            <li>放大电路的供电为什么比数字电路讲究 → <a class="text-brand-600 dark:text-brand-300" href="ee-power-supply.html">电源与功率：整流滤波、LDO 与 DC-DC</a></li>
+            <li>信号线与地线怎么走才不让干扰进来 → <a class="text-brand-600 dark:text-brand-300" href="ee-emc.html">电磁兼容与抗干扰基础</a></li>
+            <li>回到知识体系栏目页，看完整的模拟电子列表 → <a class="text-brand-600 dark:text-brand-300" href="../knowledge.html">知识体系</a></li>
+          </ul>
+
+          <div class="callout callout-info mt-6">
+            <div class="callout-title">下一篇要解决的问题</div>
+            <p>这一篇里，你已经见过好几次「跟随器」了：ADC 前端要它、麦克风后面要它、电桥测量要它。你也已经算过，三极管跟随器能把输出电阻做到几百 Ω，但再往下就下不去了（受 RE 和偏置的限制）。</p>
+            <p class="mt-2"><b>下一篇《集成运放与信号调理》</b>会告诉你：把几十个三极管、恒流源和跟随器集成在一颗芯片上之后，你得到的是一个「输入阻抗 MΩ 级、输出阻抗几欧姆、增益 100dB」的怪物。到那时，你不再需要一级一级地算 Q 点，只要记住<b>「虚短」和「虚断」</b>两条规则，就能推出同相、反相、差分、跟随器这四种基本电路的增益公式。而这一篇算过的每一个量——输入阻抗、输出阻抗、共模抑制比、零点漂移——都会变成运放数据手册上你能看懂的指标。</p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="ee-semiconductor.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">半导体器件：二极管、稳压管、三极管与 MOS 管</p>
+          </a>
+          <a href="ee-opamp.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：进入运放 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">集成运放与信号调理</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

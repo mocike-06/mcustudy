@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arduino IDE 环境搭建 - McuStudy</title>
+  <meta name="description" content="ESP32 开发环境搭建完整教程：附加开发板管理器网址、esp32 by Espressif Systems 安装、ESP32 Dev Module 板型选择、COM 口识别、CP2102/CH340 驱动安装与 Connecting 卡住的解决办法。">
+  <meta name="keywords" content="ESP32,Arduino IDE,开发板管理器,esp32 board package,CH340驱动,CP2102驱动,ESP32 Dev Module,COM口">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="esp32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../esp32.html" class="hover:text-brand-600 dark:hover:text-brand-300">ESP32</a>
+          <span>/</span>
+          <span class="text-muted">教程正文</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          Arduino IDE 环境搭建
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          把一块刚拆封的 ESP32-WROOM-32 开发板，变成能跑起自己程序的状态。
+          讲清楚开发板管理器为什么要额外装包、附加开发板管理器网址怎么填、
+          COM 口和驱动怎么认、上传卡在 Connecting 时该按哪个键，
+          最后用一段自检程序把「工具链 / 板型 / 串口 / 波特率」四件事一次性验证掉。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">芯片：<b>ESP32-WROOM-32</b></span>
+          <span class="stat-pill">工具：<b>Arduino IDE 2.x</b></span>
+          <span class="stat-pill">阅读约 <b>12</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>装环境这一步就会遇到「开发板管理器」「库」「分区」这些词。先把框架这一层弄明白，后面会省很多时间。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-arduino.html">Arduino 框架与 ESP-IDF</a> —— 点一下「上传」之后到底依次发生了什么</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-compare.html">从 51 / STM32 到 ESP32</a> —— 为什么它的开发方式和前两个平台都不一样</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="esp32-basic-cpp.html">C++ 与 Arduino API 基础</a> —— 你会写出第一个 <code class="icode">setup()</code> / <code class="icode">loop()</code></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-why">为什么 ESP32 要额外装包</a>
+          <a class="toc-link is-sub" href="#sub-chain">一行代码从 IDE 到芯片</a>
+          <a class="toc-link is-sub" href="#sub-ide">IDE 版本选择与国内镜像</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link is-sub" href="#sub-board">开发板接口与两个按键</a>
+          <a class="toc-link is-sub" href="#sub-driver">USB 转串口芯片与驱动</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-why">为什么 ESP32 要额外装包</a>
+            <a class="toc-link is-sub" href="#sub-chain">一行代码从 IDE 到芯片</a>
+            <a class="toc-link is-sub" href="#sub-ide">IDE 版本选择与国内镜像</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link is-sub" href="#sub-board">开发板接口与两个按键</a>
+            <a class="toc-link is-sub" href="#sub-driver">USB 转串口芯片与驱动</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            环境搭建这件事，新手最容易把它当成「照着一二三点点点」的机械操作，
+            于是只要中间有一步和教程不一样，就完全不知道该怎么办。
+            这一节先把背后的机制讲明白：<b class="font-semibold text-ink">Arduino IDE 本身只是一个编辑器加一个调度器，
+            真正把 C++ 代码变成 ESP32 能执行的二进制文件的，是一整套外部的交叉编译工具链。</b>
+            装开发板包，本质上就是把这套工具链装到你的电脑上。
+          </p>
+
+          <h3 id="sub-why" class="mt-7 text-base font-semibold">为什么 ESP32 要额外装包</h3>
+          <p class="mt-3">
+            Arduino IDE 装好之后，内置只认识 Arduino UNO、Nano 这类 AVR 芯片。
+            ESP32 用的是 <b class="font-semibold text-ink">Xtensa LX6 双核处理器</b>，
+            和 AVR 是完全不同的指令集，编译器、链接脚本、启动代码、烧录工具、Wi-Fi 协议栈全都不一样。
+            所以 IDE 需要一张「开发板清单」告诉它：去哪儿下载 ESP32 专用的工具链、下载哪个版本。
+          </p>
+          <p class="mt-3">
+            Arduino 官方只维护 AVR 系列，ESP32 的这张清单由乐鑫（Espressif）自己维护，
+            地址就是下面这一串。把它填进 IDE，IDE 才知道「esp32 by Espressif Systems」这个包的存在：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="附加开发板管理器网址">
+            <pre><code>https://espressif.github.io/arduino-esp32/package_esp32_index.json</code></pre>
+          </div>
+
+          <p class="mt-4">
+            这个 JSON 文件里并没有工具链本身，它只是一张「目录」：里面写着各个版本的核心包下载地址、
+            对应平台（Windows / macOS / Linux）、以及每个版本的校验值。IDE 拿到目录后，
+            再去真正的下载地址把几百 MB 的工具链拉下来。所以你会看到安装过程分两段——
+            先是几秒的「正在下载索引」，然后是漫长的「正在下载 esp32 核心」。
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">国内网络下这一步几乎一定会失败</div>
+            <p>
+              索引文件本身托管在 GitHub Pages 上，工具链压缩包托管在 GitHub Releases 上。
+              国内直连经常出现「下载索引卡住」「下到 60% 断了」这类现象，
+              这<b class="font-semibold">不是你的操作错了</b>，而是网络问题。
+              解决办法有两个，见下面 <a class="text-brand-600 dark:text-brand-300" href="#sub-ide">IDE 版本选择与国内镜像</a>。
+            </p>
+          </div>
+
+          <h3 id="sub-chain" class="mt-7 text-base font-semibold">一行代码从 IDE 到芯片</h3>
+          <p class="mt-3">
+            点一下「上传」按钮之后，电脑里其实发生了一连串动作。理解这条链路，
+            后面排错时你就知道每一步该看什么信息：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="上传链路：从 .ino 到 Flash 里的二进制">
+            <pre><code>  ┌─────────────────────────────────────────────────────────────────┐
+  │ 1. 预处理   .ino -> .ino.cpp                                     │
+  │    自动补上 #include &lt;Arduino.h&gt;，把函数原型提到文件顶部          │
+  ├─────────────────────────────────────────────────────────────────┤
+  │ 2. 编译     .cpp -> .o                                           │
+  │    编译器：xtensa-esp32-elf-g++（ESP32 专用交叉编译器，跑在 PC 上）│
+  ├─────────────────────────────────────────────────────────────────┤
+  │ 3. 链接     .o + 核心库 + Wi-Fi/BT 协议栈 -> sketch.ino.elf      │
+  │    这一步最占内存、也最慢，第一次编译要 1~3 分钟                   │
+  ├─────────────────────────────────────────────────────────────────┤
+  │ 4. 打包     .elf -> .bin（合并 bootloader / 分区表 / 应用程序）    │
+  │    工具：esptool.py，同时负责计算 Flash 里的写入地址               │
+  ├─────────────────────────────────────────────────────────────────┤
+  │ 5. 烧录     通过 USB 转串口，把 .bin 写进 Flash                    │
+  │    esptool 先拉低 EN 让芯片进入下载模式，写完再复位                │
+  ├─────────────────────────────────────────────────────────────────┤
+  │ 6. 运行     ROM 引导程序 -> bootloader -> 你的 setup() / loop()    │
+  └─────────────────────────────────────────────────────────────────┘</code></pre>
+          </div>
+
+          <p class="mt-4">
+            看懂第 5 步，就理解了新手最常见的一个坑：ESP32 的串口是<b class="font-semibold text-ink">一根线两用</b>——
+            平时它是你的程序打印日志的通道，上传时它又被 esptool 借去当下载通道。
+            esptool 需要让芯片进入「下载模式」才能写 Flash，而进入下载模式靠的是把
+            <code class="icode">GPIO0</code> 拉低再复位。板子上做了自动复位电路来自动完成这个动作，
+            但电路偶尔会失效——这时候就要你手动按住 <b class="font-semibold text-ink">BOOT</b> 键，
+            这就是「一直显示 Connecting」的根因。
+          </p>
+
+          <h3 id="sub-ide" class="mt-7 text-base font-semibold">IDE 版本选择与国内镜像</h3>
+          <p class="mt-3">
+            写 ESP32 只需要一个软件，但版本选错会平白多出一堆麻烦。先把选型结论给出：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>方案</th>
+                  <th>版本要求</th>
+                  <th>优点</th>
+                  <th>注意</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Arduino IDE 2.x</td>
+                  <td class="font-mono text-xs">2.3.x 及以上</td>
+                  <td>自动补全、串口绘图器、内置开发板管理器界面</td>
+                  <td>本教程以它为准</td>
+                </tr>
+                <tr>
+                  <td>Arduino IDE 1.8.x</td>
+                  <td class="font-mono text-xs">1.8.19</td>
+                  <td>体积小、启动快，老教程截图一致</td>
+                  <td>新版 ESP32 核心需要手动改 Java 堆内存，否则编译报内存不足</td>
+                </tr>
+                <tr>
+                  <td>arduino-cli</td>
+                  <td class="font-mono text-xs">1.0+</td>
+                  <td>命令行、可写脚本、适合批量编译</td>
+                  <td>需要自己会看命令行报错</td>
+                </tr>
+                <tr>
+                  <td>VS Code + PlatformIO</td>
+                  <td class="font-mono text-xs">PlatformIO 6.x</td>
+                  <td>工程管理最规范，库依赖可锁定版本</td>
+                  <td>调试信息是英文，初学阶段容易迷路</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            关于国内网络，有两个成熟做法，<b class="font-semibold text-ink">推荐先用第一种，改配置文件的思路以后一直用得上</b>：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>
+              <b class="font-semibold text-ink">方法一：给 Arduino IDE 配代理。</b>
+              在 IDE 的「文件 → 首选项 → 网络」里填入本机 HTTP 代理地址
+              （例如 <code class="icode">http://127.0.0.1:7890</code>）。
+              这样索引和工具链都走代理，最省事，也不需要改代码。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">方法二：手动替换下载源。</b>
+              把开发板管理器网址里的域名换成国内镜像（如清华 TUNA、南京大学镜像的 GitHub 反向代理），
+              形式通常是把 <code class="icode">https://espressif.github.io/arduino-esp32/package_esp32_index.json</code>
+              换成 <code class="icode">https://mirrors.tuna.tsinghua.edu.cn/...</code> 之类的镜像地址。
+              镜像会同步官方索引，但<b class="font-semibold">同步有延迟</b>，
+              所以经常会遇到「最新版本在镜像里还搜不到」——这不是故障，等一天或换回官方源即可。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">兜底方案：手动离线安装。</b>
+              用浏览器或下载工具把 <code class="icode">.zip</code> 形式的 esp32 核心包下载到本地，
+              再在 IDE 里用「导入 .zip 库」的方式装进去。慢但一定能成，
+              适合机房、实验室这种统一环境。
+            </li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">装哪个版本的核心？</div>
+            <p>
+              开发板管理器列表里会列出十几个 esp32 版本。给新手的建议是
+              <b class="font-semibold">选列表里最新的稳定版</b>（写这段时的主流是 3.x 系列），
+              不要为了「和某篇老教程一致」去装 1.0.x。
+              老版本缺少新芯片支持、Wi-Fi 库有已知问题，而且很多现在的示例代码编译不过。
+              唯一例外是老师明确要求统一版本，那就全组统一，别各装各的。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            这一篇不需要面包板和外设，唯一的「接线」就是把开发板用 USB 线接到电脑上。
+            但恰恰是这根线和板子上那两个小按键，制造了新手 80% 的失败。
+            所以这一节要把板子上的每一个接口、每一个按键都交代清楚。
+          </p>
+
+          <h3 id="sub-board" class="mt-7 text-base font-semibold">开发板接口与两个按键</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="ESP32-WROOM-32 开发板俯视示意">
+            <pre><code>        ┌──────────────────────────────────────────────┐
+        │            ESP32-WROOM-32 模组                │
+        │   ┌────────────────────────────────────┐     │
+        │   │  金属屏蔽罩（下面是天线与射频电路）  │     │
+        │   └────────────────────────────────────┘     │
+        │                                              │
+        │  [EN] 按键          [BOOT] 按键              │
+        │   ↑ 复位键            ↑ 下载模式键            │
+        │   按下 = 重启芯片      按住 + 按 EN = 进下载模式 │
+        │                                              │
+        │  ● 电源指示灯(PWR)    ● 板载 LED（多数为 GPIO2）│
+        │                                              │
+        │  ┌──────────┐                                │
+        │  │ USB 母座 │   Micro-USB 或 Type-C          │
+        │  └──────────┘   ↑ 必须用「数据线」，不能是纯充电线│
+        └──────────────────────────────────────────────┘
+
+  排针侧（两侧各 19 个脚，节选新手会碰到的）：
+
+    左侧                右侧
+    3V3    ── 3.3V 输出   GND
+    EN     ── 复位         GPIO23
+    GPIO36 ── 只能输入     GPIO22
+    GPIO39 ── 只能输入     GPIO1  ── TX0（串口下载/日志）
+    GPIO34 ── 只能输入     GPIO3  ── RX0（串口下载/日志）
+    GPIO35 ── 只能输入     GPIO21
+    GPIO32                 GND
+    GPIO33                 GPIO19
+    GPIO25                 GPIO18
+    GPIO26                 GPIO5
+    GPIO27                 GPIO17
+    GPIO14                 GPIO16
+    GPIO12 ── strapping    GPIO4
+    GND                    GPIO0  ── strapping / BOOT 键
+    GPIO13                 GPIO2  ── strapping / 板载 LED
+    GPIO9  ── 内部 Flash   GPIO15 ── strapping
+    GPIO10 ── 内部 Flash   GPIO8  ── 内部 Flash
+    GPIO11 ── 内部 Flash   GPIO7  ── 内部 Flash
+    VIN/5V ── 5V 输入      GPIO6  ── 内部 Flash</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">先记住这一条：GPIO6 ~ GPIO11 绝对不能接任何东西</div>
+            <p>
+              这六个引脚在模组内部已经连到 SPI Flash 芯片上，用来存放你的程序。
+              把外部电路接到它们上面，轻则程序跑飞，重则写坏 Flash 让板子再也启动不了。
+              新手「烧板子」的头号原因就是这个。引脚图上的
+              <code class="icode">GPIO9</code>、<code class="icode">GPIO10</code> 之所以还印在排针上，
+              是因为有些模组没用到它们，但 ESP32-WROOM-32 用满了，你<b class="font-semibold">当它们不存在</b>就好。
+            </p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接口与连接对照表</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>板上的东西</th>
+                  <th>引脚 / 规格</th>
+                  <th>连接到</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>USB 母座</td>
+                  <td class="font-mono text-xs">Micro-USB / Type-C（看板子批次）</td>
+                  <td>电脑 USB 口</td>
+                  <td>必须用能传数据的线；纯充电线只能供电，电脑上看不到串口</td>
+                </tr>
+                <tr>
+                  <td>供电电压</td>
+                  <td class="font-mono text-xs">5V（USB）/ 3.3V（芯片）</td>
+                  <td>板载 AMS1117 稳压到 3.3V</td>
+                  <td>USB 口最好直插机箱后面板，前面板扩展口电流常常不够</td>
+                </tr>
+                <tr>
+                  <td>EN 按键</td>
+                  <td class="font-mono text-xs">EN</td>
+                  <td>芯片复位脚</td>
+                  <td>按下等于重启，程序从头跑一遍，不会清空 Flash</td>
+                </tr>
+                <tr>
+                  <td>BOOT 按键</td>
+                  <td class="font-mono text-xs">GPIO0</td>
+                  <td>芯片启动模式选择</td>
+                  <td>按下时 GPIO0 接地；上电瞬间为低电平则进入下载模式</td>
+                </tr>
+                <tr>
+                  <td>电源指示灯</td>
+                  <td class="font-mono text-xs">PWR LED</td>
+                  <td>直接接 3.3V</td>
+                  <td>插上 USB 就常亮，它亮<b class="font-semibold">只说明供电正常</b>，不代表程序在跑</td>
+                </tr>
+                <tr>
+                  <td>板载 LED</td>
+                  <td class="font-mono text-xs">GPIO2（多数批次）</td>
+                  <td>经限流电阻接 LED</td>
+                  <td>用它验证上传是否成功；注意 GPIO2 是 strapping 引脚</td>
+                </tr>
+                <tr>
+                  <td>串口日志口</td>
+                  <td class="font-mono text-xs">GPIO1 (TX0) / GPIO3 (RX0)</td>
+                  <td>USB 转串口芯片</td>
+                  <td>上传和串口监视器都用这一路，所以打印日志时它被占用是正常的</td>
+                </tr>
+                <tr>
+                  <td>外部供电</td>
+                  <td class="font-mono text-xs">VIN / 5V 脚</td>
+                  <td>5V 电源正极</td>
+                  <td>用外接电源时<b class="font-semibold">不要同时插 USB</b>，容易造成电源对灌</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 id="sub-driver" class="mt-7 text-base font-semibold">USB 转串口芯片与驱动</h3>
+          <p class="mt-3">
+            ESP32 芯片本身没有 USB 控制器（那是 S2/S3 才有的事），
+            所以开发板上都焊了一颗<b class="font-semibold text-ink">USB 转串口芯片</b>，
+            把 USB 协议翻译成串口。它决定了你的电脑能不能看见这个 COM 口，
+            也决定了你要装哪个驱动。市面上主流就两种：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>芯片</th>
+                  <th>常见于</th>
+                  <th>Windows 里显示的设备名</th>
+                  <th>驱动</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>CP2102 / CP2102N</td>
+                  <td>官方 ESP32-DevKitC、较贵的开发板</td>
+                  <td class="font-mono text-xs">Silicon Labs CP210x USB to UART Bridge (COMx)</td>
+                  <td>Silicon Labs 官方 VCP 驱动（CP210x Universal Windows Driver）</td>
+                </tr>
+                <tr>
+                  <td>CH340 / CH340C / CH9102</td>
+                  <td>国产低价开发板、NodeMCU 类板子</td>
+                  <td class="font-mono text-xs">USB-SERIAL CH340 (COMx)</td>
+                  <td>沁恒（WCH）官方 CH341SER 驱动</td>
+                </tr>
+                <tr>
+                  <td>（未装驱动）</td>
+                  <td>—</td>
+                  <td class="font-mono text-xs">未知设备 / 带黄色感叹号的 USB2.0-Serial</td>
+                  <td>先看芯片丝印，再装对应驱动</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            怎么知道自己板子上是哪颗？<b class="font-semibold text-ink">看 USB 座旁边那颗 5 毫米见方的小芯片上的丝印</b>，
+            或者看板子背面印的型号。实在看不清就用笨办法：先装 CH340 驱动，重插一次看设备管理器里有没有多出 COM 口；
+            没有就换 CP2102 驱动。两个驱动同时装在电脑里不会冲突。
+          </p>
+
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>装驱动前先把开发板从电脑上拔下来，装完再插上，避免系统缓存了「未知设备」的状态。</li>
+            <li>右键「此电脑 → 管理 → 设备管理器」，展开<b class="font-semibold text-ink">端口 (COM 和 LPT)</b>，
+                看到一个带 COM 号的设备就说明成功了。</li>
+            <li>把开发板拔掉，那个 COM 口会消失；再插上又出现——用这个「一插一拔」的动作确认到底哪个 COM 号是它，
+                而不是电脑上其他虚拟串口。这一步能省掉后面大量的选错口排错。</li>
+          </ol>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">上电前必查</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>USB 线是不是数据线。判断方法：插上后设备管理器里有没有新 COM 口，没有就是充电线。</li>
+              <li>开发板下面有没有压在金属桌面或散落的元件上，排针短路是最冤的故障。</li>
+              <li>有没有同时接外部 5V 电源和 USB。二者只能选一个。</li>
+              <li>杜邦线一根都还没接。环境搭建阶段<b class="font-semibold">不要接任何外设</b>，
+                  这样出问题时变量最少。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            环境搭好之后不能只看「编译成功」四个字，那只能说明工具链装对了，
+            说明不了板型、串口、波特率是否正确。下面这段程序的作用是
+            <b class="font-semibold text-ink">把芯片的真实信息打印出来</b>：
+            只要这些信息正常显示且不乱码，四件事就全部验证通过。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="esp32-env-check.ino —— 环境自检程序">
+            <pre><code>/* =====================================================================
+ *  esp32-env-check.ino —— ESP32 开发环境自检程序
+ *  目标板：ESP32 Dev Module（ESP32-WROOM-32）
+ *  作用：上传成功后，用串口监视器一次性验证
+ *        「开发板包 / 板型 / 串口 / 波特率」四项配置是否正确
+ *  波特率：115200（串口监视器右下角必须选同一个值）
+ * ===================================================================== */
+
+#include &lt;esp_system.h&gt;   /* 提供 esp_reset_reason()，用来判断上次复位是正常上电还是掉电 */
+
+/* ---------------------------------------------------------------------
+ * 把复位原因枚举翻译成中文
+ * 为什么值得单独写这个函数：ESP32 供电不足时会自己复位，
+ * 现象是「程序刚起来就重启」，而复位原因会明确告诉你是 BROWNOUT
+ * ------------------------------------------------------------------- */
+const char* resetReasonText(esp_reset_reason_t r) {
+    switch (r) {
+        case ESP_RST_POWERON:   return "上电复位 / 按了 EN 键（正常）";
+        case ESP_RST_EXT:       return "外部复位引脚被拉低";
+        case ESP_RST_SW:        return "软件复位（调用了 ESP.restart()）";
+        case ESP_RST_PANIC:     return "程序崩溃复位（空指针、数组越界等）";
+        case ESP_RST_INT_WDT:   return "中断看门狗复位（中断服务函数里耗时太久）";
+        case ESP_RST_TASK_WDT:  return "任务看门狗复位（loop 被阻塞超过 5 秒）";
+        case ESP_RST_WDT:       return "其他看门狗复位";
+        case ESP_RST_DEEPSLEEP: return "深度睡眠唤醒（正常）";
+        case ESP_RST_BROWNOUT:  return "掉电复位：供电不足！换 USB 口或换线";
+        case ESP_RST_SDIO:      return "SDIO 复位";
+        default:                return "未知原因";
+    }
+}
+
+void setup() {
+    /* ---------- 串口初始化 ----------
+     * 115200 是 ESP32 的通用波特率。
+     * 注意：这里只是「电脑与开发板之间」的通信速率，
+     * 和 Wi-Fi、蓝牙的速率完全无关，改它不会影响无线性能。      */
+    Serial.begin(115200);
+
+    /* 这个延时不是可选项：USB 转串口芯片在板子上电后需要一点时间
+     * 才会被电脑枚举出来。不加延时，开机头几行字最容易丢失，
+     * 新手最常见的误判就是「程序没跑」——其实只是第一行没被收到。 */
+    delay(1500);
+
+    Serial.println();
+    Serial.println("==================================================");
+    Serial.println("          ESP32 环境自检  esp32-env-check");
+    Serial.println("==================================================");
+
+    /* ---------- [1] 工具链与核心版本 ----------
+     * 这两行能打印出来，就说明「开发板包」装对了。 */
+    Serial.println("[1] 工具链 / 核心版本");
+    Serial.printf("    Arduino-ESP32 核心 : %s\n", ESP.getCoreVersion().c_str());
+    Serial.printf("    ESP-IDF SDK 版本   : %s\n", ESP.getSdkVersion());
+    Serial.printf("    本程序编译时间     : %s %s\n", __DATE__, __TIME__);
+
+    /* ---------- [2] 芯片信息 ----------
+     * 能读到型号和 Flash 容量，说明 esptool 与芯片通信正常。 */
+    Serial.println("[2] 芯片信息");
+    Serial.printf("    芯片型号   : %s\n", ESP.getChipModel());
+    Serial.printf("    芯片版本   : v%d\n", ESP.getChipRevision());
+    Serial.printf("    核心数量   : %d\n", ESP.getChipCores());
+    Serial.printf("    CPU 主频   : %d MHz\n", ESP.getCpuFreqMHz());
+    Serial.printf("    Flash 容量 : %u 字节（约 %.1f MB）\n",
+                  ESP.getFlashChipSize(),
+                  ESP.getFlashChipSize() / 1048576.0f);
+
+    /* ---------- [3] 内存 ----------
+     * 空闲堆内存是后面写 Wi-Fi / 蓝牙程序时的重要指标：
+     * 连上 Wi-Fi 会吃掉约 40KB，开蓝牙又要几十 KB，
+     * 堆不够就会出现「莫名其妙连不上、连上就重启」。 */
+    Serial.println("[3] 内存");
+    Serial.printf("    当前空闲堆 : %u 字节\n", ESP.getFreeHeap());
+    Serial.printf("    历史最小堆 : %u 字节\n", ESP.getMinFreeHeap());
+
+    /* ---------- [4] 复位原因 ----------
+     * 这是排查「反复重启」问题的第一现场证据。 */
+    Serial.println("[4] 本次启动原因");
+    Serial.printf("    %s\n", resetReasonText(esp_reset_reason()));
+
+    /* ---------- [5] 芯片唯一 ID ----------
+     * 出厂时烧在 eFuse 里的 48 位 MAC，全球唯一、不可修改。
+     * 做课设时可以直接拿它当设备编号。 */
+    Serial.println("[5] 芯片唯一 ID");
+    uint64_t chipId = ESP.getEfuseMac();
+    Serial.printf("    MAC 地址 : %04X%08X\n",
+                  (uint16_t)(chipId &gt;&gt; 32), (uint32_t)chipId);
+
+    /* ---------- [6] 波特率自检提示 ---------- */
+    Serial.println("--------------------------------------------------");
+    Serial.println("上面这段文字如果完整显示且不是乱码，");
+    Serial.println("说明开发板包、板型、串口、波特率全部配置正确。");
+    Serial.println("如果全是乱码，请把串口监视器波特率改成 115200。");
+    Serial.println("--------------------------------------------------");
+}
+
+void loop() {
+    /* 每 2 秒报一次心跳，用来观察内存有没有持续减少（内存泄漏）。
+     * 这里用 millis() 做非阻塞定时，而不是 delay(2000)：
+     * delay 会让整个 loop 停住，一旦以后加了 Wi-Fi 或按键就会出问题，
+     * 从一开始就养成「用时间戳判断」的习惯。 */
+    static uint32_t lastTick = 0;              /* static：值在两次 loop 之间保留 */
+    if (millis() - lastTick &gt;= 2000) {
+        lastTick = millis();
+        Serial.printf("[心跳] 已运行 %lu 秒，空闲堆 %u 字节\n",
+                      millis() / 1000, ESP.getFreeHeap());
+    }
+}</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">#include &lt;esp_system.h&gt;</code>——
+              Arduino 的 ESP32 核心其实是「ESP-IDF + Arduino 封装层」两层结构，
+              所有 <code class="icode">esp_</code> 开头的底层功能都在 IDF 的头文件里。
+              认识这一点很重要：以后你在网上看到的 ESP-IDF 例程，大部分都能直接搬进 Arduino 里用。
+            </li>
+            <li>
+              <code class="icode">Serial.begin(115200)</code> 与串口监视器右下角的波特率
+              <b class="font-semibold text-ink">必须是同一个数字</b>。
+              波特率是双方约定的「每秒多少位」，两边不一致时接收方会在错误的时刻采样，
+              收到的就是一堆乱码。这是新手看到「乱码」时 99% 的原因，不是板子坏了。
+            </li>
+            <li>
+              <code class="icode">delay(1500)</code>——新手常把它删掉，然后抱怨「第一行打印丢了」。
+              USB 转串口芯片上电后要等电脑完成枚举，这期间发出去的数据没人接，直接丢掉。
+              代价是启动慢 1.5 秒，换来的是每次上电都能看到完整日志，非常划算。
+            </li>
+            <li>
+              <code class="icode">ESP.getCoreVersion().c_str()</code>——
+              <code class="icode">getCoreVersion()</code> 返回的是 Arduino 的
+              <code class="icode">String</code> 对象而不是 C 字符串。
+              <code class="icode">printf</code> 的 <code class="icode">%s</code> 只认 C 字符串（<code class="icode">const char*</code>），
+              所以必须调用 <code class="icode">.c_str()</code> 转换。漏掉它不会编译报错，
+              但运行时打印出来是空白或乱码——这是 C++ 里非常典型的「隐式转换陷阱」。
+            </li>
+            <li>
+              <code class="icode">esp_reset_reason()</code>——只用一行就能区分「正常上电」
+              和「供电不足导致的重启」。
+              如果你看到 <code class="icode">掉电复位：供电不足</code>，
+              就不用再怀疑代码了，直接去换 USB 口、换线、或者给板子单独供电。
+            </li>
+            <li>
+              <code class="icode">static uint32_t lastTick</code>——
+              在函数里定义的 <code class="icode">static</code> 变量只初始化一次，
+              之后每次进入 <code class="icode">loop()</code> 都保留上次的值。
+              这是嵌入式里实现「定时做某件事」的标准写法，
+              比 <code class="icode">delay()</code> 高一个层次，务必掌握。
+            </li>
+          </ul>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">用命令行验证环境（可选，但很有用）</div>
+            <p>
+              如果你装了 <code class="icode">arduino-cli</code>，可以不开图形界面就完成同样的验证。
+              做课设要反复编译时，命令行比点鼠标快得多：
+            </p>
+            <div class="code-block mt-3" data-lang="bash" data-title="arduino-cli 常用命令">
+              <pre><code># 1. 添加 ESP32 开发板索引（只需执行一次）
+arduino-cli config init
+arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+
+# 2. 更新索引并安装 esp32 核心（这一步比较大，耐心等）
+arduino-cli core update-index
+arduino-cli core install esp32:esp32
+
+# 3. 确认装好了，能列出 ESP32 Dev Module 就说明成功
+arduino-cli board listall | grep -i "ESP32 Dev Module"
+
+# 4. 看看开发板插在哪个串口（Windows 上写 COM3 这种，Linux/macOS 写 /dev/ttyUSB0）
+arduino-cli board list
+
+# 5. 编译 + 上传（把 PORT 换成上一步查到的串口）
+arduino-cli compile --fqbn esp32:esp32:esp32 esp32-env-check
+arduino-cli upload  --fqbn esp32:esp32:esp32 -p COM3 esp32-env-check
+
+# 6. 打开串口监视器看输出，波特率必须和 Serial.begin() 一致
+arduino-cli monitor -p COM3 --config baudrate=115200</code></pre>
+            </div>
+            <p class="mt-3">
+              注意第 5 步的 <code class="icode">esp32:esp32:esp32</code> 就是
+              「ESP32 Dev Module」在命令行里的正式编号（FQBN）。
+              图形界面里选板型和这里是同一件事。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            上传完成后点开「工具 → 串口监视器」，把右下角波特率设为
+            <b class="font-semibold text-ink">115200</b>，再按一下板子上的 EN 键。
+            下面是你应该看到的内容。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="串口监视器应有的输出（示例）">
+            <pre><code>==================================================
+          ESP32 环境自检  esp32-env-check
+==================================================
+[1] 工具链 / 核心版本
+    Arduino-ESP32 核心 : 3.0.7
+    ESP-IDF SDK 版本   : v5.1.4
+    本程序编译时间     : Oct 24 2026 22:15:03
+[2] 芯片信息
+    芯片型号   : ESP32-D0WD-V3
+    芯片版本   : v3
+    核心数量   : 2
+    CPU 主频   : 240 MHz
+    Flash 容量 : 4194304 字节（约 4.0 MB）
+[3] 内存
+    当前空闲堆 : 327680 字节
+    历史最小堆 : 321544 字节
+[4] 本次启动原因
+    上电复位 / 按了 EN 键（正常）
+[5] 芯片唯一 ID
+    MAC 地址 : 246F28A1B3C4
+--------------------------------------------------
+上面这段文字如果完整显示且不是乱码，
+说明开发板包、板型、串口、波特率全部配置正确。
+--------------------------------------------------
+[心跳] 已运行 2 秒，空闲堆 327680 字节
+[心跳] 已运行 4 秒，空闲堆 327680 字节
+[心跳] 已运行 6 秒，空闲堆 327680 字节</code></pre>
+          </div>
+
+          <ol class="mt-4 list-decimal space-y-2 pl-5">
+            <li>上传时下方的输出窗口最后出现 <code class="icode">Hash of data verified.</code> 与 <code class="icode">Hard resetting via RTS pin...</code>，这是烧录成功的标志。</li>
+            <li>上传结束的一瞬间板载 LED 会有极短暂的闪烁，或者什么都不发生——这都正常，因为你的程序没操作 LED。</li>
+            <li>串口监视器里六段信息齐全，中文不乱码。</li>
+            <li><code class="icode">[心跳]</code> 每 2 秒出现一行，且「空闲堆」的数字<b class="font-semibold text-ink">始终不变</b>。</li>
+            <li>按一下 EN 键，日志从头重新打印一遍，<code class="icode">[4]</code> 那一行仍然显示「上电复位 / 按了 EN 键（正常）」。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>输出窗口停在 <code class="icode">Connecting........_____</code> 不动</td>
+                  <td>esptool 没能让芯片进入下载模式</td>
+                  <td>按住 BOOT 键再点上传，详见排错第 1 条</td>
+                </tr>
+                <tr>
+                  <td>串口监视器一片空白，什么都不打印</td>
+                  <td>口选错了，或者程序根本没跑起来</td>
+                  <td>拔插一次 USB 确认 COM 号；看设备管理器有没有两个串口</td>
+                </tr>
+                <tr>
+                  <td>全是乱码（例如 <code class="icode">␀␁</code>）</td>
+                  <td>波特率不一致</td>
+                  <td>把串口监视器右下角改成 115200</td>
+                </tr>
+                <tr>
+                  <td>只有前几行丢失，后面正常</td>
+                  <td>上电瞬间数据被丢掉了</td>
+                  <td>确认 <code class="icode">delay(1500)</code> 没被删掉</td>
+                </tr>
+                <tr>
+                  <td>反复打印，每隔几秒重新从头开始</td>
+                  <td>芯片在反复复位</td>
+                  <td>看 <code class="icode">[4]</code> 那行：BROWNOUT 就是供电问题，PANIC 就是代码问题</td>
+                </tr>
+                <tr>
+                  <td>「空闲堆」数字每 2 秒减少一点</td>
+                  <td>存在内存泄漏</td>
+                  <td>本程序不该出现；若出现，检查是不是用了 <code class="icode">new</code> 却没 <code class="icode">delete</code></td>
+                </tr>
+                <tr>
+                  <td>编译提示 <code class="icode">Sketch uses ... % of program storage space</code> 超过 100%</td>
+                  <td>程序比 Flash 分区允许的大</td>
+                  <td>换分区表，或换 Flash 容量更大的板型设置</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">把这次的数据记下来</div>
+            <p>
+              这是你这块板子的「体检报告」，后面所有教程都要用它做对比。
+              建议记下三个数：<b class="font-semibold">核心版本号</b>（决定了哪些 API 能用）、
+              <b class="font-semibold">空闲堆内存</b>（后面加 Wi-Fi / 蓝牙时看它掉多少）、
+              <b class="font-semibold">MAC 地址</b>（做课设时当设备编号）。
+              写实验报告时，这三个数是实打实的「实测数据」，比只贴一张截图有说服力得多。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            下面五条覆盖了环境搭建阶段 95% 的失败情况。
+            每条都按「报错原文 → 原因 → 解决」写，方便你直接把报错复制去搜索。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">报错原文：A fatal error occurred: Failed to connect to ESP32: Timed out waiting for packet header</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              esptool 反复发送同步命令，但芯片一直没回应。最常见的原因是芯片没进入下载模式——
+              自动复位电路（靠串口的 DTR/RTS 两根线控制 EN 和 GPIO0）在部分板子、部分驱动版本上不能可靠工作。
+              其次是串口被别的程序占着（串口监视器自己没关、另一个 IDE 窗口还开着、手机助手类软件后台挂着）。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              先把所有可能占用串口的程序关掉。然后按这个动作重来一次：
+              <b class="font-semibold text-ink">按住 BOOT 键不放 → 点 IDE 的上传按钮 → 等输出窗口出现
+              <code class="icode">Connecting........</code> 时松开 BOOT 键</b>。
+              如果还不行，就改成：按住 BOOT → 按一下 EN → 松开 EN → 点上传 → 松开 BOOT。
+              另外确认「工具 → 上传速度」是 921600 或 115200，
+              有些劣质 USB 线跑不了 921600，把它降到 115200 往往立刻就好了。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：Error downloading https://espressif.github.io/arduino-esp32/package_esp32_index.json （或进度条卡在某个百分比不动）</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              纯网络问题。这个索引和后面的工具链都托管在 GitHub 上，国内直连不稳定。
+              表现有三种：索引拉不下来、工具链下到一半断了、装完但显示「安装失败」。
+              <b class="font-semibold">不是你哪里点错了</b>，重复点几次也可能碰巧成功，但那不是解决办法。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              优先用「文件 → 首选项 → 网络 → 代理」填本机代理地址（如
+              <code class="icode">http://127.0.0.1:7890</code>），然后重启 IDE 再装。
+              没有代理就把网址换成国内镜像（清华 TUNA 等镜像站有 GitHub 反向代理），
+              注意镜像同步有延迟，最新版可能搜不到，那就装次新的稳定版。
+              实在不行走离线包：用下载工具下好 esp32 核心的 <code class="icode">.zip</code>，
+              在 IDE 里「导入 .zip 库」。
+              还有一个隐藏坑：<b class="font-semibold">在校园网 / 公司网络下，代理设置会被系统代理覆盖</b>，
+              如果填了代理仍然失败，试着用手机热点验证一下是不是网络环境的问题。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：工具 → 端口 菜单是灰色的，或者设备管理器里出现带黄色感叹号的「未知设备 / USB2.0-Serial」</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              电脑没有识别到板载的 USB 转串口芯片。三种可能：
+              驱动没装（最常见）、用的是纯充电线（线里只有电源两根芯，没有数据芯）、
+              或者 USB 口供电不足导致枚举失败。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              第一步换一根线——必须是你确定传过文件的线，这一条能排掉近一半的问题。
+              第二步换 USB 口，优先机箱后面板直出的口。
+              第三步装驱动：看 USB 座旁边芯片的丝印，
+              <code class="icode">CP2102</code> 就装 Silicon Labs 的 CP210x 驱动，
+              <code class="icode">CH340</code> / <code class="icode">CH9102</code> 就装沁恒的 CH341SER 驱动，
+              装之前先拔掉板子，装完再插。装上后设备管理器里会出现
+              <code class="icode">端口 (COM 和 LPT)</code> 分类，里面有 <code class="icode">COM3</code> 之类的条目。
+              <b class="font-semibold">注意：Windows 11 有时会自动装上一个不匹配的旧版 CP210x 驱动</b>，
+              此时需要在设备上右键「更新驱动程序 → 从列表中选择」，手动换成新版。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：串口监视器里全是乱码（例如 ⸮⸮⸮ 或一串方框），偶尔夹杂半个汉字</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              串口监视器的波特率和 <code class="icode">Serial.begin()</code> 里写的不一致。
+              波特率不一致时，接收方在错误的位时刻采样，解出来的字节就是随机的——
+              偶尔会碰巧对上一两个字符，所以你会看到「大部分乱码、偶尔正常」的现象，很有迷惑性。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              把串口监视器右下角的下拉框改成和代码里一样的值。
+              本教程统一用 <b class="font-semibold text-ink">115200</b>。
+              如果改成 115200 还是乱码，检查是不是串口监视器还开着「显示时间戳」之类会插入额外字符的选项，
+              或者芯片时钟配置被改了（极少见，只有改过 <code class="icode">board_build.f_cpu</code> 才会）。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">报错原文：Brownout detector was triggered / rst:0x7 (TG0WDT_SYS_RESET) 后反复重启</div>
+            <p>
+              <b class="font-semibold">原因：</b>
+              <code class="icode">Brownout</code> 是「掉电检测」——芯片发现 3.3V 电压掉到安全线以下，
+              主动复位以保护自己。它不是软件问题，而是<b class="font-semibold">供电问题</b>：
+              USB 线太细压降大、插在电流受限的前面板 USB 口、或者用了劣质 USB 集线器。
+              ESP32 开机瞬间要建立 Wi-Fi 校准数据，电流会冲到 500mA 左右，
+              这个瞬间最容易触发。
+            </p>
+            <p class="mt-2">
+              <b class="font-semibold">解决：</b>
+              按性价比从高到低试：换一根粗一点的短 USB 线 →
+              换到机箱后面板的 USB 口 → 不用集线器直插 →
+              用带独立供电的 USB Hub → 从 VIN 脚接一个 5V/1A 的独立电源
+              （此时<b class="font-semibold">必须拔掉 USB</b>）。
+              如果程序里为了省电调用了 <code class="icode">WiFi.setSleep(true)</code>，
+              也可以在确认供电正常之前先关掉睡眠，减少瞬时电流波动。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇做的事情看起来只是「装软件」，但真正需要带走的是一张判断地图。
+            整篇的核心结论可以压成三句话：
+          </p>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">第一，开发板包不是插件而是工具链。</b>
+            装它的过程就是把 Xtensa 交叉编译器、ESP-IDF 协议栈和 esptool 烧录工具搬到你的电脑上，
+            所以它才有几百 MB，也才会受网络影响。
+            <b class="font-semibold text-ink">第二，上传是一次「串口借用」。</b>
+            esptool 要通过把 GPIO0 拉低让芯片进入下载模式，自动电路不可靠时就得手动按 BOOT——
+            这就是 Connecting 卡住的全部秘密。
+            <b class="font-semibold text-ink">第三，乱码先怀疑波特率，重启先看复位原因。</b>
+            这两条经验能让你在没有示波器、没有逻辑分析仪的情况下，快速判断问题出在配置还是硬件。
+          </p>
+
+          <div class="stat mt-6">
+            <span class="stat-k">串口监视器波特率</span>
+            <span class="stat-v">115200</span>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold text-ink">故意制造一次乱码。</b>
+                把串口监视器波特率改成 9600，观察输出变成什么样；
+                再改回 115200，确认恢复。亲手做一遍，以后看到乱码就不会慌。
+              </li>
+              <li>
+                <b class="font-semibold text-ink">把复位原因用起来。</b>
+                在 <code class="icode">loop()</code> 里加一行
+                <code class="icode">if (Serial.available()) { if (Serial.read() == 'r') ESP.restart(); }</code>，
+                然后在串口监视器里发送字符 <code class="icode">r</code>，看 <code class="icode">[4]</code> 那一行变成了什么。
+                这一步同时练会了「串口接收」和「观察复位原因」两件事。
+              </li>
+              <li>
+                <b class="font-semibold text-ink">测出你这块板子的真实启动耗时。</b>
+                在 <code class="icode">setup()</code> 开头记下 <code class="icode">millis()</code>，
+                在串口打印第一行之前再记一次，把差值打印出来。
+                这个数字反映了 USB 枚举延迟，以后再遇到「第一行丢失」时，你就知道该把
+                <code class="icode">delay()</code> 设成多少。
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-gpio.html">ESP32 GPIO 控制</a>——环境通了，下一步就是让引脚动起来，包括哪些引脚绝对不能碰。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="esp32-wifi.html">WiFi 连接与 STA 模式</a>——让板子连上路由器，为后面的物联网功能打底。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="../resource.html">资料下载</a>——串口驱动安装包与常用工具都在这里。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="../esp32.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 返回栏目</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">ESP32 全部教程</p>
+          </a>
+          <a href="esp32-gpio.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">ESP32 GPIO 控制</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

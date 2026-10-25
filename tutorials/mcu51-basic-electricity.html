@@ -1,0 +1,1919 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>电学基础：电压、电流与电阻 - McuStudy</title>
+  <meta name="description" content="零基础电学入门：用水流类比讲清电压、电流、电阻、功率与接地，给出欧姆定律 U=I×R 的三种变形和四道逐步演算的例题（5V 串 470Ω 得 10.6mA、12V 驱动 LED 取 680Ω），并教你用万用表正确测电压、测电流（必须串联）、测通断，附六类常见误判的排查表。">
+  <meta name="keywords" content="欧姆定律,电压电流电阻,电学基础入门,万用表测电流,限流电阻计算,功率计算,串联并联分压分流,接地GND,51单片机">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="mcu51" class="min-h-screen">
+
+﻿  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../mcu51.html" class="hover:text-brand-600 dark:hover:text-brand-300">51单片机</a>
+          <span>/</span>
+          <span class="text-muted">电学基础：电压、电流与电阻</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          电学基础：电压、电流与电阻
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          这是全站的第一篇。它假设你除了会开电脑之外什么都不懂，只用一条「水流」的类比，
+          把电压、电流、电阻、功率、串联并联、接地这六件事一次讲透，并且每一条都落到具体数字上：
+          5V 串 470Ω 为什么得到 10.6mA、上拉电阻为什么是 10k 而不是 100Ω、
+          万用表为什么测电压要并联、测电流必须串联。读完你就能自己算出限流电阻，也敢上电了。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">前置：<b>无</b></span>
+          <span class="stat-pill">工具：<b>万用表</b></span>
+          <span class="stat-pill">阅读约 <b>18</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-charge">电是什么：电荷与电子流动</a>
+          <a class="toc-link is-sub" href="#sub-voltage">电压：两点之间的电势差</a>
+          <a class="toc-link is-sub" href="#sub-current">电流：每秒流过多少电荷</a>
+          <a class="toc-link is-sub" href="#sub-resistance">电阻：对电流的阻碍作用</a>
+          <a class="toc-link is-sub" href="#sub-ohm">欧姆定律 U = I × R</a>
+          <a class="toc-link is-sub" href="#sub-power">功率：为什么电阻要选 1/4W</a>
+          <a class="toc-link is-sub" href="#sub-series-parallel">串联与并联：分压与分流</a>
+          <a class="toc-link is-sub" href="#sub-ground">接地 GND：共同的参考点</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明：万用表怎么用</a>
+          <a class="toc-link" href="#sec-code">完整代码 / 手算演算稿</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-charge">电是什么：电荷与电子流动</a>
+            <a class="toc-link is-sub" href="#sub-voltage">电压：两点之间的电势差</a>
+            <a class="toc-link is-sub" href="#sub-current">电流：每秒流过多少电荷</a>
+            <a class="toc-link is-sub" href="#sub-resistance">电阻：对电流的阻碍作用</a>
+            <a class="toc-link is-sub" href="#sub-ohm">欧姆定律 U = I × R</a>
+            <a class="toc-link is-sub" href="#sub-power">功率：为什么电阻要选 1/4W</a>
+            <a class="toc-link is-sub" href="#sub-series-parallel">串联与并联：分压与分流</a>
+            <a class="toc-link is-sub" href="#sub-ground">接地 GND：共同的参考点</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明：万用表怎么用</a>
+            <a class="toc-link" href="#sec-code">完整代码 / 手算演算稿</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            很多同学第一次接单片机电路时，是照着别人的图插线：5V 接这里、GND 接那里、中间串一个
+            「不知道多少欧」的电阻。灯亮了就算成功，灯不亮就换一个电阻再试。
+            这种做法的上限很低——换一颗不同颜色的 LED、把电源从 5V 换成 12V，
+            你就完全不知道该怎么办了。
+          </p>
+          <p class="mt-3">
+            这一节要给你的是<b class="font-semibold text-ink">一套能自己算出答案的方法</b>。
+            全篇只用一条主线：<b class="font-semibold text-ink">把电当成水</b>。
+            水流过水管推动水轮机，电流流过导线点亮灯泡——所有概念都可以在这套类比里找到位置，
+            等你把类比用熟了，再回头看真实的物理，会发现两者几乎一一对应。
+          </p>
+
+          <div class="table-scroll mt-5">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>水路里的东西</th>
+                  <th>电路里的对应物</th>
+                  <th>它决定了什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>水泵</td><td>电源（电池 / USB 供电 / 电源模块）</td><td>提供压力，让水（电）动起来</td></tr>
+                <tr><td>水管里的水</td><td>电荷（电子）</td><td>真正在流动的「东西」</td></tr>
+                <tr><td>水压（水泵出口与回水口的压力差）</td><td><b>电压 U</b></td><td>推动水流动的压力，单位伏特 V</td></tr>
+                <tr><td>每秒流过多少升水</td><td><b>电流 I</b></td><td>流动的强度，单位安培 A</td></tr>
+                <tr><td>细管、阀门、滤网</td><td><b>电阻 R</b></td><td>阻碍流动，单位欧姆 Ω</td></tr>
+                <tr><td>水轮机的叶片、灯泡</td><td>负载（用电的东西）</td><td>把流动的能量变成光、热、转动</td></tr>
+                <tr><td>水管必须首尾相接成环，水才能一直流</td><td><b>电路必须构成回路</b></td><td>断了任何一处，电流立刻为 0</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">这篇学完你能做什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li>看到「LED 前面串一个电阻」时，能自己算出这个电阻该取多少欧。</li>
+              <li>能判断一个电阻会不会发热烧掉（会算它耗散多少瓦）。</li>
+              <li>能理解为什么上拉电阻常用 10kΩ，而不是 100Ω 或 1MΩ。</li>
+              <li>能正确使用万用表：什么时候并联、什么时候串联、为什么测电流接错会烧表。</li>
+              <li>明白「GND」到底是什么意思，以及为什么两块电路板之间必须共地。</li>
+            </ul>
+          </div>
+
+          <h3 id="sub-charge" class="mt-7 text-base font-semibold">电是什么：电荷与电子流动</h3>
+
+          <p class="mt-3">
+            先从最小的东西讲起。所有物质都由原子组成，原子中心是<b class="font-semibold text-ink">原子核</b>，
+            外面绕着<b class="font-semibold text-ink">电子</b>。电子带负电，原子核里的质子带正电，
+            正负电荷互相吸引，所以电子平时被牢牢拴在原子核周围。
+          </p>
+          <p class="mt-3">
+            在金属（铜、铝、铁）里，最外层的一部分电子拴得不牢，可以在原子之间自由乱跑，
+            它们叫<b class="font-semibold text-ink">自由电子</b>。平时它们跑得毫无方向，
+            这边跑过去一个、那边跑回来一个，宏观上看不出任何效果——这就是「没有电流」的状态。
+          </p>
+          <p class="mt-3">
+            但只要在导线两端加上电压，这些自由电子就会被整体推动，<b class="font-semibold text-ink">朝同一个方向</b>流动起来。
+            有序流动的电荷，就是<b class="font-semibold text-ink">电流</b>。
+            就像操场上一群乱走的学生（自由电子），一旦听到「全体向门口走」（电压推动），
+            人流就形成了——一个人的移动没有意义，一群人的定向移动才是「流」。
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">导体</b>：自由电子很多的材料，铜、银、铝、石墨。导线都用铜，就是因为便宜且自由电子多。</li>
+            <li><b class="font-semibold text-ink">绝缘体</b>：几乎没有自由电子的材料，橡胶、塑料、玻璃、干燥的空气。导线外面包的那层塑料皮就是绝缘体。</li>
+            <li><b class="font-semibold text-ink">半导体</b>：导电能力介于两者之间，而且可以通过掺杂、加电压来「控制」它导不导电。硅（Si）就是最典型的半导体——<b>单片机芯片本身就是一块硅</b>，我们在它内部做出几百万个可以控制的开关，这就是它能执行程序的原因。</li>
+          </ul>
+
+          <p class="mt-4">
+            电荷的量用<b class="font-semibold text-ink">库仑（C）</b>来计量。1 库仑约等于 6.24 × 10<sup>18</sup> 个电子所带的电量。
+            这个数字很大，所以单个电子的电荷小到可以忽略——我们平时只关心「每秒有多少库仑流过」，
+            这正是下一节要讲的电流。
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">一个常见误会：电流不是「被用掉了」</div>
+            <p>
+              很多人以为电流从电源正极出发，一路流到负载「被消耗掉」了。
+              不对。电流在回路里处处相等，从正极流出的电流有多少，回到负极的就有多少
+              （严格地说，电子是从负极流向正极的，见下一节）。
+              被消耗的不是电荷，而是<b>能量</b>——电荷像水一样循环使用，
+              每绕一圈就在负载上交出一份能量，变成光或热。
+              所以一个回路里如果有两盏灯串联，流过它们的电流是同一个值。
+            </p>
+          </div>
+
+          <h3 id="sub-voltage" class="mt-7 text-base font-semibold">电压：两点之间的电势差</h3>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">电压（U）</b>衡量的是「推动电荷流动的压力」，
+            单位是<b class="font-semibold text-ink">伏特（V）</b>。
+            更准确的名字叫<b class="font-semibold text-ink">电势差</b>——因为电压永远属于
+            <b class="font-semibold text-ink">两个点之间</b>，单独说「这一点有 5V」是没有意义的，
+            完整的说法是「这一点比 GND 高 5V」。
+          </p>
+          <p class="mt-3">
+            用水的类比：水塔顶端的水压比地面高一截，这个「高出来的压力」就是电压。
+            水压来自高度差，电压来自两个点的电势差。水压的单位是「米水柱」，
+            电压的单位是伏特，本质都是「单位电荷所带的能量」：
+            <b class="font-semibold text-ink">1 伏特 = 把 1 库仑电荷搬运过去需要做 1 焦耳的功</b>。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">为什么电路必须是一个回路</h4>
+          <p class="mt-3">
+            这是初学者最容易忽略、也最容易导致「接了半天不亮」的一点。
+            水泵只有在进水口和出水口都接进同一个水管系统里，水才能循环起来；
+            如果出水管接好了、回水管悬空，水只会流一下就没动静了。
+          </p>
+          <p class="mt-3">
+            电路完全一样。<b class="font-semibold text-ink">电流必须从电源出发，经过所有元件，再回到电源的另一端</b>，
+            这条路才闭合。任何一处断开——杜邦线松了、LED 插反了、面包板中间那道槽跨错了——
+            整个回路就没有电流，此时你用万用表去量「电源两端」仍然能读到 5V，
+            但灯就是不亮。<b class="font-semibold text-ink">电压存在不等于电流存在</b>，
+            这是新手最容易混淆的一点。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="回路：电流必须有去有回">
+            <pre><code>  ✗ 断开的电路（灯不亮，但电源电压仍然是 5V）
+
+        +5V ──────[电阻]──────[LED]────── ✂ 断开
+                                            ↑
+                                    电流到不了 GND，回路不完整
+
+  ✓ 闭合的电路（灯亮）
+
+        +5V ──────[电阻]──────[LED]──────┐
+                                         │
+        GND ─────────────────────────────┘
+             电流：+5V → 电阻 → LED → GND → 电源内部 → 回到 +5V
+
+  关键结论：
+    电路里任何一点断开，整条路径上的电流立刻变成 0。
+    此时在断开点的两侧量电压：靠近 +5V 的一侧仍然是 5V，
+    靠近 GND 的一侧是 0V —— 因为电阻上没有电流，也就没有压降。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">常见电压等级，以及为什么单片机用 5V 和 3.3V</h4>
+          <p class="mt-3">
+            电压不是一个随便选的数字，它背后是整套器件生态。你会反复遇到这几个值：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>电压</th>
+                  <th>典型用途</th>
+                  <th>为什么是这个值</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs"><b>1.8V</b></td>
+                  <td>现代低功耗芯片内核、部分手机 SoC</td>
+                  <td>电压越低功耗越小（P 与 U² 成正比），但对噪声越敏感</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs"><b>3.3V</b></td>
+                  <td>STM32、ESP32、多数传感器模块、OLED 屏</td>
+                  <td>在「省电」与「抗干扰」之间取了折中，是近二十年嵌入式的主流</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs"><b>5V</b></td>
+                  <td>STC89C52RC 等经典 51 单片机、USB 供电、舵机、多数开发板</td>
+                  <td>历史最久、兼容性最好；USB 接口直接输出 5V，插上就能用</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs"><b>12V</b></td>
+                  <td>风扇、电磁阀、LED 灯带、汽车电子（实际约 12~14.4V）</td>
+                  <td>同样的功率下电压高一点、电流就小一点，导线可以细一些、损耗小一些</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs"><b>24V</b></td>
+                  <td>工业控制、PLC 输入输出、步进电机驱动</td>
+                  <td>工业现场干扰大，电压高一些抗干扰能力强、传输距离远</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            本教程用的 STC89C52RC 是 <b class="font-semibold text-ink">5V 器件</b>，
+            标称工作电压就是 5V；STC 资料上常见的下限写法是 3.8V（部分批次/资料写 3.4V）。
+            工程上按 <b class="font-semibold text-ink">5V ±10%（4.5V ~ 5.5V）</b> 设计，低于 3.8V 不要用，
+            低压下若要跑高晶振频率，先降频再试。
+            它之所以选 5V，一是历史原因（早期的 8051 就是 5V 工艺），
+            二是 5V 的输入高电平门限高、抗干扰强、还能直接配 USB 取电。
+            代价是功耗比 3.3V 器件大——所以电池供电的设备基本都转向了 3.3V。
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">千万别「感觉差不多」就接上去</div>
+            <p>
+              3.3V 的模块和 5V 的单片机直接对接是新手烧模块的头号原因。
+              5V 输出的高电平会通过 3.3V 芯片输入端的保护二极管灌入电流，
+              轻则工作异常，重则永久损坏。具体能不能直连、怎么转换，
+              下一篇「数字电路与电平」会逐条讲清楚；现在只记住一条：
+              <b>接线之前先确认两块板子的工作电压是不是同一个数</b>。
+            </p>
+          </div>
+
+          <h3 id="sub-current" class="mt-7 text-base font-semibold">电流：每秒流过多少电荷</h3>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">电流（I）</b>衡量的是电荷流动的强度，
+            定义是<b class="font-semibold text-ink">每秒流过导体横截面的电荷量</b>：
+            1 安培 = 每秒流过 1 库仑电荷。单位换算必须背熟，因为实际电路里几乎不会用到「安培」这个量级：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>单位</th>
+                  <th>符号</th>
+                  <th>与安培的关系</th>
+                  <th>典型出现在哪里</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>安培</td><td class="font-mono text-xs">A</td><td class="font-mono text-xs">1 A</td><td>电机启动、电源总电流、电池放电</td></tr>
+                <tr><td>毫安</td><td class="font-mono text-xs">mA</td><td class="font-mono text-xs">1 mA = 0.001 A</td><td><b>单片机世界的主战场</b>：LED、引脚、整片功耗</td></tr>
+                <tr><td>微安</td><td class="font-mono text-xs">µA</td><td class="font-mono text-xs">1 µA = 0.000001 A</td><td>休眠电流、漏电流、传感器静态电流</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            为什么说 mA 是主战场？看看这些真实数字就有概念了：
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对象</th>
+                  <th>电流量级</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>一颗普通 LED 想要正常亮度</td><td class="font-mono text-xs">5 ~ 20 mA</td><td>低于 2mA 已经明显偏暗，长期超过 20mA 会缩短寿命甚至烧毁</td></tr>
+                <tr><td>51 单片机单个 IO 引脚（灌电流）</td><td class="font-mono text-xs">最大约 20 mA</td><td>这是「不能超过」的极限值，设计时一般只用到 10mA 上下</td></tr>
+                <tr><td>51 单片机单个 IO 引脚（拉电流）</td><td class="font-mono text-xs">不到 1 mA</td><td>内部弱上拉能力很弱，所以驱动 LED 要用灌电流接法</td></tr>
+                <tr><td>整片 STC89C52RC 工作电流</td><td class="font-mono text-xs">约 10 ~ 30 mA</td><td>不含外设，取决于晶振频率与工作模式</td></tr>
+                <tr><td>8 颗 LED 同时点亮（各 6.4mA）</td><td class="font-mono text-xs">约 51 mA</td><td>总电流是各路之和，选电源时要算进去</td></tr>
+                <tr><td>130 小电机堵转</td><td class="font-mono text-xs">数百 mA ~ 1 A 以上</td><td>所以电机绝对不能直接接单片机引脚，必须用三极管或驱动模块</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">电流方向的约定：一个必须知道的「坑」</h4>
+          <p class="mt-3">
+            物理学早就发现，金属里真正移动的是带负电的<b class="font-semibold text-ink">电子</b>，
+            它们从电源负极出发，经过电路，回到正极。但是在发现电子之前，
+            人们已经约定「电流从正极流向负极」，所有的公式、符号、箭头都按这个约定建立起来了。
+            于是就有了这个别扭但必须接受的事实：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="电流方向：约定方向与电子实际流向相反">
+            <pre><code>  约定电流方向（写进所有教材和公式里）：
+        +5V ─────────────►─────────────►──────── GND
+              从高电位流向低电位，箭头朝外
+
+  电子实际流向（物理真相）：
+        +5V ◄─────────────◄─────────────◄──────── GND
+              电子带负电，被正极吸引，从负极流向正极
+
+  怎么用？
+    · 画电路图、列公式、判断二极管方向 —— 一律用【约定方向】
+    · 只有讨论半导体内部载流子运动时，才会提到电子的真实流向
+    · 记号：电流从「高电位」流向「低电位」，所以电路中某点电压越高，
+      电流越倾向于从这一点「流出」到别处</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">最大的坑：光看电压判断不了灯亮不亮</div>
+            <p>
+              「我量了 LED 两端有 5V，为什么它不亮？」——这是新手最常问的问题。
+              如果这个 5V 是<b>断开状态</b>下量到的（比如 LED 接反了、线断了），
+              那么这个 5V 只是「电源电压出现在了这个点上」，电流是 0，灯当然不亮。
+              正确做法是量<b>限流电阻两端的电压</b>：
+              电阻上有压降 → 说明有电流流过 → 判断成立；
+              电阻两端都是 5V（压降为 0）→ 说明这条路上没有电流 → 去查断路点。
+            </p>
+          </div>
+
+          <h3 id="sub-resistance" class="mt-7 text-base font-semibold">电阻：对电流的阻碍作用</h3>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">电阻（R）</b>是导体对电流的阻碍作用，单位是
+            <b class="font-semibold text-ink">欧姆（Ω）</b>。水管里的细管、阀门、脏滤网都会限制水流量，
+            电路里的电阻器做的是同一件事：它不产生能量，只是把「流过去」这件事变难。
+          </p>
+          <p class="mt-3">
+            从能量的角度看，电流被迫挤过电阻时要「费劲」，这份能量不会凭空消失，
+            而是变成了<b class="font-semibold text-ink">热</b>。这就是电炉、电吹风、电热毯的工作原理，
+            也是为什么功率不够大的电阻会被烧焦冒烟。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>单位</th>
+                  <th>换算</th>
+                  <th>常见用途</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>欧姆 Ω</td><td class="font-mono text-xs">基准单位</td><td>LED 限流（220Ω ~ 1kΩ）、电流采样</td></tr>
+                <tr><td>千欧 kΩ</td><td class="font-mono text-xs">1 kΩ = 1000 Ω</td><td>上拉 / 下拉（10kΩ）、三极管基极（1kΩ ~ 10kΩ）</td></tr>
+                <tr><td>兆欧 MΩ</td><td class="font-mono text-xs">1 MΩ = 1000 kΩ = 10<sup>6</sup> Ω</td><td>高阻输入分压、漏电检测</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            有一点必须强调：<b class="font-semibold text-ink">导线也有电阻</b>，只是很小。
+            一根 20cm 的杜邦线电阻大约几十毫欧，可以忽略；
+            但面包板上的弹片接触电阻可能有 0.1Ω ~ 数欧姆，劣质面包板在几百毫安下会产生明显压降——
+            这就是「面包板上灯忽明忽暗、焊到洞洞板上就好了」的原因。
+            另外，体温计里的热敏电阻、光敏电阻、压敏电阻，都是「阻值会随环境变化」的元件，
+            本质仍然是电阻。
+          </p>
+
+          <h3 id="sub-ohm" class="mt-7 text-base font-semibold">欧姆定律 U = I × R</h3>
+
+          <p class="mt-3">
+            上面三个量不是独立的，它们之间被一条公式锁死。这条公式是电学里最重要的公式，
+            也是你在整个单片机学习过程中唯一必须背下来的一条：
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">欧姆定律（务必背熟三个变形）</div>
+            <p class="font-mono text-sm">
+              U = I × R &nbsp;&nbsp;&nbsp;&nbsp; I = U ÷ R &nbsp;&nbsp;&nbsp;&nbsp; R = U ÷ I
+            </p>
+            <p class="mt-2">
+              其中 U 是电阻两端的电压（单位 V），I 是流过这个电阻的电流（单位 <b>A</b>），
+              R 是这个电阻的阻值（单位 Ω）。
+            </p>
+            <p class="mt-2">
+              <b>最关键的提醒：I 的单位必须是安培。</b>
+              10mA 要写成 0.01A 再代入，写成 10 会算出小 1000 倍的结果——
+              这是初学者最常犯的计算错误，没有之一。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            用水管来理解这条公式：水压（U）越大，单位时间流过的水（I）越多；
+            管子越细、阀门关得越小（R 越大），流过的水就越少。
+            三者关系正好是「流量 = 压力 ÷ 阻力」。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">例题 1：5V 电源串 470Ω 电阻，流过多少电流？</h4>
+          <p class="mt-3">
+            这是最基础的一题：已知电压和电阻，求电流，用变形 <code class="icode">I = U ÷ R</code>。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 1 演算过程：求电流">
+            <pre><code>题目：一个 470Ω 的电阻两端加了 5V 电压，求流过的电流。
+
+第一步：写出公式
+        I = U ÷ R
+
+第二步：代入数值（注意电压用 V，电阻用 Ω）
+        I = 5V ÷ 470Ω
+
+第三步：计算
+        I = 0.010638... A
+
+第四步：换算成毫安（乘 1000）
+        I = 10.6 mA     ← 答案
+
+【结果解读】
+  · 10.6mA 是一个「不大不小」的电流：
+    比 LED 需要的 5~20mA 略多一点，所以它正好是驱动 LED 的常见工作点。
+  · 如果这个电阻直接跨接在 5V 和 GND 之间（没有别的负载），
+    它会持续消耗 10.6mA 的电流却什么也不干 —— 这叫「空耗」，
+    是新手把电阻接错位置时最容易浪费掉的电流。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">例题 2：LED 的限流电阻该取多少？</h4>
+          <p class="mt-3">
+            这是你今后会用几百次的计算。关键在于要理解：<b class="font-semibold text-ink">LED 不是普通电阻</b>，
+            它导通后两端电压基本固定（叫<b class="font-semibold text-ink">正向压降 Vf</b>，
+            红色约 1.8~2.2V），所以电源电压减去这一部分，剩下的全部由限流电阻承担，用
+            <code class="icode">R = U ÷ I</code> 即可。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2 演算过程：求 LED 限流电阻">
+            <pre><code>题目：电源 5V，红色 LED 正向压降 Vf ≈ 2V，希望电流 10mA，
+      求限流电阻阻值。
+
+第一步：确定「电阻两端」到底有多少电压
+        电源 5V 由两部分分掉：
+          · LED 吃掉 2V（它的正向压降，几乎不随电流变化）
+          · 电阻吃掉剩下的 5V − 2V = 3V   ← 这才是代入欧姆定律的 U
+
+第二步：把电流换算成安培
+        10mA = 0.010A          ← 千万不要直接代 10
+
+第三步：写出公式并代入
+        R = U ÷ I = 3V ÷ 0.010A
+
+第四步：计算
+        R = 300 Ω
+
+第五步：选实际能买到的阻值（E24 标准系列）
+        300Ω 不是标准值，最近的两个是：
+          330Ω → 实际电流 3V ÷ 330Ω = 0.00909A = 9.1mA
+          470Ω → 实际电流 3V ÷ 470Ω = 0.00638A = 6.4mA
+
+【怎么选】
+  · 想亮一点：取 330Ω，9.1mA，仍在安全范围内。
+  · 想稳一点：取 470Ω，6.4mA，8 路同时点亮时总电流只有 51mA，
+    电源和芯片都很轻松，这是开发板最常用的取值。
+  · 无论选哪个，都必须再校验一次电流不超过 20mA —— 用 220Ω 时
+    电流是 3V ÷ 220Ω = 13.6mA，仍然安全，但已经接近余量的边界。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">例题 3：12V 电源下的限流电阻（换个电压就得重算）</h4>
+          <p class="mt-3">
+            这一题专门用来打破「照着别人的图抄阻值」的习惯。同样一颗红色 LED，
+            电源从 5V 换成 12V，电阻必须跟着变，否则电流会失控。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 3 演算过程：12V 系统驱动 LED">
+            <pre><code>题目：电源 12V，红色 LED 的 Vf ≈ 2V，希望电流 15mA，求限流电阻。
+
+第一步：算电阻要承担多少电压
+        U_R = 12V − 2V = 10V
+
+第二步：换算电流
+        15mA = 0.015A
+
+第三步：求电阻
+        R = 10V ÷ 0.015A = 666.7 Ω
+
+第四步：取标准值 680Ω
+
+第五步：复核实际电流
+        I = 10V ÷ 680Ω = 0.01471A = 14.7mA     ✔ 在 5~20mA 区间内
+
+【对比：如果偷懒直接沿用 5V 的 470Ω 会怎样？】
+        I = 10V ÷ 470Ω = 0.02128A = 21.3mA
+        → 超过 20mA，LED 会发烫、寿命缩短，长期运行必然烧掉。
+        这就是「抄阻值」的代价。
+
+【顺手算一下电阻的功耗，看它撑不撑得住】
+        P = U × I = 10V × 0.0147A = 0.147 W
+        常用电阻额定 0.25W（1/4W），0.147W 已经用掉将近 60% 的余量，
+        手摸会明显发热 —— 这种场合应当选 1/2W 的电阻，或改用
+        「12V → 5V 降压模块 + 5V 供电」的方案，从根上避免白白烧掉 10V。</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">例题 4：上拉电阻上的电流有多大？</h4>
+          <p class="mt-3">
+            按键电路里那个 10kΩ 上拉电阻，平时到底耗多少电？用同一个公式算一遍就有数了。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 4 演算过程：上拉电阻的电流与功耗">
+            <pre><code>题目：5V 电源经一个 10kΩ 上拉电阻接到单片机引脚，按键未按下（引脚悬空，
+      没有别的通路），求电阻上的电流。
+
+第一步：统一单位
+        10 kΩ = 10 000 Ω
+
+第二步：求电流
+        I = U ÷ R = 5V ÷ 10000Ω = 0.0005 A = 0.5 mA
+
+第三步：求功耗
+        P = U × I = 5V × 0.0005A = 0.0025 W = 2.5 mW
+
+【结果解读】
+  · 0.5mA 小到可以忽略：它不点亮任何东西，只是把引脚「拉」在高电平，
+    所以拿它当「静态电流」是完全可以接受的。
+  · 2.5mW 只有 1/4W 额的 1%，电阻连温都不会温。
+  · 那么按键按下时呢？引脚被直接短到 GND，电流改走按键这条路，
+    仍然是 5V ÷ 10kΩ = 0.5mA（因为电阻没变、电压没变），
+    这 0.5mA 全部通过按键流入 GND —— 对按键触点来说毫无压力。
+  · 关键结论：10kΩ 这个值既保证了「拉得住」（0.5mA 足以盖过引脚漏电流），
+    又保证了「不浪费」，这正是它被选中的原因，下一篇会算清它为什么不能是 100Ω。</code></pre>
+          </div>
+
+          <h3 id="sub-power" class="mt-7 text-base font-semibold">功率：为什么电阻要选 1/4W</h3>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">功率（P）</b>表示单位时间消耗或转换的能量，
+            单位是<b class="font-semibold text-ink">瓦特（W）</b>。1 瓦 = 每秒消耗 1 焦耳能量。
+            在电路里它有三个等价写法，来源于欧姆定律的代入：
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">功率公式（三个形式，看已知什么用什么）</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><code class="icode">P = U × I</code>——已知电压和电流时最方便。</li>
+              <li><code class="icode">P = I² × R</code>——已知电流和电阻时用（常见于校验电阻够不够大）。</li>
+              <li><code class="icode">P = U² ÷ R</code>——已知电压和电阻时用（常见于「这个电阻直接接电源会不会烧」）。</li>
+            </ul>
+          </div>
+
+          <p class="mt-4">
+            电阻器除了阻值，还有一个<b class="font-semibold text-ink">额定功率</b>参数，
+            表示它能安全散掉多少热量。常用的是 1/4W（0.25W），小体积的贴片是 1/8W 或 1/10W，
+            大功率场合用 1W、2W 甚至水泥电阻。选择原则是：
+            <b class="font-semibold text-ink">实际功耗不要超过额定功率的一半</b>，
+            这样电阻不烫手，长期运行才可靠。
+          </p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>场景</th>
+                  <th>电压 U</th>
+                  <th>电流 I</th>
+                  <th>功耗 P</th>
+                  <th>1/4W 电阻够吗</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>5V 直接跨接 470Ω（接错位置的空耗）</td>
+                  <td class="font-mono text-xs">5V</td>
+                  <td class="font-mono text-xs">10.6mA</td>
+                  <td class="font-mono text-xs">53mW</td>
+                  <td>够，但纯属浪费电</td>
+                </tr>
+                <tr>
+                  <td>5V 经 470Ω 驱动红色 LED</td>
+                  <td class="font-mono text-xs">3V（电阻上）</td>
+                  <td class="font-mono text-xs">6.4mA</td>
+                  <td class="font-mono text-xs">19mW</td>
+                  <td>绰绰有余</td>
+                </tr>
+                <tr>
+                  <td>12V 经 680Ω 驱动红色 LED</td>
+                  <td class="font-mono text-xs">10V</td>
+                  <td class="font-mono text-xs">14.7mA</td>
+                  <td class="font-mono text-xs">147mW</td>
+                  <td>勉强够，建议 1/2W</td>
+                </tr>
+                <tr>
+                  <td>5V 直接跨接 10Ω（典型接错）</td>
+                  <td class="font-mono text-xs">5V</td>
+                  <td class="font-mono text-xs">500mA</td>
+                  <td class="font-mono text-xs">2.5W</td>
+                  <td><b>不够，会冒烟</b></td>
+                </tr>
+                <tr>
+                  <td>5V 上拉 10kΩ 到引脚</td>
+                  <td class="font-mono text-xs">5V</td>
+                  <td class="font-mono text-xs">0.5mA</td>
+                  <td class="font-mono text-xs">2.5mW</td>
+                  <td>完全无压力</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">最危险的一种错：把电阻「短接」掉</div>
+            <p>
+              初学者常常把限流电阻插在面包板上却<b>两端插进了同一列</b>——
+              看起来装了电阻，实际上被短接了，电流直接穿过导线。
+              此时 5V 直接压在 LED 上，电流只受电源内阻和导线电阻限制，
+              可以轻松超过 100mA。结果是：LED 瞬间很亮，然后发烫、变色、永久损坏；
+              同时单片机引脚也可能因为灌入过大电流而烧毁（见 #sec-errors 第 2 条）。
+            </p>
+          </div>
+
+          <h3 id="sub-series-parallel" class="mt-7 text-base font-semibold">串联与并联：分压与分流</h3>
+
+          <p class="mt-3">
+            两个电阻放在一起，只有两种连法。这两种连法的规律非常重要，
+            因为后面讲上拉电阻、分压采样、三极管基极电阻时全都要用。
+          </p>
+
+          <h4 class="mt-6 text-sm font-semibold">串联：首尾相接，电流相同，电压分摊</h4>
+
+          <div class="code-block mt-3" data-lang="text" data-title="串联电路：一条路走到底">
+            <pre><code>        ┌────[ R1 ]────[ R2 ]────┐
+        │                        │
+       +5V                      GND
+        │                        │
+        └─────── 电源 ───────────┘
+
+  规律一：电流处处相同
+        I(R1) = I(R2) = 总电流
+        因为只有一条路，水只能从这条管子流过去，没有别的出口。
+
+  规律二：总电阻是各个电阻相加
+        R总 = R1 + R2
+        （管子越接越长，阻力当然越大）
+
+  规律三：电压按阻值比例分摊（分压公式）
+        U1 = U总 × R1 ÷ (R1 + R2)
+        U2 = U总 × R2 ÷ (R1 + R2)
+        （阻力大的那段「抢到」更多电压 —— 这就是分压器原理）
+
+  例：5V 上串 10kΩ 和 20kΩ
+        R总 = 10k + 20k = 30k
+        I   = 5V ÷ 30kΩ = 0.1667mA
+        U(10k) = 5 × 10/30 = 1.667V
+        U(20k) = 5 × 20/30 = 3.333V
+        校核  ：1.667 + 3.333 = 5V  ✔</code></pre>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">并联：并排放，电压相同，电流分摊</h4>
+
+          <div class="code-block mt-3" data-lang="text" data-title="并联电路：两条路各走各的">
+            <pre><code>        ┌────────[ R1 ]────────┐
+        │                      │
+       +5V                    GND
+        │                      │
+        └────────[ R2 ]────────┘
+
+  规律一：电压处处相同
+        U(R1) = U(R2) = 电源电压
+        因为两端接的是同样两个点，压力差当然一样。
+
+  规律二：总电阻比任何一个都小
+        1/R总 = 1/R1 + 1/R2      或     R总 = (R1 × R2) ÷ (R1 + R2)
+        （多开一条支路，水更容易流过去，总阻力下降）
+
+  规律三：电流按电导（电阻的倒数）分摊（分流公式）
+        I1 = I总 × R2 ÷ (R1 + R2)      ← 注意：分子是「另一个」电阻
+        I2 = I总 × R1 ÷ (R1 + R2)
+        （阻力小的那条支路分到更多电流）
+
+  例：5V 上并联 470Ω 和 1kΩ
+        R总 = (470 × 1000) ÷ (470 + 1000) = 470000 ÷ 1470 = 319.7 Ω
+        I总 = 5V ÷ 319.7Ω = 15.6mA
+        校核：470Ω 支路 5/470 = 10.6mA，1kΩ 支路 5/1000 = 5.0mA
+              10.6 + 5.0 = 15.6mA  ✔</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">并联越多、总电流越大，电源会被拖垮</div>
+            <p>
+              8 颗 LED 各自经 470Ω 接在同一个 +5V 上，这 8 条支路就是并联关系。
+              总电流是 8 × 6.4mA = 51mA，这正是前面算过的数。
+              如果把 LED 加到 30 颗，总电流就到 190mA，
+              此时用 USB 口供电（通常能提供 500mA）还行，
+              但若是用小容量电池或劣质充电器，电压就会被拉低，出现「灯越多越暗」。
+              记住一句话：<b>并联不改变每条支路的电流，但总电流是相加的。</b>
+            </p>
+          </div>
+
+          <h4 class="mt-6 text-sm font-semibold">回到那个问题：上拉电阻为什么用 10kΩ，不用 100Ω？</h4>
+          <p class="mt-3">
+            现在你已经有工具回答它了。假设按键电路里的上拉电阻改成 100Ω，
+            按键按下时引脚直接接地，那么流过电阻的电流是：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="上拉电阻取值对比：100Ω / 1kΩ / 10kΩ / 1MΩ">
+            <pre><code>条件：5V 电源，按键按下时引脚被短接到 GND，
+      上拉电阻两端的电压 = 5V − 0V = 5V
+
+① 100Ω
+     按下电流 I = 5V ÷ 100Ω = 0.05A = 50 mA
+     → 远超 51 引脚「灌电流不超过 20mA」的极限，
+       持续按住就会烧引脚；功耗 P = 5V × 50mA = 250mW，
+       已经用满一个 1/4W 电阻的全部额度，电阻会明显烫手。
+     → ✗ 绝对不行
+
+② 1kΩ
+     按下电流 I = 5V ÷ 1000Ω = 5 mA
+     → 电流安全，但静态功耗偏大（松开时也在白白流 5mA），
+       8 个按键同时接上就是 40mA 的常态浪费。
+     → △ 能用，但不经济
+
+③ 10kΩ
+     按下电流 I = 5V ÷ 10000Ω = 0.5 mA
+     → 电流小、功耗低（2.5mW），同时足以「拉得住」引脚：
+       51 的引脚输入漏电流在微安级，0.5mA 比它大两个数量级。
+     → ✔ 工业界默认值
+
+④ 1MΩ
+     按下电流 I = 5V ÷ 1000000Ω = 0.005 mA = 5 µA
+     → 功耗确实更低，但抗干扰能力极差：
+       引脚上任何一点感应到的微弱干扰（空间里的电磁噪声、
+       手靠近引线造成的容性耦合）都能轻易盖过这个微弱的上拉，
+       导致读数乱跳。
+     → ✗ 不推荐（除非是极低功耗的休眠唤醒电路）
+
+【结论】10kΩ 是在「拉得动」「不浪费」「抗干扰」三者之间取的最优折中。
+      这个数量级（1k ~ 100k）是上拉/下拉电阻的通用选择范围。</code></pre>
+          </div>
+
+          <h3 id="sub-ground" class="mt-7 text-base font-semibold">接地 GND：共同的参考点</h3>
+
+          <p class="mt-3">
+            <b class="font-semibold text-ink">GND</b> 是 ground 的缩写，中文叫「接地」，
+            这个名字是所有误解的源头，因为它<b class="font-semibold text-ink">跟真正的大地没有半点关系</b>。
+            在单片机电路里，GND 的含义只有一条：
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">GND 的正确定义</div>
+            <p>
+              GND 是整块电路板上所有电压的<b>共同参考点</b>，人为规定它的电位是 0V。
+              说「某点电压是 5V」，完整的意思是「该点的电位比 GND 高 5V」。
+            </p>
+            <p class="mt-2">
+              类比：测量楼房高度时，我们把「一楼地面」规定为 0 米。
+              每栋楼都需要各自指定一个 0 米，否则「三楼有多高」就没法说清楚。
+              GND 就是这块电路板的「一楼地面」。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            既然是「共同」参考点，就引出两条最重要的实践规则：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>
+              <b class="font-semibold text-ink">同一块板子上所有标注 GND 的点必须全部连在一起。</b>
+              51 的 GND 引脚（第 20 脚）、LED 的负极、晶振旁电容的下端、下载模块的 GND——
+              它们在同一条线上。忘了连，对应的元件就没有回路，表现为「完全没反应」。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">两块独立的电路板互相通信时，必须共地。</b>
+              这就是为什么 USB 转串口模块和单片机之间除了 TXD、RXD 之外，
+              一定要再接一根 GND。没有这根线，两块板子各自以自己为 0V 基准，
+              当电压基准对不上时，信号电平就无从判断，通信必然失败。
+            </li>
+          </ul>
+
+          <div class="code-block mt-4" data-lang="text" data-title="为什么两块板子必须共地">
+            <pre><code>  ✗ 没有共地（错误接法）
+
+     USB 转串口模块                51 单片机板
+     ┌──────────┐                 ┌──────────┐
+     │  TXD ────┼─────────────────┼──► P3.0  │
+     │  RXD ◄───┼─────────────────┼──── P3.1 │
+     │  GND ──✂ │   ← 断开了        │    GND ──┤
+     └──────────┘                 └──────────┘
+
+     模块说「我的高电平是 +5V」，指的是比【模块自己的 GND】高 5V。
+     单片机说「我认 2.0V 以上为高电平」，指的是比【板子自己的 GND】高 2V。
+     两个 GND 之间悬空时，它们的电位差可能随机漂到几伏，
+     于是模块发出的「5V」到了单片机眼里变成 1V 或 9V，通信完全不可靠。
+
+  ✓ 正确接法：加一根地线，把两个 0V 基准绑在一起
+
+     USB 转串口模块                51 单片机板
+     ┌──────────┐                 ┌──────────┐
+     │  TXD ────┼─────────────────┼──► P3.0  │
+     │  RXD ◄───┼─────────────────┼──── P3.1 │
+     │  GND ────┼─────────────────┼──── GND  │  ← 这一根线不能省
+     └──────────┘                 └──────────┘</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">关于「大地」的两种情况</div>
+            <p>
+              只有两类设备才真的接大地（插头的第三根脚连到建筑物的接地网）：
+              市电供电的电器外壳，以及工业设备里为了防雷击、防静电而设的保护地。
+              你在实验台上做的所有实验——面包板、洞洞板、USB 供电——
+              <b>GND 都只是电路内部的 0V 基准</b>，悬空着完全正常。
+            </p>
+            <p class="mt-2">
+              但是反过来要注意：如果你的电路板和市电供电的设备（比如台式机 USB 口、
+              示波器、可调电源）连在一起，此时板子的 GND 通过 USB 线或电源线
+              间接连到了大地。这时千万不要再把它接到另一个不同的「地」上
+              （比如暖气管、另一个插座的地），否则会形成<b>地环路</b>，
+              轻则引入干扰，重则烧毁接口芯片。
+            </p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">其他常见的「地」记号</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><b>VCC / VDD</b>：电源正极。VCC 一般指双极型器件（TTL）的电源，VDD 指 MOS 器件（CMOS）的电源，实际电路里混用得很随便，看到它们直接理解为「电源正极」即可。</li>
+              <li><b>AGND / DGND</b>：模拟地和数字地。在 ADC 采样电路里会把两者分开布线再单点汇合，目的是防止数字电路的大电流噪声串进敏感的模拟测量。</li>
+              <li><b>PE / 大地符号</b>：三横一竖逐渐变短的那个符号，才是真正的保护接地，单片机电路里几乎不会出现。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明：万用表怎么用</h2>
+
+          <p class="mt-4">
+            万用表是电子专业的「眼睛」。在写一行代码之前，先用它确认电源对不对、通断对不对，
+            能省掉后面百分之八十的排查时间。但万用表也是最容易被用错的工具——
+            尤其是电流档，<b class="font-semibold text-ink">接错一次就可能烧表</b>。
+            这一节把四个最常用的档位一次讲清。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">表笔插孔：红黑两根线插哪里</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>插孔</th>
+                  <th>插哪根表笔</th>
+                  <th>什么时候用</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-mono text-xs">COM</td>
+                  <td><b>黑表笔</b>（公共端，永远插这里，不必拔）</td>
+                  <td>所有测量场合</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">V / Ω / mA</td>
+                  <td><b>红表笔</b></td>
+                  <td>测电压、测电阻、测通断、测 200mA 以下的小电流</td>
+                </tr>
+                <tr>
+                  <td class="font-mono text-xs">10A 或 20A</td>
+                  <td><b>红表笔</b>（大电流专用孔）</td>
+                  <td>只测 200mA 以上的大电流；<b>测完必须立刻把红笔插回 VΩ 孔</b></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">用完大电流档一定要插回去</div>
+            <p>
+              大电流孔的输入阻抗接近 0Ω。如果红表笔留在 10A 孔却去测电压，
+              相当于把电源通过一个近似短路的通路接起来——这就是烧表、烧电源、
+              甚至炸表笔的原因。养成一个条件反射：<b>只要测完电流，立刻把红笔插回 VΩ 孔。</b>
+            </p>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">四个档位：该用哪一个</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>档位</th>
+                  <th>面板标记</th>
+                  <th>怎么接进电路</th>
+                  <th>典型用途</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>直流电压</b></td>
+                  <td class="font-mono text-xs">V⎓ 或 DCV</td>
+                  <td><b>并联</b>：红笔接被测点，黑笔接 GND</td>
+                  <td>量电源是不是 5V、量某点电位、量电阻压降判断有无电流</td>
+                </tr>
+                <tr>
+                  <td><b>直流电流</b></td>
+                  <td class="font-mono text-xs">A⎓ 或 DCA</td>
+                  <td><b>串联</b>：必须先断开回路，把表「串」进去</td>
+                  <td>量这条支路到底流了多少电流</td>
+                </tr>
+                <tr>
+                  <td><b>电阻</b></td>
+                  <td class="font-mono text-xs">Ω</td>
+                  <td>并联在被测电阻两端，<b>电路必须断电</b></td>
+                  <td>核对电阻色环、检查电阻是否损坏</td>
+                </tr>
+                <tr>
+                  <td><b>通断蜂鸣</b></td>
+                  <td class="font-mono text-xs">🔔 或 ·)))</td>
+                  <td>并联在要检查的两点之间，<b>电路必须断电</b></td>
+                  <td>查导线通不通、焊点虚不虚、有没有短路</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            很多表还有一个<b class="font-semibold text-ink">二极管档</b>（符号是一个二极管加两道斜杠），
+            它和通断档在同一个位置，用来测二极管、LED 的好坏和正向压降。
+            这个档位的用法在下一篇「常用元件」里详细讲。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">测电压：并联，黑笔永远接 GND</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="测电压的正确与错误接法">
+            <pre><code>  ✓ 正确：并联测量（电压档）
+
+        +5V ──┬────[ 470Ω ]────[ LED ]────┬── GND
+              │                          │
+              │      ┌──────────┐        │
+              └──────┤ 红笔  V  │        │
+                     │  万用表  │        │
+              ┌──────┤ 黑笔 COM │        │
+              │      └──────────┘        │
+              └──────────────────────────┘
+                 （黑笔接 GND，红笔接要测的那一点）
+
+     读数的含义：红笔所在点比 GND 高多少伏。
+     例：红笔接 LED 与电阻之间 → 读到约 2V（LED 的正向压降）
+         红笔接 +5V 电源线     → 读到约 5V
+
+  ✗ 错误：把表当电阻「串」进去量电压
+     万用表电压档的内阻高达 10MΩ，串进去会让电流几乎归零，
+     读数完全没有意义（会读到接近电源电压的假值）。
+
+  ✗ 更危险：把电流档当电压档去并联
+     电流档内阻接近 0Ω，并到电源两端 = 直接短路，
+     保险丝瞬间熔断（好一点的表），或者表直接烧毁（便宜的表）。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">测电流：必须串联，而且要断开回路</h3>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">这是全篇最重要的一条警告</div>
+            <p>
+              <b>测电流必须把万用表串联进回路，绝不能并联。</b>
+              因为电流档的内部是一个近似 0Ω 的分流电阻，它的工作原理是
+              「让电流从自己身上流过，然后测量自己两端的微小压降」。
+              如果你把它并联在电源两端或某个元件两端，
+              相当于用一根导线把那两点短接了——电流会全部涌进万用表，
+              轻则熔断表内保险丝，重则烧毁万用表、烧毁电源、烧毁被测电路。
+            </p>
+            <p class="mt-2">
+              记忆口诀：<b>电压是「跨」着量，电流是「串」着量。</b>
+            </p>
+          </div>
+
+          <div class="code-block mt-4" data-lang="text" data-title="测电流的正确与错误接法">
+            <pre><code>  ✓ 正确：串联测量（电流档，先断开回路）
+
+    原电路：
+        +5V ────────[ 470Ω ]────[ LED ]──────── GND
+
+    测量步骤：
+      ① 断开 +5V 到电阻之间的那根线
+      ② 把万用表「接进」这个断口，红笔朝 +5V 一侧，黑笔朝负载一侧
+      ③ 读数为这条支路的实际电流
+
+        +5V ──✂──┬──[ 红笔  A  ]──[ 黑笔  ]──┬──[ 470Ω ]──[ LED ]── GND
+                 │       万用表（串联）       │
+                 └───────────────────────────┘
+                    （表本身成了回路的一部分）
+
+    注意红黑方向：
+      红笔接高电位侧、黑笔接低电位侧，读数才是正数。
+      接反了会显示负值——表不坏，但说明你接反了。
+
+  ✗ 致命错误：把电流档并联在电源两端
+
+        +5V ──┬────────────[ 470Ω ]────[ LED ]──── GND
+              │
+              │   ┌──────────┐
+              └───┤ 红笔  A  │   ← 电流档内阻 ≈ 0Ω
+                  │  万用表  │
+              ┌───┤ 黑笔 COM │
+              │   └──────────┘
+              └──────────────── GND
+
+        等价于用一根导线把 +5V 和 GND 短路：
+        I = 5V ÷ 0.01Ω ≈ 500A（理论上）
+        实际会瞬间熔断表内保险丝，或者烧黑表笔接触点。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">测电阻与测通断：都要先断电</h3>
+
+          <p class="mt-3">
+            电阻档和通断档的原理是「表自己输出一个很小的测试电流，然后测量压降」。
+            如果电路还通着电，外部电压会叠加进测量回路，读数毫无意义，
+            严重时还会损坏万用表。所以这两项测量的第一件事都是<b class="font-semibold text-ink">断电</b>。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="测通断：查线最快的手段">
+            <pre><code>  通断档（蜂鸣档）的判据：
+     · 两点之间电阻 &lt; 约 50Ω  → 蜂鸣器响，表示「通」
+     · 两点之间电阻很大        → 不响，表示「断」
+
+  典型用法 1：查杜邦线是不是坏的
+        ┌──[红笔]─────── 线的一端
+        │
+        └──[黑笔]─────── 线的另一端
+        响 = 好线；不响 = 内部断了（这种线插在面包板上非常常见）
+
+  典型用法 2：查有没有短路
+        把红笔放在 +5V 排，黑笔放在 GND 排。
+        如果响了 —— 电源短路！上电前必须查出来，
+        否则一通电就是几百毫安甚至更大电流，会烧电源或烧芯片。
+
+  典型用法 3：查焊点虚焊
+        红笔放在元件引脚上，黑笔放在对应的铜箔焊盘上。
+        不响 = 虚焊；响 = 焊好了。
+
+  注意：
+    ① 一定要断电再测。带电测通断，读数不可信。
+    ② 通断档在路测量时，「响」不代表这条支路真的通：
+       如果两点之间还并联着别的元件（比如一个电阻、一个线圈），
+       电流会绕过断点从那条路走，于是照样响 —— 这叫「在路测量的假通」。
+       要确认真相，必须把元件从电路里拆下来单独测。</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线顺序建议：先电后信号</h3>
+
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li><b>先接电源与地</b>：把 +5V 和 GND 两条总线接好，然后<b>先断电</b>用通断档量一次「+5V 对 GND 不响」。</li>
+            <li><b>上电，用电压档量电源</b>：红笔接 +5V 总线、黑笔接 GND 总线，应在 4.95 ~ 5.05V 之间。这一步过不了，后面全是白费。</li>
+            <li><b>再接负载支路</b>：限流电阻 → LED → 引脚，一节一节接，接一节量一次。</li>
+            <li><b>最后才接通信号线</b>：把引脚接到单片机，下载程序。</li>
+            <li><b>每次改接线之前先断电</b>。带电插拔杜邦线，很容易一瞬间把某个引脚接到错误的电压上。</li>
+          </ol>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">一条能救命的习惯</div>
+            <p>
+              养成「上电之前先量通断、上电之后先量电压」的流程。
+              这两步各花 10 秒，能挡掉绝大多数烧芯片的事故。
+              尤其是刚从网上抄来的电路图，别人画的电源正负很可能和你的模块相反。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 / 演算稿 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码 / 手算演算稿</h2>
+
+          <p class="mt-4">
+            这一篇还没有程序可写——但「算」本身就是这一篇的代码。
+            下面四份演算稿是把前面讲过的公式，按你真正做题时会用的顺序完整写一遍，
+            包括单位换算、取标准值、复核校验。
+            建议拿一张纸，把它们抄一遍并亲手算一次，比读十遍都管用。
+          </p>
+
+          <h3 id="sub-calc-led" class="mt-7 text-base font-semibold">演算稿一：红色 LED 的限流电阻（5V 系统）</h3>
+
+          <div class="code-block mt-4" data-lang="text" data-title="演算稿 1：5V 系统 + 红色 LED + 470Ω">
+            <pre><code>============================================================
+演算稿 1：5V 电源驱动一颗红色 LED
+============================================================
+
+【已知】
+  电源电压        VCC = 5 V
+  LED 正向压降    Vf  = 2 V        （红色 LED 的常见值，范围 1.8 ~ 2.2V）
+  期望工作电流    I   = 10 mA       （5 ~ 20mA 都算正常，10mA 亮度已足够）
+  目标：求出限流电阻 R，并选一个能买到的标准值
+
+------------------------------------------------------------
+第 1 步：单位统一
+------------------------------------------------------------
+  电流必须先变成安培，否则结果会差 1000 倍：
+      I = 10 mA = 10 ÷ 1000 A = 0.010 A
+
+------------------------------------------------------------
+第 2 步：确定「电阻承担多少电压」
+------------------------------------------------------------
+  整个回路只有 LED 和电阻两个元件，电源电压被它们分掉：
+      VCC = U(电阻) + Vf
+  =>  U(电阻) = VCC − Vf = 5 V − 2 V = 3 V
+  这 3V 就是代入欧姆定律的那个 U。
+
+------------------------------------------------------------
+第 3 步：求理论阻值
+------------------------------------------------------------
+      R = U ÷ I = 3 V ÷ 0.010 A = 300 Ω
+
+------------------------------------------------------------
+第 4 步：选标准值（E24 系列，±5% 精度）
+------------------------------------------------------------
+  300Ω 买不到，最近的两个标准值是 330Ω 和 470Ω。
+  分别算出实际电流：
+
+      330Ω： I = 3 V ÷ 330 Ω  = 0.009091 A = 9.09 mA   （偏亮）
+      470Ω： I = 3 V ÷ 470 Ω  = 0.006383 A = 6.38 mA   （稳妥，选它）
+
+------------------------------------------------------------
+第 5 步：复核（每次选完都必须做）
+------------------------------------------------------------
+  ① 电流是否在 LED 的安全区间 5 ~ 20mA 内？
+        6.38mA  ✔ 落在区间内，且靠近下沿，最安全
+
+  ② 电阻功耗是否小于额定功率的一半？
+        P = U × I = 3 V × 0.006383 A = 0.01915 W = 19.15 mW
+        额定 0.25 W，19.15 mW 只占 7.7%  ✔ 电阻连温都不会温
+
+  ③ 8 路同时点亮的总电流能不能接受？
+        8 × 6.38 mA = 51.0 mA
+        若由 USB 口供电（通常 500mA 上限）✔ 完全没问题
+
+------------------------------------------------------------
+【最终结论】
+    红色 LED，5V 供电 → 限流电阻取 470Ω，实际电流 6.38mA，
+    电阻功耗 19mW，长期运行稳定可靠。
+============================================================</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">演算稿二：蓝色 LED 要换电阻（同电压、不同颜色）</h3>
+
+          <div class="code-block mt-4" data-lang="text" data-title="演算稿 2：蓝色 LED 的 Vf 不同，电阻必须重算">
+            <pre><code>============================================================
+演算稿 2：同样的 5V，换成蓝色 LED —— 470Ω 就不合适了
+============================================================
+
+【已知】
+  电源电压        VCC = 5 V          （不变）
+  LED 正向压降    Vf  = 3.2 V        （蓝/白光 LED 常见值，范围 3.0 ~ 3.4V）
+  期望工作电流    I   = 10 mA
+  沿用 470Ω 会怎样？先直接算一遍：
+
+------------------------------------------------------------
+第 1 步：电阻承担的电压变了
+------------------------------------------------------------
+      U(电阻) = VCC − Vf = 5 V − 3.2 V = 1.8 V
+      注意：只剩 1.8V 了！红色 LED 时这个值是 3V。
+
+------------------------------------------------------------
+第 2 步：用 470Ω 直接算电流
+------------------------------------------------------------
+      I = U ÷ R = 1.8 V ÷ 470 Ω = 0.00383 A = 3.83 mA
+      → 灯会明显偏暗。虽然不会坏，但「看着像坏了」，
+        这就解释了一个常见现象：同样是 470Ω，红灯很亮、蓝灯很暗。
+
+------------------------------------------------------------
+第 3 步：重新求合适的阻值
+------------------------------------------------------------
+      R = U ÷ I = 1.8 V ÷ 0.010 A = 180 Ω
+      180Ω 本身就是 E24 标准值，直接可用。
+
+------------------------------------------------------------
+第 4 步：复核
+------------------------------------------------------------
+      ① 电流 I = 1.8 V ÷ 180 Ω = 0.010 A = 10.0 mA  ✔ 正好在目标点
+      ② 功耗 P = 1.8 V × 0.010 A = 0.018 W = 18 mW      ✔ 1/4W 绰绰有余
+
+------------------------------------------------------------
+【重要提醒：5V 驱动蓝白 LED 有个隐患】
+    蓝色 LED 的 Vf 最高可以到 3.4V，此时：
+        U(电阻) = 5 − 3.4 = 1.6 V
+    只剩 1.6V 的调节余地。而 LED 的 Vf 会随温度升高略微下降，
+    一旦 Vf 升到 3.5V 以上，留给电阻的电压就只有 1.5V，
+    电流会随之减小、灯变暗（这是自我抑制，不会烧）。
+    但如果用 3.3V 供电去驱动蓝光 LED：
+        U(电阻) = 3.3 − 3.2 = 0.1 V   →  几乎没有余量，
+    灯可能完全不亮或极暗。这种场合应当换成专用的 LED 驱动电路，
+    或者直接改用红色/黄色 LED。
+============================================================</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">演算稿三：电阻分压，把 12V 变成 5V 采样信号</h3>
+
+          <div class="code-block mt-4" data-lang="text" data-title="演算稿 3：分压电路设计（12V → 5V）">
+            <pre><code>============================================================
+演算稿 3：用两个电阻把 12V 分压成 5V
+  （典型场景：要测量 12V 电池电压，但单片机引脚最高只能承受 5V）
+============================================================
+
+【已知】
+  输入电压      Vin  = 12 V
+  期望输出电压  Vout = 5 V
+  分压公式：    Vout = Vin × R2 ÷ (R1 + R2)      （R2 是下端、接 GND 的那个）
+
+------------------------------------------------------------
+第 1 步：先确定分压比
+------------------------------------------------------------
+      Vout ÷ Vin = 5 ÷ 12 = 0.4167
+      也就是说：R2 占总电阻的 41.67%
+
+------------------------------------------------------------
+第 2 步：先「随便」定一个，再缩放
+------------------------------------------------------------
+  设 R2 = 10 kΩ，则：
+      R2 ÷ (R1 + R2) = 0.4167
+      10k ÷ (R1 + 10k) = 0.4167
+      R1 + 10k = 10k ÷ 0.4167 = 24.0k
+      R1 = 24.0k − 10k = 14.0 kΩ
+
+------------------------------------------------------------
+第 3 步：取标准值并复核
+------------------------------------------------------------
+      R1 取 15kΩ（标准值），R2 保持 10kΩ：
+      Vout = 12 × 10 ÷ (15 + 10) = 12 × 0.4 = 4.8 V
+      → 比目标 5V 低一点，但完全安全（宁可低，不可高）。
+
+      如果 R1 取 13kΩ（也是标准值）：
+      Vout = 12 × 10 ÷ (13 + 10) = 12 × 0.4348 = 5.22 V
+      → 超过 5V 了！虽然只是略超，但输入电压本身可能波动到 13V、
+        14V（充电中的电池），那就更危险。所以选 15kΩ 更稳。
+
+------------------------------------------------------------
+第 4 步：复核总电流与功耗（这一步最容易被忘掉）
+------------------------------------------------------------
+  总电阻 R1 + R2 = 15k + 10k = 25 kΩ
+  分压支路电流 I = Vin ÷ R总 = 12 V ÷ 25000 Ω = 0.00048 A = 0.48 mA
+
+  功耗：
+      P(R1) = I² × R1 = (0.00048)² × 15000 = 3.46 mW
+      P(R2) = I² × R2 = (0.00048)² × 10000 = 2.30 mW
+      合计 5.76 mW —— 都很小，1/4W 电阻毫无压力。
+
+  【但要注意】这 0.48mA 是从被测的 12V 电源上持续抽走的。
+  如果是电池供电的设备，这个「分压采样」会一直耗电。
+  低功耗产品的做法是：用一个 MOS 管或模拟开关控制分压支路的通断，
+  只在需要测量时才接通 —— 这就是「采样电阻网络」的设计思路。
+
+------------------------------------------------------------
+第 5 步：从 ADC 读数反推真实电压
+------------------------------------------------------------
+  单片机实际读到的是分压后的电压 Vout，要还原成真实电压：
+      真实电压 = Vout × (R1 + R2) ÷ R2 = Vout × 2.5
+
+  例：读到 4.80V → 真实电压 = 4.80 × 2.5 = 12.0 V   ✔
+  例：读到 4.32V → 真实电压 = 4.32 × 2.5 = 10.8 V
+      （说明电池电量已经下降）
+============================================================</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">演算稿四：功率校核，判断一个电阻会不会烧</h3>
+
+          <div class="code-block mt-4" data-lang="text" data-title="演算稿 4：电阻会不会烧掉的判断流程">
+            <pre><code>============================================================
+演算稿 4：拿到一个电阻，怎么判断它能不能用在这个位置
+============================================================
+
+【通用流程】四步走
+  ① 量 / 算它两端的电压 U
+  ② 量 / 算流过它的电流 I
+  ③ 用 P = U × I 求功耗
+  ④ 与额定功率比较：实际功耗应 ≤ 额定功率 × 50%
+
+------------------------------------------------------------
+【例题 A】5V 直接跨接一个 100Ω 电阻（把电阻错接在电源和地之间）
+------------------------------------------------------------
+  U = 5 V
+  I = U ÷ R = 5 ÷ 100 = 0.05 A = 50 mA
+  P = U × I = 5 × 0.05 = 0.25 W
+
+  → 用 1/4W 电阻：0.25W ÷ 0.25W = 100%，用满了额定值。
+    这样的电阻会非常烫手（可能到 100℃ 以上），
+    长时间运行会变色、阻值漂移，最终烧断。
+  → 必须换 1W 电阻，或者干脆别这么接（这是纯粹的浪费电）。
+
+------------------------------------------------------------
+【例题 B】用 5V 和 1kΩ 上拉电阻接按键
+------------------------------------------------------------
+  U = 5 V（按键按下时，电阻下端被拉到 GND）
+  I = 5 ÷ 1000 = 0.005 A = 5 mA
+  P = 5 × 0.005 = 0.025 W = 25 mW
+
+  → 占 1/4W 的 10%  ✔ 安全。
+
+------------------------------------------------------------
+【例题 C】反例：算错单位会得出什么荒唐结论
+------------------------------------------------------------
+  如果把「10mA」误当成「10A」代进例题：
+      R = 3 V ÷ 10 = 0.3 Ω
+  然后你可能真的去找一个 0.3Ω 的电阻接上去，实际电流会是：
+      I = 3 V ÷ 0.3 Ω = 10 A       ← 10 安培！
+  这个电流会瞬间烧毁 LED、烧毁引脚、烧毁电源。
+
+  → 每次算完，回头看一眼结果的数量级是否合理：
+    限流电阻在【几百欧到几千欧】，上拉电阻在【几千欧到几十千欧】。
+    如果算出来是零点几欧，一定是单位错了。
+
+------------------------------------------------------------
+【常用阻值快速对照表】
+------------------------------------------------------------
+  阻值      典型用途                              通过 5V 时的电流
+  --------  ------------------------------------  ---------------
+  100 Ω     极少用于信号电路（电流太大）           50 mA
+  220 Ω     蓝/白 LED 限流（Vf 高，需要小电阻）    22.7 mA
+  330 Ω     红 LED 限流（要亮一点）                15.2 mA
+  470 Ω     红 LED 限流（开发板标准选择）          10.6 mA
+  1 kΩ      三极管基极限流、LED 微亮指示           5 mA
+  4.7 kΩ    I2C 总线上拉（总线电容大，需要小一点） 1.06 mA
+  10 kΩ     按键上拉 / 下拉、复位电路（最常用）    0.5 mA
+  100 kΩ    MOS 管栅极下拉、低功耗分压             0.05 mA
+============================================================</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">从「算」到「写代码」的桥梁</div>
+            <p>
+              你可能会问：这些计算跟写程序有什么关系？
+              关系非常直接——程序里写的每一个数字，背后都是这些计算的结果。
+              例如以后你会写 <code class="icode">P1 = 0xFE;</code>，
+              这个 <code class="icode">0xFE</code> 对应「P1.0 输出低电平」；
+              而 pin 上之所以敢接 LED，是因为你已经算过那颗 LED 的限流电阻是 470Ω，
+              电流只有 6.4mA，在引脚 20mA 的能力之内。
+            </p>
+            <p class="mt-2">
+              <b>硬件决定了程序能做什么，计算决定了硬件能不能活着。</b>
+              这就是为什么全站把这一篇放在最前面。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            这一节我们实测一个最经典的电路：<b class="font-semibold text-ink">5V 电源 → 470Ω 电阻 → 红色 LED → GND</b>。
+            用万用表把每一个点的电压量出来，和理论值对照。
+            这张表的用处是：以后你的电路出了怪现象，只要量几个点，就能定位到是哪一段出了问题。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">被测电路与测量点</h3>
+
+          <div class="code-block mt-3" data-lang="text" data-title="实测电路：5V + 470Ω + 红色 LED">
+            <pre><code>                    测量点 A
+                       │
+        +5V ───────────┼──────────┐
+                       │          │
+                     [ 470Ω ]     │  测量点 B（电阻下端 = LED 正极）
+                       │          │
+                       ├──────────┘
+                       │
+                      LED（长脚在上，短脚在下）
+                       │
+                    测量点 C（LED 负极，也等于 GND）
+                       │
+        GND ───────────┴──────────┘
+
+  四个测量点：
+     A = 电源正极
+     B = 电阻与 LED 的交点（也叫 LED 正极）
+     C = LED 负极（接 GND）
+     D = 直接量电阻两端（A 与 B 之间的压降）</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">理论值 vs 实测范围</h3>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>测量点</th>
+                  <th>理论值</th>
+                  <th>实测正常范围</th>
+                  <th>怎么算出来的</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>A</b>：+5V 电源轨</td>
+                  <td class="font-mono text-xs">5.00 V</td>
+                  <td class="font-mono text-xs">4.90 ~ 5.10 V</td>
+                  <td>USB 供电本身有 ±2% 的容差，属于正常</td>
+                </tr>
+                <tr>
+                  <td><b>B</b>：LED 正极（电阻下端）</td>
+                  <td class="font-mono text-xs">2.00 V</td>
+                  <td class="font-mono text-xs">1.85 ~ 2.15 V</td>
+                  <td>等于 LED 的正向压降 Vf，由 LED 本身决定，几乎不随电流变化</td>
+                </tr>
+                <tr>
+                  <td><b>C</b>：LED 负极 / GND</td>
+                  <td class="font-mono text-xs">0.00 V</td>
+                  <td class="font-mono text-xs">0.00 ~ 0.01 V</td>
+                  <td>导线电阻很小，几十毫安下的压降可以忽略</td>
+                </tr>
+                <tr>
+                  <td><b>D</b>：电阻两端（A − B）</td>
+                  <td class="font-mono text-xs">3.00 V</td>
+                  <td class="font-mono text-xs">2.85 ~ 3.15 V</td>
+                  <td>U = 5V − 2V = 3V，印证「电压被两个元件分摊」</td>
+                </tr>
+                <tr>
+                  <td><b>支路电流</b>（串联测）</td>
+                  <td class="font-mono text-xs">6.38 mA</td>
+                  <td class="font-mono text-xs">6.0 ~ 6.8 mA</td>
+                  <td>I = 3V ÷ 470Ω = 6.38mA</td>
+                </tr>
+                <tr>
+                  <td><b>电阻功耗</b></td>
+                  <td class="font-mono text-xs">19.1 mW</td>
+                  <td>手摸不热</td>
+                  <td>P = 3V × 6.38mA ≈ 19mW</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">测量步骤（照着做一遍）</h3>
+
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>接好电路，<b>先断电</b>用通断档量一遍「+5V 排」和「GND 排」，确认没有短路（不响）。</li>
+            <li>上电，万用表转到直流电压 20V 档（量程要比被测值大，否则显示 <code class="icode">1</code> 或 <code class="icode">OL</code> 表示溢出）。</li>
+            <li>黑笔固定在 GND 排上不动，红笔依次点 A、B、C 三点，记录读数。</li>
+            <li>把红笔黑笔跨在电阻两端（红笔接 A 侧、黑笔接 B 侧），读到的就是电阻压降 D。</li>
+            <li>断电，把 +5V 到电阻的线拔开，万用表转到直流电流 mA 档，红笔接 +5V 侧、黑笔接电阻侧，串进去。</li>
+            <li>重新上电，读电流。测完立刻断电，把红笔插回 VΩ 孔，把线恢复原状。</li>
+          </ol>
+
+          <div class="callout callout-warn mt-5">
+            <div class="callout-title">用「压降」判断有没有电流，比什么都可靠</div>
+            <p>
+              这是一个能解决大量疑难问题的技巧：<b>任何元件上有电流，它两端就一定有压降</b>
+              （超导线除外）。所以量一个 470Ω 电阻：
+            </p>
+            <ul class="list-disc space-y-1.5 pl-5 mt-2">
+              <li>读到约 3V → 有电流在流，电流约为 3 ÷ 470 = 6.4mA，一切正常。</li>
+              <li>读到 0V → 两端电压相同 → 没有电流 → 这条支路断了（LED 接反、线没插好）。</li>
+              <li>读到 5V → 电阻下端悬空 → 电流为 0，且下端那一侧断了。</li>
+            </ul>
+            <p class="mt-2">
+              同样的方法可以量导线上任意一段：如果一根杜邦线两端压降达到了 0.5V 以上，
+              说明这根线接触电阻太大（线太细、插头氧化），该换线了。
+            </p>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">顺手做的两个对比实验</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b>把 470Ω 换成 1kΩ</b>，重新量 B 点电压和电流。
+                你会发现 B 点电压几乎没变（因为 LED 的 Vf 基本固定），
+                但电流降到了 3V ÷ 1kΩ = 3mA，灯明显变暗。
+                ——这说明<b>改变电阻改变的是电流，不是 LED 的压降</b>。
+              </li>
+              <li>
+                <b>把电源从 5V 换成 3.3V</b>（很多开发板都有 3.3V 输出脚），
+                再量一次。B 点电压会掉到大约 1.9V，电流变成 (3.3−1.9) ÷ 470 = 3.0mA。
+                红色 LED 还能勉强亮，但如果换成蓝色 LED（Vf ≈ 3.2V），
+                3.3V 减去 3.2V 只剩 0.1V，电流不到 0.2mA，灯基本上就看不见了。
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            下面八条按「现象 → 原因 → 解决」组织。这些现象全部来自真实的实验台，
+            其中前五条你会在一周内全部遇到。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">现象：万用表量电压一直是 0，但电路明明是通的</div>
+            <p><b class="font-semibold">原因（按概率排序）：</b>
+              ① 表笔插错孔——红笔插在 10A 大电流孔里，那个孔不参与电压测量；
+              ② 档位选错了——停在电阻档或电流档；
+              ③ 黑表笔没有接在真正的 GND 上（接在了悬空的排孔上）；
+              ④ 量程选得太小，表显示 <code class="icode">1</code> 或 <code class="icode">OL</code>，被误读成「没有」。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              先把红笔插回 VΩ 孔；档位转到 V⎓ 20V 档；
+              黑笔换一个 GND 排孔再试；确认显示屏上出现的是数字而不是溢出符号。
+              如果全对还是 0，用通断档量一下表笔本身是不是断了（表笔断线非常常见）。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：一测电流，表就黑屏了 / 冒烟了 / 只显示 0</div>
+            <p><b class="font-semibold">原因：</b>
+              把电流档<b>并联</b>接在了电源两端，而不是串联进回路。
+              电流档内阻接近 0Ω，并联等于直接短路；表内的保险丝会熔断保护，
+              便宜的表可能连保险丝都没有，直接烧毁表内部的分流电阻。
+              另一种情况是：确实串联了，但电流超过了量程（比如 200mA 档去测 1A 的电机）。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              ① 立刻断开电源，把红笔插回 VΩ 孔；
+              ② 打开万用表后盖，检查并更换保险丝（常见规格 200mA 或 10A）；
+              ③ 重新按「断开回路 → 串入表笔 → 红笔朝高电位侧」的步骤测；
+              ④ 预计电流大于 200mA 时，改用大电流孔和大量程档。
+              <b>记住：电流档永远不能并联在电源两端。</b>
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：LED 不亮，但万用表量它两端却有电压</div>
+            <p><b class="font-semibold">原因：</b>
+              这个「有电压」是假象。当回路断开时（LED 接反、限流电阻虚焊、杜邦线断），
+              电源电压会通过限流电阻「穿透」到 LED 两端，
+              但因为<b>没有电流</b>，电阻上没有压降，于是整个 5V 都出现在 LED 两端。
+              二极管需要<b>正向偏置且有电流</b>才会发光，只加电压不给电流是不会亮的。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              不要量 LED 两端，改量<b>限流电阻两端</b>：
+              有 2~3V 压降说明在导通（问题在 LED 或它后面的连线）；
+              0V 压降说明整条路没有电流，去查断路点。
+              同时用二极管档单独测一下 LED 本身（正常应显示 1.8~2.2V 左右的压降，
+              一个方向有读数、反方向显示溢出），确认 LED 没坏也没接反。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：读数一直在跳，最后一位数字来回变</div>
+            <p><b class="font-semibold">原因：</b>
+              ① 表笔没有捏稳，接触电阻在变化（手持表笔测面包板最典型）；
+              ② 被测电路本身就在波动（开关电源纹波、杜邦线松动、面包板弹片接触不良）；
+              ③ 量程选得过小，最后一位本身就是估算位；
+              ④ 附近有强干扰源（电机、继电器、电烙铁），引脚悬空时被耦合进来。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              把表笔压紧或用鳄鱼夹固定；换高一档量程；
+              在读数附近并联一个 0.1µF 电容看看跳动是否变小（变小说明是干扰）；
+              检查所有插接处，尤其是面包板上跨接的跳线。
+              如果只是最后一位 ±1 个字在跳，那属于正常精度范围，不用管。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：量一个电阻，读数比色环标称值小很多</div>
+            <p><b class="font-semibold">原因：</b>
+              在路测量。电阻还焊在电路里，两端可能并联着别的元件
+              （另一个电阻、一个线圈、一颗芯片的内部通路），
+              这些并联支路把等效阻值拉低了。典型的例子：两个 10kΩ 电阻并联，
+              单个量出来是 5kΩ。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              要得到准确阻值，必须<b>把电阻至少一端从电路上断开</b>再测。
+              如果只是想大致判断好坏，「在路读数 ≤ 标称值」是可以接受的——
+              只要它没有明显变大（变大说明断路）或接近 0（说明短路）就行。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：电阻发烫、变色，甚至有焦味</div>
+            <p><b class="font-semibold">原因：</b>
+              实际功耗超过了额定功率。最常见的是两种情况：
+              ① 电阻被错接在电源和 GND 之间（比如限流电阻的一端插在了 GND 排上）；
+              ② 用 5V 系统算出的 470Ω 直接搬到了 12V 系统里，
+              功耗从 19mW 变成了 147mW 以上。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              立刻断电。用 <code class="icode">P = U² ÷ R</code> 重算功耗，
+              要求实际功耗不超过额定功率的一半；
+              超了就换更大功率的电阻（1/2W、1W）或重新设计电路。
+              <b>烧焦过的电阻即使还能用也不要再用了</b>——它的阻值已经漂移，
+              会带来难以排查的隐性故障。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：电源电压被拉低，一接负载就从 5V 掉到 4V</div>
+            <p><b class="font-semibold">原因：</b>
+              电源的带载能力不够，或者线路上的电阻太大。
+              两种情况都会表现为「电压跌落」：
+              ① 电源本身输出电流上限不足（比如用 USB 口带一个需要 1A 的电机）；
+              ② 杜邦线太细太长、面包板接触电阻大，
+              在几百毫安下产生明显压降（<code class="icode">U = I × R</code>，
+              0.5A 穿过 1Ω 就是 0.5V）。
+            </p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>
+              先量电源空载电压，再接上负载量一次，两者的差就是线路+电源内阻造成的跌落。
+              换用带载能力更强的电源；把电源线换成更粗更短的；
+              大电流负载（电机、继电器、LED 灯带）不要从面包板取电，
+              直接从电源端子引线。
+            </p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">现象：一按按键，单片机就复位 / 程序跑飞</div>
+            <p>
+              这不是「电学基础」里的故障，但它几乎总是电源问题：
+              按键按下瞬间产生的浪涌电流让电源电压瞬间跌落，
+              跌到单片机的复位门限以下，芯片就重启了。
+              排查方法和上一条一样：量按键按下瞬间的电源电压有没有跌落。
+              解决办法是在芯片电源脚旁边并一个 100µF 电解电容 + 0.1µF 陶瓷电容，
+              给瞬间的电流需求提供「就近的水源」。
+              这类电容的作用（去耦）会在下一篇「常用元件」里讲清楚。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇从「电是什么」一路走到了「用万用表验证自己的计算」。
+            真正需要带走的只有五句话：
+          </p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">电压是两点之间的差，电路必须成回路才有电流。</b></li>
+            <li><b class="font-semibold text-ink">欧姆定律 U = I × R 是唯一的必背公式，代入时电流一定要用安培。</b></li>
+            <li><b class="font-semibold text-ink">LED 限流电阻 = (电源电压 − LED 压降) ÷ 目标电流，算完要取标准值并复核。</b></li>
+            <li><b class="font-semibold text-ink">功率 P = U × I，电阻实际功耗不要超过额定值的一半。</b></li>
+            <li><b class="font-semibold text-ink">GND 是公共参考点，不是大地；测电压并联、测电流串联。</b></li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">自检题（先自己做，再看答案）</div>
+            <ol class="list-decimal space-y-3 pl-5">
+              <li>
+                <b>题 1：</b>电源 5V，黄色 LED 的 Vf ≈ 2.1V，希望工作电流 8mA。
+                求限流电阻的理论值，并从标准值中挑一个，算出实际电流。
+                <p class="mt-2 text-muted">
+                  <b>答案：</b>U = 5 − 2.1 = 2.9V，I = 0.008A，
+                  R = 2.9 ÷ 0.008 = 362.5Ω。
+                  标准值取 390Ω：
+                  I = 2.9 ÷ 390 = 0.00744A = 7.44mA ✔ 在 5~20mA 内。
+                  也可以取 330Ω：I = 2.9 ÷ 330 = 8.79mA ✔ 更接近目标。
+                  两个都对，只要说明理由即可。
+                </p>
+              </li>
+              <li>
+                <b>题 2：</b>一个 1kΩ 电阻接在 12V 和 GND 之间，它能用 1/4W 的电阻吗？
+                <p class="mt-2 text-muted">
+                  <b>答案：</b>I = 12 ÷ 1000 = 0.012A = 12mA；
+                  P = 12 × 0.012 = 0.144W = 144mW。
+                  1/4W = 250mW，144 ÷ 250 = 57.6%，超过了「不超过一半」的原则，
+                  电阻会明显温热。虽然勉强能用，但建议换 1/2W 或加大阻值。
+                </p>
+              </li>
+              <li>
+                <b>题 3：</b>为什么 51 单片机的引脚驱动 LED 时要让引脚「吸」电流（灌电流），
+                而不是「推」电流（拉电流）？请用电学原理解释。
+                <p class="mt-2 text-muted">
+                  <b>答案：</b>因为 51 的准双向口输出高电平时，电流要经过内部一个很弱的上拉管，
+                  内阻大，能提供的电流不到 1mA，LED 会非常暗甚至不亮；
+                  输出低电平时，内部强下拉管直接导通到 GND，通道阻抗低，
+                  可以安全地吸收约 20mA。所以让电流「流进引脚」比「流出引脚」容易得多。
+                </p>
+              </li>
+              <li>
+                <b>题 4：</b>把 5V 上拉电阻从 10kΩ 改成 100Ω 会发生什么？
+                请给出电流计算和后果。
+                <p class="mt-2 text-muted">
+                  <b>答案：</b>按键按下时，引脚被短接到 GND，电阻两端是 5V，
+                  I = 5 ÷ 100 = 0.05A = 50mA。
+                  这远超 51 引脚约 20mA 的灌电流上限，持续按住会烧毁引脚；
+                  同时电阻功耗 P = 5 × 0.05 = 0.25W，正好用满 1/4W 的额定值，
+                  电阻会非常烫。所以 100Ω 不能用。
+                </p>
+              </li>
+              <li>
+                <b>题 5：</b>你用万用表量一个 LED 两端，读到 4.9V，但灯不亮。
+                请给出至少两种可能的原因和验证方法。
+                <p class="mt-2 text-muted">
+                  <b>答案：</b>读到电源电压说明这条支路没有电流（断开状态）。
+                  可能原因：① LED 接反了——用二极管档单向测一下，
+                  正常时一个方向有 1.8~2.2V 读数、反方向溢出；
+                  ② 限流电阻虚焊或杜邦线断——改量电阻两端，
+                  0V 压降说明没有电流，用通断档逐段检查；
+                  ③ LED 本身已经烧断（内部开路）——用二极管档测，
+                  两个方向都溢出说明它坏了。
+                </p>
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一步看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-components.html">常用元件：电阻、电容、LED 与三极管</a>——把本文的公式用到真实的元件上，学会看色环、认极性、算基极电阻。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-digital.html">数字电路基础：高低电平与逻辑门</a>——弄清楚单片机的引脚到底怎么判断 0 和 1。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="../mcu51.html">51 单片机全部教程</a>——从最小系统到串口通信的完整路线。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="../mcu51.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">51 单片机教程总览</p>
+          </a>
+          <a href="mcu51-basic-components.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">常用元件：电阻、电容、LED 与三极管</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+﻿  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+
+</body>
+</html>

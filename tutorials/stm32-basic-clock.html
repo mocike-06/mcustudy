@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>时钟系统：为什么第一件事是配时钟 - McuStudy</title>
+  <meta name="description" content="STM32 时钟系统基础：为什么外设不开时钟就完全不动、HSI/HSE/LSI/LSE 四种时钟源怎么选、PLL 怎么把 8MHz 一步步倍频到 72MHz、完整时钟树与 AHB/APB1/APB2 分频、外设使能位速查表、SysTick 与 HAL_Delay 的关系，含纯寄存器与 HAL 两套配置代码。">
+  <meta name="keywords" content="STM32时钟树,HSE,HSI,PLL倍频,72MHz,APB1 APB2分频,RCC_APB2ENR,外设时钟使能,SysTick,HAL_Delay,SystemClock_Config">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="stm32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../stm32.html" class="hover:text-brand-600 dark:hover:text-brand-300">STM32</a>
+          <span>/</span>
+          <span class="text-muted">时钟系统基础</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          时钟系统：为什么第一件事是配时钟
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          51 上写 <code class="icode">P1 = 0xFE</code> 灯就亮了，什么都不用配。到了 STM32，同样的目标却要先写一句 <code class="icode">__HAL_RCC_GPIOC_CLK_ENABLE()</code>——为什么？这一篇讲清时钟到底是什么、STM32 的四个时钟源有什么区别、PLL 是怎么把 8MHz 的晶振一步步变成 72MHz 的、AHB 与 APB1/APB2 为什么要分三个分频器、每个外设的时钟使能位在哪、以及 <code class="icode">HAL_Delay()</code> 为什么和时钟有关。学完这一篇，串口乱码、定时器慢一倍这类「玄学问题」你都能自己算出来。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">芯片：<b>STM32F103C8T6</b></span>
+          <span class="stat-pill">目标频率：<b>72MHz</b></span>
+          <span class="stat-pill">阅读约 <b>20</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-why-clock">为什么必须先开时钟</a>
+          <a class="toc-link is-sub" href="#sub-sources">四个时钟源：HSI/HSE/LSI/LSE</a>
+          <a class="toc-link is-sub" href="#sub-pll">PLL：8MHz 怎么变成 72MHz</a>
+          <a class="toc-link is-sub" href="#sub-tree">完整时钟树</a>
+          <a class="toc-link is-sub" href="#sub-ahb-apb">AHB / APB 预分频</a>
+          <a class="toc-link is-sub" href="#sub-enable">外设时钟使能位速查</a>
+          <a class="toc-link is-sub" href="#sub-systick">SysTick 与 HAL_Delay</a>
+          <a class="toc-link" href="#sec-hardware">硬件资源说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-cubemx-ui">CubeMX 里怎么点时钟树</a>
+          <a class="toc-link is-sub" href="#sub-reg-clock">纯寄存器配 72MHz</a>
+          <a class="toc-link is-sub" href="#sub-hal-clock">HAL 的 SystemClock_Config()</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-why-clock">为什么必须先开时钟</a>
+            <a class="toc-link is-sub" href="#sub-sources">四个时钟源：HSI/HSE/LSI/LSE</a>
+            <a class="toc-link is-sub" href="#sub-pll">PLL：8MHz 怎么变成 72MHz</a>
+            <a class="toc-link is-sub" href="#sub-tree">完整时钟树</a>
+            <a class="toc-link is-sub" href="#sub-ahb-apb">AHB / APB 预分频</a>
+            <a class="toc-link is-sub" href="#sub-enable">外设时钟使能位速查</a>
+            <a class="toc-link is-sub" href="#sub-systick">SysTick 与 HAL_Delay</a>
+            <a class="toc-link" href="#sec-hardware">硬件资源说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-cubemx-ui">CubeMX 里怎么点时钟树</a>
+            <a class="toc-link is-sub" href="#sub-reg-clock">纯寄存器配 72MHz</a>
+            <a class="toc-link is-sub" href="#sub-hal-clock">HAL 的 SystemClock_Config()</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">这一篇解决的是 STM32 新手遇到的第一个「不讲道理」的问题：<b class="font-semibold text-ink">代码明明没错，编译也过了，为什么什么都不动？</b>答案几乎总是「时钟没配」。而且这个故障最气人的地方在于——它<b class="font-semibold">不报错、不崩溃、不提示</b>，程序安安静静地跑完，引脚安安静静地不动。</p>
+
+          <h3 id="sub-why-clock" class="mt-7 text-base font-semibold">时钟是什么：数字电路的心跳</h3>
+          <p class="mt-3">时钟（Clock）是一根在芯片内部不停「高—低—高—低」跳变的信号线，频率单位是 Hz（赫兹，每秒跳变多少次）。它本身不传输任何数据，只负责<b class="font-semibold text-ink">打拍子</b>：芯片里所有的触发器、计数器、移位器都约定「在时钟上升沿的那一瞬间更新状态，其他时间保持不动」。</p>
+          <p class="mt-3">用乐队打比方：时钟就是那个节拍器。乐手（各个电路模块）只在节拍响起的一刻动手，其余时间保持姿势。没有节拍器，所有人都不知道该什么时候动——这就是<b class="font-semibold text-ink">没有时钟，外设完全不工作</b>的根本原因。它不是「工作得慢一点」，而是「一步都不走」。</p>
+          <p class="mt-3">那为什么 51 上从来不用管时钟？因为 51 的外设时钟是<b class="font-semibold text-ink">硬连线</b>的：只要芯片通电、晶振在振，外设就一直有时钟，没有开关让你关。STM32 为了省电和降低干扰，给<b class="font-semibold text-ink">每个外设都装了一个单独的开关</b>，复位后全部处于<b>关闭</b>状态，必须由你的代码逐个打开。这就是那句 <code class="icode">__HAL_RCC_GPIOC_CLK_ENABLE()</code> 的由来。</p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">类比：整栋楼的总闸 + 每个房间的分闸</div>
+            <p>把芯片想成一栋楼。RCC（复位与时钟控制器）是配电房，里面有总闸（系统时钟 SYSCLK，决定整栋楼的电压等级）和各种分闸（AHB、APB1、APB2 三条线路）。每个外设房间门口还有一个独立的开关（APB1ENR / APB2ENR 里的一位）。<b class="font-semibold">推上总闸只是让配电房有电，房间里的灯要亮，还得把那个房间的分闸也推上去。</b>新手最常犯的错就是只配了总闸（PLL 到 72MHz），忘了推房间的分闸（外设使能位）。</p>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="RCC_APB2ENR 寄存器内部：每个外设一位开关">
+            <pre><code>RCC-&gt;APB2ENR   （地址 0x40021018）  复位后的值：0x00000000  → 全部关闭
+bit  31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11 10 9  8  7  6  5  4  3  2  1  0
+     └──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┘
+                                                                        │  │  │  │  │  │  │  │
+   bit 0  AFIOEN   ── 复用功能与重映射（用外部中断、引脚重映射时必需）
+   bit 2  IOPAEN   ── GPIOA 时钟
+   bit 3  IOPBEN   ── GPIOB 时钟
+   bit 4  IOPCEN   ── GPIOC 时钟   ← 板载 LED 在 PC13，点灯必须开这一位
+   bit 5  IOPDEN   ── GPIOD 时钟
+   bit 6  IOPEEN   ── GPIOE 时钟
+   bit 9  ADC1EN   ── ADC1 时钟
+   bit 10 ADC2EN   ── ADC2 时钟
+   bit 11 TIM1EN   ── 高级定时器 TIM1
+   bit 12 SPI1EN   ── SPI1
+   bit 14 USART1EN ── 串口 1
+   ────────────────────────────────────────────────────────────────
+   想让 GPIOC 有时钟，就是让 bit4 = 1：
+        RCC-&gt;APB2ENR |= (1UL &lt;&lt; 4);
+   这一行执行之前，往 GPIOC 的任何寄存器写数据都会被硬件直接丢掉；
+   执行之后，写入才会真正进入 GPIOC 的锁存器。
+   ⚠ 关掉时钟再打开，外设的所有配置会恢复默认值 —— 相当于给它断电重启。</code></pre>
+          </div>
+
+          <h3 id="sub-sources" class="mt-7 text-base font-semibold">四个时钟源：HSI / HSE / LSI / LSE</h3>
+          <p class="mt-3">STM32F103 芯片内部和引脚上，一共提供了四个可以产生时钟的「源头」。它们分两类：<b class="font-semibold text-ink">RC 振荡器</b>（用电阻电容充放电产生振荡，做在芯片里面，不用外接元件，但精度差）和<b class="font-semibold text-ink">晶体振荡器</b>（用石英晶体，需要外接元件，精度高得多）。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>缩写</th><th>全称与位置</th><th>频率</th><th>精度（典型）</th><th>典型用途</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">HSI</td><td>High Speed Internal，芯片内部 RC</td><td class="font-mono text-xs">8 MHz</td><td>±1% 左右（受温度影响大）</td><td>备用时钟；晶振坏了程序还能跑；不要求精度的场合</td></tr>
+                <tr><td class="font-mono text-xs">HSE</td><td>High Speed External，外部晶振</td><td class="font-mono text-xs">8 MHz（板上那颗）</td><td>±20ppm ≈ ±0.002%</td><td><b>正常工作的主时钟源</b>，经 PLL 倍频到 72MHz</td></tr>
+                <tr><td class="font-mono text-xs">LSI</td><td>Low Speed Internal，内部低速 RC</td><td class="font-mono text-xs">约 40 kHz</td><td>±50%（非常不准）</td><td>独立看门狗 IWDG 的计数时钟</td></tr>
+                <tr><td class="font-mono text-xs">LSE</td><td>Low Speed External，外部 32.768kHz 晶振</td><td class="font-mono text-xs">32.768 kHz</td><td>±20ppm</td><td>实时时钟 RTC，做「年月日时分秒」计时</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">为什么 LSE 偏偏是 <b>32768</b> 这个奇怪的数字？因为 32768 = 2¹⁵。一个 15 位的二进制计数器每计满 32768 个数就溢出一次，用 32768Hz 的时钟去数，<b class="font-semibold">正好一秒溢出一次</b>。这是数字电路里「用二进制分频得到 1Hz」最省事的选择，所以全世界的 RTC 晶振都是这个频率。</p>
+          <p class="mt-3">精度差意味着什么？用具体数字说话：HSI 有 ±1% 的误差，用它做串口时钟，115200 的波特率可能变成 114048 或 116352。串口通信允许的误差大约在 ±2%~3% 以内，单看 1% 好像还行，但收发双方的误差会叠加，再加上帧内累积，实际很容易出错。<b class="font-semibold">而 HSE 的 ±20ppm 换算成百分比是 0.002%，比 HSI 精确 500 倍</b>——这就是为什么正经工程一律用外部晶振。</p>
+
+          <h3 id="sub-pll" class="mt-7 text-base font-semibold">PLL 锁相环：8MHz 怎么一步步变成 72MHz</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">PLL（Phase Locked Loop，锁相环）</b>是一个能把输入频率「乘以一个整数倍」的电路。它内部有一个压控振荡器（VCO），通过不断比较输出与输入的相位，把输出频率锁定到输入的整数倍上。你不需要懂它的模拟电路原理，只需要知道：<b class="font-semibold">给它一个稳定输入，再告诉它乘几，它就输出输入频率的整数倍。</b></p>
+          <p class="mt-3">F103 的 PLL 结构很固定，就是「先分频、再倍频」两步：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="PLL 的两步：输入分频 + 倍频">
+            <pre><code>PLL 的输入可以从三个地方选：
+   ① HSE（8MHz）        ─┐
+   ② HSE / 2 = 4MHz     ─┼──►  然后统一乘 PLLMUL（可选 ×2 ~ ×16）
+   ③ HSI / 2 = 4MHz     ─┘
+
+【正确的 72MHz 配置】
+   HSE = 8 MHz
+   选「HSE 不分频」           → 8 MHz ÷ 1 = 8 MHz
+   倍频系数 PLLMUL 选 ×9      → 8 MHz × 9 = 72 MHz
+   ────────────────────────────────────────────
+   写成一行：  8 MHz ÷ 1 × 9 = 72 MHz   ✅  SYSCLK = 72MHz
+
+【如果你不小心选了「HSE 二分频」，算式就变成】
+   HSE = 8 MHz
+   选「HSE / 2」              → 8 MHz ÷ 2 = 4 MHz
+   倍频系数仍然是 ×9           → 4 MHz × 9 = 36 MHz
+   ────────────────────────────────────────────
+   写成一行：  8 MHz ÷ 2 × 9 = 36 MHz   ⚠️  SYSCLK 只有 36MHz，慢了整整一半
+   现象：串口波特率全错、HAL_Delay(1000) 实际延时两秒、定时器周期翻倍。
+   这个「少按了一下、结果差一倍」的坑，就是上面那个算式的来历。
+
+【如果完全不用外部晶振，只靠内部 HSI 呢】
+   HSI = 8 MHz
+   必须 /2（HSI 进 PLL 前固定二分频）→ 8 MHz ÷ 2 = 4 MHz
+   倍频最大只能到 ×16                → 4 MHz × 16 = 64 MHz
+   ────────────────────────────────────────────
+   结论：靠 HSI 最高只能跑到 64MHz，永远到不了 72MHz。
+   这就是「我明明把 PLLMUL 拉到最大了，主频还是 64」的原因。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">倍频系数不是随便填的</div>
+            <p>PLLMUL 只能取 <b>2、3、4、5、6、7、8、9、10、11、12、13、14、15、16</b> 这 15 个整数，不能填 9.5。而且 PLL 输出（也就是 SYSCLK）<b>不能超过 72MHz</b>——超了不是「跑得快一点」，而是芯片工作不稳定、随时可能算错或死机。所以 8MHz 晶振的板子，唯一能到 72MHz 的整数组合就是 <b>÷1 再 ×9</b>，别无选择。这也是为什么市面上的 STM32F103 教程几乎全用 8MHz 晶振。</p>
+          </div>
+
+          <h3 id="sub-tree" class="mt-7 text-base font-semibold">完整时钟树：从晶振到每一个外设</h3>
+          <p class="mt-3">把上面所有元件连起来，就是 CubeMX 里那张让人头晕的「时钟树（Clock Tree）」图。它的本质是<b class="font-semibold text-ink">一条条分岔的河流</b>：源头出水分成几条支流，每条支流再经过不同的闸门（分频器）调节流量，最后送到各个用户（外设）。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="STM32F103 时钟树（72MHz 标准配置）">
+            <pre><code>  ┌─────────────── 时钟源 ───────────────┐
+  │                                      │
+  │  HSI  8MHz RC ────────┐              │
+  │                       │              │
+  │  HSE  8MHz 晶振 ──────┤              │
+  │                       │              │
+  │  HSE/2 = 4MHz ────────┤              │
+  │  HSI/2 = 4MHz ────────┘              │
+  └───────────────────────┬──────────────┘
+                          │
+              ┌───────────┴────────────┐
+              │  PLL：÷1 后 ×9         │
+              │  8MHz ÷ 1 × 9 = 72MHz  │
+              └───────────┬────────────┘
+                          │
+        ┌─────────────────┴─────────────────┐
+        │        SW 选择器（选谁当系统时钟）    │
+        │  可选：HSI / HSE / PLL             │
+        │  我们选 PLL ───────────────────────┼──────┐
+        └───────────────────────────────────┘      │
+                                                   ▼
+                                        ╔═══════════════════╗
+                                        ║  SYSCLK = 72 MHz  ║
+                                        ╚═════════┬═════════╝
+                                                  │
+                                     ┌────────────┴────────────┐
+                                     │  AHB 预分频器 HPRE ÷1   │
+                                     └────────────┬────────────┘
+                                                  │
+                                        ╔═════════▼═════════╗
+                                        ║  HCLK = 72 MHz    ║ ──► Cortex-M3 内核
+                                        ╚═════════┬═════════╝ ──► SysTick（HAL_Delay 靠它）
+                                                  │             ──► DMA、SRAM、Flash 接口
+                        ┌─────────────────────────┴─────────────────────────┐
+                        │                                                   │
+              ┌─────────▼─────────┐                               ┌─────────▼─────────┐
+              │ APB1 预分频 PPRE1 │                               │ APB2 预分频 PPRE2 │
+              │        ÷2         │                               │        ÷1         │
+              └─────────┬─────────┘                               └─────────┬─────────┘
+                        │                                                   │
+                ╔═══════▼═══════╗                                   ╔═══════▼═══════╗
+                ║ PCLK1=36 MHz  ║                                   ║ PCLK2=72 MHz  ║
+                ╚═══════┬═══════╝                                   ╚═══════┬═══════╝
+                        │                                                   │
+        ┌───────────────┼───────────────┐               ┌───────────────┬───┴───────────┐
+        ▼               ▼               ▼               ▼               ▼               ▼
+   TIM2/3/4        USART2/3        I2C1/2          GPIOA~E         USART1          TIM1
+   (见下方说明)     SPI2 USB CAN    (低速总线)      (端口寄存器)     (串口1)        ADC1/2
+                                                                                   (再分频)
+
+  ⚠ 定时器的特殊情况：
+    规则是「如果 APB 预分频系数 ≠ 1，则该总线上的定时器时钟 = PCLK × 2」。
+    APB1 的 PPRE1 = ÷2 ≠ 1，所以  TIM2CLK = PCLK1 × 2 = 36MHz × 2 = 72MHz
+    APB2 的 PPRE2 = ÷1，所以      TIM1CLK = PCLK2     = 72MHz
+    结果：虽然 APB1 只有 36MHz，挂在它上面的 TIM2/3/4 依然是 72MHz 计数。
+    这是「定时器算出来的周期和按 PCLK1 算的不一致」的原因。
+
+  ⚠ ADC 的特殊情况：
+    ADC 还要再经过一个自己的分频器 ADCPRE，可选 ÷2/÷4/÷6/÷8，
+    且 ADCCLK 不得超过 14MHz。
+    PCLK2 = 72MHz 时：72 ÷ 6 = 12MHz ✅（÷2 会得到 36MHz ❌ 超限，读数会不准）</code></pre>
+          </div>
+
+          <h3 id="sub-ahb-apb" class="mt-7 text-base font-semibold">AHB 与 APB 预分频：为什么要分频、配错会怎样</h3>
+          <p class="mt-3">分频器（Prescaler）的作用就是「把输入频率按整数分之一降下来」：÷2 就是每来两个输入脉冲才输出一个，频率减半。分频系数在寄存器里用几位二进制表示，比如 AHB 的 HPRE 有 4 位，能表示 ÷1、÷2、÷4、÷8……÷512。</p>
+          <p class="mt-3">为什么要降频？三个原因：<b class="font-semibold text-ink">① 功耗</b>——数字电路的动态功耗几乎和频率成正比，频率减半功耗也差不多减半；<b class="font-semibold text-ink">② 外设本身跑不了那么快</b>——比如 I2C 标准模式最高 100kHz，给它 72MHz 毫无意义；<b class="font-semibold text-ink">③ 总线规范限制</b>——F103 明确规定 APB1 最高只能 36MHz，如果 PPRE1 配成 ÷1，APB1 就跑到 72MHz，<b>超出芯片设计规格</b>，行为不可保证。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>分频器</th><th>寄存器位</th><th>F103 允许的最高频率</th><th>72MHz 方案取值</th><th>实际得到</th></tr></thead>
+              <tbody>
+                <tr><td>AHB (HPRE)</td><td class="font-mono text-xs">RCC_CFGR[7:4]</td><td class="font-mono text-xs">72 MHz</td><td class="font-mono text-xs">÷1</td><td class="font-mono text-xs">HCLK = 72 MHz</td></tr>
+                <tr><td>APB1 (PPRE1)</td><td class="font-mono text-xs">RCC_CFGR[10:8]</td><td class="font-mono text-xs">36 MHz</td><td class="font-mono text-xs">÷2</td><td class="font-mono text-xs">PCLK1 = 36 MHz</td></tr>
+                <tr><td>APB2 (PPRE2)</td><td class="font-mono text-xs">RCC_CFGR[13:11]</td><td class="font-mono text-xs">72 MHz</td><td class="font-mono text-xs">÷1</td><td class="font-mono text-xs">PCLK2 = 72 MHz</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">分频配错的后果：所有「和时间有关的量」同时全错</div>
+            <p>这是新手最难排查的一类问题，因为它<b class="font-semibold">不会报错，只会让数字集体偏掉</b>：</p>
+            <ul class="mt-2 list-disc space-y-1.5 pl-5">
+              <li><b>串口乱码或完全收不到。</b>波特率是靠「总线时钟 ÷ 分频值」产生的。USART1 在 APB2（72MHz），USART2 在 APB1（36MHz）。库函数里你会填同一个 <b>115200</b>，但 HAL 内部计算分频值时用的总线时钟不同：USART1 算出 <code class="icode">72000000 ÷ 115200 ≈ 625</code>，USART2 算出 <code class="icode">36000000 ÷ 115200 ≈ 312.5</code>。<b>如果时钟配错了，算出来的分频值就是错的，两边的位时间对不上，收到一堆乱码。</b></li>
+              <li><b>定时器周期差一倍。</b>定时器按「计数时钟 ÷ (PSC+1)」决定每个计数代表多长时间。如果以为 TIM2 是 36MHz 而它实际是 72MHz，你算出来的 1 秒会变成 0.5 秒。</li>
+              <li><b><code class="icode">HAL_Delay()</code> 延时不准。</b>它按 HCLK 计算 SysTick 的装载值。HCLK 变了而 SysTick 没重配，延时就会整体缩放。</li>
+            </ul>
+            <p class="mt-2">排查心法：<b class="font-semibold">只要现象是「和时间/频率有关的量整体偏了固定倍数」，第一反应就该是查时钟，而不是查外设配置。</b></p>
+          </div>
+
+          <h3 id="sub-enable" class="mt-7 text-base font-semibold">外设时钟使能位速查表</h3>
+          <p class="mt-3">配完时钟树只完成了一半，还得给每个要用的外设「推上分闸」。下面这张表建议收藏——<b class="font-semibold text-ink">写代码时忘了开哪个，就回来查它属于哪条总线、第几位</b>。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>外设</th><th>属于哪条总线</th><th>寄存器</th><th>位</th><th>HAL 宏</th></tr></thead>
+              <tbody>
+                <tr><td class="font-mono text-xs">GPIOA</td><td>APB2</td><td class="font-mono text-xs">RCC_APB2ENR</td><td class="font-mono text-xs">bit 2</td><td class="font-mono text-xs">__HAL_RCC_GPIOA_CLK_ENABLE()</td></tr>
+                <tr><td class="font-mono text-xs">GPIOB</td><td>APB2</td><td class="font-mono text-xs">RCC_APB2ENR</td><td class="font-mono text-xs">bit 3</td><td class="font-mono text-xs">__HAL_RCC_GPIOB_CLK_ENABLE()</td></tr>
+                <tr><td class="font-mono text-xs">GPIOC</td><td>APB2</td><td class="font-mono text-xs">RCC_APB2ENR</td><td class="font-mono text-xs">bit 4</td><td class="font-mono text-xs">__HAL_RCC_GPIOC_CLK_ENABLE()</td></tr>
+                <tr><td class="font-mono text-xs">AFIO（外部中断、重映射）</td><td>APB2</td><td class="font-mono text-xs">RCC_APB2ENR</td><td class="font-mono text-xs">bit 0</td><td class="font-mono text-xs">__HAL_RCC_AFIO_CLK_ENABLE()</td></tr>
+                <tr><td class="font-mono text-xs">USART1（串口1）</td><td>APB2</td><td class="font-mono text-xs">RCC_APB2ENR</td><td class="font-mono text-xs">bit 14</td><td class="font-mono text-xs">__HAL_RCC_USART1_CLK_ENABLE()</td></tr>
+                <tr><td class="font-mono text-xs">SPI1</td><td>APB2</td><td class="font-mono text-xs">RCC_APB2ENR</td><td class="font-mono text-xs">bit 12</td><td class="font-mono text-xs">__HAL_RCC_SPI1_CLK_ENABLE()</td></tr>
+                <tr><td class="font-mono text-xs">ADC1</td><td>APB2</td><td class="font-mono text-xs">RCC_APB2ENR</td><td class="font-mono text-xs">bit 9</td><td class="font-mono text-xs">__HAL_RCC_ADC1_CLK_ENABLE()</td></tr>
+                <tr><td class="font-mono text-xs">TIM1（高级定时器）</td><td>APB2</td><td class="font-mono text-xs">RCC_APB2ENR</td><td class="font-mono text-xs">bit 11</td><td class="font-mono text-xs">__HAL_RCC_TIM1_CLK_ENABLE()</td></tr>
+                <tr><td class="font-mono text-xs">TIM2 / TIM3 / TIM4</td><td>APB1</td><td class="font-mono text-xs">RCC_APB1ENR</td><td class="font-mono text-xs">bit 0 / 1 / 2</td><td class="font-mono text-xs">__HAL_RCC_TIM2_CLK_ENABLE() 等</td></tr>
+                <tr><td class="font-mono text-xs">USART2 / USART3</td><td>APB1</td><td class="font-mono text-xs">RCC_APB1ENR</td><td class="font-mono text-xs">bit 17 / 18</td><td class="font-mono text-xs">__HAL_RCC_USART2_CLK_ENABLE() 等</td></tr>
+                <tr><td class="font-mono text-xs">I2C1 / I2C2</td><td>APB1</td><td class="font-mono text-xs">RCC_APB1ENR</td><td class="font-mono text-xs">bit 21 / 22</td><td class="font-mono text-xs">__HAL_RCC_I2C1_CLK_ENABLE() 等</td></tr>
+                <tr><td class="font-mono text-xs">SPI2</td><td>APB1</td><td class="font-mono text-xs">RCC_APB1ENR</td><td class="font-mono text-xs">bit 14</td><td class="font-mono text-xs">__HAL_RCC_SPI2_CLK_ENABLE()</td></tr>
+                <tr><td class="font-mono text-xs">USB</td><td>APB1</td><td class="font-mono text-xs">RCC_APB1ENR</td><td class="font-mono text-xs">bit 23</td><td class="font-mono text-xs">__HAL_RCC_USB_CLK_ENABLE()</td></tr>
+                <tr><td class="font-mono text-xs">CAN</td><td>APB1</td><td class="font-mono text-xs">RCC_APB1ENR</td><td class="font-mono text-xs">bit 24</td><td class="font-mono text-xs">__HAL_RCC_CAN1_CLK_ENABLE()</td></tr>
+                <tr><td class="font-mono text-xs">PWR（低功耗、备份域）</td><td>APB1</td><td class="font-mono text-xs">RCC_APB1ENR</td><td class="font-mono text-xs">bit 28</td><td class="font-mono text-xs">__HAL_RCC_PWR_CLK_ENABLE()</td></tr>
+                <tr><td class="font-mono text-xs">BKP（备份寄存器）</td><td>APB1</td><td class="font-mono text-xs">RCC_APB1ENR</td><td class="font-mono text-xs">bit 27</td><td class="font-mono text-xs">__HAL_RCC_BKP_CLK_ENABLE()</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">记忆规律：<b class="font-semibold text-ink">名字里带 1 的高速外设（USART1、SPI1、TIM1、ADC1）几乎都在 APB2</b>，名字里带 2/3/4 的都在 APB1。GPIO 全部在 APB2。这条规律能帮你在记不住时猜个八九不离十，但<b>真写代码时还是要查表</b>——写错了不报错，只是没反应。</p>
+
+          <h3 id="sub-systick" class="mt-7 text-base font-semibold">SysTick：HAL_Delay 的心跳</h3>
+          <p class="mt-3"><b class="font-semibold text-ink">SysTick（系统滴答定时器）</b>是 Cortex-M3 内核自带的一个 24 位递减计数器，属于内核不属于 ST，所以换任何一颗 Cortex-M 芯片它都在，代码可以直接搬。它的工作方式极其简单：从装载值开始往下数，数到 0 时产生一次中断，然后自动重新装载，周而复始。</p>
+          <p class="mt-3">HAL 库把它配成了<b class="font-semibold text-ink">每 1 毫秒中断一次</b>。中断服务函数里没有别的逻辑，只有一个动作：把一个全局变量加一。这个变量叫 <code class="icode">uwTick</code>，含义就是「从上电到现在过了多少毫秒」。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="HAL_Delay 的工作原理（简化示意，非库源码原文）">
+            <pre><code>/* ---------- HAL 库内部维护的全局变量 ---------- */
+static volatile uint32_t uwTick = 0;    /* 从开机到现在的毫秒数，volatile 必须加 */
+
+/* ---------- SysTick 每 1ms 中断一次，进这里 ---------- */
+void SysTick_Handler(void)
+{
+  HAL_IncTick();                        /* 实际动作就是：uwTick++ */
+}
+
+/* ---------- 你要的延时函数 ---------- */
+void HAL_Delay(uint32_t Delay)
+{
+  uint32_t tickstart = HAL_GetTick();   /* 记下当前时刻 */
+  uint32_t wait      = Delay;           /* 要等多少毫秒 */
+
+  while ((HAL_GetTick() - tickstart) &lt; wait)
+  {
+    /* 死等：什么都不干，反复读 uwTick 直到差值够大 */
+  }
+}
+
+/* ============================================================
+ * 关键推论：uwTick 每秒加 1000 次，是靠 SysTick 按 HCLK 分频得到的。
+ *   SysTick 装载值 = HCLK / 1000 - 1
+ *   72MHz 时：72000000 / 1000 - 1 = 71999
+ *   36MHz 时：36000000 / 1000 - 1 = 35999
+ * 如果 HCLK 变了而装载值没重算：
+ *   → SysTick 中断间隔不再是 1ms → uwTick 增速不对 → HAL_Delay 全程缩放。
+ * HAL 的 HAL_RCC_ClockConfig() 结尾会自动重算，所以用 HAL 配时钟一般不会出问题；
+ * 但如果你是直接写 RCC-&gt;CFGR 改频率，就必须自己调用 HAL_InitTick() 重配一次。
+ * ============================================================ */</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">没调 HAL_Init()，HAL_Delay() 就等于没延时</div>
+            <p><code class="icode">HAL_Init()</code> 做的第一件事就是调用 <code class="icode">HAL_InitTick()</code> 把 SysTick 配成 1ms。如果你忘了调它，SysTick 中断永远不会来，<code class="icode">uwTick</code> 永远是 0，那么 <code class="icode">(HAL_GetTick() - tickstart)</code> 永远是 0，小于 <code class="icode">wait</code> 的条件一旦不成立……实际上死等循环会因为「永远不足」而<b>卡死在那里出不来</b>；在另一种写法下则会立刻返回、一点延时都没有。两种现象的根因都是「心跳没启动」。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件资源说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件资源说明</h2>
+          <p class="mt-4">时钟系统在硬件上对应的东西非常少，就是板子上那<b class="font-semibold text-ink">两个银色小圆柱（晶振和它的负载电容）</b>。但就是这两个不起眼的元件，决定了整块板子的时间基准。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="8MHz 晶振在蓝药丸上的接法">
+            <pre><code>           芯片内部                        芯片外部（板子上）
+   ┌──────────────────────┐
+   │                      │          Y1：8MHz 石英晶体
+   │   OSC_IN  (PD0, 脚5) ├───────┬──────┤├──────┬───────┐
+   │                      │       │   （石英）    │       │
+   │                      │       │               │       │
+   │                      │      C1              C2       │
+   │                      │     20pF            20pF      │
+   │                      │       │               │       │
+   │   OSC_OUT (PD1, 脚6) ├───────┘               │       │
+   │                      │                       │       │
+   │      GND             ├───────────────────────┴───────┘
+   └──────────────────────┘
+
+   ① 石英晶体 Y1：靠「压电效应」产生极其稳定的机械振动，
+      频率由晶体切割尺寸决定，8MHz 就是每秒振动 800 万次。
+   ② 负载电容 C1、C2：常见 20pF（有些板子是 22pF）。
+      它们和晶体一起构成谐振回路，决定实际振荡频率。
+      电容值不匹配 → 频率偏移，甚至根本不起振。
+   ③ 两个电容的接法：晶体的两端各接一个到 GND，
+      不是串在中间！接错了整块板子都不会跑。
+
+   ⚠ 示波器直接量 OSC_IN 会「量了就停」：
+     晶振驱动能力极弱，探头几 pF 的输入电容就足以把它拉停。
+     正确做法是量 MCO 引脚（PA8 可以配成把系统时钟输出），
+     或者把程序里配成用 HSI，再反过来验证晶振有没有问题。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>硬件现象</th><th>说明什么</th><th>怎么确认</th></tr></thead>
+              <tbody>
+                <tr><td>程序卡在 <code class="icode">while ((RCC-&gt;CR &amp; RCC_CR_HSERDY) == 0);</code> 出不来</td><td>HSE 根本没起振</td><td>看晶振有没有虚焊、电容有没有装错；换成 <code class="icode">RCC_HSE_BYPASS</code> 用外部有源晶振试</td></tr>
+                <tr><td>能启动，但串口偶尔出错</td><td>晶振在振但频率不准</td><td>把系统时钟输出到 PA8（MCO），用频率计量</td></tr>
+                <tr><td>板子必须用手按住晶振才能跑</td><td>晶振虚焊 / 负载电容脱焊</td><td>补焊晶体和两个电容</td></tr>
+                <tr><td>换了一块同型号板子就正常</td><td>原板晶振或电容不良</td><td>对照两块板的 C1/C2 标称值是否一致</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">板子上其实还有第二个晶振</div>
+            <p>如果你用的是带 RTC 的板子（或者自己焊过 32.768kHz 晶振），会看到另一个更小的圆柱形元件，那就是 LSE。它只服务于实时时钟，和系统主频没有任何关系——<b class="font-semibold">拔掉它，程序照跑，只是 RTC 走时不准或走不动</b>。判断方法很简单：8MHz 的贴着 OSC_IN/OSC_OUT（PD0/PD1），32.768kHz 的贴着 PC14/PC15（OSC32_IN/OSC32_OUT）。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+          <p class="mt-4">配时钟有三种途径：CubeMX 点界面（最省事）、直接写寄存器（最能看清原理）、调 HAL 函数（工程上最常用）。三种都过一遍，你才算真正掌握。</p>
+
+          <h3 id="sub-cubemx-ui" class="mt-7 text-base font-semibold">在 CubeMX 里怎么点时钟树</h3>
+          <p class="mt-3">CubeMX 把整个时钟树做成了一个可以点击的界面。步骤固定，照着点一遍就会了。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="CubeMX 配置 72MHz 时钟树的点击顺序">
+            <pre><code>【第 0 步】新建工程、选好芯片 STM32F103C8Tx 之后
+
+【第 1 步】左侧 System Core → RCC → High Speed Clock (HSE) 选
+             ○ Disable
+             ● Crystal/Ceramic Resonator     ← 选这个（板上有 8MHz 晶振）
+          同理 Low Speed Clock (LSE) 也选 Crystal/Ceramic Resonator（要用 RTC 才需要）
+
+【第 2 步】切到上方 Clock Configuration 标签页，你会看到那张时钟树图。
+          图上每个方块都可以点，蓝色高亮表示「这条路是通的」。
+
+【第 3 步】先把输入源选对：
+          ┌─────────────────────────────────────────────┐
+          │  Input frequency:  8        MHz             │  ← 手填 8，和晶振一致
+          │  PLL Source Mux:   ● HSE   ○ HSI            │  ← 选 HSE
+          └─────────────────────────────────────────────┘
+
+【第 4 步】在 PLL Source Mux 和 PLL 之间有一个小分频器（/1 或 /2）：
+          ┌─────────────────────────────────────────────┐
+          │  /PLLXTPRE:        ● /1    ○ /2             │  ← 必须选 /1！
+          └─────────────────────────────────────────────┘
+          （选 /2 就是前面算过的 8 ÷ 2 × 9 = 36MHz，主频直接减半）
+
+【第 5 步】PLL 框里填倍频：
+          ┌─────────────────────────────────────────────┐
+          │  PLLMUL:           ×9                       │  ← 填 9
+          └─────────────────────────────────────────────┘
+          此时 PLL 输出显示 72 MHz。
+
+【第 6 步】System Clock Mux 选 PLLCLK：
+          ┌─────────────────────────────────────────────┐
+          │  ● PLLCLK   ○ HSE   ○ HSI                   │
+          └─────────────────────────────────────────────┘
+          此时 HCLK 那一行会自动显示 72 MHz。
+
+【第 7 步】三个分频器：
+          ┌─────────────────────────────────────────────┐
+          │  AHB Prescaler   (HPRE):  /1   → 72 MHz     │
+          │  APB1 Prescaler  (PPRE1): /2   → 36 MHz     │
+          │  APB2 Prescaler  (PPRE2): /1   → 72 MHz     │
+          └─────────────────────────────────────────────┘
+          ⚠ 界面上如果某个节点变红/变橙，说明超频了，
+            必须调分频器把频率压回上限以内。
+
+【第 8 步】切到 Project Manager → Code Generator，
+          勾上「Generate peripheral initialization as a pair of .c/.h files」，
+          生成代码。SystemClock_Config() 就已经写好了，不用自己敲。</code></pre>
+          </div>
+
+          <h3 id="sub-reg-clock" class="mt-7 text-base font-semibold">纯寄存器版本：把 72MHz 一步一步写出来</h3>
+          <p class="mt-3">下面这段代码不用 HAL，全部直接操作 RCC 寄存器。<b class="font-semibold text-ink">顺序非常关键</b>：必须先把 Flash 等待周期配好，再切高频——反过来的话，CPU 会在 Flash 来不及供货的情况下取指，直接跑飞。</p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="clock_reg.c —— 纯寄存器配置 72MHz">
+            <pre><code>/* ============================================================================
+ * clock_reg.c —— 不用 HAL，直接把 SYSCLK 从 8MHz(HSI) 配到 72MHz(PLL from HSE)
+ * 芯片：STM32F103C8T6   晶振：8MHz
+ * 寄存器名来自 CMSIS 头文件 stm32f103xb.h，都是真实存在的
+ * ============================================================================ */
+
+#include "stm32f103xb.h"
+
+void clock_init_72m(void)
+{
+  /* ---------- 第 1 步：打开 HSE，并等它稳定 ----------
+   * RCC_CR 是时钟控制寄存器，地址 0x40021000。
+   * HSEON 是 bit16，写 1 表示「给外部晶振通电」。
+   * 晶振从通电到稳定振荡需要几毫秒，硬件会自己等，
+   * 稳定后把 HSERDY（bit17）置 1 —— 所以必须轮询这一位。
+   * 如果晶振坏了，这里会永远等待，程序就卡死在这一行。
+   * ------------------------------------------------------------ */
+  RCC-&gt;CR |= RCC_CR_HSEON;                       /* bit16 = 1，启动 HSE */
+  while ((RCC-&gt;CR &amp; RCC_CR_HSERDY) == 0)        /* bit17 = 1 表示已就绪 */
+  {
+    /* 空循环等待。实际工程里建议加一个超时计数，超时就退回 HSI， */
+    /* 否则晶振故障会让整块板子「看起来像死机」。            */
+  }
+
+  /* ---------- 第 2 步：配置 Flash 等待周期（必须在提频之前！）----------
+   * Flash 存储器的读取速度跟不上 72MHz 的 CPU。
+   * ST 的规定（RM0008「Flash 访问等待周期」表）：
+   *   0 &lt; SYSCLK ≤ 24MHz  → 0 个等待周期
+   *   24 &lt; SYSCLK ≤ 48MHz → 1 个等待周期
+   *   48 &lt; SYSCLK ≤ 72MHz → 2 个等待周期
+   * 等待周期 = 让 CPU 多等几个时钟再取指，属于「主动踩刹车」。
+   * 忘了配的后果：CPU 取到错误的指令，程序随机跑飞或死机。
+   * FLASH_ACR 里的 PRFTBE 是预取缓冲区使能，打开能显著提速。
+   * ------------------------------------------------------------ */
+  FLASH-&gt;ACR |= FLASH_ACR_PRFTBE;                /* 使能预取缓冲区 */
+  FLASH-&gt;ACR &amp;= ~FLASH_ACR_LATENCY;              /* 先清空 LATENCY 位 */
+  FLASH-&gt;ACR |= FLASH_ACR_LATENCY_2;             /* 设为 2 个等待周期 */
+
+  /* ---------- 第 3 步：先把三条总线的分频配好 ----------
+   * 顺序讲究：要在切到 72MHz 之前就把 APB1 设成 ÷2，
+   * 否则切过去的一瞬间 APB1 会跑到 72MHz，超出它的 36MHz 上限。
+   * RCC_CFGR 是时钟配置寄存器，地址 0x40021004。
+   *   HPRE  = bit[7:4]    AHB 分频
+   *   PPRE1 = bit[10:8]   APB1 分频
+   *   PPRE2 = bit[13:11]  APB2 分频
+   * 分频位的编码不是直接的二进制数值，÷1 对应全 0，
+   * 所以这里用「先清零再按宏赋值」的写法最安全。
+   * ------------------------------------------------------------ */
+  RCC-&gt;CFGR &amp;= ~(RCC_CFGR_HPRE | RCC_CFGR_PPRE1 | RCC_CFGR_PPRE2);
+  RCC-&gt;CFGR |= RCC_CFGR_HPRE_DIV1;               /* AHB  = 72MHz */
+  RCC-&gt;CFGR |= RCC_CFGR_PPRE2_DIV1;              /* APB2 = 72MHz */
+  RCC-&gt;CFGR |= RCC_CFGR_PPRE1_DIV2;              /* APB1 = 36MHz ← 必须 ÷2 */
+
+  /* ---------- 第 4 步：配置 PLL 的输入源和倍频系数 ----------
+   * PLLSRC  (bit16)：0 = HSI/2，1 = HSE
+   * PLLXTPRE(bit17)：0 = HSE 不分频，1 = HSE 二分频
+   * PLLMUL  (bit[21:18])：倍频系数，编码值 +2 = 实际倍数
+   * ------------------------------------------------------------ */
+  RCC-&gt;CFGR &amp;= ~(RCC_CFGR_PLLSRC | RCC_CFGR_PLLXTPRE | RCC_CFGR_PLLMULL);
+  RCC-&gt;CFGR |= RCC_CFGR_PLLSRC;                  /* 选 HSE 作为 PLL 输入 */
+  /* PLLXTPRE 保持为 0，也就是 HSE 不分频 → 8MHz */
+  RCC-&gt;CFGR |= RCC_CFGR_PLLMULL9;                /* ×9 → 8MHz × 9 = 72MHz */
+
+  /* ---------- 第 5 步：启动 PLL，等它锁定 ----------
+   * 锁相环需要一段时间才能把输出频率「锁」到目标值，
+   * 硬件用 PLLRDY 位告诉你锁好了没有。
+   * ------------------------------------------------------------ */
+  RCC-&gt;CR |= RCC_CR_PLLON;                       /* bit24 = 1，启动 PLL */
+  while ((RCC-&gt;CR &amp; RCC_CR_PLLRDY) == 0)        /* bit25 = 1 表示已锁定 */
+  {
+  }
+
+  /* ---------- 第 6 步：把系统时钟切到 PLL ----------
+   * SW 位（bit[1:0]）是「想要用谁」，写下去后硬件开始切换；
+   * SWS 位（bit[3:2]）是「实际正在用谁」，是只读的。
+   * 必须等 SWS 显示 PLL，才算切换完成 —— 这中间有几十个周期的过渡。
+   * ------------------------------------------------------------ */
+  RCC-&gt;CFGR &amp;= ~RCC_CFGR_SW;
+  RCC-&gt;CFGR |= RCC_CFGR_SW_PLL;                  /* 请求切到 PLL */
+  while ((RCC-&gt;CFGR &amp; RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL)
+  {
+    /* 等硬件把 SWS 改成 PLL，说明切换完成 */
+  }
+
+  /* ---------- 第 7 步：更新软件里的频率记录变量 ----------
+   * SystemCoreClock 是一个全局变量，HAL 和标准库都用它来推算
+   * 各种分频值（比如 SysTick 装载值）。寄存器改了它不会自动变，
+   * 必须手动调一次 SystemClockUpdate，否则 HAL_Delay 会算错。
+   * 这个函数在 system_stm32f1xx.c 里，CubeMX 生成的工程自带。
+   * ------------------------------------------------------------ */
+  SystemCoreClockUpdate();                       /* 重新计算 SystemCoreClock */
+}
+
+/* ============================================================================
+ * 附：为什么第 3 步要「先清零再赋值」
+ *
+ * RCC_CFGR 的 PPRE1 是 3 个位，编码规则是：
+ *     000 → ÷1      100 → ÷2      101 → ÷4
+ *     110 → ÷8      111 → ÷16
+ * 不是「写 2 就是 ÷2」！所以如果直接写 RCC-&gt;CFGR |= 0x02 到那几位上，
+ * 得到的其实是「÷1」，一点效果都没有。
+ * 正确做法就是用 RCC_CFGR_PPRE1_DIV2 这种带名字的宏，
+ * 它内部已经算好了正确的编码值（0x400 = bit10 置 1）。
+ * 自己乱填魔法数字，是「时钟配了但频率没变」的常见原因。
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <h3 id="sub-hal-clock" class="mt-7 text-base font-semibold">HAL 版本：CubeMX 生成的 SystemClock_Config()</h3>
+          <p class="mt-3">这是 CubeMX 在按上一节点完之后自动生成在 <code class="icode">main.c</code> 里的函数。你会发现它比寄存器版本<b class="font-semibold">长得多</b>——那些多出来的行，全是在往结构体里填字段。这正是后面「寄存器、标准库与 HAL」要讲的东西。</p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— HAL 库版本（CubeMX 生成，含逐行注释）">
+            <pre><code>/* ============================================================================
+ * SystemClock_Config() —— HAL 版本，由 CubeMX 生成
+ * 效果与上面纯寄存器版本完全等价：SYSCLK=72MHz, HCLK=72MHz,
+ *                                  PCLK1=36MHz, PCLK2=72MHz
+ * ============================================================================ */
+
+void SystemClock_Config(void)
+{
+  /* 两个结构体变量，先全部清零。
+     加 = {0} 是必须的：局部变量在栈上，不清零就是随机值，
+     而 HAL 会把结构体里所有字段都读一遍，垃圾值会导致配出莫名其妙的时钟。 */
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /* ---------------- 第一半：配置「时钟源」和 PLL ----------------
+   * 这一步对应寄存器版本的「第 1、4、5 步」：
+   * 开 HSE、等就绪、配 PLL 输入和倍频、开 PLL、等锁定。
+   * 你填的是「想要什么」，HAL 负责把它翻译成 CR 和 CFGR 的位。 */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;  /* 我要动 HSE */
+  RCC_OscInitStruct.HSEState       = RCC_HSE_ON;              /* 打开它   */
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;     /* 不分频 → 8MHz */
+  RCC_OscInitStruct.HSIState       = RCC_HSI_ON;              /* HSI 留着备用 */
+  RCC_OscInitStruct.PLL.PLLState   = RCC_PLL_ON;              /* 打开 PLL */
+  RCC_OscInitStruct.PLL.PLLSource  = RCC_PLLSOURCE_HSE;       /* PLL 输入选 HSE */
+  RCC_OscInitStruct.PLL.PLLMUL     = RCC_PLL_MUL9;            /* ×9 → 72MHz */
+
+  if (HAL_RCC_OscConfig(&amp;RCC_OscInitStruct) != HAL_OK)
+  {
+    /* 走到这里说明晶振没起振、或者参数非法。
+       Error_Handler() 是 CubeMX 生成的空函数（内部是个 while(1) 死循环），
+       调试时在这里打断点，就能立刻知道「卡在时钟初始化」而不是别的地方。 */
+    Error_Handler();
+  }
+
+  /* ---------------- 第二半：配置「系统时钟来源」和三条总线分频 ----------------
+   * 这一步对应寄存器版本的「第 2、3、6 步」。
+   * 注意最后一个参数 FLASH_LATENCY_2 —— HAL 把 Flash 等待周期
+   * 也归到「时钟配置」里一起做了，因为这两件事必须同进同退。 */
+  RCC_ClkInitStruct.ClockType      = RCC_CLOCKTYPE_HCLK   /* 我要配 AHB  */
+                                   | RCC_CLOCKTYPE_SYSCLK /* 和 系统时钟  */
+                                   | RCC_CLOCKTYPE_PCLK1  /* 和 APB1     */
+                                   | RCC_CLOCKTYPE_PCLK2; /* 和 APB2     */
+  RCC_ClkInitStruct.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK; /* 系统时钟用 PLL */
+  RCC_ClkInitStruct.AHBCLKDivider  = RCC_SYSCLK_DIV1;         /* AHB  ÷1 → 72MHz */
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;           /* APB1 ÷2 → 36MHz */
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;           /* APB2 ÷1 → 72MHz */
+
+  /* 第二个参数是 Flash 等待周期数：72MHz 对应 2 */
+  if (HAL_RCC_ClockConfig(&amp;RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* 函数内部结尾会自动做两件事，这就是用 HAL 省心的地方：
+     ① 更新 SystemCoreClock 变量
+     ② 重新调用 HAL_InitTick()，按新的 HCLK 重算 SysTick 装载值
+     所以 HAL_Delay 在改时钟之后依然准确，不用你操心。 */
+}
+
+/* ============================================================================
+ * main() 里的调用顺序（CubeMX 生成，顺序不能乱）：
+ *
+ *   int main(void)
+ *   {
+ *     HAL_Init();                 // 1. 初始化 HAL 库本身 + 配置 SysTick 为 1ms
+ *     SystemClock_Config();       // 2. 把时钟从 8MHz 提到 72MHz
+ *     MX_GPIO_Init();             // 3. 初始化各个外设（内部会开对应的外设时钟）
+ *     MX_USART1_UART_Init();
+ *     while (1) { ... }
+ *   }
+ *
+ * 为什么 HAL_Init() 必须在最前面？因为它要先把 SysTick 跑起来，
+ * 后面所有基于超时的 HAL 函数才有时间概念。
+ * 而 HAL_Init() 里配 SysTick 时用的还是默认的 HSI 8MHz，
+ * 所以 SystemClock_Config() 结尾必须重配一次 —— 这就是上面说的自动动作②。
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">把系统时钟输出到 PA8，用频率计亲眼验证</div>
+            <p>怀疑时钟没配对时，最硬的证据是「把时钟引出来量一下」。F103 的 PA8 可以复用成 <b>MCO</b>（Microcontroller Clock Output，微控制器时钟输出）引脚，把 SYSCLK 或 HCLK 直接输出到引脚上：</p>
+            <p class="mt-2"><code class="icode">__HAL_RCC_GPIOA_CLK_ENABLE();</code> 然后配 PA8 为复用推挽输出，再写 <code class="icode">HAL_RCC_MCOConfig(RCC_MCO1, RCC_MCO1SOURCE_SYSCLK, RCC_MCODIV_1);</code>，用频率计或示波器量 PA8 对地，应该读到 <b>72.00MHz</b>。读到 36MHz 就说明 PLLXTPRE 选错了，读到 8MHz 就说明根本没切到 PLL。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+          <p class="mt-4">配完时钟不要急着往下写代码，<b class="font-semibold text-ink">先核对每个节点的频率</b>。下面这张表既是「应该得到什么」的答案，也是排查时的对照标准。</p>
+
+          <h3 class="mt-7 text-base font-semibold">时钟配置结果核对表</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>节点</th><th>应该是多少</th><th>用什么读取（HAL）</th><th>不对时最可能的原因</th></tr></thead>
+              <tbody>
+                <tr><td>HSE 输入</td><td class="font-mono text-xs">8 MHz</td><td>晶振标称值，软件读不到</td><td>晶振损坏、负载电容错、焊接不良</td></tr>
+                <tr><td>PLL 输入</td><td class="font-mono text-xs">8 MHz</td><td>CubeMX 界面会实时显示</td><td>PLLXTPRE 误选 ÷2 → 变成 4MHz</td></tr>
+                <tr><td>PLL 输出</td><td class="font-mono text-xs">72 MHz</td><td>界面显示；或量 PA8 的 MCO</td><td>PLLMUL 填成了别的倍数</td></tr>
+                <tr><td>SYSCLK</td><td class="font-mono text-xs">72 MHz</td><td class="font-mono text-xs">HAL_RCC_GetSysClockFreq()</td><td>System Clock Mux 没选 PLLCLK</td></tr>
+                <tr><td>HCLK（AHB）</td><td class="font-mono text-xs">72 MHz</td><td class="font-mono text-xs">HAL_RCC_GetHCLKFreq()</td><td>HPRE 没配成 ÷1</td></tr>
+                <tr><td>PCLK1（APB1）</td><td class="font-mono text-xs">36 MHz</td><td class="font-mono text-xs">HAL_RCC_GetPCLK1Freq()</td><td>PPRE1 没配成 ÷2 → 会超 36MHz 上限</td></tr>
+                <tr><td>PCLK2（APB2）</td><td class="font-mono text-xs">72 MHz</td><td class="font-mono text-xs">HAL_RCC_GetPCLK2Freq()</td><td>PPRE2 被误设成 ÷2 → 变 36MHz</td></tr>
+                <tr><td>TIM2 计数时钟</td><td class="font-mono text-xs">72 MHz</td><td>按规则算：PCLK1 × 2</td><td>误以为它等于 PCLK1（36MHz），导致延时算错一倍</td></tr>
+                <tr><td>SysTick 中断频率</td><td class="font-mono text-xs">1 kHz（每 1ms 一次）</td><td>用示波器量一个「每 500ms 翻转一次」的引脚，周期应是 1 秒</td><td>改时钟后没重配 SysTick → HAL_Delay 缩放</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block mt-4" data-lang="c" data-title="打印时钟验证代码（接到串口上跑一遍）">
+            <pre><code>/* ============================================================================
+ * 把这段放进 main() 的 while(1) 之前，只跑一次。
+ * 需要串口已经初始化并能正常打印（printf 重定向见串口相关教程）。
+ * ============================================================================ */
+
+#include &lt;stdio.h&gt;
+#include "stm32f1xx_hal.h"
+
+extern void uart_send_string(const char *s);   /* 你自己实现的串口发送 */
+
+static void print_clock_info(void)
+{
+  char buf[128];
+
+  /* SystemCoreClock 是 CMSIS 维护的全局变量，等于 HCLK */
+  sprintf(buf, "SystemCoreClock = %lu Hz\r\n", (unsigned long)SystemCoreClock);
+  uart_send_string(buf);
+
+  sprintf(buf, "SYSCLK = %lu Hz\r\n", (unsigned long)HAL_RCC_GetSysClockFreq());
+  uart_send_string(buf);
+
+  sprintf(buf, "HCLK   = %lu Hz   (AHB 总线)\r\n", (unsigned long)HAL_RCC_GetHCLKFreq());
+  uart_send_string(buf);
+
+  sprintf(buf, "PCLK1  = %lu Hz   (APB1 总线，上限 36MHz)\r\n", (unsigned long)HAL_RCC_GetPCLK1Freq());
+  uart_send_string(buf);
+
+  sprintf(buf, "PCLK2  = %lu Hz   (APB2 总线，上限 72MHz)\r\n", (unsigned long)HAL_RCC_GetPCLK2Freq());
+  uart_send_string(buf);
+}
+
+/* ============================================================================
+ * 正确的输出应该是这五行（数字一个都不能错）：
+ *
+ *   SystemCoreClock = 72000000 Hz
+ *   SYSCLK = 72000000 Hz
+ *   HCLK   = 72000000 Hz   (AHB 总线)
+ *   PCLK1  = 36000000 Hz   (APB1 总线，上限 36MHz)
+ *   PCLK2  = 72000000 Hz   (APB2 总线，上限 72MHz)
+ *
+ * 常见的错误输出与含义：
+ *   HCLK = 64000000  →  PLL 源选成了 HSI（4MHz × 16 = 64MHz 上限）
+ *   HCLK = 36000000  →  PLLXTPRE 选成了 ÷2（8 ÷ 2 × 9 = 36MHz）
+ *   HCLK =  8000000  →  压根没切到 PLL，还在用 HSI 裸跑
+ *   HCLK = 72000000 但 PCLK1 = 72000000 → PPRE1 忘了 ÷2，APB1 超频
+ * ============================================================================ */</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">最快的「时钟对不对」自测法</div>
+            <p>不想配串口也想验证，用这个土办法：写一个「每 <code class="icode">HAL_Delay(500)</code> 翻转一次 PC13」的程序，用手机秒表对着灯数 10 次翻转，应该是 <b>正好 10 秒</b>。如果数出来 20 秒，说明实际时钟只有设定值的一半；如果数出来 8 秒，说明时钟超了。<b class="font-semibold">灯就是最低成本的频率计</b>。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+          <p class="mt-4">时钟相关的问题有个共同特点：<b class="font-semibold">它们都不报错</b>。编译器挑不出毛病，下载也成功，只是行为不对。所以排查全靠「现象反推」，下面按「现象 → 原因 → 解决」列出最常见的八种。</p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">串口打印出来全是乱码（或者收到的字符完全对不上）</div>
+            <p><b class="font-semibold">原因：</b>时钟没配对，导致波特率分频值算错。波特率的本质是「总线时钟 ÷ 分频值」，而分频值是 HAL 按你声明的总线频率算出来的。<b>如果实际总线频率和 HAL 以为的不一样，实际波特率就偏了。</b>比如实际跑 36MHz 而 HAL 以为在 72MHz，它会配出两倍的分频值，实际波特率就只有标称值的一半（57600 而不是 115200），收到的就是乱码。次要原因：USART1 和 USART2 挂在不同总线上（APB2 的 72MHz vs APB1 的 36MHz），你按 USART1 的参数去配 USART2 也会错。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>① 先跑上面那段时钟打印代码，确认 PCLK1/PCLK2 的数字完全正确；② 确认你用的是哪个串口、对应哪条总线；③ 检查串口助手的波特率、数据位、停止位、校验位设置是否和代码一致；④ 临时把波特率降到 9600 试试——如果 9600 正常而 115200 乱码，说明是时钟精度或分频值问题（低波特率对误差的容忍度更大）。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">定时器算出来的时间差一倍</div>
+            <p><b class="font-semibold">原因：</b>没记住「定时器时钟的特殊规则」。规则原文是：<b>如果 APB 预分频系数 ≠ 1，则该总线上的定时器时钟 = PCLK × 2</b>。你的 TIM2 挂在 APB1，PPRE1 = ÷2 ≠ 1，所以 TIM2 的计数时钟是 36MHz × 2 = <b>72MHz</b>，而不是 36MHz。很多人按 36MHz 去算 <code class="icode">PSC</code> 值，结果定时时间正好差一倍。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>算 PSC 之前先确认这个定时器的实际计数时钟。简便记法：<b>F103 在 72MHz 标准配置下，TIM1~TIM4 的计数时钟全都是 72MHz</b>。用 HAL 的话可以直接查 <code class="icode">HAL_RCC_GetPCLK1Freq() * 2</code>，比硬编码 72000000 更保险。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">HAL_Delay(1000) 实际只延时半秒（或多等一倍）</div>
+            <p><b class="font-semibold">原因：</b>SysTick 的装载值是按 <code class="icode">HCLK</code> 算的，HCLK 变了而 SysTick 没重配，tick 的间隔就不再是 1ms。用 HAL 配时钟时 <code class="icode">HAL_RCC_ClockConfig()</code> 会自动重配，所以多半是下面两种情况之一：① 你绕过 HAL，直接用寄存器改了 <code class="icode">RCC-&gt;CFGR</code>，那就得手动调一次 <code class="icode">HAL_InitTick()</code>；② 你在 <code class="icode">SystemClock_Config()</code> 之前就调用了 <code class="icode">HAL_Delay()</code>，此时重配还没发生。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>遵守 CubeMX 的固定调用顺序 <code class="icode">HAL_Init()</code> → <code class="icode">SystemClock_Config()</code> → 外设初始化 → <code class="icode">while(1)</code>，不要在 <code class="icode">SystemClock_Config()</code> 里加会延时的代码（比如点灯闪烁表示「时钟配好了」）。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">点灯完全没反应，编译零错误零警告 —— 新手第一大坑</div>
+            <p><b class="font-semibold">原因：</b><b>忘了开 GPIO 的时钟。</b>外设时钟复位后默认全部关闭，此时写 <code class="icode">GPIOC-&gt;ODR</code> 会被硬件丢弃，既不报错也不产生异常，代码继续往下跑，看起来一切正常。这是 51 上完全不存在的问题，所以从 51 转过来的人几乎 100% 会踩。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>在配置 GPIO 寄存器<b>之前</b>加 <code class="icode">__HAL_RCC_GPIOC_CLK_ENABLE();</code>（注意是 APB2 的位，别去开 APB1）。CubeMX 生成的 <code class="icode">MX_GPIO_Init()</code> 第一行就自动做了这件事，所以用 CubeMX 的人反而不会遇到；一旦开始手写寄存器，这个坑立刻出现。验证办法：调试时在 Watch 窗口看 <code class="icode">RCC-&gt;APB2ENR</code> 的 bit4 是不是 1。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">程序一上电就卡死，暂停后 PC 停在等 HSE 就绪的那个 while 循环里</div>
+            <p><b class="font-semibold">原因：</b>外部晶振没有起振，<code class="icode">HSERDY</code> 位永远是 0，而代码是一个<b>没有超时的死等循环</b>。晶振不起振的常见原因：晶振或负载电容虚焊、电容值装错、晶振损坏、或者板子根本没有晶振而代码却要求 HSE。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>① 先确认板子上真的有 8MHz 晶振和两个负载电容；② 用万用表检查晶振两脚对地是否短路、是否虚焊；③ 临时把 HSE 换成 HSI 验证「其他部分都是好的」——改用 <code class="icode">RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;</code> 且 PLL 源换成 <code class="icode">RCC_PLLSOURCE_HSI_DIV2</code>，此时最高只能到 64MHz；④ 给死等循环加超时计数，超时后退回 HSI 并点亮一个「故障指示灯」——这是产品级代码该有的健壮性。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">配到 72MHz 后程序随机跑飞、跑一会儿死机</div>
+            <p><b class="font-semibold">原因：</b>Flash 等待周期（Latency）没配。Flash 存储器的读取速度上限远低于 72MHz 的 CPU，ST 的规定是 <b>48MHz 以上必须设 2 个等待周期</b>。忘了配，CPU 会用「来不及供货」的速度去 Flash 取指令，取到的内容不可靠，表现为随机跑飞、随机死机、加一句无关代码就正常了。第二种可能是 APB1 超频（PPRE1 没设 ÷2，跑到 72MHz），超出芯片规格。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>① 用寄存器配时钟时，务必在提频<b>之前</b>执行 <code class="icode">FLASH-&gt;ACR |= FLASH_ACR_LATENCY_2;</code> 并打开预取；② 用 HAL 时把 <code class="icode">HAL_RCC_ClockConfig(&amp;结构体, FLASH_LATENCY_2)</code> 的第二个参数给对；③ 用 CubeMX 核对 APB1 的分频是 ÷2。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">ADC 读数不准、抖动很大，或者干脆是满量程</div>
+            <p><b class="font-semibold">原因：</b>ADC 时钟超限。ADC 除了总线时钟之外还有一个<b>自己的分频器 ADCPRE</b>（可选 ÷2/÷4/÷6/÷8），而且 <b>ADCCLK 绝对不能超过 14MHz</b>。PCLK2 = 72MHz 时如果选了 ÷2，ADCCLK = 36MHz，是上限的 2.5 倍，转换结果会明显失真。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>把 ADC 分频设成 ÷6（72 ÷ 6 = 12MHz，安全值）或 ÷8（9MHz）。CubeMX 里在 ADC 的参数面板有 <code class="icode">Prescaler</code> 一栏；寄存器写法是设置 <code class="icode">RCC-&gt;CFGR</code> 的 ADCPRE 位。另外注意：ADC 还有个「采样时间」参数（可选 1.5 ~ 239.5 个 ADC 周期），采样时间太短会让高阻抗信号源来不及充满采样电容，同样表现为读数偏低。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">另一类：改了 CubeMX 的时钟配置，重新生成后代码里手改的参数没了</div>
+            <p>这不是报错，是工作方式问题。<code class="icode">SystemClock_Config()</code> 是 CubeMX 的「托管代码」，重新生成时会被整个覆盖。如果你在里面加了调试语句或改了频率，重新生成后就消失了。正确做法：<b>要改时钟就去 CubeMX 里改，改完重新生成</b>；只想临时试一下，就把改动写到 <code class="icode">USER CODE BEGIN</code> / <code class="icode">USER CODE END</code> 之间——只有那两块区域的内容会被保留。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+          <p class="mt-4">时钟是 STM32 里唯一一个「不配就完全不工作」的东西，也是唯一一个「配错却看不出来」的东西。这一篇要记住的链条是：</p>
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">晶振（8MHz）→ PLL（÷1 再 ×9）→ SYSCLK（72MHz）→ AHB（÷1）→ HCLK（72MHz）→ APB1（÷2 / 36MHz）、APB2（÷1 / 72MHz）</b>，这条链上一个环节错，后面全错。</li>
+            <li><b class="font-semibold text-ink">时钟有了，还得逐个开外设的「分闸」</b>——GPIO 在 APB2，串口1 在 APB2，串口2/3 在 APB1，定时器 2/3/4 在 APB1。</li>
+            <li><b class="font-semibold text-ink">定时器时钟要 ×2</b>（当 APB 分频 ≠ 1 时），ADC 时钟不能超过 14MHz。</li>
+            <li><b class="font-semibold text-ink">SysTick 是 CPU 的心跳</b>，<code class="icode">HAL_Delay()</code> 靠它，改时钟必须让它知道。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">自检题（先自己算，再对下面的判据）</div>
+            <ol class="list-decimal space-y-2 pl-5">
+              <li><b>用 8MHz 晶振，想要 48MHz 的系统时钟，PLL 怎么配？</b><p class="mt-1 text-muted">判据：48 ÷ 8 = 6，所以选 HSE 不分频再 ×6。此时 APB1 上限 36MHz 依然要求 ÷2（得 24MHz），如果想让 APB1 更接近 36MHz 也可以，但 ÷1 会得到 48MHz 超限。</p></li>
+              <li><b>为什么用 HSI 永远到不了 72MHz？</b><p class="mt-1 text-muted">判据：HSI 进 PLL 前固定二分频，8 ÷ 2 = 4MHz；倍频系数最大 ×16，4 × 16 = 64MHz，所以上限是 64MHz。</p></li>
+              <li><b>APB1 明明只有 36MHz，为什么 TIM2 的计数时钟是 72MHz？</b><p class="mt-1 text-muted">判据：规则是「APB 预分频系数 ≠ 1 时，该总线上定时器时钟 = PCLK × 2」。PPRE1 = ÷2 ≠ 1，所以 36 × 2 = 72MHz。</p></li>
+              <li><b>写 <code class="icode">GPIOC-&gt;ODR = 0;</code> 之后灯不亮，第一步应该查什么？</b><p class="mt-1 text-muted">判据：查 GPIOC 的时钟是否使能——<code class="icode">RCC-&gt;APB2ENR</code> 的 bit4 是否为 1。没有时钟时写入被静默丢弃，不会有任何报错。</p></li>
+              <li><b>把系统时钟从 72MHz 直接写寄存器改成 36MHz，会有什么连带问题？</b><p class="mt-1 text-muted">判据：SysTick 装载值和 SystemCoreClock 都还是按 72MHz 算的，<code class="icode">HAL_Delay()</code> 的延时会变成两倍；所有已初始化的串口波特率也会偏一倍变成乱码。用 HAL 的 <code class="icode">HAL_RCC_ClockConfig()</code> 会自动处理这两件事，直接写寄存器就得自己调 <code class="icode">SystemCoreClockUpdate()</code> 和 <code class="icode">HAL_InitTick()</code>，并且重新初始化串口。</p></li>
+            </ol>
+          </div>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li><b>亲手复现「36MHz 陷阱」：</b>把 CubeMX 时钟树里的 <code class="icode">/PLLXTPRE</code> 从 <code class="icode">/1</code> 改成 <code class="icode">/2</code>，重新生成，跑一遍本文的时钟打印代码。<b>预期看到 HCLK = 36000000</b>。然后再改回来，对比两次串口打印的差别。</li>
+              <li><b>用灯当时钟表：</b>写「<code class="icode">HAL_Delay(500)</code> 翻转 PC13」，用手机秒表数 20 次翻转。72MHz 下应该正好 20 秒；如果数到 40 秒，说明时钟只有一半。</li>
+              <li><b>故意删掉外设时钟：</b>在 CubeMX 生成的 <code class="icode">MX_GPIO_Init()</code> 里把 <code class="icode">__HAL_RCC_GPIOC_CLK_ENABLE();</code> 临时注释掉（写在 <code class="icode">USER CODE</code> 区域之外会被覆盖，所以练完记得改回来），下载观察「零报错但灯不亮」，然后恢复。</li>
+              <li><b>查表练习：</b>不看本文的速查表，说出 USART3、TIM4、SPI1、ADC1 各自在哪条总线、使能位是第几位，然后回来对照。错的那几个，就是你以后最可能踩坑的地方。</li>
+              <li><b>给死等循环加超时（进阶）：</b>把 <code class="icode">while ((RCC-&gt;CR &amp; RCC_CR_HSERDY) == 0);</code> 改成带计数上限的版本，超时后退回 HSI 并把 PC13 设成快闪。这样即使晶振坏了，板子也会「告诉你它病了」而不是装死。</li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">接下来看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-basic-hal.html">寄存器、标准库与 HAL</a>——为什么 HAL 的代码那么长、句柄结构体和回调到底在干什么。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-basic-arm.html">ARM Cortex-M 与 STM32 架构</a>——总线、存储器映射与启动流程。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-basic-c.html">C 语言进阶</a>——把 HAL 里那些指针、结构体、函数指针一次看懂。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-basic-level.html">3.3V 电平与硬件安全</a>——接线之前必须知道的事，避免烧板子。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="stm32-basic-arm.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">ARM Cortex-M 与 STM32 架构</p>
+          </a>
+          <a href="stm32-basic-hal.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">寄存器、标准库与 HAL：同一件事的三种写法</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

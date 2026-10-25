@@ -1,0 +1,2435 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>逻辑代数与卡诺图化简 - McuStudy</title>
+  <meta name="description" content="知识体系第 14 篇（数字电子）：逻辑变量与正负逻辑、与或非三种基本运算、与非/或非/异或/同或、基本定律与三大规则（代入、反演、对偶）、最小项与最大项、真值表↔表达式↔逻辑图互转、公式化简法与卡诺图化简法、任意项（无关项）的利用、竞争与冒险（毛刺）的成因和消除办法，以及位掩码、三取二表决、低电平有效信号、查表法这些单片机里的真实用法。">
+  <meta name="keywords" content="逻辑代数,布尔代数,卡诺图,最小项,最大项,真值表,正逻辑,负逻辑,德摩根定律,反演规则,对偶规则,冗余律,吸收律,无关项,任意项,竞争冒险,毛刺,位掩码,三取二表决,低电平有效,格雷码,公式化简">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="knowledge" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资源下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../knowledge.html" class="hover:text-brand-600 dark:hover:text-brand-300">知识体系</a>
+          <span>/</span>
+          <span class="text-muted">逻辑代数与卡诺图化简</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          逻辑代数与卡诺图化简
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          这一篇是「数字电子」的第 2 篇（知识体系总第 14 篇），对应阎石、王红《数字电子技术基础》第 6 版第 2 章。它看起来最像数学课——一堆字母、撇号、公式——但它是你后面<b class="font-semibold text-ink">所有</b>单片机代码的地基：<code class="icode">if ((flags &amp; 0x0C) == 0x0C)</code> 是布尔代数，<code class="icode">REG |= (1u &lt;&lt; 3)</code> 是布尔代数，按键「按下是 0」是负逻辑约定，那个「明明没按下却多计了一次数」的毛刺是竞争冒险。学完这一篇，你能把八个 <code class="icode">if-else</code> 压成一行表达式，也能看懂为什么最简的式子在硬件上反而会出问题。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">学科基础</span>
+          <span class="stat-pill">层级：<b>第 1 层 · 数字电子</b></span>
+          <span class="stat-pill">第 <b>14</b> 篇</span>
+          <span class="stat-pill">教材：<b>阎石 第 2 章</b></span>
+          <span class="stat-pill">阅读约 <b>42</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-why">为什么需要它</a>
+          <a class="toc-link" href="#sec-concept">核心概念</a>
+          <a class="toc-link is-sub" href="#sub-logic-var">逻辑变量与正负逻辑</a>
+          <a class="toc-link is-sub" href="#sub-basic-ops">三种基本运算</a>
+          <a class="toc-link is-sub" href="#sub-compound-ops">复合运算：与非、或非、异或、同或</a>
+          <a class="toc-link is-sub" href="#sub-laws">基本定律与常用公式</a>
+          <a class="toc-link is-sub" href="#sub-three-rules">代入、反演、对偶三大规则</a>
+          <a class="toc-link is-sub" href="#sub-minterm">最小项、最大项与标准式</a>
+          <a class="toc-link is-sub" href="#sub-kmap">卡诺图：画法与圈法</a>
+          <a class="toc-link is-sub" href="#sub-dontcare">任意项与竞争冒险</a>
+          <a class="toc-link" href="#sec-calc">动手算一遍</a>
+          <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+          <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-why">为什么需要它</a>
+            <a class="toc-link" href="#sec-concept">核心概念</a>
+            <a class="toc-link is-sub" href="#sub-logic-var">逻辑变量与正负逻辑</a>
+            <a class="toc-link is-sub" href="#sub-basic-ops">三种基本运算</a>
+            <a class="toc-link is-sub" href="#sub-compound-ops">复合运算：与非、或非、异或、同或</a>
+            <a class="toc-link is-sub" href="#sub-laws">基本定律与常用公式</a>
+            <a class="toc-link is-sub" href="#sub-three-rules">代入、反演、对偶三大规则</a>
+            <a class="toc-link is-sub" href="#sub-minterm">最小项、最大项与标准式</a>
+            <a class="toc-link is-sub" href="#sub-kmap">卡诺图：画法与圈法</a>
+            <a class="toc-link is-sub" href="#sub-dontcare">任意项与竞争冒险</a>
+            <a class="toc-link" href="#sec-calc">动手算一遍</a>
+            <a class="toc-link" href="#sec-mcu">在单片机上的样子</a>
+            <a class="toc-link" href="#sec-pitfall">常见误解与坑</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 为什么需要它 ---------------------------- -->
+        <section>
+          <h2 id="sec-why" class="text-xl font-semibold">为什么需要它</h2>
+
+          <p class="mt-4">这一章的名字听起来最不像「单片机课」，但它其实是所有单片机代码的底层语法。先看三个你几乎一定会遇到的现场。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场一：一个需求改了三次，代码越写越长，还是漏了一种情况。</b></p>
+
+          <p class="mt-3">你在做一个三路传感器的报警器，要求「三路都报警才响」。这个好写：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="第一版：三路都报警才响（4 行）">
+            <pre><code>if (s1 &amp;&amp; s2 &amp;&amp; s3) {
+    alarm_on();
+} else {
+    alarm_off();
+}</code></pre>
+          </div>
+
+          <p class="mt-3">第二天老师说：「两路同时报警也算。」你改成——</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="第二版：任意两路报警也响（开始变丑）">
+            <pre><code>if ((s1 &amp;&amp; s2 &amp;&amp; s3) ||
+    (s1 &amp;&amp; s2) || (s1 &amp;&amp; s3) || (s2 &amp;&amp; s3)) {
+    alarm_on();
+} else {
+    alarm_off();
+}</code></pre>
+          </div>
+
+          <p class="mt-3">第三天需求又变成：「一路报警要提示，两路以上才响铃，而且如果第三路（那个最容易误报的）单独报警就不算。」这时候你只能一行一行枚举 8 种组合，靠眼睛检查有没有漏——<b class="font-semibold text-ink">而枚举 8 种组合正是真值表，把需求变成表达式正是逻辑代数要干的事。</b>学过这一章的人，改的是一个表达式，不是一坨 <code class="icode">if</code>。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场二：寄存器里的位，你用眼睛看不出「与」还是「或」。</b></p>
+
+          <p class="mt-3">下面这三行，新手写出来它们长得几乎一样，但干的事情完全不同：</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="长得像，意思完全不同">
+            <pre><code>if (flags &amp; 0x0C)                  /* 只要 bit3 或 bit2 有一个是 1，条件就成立 */
+if ((flags &amp; 0x0C) == 0x0C)        /* 必须 bit3 和 bit2【同时】是 1 */
+
+REG |= (1u &lt;&lt; 3);                   /* 把 bit3 置 1，其它位一个都不动 */
+REG &amp;= ~(1u &lt;&lt; 3);                 /* 把 bit3 清 0，其它位一个都不动 */</code></pre>
+          </div>
+
+          <p class="mt-3">为什么第一行是「或」、第二行才是「与」？为什么置位要用 <code class="icode">|=</code>、清零要用 <code class="icode">&amp;= ~</code>？这些不是 C 语言的死记硬背，<b class="font-semibold text-ink">它们每一条都能用布尔代数推导出来</b>——第 4 节会把这三行的逻辑含义一条一条拆开。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">现场三：计数器每隔一会儿自己多走一格，波形看起来却是干净的。</b></p>
+
+          <p class="mt-3">你把一个组合逻辑的输出（几片 74 系列门电路搭的比较器）直接接到 STM32 的 EXTI 外部中断引脚上，用它做计数。跑了一晚上，计数值比实际动作次数多了几次。你把示波器架上去看，波形方方正正——因为毛刺只有十几纳秒，示波器的采样根本没抓住它。</p>
+
+          <p class="mt-3">这是<b class="font-semibold text-ink">竞争与冒险</b>：信号经过不同路径、有不同延迟，在输出端「赛跑」，谁快谁慢的几十纳秒里输出会抖一下。而 STM32 在 72MHz 下一个时钟周期是 13.9ns，这点抖动它看得清清楚楚。<b class="font-semibold text-ink">最要命的是：你按卡诺图化简出来的「最简式」，恰恰是最容易冒毛刺的那种式子。</b></p>
+
+          <p class="mt-3">三个现场指向同一件事：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">把「一堆情况」变成「一个表达式」</b>——真值表、最小项、标准式（第 2 节）。</li>
+            <li><b class="font-semibold text-ink">把表达式变得又短又快</b>——公式化简与卡诺图（第 2、3 节）。这是「用一行代码替代八个 if」的底气。</li>
+            <li><b class="font-semibold text-ink">知道化简的代价</b>——最简式可能带冒险，任意项可能被误用（第 4、5 节）。</li>
+          </ul>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">这一篇在整个知识体系里的位置</div>
+            <p>第 13 篇《数制、编码与补码》讲的是「一个数怎么变成 0/1」，这一篇讲的是「一堆 0/1 怎么算」。再往下，第 15 篇《门电路与数字接口电平》讲这些运算用什么器件实现，第 16 篇《组合逻辑电路》讲用它们搭出译码器、数据选择器、加法器。<b>你现在学的逻辑代数，就是后面三篇共用的那套「数学语法」。</b></p>
+            <p class="mt-2">如果你只想要一条最短路径：<b>先把第 2 节的定律表抄下来，把卡诺图的画法练三遍，再直接跳到第 4 节</b>看这些公式在代码里长什么样。剩下的细节可以回头补。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 核心概念 ---------------------------- -->
+        <section>
+          <h2 id="sec-concept" class="text-xl font-semibold">核心概念</h2>
+          <p class="mt-4">这一节是全文的主体，一共 8 个小节。前 3 小节讲「运算」，第 4、5 小节讲「公式和规则」，第 6、7 小节讲「标准形式与化简」，第 8 小节讲「化简的例外情况」。建议按顺序读——后面每一节都在用前面一节的语言。</p>
+
+          <h3 id="sub-logic-var" class="mt-7 text-base font-semibold">逻辑变量：只有 0 和 1，而且它们不是「数」</h3>
+
+          <p class="mt-3">逻辑代数里的字母叫<b class="font-semibold text-ink">逻辑变量</b>，它<b class="font-semibold text-ink">只有 0 和 1 两种取值</b>，没有第三种，也没有「0.35」这种中间值。这一点和你在数学里学的代数有本质区别：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>普通代数里的 1 是一个<b class="font-semibold text-ink">数量</b>，1 + 1 = 2 是加法。</li>
+            <li>逻辑代数里的 1 是一个<b class="font-semibold text-ink">状态</b>——「成立 / 不成立」「导通 / 断开」「高电平 / 低电平」。1 + 1 = 1 在这里是成立的，因为它是「或」：两件事里至少有一件成立，那就是成立。</li>
+          </ul>
+
+          <p class="mt-3">所以别用算术的直觉去读逻辑式。<code class="icode">A + B</code> 读作「A 或 B」，不是「A 加 B」；<code class="icode">A · B</code> 读作「A 与 B」，不是「A 乘 B」。字母上方那一撇（教材里写 <code class="icode">Ā</code>，代码和很多资料里写 <code class="icode">A'</code>）表示<b class="font-semibold text-ink">取反</b>：A 是 1 的时候 A' 就是 0。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">正逻辑与负逻辑：0 和 1 到底对应哪个电平，是「约定」出来的。</b></p>
+
+          <p class="mt-3">这是本节最容易被跳过、却最影响你读代码的一点。逻辑变量是抽象的 0/1，而芯片引脚上是实实在在的电压，两者之间必须先「约定」一下：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>约定</th><th>1 对应</th><th>0 对应</th><th>你会在哪里遇到</th></tr></thead>
+              <tbody>
+                <tr><td><b>正逻辑</b>（positive logic）</td><td>高电平（3.3V / 5V）</td><td>低电平（0V）</td><td>绝大多数信号：串口 TX、SPI 的 MOSI、普通 GPIO 输出、「按下 = 1」的按键</td></tr>
+                <tr><td><b>负逻辑</b>（negative logic）</td><td>低电平（0V）</td><td>高电平（3.3V / 5V）</td><td>低电平有效的信号：片选 <code class="icode">CS</code>、复位 <code class="icode">RESET</code>、I2C 的应答、开漏总线、板载 LED、大多数按键（按下接地）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">同一个硬件电路，你换一个约定去读，它的「逻辑功能名字」就变了。这不是玄学，看这张表就明白：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="同一个电路，正逻辑读成「与」，负逻辑读成「或」">
+            <pre><code>【硬件】一个二输入与门（74HC08），A、B 是输入引脚的电压
+
+   输入 A   输入 B   │  输出引脚电压  │  正逻辑读法（高=1）  │  负逻辑读法（低=1）
+   ─────────────────┼───────────────┼─────────────────────┼────────────────────
+    低 0V    低 0V   │     低 0V     │   0 , 0 → 0         │   1 , 1 → 1
+    低 0V    高 3.3V │     低 0V     │   0 , 1 → 0         │   1 , 0 → 1
+    高 3.3V  低 0V   │     低 0V     │   1 , 0 → 0         │   0 , 1 → 1
+    高 3.3V  高 3.3V │     高 3.3V   │   1 , 1 → 1         │   0 , 0 → 0
+
+【读法一】正逻辑：只有两个输入都为 1 时输出才是 1
+           → 「有 0 出 0，全 1 出 1」= 【与】运算
+
+【读法二】负逻辑：看最后一列，只有两个输入都为 0 时输出才是 0
+           → 「有 1 出 1，全 0 出 0」= 【或】运算
+
+【结论】同一块芯片，正逻辑下叫「与门」，负逻辑下就是「或门」。
+       电路没变，变的是你给它贴的标签。
+
+【所以工程上的规矩是】看任何一根信号线之前，先确认它的有效电平：
+   · 名字上带横线或 n 前缀的（nRST、nCS、CS_N、RESET#），几乎都是低电平有效
+   · 名字里带 NEG、LOW、B 的也要警惕
+   · 拿不准就查数据手册的时序图 —— 看那个信号「有效」的时候画的是高还是低</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">正负逻辑的坑，最典型的现场就是「按键」</div>
+            <p>你接了一个按键：一端接引脚，一端接 GND，引脚配成内部上拉。于是<b>没按下时读到 1，按下时读到 0</b>——这在硬件上是天经地义的（按下就是把引脚短路到地），但在你的代码里，你就得到了一个负逻辑信号。</p>
+            <p class="mt-2">接着你会看到两类典型错误：<b>①</b> 判断写成 <code class="icode">if (key == 1) { 按下处理 }</code>，结果变成「松手才处理」，逻辑全反；<b>②</b> 更隐蔽的一种——你在好几个地方分别读这个引脚，有的地方写了取反、有的地方忘了写，于是同一个按键在不同函数里含义不一致。<b>正确做法是在最靠近硬件的那一层就把它翻正</b>：写一个 <code class="icode">key_is_pressed()</code>，里面只写一次 <code class="icode">return (HAL_GPIO_ReadPin(...) == GPIO_PIN_RESET);</code>，上层全部按「1 = 按下」来用。</p>
+          </div>
+
+          <h3 id="sub-basic-ops" class="mt-7 text-base font-semibold">三种基本运算：与、或、非</h3>
+
+          <p class="mt-3">逻辑代数里所有复杂的运算，最后都能拆成这三种。先看定义，再看真值表和符号——<b class="font-semibold text-ink">真值表是这一章最核心的工具</b>，它把一个逻辑关系用穷举的方式写清楚，谁也赖不掉。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">与运算（AND，逻辑乘）：</b>记作 <code class="icode">Y = A · B</code>，中间的点常常省略，直接写成 <code class="icode">Y = AB</code>。口诀是<b class="font-semibold text-ink">「有 0 出 0，全 1 出 1」</b>。物理直觉：两个开关<b class="font-semibold text-ink">串联</b>，灯亮要求两个都合上。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">或运算（OR，逻辑加）：</b>记作 <code class="icode">Y = A + B</code>。口诀是<b class="font-semibold text-ink">「有 1 出 1，全 0 出 0」</b>。物理直觉：两个开关<b class="font-semibold text-ink">并联</b>，合上任意一个灯就亮。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">非运算（NOT，求反）：</b>记作 <code class="icode">Y = A'</code>（教材写 <code class="icode">Y = Ā</code>）。它是单输入运算：输入 1 输出 0，输入 0 输出 1。物理直觉：一个反相器，或者一个<b class="font-semibold text-ink">常闭触点</b>。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>A</th><th>B</th><th>与 <code class="icode">Y = AB</code></th><th>或 <code class="icode">Y = A + B</code></th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>0</td><td><b>0</b></td><td><b>0</b></td></tr>
+                <tr><td>0</td><td>1</td><td><b>0</b></td><td><b>1</b></td></tr>
+                <tr><td>1</td><td>0</td><td><b>0</b></td><td><b>1</b></td></tr>
+                <tr><td>1</td><td>1</td><td><b>1</b></td><td><b>1</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>A</th><th>非 <code class="icode">Y = A'</code></th><th>读法</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td><b>1</b></td><td>A 不成立时，A' 成立</td></tr>
+                <tr><td>1</td><td><b>0</b></td><td>A 成立时，A' 不成立</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">画在图上的时候，这三种门电路有标准的<b class="font-semibold text-ink">国标符号</b>（矩形框加一个特征标记），和欧美教材常见的<b class="font-semibold text-ink">形状符号</b>（D 形、盾形）两套。国内教材、课程设计和国产图纸用国标符号居多：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三种基本门的国标符号（矩形 + 特征标记）">
+            <pre><code>【与门 AND】  Y = A · B          特征标记：&amp;（有 0 出 0）
+
+        ┌─────────────┐
+   A ───┤             │
+        │      &amp;      ├──── Y = A · B
+   B ───┤             │
+        └─────────────┘
+
+【或门 OR】   Y = A + B          特征标记：≥1（有 1 出 1）
+
+        ┌─────────────┐
+   A ───┤             │
+        │     ≥1      ├──── Y = A + B
+   B ───┤             │
+        └─────────────┘
+
+【非门 NOT】  Y = A'             特征标记：1，输出端加一个小圆圈
+
+        ┌─────────────┐
+   A ───┤      1      ├──○──── Y = A'
+        └─────────────┘
+                         ↑
+                    这个小圆圈就是「取反」的记号，
+                    它出现在哪个门的输出端，哪个门就变成「非」版本。
+
+【三个符号的记忆法】
+   &amp;    → 「和」的意思，要求所有输入都成立
+   ≥1   → 只要输入的「1」的个数 ≥ 1，输出就是 1
+   1    → 只有 1 个输入，输出永远是它的反面
+   小圆圈 → 把门的输出反过来（加在输入端则是把那个输入反过来）</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">三个运算的优先级，以及一个真实的踩坑点</div>
+            <p>和普通代数一样，逻辑运算也有优先级：<b>括号 → 非 → 与 → 或</b>。也就是说 <code class="icode">AB + CD</code> 是 <code class="icode">(AB) + (CD)</code>，两个乘积项先算。</p>
+            <p class="mt-2"><b>反号（那一撇）只作用于紧挨着它的那一个变量</b>：<code class="icode">AB'</code> 的意思是 <code class="icode">A · (B')</code>，不是 <code class="icode">(AB)'</code>。这一条在写长表达式时最致命——<code class="icode">(AB)'</code> 和 <code class="icode">AB'</code> 是两个完全不同的函数，前者是「与非」，后者是「A 与（非 B）」。教材上为了排版常常把横线拉得很长，看起来差不多，你得按横线的长度去判断它盖住了几个变量。写代码的时候这一点更省事：C 语言里 <code class="icode">~A &amp; B</code> 和 <code class="icode">~(A &amp; B)</code> 写出来差别一眼可见，<b>该加括号就加括号</b>。</p>
+          </div>
+
+          <h3 id="sub-compound-ops" class="mt-7 text-base font-semibold">复合运算：与非、或非、异或、同或</h3>
+
+          <p class="mt-3">三个基本运算已经够表达一切了，但工程上还有四种「常用组合」，各自有专门的符号和芯片，值得单独记住。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>名称</th><th>表达式</th><th>口诀 / 含义</th><th>典型器件</th></tr></thead>
+              <tbody>
+                <tr><td><b>与非</b> NAND</td><td><code class="icode">Y = (AB)'</code></td><td>「有 0 出 1，全 1 出 0」——与的结果取反。它是最常用的门，因为 CMOS 工艺做与非门最省管子</td><td class="font-mono text-xs">74HC00（4 个二输入）</td></tr>
+                <tr><td><b>或非</b> NOR</td><td><code class="icode">Y = (A+B)'</code></td><td>「有 1 出 0，全 0 出 1」——或的结果取反</td><td class="font-mono text-xs">74HC02（4 个二输入）</td></tr>
+                <tr><td><b>异或</b> XOR</td><td><code class="icode">Y = A ⊕ B = A'B + AB'</code></td><td>「不一样就出 1」——两个输入<b>不同</b>时为 1，相同为 0。也叫「模 2 加」</td><td class="font-mono text-xs">74HC86（4 个二输入）</td></tr>
+                <tr><td><b>同或</b> XNOR</td><td><code class="icode">Y = (A ⊕ B)' = AB + A'B'</code></td><td>「一样就出 1」——两个输入<b>相同</b>时为 1。它就是一位的「相等比较」</td><td class="font-mono text-xs">74HC7266</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>A</th><th>B</th><th>与非 <code class="icode">(AB)'</code></th><th>或非 <code class="icode">(A+B)'</code></th><th>异或 <code class="icode">A ⊕ B</code></th><th>同或 <code class="icode">(A ⊕ B)'</code></th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>0</td><td><b>1</b></td><td><b>1</b></td><td><b>0</b></td><td><b>1</b></td></tr>
+                <tr><td>0</td><td>1</td><td><b>1</b></td><td><b>0</b></td><td><b>1</b></td><td><b>0</b></td></tr>
+                <tr><td>1</td><td>0</td><td><b>1</b></td><td><b>0</b></td><td><b>1</b></td><td><b>0</b></td></tr>
+                <tr><td>1</td><td>1</td><td><b>0</b></td><td><b>0</b></td><td><b>0</b></td><td><b>1</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">把它和前面的表对照着看：<b class="font-semibold text-ink">与非列和与列正好相反，或非列和或列正好相反，同或列和异或列正好相反</b>。这就是「非」的作用——一个输出端的小圆圈。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么要专门记与非和或非？因为它们各自都是「完备集」。</b>意思是：只用与非门（或者只用或非门）这一种器件，就能搭出与、或、非以及任何逻辑函数。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="只用与非门实现三种基本运算（或非门同理）">
+            <pre><code>【非】把与非门的两个输入接在一起
+
+        ┌─────────────┐
+   A ───┤             │
+        │      &amp;      ├──○──── Y = (A·A)' = A'     ✅ 得到非
+   A ───┤             │
+        └─────────────┘
+
+【与】与非之后再取反（两级与非门）
+
+   A ────┤&amp;├──○──── n ────┤&amp;├──○──── Y = ((AB)')' = AB     ✅ 得到与
+   B ────┤ │                │ │
+                             └─┘（两个输入接在一起当非门用）
+
+【或】用德摩根定律把「或」换成「与非」
+        Y = A + B = (A' · B')'
+        也就是：先把 A、B 各自取反，再送进一个与非门。
+
+【工程意义】
+   · 一个芯片里只有一种门，采购和备料最简单
+   · CMOS 工艺里与非门/NOR 门是最省面积的，所以标准逻辑系列
+     一开始就是围绕 NAND/NOR 设计的（连 NAND Flash 的名字都来自
+     「Not AND」——它的存储单元本质上就是一个与非结构的阵列）
+   · 考试里常考「用最少的与非门实现某函数」，实际工程里有 EDA 工具
+     自动做这种映射，你只要看懂它能做就行</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">异或的四条性质，比它的定义重要得多</b>（这几条你在写代码时会反复用到）：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>性质</th><th>表达式</th><th>在代码里对应什么</th></tr></thead>
+              <tbody>
+                <tr><td>与 0 异或不变</td><td><code class="icode">A ⊕ 0 = A</code></td><td>掩码那一位填 0，就是「这一位照原样放行」</td></tr>
+                <tr><td>与 1 异或取反</td><td><code class="icode">A ⊕ 1 = A'</code></td><td>掩码那一位填 1，就是「把这一位翻转」</td></tr>
+                <tr><td>自己异或自己是 0</td><td><code class="icode">A ⊕ A = 0</code></td><td>两数相同则异或结果为 0——一次性判断「两个值完全一样」</td></tr>
+                <tr><td>自己异或自己的反是 1</td><td><code class="icode">A ⊕ A' = 1</code></td><td>永远为真，可用于生成「常数 1」</td></tr>
+                <tr><td>交换律与结合律都成立</td><td><code class="icode">A⊕B = B⊕A</code>，<code class="icode">(A⊕B)⊕C = A⊕(B⊕C)</code></td><td>多个数异或的顺序无所谓；也是「用异或交换两个变量」能成立的原因</td></tr>
+                <tr><td>判奇功能</td><td><code class="icode">A⊕B⊕C</code> 在 1 的个数为奇数时得 1</td><td>奇偶校验位就是它；半加器的「和」也是它（<code class="icode">S = A⊕B</code>）</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">异或的两个经典用法，先有个印象</div>
+            <p><b>① 一位的加法器。</b>两个二进制位相加，本位和 <code class="icode">S = A ⊕ B</code>，向高位的进位 <code class="icode">C = AB</code>。你把这个式子读一遍就明白半加器为什么长那样了：<b>「和」是异或，「进位」是与</b>——两个都为 1 时才进位，两个不一样时本位才是 1。</p>
+            <p class="mt-2"><b>② 二进制码与格雷码互转。</b>格雷码的特点是相邻两个码只差一位，所以它的每一位可以由二进制码推导出来：<code class="icode">G = B ⊕ (B &gt;&gt; 1)</code>（也就是每位和它的高一位异或）。反过来的转换在编码器（绝对值编码器、旋转编码器）里天天用，因为格雷码在跨边界时不会出现「多位同时跳变」的毛刺。</p>
+          </div>
+
+          <h3 id="sub-laws" class="mt-7 text-base font-semibold">基本定律与常用公式：这一节是「抄下来就赚」的一节</h3>
+
+          <p class="mt-3">逻辑代数的定律和普通代数很像，但有几条是<b class="font-semibold text-ink">布尔代数独有的</b>，也是用它化简的关键。下面这张表建议直接抄在笔记本第一页。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>名称</th><th>与形式</th><th>或形式</th><th>怎么理解</th></tr></thead>
+              <tbody>
+                <tr><td>交换律</td><td><code class="icode">AB = BA</code></td><td><code class="icode">A + B = B + A</code></td><td>两个条件谁先谁后不影响结果</td></tr>
+                <tr><td>结合律</td><td><code class="icode">(AB)C = A(BC)</code></td><td><code class="icode">(A+B)+C = A+(B+C)</code></td><td>多个条件并在一起时可以随便加括号</td></tr>
+                <tr><td>分配律（乘对加）</td><td colspan="2"><code class="icode">A(B + C) = AB + AC</code></td><td>和普通代数一样，提公因子就是这个</td></tr>
+                <tr><td><b>分配律（加对乘）</b></td><td colspan="2"><code class="icode">A + BC = (A + B)(A + C)</code></td><td><b>布尔代数独有</b>，普通代数是错的。验证：A=1 时两边都为 1；A=0 时两边都为 BC</td></tr>
+                <tr><td>同一律</td><td><code class="icode">A · 1 = A</code></td><td><code class="icode">A + 0 = A</code></td><td>「与 1」和「或 0」都是白干</td></tr>
+                <tr><td>零律</td><td><code class="icode">A · 0 = 0</code></td><td><code class="icode">A + 1 = 1</code></td><td>「与 0」强制清零，「或 1」强制置一——位掩码的两条依据</td></tr>
+                <tr><td>幂等律</td><td><code class="icode">A · A = A</code></td><td><code class="icode">A + A = A</code></td><td>同一个条件说两遍，效果等于说一遍</td></tr>
+                <tr><td>求补律</td><td><code class="icode">A · A' = 0</code></td><td><code class="icode">A + A' = 1</code></td><td>「配项法」的来源：任何项都能乘上 <code class="icode">(A + A') = 1</code> 或加上 <code class="icode">A·A' = 0</code> 而不改变函数</td></tr>
+                <tr><td>还原律（双重否定）</td><td colspan="2"><code class="icode">(A')' = A</code></td><td>取反两次回到原值——代码里连写两个 <code class="icode">~</code> 或 <code class="icode">!</code> 就是这个</td></tr>
+                <tr><td><b>德摩根定律</b></td><td><code class="icode">(AB)' = A' + B'</code></td><td><code class="icode">(A + B)' = A'B'</code></td><td><b>最重要的一条</b>：长杠断开、符号互换。见下方专门说明</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">德摩根定律：一句话记住，一辈子不忘</div>
+            <p><b>「长杠变短杠，中间符号换一换。」</b>整体取反时，把每个变量各自取反，同时把「与」换成「或」、「或」换成「与」。</p>
+            <p class="mt-2"><code class="icode">(AB)' = A' + B'</code>：<b>「不是两个都成立」= 「至少有一个不成立」</b>。<br>
+            <code class="icode">(A + B)' = A'B'</code>：<b>「两个都不成立」= 「不是至少有一个成立」</b>。</p>
+            <p class="mt-2">用生活语言验证一下第一条：你说「今天不下雨<b>而且</b>不刮风」，等价于「不是（下雨<b>或</b>刮风）」——是不是很顺？德摩根定律就是这句大白话的数学形式。<b>它在单片机里的分量，第 4 节讲低电平有效信号时会专门展开。</b></p>
+          </div>
+
+          <p class="mt-3">除了上面这些「定律」，还有五条在化简时天天用的<b class="font-semibold text-ink">常用公式</b>。它们都能由定律推出来，但推导过程记不住没关系，<b>公式本身必须记住</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>#</th><th>名称</th><th>公式</th><th>推导（一行就够）</th><th>对偶式</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>并项法</td><td><code class="icode">AB + AB' = A</code></td><td><code class="icode">A(B + B') = A · 1 = A</code></td><td><code class="icode">(A+B)(A+B') = A</code></td></tr>
+                <tr><td>2</td><td>吸收律（一）</td><td><code class="icode">A + AB = A</code></td><td><code class="icode">A(1 + B) = A · 1 = A</code></td><td><code class="icode">A(A + B) = A</code></td></tr>
+                <tr><td>3</td><td>吸收律（二）/消因子</td><td><code class="icode">A + A'B = A + B</code></td><td><code class="icode">(A + A')(A + B) = 1 · (A + B)</code>（用加对乘的分配律）</td><td><code class="icode">A(A' + B) = AB</code></td></tr>
+                <tr><td>4</td><td><b>冗余律</b>（包含律、多余项）</td><td><code class="icode">AB + A'C + BC = AB + A'C</code></td><td>见下方证明：给 BC 乘上 <code class="icode">(A + A')</code> 拆开后分别被前两项吸收</td><td><code class="icode">(A+B)(A'+C)(B+C) = (A+B)(A'+C)</code></td></tr>
+                <tr><td>5</td><td>冗余律推广</td><td><code class="icode">AB + A'C + BCD = AB + A'C</code></td><td>把第 4 条里的 BC 换成 BCD 仍然成立（BC 被 BCD「包含」了）</td><td>同理</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">公式 4 的完整证明（第 3 节的例题会再用一次）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="冗余律 AB + A'C + BC = AB + A'C 的证明">
+            <pre><code>要证：  AB + A'C + BC  =  AB + A'C
+
+第 1 步：给 BC 乘上 (A + A')。因为 A + A' = 1，乘上去不改变任何东西。
+
+        AB + A'C + BC
+      = AB + A'C + BC(A + A')          ← 配项法：× (A + A') = × 1
+
+第 2 步：展开 BC(A + A') = ABC + A'BC
+
+      = AB + A'C + ABC + A'BC
+
+第 3 步：重新分组，把含 AB 的放一起、含 A'C 的放一起
+
+      = (AB + ABC) + (A'C + A'BC)
+
+第 4 步：各自提公因子
+
+      = AB(1 + C) + A'C(1 + B)
+
+第 5 步：用零律 1 + 任何东西 = 1
+
+      = AB · 1 + A'C · 1
+
+      = AB + A'C                        ∎ 证毕
+
+【怎么理解这个结论】
+   BC 这一项是「多余」的：任何让 BC = 1 的输入组合，
+   一定同时让 AB = 1 或 A'C = 1 中至少一个成立
+   —— 因为 B = C = 1 时，如果 A = 1 则 AB = 1；
+      如果 A = 0 则 A'C = 1。两种情况都被覆盖了。
+
+【但先别急着扔掉它】
+   这个「多余项」在纯数学上可以删，在【硬件】上却常常必须加回来 ——
+   它就是消除静态冒险的那一项。第 8 小节和例题 3 会讲清楚这件事。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">化简时最容易「想当然」的两条，其实都是错的</div>
+            <p><b>① <code class="icode">A + A'B ≠ A + B</code> 的反面：<code class="icode">A + AB ≠ A + B</code>。</b>正确结果是 <code class="icode">A + AB = A</code>（吸收律）。很多人看到「A 加一项」就想把 A 提出来，结果多算了一项。</p>
+            <p class="mt-2"><b>② <code class="icode">(A + B)' ≠ A' + B'</code>。</b>这是德摩根最经典的误用：取反之后中间的符号必须换。<code class="icode">(A + B)' = A'B'</code>。代码里对应的是 <code class="icode">!(a || b)</code> 等于 <code class="icode">!a &amp;&amp; !b</code>，而不是 <code class="icode">!a || !b</code>。<b>这两种写法在编译器眼里完全不同，而且 <code class="icode">!(a || b)</code> 通常还更短更快</b>（一次逻辑或 + 一次取反，比两次取反再与更省指令）。</p>
+          </div>
+        <h3 id="sub-three-rules" class="mt-7 text-base font-semibold">代入、反演、对偶：三条「批发公式」的规则</h3>
+
+          <p class="mt-3">前面那十几条定律，如果你一条一条背，会觉得很多。但这三条规则能让你<b class="font-semibold text-ink">用一条公式批发出一大批公式</b>，这也是教材把它们单列一节的原因。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">规则一：代入规则（substitution）。</b>任何一个成立的等式，如果把其中某个变量<b class="font-semibold text-ink">全部</b>换成同一个逻辑函数，等式依然成立。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="代入规则：把德摩根定律从两个变量推广到任意多个">
+            <pre><code>【已知】 (A + B)' = A' B'                （两变量的德摩根）
+
+【现在】 把 B 换成 (BC)，等式两边同时替换：
+
+        左边 = (A + BC)'
+        右边 = A' · (BC)'
+
+        所以  (A + BC)' = A' (BC)'         ← 这一步还是对的，
+                                             但右边还能继续化简：
+
+        再用一次德摩根 (BC)' = B' + C'：
+
+              (A + BC)' = A' (B' + C')
+                        = A'B' + A'C'       ← 展开（分配律）
+
+【验证一遍】取 A=0, B=1, C=1：
+        左边 = (0 + 1·1)' = (1)' = 0
+        右边 = 0'·1' + 0'·1' = 1·0 + 1·0 = 0       ✅ 相等
+
+【推广】德摩根定律可以推广到任意多个变量：
+        (ABC...)' = A' + B' + C' + ...
+        (A + B + C + ...)' = A'B'C'...
+
+        这条推广【在代码里天天用】：
+        · (A | B | C) == 0       等价于  A == 0 &amp;&amp; B == 0 &amp;&amp; C == 0
+        · 判断「所有位都是 0」可以用 (REG &amp; MASK) == 0，也可以用
+          「逐个位取反再与」，前者快得多 —— 它就是德摩根的推广
+
+【注意】代入必须是【全部替换】，不能只换一半。
+        把 (A+B)' = A'B' 里的 B 只换一半，得到的就是错的式子。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">规则二：反演规则（求反函数）。</b>给你一个 Y，怎么写出 Y'？按这四步机械地做：</p>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">1</span>
+            <div>
+              <p class="text-sm font-semibold">把所有的「与」换成「或」，「或」换成「与」</p>
+              <p class="mt-1 text-[13px] text-muted">也就是 <code class="icode">·</code> 和 <code class="icode">+</code> 互换。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">2</span>
+            <div>
+              <p class="text-sm font-semibold">把所有的常量 0 换成 1，1 换成 0</p>
+              <p class="mt-1 text-[13px] text-muted">表达式中如果有 <code class="icode">· 1</code> 或 <code class="icode">+ 0</code> 这类常数项，一起换掉。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">3</span>
+            <div>
+              <p class="text-sm font-semibold">把每个原变量换成反变量，反变量换成原变量</p>
+              <p class="mt-1 text-[13px] text-muted">A 变 A'，A' 变 A。这一步是它和「对偶规则」唯一的区别。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">4</span>
+            <div>
+              <p class="text-sm font-semibold">保持原来的运算优先级，必要时补括号</p>
+              <p class="mt-1 text-[13px] text-muted">原来先算乘后算加，换完之后还是先算乘后算加。<b>不属于单个变量的公共反号（长横线）不要动</b>——它盖住的是整个子表达式，等前三步做完自然就对消了。</p>
+            </div>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="反演规则的两个例子（含数值验证）">
+            <pre><code>【例 1】求 Y = A(B + C') + CD 的反函数 Y'
+
+第 1 步：· 与 + 互换
+        原来：A ·(B + C') + C·D
+        换成：A +(B · C') ·(C + D)
+
+第 2 步：没有常量，跳过
+
+第 3 步：变量逐个取反
+        A→A'   B→B'   C'→C   D→D'
+
+第 4 步：保持优先级，把括号补好（这一步最容易漏！）
+
+        Y' = [ A' + (B' · C) ] · (C' + D')
+
+【数值验证】取 A=1, B=0, C=0, D=0：
+        Y  = 1·(0 + 1) + 0·0 = 1·1 + 0 = 1
+        Y' = [1' + (0' · 0)] · (0' + 0')
+           = [0 + (1 · 0)] · (1 + 1)
+           = [0 + 0] · 1 = 0                      ✅ 和 Y 互为反
+
+【例 2】求 Y = (A + B')(C + D) 的反函数
+
+        变量的反号互换：A→A'  B'→B  C→C'  D→D'
+        括号里的 + 变成 ·，两个括号之间原本是「与」，变成「或」
+
+        Y' = A'·B + C'·D
+
+【数值验证】取 A=0, B=1, C=0, D=0：
+        Y  = (0 + 0)(0 + 0) = 0
+        Y' = 0'·1 + 0'·0 = 1·1 + 1·0 = 1           ✅
+
+【一个反面例子：漏掉括号会怎样】
+        Y = A(B + C') + CD
+        错误写法：Y' = A' + B'C · C' + D'       ❌ 优先级错了
+        这个式子读出来是 A' + (B'C·C') + D'，和正确答案完全不是一回事。
+        正确：   Y' = (A' + B'C)(C' + D')        ✅
+        → 记忆法：反演前是「或」的地方，反演后是「与」，
+          如果它原来是个整体（括号或整项），反演后仍然要当成整体。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">规则三：对偶规则（求对偶式）。</b>把表达式里的 <code class="icode">·</code> 和 <code class="icode">+</code> 互换、0 和 1 互换，<b class="font-semibold text-ink">但变量一律不动</b>，得到的就是<b class="font-semibold text-ink">对偶式</b>，记作 <code class="icode">Y<sup>D</sup></code>。</p>
+
+          <p class="mt-3">它的价值在于：<b class="font-semibold text-ink">如果两个表达式相等，那么它们的对偶式也相等。</b>所以你只要记住一半的公式，另一半用对偶规则自动得到。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>原式</th><th>对偶式</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td><code class="icode">A + AB = A</code>（吸收律）</td><td><code class="icode">A(A + B) = A</code></td><td>前面公式表里的「对偶式」一栏就是这么来的，不用单独背</td></tr>
+                <tr><td><code class="icode">A + BC = (A+B)(A+C)</code></td><td><code class="icode">A(B + C) = AB + AC</code></td><td>两条分配律互为对偶，所以它们其实只算一条</td></tr>
+                <tr><td><code class="icode">(A + B)' = A'B'</code></td><td><code class="icode">(AB)' = A' + B'</code></td><td>德摩根的两条也互为对偶</td></tr>
+                <tr><td><code class="icode">AB + A'C + BC = AB + A'C</code></td><td><code class="icode">(A+B)(A'+C)(B+C) = (A+B)(A'+C)</code></td><td>冗余律在「或与式」里的形态</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>对比项</th><th>反演规则</th><th>对偶规则</th></tr></thead>
+              <tbody>
+                <tr><td>· 与 + 互换</td><td>要</td><td>要</td></tr>
+                <tr><td>0 与 1 互换</td><td>要</td><td>要</td></tr>
+                <tr><td><b>变量是否取反</b></td><td><b>要</b>（A 变 A'，A' 变 A）</td><td><b>不要</b>（变量原样保留）</td></tr>
+                <tr><td>得到的是什么</td><td>原函数的<b>反函数</b> <code class="icode">Y'</code></td><td>另一个函数 <code class="icode">Y<sup>D</sup></code>，一般和 Y 没有直接关系</td></tr>
+                <tr><td>典型用途</td><td>求反函数；把「与或式」变「或与式」；写代码时把 <code class="icode">&amp;&amp;</code> 结构改写成 <code class="icode">||</code> 结构</td><td>把公式量减半（背一条顶两条）；<b>求最简或与式</b>时用「圈 0 再取对偶」的套路</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">最容易混的一点：反演 ≠ 对偶，区别只在「变量动不动」</div>
+            <p>考试里最常见的送命题是「写出 Y = A + BC 的反函数和对偶式」：<b>反函数</b> <code class="icode">Y' = A'(B' + C')</code>（变量取了反），<b>对偶式</b> <code class="icode">Y<sup>D</sup> = A(B + C)</code>（变量没动）。</p>
+            <p class="mt-2">记忆钩子：<b>「反演要翻天覆地，连变量都翻；对偶只换符号，人是原来的人。」</b>另外记住一句更实用的——<b>对偶式取反 = 反函数的对偶</b>不成立，别自己发明公式；实在忘了就用数值验证，两分钟能试完 8 种组合。</p>
+          </div>
+
+          <h3 id="sub-minterm" class="mt-7 text-base font-semibold">最小项、最大项与两种标准式</h3>
+
+          <p class="mt-3">「最小项」是逻辑代数里最重要的一个概念，因为它是<b class="font-semibold text-ink">真值表和表达式之间唯一的机械桥梁</b>——不需要任何技巧，照着真值表就能写出来。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">最小项的定义：</b>对于 n 个变量，一个包含全部 n 个变量的<b class="font-semibold text-ink">乘积项</b>，其中每个变量都以原变量（A）或反变量（A'）的形式<b class="font-semibold text-ink">出现且只出现一次</b>，就叫一个最小项。n 个变量一共有 <code class="icode">2<sup>n</sup></code> 个最小项。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">编号规则：</b>把变量按字母顺序排好，<b class="font-semibold text-ink">原变量记 1、反变量记 0</b>，得到的那串二进制数就是这个最小项的下标。比如三变量里的 <code class="icode">A'BC</code>：A 是反变量记 0，B 记 1，C 记 1，得到 011 = 3，所以它就是 <code class="icode">m3</code>。</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>编号</th><th>最小项</th><th>使该项为 1 的取值</th><th>对应的最大项 <code class="icode">M<sub>i</sub> = (m<sub>i</sub>)'</code></th></tr></thead>
+              <tbody>
+                <tr><td><code class="icode">m<sub>0</sub></code></td><td><code class="icode">A'B'C'</code></td><td>000</td><td><code class="icode">M<sub>0</sub> = A + B + C</code></td></tr>
+                <tr><td><code class="icode">m<sub>1</sub></code></td><td><code class="icode">A'B'C</code></td><td>001</td><td><code class="icode">M<sub>1</sub> = A + B + C'</code></td></tr>
+                <tr><td><code class="icode">m<sub>2</sub></code></td><td><code class="icode">A'BC'</code></td><td>010</td><td><code class="icode">M<sub>2</sub> = A + B' + C</code></td></tr>
+                <tr><td><code class="icode">m<sub>3</sub></code></td><td><code class="icode">A'BC</code></td><td>011</td><td><code class="icode">M<sub>3</sub> = A + B' + C'</code></td></tr>
+                <tr><td><code class="icode">m<sub>4</sub></code></td><td><code class="icode">AB'C'</code></td><td>100</td><td><code class="icode">M<sub>4</sub> = A' + B + C</code></td></tr>
+                <tr><td><code class="icode">m<sub>5</sub></code></td><td><code class="icode">AB'C</code></td><td>101</td><td><code class="icode">M<sub>5</sub> = A' + B + C'</code></td></tr>
+                <tr><td><code class="icode">m<sub>6</sub></code></td><td><code class="icode">ABC'</code></td><td>110</td><td><code class="icode">M<sub>6</sub> = A' + B' + C</code></td></tr>
+                <tr><td><code class="icode">m<sub>7</sub></code></td><td><code class="icode">ABC</code></td><td>111</td><td><code class="icode">M<sub>7</sub> = A' + B' + C'</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">最小项的三条性质</b>（这三条是后面卡诺图能成立的原因）：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">唯一性：</b>每个最小项只在唯一一组输入取值下等于 1，其它组合下都是 0。比如 <code class="icode">m<sub>5</sub> = AB'C</code> 只在 ABC = 101 时是 1。</li>
+            <li><b class="font-semibold text-ink">互斥性：</b>任意两个不同的最小项相乘恒等于 0（<code class="icode">m<sub>i</sub> · m<sub>j</sub> = 0</code>，i ≠ j），因为总有一个变量在某项里是原变量、在另一项里是反变量。</li>
+            <li><b class="font-semibold text-ink">完备性：</b>全部最小项之和恒等于 1（<code class="icode">Σ m<sub>i</sub> = 1</code>），因为不管输入是什么，总会命中其中一个。</li>
+          </ul>
+
+          <p class="mt-3"><b class="font-semibold text-ink">最大项</b>是最小项的「对偶版本」：它是一个包含全部 n 个变量的<b class="font-semibold text-ink">求和项</b>，每个变量以原变量或反变量出现且只出现一次。<b class="font-semibold text-ink">注意它的编号规则和最小项相反</b>——变量取 1 时写成反变量，取 0 时写成原变量。所以 <code class="icode">M<sub>5</sub></code>（对应 101）是 <code class="icode">A' + B + C'</code>。</p>
+
+          <p class="mt-3">由此得到两种「标准式」——所谓标准，指的是<b class="font-semibold text-ink">每一项都包含全部变量</b>，因此形式唯一、没有歧义：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>名称</th><th>写法</th><th>怎么从真值表得到</th><th>例子</th></tr></thead>
+              <tbody>
+                <tr><td><b>标准与或式</b><br>（最小项之和）</td><td><code class="icode">Y = Σm(i, j, k, …)</code></td><td>把<b>输出为 1</b> 的那些行挑出来，每行写一个最小项，全部「或」起来</td><td><code class="icode">Y = Σm(1, 3, 5, 7)</code><br><code class="icode">= A'B'C + A'BC + AB'C + ABC</code></td></tr>
+                <tr><td><b>标准或与式</b><br>（最大项之积）</td><td><code class="icode">Y = ΠM(i, j, k, …)</code></td><td>把<b>输出为 0</b> 的那些行挑出来，每行写一个最大项，全部「与」起来</td><td><code class="icode">Y = ΠM(0, 2, 4, 6)</code><br><code class="icode">= (A+B+C)(A+B'+C)(A'+B+C)(A'+B'+C)</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">两种标准式的编号集合是「互补」的，这一点务必记牢</div>
+            <p>对同一个函数：<b>最小项的编号集合 = 所有输出为 1 的行；最大项的编号集合 = 所有输出为 0 的行。</b>两者加起来正好是 0 到 <code class="icode">2<sup>n</sup> − 1</code> 的全部编号，一个不重、一个不漏。</p>
+            <p class="mt-2">上面的例子可以验证：三变量一共 8 个编号，<code class="icode">Σm(1,3,5,7)</code> 用掉了 1、3、5、7，那 <code class="icode">ΠM</code> 就必然是 0、2、4、6。上表右边的两个式子是<b>同一个函数</b>——你可以把它化简一下：<code class="icode">A'B'C + A'BC + AB'C + ABC = A'C + AC = C</code>，而右边的四个最大项相乘，化简结果同样是 <code class="icode">C</code>（这两个练习留给你自己动手做，第 6 节有答案）。</p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">真值表 → 表达式 → 逻辑图，这条链路要能双向走。</b>它是数字电路设计最基础的一套「翻译」流程：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="逻辑函数的六种表示方法之间的相互转换">
+            <pre><code>              ┌────────────────────────────────────────────┐
+              │                                            │
+              ▼                                            │
+        ┌───────────┐   挑出输出为 1 的行    ┌──────────────────────┐
+        │  真值表   │ ────────────────────► │ 标准与或式（最小项和）│
+        │（穷举）   │ ◄──────────────────── │  Y = Σm(3,5,6,7)     │
+        └───────────┘   逐行代入验证        └──────────┬───────────┘
+              ▲                                       │
+              │                                       │ 公式化简
+              │ 逐级代入                              │ 或卡诺图
+              │                                       ▼
+        ┌───────────┐    从输入往输出写     ┌──────────────────────┐
+        │  逻辑图   │ ◄──────────────────── │ 最简与或式            │
+        │（门电路） │ ────────────────────► │  Y = AB + AC + BC    │
+        └───────────┘    按优先级搭门       └──────────────────────┘
+
+【两个方向的注意点】
+
+  ① 真值表 → 表达式：只会得到【标准与或式】，它一定正确，但一定不是最简。
+     想变短，必须再做一次化简（公式法或卡诺图）。
+
+  ② 表达式 → 真值表：把 2^n 种输入逐一代进去算，是最可靠的检验方法。
+     考试时如果化简完不确定对不对，就代 8 种组合验一遍 —— 两分钟的事。
+
+  ③ 逻辑图 → 表达式：从输入侧往输出侧，一级一级把每个门的输出写出来，
+     遇到分叉就复制一份表达式。
+
+  ④ 表达式 → 逻辑图：按「先非、再与、后或」的优先级搭。
+     一个乘积项 = 一个与门；各项之间 = 一个或门；
+     反变量 = 一个非门（或者直接把输入接到门的反相输入端）。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>表示方法</th><th>长什么样</th><th>优点</th><th>缺点</th><th>什么时候用它</th></tr></thead>
+              <tbody>
+                <tr><td>真值表</td><td>穷举所有输入组合</td><td>最不容易出错，不需要任何化简技巧</td><td>n 个变量要写 <code class="icode">2<sup>n</sup></code> 行，输入一多就爆炸</td><td>需求梳理、和同学/老师确认逻辑、写测试用例</td></tr>
+                <tr><td>逻辑表达式</td><td><code class="icode">Y = AB + A'C</code></td><td>紧凑，可以直接翻译成代码</td><td>标准式很长；最简式不容易一眼看出功能</td><td>写代码、估算资源占用</td></tr>
+                <tr><td>标准与或式</td><td><code class="icode">Y = Σm(3,5,6,7)</code></td><td>从真值表可机械写出，无歧义</td><td>不是最简，项数和变量数都多</td><td>作为化简的起点；卡诺图的「输入格式」</td></tr>
+                <tr><td>逻辑图</td><td>门电路连线图</td><td>直接对应硬件，能算出门的数量和级数</td><td>需求一改就要重画</td><td>画原理图、做课程设计、FPGA 门级验证</td></tr>
+                <tr><td>卡诺图</td><td>方格图</td><td>3~4 变量能手算到<b>最简</b>，直观</td><td>超过 4 个变量就不好画了</td><td>手算化简、检查公式化简的结果</td></tr>
+                <tr><td>波形图</td><td>时序图</td><td>最能反映「时间」和「先后」关系</td><td>只适合变量很少的情况</td><td>看毛刺、看竞争冒险、说明接口时序</td></tr>
+                <tr><td>查表（数组）</td><td><code class="icode">const uint8_t t[8] = {…}</code></td><td><b>单片机里最快</b>，不用推导，改起来方便</td><td>占 Flash；输入位宽大时不现实</td><td>数码管段码、按键映射、非线性校准曲线</td></tr>
+                <tr><td>HDL 代码</td><td><code class="icode">assign y = a &amp; b;</code></td><td>交给工具自动化简和优化</td><td>需要工具链，不是嵌入式 C 的主场</td><td>FPGA / ASIC 设计</td></tr>
+              </tbody>
+            </table>
+          </div>
+        <h3 id="sub-kmap" class="mt-7 text-base font-semibold">卡诺图：把「化简」变成「圈格子」</h3>
+
+          <p class="mt-3">公式化简法有三个绕不开的毛病：<b class="font-semibold text-ink">①</b> 靠技巧和经验，想不出来就是想不出来；<b class="font-semibold text-ink">②</b> 你化简出的结果不保证是最简的；<b class="font-semibold text-ink">③</b> 对不对不好验证。卡诺图就是为了治这三个毛病发明的——它把「化简」变成了一件几乎没有脑力负担的事：<b class="font-semibold text-ink">把 1 填进格子，然后圈起来。</b></p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">卡诺图为什么能化简？因为「相邻」等于「只差一个变量」。</b>看这条最基本的并项公式：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="卡诺图的核心原理：相邻格合并，消掉变化的那个变量">
+            <pre><code>【并项公式】  AB + AB' = A(B + B') = A · 1 = A
+
+【用文字读一遍】
+   上面两项除了 B 之外长得一模一样：
+   一项是 B，一项是 B'，两种可能都写上了
+   → 也就是说「不管 B 是 0 还是 1，结果都是 A」
+   → 那 B 这个变量就是多余的，直接删掉
+
+【推广】
+   2 个相邻格合并  → 消掉 1 个变量
+   4 个相邻格合并  → 消掉 2 个变量
+   8 个相邻格合并  → 消掉 3 个变量
+   2^k 个相邻格合并 → 消掉 k 个变量（这就是「圈越大越省」的原因）
+
+【所以卡诺图的设计目的是】
+   把真值表重新排成方格，让【几何上相邻的两个格子】之间
+   恰好只差一个变量 —— 这样你圈起来的时候，
+   消掉哪个变量、留下哪个变量，一眼就能看出来，
+   完全不需要「凑」公式。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">关键就落在行标和列标上：必须用格雷码。</b>如果按二进制顺序 00、01、10、11 排，那么 01 和 10 这两列在纸面上是挨着的，逻辑上却差了两个变量（B 和 C 都变了），一合并就错。用格雷码（<b class="font-semibold text-ink">相邻两个码只差一位</b>）排列，才能保证「画在一起 = 逻辑相邻」。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="格雷码为什么是 00 01 11 10，而不是 00 01 10 11">
+            <pre><code>【二进制顺序排列 —— 错的排法】
+        00    01    10    11
+        ↑     ↑     ↑
+        └─差1─┘     │
+              └─差2─┘          ← 01 和 10 差两位（B、C 都变），
+                                 它们在纸上相邻，却不能合并！
+                                 合并出来的项是错的。
+
+【格雷码排列 —— 正确的排法】
+        00    01    11    10
+        ↑     ↑     ↑     ↑
+        └─差1─┘     └─差1─┘
+              └─差1─┘   └─差1─┘（10 → 00 是绕回去的，也只差一位）
+
+【相邻检查表】每一位变化情况：
+        00 → 01   只有 C 变       ✅ 相邻
+        01 → 11   只有 B 变       ✅ 相邻
+        11 → 10   只有 C 变       ✅ 相邻
+        10 → 00   只有 B 变       ✅ 相邻（卷绕）
+
+【记忆法】格雷码的顺序就是「一次只动一位」：
+        两位：00 → 01 → 11 → 10
+        三位：000 → 001 → 011 → 010 → 110 → 111 → 101 → 100（镜像法生成）
+        实际画卡诺图只需要记住那个「00 01 11 10」的固定顺序，
+        四位也一样：00 01 11 10，贴到行标和列标上去就行。</code></pre>
+          </div>
+
+          <p class="mt-3">下面是三种常用卡诺图的标准画法，<b class="font-semibold text-ink">格子里写的是最小项的编号</b>。这个编号一定要自己动手推一遍——考试和实际化简时，填错格子等于全盘皆错。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="二变量卡诺图（4 格）">
+            <pre><code>                     B
+                 0         1
+            ┌─────────┬─────────┐
+        A 0 │   m0    │   m1    │      m0 = A'B'      m1 = A'B
+            ├─────────┼─────────┤
+          1 │   m2    │   m3    │      m2 = AB'       m3 = AB
+            └─────────┴─────────┘
+
+  【相邻关系】每个格子有 2 个邻居（左右 / 上下）
+  【能圈出的组】1 格、2 格（一行、一列、左右两格）、4 格（全部）
+  【圈全部 4 格的结果】1（函数恒为真）</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="三变量卡诺图（8 格，行是 A，列是 BC 的格雷码）">
+            <pre><code>                        BC
+                 00      01      11      10
+            ┌───────┬───────┬───────┬───────┐
+        A 0 │  m0   │  m1   │  m3   │  m2   │
+            ├───────┼───────┼───────┼───────┤
+          1 │  m4   │  m5   │  m7   │  m6   │
+            └───────┴───────┴───────┴───────┘
+
+  【编号怎么来的】把行、列拼起来就是最小项的下标：
+        m0 → 行 A=0，列 BC=00  →  000 = 0  →  A'B'C'
+        m5 → 行 A=1，列 BC=01  →  101 = 5  →  AB'C
+        m6 → 行 A=1，列 BC=10  →  110 = 6  →  ABC'
+        m2 → 行 A=0，列 BC=10  →  010 = 2  →  A'BC'
+
+  【注意列的顺序】00 → 01 → 11 → 10
+        所以右边第二列的编号是 m3、m7，不是 m2、m6 ！
+        这一条是填错卡诺图的第一大原因。
+
+  【卷绕】最左一列（00）和最右一列（10）相邻：
+        m0 与 m2 相邻（只差 B 位）
+        m4 与 m6 相邻（只差 B 位）</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="text" data-title="四变量卡诺图（16 格，行是 AB、列是 CD 的格雷码）">
+            <pre><code>                          CD
+                 00      01      11      10
+            ┌───────┬───────┬───────┬───────┐
+      AB 00 │  m0   │  m1   │  m3   │  m2   │
+            ├───────┼───────┼───────┼───────┤
+        01  │  m4   │  m5   │  m7   │  m6   │
+            ├───────┼───────┼───────┼───────┤
+        11  │  m12  │  m13  │  m15  │  m14  │
+            ├───────┼───────┼───────┼───────┤
+        10  │  m8   │  m9   │  m11  │  m10  │
+            └───────┴───────┴───────┴───────┘
+
+  【编号 = 行 + 列】例如：
+        m13 → 行 AB=11，列 CD=01 → 1101 = 13 →  ABC'D
+        m7  → 行 AB=01，列 CD=11 → 0111 = 7  →  A'BCD
+        m8  → 行 AB=10，列 CD=00 → 1000 = 8  →  AB'C'D'
+        m11 → 行 AB=10，列 CD=11 → 1011 = 11 →  AB'CD
+
+  【三条卷绕规则都在这里体现】
+   ① 左右卷绕：第 1 列与第 4 列相邻（m0-m2，m4-m6，m12-m14，m8-m10）
+   ② 上下卷绕：第 1 行与第 4 行相邻（m0-m8，m1-m9，m3-m11，m2-m10）
+   ③ 四角相邻：m0、m2、m8、m10 四个角互相相邻，可以圈成一组 4 格！
+       它们共同的特点是 B=0 且 D=0 → 圈出来就是 B'D'
+
+  【想象法】把卡诺图想成一张画在【圆柱面】上的图：
+        左右两边粘起来，上下两边也粘起来（变成一个轮胎面）
+        凡是「粘起来之后挨着」的两个格子，就是逻辑相邻的。</code></pre>
+          </div>
+
+          <p class="mt-3">有了图，接下来就是五条圈法规则。<b class="font-semibold text-ink">这五条是全篇最需要背下来的操作规范</b>，考试扣分基本都扣在这里：</p>
+
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li><b class="font-semibold text-ink">只圈 1</b>（求最简与或式时）。圈出来的每一个圈对应一个乘积项。</li>
+            <li><b class="font-semibold text-ink">每个圈包含的格子数必须是 2 的幂</b>：1、2、4、8、16。圈 3 格、5 格、6 格都是错的——因为 <code class="icode">2<sup>k</sup></code> 个相邻格才能消掉 k 个变量，非 2 的幂凑不出这种规律。</li>
+            <li><b class="font-semibold text-ink">圈要尽可能大</b>。圈越大，消掉的变量越多，项越短。先找能圈 8 格的，再找 4 格，最后才轮到 2 格和 1 格。<b>不要看到两个相邻的 1 就急着圈</b>——先看它们能不能和旁边的 1 凑成 4 格。</li>
+            <li><b class="font-semibold text-ink">圈的个数要尽可能少</b>。每个圈就是一项、就是一个门，圈越少电路越简单。在「圈大」和「圈少」冲突的时候，一般以<b>总项数少</b>优先，再看变量总数。</li>
+            <li><b class="font-semibold text-ink">每个圈至少要包含一个「没被别的圈圈过」的 1</b>。如果某个圈里的每一个 1 都已经被别的圈覆盖了，这个圈就是多余的，必须删掉——这正是公式化简法里的「冗余项」。</li>
+          </ol>
+
+          <p class="mt-3">另外有三条「允许但你未必敢做」的操作，<b class="font-semibold text-ink">它们都是合法的</b>：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">一个 1 可以被多个圈共用。</b>这不是浪费，而是必要的——只有共用，才能让每个圈都做到最大。</li>
+            <li><b class="font-semibold text-ink">可以跨边界卷绕</b>：左右边、上下边、四个角都能连起来圈。</li>
+            <li><b class="font-semibold text-ink">可以把所有 1 圈成一整个圈</b>（比如 8 个 1 全圈上），结果是 <code class="icode">Y = 1</code>；反过来，<b>孤零零的 1 只能自己一圈</b>，得到的项包含全部变量（比如 <code class="icode">A'BC'D</code>），这说明函数在这一种输入下必须为 1，没法再省。</li>
+          </ul>
+
+          <p class="mt-3"><b class="font-semibold text-ink">怎么读一个圈？一句话：圈内取值不变的变量留下，取值变了的变量消掉；留下的变量里，取 1 写原变量，取 0 写反变量。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="读圈的三个例子（以三变量卡诺图为例）">
+            <pre><code>【例 A】圈住整个 A = 0 这一行（m0, m1, m3, m2 共 4 格）
+
+            BC   00    01    11    10
+        A 0  ┌─────┬─────┬─────┬─────┐
+             │ [1] │ [1] │ [1] │ [1] │   ← 4 格全圈
+             ├─────┼─────┼─────┼─────┤
+          1  │  0  │  0  │  0  │  0  │
+             └─────┴─────┴─────┴─────┘
+
+   读法：A 在圈内恒为 0 → 写 A'
+         B 在圈内 0 和 1 都出现 → 消掉
+         C 在圈内 0 和 1 都出现 → 消掉
+   结果：A'                     （4 格合并 = 消掉 2 个变量 ✅）
+
+【例 B】圈住 m6、m7 两格（右上角与它左边一格）
+
+            BC   00    01    11    10
+        A 0  │  0  │  0  │  0  │  0  │
+          1  │  0  │  0  │ [1] │ [1] │   ← m7 和 m6
+             └─────┴─────┴─────┴─────┘
+
+   读法：A 恒为 1 → A
+         C 恒为 1（11 和 10 这一行里 C 都是 1）→ C
+         B 从 1 变到 0 → 消掉
+   结果：AC                    （2 格合并 = 消掉 1 个变量 ✅）
+
+【例 C】圈住 m0、m2 两格（左上角和右上角，跨边界卷绕）
+
+            BC   00    01    11    10
+        A 0  ┌─────┬─────┬─────┬─────┐
+             │ [1] │  0  │  0  │ [1] │   ← 最左和最右圈在一起
+             ├─────┼─────┼─────┼─────┤
+          1  │  0  │  0  │  0  │  0  │
+             └─────┴─────┴─────┴─────┘
+
+   读法：A 恒为 0 → A'
+         C 恒为 0 → C'
+         B 从 0 变到 1 → 消掉
+   结果：A'C'                  （✅ 跨边界卷绕是合法的）
+
+【反例】如果卡诺图的列按二进制排（00 01 10 11），
+        把 m0 和 m2 圈在一起就是错的 —— 它们差 A、B 两位，
+        根本不能合并。这就是格雷码必须存在的原因。</code></pre>
+          </div>
+
+          <p class="mt-3">最后是操作的固定流程，照着走就不会漏：</p>
+
+          <div class="mini-step mt-3">
+            <span class="step-num">1</span>
+            <div>
+              <p class="text-sm font-semibold">把函数写成标准与或式，或直接从真值表取数据</p>
+              <p class="mt-1 text-[13px] text-muted">输出为 1 的行 → 最小项编号的集合，就是你要填 1 的格子。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">2</span>
+            <div>
+              <p class="text-sm font-semibold">按变量个数画出卡诺图，标好格雷码行列标号</p>
+              <p class="mt-1 text-[13px] text-muted">三变量 8 格、四变量 16 格。先在草稿上把每个格子的编号小字写一遍，再填值。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">3</span>
+            <div>
+              <p class="text-sm font-semibold">填格：有最小项的格填 1，其余填 0，任意项填 ×</p>
+              <p class="mt-1 text-[13px] text-muted">填完扫一眼：1 的个数应该等于 Σm 里编号的个数。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">4</span>
+            <div>
+              <p class="text-sm font-semibold">圈 1：顺序是「先孤立的 1 → 再两格 → 再四格 → 再八格」</p>
+              <p class="mt-1 text-[13px] text-muted">看到 4 个 1 排成一条线或一个方块就一定要圈（哪怕其中某个 1 已经被圈过）。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">5</span>
+            <div>
+              <p class="text-sm font-semibold">逐个圈读出乘积项</p>
+              <p class="mt-1 text-[13px] text-muted">不变的变量留下（1 写原变量、0 写反变量），变了的变量消掉。</p>
+            </div>
+          </div>
+          <div class="mini-step mt-3">
+            <span class="step-num">6</span>
+            <div>
+              <p class="text-sm font-semibold">把各项「或」起来，然后回头检查</p>
+              <p class="mt-1 text-[13px] text-muted">检查两件事：<b>①</b> 是不是每个 1 都被圈到了（漏掉一个就是错）；<b>②</b> 是不是每个圈都有独占的 1（多余项要删）。<b>最后代 2 的 n 次方种输入验一遍</b>，这是最稳的验收方式。</p>
+            </div>
+          </div>
+
+          <p class="mt-3">还有一个「反向用法」必须知道：<b class="font-semibold text-ink">圈 0 可以直接得到最简或与式。</b></p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="圈 0 得最简或与式（和「圈 1 得与或式」完全对称）">
+            <pre><code>【规则】
+   圈 0 时，读法要反过来说：
+       圈内恒为 0 的变量 → 写【原变量】
+       圈内恒为 1 的变量 → 写【反变量】
+       变化过的变量     → 消掉
+   每一个圈得到一个【或项】（加法项），最后把所有或项【与】起来。
+
+【为什么】这就是对偶规则的体现：
+       圈 1 求的是 Y  = Σ(乘积项)
+       圈 0 求的是 Y' = Σ(0 格对应的乘积项)
+       再用德摩根取反 → Y = Π(或项)        两者数学上完全等价。
+
+【举个对称的例子】三变量函数 Y = Σm(0, 2, 4, 6)
+   （也就是 Y = C'，因为它等价于「C = 0 的所有情况」）
+
+   圈 0（m1, m3, m5, m7 这 4 个 0 格）：
+       它们在列 01 和 11 上，共同点是 C = 1
+       读法反过来：C = 1 恒成立 → 写 C'
+   所以 Y = C'                    ✅ 和圈 1 的答案一模一样
+
+【什么时候该用或与式】
+   · 0 的个数明显比 1 少时（圈 0 更省事）
+   · 后级电路是「低电平有效」的，或与式直接对应 NOR-NOR 结构
+   · 有些时序约束要求输出在「0 状态」下更稳（比如低有效复位）</code></pre>
+          </div>
+
+          <p class="mt-3">最后补一句变量多了怎么办：<b class="font-semibold text-ink">卡诺图在 5 变量时就要画两张 4×4（按 E = 0 / E = 1 分两层，两层对应格也算相邻），6 变量要画四张。</b>再往上就不适合手算了——那是 Q-M（奎恩-麦克拉斯基）表格法和 EDA 工具的地盘。所以卡诺图在工程里的真实定位是：<b class="font-semibold text-ink">手算 3~4 变量函数的最简式，以及验证公式化简的结果</b>。</p>
+
+          <h3 id="sub-dontcare" class="mt-7 text-base font-semibold">任意项，以及化简后反而出问题的情况：竞争与冒险</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">任意项（don't care term，也叫无关项、约束项）</b>指的是这样一批输入组合：它们在系统里<b class="font-semibold text-ink">永远不会出现</b>，或者出现了你也不关心输出是什么。在卡诺图里记作 <code class="icode">×</code>（也有写 <code class="icode">d</code>、<code class="icode">φ</code>、<code class="icode">X</code> 的）。</p>
+
+          <p class="mt-3">它们从哪儿来？看几个非常真实的来源：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">BCD 码。</b>用 4 位表示 0~9，那 1010~1111 这 6 个组合根本不会出现。做「数码管译码」时，这 6 个格子就是任意项。</li>
+            <li><b class="font-semibold text-ink">单片机的位域 / 寄存器保留位。</b>比如某个状态寄存器的 bit7~bit4 是保留位，硬件永远读回 0——判定状态时它们就是任意项。</li>
+            <li><b class="font-semibold text-ink">状态机的非法状态。</b>一个 3 位状态变量的 8 个编码里只用了 5 个，剩下 3 个是任意项（但注意：如果因为干扰跑飞进了非法状态，它就变成必须处理的情况了，见下方的警告）。</li>
+            <li><b class="font-semibold text-ink">被硬件互斥的输入组合。</b>比如两个继电器不会同时吸合，那么「都吸合」的那个组合就是任意项。</li>
+          </ul>
+
+          <p class="mt-3"><b class="font-semibold text-ink">怎么用？一句话：需要的时候当 1，不需要的时候当 0。</b>你拥有「随便填」的自由，而这份自由只有一个用途——<b class="font-semibold text-ink">把圈做大</b>。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="任意项怎么帮忙：把孤立的 1 变成一个大圈">
+            <pre><code>【需求】用 4 位输入 ABCD（8421 BCD 码，只出现 0000~1001）判断
+        「这个数字是不是 ≥ 5」，输出 Y = 1 表示 ≥ 5。
+
+【真值表】
+   ABCD   十进制   Y          ABCD   十进制   Y
+   0000     0      0          1000     8      1
+   0001     1      0          1001     9      1
+   0010     2      0          1010    (不出现)  ×
+   0011     3      0          1011    (不出现)  ×
+   0100     4      0          1100    (不出现)  ×
+   0101     5      1          1101    (不出现)  ×
+   0110     6      1          1110    (不出现)  ×
+   0111     7      1          1111    (不出现)  ×
+
+【卡诺图】（先只看 1 和 0，× 先空着）
+
+              CD  00    01    11    10
+        AB 00  │  0  │  0  │  0  │  0  │
+           01  │  0  │ [1] │ [1] │ [1] │
+           11  │  ×  │  ×  │  ×  │  ×  │
+           10  │ [1] │ [1] │  ×  │  ×  │
+
+【方案一：完全不用任意项】把 × 全当 0 看待
+
+              CD  00    01    11    10
+        AB 00  │  0  │  0  │  0  │  0  │
+           01  │  0  │ [1] │ [1] │ [1] │  ← 只能圈两格：BD(m5,m7)、BC(m6,m7)
+           11  │  0  │  0  │  0  │  0  │
+           10  │ [1] │ [1] │  0  │  0  │  ← 只能圈两格：AB'C'(m8,m9)
+
+        Y = A'BD + A'BC + AB'C'
+        3 个乘积项，一共 10 个变量字母（literal）
+
+【方案二：把 × 当 1 用】右下角全部填满
+
+              CD  00    01    11    10
+        AB 00  │  0  │  0  │  0  │  0  │
+           01  │  0  │ [1] │ [1] │ [1] │
+           11  │  1  │  1  │  1  │  1  │  ← 4 个 × 当 1
+           10  │ [1] │ [1] │  1  │  1  │  ← 2 个 × 当 1
+
+        圈 1：AB=11 与 AB=10 两整行，共 8 格
+              行内 A 恒为 1 → 项：A
+        圈 2：m6, m7, m14, m15 这 2×2 四格
+              B 恒为 1、C 恒为 1 → 项：BC
+        圈 3：m5, m7, m13, m15 这 2×2 四格
+              B 恒为 1、D 恒为 1 → 项：BD
+
+        Y = A + BC + BD = A + B(C + D)
+        还是 3 个乘积项，但只剩 5 个变量字母 —— 少了一半
+
+【检查一下没圈漏】1 的位置：m5 被圈 3 覆盖，m6 被圈 2 覆盖，
+        m7 被圈 2 和圈 3 同时覆盖，m8、m9 被圈 1 覆盖 ✅
+        再代进去验一个 0：数字 4 = 0100，A=0、BC=0、BD=0 → Y=0 ✅
+
+【结论】把 × 当 1，等于承认「反正这几种输入不会出现，输出是什么都行」，
+        于是那些孤零零的 1 就有了帮手，可以和旁边的 × 凑成更大的圈。
+        这个例子里项数没变少，但变量数少了一半；
+        例题 2 会给出一个项数从 2 项直接降到 1 项的例子。</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">用任意项的前提：它必须「真的」不会出现，而且出现了也不能出事</div>
+            <p>任意项是<b>设计意图上的假设</b>，不是物理上的保证。干扰、上电瞬间的随机电平、程序跑飞、传感器断线，都可能让一个「不可能出现的组合」真的出现在输入引脚上。这时候，你按任意项化简出来的电路会给出一个<b>没人验证过的输出</b>——它可能恰好让电机反转，或者让继电器乱跳。</p>
+            <p class="mt-2">所以工程上的判断标准是：<b>输出的后果严重 → 不要用任意项，把非法组合定义成确定的安全值</b>（比如输出 0、或者输出「停机」），并在代码里加一层非法输入的兜底判断；<b>输出的后果无关紧要</b>（比如多显示一个乱码）→ 放心用，换取更简单的电路。</p>
+            <p class="mt-2">这一条和第 4 节要讲的位掩码、第 5 节的坑是同一种思维方式：<b>化简的目标不只是「最简」，还要「在异常下也可预测」。</b></p>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">接下来是本节最后一个话题，也是最容易在真实电路上吃大亏的一个：竞争与冒险。</b></p>
+
+          <p class="mt-3">前面所有的化简，我们都是把门电路当成「瞬时完成计算」的理想器件。真实的门电路是有延迟的——一个非门大约几纳秒到几十纳秒（74HC 系列在 5V 下典型值大约 10 ns 量级，按典型值估算，具体看数据手册的 t<sub>pd</sub>）。下面两个定义要分清楚：</p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li><b class="font-semibold text-ink">竞争（race）：</b>同一个信号经过<b>不同路径</b>到达电路中同一个门。因为每条路径上的门数和延迟不同，信号变化不会同时到达。竞争是<b>结构上的事实</b>，只要电路里有分叉再汇合，就一定存在竞争。</li>
+            <li><b class="font-semibold text-ink">冒险 / 险象（hazard）：</b>竞争<b>真的造成了错误输出</b>——输出端冒出一个本不该有的窄脉冲，也就是<b class="font-semibold text-ink">毛刺（glitch）</b>。竞争不一定导致冒险，但冒险一定来自竞争。</li>
+          </ul>
+
+          <p class="mt-3">先看最直观的一个例子：<code class="icode">F = A · A'</code>。数学上它恒等于 0，但真实电路里 A' 要经过一个非门，比 A 晚到：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="最典型的毛刺：F = A · A' 在 A 上升沿冒出一个脉冲">
+            <pre><code>【电路结构】
+
+        ┌─────────┐
+   A ───┤         ├─── A'（经过非门，晚了 t_pd）
+        │   1     │        │
+        └─────────┘        │
+             │             │
+             └──────┬──────┘
+                    │
+                 ┌──┴──┐
+                 │  &amp;  ├──── F = A · A'   （数学上恒为 0）
+                 └─────┘
+
+   注意 A 分成了两条路径：一条直接到与门，一条绕了个非门。
+   这个「分叉再汇合」就是竞争。
+
+【按时间步逐格看波形】（t_pd = 3 个时间步）
+
+   时刻       0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19
+   ──────────┼──────────────────────────────────────────────────────────
+   A          │ 1  1  1  1  1  0  0  0  0  0  0  0  0  0  0  0  1  1  1  1
+   A'（延迟） │ 0  0  0  0  0  0  0  0  1  1  1  1  1  1  1  1  1  1  1  0
+   F = A · A' │ 0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  1  1  1  0
+                                                                 └─毛刺─┘
+
+【结论】A 在时刻 16 上升，A' 要到时刻 19 才下降完，
+        在这 3 个时间步（≈ t_pd）里，A 和 A' 同时为 1，
+        F 本来是 0，却冒出了一个宽度约等于 t_pd 的脉冲。
+
+        这就是毛刺。它不是「算错了」，公式一点问题都没有 ——
+        是电路的【物理延迟】让「X + X' = 1」和「X · X' = 0」
+        这两条恒等式在【过渡瞬间】不成立。
+
+【波形画出来长这样】（A 下降沿不产生毛刺，可以自己推一遍）
+
+   A     ────────┐                       ┌────────────
+                 └───────────────────────┘
+   A'    ─────────────┐                       ┌────────
+   (延迟)             └───────────────────────┘
+   F     ─────────────┐   ┌────────────────────────────
+                      └───┘
+                      ↑ 宽度 ≈ t_pd 的毛刺
+                        （数学上这段应该是平的 0）</code></pre>
+          </div>
+
+          <p class="mt-3">按「本该稳定的输出」和「实际出现的毛刺方向」，冒充分成两类，判别方法有两种：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>类型</th><th>本应</th><th>毛刺方向</th><th>结构成因</th><th>代数判别法</th></tr></thead>
+              <tbody>
+                <tr><td><b>静态 1 型</b>冒险</td><td>保持 1</td><td>出现 0 毛刺（凹下去）</td><td>「或」结构里的竞争：几个乘积项本该接着，中途全断了</td><td>令某些变量取特定值，表达式变成 <code class="icode">X + X'</code> 的形式 → 存在冒险</td></tr>
+                <tr><td><b>静态 0 型</b>冒险</td><td>保持 0</td><td>出现 1 毛刺（凸起来）</td><td>「与」结构里的竞争：<code class="icode">A · A'</code> 这种</td><td>令某些变量取特定值，表达式变成 <code class="icode">X · X'</code> 的形式 → 存在冒险</td></tr>
+                <tr><td><b>动态</b>冒险</td><td>变化 1 次（0→1）</td><td>变化 3 次甚至更多</td><td>静态冒险级联，多级电路的延迟叠出来的</td><td>逐级检查每一级的静态冒险</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">还有一个<b class="font-semibold text-ink">卡诺图判别法</b>，非常直观：<b class="font-semibold text-ink">如果两个圈「相切」——几何上相邻、但不重叠——而相切的位置又没有第三个圈覆盖，那就存在静态 1 型冒险。</b>相切意味着：从一个圈转到另一个圈时，输出交接的一瞬间可能两边都不出力。第 3 节的例题 3 会用一个具体函数把这件事算清楚。</p>
+
+          <p class="mt-3">消除的办法一共有五条，按工程上的常用程度排：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>方法</th><th>怎么做</th><th>代价</th><th>适用场合</th></tr></thead>
+              <tbody>
+                <tr><td><b>① 加冗余项</b></td><td>在卡诺图上再圈一个覆盖相切处的圈（公式上就是加 <code class="icode">BC</code> 这类「多余项」）</td><td>多一个门、多一路延迟；理论上不再是「最简」</td><td>纯组合逻辑必须消除毛刺时（这是数字设计里的标准做法）</td></tr>
+                <tr><td><b>② 加滤波电容</b></td><td>在输出端并一个小电容（典型几十到几百 pF），把窄脉冲滤掉</td><td>输出边沿变慢，高频信号会被削弱；要算 RC 时间常数（例题 4）</td><td>毛刺宽度很小、信号本身又慢的场合；成本最低的补救</td></tr>
+                <tr><td><b>③ 用时钟同步</b></td><td>让组合逻辑的输出只在时钟边沿被采样（进 D 触发器 / 在时钟沿读引脚）</td><td>需要一个时钟；引入一拍延迟</td><td><b>最彻底、最常用</b>的工程手段：先把毛刺等过去，再采样</td></tr>
+                <tr><td><b>④ 改输入编码</b></td><td>让输入每次只变一位（格雷码、一次只改一个寄存器位）</td><td>需要重新设计编码</td><td>编码器、多路开关、状态机状态编码</td></tr>
+                <tr><td><b>⑤ 加选通 / 使能</b></td><td>用选通脉冲（strobe）只在输出稳定之后才允许后级读取</td><td>多一根控制线，时序要算准</td><td>总线读写、ADC 转换完成后再取数据</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">一句话总结竞争冒险的「危险等级」</div>
+            <p><b>凡是组合逻辑的输出要接到「边沿敏感」的输入上，就必须处理毛刺</b>：中断引脚、时钟输入、复位引脚、锁存器的使能（LE）、片选（CS）、计数器的 CLK、DMA 触发源、ADC 的启动引脚。这些地方对窄脉冲是「照单全收」的——一个 10 ns 的毛刺足够让中断标志置位、让计数器多走一格。</p>
+            <p class="mt-2">反过来，<b>如果输出只是拿去当数据用</b>（送进加法器的操作数、接到显示器的段码），毛刺通常可以不管：因为等信号稳定下来，数据是对的，而下游要的是「稳定之后的值」。</p>
+            <p class="mt-2">还有一点必须知道：<b>毛刺不是「线接错了」，也不是「芯片坏了」</b>——它是所有组合逻辑天生的属性。所以你在实验室里追一个「偶尔多算一次数」的 bug 时，如果示波器上什么也看不到，别急着怀疑硬件，先问自己一句：<b>是不是有个中断引脚正被一根没同步的组合逻辑输出驱动着？</b></p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 例题与计算 ---------------------------- -->
+        <section>
+          <h2 id="sec-calc" class="text-xl font-semibold">例题与计算</h2>
+          <p class="mt-4">前面讲的都是「规则」，这一节把它们用起来。四道题各有分工：<b class="font-semibold text-ink">例题 1</b> 走一遍「真值表 → 标准式 → 公式化简 → 卡诺图验证」的完整链路；<b class="font-semibold text-ink">例题 2</b> 专门算任意项到底能省多少；<b class="font-semibold text-ink">例题 3</b> 说明为什么「最简」有时候反而不该要；<b class="font-semibold text-ink">例题 4</b> 把毛刺和滤波电容算成具体数字。<b>建议你拿纸照着画一遍卡诺图</b>——看懂和会画是两回事。</p>
+
+          <h3 id="sub-ex1" class="mt-7 text-base font-semibold">例题 1：三取二表决器（真值表 → 标准式 → 公式化简 → 卡诺图验证）</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>三个评委 A、B、C 各按一个按钮（按下为 1）。规则是「少数服从多数」：<b>任意两人及以上按下，输出 Y 就为 1</b>，否则为 0。求 Y 的最简与或式。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 1 步：列真值表。</b>三个变量共 8 行，逐行数「按下的个数」：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>A</th><th>B</th><th>C</th><th>按下的人数</th><th>Y</th><th>对应最小项</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>—</td></tr>
+                <tr><td>0</td><td>0</td><td>1</td><td>1</td><td>0</td><td>—</td></tr>
+                <tr><td>0</td><td>1</td><td>0</td><td>1</td><td>0</td><td>—</td></tr>
+                <tr><td>0</td><td>1</td><td>1</td><td>2</td><td><b>1</b></td><td><code class="icode">m<sub>3</sub> = A'BC</code></td></tr>
+                <tr><td>1</td><td>0</td><td>0</td><td>1</td><td>0</td><td>—</td></tr>
+                <tr><td>1</td><td>0</td><td>1</td><td>2</td><td><b>1</b></td><td><code class="icode">m<sub>5</sub> = AB'C</code></td></tr>
+                <tr><td>1</td><td>1</td><td>0</td><td>2</td><td><b>1</b></td><td><code class="icode">m<sub>6</sub> = ABC'</code></td></tr>
+                <tr><td>1</td><td>1</td><td>1</td><td>3</td><td><b>1</b></td><td><code class="icode">m<sub>7</sub> = ABC</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 2 步：写出标准与或式。</b>把 Y = 1 的四行挑出来，每一项都用「原变量写 1、反变量写 0」的规则：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 1 · 第 2 步：标准与或式">
+            <pre><code>Y = Σm(3, 5, 6, 7)
+  = A'BC + AB'C + ABC' + ABC
+
+【检查】每一项都含 3 个变量，一共有 4 项 —— 这是标准与或式，
+        它一定正确，但也一定不是最简的（4 项、每项 3 个字母 = 12 个字母）。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 3 步：用公式法化简。</b>这里用一个小技巧——<b>幂等律 <code class="icode">A = A + A + A</code></b>：既然同一个条件说几遍都一样，那就把 <code class="icode">ABC</code> 这一项多写两遍，凑出三组可以合并的项：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 1 · 第 3 步：公式化简">
+            <pre><code>Y = A'BC + AB'C + ABC' + ABC
+
+第 1 步：把 ABC 复制两份（幂等律：X = X + X + X）
+         这一步最像「变魔术」，但它是完全合法的 ——
+         逻辑代数里「多说几遍」不改变结论。
+
+  = A'BC + ABC  +  AB'C + ABC  +  ABC' + ABC
+    └────┬────┘     └────┬────┘     └────┬────┘
+      第 ① 组          第 ② 组          第 ③ 组
+
+第 2 步：每组提公因子
+  ① A'BC + ABC = BC(A' + A) = BC · 1 = BC
+  ② AB'C + ABC = AC(B' + B) = AC · 1 = AC
+  ③ ABC' + ABC = AB(C' + C) = AB · 1 = AB
+
+第 3 步：合并
+
+  Y = BC + AC + AB
+
+【结果】Y = AB + AC + BC        （3 项，每项 2 个字母 = 6 个字母）
+
+【从 12 个字母降到 6 个】如果按门电路算：
+        化简前：4 个三输入与门 + 1 个四输入或门，还要 3 个非门
+        化简后：3 个二输入与门 + 1 个三输入或门，不需要非门
+        —— 这就是化简在硬件上的真实收益。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 4 步：用卡诺图验证。</b>把 4 个 1 填进三变量卡诺图，然后圈：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 1 · 第 4 步：卡诺图与三个圈">
+            <pre><code>                        BC
+                 00      01      11      10
+            ┌───────┬───────┬───────┬───────┐
+        A 0 │  m0   │  m1   │  m3   │  m2   │
+            │   0   │   0   │   1   │   0   │
+            ├───────┼───────┼───────┼───────┤
+          1 │  m4   │  m5   │  m7   │  m6   │
+            │   0   │   1   │   1   │   1   │
+            └───────┴───────┴───────┴───────┘
+
+【圈法】m7 是「枢纽格」，它和三个方向的 1 都能配对：
+
+   圈 ①  竖向圈 m3 + m7   → A 从 0 变到 1（消掉），B=1、C=1 不变  →  BC
+   圈 ②  横向圈 m5 + m7   → B 从 0 变到 1（消掉），A=1、C=1 不变  →  AC
+   圈 ③  横向圈 m6 + m7   → C 从 0 变到 1（消掉），A=1、B=1 不变  →  AB
+
+【规则检查】
+   ✅ 每个圈都是 2 格（2 的幂）
+   ✅ 圈内没有 0（只圈了 1）
+   ✅ 每个圈都有一个「独占的 1」：
+        圈①独占 m3、圈②独占 m5、圈③独占 m6
+        （m7 被三个圈共用 —— 这是允许的，也是必需的）
+   ✅ 所有 1 都被覆盖：m3 ✅ m5 ✅ m6 ✅ m7 ✅
+
+【结论】Y = BC + AC + AB        ← 和公式化简的结果完全一致 ✅</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">从这个例题里要带走的三件事</div>
+            <p><b>①</b> 标准与或式是「机械翻译」出来的，不可能出错，但它往往很啰嗦；化简是第二步，不能跳过。<b>②</b> 公式化简里的「复制一项」不是作弊，而是幂等律的正常用法；<b>卡诺图会把这一步自动做掉</b>（因为你不需要复制，一个格本来就可以被多个圈共用）——这就是卡诺图比公式法省心的原因。<b>③</b> 三取二表决的结果 <code class="icode">Y = AB + AC + BC</code> 值得记住，第 4 节会把它变成一行单片机代码。</p>
+          </div>
+
+          <h3 id="sub-ex2" class="mt-7 text-base font-semibold">例题 2：含任意项的四变量函数——任意项取与不取，差多少？</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>已知四变量逻辑函数</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2 · 题目">
+            <pre><code>F(A,B,C,D) = Σm(1, 3, 5, 7, 9) + Σd(11, 13, 15)
+
+说明：Σm 是「输出必须为 1」的最小项集合
+      Σd 是任意项集合（这几种输入不会出现，输出随意）
+
+要求：① 完全不用任意项，求最简与或式
+      ② 把任意项全部当 1 用，求最简与或式
+      ③ 比较两者的代价，并说明「任意项取与不取」的影响</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 1 步：填卡诺图。</b>先看这些编号有什么共同点——1、3、5、7、9、11、13、15 <b>全是奇数</b>，而四变量里「是奇数」就等于 <b>D = 1</b>。这个观察直接预告了答案。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2 · 第 1 步：填卡诺图（1 用实心，× 用斜杠）">
+            <pre><code>                          CD
+                 00      01      11      10
+            ┌───────┬───────┬───────┬───────┐
+      AB 00 │   0   │   1   │   1   │   0   │    m1、m3 是 1
+            ├───────┼───────┼───────┼───────┤
+        01  │   0   │   1   │   1   │   0   │    m5、m7 是 1
+            ├───────┼───────┼───────┼───────┤
+        11  │   0   │   ×   │   ×   │   0   │    m13、m15 是任意项
+            ├───────┼───────┼───────┼───────┤
+        10  │   0   │   1   │   ×   │   0   │    m9 是 1，m11 是任意项
+            └───────┴───────┴───────┴───────┘
+
+   【清点】1 有 5 个（m1, m3, m5, m7, m9）、× 有 3 个（m11, m13, m15）、
+          0 有 8 个。5 + 3 + 8 = 16 ✅ 一个不多一个不少。
+
+   【再看一眼】所有 1 和所有 × 都落在 CD = 01 或 CD = 11 这两列里，
+          也就是 D = 1 的那半边！</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 2 步：不用任意项（× 一律当 0）。</b>这时 1 分散成两组加一个孤立的格子，只能圈出两个圈：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2 · 第 2 步：不用任意项，F = A'D + B'C'D">
+            <pre><code>                          CD
+                 00      01      11      10
+            ┌───────┬───────┬───────┬───────┐
+      AB 00 │   0   │ [1]① │ [1]① │   0   │
+            ├───────┼───────┼───────┼───────┤
+        01  │   0   │ [1]① │ [1]① │   0   │
+            ├───────┼───────┼───────┼───────┤
+        11  │   0   │   0   │   0   │   0   │
+            ├───────┼───────┼───────┼───────┤
+        10  │   0   │ [1]② │   0   │   0   │
+            └───────┴───────┴───────┴───────┘
+
+   圈 ①：m1, m3, m5, m7 组成 2×2 四格
+         行 AB 从 00 到 01（A=0 不变，B 变）→ 保留 A'
+         列 CD 从 01 到 11（D=1 不变，C 变）→ 保留 D
+         项 = A'D                              （4 格，消掉 2 个变量）
+
+   圈 ②：m1 + m9 竖向两格
+         m1 和 m9 只差 A 这一位（行 00 与行 10 上下卷绕相邻）
+         保留 B'、C'、D → 项 = B'C'D          （2 格，消掉 1 个变量）
+
+   F = A'D + B'C'D
+
+   代价：2 个乘积项，2 + 3 = 5 个变量字母
+         硬件上需要 1 个非门（做 A'）+ 1 个非门（做 B'C'）+ 2 个与门 + 1 个或门</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 3 步：把三个任意项全部当 1 用。</b>这时 <code class="icode">D = 1</code> 的 8 个格子全变成了 1，可以一圈到底：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 2 · 第 3 步：用上任意项，F = D">
+            <pre><code>                          CD
+                 00      01      11      10
+            ┌───────┬───────┬───────┬───────┐
+      AB 00 │   0   │ [1]① │ [1]① │   0   │
+            ├───────┼───────┼───────┼───────┤
+        01  │   0   │ [1]① │ [1]① │   0   │
+            ├───────┼───────┼───────┼───────┤
+        11  │   0   │ [×→1]①│ [×→1]①│   0   │  ← × 当 1
+            ├───────┼───────┼───────┼───────┤
+        10  │   0   │ [1]① │ [×→1]①│   0   │  ← × 当 1
+            └───────┴───────┴───────┴───────┘
+
+   圈 ①：CD = 01 和 CD = 11 这两整列（4 行 × 2 列 = 8 格）
+         在圈内：C 既取 0 又取 1 → 消掉
+                 A、B 四行全在圈里，也都既取 0 又取 1 → 消掉
+                 D 恒为 1 → 保留
+         项 = D                                （8 格，消掉 3 个变量）
+
+   F = D
+
+   代价：1 个乘积项，1 个变量字母，0 个门电路 ——
+         因为这根线直接从输入 D 拉出来就行了！
+
+【检查】把 1 的位置代进去：
+        m1 → D=1 → F=1 ✅    m3 → D=1 → F=1 ✅
+        m5 → D=1 → F=1 ✅    m7 → D=1 → F=1 ✅
+        m9 → D=1 → F=1 ✅
+        再验一个 0：m0 → D=0 → F=0 ✅
+        （m11/m13/m15 反正是任意项，输出 1 也无所谓）</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 4 步：比较。</b>把三种做法放在一起看，「任意项取与不取」的影响就一目了然了：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>做法</th><th>最简与或式</th><th>乘积项数</th><th>变量字母数</th><th>需要的门</th></tr></thead>
+              <tbody>
+                <tr><td>完全不用任意项</td><td><code class="icode">F = A'D + B'C'D</code></td><td>2</td><td>5</td><td>2 个非门 + 2 个与门 + 1 个或门</td></tr>
+                <tr><td>只用一部分任意项（例如只用 m11）</td><td><code class="icode">F = A'D + AB'D</code></td><td>2</td><td>5</td><td>2 个非门 + 2 个与门 + 1 个或门（没占到便宜）</td></tr>
+                <tr><td><b>全部当 1 用</b></td><td><code class="icode">F = D</code></td><td><b>1</b></td><td><b>1</b></td><td><b>0 个门，直接连线</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">差距是压倒性的：<b class="font-semibold text-ink">一个本来要 5 个门搭出来的函数，利用任意项之后连门都不用，直接把 D 这根线引出来就是答案。</b>这就是任意项的价值——它不是「省一点点」，而是能把一整块逻辑彻底消灭掉。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">但这里必须补一句：另一条路也可能走不通</div>
+            <p>假如这个电路的输出要去控制一个<b>会动的东西</b>（电机、继电器、加热丝），那 m11、m13、m15 这三种输入虽然「不该出现」，可一旦因为干扰或者程序出错出现了，<code class="icode">F = D</code> 就会给出一个<b>没人设计过、也没人测试过</b>的输出。风险不可接受的时候，正确做法是反过来——<b>把这些组合定义成固定的安全值</b>（比如全部输出 0），然后老老实实按 <code class="icode">F = A'D + B'C'D</code> 搭电路。</p>
+            <p class="mt-2">另外还有一条硬性约束：<b>每个圈里至少要含一个真正的 1</b>。如果你圈出一组全是 × 的格子，这个圈不可能帮别的 1 变短，只会白白多出一个乘积项——那是错误用法。</p>
+          </div>
+
+          <h3 id="sub-ex3" class="mt-7 text-base font-semibold">例题 3：冗余律的证明、验证，以及「为什么要留着多余项」</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>证明并验证 <code class="icode">AB + A'C + BC = AB + A'C</code>，然后解释：既然 <code class="icode">BC</code> 是多余的，为什么硬件上还常常要把它加回来？</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 1 步：代数证明</b>（这一步在第 2 节已经写过，这里再走一遍，重点是记住「配项法」这个动作）：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 3 · 第 1 步：配项法证明冗余律">
+            <pre><code>要证：AB + A'C + BC = AB + A'C
+
+给 BC 乘上 (A + A')：
+
+    AB + A'C + BC
+  = AB + A'C + BC(A + A')          ← 配项：×(A+A') = ×1，值不变
+  = AB + A'C + ABC + A'BC          ← 展开
+  = (AB + ABC) + (A'C + A'BC)      ← 分组
+  = AB(1 + C) + A'C(1 + B)         ← 提公因子
+  = AB · 1 + A'C · 1               ← 零律：1 + 任何东西 = 1
+  = AB + A'C                       ∎
+
+【关键动作只有两个】
+   ① 配项：给某一项乘上 (X + X') 或加上 X·X' —— 值不变，但形式变了
+   ② 吸收：用 A + AB = A 把多出来的项吃掉
+   这两个动作就是公式化简法的全部「内力」。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 2 步：8 行数值验证。</b>代数证明完了，但你完全可以不信——那就把 8 种输入全代进去，<b>这是最可靠的验证方法，考试时用来检查化简结果只要两分钟</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>A</th><th>B</th><th>C</th><th><code class="icode">AB</code></th><th><code class="icode">A'C</code></th><th><code class="icode">BC</code></th><th><code class="icode">AB + A'C</code></th><th><code class="icode">AB + A'C + BC</code></th><th>相等？</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>✅</td></tr>
+                <tr><td>0</td><td>0</td><td>1</td><td>0</td><td>1</td><td>0</td><td>1</td><td>1</td><td>✅</td></tr>
+                <tr><td>0</td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>✅</td></tr>
+                <tr><td>0</td><td>1</td><td>1</td><td>0</td><td>1</td><td>1</td><td>1</td><td>1</td><td>✅</td></tr>
+                <tr><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>✅</td></tr>
+                <tr><td>1</td><td>0</td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>✅</td></tr>
+                <tr><td>1</td><td>1</td><td>0</td><td>1</td><td>0</td><td>0</td><td>1</td><td>1</td><td>✅</td></tr>
+                <tr><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td><td>1</td><td>1</td><td>1</td><td>✅</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">看第 4 行和第 8 行——这两行 <code class="icode">BC = 1</code>，而 <code class="icode">AB + A'C</code> 已经是 1 了。<b class="font-semibold text-ink">凡是有 <code class="icode">BC</code> 的地方，前两项必然已经覆盖，所以 <code class="icode">BC</code> 永远不可能是「唯一让输出为 1 的项」。</b>这就是它「多余」的严格含义。</p>
+
+          <p class="mt-3"><b class="font-semibold text-ink">第 3 步：卡诺图验证。</b><code class="icode">F = AB + A'C</code> 的 1 格是 m6、m7（AB 那一组）和 m1、m3（A'C 那一组），而 <code class="icode">BC</code> 覆盖的是 m3、m7——正好是两组相邻的地方：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 3 · 第 3 步：卡诺图上的「相切」与多余的第三个圈">
+            <pre><code>                        BC
+                 00      01      11      10
+            ┌───────┬───────┬───────┬───────┐
+        A 0 │   0   │ [1]① │ [1]① │   0   │
+            ├───────┼───────┼───────┼───────┤
+          1 │   0   │   0   │ [1]② │ [1]③ │
+            └───────┴───────┴───────┴───────┘
+
+   圈 ①：m1 + m3（竖向）→ A'C            ← 真 1 的圈
+   圈 ②：m3 + m7（竖向）→ BC             ← 这是「多余项」的圈
+   圈 ③：m6 + m7（横向）→ AB             ← 真 1 的圈
+
+【为什么圈② 是多余的】
+   规则第 5 条：每个圈至少要含一个「没被别的圈圈过」的 1。
+   圈② 里的 m3 已经被圈① 覆盖、m7 已经被圈③ 覆盖
+   → 圈② 没有任何独占的 1 → 删掉它，函数一点没变。
+
+   F = A'C + AB                       （最简，2 项）
+
+【删掉它之前，先看一件更要紧的事】
+   圈① 和圈③ 是「相切」的：圈① 的 m3 与圈③ 的 m7 在
+   对角线上挨着，但两个圈不重叠。
+   相切意味着：从一个圈交接到另一个圈的时候，
+   输出有可能【两边同时不发力】—— 这就是静态 1 型冒险。
+
+【危险条件就在相切处】相切的两个格是 m3 和 m7：
+   · m3 = A'BC   → B=1, C=1, A=0
+   · m7 = ABC    → B=1, C=1, A=1
+   也就是说：当 B = 1 且 C = 1 时，输出完全靠 A 撑着
+   此时 F = A·1 + A'·1 = A + A' —— 理论上恒等于 1
+
+   但是 A 有两条路径：
+   · 一条直接进「AB」那个与门（快）
+   · 一条要先过非门再做「A'C」（慢，多一个 t_pd）
+   A 变化的时候，这两条路径不同时到位，
+   中间就会出现 F = 0 的瞬间 —— 毛刺！
+
+【把圈② 加回来就没事了】
+   圈② 对应的项 BC 在 B=C=1 的时候恒等于 1，
+   它不依赖 A，所以 A 怎么变、变得多慢，它都把输出钉在 1 上。
+
+   F = A'C + AB + BC     ← 数学上「多余」，硬件上「保命」</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">这个例题是本篇最重要的一次「数学结论 ≠ 工程结论」</div>
+            <p>课本教你化简到「最简」；厂家和老师傅告诉你<b>该加的门还得加</b>。两者都没错，因为目标不一样：</p>
+            <p class="mt-2"><b>数学目标</b>：项数最少、字母最少 → <code class="icode">F = A'C + AB</code>。<br>
+            <b>工程目标</b>：输出在<b>任何时刻</b>（包括信号跳变的过渡瞬间）都符合预期 → <code class="icode">F = A'C + AB + BC</code>。</p>
+            <p class="mt-2">所以你在数据手册、开源硬件原理图里看到「明明可以化简却没化简」的组合逻辑时，别急着说人家水平差——<b>说不定那一项就是专门防毛刺的</b>。判断方法很简单：看这个输出接的是数据线还是边沿敏感引脚（中断、时钟、复位、片选）。</p>
+          </div>
+
+          <h3 id="sub-ex4" class="mt-7 text-base font-semibold">例题 4：算一算滤波电容到底能不能滤掉毛刺</h3>
+
+          <p class="mt-3"><b class="font-semibold text-ink">题目：</b>一个组合逻辑的输出要接到 STM32 的中断引脚上。逻辑门的传播延迟按典型值估算是 <code class="icode">t<sub>pd</sub> ≈ 10 ns</code>（74HC 系列在 5V 供电下的量级，3.3V 供电会更大一些），电路里存在两条延迟不同的路径，估算毛刺宽度约 <code class="icode">t<sub>g</sub> ≈ 20 ns</code>。现在在输出端加一个 <b>R = 1 kΩ、C = 100 pF</b> 的 RC 低通滤波器。请计算：<b>①</b> 时间常数与截止频率；<b>②</b> 毛刺期间电容能充到多少伏，会不会被后级当成高电平；<b>③</b> 这个滤波器给正常信号带来了多大代价。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 4 · 电路结构">
+            <pre><code>                       R = 1 kΩ
+   组合逻辑输出 ────┬───[=====]───┬──── 到 STM32 的中断引脚
+                    │             │
+                    │          ┌──┴──┐
+                    │          │ C   │ 100 pF
+                    │          └──┬──┘
+                   GND           GND
+
+   【原理】电容两端的电压不能突变。
+          窄脉冲还没来得及把电容充到「高电平门槛」，
+          脉冲就已经结束了 —— 毛刺就这么被「吃掉」了。
+          而正常信号是持续的，电容有足够时间充满。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">① 时间常数与截止频率。</b>一阶 RC 电路的两个基本量：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 4 · ① 时间常数与截止频率">
+            <pre><code>时间常数：τ = R × C
+            = 1 kΩ × 100 pF
+            = 1×10³ Ω × 100×10⁻¹² F
+            = 100×10⁻⁹ s
+            = 100 ns
+
+截止频率：f_c = 1 / (2πτ)
+              = 1 / (2 × 3.1416 × 100×10⁻⁹ s)
+              = 1 / (6.283×10⁻⁷ s)
+              ≈ 1.59×10⁶ Hz
+              ≈ 1.6 MHz
+
+【这两个数怎么读】
+   τ = 100 ns 意味着：电容充到最终值的 63% 需要 100 ns，
+                            充到 95% 需要 3τ = 300 ns。
+   f_c = 1.6 MHz 意味着：频率远高于 1.6 MHz 的成分会被大幅衰减。
+                        毛刺的等效频率成分在几十 MHz 以上
+                        （脉宽 20 ns ≈ 50 MHz 量级），
+                        正好落在被狠狠削掉的区间里。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">② 毛刺期间电容能充到多少？</b>用一阶 RC 的充电公式 <code class="icode">v(t) = V × (1 − e<sup>−t/τ</sup>)</code>，其中 V = 3.3 V 是逻辑高电平：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 4 · ② 毛刺被衰减到什么程度">
+            <pre><code>毛刺宽度 t_g = 20 ns，代入充电公式：
+
+   t_g / τ = 20 ns / 100 ns = 0.2
+
+   v(t_g) = 3.3 V × (1 − e^(−0.2))
+          = 3.3 V × (1 − 0.8187)
+          = 3.3 V × 0.1813
+          ≈ 0.60 V
+
+【和后级的门槛比一比】
+   STM32F103 数据手册在 3.3V 供电下给出的 V_IH（输入判为高电平
+   所需的最低电压）最小值是 2.0 V，V_IL（判为低电平的最高电压）
+   最大值是 0.8 V（这是 STM32F103 数据手册在 3.3V 供电下的值）。
+
+   毛刺只把电压顶到 0.60 V：
+        0.60 V &lt; V_IL(0.8 V) &lt; V_IH(2.0 V)
+   → 稳稳地落在「低电平」区间里，还留了 0.2 V 的余量
+   → 后级根本不会看到这个毛刺 ✅
+
+【如果毛刺更宽呢】假如毛刺宽到 60 ns（路径延迟差更大）：
+   t_g / τ = 0.6，v = 3.3 × (1 − e^(−0.6)) = 3.3 × 0.451 = 1.49 V
+   1.49 V 仍然低于 2.0 V，但已经越过 V_IL 了 ——
+   这属于「不确定区」，能不能滤掉要看运气。
+   → 毛刺宽度必须先估出来，不能凭感觉加个电容就完事。
+
+【结论】对于 20 ns 量级的毛刺，1 kΩ + 100 pF 是够用的。</code></pre>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">③ 代价：正常信号的边沿被拖慢了。</b>任何滤波都是有代价的——电容不认识「毛刺」和「有用信号」，它一视同仁地拖慢所有跳变：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="例题 4 · ③ 边沿变慢多少，最高能用到多快">
+            <pre><code>【上升时间】从 0 V 充到 V_IH = 2.0 V 需要多久？
+
+   2.0 V = 3.3 V × (1 − e^(−t/τ))
+   1 − e^(−t/τ) = 2.0 / 3.3 = 0.6061
+   e^(−t/τ) = 1 − 0.6061 = 0.3939
+   t/τ = −ln(0.3939) = 0.9318
+   t = 0.9318 × 100 ns ≈ 93 ns
+
+   → 一个「瞬间」的跳变，被拉成了约 93 ns 才跨过判定门槛。
+
+【最高可用频率】
+   一个完整周期要包含「上升 + 下降」两段：
+       周期 ≥ 93 ns + 93 ns ≈ 186 ns（这是理论极限，不留余量）
+   实际要留 3~5 倍余量（让信号真正稳定下来）：
+       周期 ≥ 约 600 ns ~ 1 µs
+       频率 ≤ 1 / 1 µs = 1 MHz（保守取值还要更低）
+
+   → 也就是说：这个滤波器只适合【慢信号】
+     （按键、限位开关、偶尔变化的报警线）。
+     拿它去滤 1 MHz 以上的信号，会把有用信号一起滤没。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>方案</th><th>毛刺能不能滤掉</th><th>代价</th><th>什么时候选它</th></tr></thead>
+              <tbody>
+                <tr><td>加 R = 1 kΩ + C = 100 pF</td><td>20 ns 毛刺 → 顶到 0.60 V，可以滤掉</td><td>边沿慢到约 93 ns，信号频率上限约 1 MHz</td><td>信号本身很慢，且不想改逻辑；成本几分钱</td></tr>
+                <tr><td>把 C 加大到 1 nF（R 不变）</td><td>滤得更干净（τ = 1 µs）</td><td>边沿慢到约 0.93 µs，频率上限降到约 100 kHz</td><td>按键、机械开关这类「人在操作」的信号</td></tr>
+                <tr><td>加冗余项（<code class="icode">+BC</code>）</td><td>从源头消除，不留毛刺</td><td>多一个门，多一路延迟</td><td><b>纯组合逻辑的正规解法</b>，信号速度要求高时唯一选择</td></tr>
+                <tr><td>用时钟同步（D 触发器 / 定时器采样）</td><td>最彻底：等毛刺过去再采样</td><td>引入 1 个时钟周期的延迟</td><td><b>数字系统里的标准做法</b>；单片机里就是「定时器中断里再读一次」</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">关于「估算」的三点提醒</div>
+            <p><b>① 上面所有数字都是量级估算</b>：真实门电路的 t<sub>pd</sub> 随供电电压、温度、负载电容变化；PCB 走线本身也有几 pF 的寄生电容，会和你的滤波电容叠加。<b>算出来的值只用来判断「这个方案可行不可行」，不用来精确预测波形。</b></p>
+            <p class="mt-2"><b>② 电容不要直接加在高速信号的引脚上</b>。I2C、SPI 的时钟线本来就规定了总线电容上限（I2C 标准模式规定总线电容不超过 400 pF），你再加 100 pF 是在和整个总线的上升时间作对。</p>
+            <p class="mt-2"><b>③ 能改逻辑就别加电容</b>。加电容是在「掩盖症状」，加冗余项和做时钟同步是在「消除病因」。工程上正确的顺序永远是：<b>先想办法把毛刺消掉，实在不行再滤波。</b></p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 在单片机上的样子 ---------------------------- -->
+        <section>
+          <h2 id="sec-mcu" class="text-xl font-semibold">在单片机上的样子</h2>
+          <p class="mt-4">前面三节都是纸上的东西，这一节全部落到芯片上。<b class="font-semibold text-ink">你会看到一件很有意思的事：你在这一章学的每一条规则，在 C 语言里都有一个直接的对应物。</b>布尔代数的「与或非」就是位运算的 <code class="icode">&amp;</code> <code class="icode">|</code> <code class="icode">~</code>；卡诺图化简就是「用更少的判断干同样的事」；德摩根定律就是低电平有效信号让人看错逻辑的根源；竞争冒险就是那个「中断偶尔多触发一次」的幽灵。</p>
+
+          <h3 id="sub-mcu-mask" class="mt-7 text-base font-semibold">位掩码的本质：就是布尔代数</h3>
+
+          <p class="mt-3">先建立这张对照表。<b class="font-semibold text-ink">它不是类比，是同一件事</b>——C 语言的位运算符本来就是逐位做布尔运算。<b>一个 32 位寄存器，在逻辑代数眼里就是 32 个逻辑变量排成一队；一次位运算就是 32 个布尔运算同时执行。</b></p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>布尔运算</th><th>C 运算符</th><th>真值表口诀</th><th>在寄存器上干什么</th></tr></thead>
+              <tbody>
+                <tr><td>与 AND</td><td><code class="icode">&amp;</code></td><td>有 0 出 0，全 1 出 1</td><td><b>取位</b>（只看关心的几位）、<b>清零</b>、判断「都成立」</td></tr>
+                <tr><td>或 OR</td><td><code class="icode">|</code></td><td>有 1 出 1，全 0 出 0</td><td><b>置位</b>、<b>合并</b>标志、判断「任一成立」</td></tr>
+                <tr><td>非 NOT</td><td><code class="icode">~</code></td><td>取反</td><td>生成「除某几位以外全是 1」的<b>清零掩码</b></td></tr>
+                <tr><td>异或 XOR</td><td><code class="icode">^</code></td><td>不同为 1，相同为 0</td><td><b>翻转</b>某位、算校验和</td></tr>
+                <tr><td>与非 NAND</td><td><code class="icode">~(a &amp; b)</code></td><td>有 0 出 1，全 1 出 0</td><td>编译器和硬件常常自动把 <code class="icode">!(a &amp;&amp; b)</code> 变成它</td></tr>
+                <tr><td>同或 XNOR</td><td><code class="icode">~(a ^ b)</code></td><td>相同为 1</td><td>判断两个值是否完全一致：<code class="icode">if (!(a ^ b))</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3">注意最后一行那个 <code class="icode">~(a ^ b)</code>——它就是第 2 节讲的<b class="font-semibold text-ink">同或</b>（一位的相等比较器），<b>用异或加上取反就得到了「相等」</b>。这就是逻辑代数里「同或 = 异或的非」在代码里的样子。</p>
+
+          <p class="mt-3">现在逐条拆开你在文章开头看到的那三行代码：</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="位掩码的三个动作，逐条翻译成逻辑代数">
+            <pre><code>【准备】一个 8 位的状态寄存器 flags，我们只关心 bit3 和 bit2。
+        0x0C = 二进制 0000 1100 —— 它的 bit3 和 bit2 是 1，其余是 0。
+
+   bit 编号   7  6  5  4  3  2  1  0
+   ───────────────────────────────────
+   0x0C    =  0  0  0  0  1  1  0  0
+                          ↑  ↑
+                       bit3  bit2
+
+─────────────────────────────────────────────────────────────
+① if ((flags &amp; 0x0C) == 0x0C)
+─────────────────────────────────────────────────────────────
+
+   第一步：flags &amp; 0x0C  —— 与运算，把「不关心的位」全部抹成 0
+
+       假设 flags = 1010 1100
+       flags       = 1 0 1 0  1 1 0 0
+       0x0C        = 0 0 0 0  1 1 0 0
+       ────────────── 与（有 0 出 0）──────────────
+       flags&amp;0x0C  = 0 0 0 0  1 1 0 0   = 0x0C
+
+   第二步：和 0x0C 比较 —— 相等意味着 bit3 和 bit2 都是 1
+
+       → 逻辑含义：【bit3 成立 而且 bit2 成立】
+         就是布尔代数的【与】：Y = A · B
+         写成变量就是 if (bit3 &amp;&amp; bit2)
+         —— 而 &amp; 0x0C 这一步，等于「把两个变量取出来放到一起」。
+
+   反面例子：flags = 1010 0100（只有 bit2 是 1）
+       flags&amp;0x0C  = 0 0 0 0  0 1 0 0   = 0x04
+       0x04 ≠ 0x0C  → 条件不成立 ✅
+
+─────────────────────────────────────────────────────────────
+② REG |= (1u &lt;&lt; 3)
+─────────────────────────────────────────────────────────────
+
+   第一步：1u &lt;&lt; 3 生成掩码
+       1u          = 0000 0001
+       1u &lt;&lt; 3     = 0000 1000 = 0x08     ← 只有 bit3 是 1
+
+   第二步：|= 就是 REG = REG | 0x08 —— 或运算
+       原 REG      = 1 0 1 0  0 1 0 0
+       掩码        = 0 0 0 0  1 0 0 0
+       ────────────── 或（有 1 出 1）──────────────
+       新 REG      = 1 0 1 0  1 1 0 0     ← bit3 强制变 1，其余位不变
+
+   依据是两条定律：
+       A + 1 = 1      （零律）→ 掩码为 1 的位，强制置 1
+       A + 0 = A      （同一律）→ 掩码为 0 的位，原样保留
+   逻辑含义：【把 bit3 置位】，其它位完全不动。
+
+─────────────────────────────────────────────────────────────
+③ REG &amp;= ~(1u &lt;&lt; 3)
+─────────────────────────────────────────────────────────────
+
+   第一步：~ 取反
+       1u &lt;&lt; 3     = 0000 1000
+       ~(1u &lt;&lt; 3)  = 1111 0111     ← 除了 bit3，全是 1
+
+   第二步：&amp;= 就是 REG = REG &amp; 1111 0111 —— 与运算
+       原 REG      = 1 0 1 0  1 1 0 0
+       掩码        = 1 1 1 1  0 1 1 1
+       ────────────── 与（有 0 出 0）──────────────
+       新 REG      = 1 0 1 0  0 1 0 0     ← bit3 强制变 0，其余位不变
+
+   依据也是两条定律：
+       A · 0 = 0      （零律）→ 掩码为 0 的位，强制清 0
+       A · 1 = A      （同一律）→ 掩码为 1 的位，原样保留
+   逻辑含义：【把 bit3 清零】，其它位完全不动。
+
+   【为什么写 ~(1u &lt;&lt; 3) 而不是直接写 0xF7】
+       · 意图清楚：一眼看出「清掉 bit3」，而不是让人去数 0xF7 是哪些位
+       · 位宽无关：寄存器是 8 位、16 位还是 32 位都不用改代码
+       · 改位号只改一个数字：从 bit3 换到 bit5，只把 3 改成 5
+
+─────────────────────────────────────────────────────────────
+【第四个动作：翻转】REG ^= (1u &lt;&lt; 3)
+   依据是异或性质 A ⊕ 1 = A'（与 1 异或取反）、A ⊕ 0 = A（与 0 异或不变）
+   → 掩码为 1 的位翻转，其余位不动。接口里的「取反 / 切换」就是它。
+─────────────────────────────────────────────────────────────</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="main.c · 位掩码的四种基本动作">
+            <pre><code>#include &lt;stdint.h&gt;
+
+/* 用「1u &lt;&lt; n」生成掩码：u 后缀保证是无符号运算，
+   避免在某些编译器上出现符号位的意外行为 */
+#define BIT(n)              (1u &lt;&lt; (n))
+
+/* ---------- ① 置位：把某一位置 1，其余位不动 ---------- */
+REG |= BIT(3);              /* 或运算：A + 1 = 1，A + 0 = A */
+
+/* ---------- ② 清零：把某一位清 0，其余位不动 ---------- */
+REG &amp;= ~BIT(3);             /* 与运算：A · 0 = 0，A · 1 = A */
+
+/* ---------- ③ 翻转：把某一位取反 ---------- */
+REG ^= BIT(3);              /* 异或：A ⊕ 1 = A'，A ⊕ 0 = A */
+
+/* ---------- ④ 判断：读某一位是 0 还是 1 ---------- */
+if (REG &amp; BIT(3)) {
+    /* 非零即为真：这一位是 1 */
+}
+
+/* ---------- ⑤ 判断「多个位同时为 1」---------- */
+#define FLAG_A              BIT(2)      /* 0x04 */
+#define FLAG_B              BIT(3)      /* 0x08 */
+
+if ((REG &amp; (FLAG_A | FLAG_B)) == (FLAG_A | FLAG_B)) {
+    /* 两个标志都为 1 —— 这是【与】的逻辑，必须写 == ！ */
+}
+
+/* ---------- ⑥ 判断「任一位为 1」---------- */
+if (REG &amp; (FLAG_A | FLAG_B)) {
+    /* 只要有一个为 1 就进来 —— 这是【或】的逻辑 */
+}
+
+/* ⚠️ 一个几乎人人都踩过的坑：
+   if (REG &amp; FLAG_A &amp; FLAG_B)     ← 错！
+   它是左结合的：((REG &amp; 0x04) &amp; 0x08)，
+   而 0x04 &amp; 0x08 = 0，所以这个条件【永远为假】。
+   想判断「都为 1」，必须写成上面 ⑤ 的形式。 */</code></pre>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">「读 - 改 - 写」不是原子操作：一个真实的隐患</div>
+            <p><code class="icode">REG |= BIT(3)</code> 看着像一条指令，其实是<b>三步</b>：读 REG → 或上掩码 → 写回 REG。如果在这三步中间来了一个中断，而中断里也改了同一个 REG，那你写回去的值会把中断里的修改<b>覆盖掉</b>——这种现象叫「读改写竞争」，和组合逻辑里的竞争是同一个词根，本质都是「两条路径抢同一个东西」。</p>
+            <p class="mt-2">解决办法有三种：<b>①</b> 用硬件提供的原子寄存器——STM32 的 GPIO 就有：置位写 <code class="icode">GPIOA-&gt;BSRR = BIT(3)</code>，复位写 <code class="icode">GPIOA-&gt;BRR = BIT(3)</code>，硬件保证是单次写、不需要读改写；<b>②</b> 用 Cortex-M3/M4 的位带（bit-banding）别名区，把一个位映射成一个 32 位地址，读写它就是读写那一位；<b>③</b> 在改之前关中断、改完再开（临界区），代价是中断响应被推迟几个周期。</p>
+            <p class="mt-2"><b>在裸机小项目里你可能感觉不到这个坑；一旦系统里有了中断和主循环同时改标志位，它就会变成「偶尔丢一个标志」的诡异 bug。</b></p>
+          </div>
+
+          <h3 id="sub-mcu-vote" class="mt-7 text-base font-semibold">把例题 1 搬进代码：三取二表决与多数表决</h3>
+
+          <p class="mt-3">例题 1 算出来的 <code class="icode">Y = AB + AC + BC</code>，翻成 C 语言就是一行。这里给出三种写法，<b class="font-semibold text-ink">它们的可读性、速度、可扩展性各不相同</b>——选哪种，取决于你要解决的是「三个传感器」还是「N 个传感器」。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="vote.c · 三取二表决的三种写法">
+            <pre><code>#include &lt;stdint.h&gt;
+
+/* ══════════════ 写法 1：直译布尔表达式 ══════════════
+   例题 1 的结果 Y = AB + AC + BC，一个字都不用改，直接抄下来。
+   优点：和推导过程一一对应，改需求时最容易对照；
+   缺点：只适用于「3 个输入」这一种规模。 */
+uint8_t vote_2of3(uint8_t a, uint8_t b, uint8_t c)
+{
+    return (uint8_t)((a &amp; b) | (a &amp; c) | (b &amp; c));
+}
+
+/* ══════════════ 写法 2：数 1 的个数（可扩展到任意 N） ══════════════
+   把 N 个传感器的状态打包在一个字节/字里（bit0 = 第 1 个传感器……），
+   然后数「有几个 1」，超过一半就通过。
+   优点：改成 5 取 3、7 取 4 只改一个宏；逻辑一眼看懂；
+   缺点：比写法 1 慢（循环 N 次），N 很大时要考虑用查表法。 */
+uint8_t vote_majority(uint32_t bits, uint8_t n)
+{
+    uint8_t ones = 0;
+    for (uint8_t i = 0; i &lt; n; i++) {
+        ones += (uint8_t)((bits &gt;&gt; i) &amp; 1u);   /* 与运算取出第 i 位 */
+    }
+    return (ones &gt; (n / 2)) ? 1u : 0u;          /* n=3 时即「至少 2 个」 */
+}
+
+/* ══════════════ 写法 3：查表法（真值表直接搬进代码） ══════════════
+   3 个输入一共只有 8 种组合 —— 那就把 8 种结果写死在表里，
+   用输入当索引直接查。这就是【真值表】在 C 语言里的样子。
+   优点：极快（一次与 + 一次查表），而且「不可能算错逻辑」；
+   缺点：输入变多时表会指数膨胀（4 个输入 16 项、8 个输入 256 项）。 */
+static const uint8_t vote_2of3_tbl[8] = {
+    /* 输入 abc = 000  001  010  011  100  101  110  111 */
+                   0,   0,   0,   1,   0,   1,   1,   1
+};
+
+uint8_t vote_2of3_fast(uint8_t abc)
+{
+    return vote_2of3_tbl[abc &amp; 0x07u];    /* 与运算保证索引不越界 */
+}
+
+/* ══════════════ 顺便：多数表决的典型用法 ══════════════
+   工业上常用「三取二」来处理传感器抖动或单点故障：
+   三个同样的传感器，两个以上说「超限」才真的触发报警，
+   这样单个传感器坏掉或受干扰裸奔，也不会误动作。
+   —— 注意：这是【可靠性设计】，和逻辑化简没关系，
+      但你得先把 Y = AB + AC + BC 写对，才谈得上可靠性。 */</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">三种写法怎么选？</div>
+            <p><b>写法 1</b> 适合「输入个数固定、数量少」的场合（3 个限位开关、3 个评委按钮），代码最短、最贴近推导。<b>写法 2</b> 适合输入个数会变、或者需要「N 取 M」的通用场合（比如 CAN 总线上多个节点投票）。<b>写法 3</b> 适合调用极其频繁、或者逻辑特别绕（真值表比公式好写）的场合。</p>
+            <p class="mt-2">它们的选择标准不是「谁更高级」，而是<b>「哪种写法的错误率最低」</b>。查表法最大的价值就在这：<b>你不会算错，因为你根本没在算。</b></p>
+          </div>
+
+          <h3 id="sub-mcu-demorgan" class="mt-7 text-base font-semibold">德摩根定律：为什么低电平有效信号总让人看错逻辑</h3>
+
+          <p class="mt-3">这是本篇最「实战」的一节。你在这章学的德摩根定律，在单片机世界里的主要战场就是<b class="font-semibold text-ink">低电平有效（active-low）信号</b>。先看这张表——<b>它是无数调试事故的现场照片</b>：</p>
+
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead><tr><th>信号</th><th>有效电平</th><th>「功能成立」时的电压</th><th>正确的读法</th><th>常见的错误读法</th></tr></thead>
+              <tbody>
+                <tr><td>板载 LED</td><td>低</td><td>0 V</td><td>引脚 = 0 → <b>亮</b></td><td>「写 1 是点亮」</td></tr>
+                <tr><td>SPI 片选 CS / NSS</td><td>低</td><td>0 V</td><td>引脚 = 0 → <b>选中从机</b></td><td>「写 1 是选中」</td></tr>
+                <tr><td>复位 RESET / NRST</td><td>低</td><td>0 V</td><td>引脚 = 0 → <b>芯片正在复位</b></td><td>「1 表示复位」</td></tr>
+                <tr><td>按键（内部上拉）</td><td>低</td><td>0 V</td><td>引脚 = 0 → <b>按下</b></td><td>「1 是按下」</td></tr>
+                <tr><td>I2C 的 SDA / SCL</td><td>开漏</td><td>被任何一方拉低</td><td>0 是「强」状态（线与）</td><td>「谁都能拉高」</td></tr>
+                <tr><td>74HC138 的 E1、E2</td><td>低</td><td>0 V</td><td>= 0 → 使能</td><td rowspan="2">同一颗芯片上<b>同时</b>有低有效和高有效使能端，最容易搞反</td></tr>
+                <tr><td>74HC138 的 E3</td><td>高</td><td>3.3 V / 5 V</td><td>= 1 → 使能</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-3"><b class="font-semibold text-ink">为什么低有效这么流行？</b>三个原因，都是硬件层面的：<b>①</b> 早期 TTL 器件「灌电流」（往地里吸）的能力比「拉电流」强得多，驱动 LED、总线都靠拉低；<b>②</b> 安全——信号线断掉或者悬空时，上拉电阻会把它拉到「无效」状态，比「悬空即有效」安全得多；<b>③</b> 开漏总线（I2C）在物理上只能「拉低」，高电平全靠上拉电阻，所以它天生就是负逻辑。</p>
+
+          <p class="mt-3">而德摩根定律在这里的作用是：<b class="font-semibold text-ink">把「低有效信号之间的与/或」翻译成代码里的与/或</b>。这一步翻错，逻辑就整体反相。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="德摩根与低电平有效：三个真实场景的翻译过程">
+            <pre><code>══════════ 场景 1：板载 LED 低电平点亮 ══════════
+
+   硬件：LED 阳极接到 3.3 V，阴极接到 GPIO（灌电流接法）。
+   于是：GPIO 输出 0 → 电流导通 → 灯亮
+         GPIO 输出 1 → 两端都是 3.3 V → 灯灭
+
+   逻辑变量：P = 引脚电平（正逻辑，1 = 高）
+              L = 灯亮（正逻辑，1 = 亮）
+   关系：    L = P'          ← 这就是「负逻辑约定」的直接体现
+
+   代码里的两行（HAL 库的命名会把这件事说清楚）：
+
+       HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);  /* 亮 */
+       HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);    /* 灭 */
+
+   ⚠️ 注意 HAL 的引脚状态名：GPIO_PIN_RESET 意思是「低电平」，
+      不是「复位」！很多人第一次看到 LED 的点灯代码里写着
+      「WritePin ... RESET」会以为写错了 —— 其实那才是点亮。
+
+   ✅ 正确做法：封装成语义函数，把负逻辑关在函数里面
+
+       static inline void led_on(void)  { HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); }
+       static inline void led_off(void) { HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);   }
+
+   这样上层代码里【再也看不到 0 和 1】，就不会有人搞错。
+
+══════════ 场景 2：片选 CS 低有效 ══════════
+
+   硬件：SPI 的 NSS/CS 引脚，拉低才选中从机。
+   逻辑变量：C = 引脚电平（1 = 高）
+   关系：    「选中」= C'      （选中是低电平）
+
+   ★ 现在用德摩根定律推导一个真实判断：
+
+   需求：两颗从机，只要【任意一颗被选中】，主机就不能进入低功耗。
+
+   写法一（直译）：
+       if ((cs1 == 0) || (cs2 == 0)) { /* 不能睡 */ }
+
+   写法二（把「== 0」换成逻辑非）：
+       if (!cs1 || !cs2) { /* 不能睡 */ }
+
+   写法三（用德摩根把「两个非的或」翻成「一个与的非」）：
+       (A' + B') = (A · B)'                     ← 德摩根定律
+       if (!(cs1 &amp;&amp; cs2)) { /* 不能睡 */ }
+       读作：「并不是两颗都空闲」
+
+   三种写法【逻辑完全等价】。第三个写法只有一次取反，指令更少，
+   而且它把判断说成了人话：「不是两颗都没在用」。
+
+   ★ 硬件的对应关系更直观：
+       两个低有效信号【都为 0】才成立的事情，
+       在门电路上就是一个【或非门】（NOR）：
+           「都不选中」= CS1' · CS2'  →  非 (CS1 + CS2)
+       而「至少一个选中」= CS1' + CS2' → 非 (CS1 · CS2)
+       低有效逻辑里，「与」和「或」的对应关系是反的 ——
+       这正是德摩根定律在硬件上的形状。
+
+   ★ 74HC138 的真实数据手册形式：
+       使能条件 = E1' · E2' · E3
+       低有效的两个使能端用【非】的形式参与，高有效的 E3 直接用。
+       这颗芯片必须同时满足三个条件才工作，也就是一个【与】。
+
+══════════ 场景 3：复位低有效 —— 最容易看错的一个 ══════════
+
+   硬件：NRST 引脚拉低 → 芯片复位。板子上有上拉 + 电容 + 复位按键。
+
+   关系：  「芯片正在复位」 = NRST 引脚为 0
+           「芯片正常工作」 = NRST 引脚为 1
+
+   ⚠️ 经典错误代码：
+
+       if (HAL_GPIO_ReadPin(RST_GPIO_Port, RST_Pin) == GPIO_PIN_RESET) {
+           printf("系统运行正常\n");        /* ❌ 完全反了！ */
+       }
+
+       这行代码的意思是「如果引脚是高电平就认为在复位」——
+       在真正的复位期间它反而不打印，正常运行期间却一直在打印。
+
+   ✅ 正确写法（同样封装语义）：
+
+       static inline uint8_t mcu_in_reset(void)
+       {
+           return (HAL_GPIO_ReadPin(RST_GPIO_Port, RST_Pin) == GPIO_PIN_RESET) ? 1u : 0u;
+       }
+
+   ★ 额外提醒：STM32 内部还有一套【复位来源标志位】
+       （RCC_CSR 里的 IWDGRSTF、SFTRSTF、PORRSTF、PINRSTF 等），
+       它们全都是【正逻辑】：某位为 1 表示「发生过这种复位」。
+       同一个芯片里，引脚是负逻辑、标志位是正逻辑 ——
+       【所以判断任何信号之前，先去数据手册确认有效电平。】</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">一句话总结这一节</div>
+            <p><b>看到带横线、带 n 前缀、带 _N / # 后缀、名字里有 NEG 的信号名，先假设它是低电平有效，然后去数据手册确认。</b>确认完第一件事就是在代码里把它<b>封装成语义化的函数或宏</b>，让「有效」这件事在整个工程里只出现一次。这比记住德摩根的公式更重要——德摩根帮你理解「为什么反了」，封装帮你「不再反」。</p>
+          </div>
+
+          <h3 id="sub-mcu-glitch" class="mt-7 text-base font-semibold">毛刺误触发中断：那个「计数器偶尔多走一格」的 bug</h3>
+
+          <p class="mt-3">回到文章开头那个现场：一个组合逻辑的输出直接接在单片机的外部中断引脚上，系统跑一段时间就会莫名其妙多计一次数。现在你知道原因了——<b class="font-semibold text-ink">竞争冒险产生的毛刺被边沿敏感的中断引脚当成了真信号。</b>而且它极难复现：示波器要抓到 20 ns 的毛刺得用对触发方式，甚至可能因为你把探头搭上去（引入几个 pF 电容）就消失了——典型的「海森堡 bug」。</p>
+
+          <p class="mt-3">硬件上的两种解法在第 2 节和第 3 节已经讲透了（<b>加冗余项</b>从源头消除、<b>加 RC 滤波</b>把窄脉冲吃掉）。在单片机的世界里还有第三种、而且往往是唯一可行的办法：<b class="font-semibold text-ink">在数字域用采样确认把毛刺挡在门外</b>——也就是「用时钟同步」的软件版本。</p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="sync.c · 三种软件抗毛刺写法，从差到好">
+            <pre><code>#include "stm32f1xx_hal.h"
+
+/* ══════════ ✗ 反面写法：中断里直接计数 ══════════
+   毛刺的宽度可能只有几十纳秒，但它的【边沿】是真实存在的物理跳变，
+   EXTI 硬件只认边沿，不认宽度 —— 于是照样触发中断。
+   这就是「偶尔多记一次」的来源。 */
+void EXTI15_10_IRQHandler_BAD(void)
+{
+    __HAL_GPIO_EXTI_CLEAR_IT(SIGNAL_PIN);
+    g_count++;                      /* ❌ 毛刺也会走到这里 */
+}
+
+/* ══════════ ① 中断里延时复核：最简单的一招 ══════════
+   毛刺是「一瞬间」的错误跳变，等它过去再读一次电平，
+   就能把绝大多数毛刺筛掉。
+   代价：真信号的有效时间必须明显长于这个延时，
+         否则会把真实信号也一起漏掉（这一步要看信号的实际时序）。 */
+void EXTI15_10_IRQHandler(void)
+{
+    if (__HAL_GPIO_EXTI_GET_IT(SIGNAL_PIN) != RESET) {
+        __HAL_GPIO_EXTI_CLEAR_IT(SIGNAL_PIN);
+
+        /* 等 10 µs（具体数值按信号的最小有效宽度来定，
+           原则是「远大于毛刺宽度、远小于真信号宽度」） */
+        for (volatile uint32_t i = 0; i &lt; 200; i++) { __NOP(); }
+
+        /* 复核：电平还在，才认为是真的 */
+        if (HAL_GPIO_ReadPin(SIGNAL_GPIO_Port, SIGNAL_Pin) == GPIO_PIN_SET) {
+            g_count++;
+        }
+    }
+}
+
+/* ══════════ ② 定时器周期采样 + 连续 N 次确认（推荐） ══════════
+   这其实就是把第 2 节的「用时钟同步」搬到软件里：
+   不去响应边沿，而是用一个 1 ms 的定时器【等间隔地看】这个引脚，
+   连续 3 次都是同一个电平才承认它变了。
+   毛刺宽度 20 ns，而采样间隔 1 ms —— 它最多干扰其中一次采样，
+   绝不可能连中 3 次，于是被彻底过滤掉。 */
+#define SAMPLE_PERIOD_MS    1u      /* 采样周期：1 ms */
+#define CONFIRM_TIMES       3u      /* 连续一致多少次才算稳定 */
+
+static uint8_t  s_stable_cnt  = 0;
+static uint8_t  s_last_level  = 0;
+static uint8_t  s_level_now   = 0;
+
+void TIM3_IRQHandler(void)          /* 每 1 ms 进入一次 */
+{
+    HAL_TIM_IRQHandler(&amp;htim3);     /* HAL 的中断分发（清标志等） */
+
+    uint8_t now = (HAL_GPIO_ReadPin(SIGNAL_GPIO_Port, SIGNAL_Pin) == GPIO_PIN_SET) ? 1u : 0u;
+
+    if (now == s_last_level) {
+        if (s_stable_cnt &lt; CONFIRM_TIMES) {
+            s_stable_cnt++;
+        }
+    } else {
+        s_stable_cnt = 0;           /* 变了？重新数 */
+        s_last_level = now;
+    }
+
+    if (s_stable_cnt &gt;= CONFIRM_TIMES) {
+        s_level_now = s_last_level; /* 到这里才承认这个电平是真的 */
+        /* 在这里做状态机迁移、计数、发事件…… */
+    }
+}
+
+/* ══════════ ③ 更彻底：把信号接进定时器的从模式 / 用硬件去抖 ══════════
+   部分 STM32 型号的 EXTI 支持硬件数字滤波（配置几个采样点、
+   指定采样分频），配好之后毛刺在【硬件层面】就被挡掉了，
+   CPU 完全不用参与。具体支持情况要查对应型号的参考手册。
+   嵌入式开发里一个通用原则：
+       能用硬件外设做的事，不要让 CPU 在中断里做。 */</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">为什么「采样 + 连续确认」比「延时复核」更靠谱</div>
+            <p>延时复核只看了<b>一次</b>：如果毛刺恰好出现在你复核的那一刻（概率很小，但不是零），判断就错了。而连续 N 次确认看的是一个<b>时间窗口</b>——毛刺必须在整个窗口内<b>持续存在</b>才会被承认，这在物理上几乎不可能。</p>
+            <p class="mt-2">更有意思的是：<b>这套「等间隔采样 + 连续多次一致」的逻辑，和你按键消抖用的是同一个模式</b>（按键消抖通常是连续 2~3 次读到低电平才确认按下）。它们都是同一个思想的软件版本：<b>用时间换取稳定，把「瞬时值」变成「持续值」。</b>这也是为什么第 2 节说「用时钟同步是最彻底的解法」——它从根本上改变了「什么时候读」这个问题的答案。</p>
+          </div>
+
+          <h3 id="sub-mcu-flags" class="mt-7 text-base font-semibold">状态标志位的合并与拆分</h3>
+
+          <p class="mt-3">最后讲一个几乎每个项目都会遇到的场景：<b class="font-semibold text-ink">程序里有七八个「是/否」的状态，怎么写才不乱？</b>最直观的做法是每个状态一个 <code class="icode">uint8_t</code> 变量，但更好的做法是<b>合并到一个字节或一个字里</b>——因为逻辑代数已经给了你一整套操作多个位的工具。</p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="标志位合并：一个字节装 8 个状态">
+            <pre><code>【合并前】每个状态一个变量 —— 占 8 个字节，还没法「一次判断多个」
+
+   uint8_t running;        /* 0 / 1 */
+   uint8_t error;          /* 0 / 1 */
+   uint8_t link_up;        /* 0 / 1 */
+   uint8_t sd_ready;       /* 0 / 1 */
+   uint8_t charging;       /* 0 / 1 */
+   uint8_t over_temp;      /* 0 / 1 */
+   uint8_t calibrated;     /* 0 / 1 */
+   uint8_t log_full;       /* 0 / 1 */
+
+【合并后】一个字节 —— 每个状态占一位，8 个状态一个变量
+
+   bit    7        6        5        4        3        2        1        0
+   ┌────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┐
+   │log_full│calibr  │over_tmp│chargin │sd_ready│link_up │ error  │running │
+   └────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┘
+      0x80     0x40     0x20     0x10     0x08     0x04     0x02     0x01
+
+【合并的好处】
+   ① 省内存：8 个字节 → 1 个字节（在小容量 MCU 上很实在）
+   ② 【一次判断多个】：用与运算就能问「有没有任何错误」
+   ③ 便于传输与记录：通过串口/日志一次发一个字节，就把整个系统
+      状态传出去了；示波器抓一个字节比抓八个变量容易得多
+   ④ 便于组合：德摩根定律直接作用在这些位上
+
+【合并的代价】
+   ① 可读性下降 —— 必须给每一位起名字（宏或枚举），绝不能裸写 0x08
+   ② 调试时要在心里拆位 —— 所以调试打印要专门写一个函数把每位的
+      名字打出来，不要直接 printf("%02X") 就完事</code></pre>
+          </div>
+
+          <div class="code-block mt-3" data-lang="c" data-title="flags.c · 标志位的置位、拆分与组合判断">
+            <pre><code>#include &lt;stdint.h&gt;
+
+/* ---------- 第一步：给每一位起名字，绝不裸写数字 ---------- */
+#define F_RUNNING       (1u &lt;&lt; 0)       /* 0x01 */
+#define F_ERROR         (1u &lt;&lt; 1)       /* 0x02 */
+#define F_LINK_UP       (1u &lt;&lt; 2)       /* 0x04 */
+#define F_SD_READY      (1u &lt;&lt; 3)       /* 0x08 */
+#define F_CHARGING      (1u &lt;&lt; 4)       /* 0x10 */
+#define F_OVER_TEMP     (1u &lt;&lt; 5)       /* 0x20 */
+#define F_CALIBRATED    (1u &lt;&lt; 6)       /* 0x40 */
+#define F_LOG_FULL      (1u &lt;&lt; 7)       /* 0x80 */
+
+/* ---------- 第二步：所有状态合并成一个字节 ---------- */
+static uint8_t g_flags = 0;
+
+/* ---------- 第三步：单个标志的置位 / 清零 / 翻转 / 读取 ---------- */
+void sys_set_flag(uint8_t f)    { g_flags |=  f; }   /* 置位：或 */
+void sys_clear_flag(uint8_t f)  { g_flags &amp;= (uint8_t)~f; }  /* 清零：与 + 非 */
+void sys_toggle_flag(uint8_t f) { g_flags ^=  f; }   /* 翻转：异或 */
+uint8_t sys_flag(uint8_t f)     { return (g_flags &amp; f) ? 1u : 0u; }
+
+/* ---------- 第四步：拆分 —— 把若干位当成一个「组」来用 ---------- */
+
+/* ① 一次问「有没有任何严重故障」（多位求【或】） */
+#define F_ANY_FAULT     (F_ERROR | F_OVER_TEMP | F_LOG_FULL)
+if (g_flags &amp; F_ANY_FAULT) {
+    /* 三个故障位里只要有任意一个为 1 就进来 */
+}
+
+/* ② 一次问「是不是所有条件都满足」（多位求【与】） */
+#define F_ALL_READY     (F_RUNNING | F_LINK_UP | F_SD_READY | F_CALIBRATED)
+if ((g_flags &amp; F_ALL_READY) == F_ALL_READY) {
+    /* 四个条件全部为 1 才进来 */
+    /* 注意必须写 == ！少了它，逻辑立刻从「与」变成「或」 */
+}
+
+/* ③ 一次问「是不是全都正常」（德摩根的用法） */
+if ((g_flags &amp; F_ANY_FAULT) == 0) {
+    /* 等价于：所有故障位都是 0 —— 这就是德摩根 */
+    /* 「没有任何一个成立」= 「每一个都不成立」 */
+}
+
+/* ④ 把高位当成一个整体拆分出来（比如用高 4 位存错误码） */
+uint8_t err_code = (uint8_t)((g_flags &gt;&gt; 4) &amp; 0x0Fu);   /* 取 bit7~bit4 */
+g_flags = (uint8_t)((g_flags &amp; 0x0Fu) | (uint8_t)(code &lt;&lt; 4)); /* 写回高 4 位 */</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">标志位这一节，其实就是把整章的规则用了一遍</div>
+            <p><b>合并标志位</b>用的是或运算（<code class="icode">A + 0 = A</code>，不改变别的位）；<b>清零某位</b>用的是与运算加取反（<code class="icode">A · 1 = A</code>）；<b>一次判断多个</b>用的是分配律和德摩根；<b>「都必须成立」要写 <code class="icode">==</code></b>，本质是「与」和「或」的区别。你在这一节写的每一行代码，都能对应回第 2 节的某一条定律。</p>
+            <p class="mt-2">如果你只能从这一章带走一样东西，那应该是<b>这个判断习惯</b>：看到 <code class="icode">if (x &amp; MASK)</code> 就问一句「这是『任一成立』还是『都成立』？」——<b>这一句自问能挡住嵌入式中相当一部分的逻辑 bug。</b></p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见坑 ---------------------------- -->
+        <section>
+          <h2 id="sec-pitfall" class="text-xl font-semibold">常见坑</h2>
+          <p class="mt-4">下面 10 条，是这一章最容易出错、也是考试和调试现场扣分最多的地方。每一条都按「<b class="font-semibold text-ink">错误认知 → 为什么错 → 正确做法</b>」写清楚。</p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 1：「A + B」就是 A 加 B，等式两边可以移项</div>
+            <p><b>为什么错：</b>逻辑代数里只有「与」和「或」，<b>没有减法、没有除法、也没有负数</b>，所以「把左边的项移到右边变成减」这种操作根本不存在。举个反例：由 <code class="icode">A + AB = A</code>（吸收律）你<b>不能</b>两边「减去 A」得出 <code class="icode">AB = 0</code>——那显然是错的（A=B=1 时 AB=1）。</p>
+            <p class="mt-2"><b>正确做法：</b>等式两边的变换只能靠定律：<b>配项</b>（乘 <code class="icode">X + X'</code> 或加 <code class="icode">X·X'</code>）、<b>提公因子</b>、<b>用德摩根</b>、<b>用吸收律消项</b>。除此之外不要自己发明操作。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 2：那一撇（反号）的作用范围看错</div>
+            <p><b>为什么错：</b><code class="icode">AB'</code> 是 <code class="icode">A · (B')</code>，<code class="icode">(AB)'</code> 是「与非」，两个完全不同的函数。教材排版时横线常常拉得很长，看着差不多，实际差得远。</p>
+            <p class="mt-2"><b>正确做法：</b>写的时候<b>一律加括号</b>；看的时候按横线覆盖了几个变量来判断。在代码里就是 <code class="icode">a &amp; ~b</code> 和 <code class="icode">~(a &amp; b)</code> 的区别——<b>一个字的差别，功能完全不同。</b></p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 3：德摩根取反时忘了换符号（或只换符号忘了取反）</div>
+            <p><b>为什么错：</b><code class="icode">(A + B)' = A'B'</code>，不是 <code class="icode">A' + B'</code>。整体取反时，<b>「与」和「或」必须互换</b>——这就是「长杠变短杠，中间符号换一换」。代码里的对应错误是 <code class="icode">!(a || b)</code> 写成了 <code class="icode">!a || !b</code>，两者在 a=0、b=1 时的结果完全不同。</p>
+            <p class="mt-2"><b>正确做法：</b>养成习惯——<b>看到低电平有效信号（LED、CS、RESET、按键），先把德摩根的两种形式都写在纸上，再选更好读的那一种写进代码</b>，然后把取反封死在最底层的语义函数里。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">坑 4：把 <code class="icode">if (REG &amp; MASK)</code> 当成「这些位都成立」</div>
+            <p><b>为什么错：</b><code class="icode">if (REG &amp; 0x0C)</code> 只要<b>任意一位</b>是 1 就成立（<b>或</b>的逻辑）；要判断「两位都是 1」必须写 <code class="icode">if ((REG &amp; 0x0C) == 0x0C)</code>。<b>把「或」当「与」</b>是嵌入式里最常见的逻辑错误，而且症状很隐蔽——大多数情况下两者结果一样，只在特定输入下才暴露出差别。</p>
+            <p class="mt-2"><b>正确做法：</b>记住这句口诀——<b>「要看全部，必须写 <code class="icode">==</code>」</b>。写完之后再自问一句：我要的是「任一成立」还是「全部成立」？</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">坑 5：清零某位写成 <code class="icode">REG &amp;= 0</code>，或者漏掉那个 <code class="icode">~</code></div>
+            <p><b>为什么错：</b>依据是 <code class="icode">A · 0 = 0</code>——与 0 相与确实能清零，但 <code class="icode">REG &amp;= 0</code> 会把你<b>关心的那一位和其余 31 位一起清掉</b>。正确写法是让「要清的那一位」对应的掩码位为 0、其余位为 1，也就是 <code class="icode">~(1u &lt;&lt; n)</code>。</p>
+            <p class="mt-2"><b>正确做法：</b>置位用 <code class="icode">|= BIT(n)</code>，清零用 <code class="icode">&amp;= ~BIT(n)</code>，翻转用 <code class="icode">^= BIT(n)</code>。<b>三个动作三种符号，写之前先确认自己要干哪件事。</b></p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">坑 6：忽略 C 语言的运算符优先级</div>
+            <p><b>为什么错：</b>在 C 里 <code class="icode">==</code> 的优先级<b>高于</b> <code class="icode">&amp;</code>，所以 <code class="icode">if (REG &amp; MASK == MASK)</code> 会被解析成 <code class="icode">if (REG &amp; (MASK == MASK))</code>，而 <code class="icode">MASK == MASK</code> 恒为 1——<b>条件变成了「bit0 是不是 1」，和你想要的完全不同</b>。类似的还有移位：<code class="icode">1 &lt;&lt; 3 + 1</code> 其实是 <code class="icode">1 &lt;&lt; (3 + 1)</code>（加法优先级高于移位）。</p>
+            <p class="mt-2"><b>正确做法：</b><b>凡是有位运算参与的表达式，一律把所有子表达式用括号包起来</b>，哪怕你觉得不必要。这不是啰嗦，这是行业惯例——你看 Linux 内核和 ST 的 HAL 源码，位运算表达式几乎个个带括号。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 7：卡诺图的行列标号按二进制顺序排</div>
+            <p><b>为什么错：</b>如果列标写成 00、01、10、11，那么 01 和 10 这两列在纸上相邻、在逻辑上却差两位（两个变量都变了），把它们合并会得到<b>错误的项</b>。卡诺图能化简的前提就是「画在一起 = 逻辑相邻」，这个前提<b>只有格雷码能满足</b>。</p>
+            <p class="mt-2"><b>正确做法：</b>行列标号一律用 <b>00 → 01 → 11 → 10</b>（三位、四位都一样）。填格子之前先把每个格的最小项编号小字标出来，<b>这一步花 30 秒，能省掉后面全部返工</b>。</p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">坑 8：圈法违规——圈 3 格、圈 0、留多余圈、漏掉某个 1</div>
+            <p><b>为什么错：</b>圈 3 格或 5 格不符合 <code class="icode">2<sup>k</sup></code> 的规律，读不出正确的项；求最简与或式时圈 0 会得到一堆没用的项；一个圈里的 1 全被别的圈覆盖时，它就是多余项（不过——见坑 9，硬件上它有时是必须的）。最隐蔽的错误是<b>漏圈</b>：某个 1 没被任何圈覆盖，化简结果就是错的，但它可能只在一种输入组合下出错。</p>
+            <p class="mt-2"><b>正确做法：</b>圈完之后做两项检查：<b>①</b> 把 1 的个数数一遍，看看是不是每个 1 都落在某个圈里；<b>②</b> 每个圈问一句「这里面有没有哪个 1 只有我圈了？」。最后<b>代 2<sup>n</sup> 种输入验算一遍</b>。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">坑 9：以为「最简」就是最好的</div>
+            <p><b>为什么错：</b>化简的目标是<b>减少项数和字母数</b>，但电路的输出还要在<b>信号跳变的过渡瞬间</b>保持正确。化简掉的那些「多余项」，恰恰常常是消除静态冒险的那一项（例题 3）。一块「最简」的组合逻辑接在中断引脚上，可能就是个定时炸弹。</p>
+            <p class="mt-2"><b>正确做法：</b>分清下游是什么：<b>数据路径</b>（送进运算、显示）→ 追求最简；<b>边沿敏感路径</b>（中断、时钟、复位、片选、锁存使能、计数器 CLK）→ 保留冗余项，或者干脆用时钟同步/采样确认。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">坑 10：把任意项当成「不用管的项」，想用就用</div>
+            <p><b>为什么错：</b>任意项是一个<b>设计假设</b>（「这些输入不会出现」），不是一个物理保证。干扰、上电瞬间、程序跑飞都可能让它出现，而按任意项化简出来的电路在那些输入下会给出<b>没被验证过的输出</b>。如果输出控制的是会动的东西，这个风险的代价可能远高于省下的那几个门。</p>
+            <p class="mt-2"><b>正确做法：</b>用任意项之前问两个问题：<b>①</b> 这个组合真的不可能出现吗（硬件上有没有可能被干扰造出来）？<b>②</b> 万一出现了，输出错了会怎样？两个问题的答案都「安全」才用它，否则把非法组合定义成确定的安全值。<b>还有一条硬性规则：圈里至少要含一个真正的 1。</b></p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与自测</h2>
+
+          <h3 id="sub-takeaways" class="mt-7 text-base font-semibold">这一章要带走的 12 句话</h3>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>逻辑变量只有 <b>0 和 1</b>，它们表示状态而不是数量；<code class="icode">1 + 1 = 1</code> 在这里是成立的。</li>
+            <li><b>正逻辑 / 负逻辑是约定</b>：同一个电路，正逻辑下叫「与门」，负逻辑下就是「或门」。看信号先确认有效电平。</li>
+            <li>三种基本运算：<b>与</b>（有 0 出 0，全 1 出 1）、<b>或</b>（有 1 出 1，全 0 出 0）、<b>非</b>（取反）。优先级是<b>括号 → 非 → 与 → 或</b>。</li>
+            <li>复合运算里最有用的是<b>异或</b>：「不一样就出 1」，而且它有「与 1 异或取反、与 0 异或不变」的性质——这就是掩码的来历。</li>
+            <li><b>德摩根定律</b>：<code class="icode">(AB)' = A' + B'</code>，<code class="icode">(A + B)' = A'B'</code>。长杠变短杠，中间符号换一换。</li>
+            <li>五条常用公式里，<b>冗余律</b> <code class="icode">AB + A'C + BC = AB + A'C</code> 最重要——因为在硬件上那一项常常<b>不能删</b>。</li>
+            <li><b>反演规则</b>求反函数（变量要取反）；<b>对偶规则</b>求对偶式（变量不动）。两者只差「变量动不动」。</li>
+            <li><b>最小项</b>：原变量记 1、反变量记 0，拼出来的二进制数就是下标；<b>最大项的编号规则相反</b>。</li>
+            <li>真值表 → 标准与或式是<b>机械翻译</b>（挑输出为 1 的行），一定正确但一定不是最简。</li>
+            <li><b>卡诺图的三条铁律</b>：行列标号用格雷码（00 01 11 10）、只圈 2 的幂个格、每个圈至少含一个独占的 1；可以卷绕、可以重叠。</li>
+            <li><b>任意项</b>能用就用（能把整块逻辑消灭掉），前提是它真的不会出现、且出现了也不出事。</li>
+            <li><b>毛刺来自竞争</b>，不是接错线。消除办法：加冗余项、加 RC 滤波、用时钟同步采样、改格雷码编码、加选通。</li>
+          </ul>
+
+          <h3 id="sub-quiz" class="mt-7 text-base font-semibold">自测题（8 道，答案在后面）</h3>
+
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li>写出 <code class="icode">Y = (A + B'C)</code> 的反函数 <code class="icode">Y'</code>，并说明你用到了哪两条规则。</li>
+            <li>三变量里 <code class="icode">m<sub>5</sub></code> 是哪一项？它对应的最大项 <code class="icode">M<sub>5</sub></code> 又是什么？为什么两者的编号方式相反？</li>
+            <li>代码里 <code class="icode">if (flags &amp; 0x0C)</code> 和 <code class="icode">if ((flags &amp; 0x0C) == 0x0C)</code> 有什么区别？分别对应哪个逻辑运算？</li>
+            <li>用卡诺图化简 <code class="icode">F = Σm(0, 1, 4, 5, 8, 9, 12, 13)</code>，写出最简与或式。</li>
+            <li>三取二表决的布尔表达式怎么写？为什么三个圈共享 <code class="icode">m<sub>7</sub></code> 是合法的？</li>
+            <li>怎么用卡诺图判断有没有静态 1 型冒险？消除它的标准做法是什么？</li>
+            <li>把 <code class="icode">if (!(a || b))</code> 用德摩根定律改写成不含整体取反的形式，并说明这在低电平有效信号里意味着什么。</li>
+            <li>任意项在什么条件下才能当 1 用？如果条件不满足，应该怎么处理这些输入组合？</li>
+          </ol>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">答案与解析</div>
+            <p><b>第 1 题：</b>用反演规则——<code class="icode">·</code> 与 <code class="icode">+</code> 互换（或换与）、每个变量取反（A→A'，B'→B，C→C'），并且保持优先级：<code class="icode">Y' = A' · (B + C') = A'B + A'C'</code>。用到的两条是<b>反演规则</b>和<b>分配律</b>（展开括号）。验算：取 A=0、B=1、C=1，则 Y = 0 + 0 = 0，所以 Y' 应为 1；代入 Y' = 0'·(1 + 0) = 1·1 = 1 ✅。</p>
+            <p class="mt-2"><b>第 2 题：</b><code class="icode">m<sub>5</sub> = AB'C</code>（101：A 原变量、B 反变量、C 原变量）。<code class="icode">M<sub>5</sub> = A' + B + C'</code>（101：取值为 1 的变量写反变量、取值为 0 的写原变量）。编号相反是因为两者互为「非」：<code class="icode">M<sub>5</sub> = (m<sub>5</sub>)'</code>，而给一个由「与」组成的项整体取反，正好就是把每个变量取反、把「与」换成「或」——也就是德摩根定律。</p>
+            <p class="mt-2"><b>第 3 题：</b>前者只要 bit3、bit2 里<b>任意一位</b>是 1 就成立，对应<b>或</b>运算；后者要求<b>两位都是 1</b>，对应<b>与</b>运算。它们是两个不同的条件，绝大多数输入下结果一样，只在「只有一位为 1」时分开——这类 bug 因此特别难查。</p>
+            <p class="mt-2"><b>第 4 题：</b><code class="icode">F = C'</code>。这 8 个最小项分别是 0000、0001、0100、0101、1000、1001、1100、1101，共同点是 <b>C = 0</b>，在卡诺图上正好是 C=0 的两整列（8 格），可以一圈到底——A、B、D 三个变量在圈内都出现过 0 和 1，全部消掉。</p>
+            <p class="mt-2"><b>第 5 题：</b><code class="icode">Y = AB + AC + BC</code>（见例题 1）。三个圈共享 <code class="icode">m<sub>7</sub></code> 是合法的，因为规则只要求「每个圈至少含一个未被其他圈覆盖的 1」——圈 AB 独占 m6、圈 AC 独占 m5、圈 BC 独占 m3，三条都满足。<b>一个格被多个圈共用不仅允许，而且往往是做到「圈最大、圈最少」的必要手段。</b></p>
+            <p class="mt-2"><b>第 6 题：</b>看两个圈是否<b>相切</b>——几何上相邻（有公共边）、但不重叠。如果相切的位置没有被第三个圈覆盖，就存在静态 1 型冒险。标准做法是<b>加冗余项</b>：再圈一个覆盖相切处的圈（例题 3 里加 <code class="icode">BC</code>），代价是多一个门；如果改不了逻辑，就用时钟同步等毛刺过去再采样。</p>
+            <p class="mt-2"><b>第 7 题：</b><code class="icode">if (!a &amp;&amp; !b)</code>。它的读法是「a 不成立<b>而且</b> b 不成立」，对应到低电平有效信号就是「两个信号都不是有效状态」——比如两颗从机的低有效片选都没有被拉低（总线空闲）。这也解释了为什么低有效逻辑会让人看错：<b>「都不是」在中文里像「或」，在逻辑上却是「与」。</b></p>
+            <p class="mt-2"><b>第 8 题：</b>只有同时满足三个条件才可以当 1 用：<b>①</b> 这些输入组合在正常工作中确实不会出现；<b>②</b> 即使因为干扰或异常出现了，输出错误也不会造成危险（或者下游能容忍）；<b>③</b> 每个圈里至少含一个真正的 1。三个条件只要有一条不满足，就把这些组合<b>定义成固定的安全值</b>（通常是 0），按确定值去化简，并在代码里加一层非法输入的兜底判断。</p>
+          </div>
+
+          <h3 id="sub-exercise" class="mt-7 text-base font-semibold">动手练习（5 题）</h3>
+
+          <ol class="mt-3 list-decimal space-y-3 pl-5">
+            <li><b>公式化简：</b>用对偶规则和冗余律，把 <code class="icode">Y = (A + B)(A' + C)(B + C)</code> 化简到最简或与式。</li>
+            <li><b>卡诺图与任意项：</b>用四变量卡诺图化简 <code class="icode">F = Σm(0, 2, 8, 10) + Σd(5, 7, 13, 15)</code>。然后回答：这里的任意项用上了吗？为什么？（提示：注意 1 的位置有什么共同点）</li>
+            <li><b>反向填图：</b>把 <code class="icode">Y = A'B' + AC</code> 填进三变量卡诺图，写出它的 <code class="icode">Σm</code> 形式，并检查这个表达式是不是已经最简。</li>
+            <li><b>写代码：</b>一个 8 位状态字节 <code class="icode">s</code>，要求「bit0 与 bit1 都为 1，<b>且</b> bit2 为 0」时返回 1。写出判断表达式，并解释为什么 <code class="icode">s &amp; 0x03 &amp; ~0x04</code> 这种写法是错的。</li>
+            <li><b>算一算：</b>一个毛刺宽 50 ns、逻辑高电平 3.3 V，用 <b>R = 2.2 kΩ、C = 100 pF</b> 的 RC 滤波。求 ① 时间常数；② 毛刺能把电容充到多少伏；③ 已知后级 V<sub>IH</sub>(min) = 2.0 V，这个毛刺能不能被滤掉；④ 正常信号的边沿会被拖慢到多少（升到 2.0 V 需要多久）。</li>
+          </ol>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">练习的参考答案（先自己做，再对答案）</div>
+            <p><b>第 1 题：</b>先看出 <code class="icode">(A + B)(A' + C)(B + C)</code> 就是冗余律的对偶形式，所以中间那个 <code class="icode">(B + C)</code> 是多余的：<code class="icode">Y = (A + B)(A' + C)</code>。展开验算：<code class="icode">= AA' + AC + A'B + BC = AC + A'B + BC</code>，再用冗余律去掉 <code class="icode">BC</code> → <code class="icode">Y = AC + A'B</code>，写回或与式就是 <code class="icode">(A + B)(A' + C)</code> ✅。</p>
+            <p class="mt-2"><b>第 2 题：</b>四个 1 是 m0(0000)、m2(0010)、m8(1000)、m10(1010)，共同点是 <b>B = 0 且 D = 0</b>，在卡诺图上正好围成一个 4 格方块，所以 <code class="icode">F = B'D'</code>。再看那四个任意项（m5、m7、m13、m15）都在 <b>B = 1 且 D = 1</b> 的位置，和答案的圈完全不搭界——<b>把它们当 1 只会多出 <code class="icode">BD</code> 这一项，一点便宜都占不到。这正是「任意项不是想用就能用」的实例：它只在能帮你把圈变大的时候才有价值。</b></p>
+            <p class="mt-2"><b>第 3 题：</b><code class="icode">A'B'</code> 覆盖 m0、m1；<code class="icode">AC</code> 覆盖 m5、m7。所以 <code class="icode">Y = Σm(0, 1, 5, 7)</code>。检查最简性：m0、m1 是横向两格（<code class="icode">A'B'</code>），m5、m7 是竖向两格（<code class="icode">AC</code>），四格互不相邻，无法再合并成更大的圈，也没有多余的项——<b>已经是最简</b>。</p>
+            <p class="mt-2"><b>第 4 题：</b>正确写法是 <code class="icode">((s &amp; 0x07u) == 0x03u)</code>：先用 <code class="icode">0x07</code> 把 bit0~bit2 三位取出来，再要求它们<b>恰好等于</b> <code class="icode">0x03</code>（bit1、bit0 为 1，bit2 为 0）。错误写法 <code class="icode">s &amp; 0x03 &amp; ~0x04</code> 有三重问题：<b>①</b> <code class="icode">0x03 &amp; ~0x04 = 0x03</code>，那个「bit2 为 0」的条件<b>根本没参与判断</b>（它只是把一个常量与进去，等于常数）；<b>②</b> 就算写对，<code class="icode">s &amp; ...</code> 的结果是个数值而不是布尔值，容易在后续判断里出错；<b>③</b> 位运算表达式的优先级陷阱（坑 6）。</p>
+            <p class="mt-2"><b>第 5 题：</b><b>①</b> <code class="icode">τ = RC = 2200 × 100×10⁻¹² = 220 ns</code>。<b>②</b> <code class="icode">t<sub>g</sub>/τ = 50/220 = 0.227</code>，<code class="icode">v = 3.3 × (1 − e<sup>−0.227</sup>) = 3.3 × 0.203 ≈ 0.67 V</code>。<b>③</b> 0.67 V 远低于 2.0 V，<b>能滤掉</b>（甚至低于 0.8 V 的 V<sub>IL</sub>，连「不确定区」都没进）。<b>④</b> <code class="icode">t = −τ·ln(1 − 2.0/3.3) = 220 × 0.932 ≈ 205 ns</code>——边沿被拖慢到约 205 ns，所以这条线只适合几百 kHz 以下的慢信号。<b>注意这个电容比例题 4 的方案大了一倍（220 ns vs 100 ns），换取的是对更宽毛刺的容忍度；滤波强度和信号速度永远是一对矛盾。</b></p>
+          </div>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">下一步学什么</div>
+            <p>这一章解决的是「怎么把一个逻辑关系<b>写对、写短</b>」。下一章《门电路与数字接口电平》会告诉你：这个表达式<b>变成真实电路以后</b>，电平标准（TTL / CMOS / 3.3V / 5V 兼容）、驱动能力、输入输出电流、以及「5V 器件和 3.3V 器件怎么接才不烧」这些事。再往后《组合逻辑电路》会把这一章的方法放大到译码器、数据选择器、加法器和竞争冒险的系统化设计。</p>
+            <p class="mt-2">如果你现在就想去单片机上练手，最好的练习是：<b>找一块开发板，把本节讲的三取二表决、标志位合并、低有效信号封装各写一遍，然后用调试器一位一位地看寄存器。</b>纸上推导一百遍，不如亲手改一次寄存器。</p>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="ee-number-code.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">数制、编码与补码</p>
+          </a>
+          <a href="ee-logic-gate.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇：门电路与数字接口电平 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">门电路与数字接口电平</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

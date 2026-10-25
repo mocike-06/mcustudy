@@ -1,0 +1,3391 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>单片机内部结构与寄存器 - McuStudy</title>
+  <meta name="description" content="把 51 单片机拆开看：CPU 取指执行、Flash 与 RAM 的区别、地址是什么、SFR 与 sfr 声明到底做了什么、位寻址与 sbit、晶振与机器周期、复位后寄存器初值、P0 为什么必须外接上拉、中断系统概览，附常用 SFR 速查表。">
+  <meta name="keywords" content="51单片机,寄存器,SFR,特殊功能寄存器,位寻址,sbit,机器周期,晶振频率,11.0592MHz,复位电路,准双向口,P0上拉电阻,中断系统,sfr声明">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="mcu51" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../mcu51.html" class="hover:text-brand-600 dark:hover:text-brand-300">51单片机</a>
+          <span>/</span>
+          <span class="text-muted">内部结构与寄存器</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          单片机内部结构与寄存器
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          其它教程里到处都是 <code class="icode">P1 = 0xFE;</code>、<code class="icode">TMOD &amp;= 0xF0;</code>，
+          但几乎没有一篇讲过：<b class="font-semibold text-ink">寄存器到底是什么</b>、<b class="font-semibold text-ink">SFR 又是什么</b>、
+          为什么给一个名字赋值就能改变一根引脚的电平。这一页专门补这个洞：
+          把 STC89C52RC 拆开，从 CPU 取指令讲到 IO 口内部的一个场效应管，
+          让你写下的每一个寄存器操作都能在电路里找到落脚点。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-easy">入门</span>
+          <span class="stat-pill">芯片：<b>STC89C52RC</b></span>
+          <span class="stat-pill">前置：<b>C 语言基础</b></span>
+          <span class="stat-pill">阅读约 <b>60</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-inside">芯片里有什么</a>
+          <a class="toc-link is-sub" href="#sub-cpu">CPU 怎么执行指令</a>
+          <a class="toc-link is-sub" href="#sub-memory">Flash 与 RAM</a>
+          <a class="toc-link is-sub" href="#sub-address">地址是什么</a>
+          <a class="toc-link is-sub" href="#sub-sfr">寄存器与 SFR</a>
+          <a class="toc-link is-sub" href="#sub-bitaddr">位寻址与 sbit</a>
+          <a class="toc-link is-sub" href="#sub-clock">时钟与机器周期</a>
+          <a class="toc-link is-sub" href="#sub-reset">复位与初值</a>
+          <a class="toc-link is-sub" href="#sub-ioport">IO 口的内部结构</a>
+          <a class="toc-link is-sub" href="#sub-interrupt">中断系统概览</a>
+          <a class="toc-link" href="#sec-hardware">写 P1 = 0xFE 时硬件发生了什么</a>
+          <a class="toc-link" href="#sec-code">完整代码：从声明 sfr 开始</a>
+          <a class="toc-link is-sub" href="#sub-code-1">程序①：两种方式点亮同一颗灯</a>
+          <a class="toc-link is-sub" href="#sub-code-2">程序②：只声明用到的寄存器</a>
+          <a class="toc-link" href="#sec-demo">51 常用 SFR 速查表</a>
+          <a class="toc-link" href="#sec-errors">常见错误与排查</a>
+          <a class="toc-link" href="#sec-summary">小结与自检</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-inside">芯片里有什么</a>
+            <a class="toc-link is-sub" href="#sub-cpu">CPU 怎么执行指令</a>
+            <a class="toc-link is-sub" href="#sub-memory">Flash 与 RAM</a>
+            <a class="toc-link is-sub" href="#sub-address">地址是什么</a>
+            <a class="toc-link is-sub" href="#sub-sfr">寄存器与 SFR</a>
+            <a class="toc-link is-sub" href="#sub-bitaddr">位寻址与 sbit</a>
+            <a class="toc-link is-sub" href="#sub-clock">时钟与机器周期</a>
+            <a class="toc-link is-sub" href="#sub-reset">复位与初值</a>
+            <a class="toc-link is-sub" href="#sub-ioport">IO 口的内部结构</a>
+            <a class="toc-link is-sub" href="#sub-interrupt">中断系统概览</a>
+            <a class="toc-link" href="#sec-hardware">写 P1 = 0xFE 时硬件发生了什么</a>
+            <a class="toc-link" href="#sec-code">完整代码：从声明 sfr 开始</a>
+            <a class="toc-link is-sub" href="#sub-code-1">程序①：两种方式点亮同一颗灯</a>
+            <a class="toc-link is-sub" href="#sub-code-2">程序②：只声明用到的寄存器</a>
+            <a class="toc-link" href="#sec-demo">51 常用 SFR 速查表</a>
+            <a class="toc-link" href="#sec-errors">常见错误与排查</a>
+            <a class="toc-link" href="#sec-summary">小结与自检</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              目录由 <code class="icode">site.js</code> 自动做滚动高亮，
+              只要链接写成 <code class="icode">#id</code> 就会生效。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            这一页要解决的是一个非常具体的困惑：你照着教程抄了一行 <code class="icode">P1 = 0xFE;</code>，
+            灯亮了。可是 <code class="icode">P1</code> 是什么？它凭什么叫这个名字？
+            <code class="icode">0xFE</code> 写进去以后，芯片里究竟哪一个零件动了？
+            为什么不是 <code class="icode">P1 = 0x01;</code> 而是别的数？
+          </p>
+
+          <p class="mt-4">
+            教科书式的回答是「<b class="font-semibold text-ink">P1 是寄存器，0xFE 写进寄存器就控制了引脚</b>」——
+            这句话每个字你都认识，但合起来什么也没说。所以这一页不用这种回答，
+            我们按顺序回答四个问题：
+          </p>
+
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li>芯片里面到底有哪些零件，它们各自负责什么（<a class="text-brand-600 dark:text-brand-300" href="#sub-inside">芯片里有什么</a>）？</li>
+            <li>「<b class="font-semibold text-ink">地址</b>」这个词在单片机里指什么，为什么是 <code class="icode">0x00</code> 到 <code class="icode">0xFF</code>（<a class="text-brand-600 dark:text-brand-300" href="#sub-address">地址是什么</a>）？</li>
+            <li>「<b class="font-semibold text-ink">寄存器</b>」和「<b class="font-semibold text-ink">SFR</b>」是什么关系，<code class="icode">sfr P1 = 0x90;</code> 这行声明做了什么（<a class="text-brand-600 dark:text-brand-300" href="#sub-sfr">寄存器与 SFR</a>）？</li>
+            <li>为什么有的寄存器能一位一位地改，有的只能整字节改（<a class="text-brand-600 dark:text-brand-300" href="#sub-bitaddr">位寻址与 sbit</a>）？</li>
+          </ol>
+
+          <p class="mt-4">
+            这四个问题答完，你看任何一篇 51 教程都不会再有「这行代码为什么能这样写」的疑惑。
+            需要提前说明：这一页只讲<b class="font-semibold text-ink">结构和原理</b>，
+            各个外设（数码管、按键、定时器、串口、液晶）的具体用法在后面的专题篇里，
+            本篇不写任何你没见过的模块。
+          </p>
+
+          <div class="callout callout-info mt-6">
+            <p class="callout-title">阅读前只需要知道一件事</p>
+            <p class="mt-2">
+              51 单片机是「<b class="font-semibold text-ink">8 位</b>」单片机：
+              它一次处理的数据宽度是 8 位，也就是 <code class="icode">0x00</code> 到 <code class="icode">0xFF</code> 这 256 种取值。
+              这一页里反复出现的 <code class="icode">0x</code> 是十六进制前缀，<code class="icode">0xFE</code> 就是十进制的 254。
+              如果你对二进制、十六进制还不熟，可以先看
+              <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-number.html">进制与逻辑运算</a> 那一页，
+              回来看这一篇会轻松很多。
+            </p>
+          </div>
+
+          <h3 id="sub-inside" class="mt-7 text-base font-semibold">芯片里有什么：一张图认识全部零件</h3>
+
+          <p class="mt-3">
+            先给你一个可以长期记住的画面：51 单片机其实就是
+            <b class="font-semibold text-ink">一个只会做加减和判断的小脑袋（CPU）</b>
+            ＋ <b class="font-semibold text-ink">一个记事本（RAM）</b>
+            ＋ <b class="font-semibold text-ink">一本印好的说明书（Flash）</b>
+            ＋ <b class="font-semibold text-ink">一排控制面板（SFR）</b>
+            ＋ <b class="font-semibold text-ink">一堆接在面板上的外设</b>。
+            下面这张图是 STC89C52RC 内部的简化框图，先看个大概，后面每一节再逐个拆开：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="STC89C52RC 内部结构简化框图">
+            <pre><code>┌───────────────────────── STC89C52RC 芯片内部 ─────────────────────────┐
+│                                                                       │
+│   ┌───────────────┐          ┌────────────────────────────────────┐   │
+│   │     CPU       │          │   Flash 程序存储器（8 KB）         │   │
+│   │               │          │   地址 0x0000 ~ 0x1FFF             │   │
+│   │  取指 → 译码   │◄────────►│   0x0000：复位后第一条指令         │   │
+│   │      → 执行    │  地址总线 │   后面：你写的 main 编译出的机器码 │   │
+│   │               │  数据总线 │   还有 code 段的段码表、字模       │   │
+│   │  PC  A  B     │          │   特点：掉电不丢、平时只能读       │   │
+│   │  PSW SP DPTR  │          └────────────────────────────────────┘   │
+│   │  R0 ~ R7      │                                                   │
+│   └───────┬───────┘          ┌────────────────────────────────────┐   │
+│           │                  │   RAM 数据存储器（256 字节）       │   │
+│           │                  │   0x00 ~ 0x7F 可直接寻址           │   │
+│           │                  │     · 0x00~0x1F  4 组 R0~R7        │   │
+│           │                  │     · 0x20~0x2F  位寻址区 128 个位 │   │
+│           │                  │     · 0x30~0x7F  变量与堆栈        │   │
+│           │                  │   0x80 ~ 0xFF 只能间接寻址         │   │
+│           │                  │   特点：掉电就丢、可以随便读写     │   │
+│           │                  └────────────────────────────────────┘   │
+│           │                                                           │
+│           │                  ┌────────────────────────────────────┐   │
+│           └─────────────────►│   SFR 特殊功能寄存器 0x80 ~ 0xFF   │   │
+│                              │   P0 P1 P2 P3（引脚开关）          │   │
+│                              │   TMOD TCON TH0 TL0 TH1 TL1（定时）│   │
+│                              │   SCON SBUF PCON（串口）           │   │
+│                              │   IE IP（中断）  PSW ACC B SP DPTR │   │
+│                              │   写这里 = 直接拨动硬件开关        │   │
+│                              └──────────┬─────────────────────────┘   │
+│                                         │                             │
+│   ┌──────────────┐  ┌──────────────┐    │    ┌──────────────────┐     │
+│   │ 定时器/计数器 │  │  串口 UART   │    └───►│  4 组 IO 口      │     │
+│   │   T0    T1   │  │  RXD   TXD   │         │  P0 P1 P2 P3     │     │
+│   └──────────────┘  └──────────────┘         │  共 32 根引脚    │     │
+│                                              └────────┬─────────┘     │
+│   ┌───────────────────────────────────────────┐       │               │
+│   │ 中断控制器：INT0  INT1  T0  T1  串口       │       ▼               │
+│   │ 总开关与分开关都在 IE / IP 两个寄存器里    │   P0.0 ~ P3.7         │
+│   └───────────────────────────────────────────┘   接到外面的电路      │
+│                                                                       │
+│   芯片外部还有几个必须接的引脚：                                       │
+│     XTAL1 / XTAL2  ── 接晶振，给 CPU 提供节拍                         │
+│     RST            ── 复位脚，拉高一下芯片就从头开始                   │
+│     EA             ── 选择从内部 Flash 还是外部存储器取指令            │
+│     VCC / GND      ── 电源 5V 与地                                       │
+└───────────────────────────────────────────────────────────────────────┘</code></pre>
+          </div>
+
+          <p class="mt-4">
+            图上每个方框用一句话说清用途，这张表建议先扫一遍，不必背：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>模块</th>
+                  <th>一句话说明</th>
+                  <th>你会在什么时候碰到它</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b class="font-semibold text-ink">CPU</b></td>
+                  <td>执行指令的部件，只会做「取指令、算一算、判断一下、跳走」这几件事</td>
+                  <td>不用直接操作它，你写的每条 C 语句最终都由它执行</td>
+                </tr>
+                <tr>
+                  <td><b class="font-semibold text-ink">Flash</b></td>
+                  <td>程序存储器，8 KB，掉电不丢，装的就是你编译出来的机器码</td>
+                  <td>烧录（下载）时把程序写进去；<code class="icode">code</code> 关键字的数据也住这里</td>
+                </tr>
+                <tr>
+                  <td><b class="font-semibold text-ink">RAM</b></td>
+                  <td>数据存储器，256 字节，掉电就丢，程序运行中的变量都住这里</td>
+                  <td>定义变量、数组、用堆栈时；RAM 用超了编译会报错</td>
+                </tr>
+                <tr>
+                  <td><b class="font-semibold text-ink">SFR</b></td>
+                  <td>特殊功能寄存器，0x80~0xFF，是 CPU 用来控制外设的「开关面板」</td>
+                  <td>每一行 <code class="icode">P1 = …</code>、<code class="icode">TMOD = …</code> 都是在动它</td>
+                </tr>
+                <tr>
+                  <td><b class="font-semibold text-ink">定时器 T0/T1</b></td>
+                  <td>两个会自己数数的计数器，数到设定值就举手告诉 CPU</td>
+                  <td>做精确延时、计时、产生串口波特率、数外部脉冲</td>
+                </tr>
+                <tr>
+                  <td><b class="font-semibold text-ink">串口 UART</b></td>
+                  <td>按位（一根线一位）收发数据的通信模块，是 51 和电脑对话的主要方式</td>
+                  <td>下载程序、打印调试信息、接蓝牙/WiFi 模块</td>
+                </tr>
+                <tr>
+                  <td><b class="font-semibold text-ink">中断控制器</b></td>
+                  <td>负责在事件发生时打断 CPU 当前工作，跳到专门的函数去处理</td>
+                  <td>按键响应、定时中断、串口接收数据</td>
+                </tr>
+                <tr>
+                  <td><b class="font-semibold text-ink">IO 口 P0~P3</b></td>
+                  <td>32 根通用输入输出引脚，是芯片和外部电路之间唯一的通路</td>
+                  <td>点灯、读按键、驱动数码管、控制继电器，全都靠它</td>
+                </tr>
+                <tr>
+                  <td><b class="font-semibold text-ink">晶振与复位</b></td>
+                  <td>芯片外部的两个「命脉」：一个给它节拍，一个让它从头开始</td>
+                  <td>电路板一上电就要用到；出问题时第一时间查这两处</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-6">
+            <p class="callout-title">一个容易被忽略的事实</p>
+            <p class="mt-2">
+              你写的 C 程序<b class="font-semibold text-ink">不是</b>在芯片里「运行」的源代码，
+              它先被编译成机器码存进 Flash，然后由 CPU 一条一条地读出来执行。
+              所以「程序」和「数据」在芯片里住在两个完全不同的地方（Flash 与 RAM），
+              这一点和电脑上「程序和数据都在内存里」不一样，也是 51 上很多怪现象（比如变量存不住）的根源。
+            </p>
+          </div>
+
+          <h3 id="sub-cpu" class="mt-7 text-base font-semibold">CPU 怎么执行指令：取指、译码、执行</h3>
+
+          <p class="mt-3">
+            CPU 没有那么神秘。它一辈子只在重复一个三步循环，而且速度由外部晶振决定：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="CPU 的三步循环（不断重复，直到断电）">
+            <pre><code>   ┌──────────────────────────────────────────────────────────┐
+   │                                                          │
+   ▼                                                          │
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐     │
+│ 1. 取指令      │──►│ 2. 译码        │──►│ 3. 执行        │─────┘
+│               │   │               │   │               │
+│ 按 PC 里的地址 │   │ 看看这一串     │   │ 做它该做的事： │
+│ 从 Flash 里读  │   │ 01 01 00 是    │   │ 加、减、比较、 │
+│ 出下一条指令   │   │ 什么意思       │   │ 搬数据、跳转   │
+│ PC 自动 +1     │   │               │   │ 或写某个 SFR   │
+└───────────────┘   └───────────────┘   └───────────────┘
+
+  PC = Program Counter = 程序计数器，16 位，专门存「下一条指令的地址」</code></pre>
+          </div>
+
+          <p class="mt-4">
+            三个步骤里最需要记住的是 <b class="font-semibold text-ink">PC（程序计数器）</b>。
+            它就是 CPU 的「书签」：CPU 永远按 PC 指向的地址去 Flash 里取指令，
+            取完之后 PC 自动指向下一条（普通指令 +1、+2、+3，跳转指令则直接改成目标地址）。
+            你写的 <code class="icode">if</code>、<code class="icode">while</code>、函数调用，
+            在机器码层面全是「修改 PC 的值」而已。
+          </p>
+
+          <p class="mt-4">
+            那 PC 一开始是多少？<b class="font-semibold text-ink">复位后 PC = 0x0000</b>，
+            也就是说芯片上电后，第一条指令一定从 Flash 的 <code class="icode">0x0000</code> 开始取。
+            于是就有了一个所有人都会问的问题：既然从 <code class="icode">0x0000</code> 开始，
+            那「程序从 <code class="icode">main</code> 函数开始执行」这句话是怎么成立的？
+          </p>
+
+          <p class="mt-4">
+            答案是：这句话是一个<b class="font-semibold text-ink">善意的简化</b>。
+            真实的顺序是——CPU 从 <code class="icode">0x0000</code> 开始执行的是
+            <b class="font-semibold text-ink">启动代码</b>（Keil 工程里那个叫
+            <code class="icode">STARTUP.A51</code> 的文件编译出来的东西），
+            它先清 RAM、初始化堆栈指针 SP、给有初值的全局变量赋值，
+            然后才调用 <code class="icode">main</code>。
+            你可以用真实的 HEX 文件验证这一点：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="真实 HEX 文件的前两行（一个流水灯程序编译出来的）">
+            <pre><code>:03000000020003F8
+:100003007B00EB232323242FF58275837A08E49363
+
+逐字段看第一行（HEX 格式后面有专门一篇讲，这里只看两处）：
+  :  03  0000  00  02 00 03  F8
+  │  │   │     │   └──┬───┘  └─ 校验和
+  │  │   │     │      └──────── 这 3 个字节的数据
+  │  │   │     └─────────────── 记录类型 00 = 数据记录
+  │  │   └───────────────────── 起始地址 0x0000
+  │  └───────────────────────── 数据长度 3 字节
+  └──────────────────────────── 每行都以冒号开头
+
+  那 3 个字节 02 00 03 是什么？是 8051 的指令 LJMP 0x0003：
+    02 = 长跳转指令的操作码
+    00 03 = 目标地址（高字节在前）
+  意思就是：上电后 CPU 在 0x0000 处执行的第一条指令是「跳到 0x0003 去」。
+  第二行开头是 0x0003，那里的内容 7B 00 才是 main 编译出来的第一条指令
+  （MOV R3,#0，对应 C 里的初始化动作）。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            所以正确的说法是：<b class="font-semibold text-ink">CPU 从 0x0000 开始执行启动代码，
+            启动代码准备好运行环境后调用 main</b>。这就是为什么全局变量的初值能生效，
+            也是为什么你在 <code class="icode">main</code> 里写的第一行代码并不是芯片执行的第一个动作。
+          </p>
+
+          <p class="mt-4">
+            CPU 内部还有几个很小的「工作台」，它们不是外设开关，而是运算过程中临时放数据的地方，
+            统称 <b class="font-semibold text-ink">CPU 内部寄存器</b>（注意：它们和后面讲的 SFR 是两个概念，
+            后面会专门区分）：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>名称</th>
+                  <th>宽度</th>
+                  <th>作用</th>
+                  <th>C 语言里看得见吗</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">A</code>（累加器 ACC）</td>
+                  <td>8 位</td>
+                  <td>运算的主力：加法、移位、逻辑运算几乎都要经过它</td>
+                  <td>看不见，编译器自己安排</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">B</code></td>
+                  <td>8 位</td>
+                  <td>只给乘除法当搭档（MUL AB / DIV AB）</td>
+                  <td>看不见</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">PSW</code>（程序状态字）</td>
+                  <td>8 位</td>
+                  <td>存放运算结果的状态：进位 CY、溢出 OV、奇偶 P、当前寄存器组</td>
+                  <td>通常看不见，但它的位可以被 <code class="icode">sbit</code> 读到</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">R0</code> ~ <code class="icode">R7</code></td>
+                  <td>8 位 × 8</td>
+                  <td>最常用的小抽屉，访问速度最快；分 4 组，同时只有一组生效</td>
+                  <td>看不见（但指针 <code class="icode">*p</code> 常借用 R0/R1）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">SP</code>（堆栈指针）</td>
+                  <td>8 位</td>
+                  <td>指向堆栈栈顶，函数调用、中断保护现场都靠它</td>
+                  <td>看不见，但可以在 Keil 仿真里观察</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">DPTR</code></td>
+                  <td>16 位</td>
+                  <td>数据指针，访问 Flash 里的表格、访问片外存储器时用</td>
+                  <td>看不见，但查表指令 <code class="icode">SegCode[i]</code> 就是它在干活</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">PC</code>（程序计数器）</td>
+                  <td>16 位</td>
+                  <td>指向下一条要执行的指令地址</td>
+                  <td>看不见；除非用汇编写跳转，否则不需要管</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            这些名字现在记不住没关系，你只需要形成两个印象：
+            一是 <b class="font-semibold text-ink">CPU 干活需要一个临时工作台</b>，
+            二是 <b class="font-semibold text-ink">这些工作台和你写的变量不是一回事</b>——
+            变量住在 RAM 或 SFR 里，工作台是 CPU 内部的零件。
+          </p>
+
+          <p class="mt-4">
+            最后，指令执行是要花时间的，而且每条指令花的时间不一样。
+            51 里时间的单位是<b class="font-semibold text-ink">机器周期</b>（下一节讲时钟时会详细算），
+            下表是几条常见指令的耗时（基准：STC89C52RC，12 个时钟周期 = 1 个机器周期）：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>汇编指令</th>
+                  <th>对应的 C 写法（近似）</th>
+                  <th>字节数</th>
+                  <th>机器周期</th>
+                  <th>12 MHz 下耗时</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">MOV A,#data</code></td>
+                  <td><code class="icode">a = 0x12;</code></td>
+                  <td>2</td>
+                  <td>1</td>
+                  <td>1 μs</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">MOV direct,#data</code></td>
+                  <td><code class="icode">P1 = 0xFE;</code></td>
+                  <td>3</td>
+                  <td>2</td>
+                  <td>2 μs</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ADD A,#data</code></td>
+                  <td><code class="icode">a = a + 5;</code></td>
+                  <td>2</td>
+                  <td>1</td>
+                  <td>1 μs</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">DJNZ Rn,rel</code></td>
+                  <td><code class="icode">for (i = 10; i &gt; 0; i--);</code></td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>2 μs</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">LCALL addr16</code></td>
+                  <td>调用一个函数</td>
+                  <td>3</td>
+                  <td>2</td>
+                  <td>2 μs</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">MOVX A,@DPTR</code></td>
+                  <td>读 <code class="icode">xdata</code> 里的变量</td>
+                  <td>1</td>
+                  <td>2</td>
+                  <td>2 μs</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">MUL AB</code></td>
+                  <td><code class="icode">a * b</code></td>
+                  <td>1</td>
+                  <td>4</td>
+                  <td>4 μs</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">NOP</code></td>
+                  <td><code class="icode">_nop_();</code></td>
+                  <td>1</td>
+                  <td>1</td>
+                  <td>1 μs</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn mt-6">
+            <p class="callout-title">这张表最实用的一条</p>
+            <p class="mt-2">
+              <code class="icode">P1 = 0xFE;</code> 这行代码执行一次要 <b class="font-semibold text-ink">2 个机器周期</b>。
+              12 MHz 晶振下就是 2 微秒。记住这个数量级，你就明白两件事：
+              一是「软件延时」本质上就是让 CPU 空转几万、几十万次；
+              二是这种延时<b class="font-semibold text-ink">只跟晶振频率有关</b>，
+              换一块板子晶振不同，同样的循环延时长度就变了。
+            </p>
+          </div>
+
+          <h3 id="sub-memory" class="mt-7 text-base font-semibold">两种存储器：Flash 和 RAM 分别装什么</h3>
+
+          <p class="mt-3">
+            上一节说过程序住在 Flash、变量住在 RAM。这一节把这块讲清楚，
+            因为它直接决定了你写 C 时的一个高频动作：<b class="font-semibold text-ink">把常量放到哪里去</b>。
+            先看两种存储器的本质区别：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>对比项</th>
+                  <th>Flash（程序存储器）</th>
+                  <th>RAM（数据存储器）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>装什么</td>
+                  <td>你写的程序编译出来的机器码、<code class="icode">code</code> 修饰的常量表</td>
+                  <td>程序运行中的变量、数组、函数调用时的临时数据、堆栈</td>
+                </tr>
+                <tr>
+                  <td>容量（STC89C52RC）</td>
+                  <td>8 KB = 8192 字节</td>
+                  <td>256 字节（另有 256 字节片内扩展 RAM，属于 <code class="icode">xdata</code>）</td>
+                </tr>
+                <tr>
+                  <td>掉电后</td>
+                  <td>内容保留，重新上电程序还在</td>
+                  <td>内容全部丢失，上电后是随机值</td>
+                </tr>
+                <tr>
+                  <td>能不能写</td>
+                  <td>正常运行中不能随便写（要写必须走专门的烧录/EEPROM 流程）</td>
+                  <td>随时可读可写，一条指令就行</td>
+                </tr>
+                <tr>
+                  <td>地址范围</td>
+                  <td><code class="icode">0x0000</code> ~ <code class="icode">0x1FFF</code></td>
+                  <td>内部 <code class="icode">0x00</code> ~ <code class="icode">0xFF</code>；扩展区另算</td>
+                </tr>
+                <tr>
+                  <td>类比</td>
+                  <td>印好的说明书，只能看不能改</td>
+                  <td>草稿纸，随手写随手擦，但一下课就收走</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            关键的不对称在这里：<b class="font-semibold text-ink">Flash 有 8 KB，RAM 只有 256 字节</b>，
+            差了 32 倍。所以 51 编程有一条铁律：
+            <b class="font-semibold text-ink">凡是不会变的数据，一律放进 Flash，不要占 RAM</b>。
+            数码管段码表、汉字点阵、字符串常量都属于这一类。
+            在 C 里实现这件事的关键字就是 <code class="icode">code</code>：
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="同一个数组，加不加 code 决定它住在哪里">
+            <pre><code>/* 写法一：不加 code —— 表住在 RAM 里，10 个字节 RAM 就没了 */
+unsigned char SegCode[10] = {0x3F, 0x06, 0x5B, 0x4F, 0x66,
+                             0x6D, 0x7D, 0x07, 0x7F, 0x6F};
+
+/* 写法二：加 code —— 表住在 Flash 里，RAM 一个字节都不占 */
+unsigned char code SegCode[10] = {0x3F, 0x06, 0x5B, 0x4F, 0x66,
+                                  0x6D, 0x7D, 0x07, 0x7F, 0x6F};
+
+/* 两种写法在 C 语法上都能编译通过，功能也都能用；
+   区别只有一个：RAM 剩多少。表越大，区别越致命。
+   如果表有 1000 个字节，写法一在 51 上根本编译不过（RAM 装不下）。 */</code></pre>
+          </div>
+
+          <p class="mt-4">
+            那么「住在哪里」这件事在 C 语言里怎么表达？靠 51 编译器特有的一组
+            <b class="font-semibold text-ink">存储类型关键字</b>。它们不是标准 C 的一部分，
+            是 Keil C51 为 51 的存储结构专门加的：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>关键字</th>
+                  <th>指向哪块存储区</th>
+                  <th>地址范围</th>
+                  <th>访问方式与速度</th>
+                  <th>典型用法</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">code</code></td>
+                  <td>Flash 程序存储器</td>
+                  <td><code class="icode">0x0000</code> ~ <code class="icode">0x1FFF</code>（8 KB）</td>
+                  <td>查表指令 MOVC，约 2 个机器周期，只读</td>
+                  <td>段码表、字模、字符串、一切常量表</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">data</code></td>
+                  <td>内部 RAM 低 128 字节</td>
+                  <td><code class="icode">0x00</code> ~ <code class="icode">0x7F</code></td>
+                  <td>直接寻址，最快（1 个机器周期）</td>
+                  <td>普通变量、循环计数、频繁访问的小数组</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">idata</code></td>
+                  <td>内部 RAM 全部 256 字节</td>
+                  <td><code class="icode">0x00</code> ~ <code class="icode">0xFF</code></td>
+                  <td>间接寻址（通过 R0/R1），比 data 稍慢</td>
+                  <td>需要超过 128 字节的缓冲区</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">bdata</code></td>
+                  <td>内部 RAM 的位寻址区</td>
+                  <td><code class="icode">0x20</code> ~ <code class="icode">0x2F</code>（16 字节）</td>
+                  <td>既可整字节访问，也可按位访问</td>
+                  <td>需要一个字节里放 8 个独立标志位时</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">xdata</code></td>
+                  <td>片内扩展 RAM（或片外 RAM）</td>
+                  <td>STC89C52RC 有 256 字节片内扩展区</td>
+                  <td>MOVX 指令，最慢（2 个机器周期且要借 DPTR）</td>
+                  <td>大数组、缓冲区；RAM 不够时的救命区</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">pdata</code></td>
+                  <td>xdata 的分页形式（一页 256 字节）</td>
+                  <td>由 P2 口提供高 8 位地址</td>
+                  <td>MOVX @Ri，比 xdata 省一条指令</td>
+                  <td>较少用，片外扩展时偶尔用到</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            六个关键字里，<b class="font-semibold text-ink">你真正会天天用到的只有两个：
+            <code class="icode">code</code> 和 <code class="icode">data</code></b>
+            （而 <code class="icode">data</code> 还是默认值，不写就是它）。
+            剩下几个知道存在、能看懂别人代码就够了。
+          </p>
+
+          <p class="mt-4">
+            下面这张图把 STC89C52RC 的存储空间画在一起，请注意它们是
+            <b class="font-semibold text-ink">两套独立的地址编号</b>（Flash 和 RAM 各自从 0 开始数），
+            这就是所谓「哈佛结构」：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="STC89C52RC 的存储空间划分（两套独立编号）">
+            <pre><code>【程序空间 · Flash · 8 KB · 掉电不丢 · 只有 CPU 能读】
+  0x0000 ┌────────────────────────────────┐
+         │ 复位向量：上电后第一条指令      │  ← 通常是 LJMP，跳到启动代码
+  0x0003 ├────────────────────────────────┤
+         │ STARTUP.A51 编译出的启动代码    │  ← 清 RAM、设 SP、给全局变量赋初值
+         ├────────────────────────────────┤
+         │ 你的 main 编译出的机器码        │
+         ├────────────────────────────────┤
+         │ 其它函数、中断服务函数的机器码  │
+         ├────────────────────────────────┤
+         │ code 段：段码表、字模、字符串   │  ← unsigned char code SegCode[10]
+  0x1FFF └────────────────────────────────┘
+
+【数据空间 · 内部 RAM · 256 字节 · 掉电就丢 · 随便读写】
+  0x00  ┌────────────────────────────────┐
+        │ 0x00~0x1F  4 组工作寄存器 R0~R7 │  ← 同时只有一组生效，由 PSW 选择
+  0x20  ├────────────────────────────────┤
+        │ 0x20~0x2F  位寻址区（16 字节）  │  ← 128 个可以单独置位/清零的位
+  0x30  ├────────────────────────────────┤
+        │ 0x30~0x7F  用户变量、数组、堆栈 │  ← 你的普通变量大多住这里
+  0x80  ├────────────────────────────────┤
+        │ 0x80~0xFF  高 128 字节          │  ← 只能用 @R0/@R1 间接访问
+  0xFF  └────────────────────────────────┘
+
+【控制空间 · SFR · 0x80 ~ 0xFF · 硬件开关面板】
+  0x80  ┌────────────────────────────────┐
+        │ P0 P1 P2 P3   SP DPL DPH PCON  │
+        │ TCON TMOD TL0 TL1 TH0 TH1      │
+        │ SCON SBUF  IE IP  PSW ACC B    │  ← 注意：地址和上面高 128 字节重叠
+  0xFF  └────────────────────────────────┘
+
+【扩展数据空间 · xdata · 256 字节片内扩展 RAM】
+  0x0000 ┌──────────────────────────────┐
+         │ 用 MOVX 指令访问，比内部 RAM 慢│
+  0x00FF └──────────────────────────────┘</code></pre>
+          </div>
+
+          <div class="callout callout-info mt-6">
+            <p class="callout-title">关于容量数字</p>
+            <p class="mt-2">
+              STC89C52RC 的常见说法是「8 KB Flash、512 字节 RAM」，
+              其中的 512 = 256 字节内部 RAM ＋ 256 字节片内扩展 RAM（xdata）。
+              不同批次的芯片、以及 STC 的各个子型号在扩展 RAM 与 EEPROM 上略有差异，
+              以你手上芯片的官方数据手册为准。
+              这一页后面的所有原理只依赖经典的 8051 结构，不受这些差异影响。
+            </p>
+          </div>
+
+          <h3 id="sub-address" class="mt-7 text-base font-semibold">地址是什么：给每个字节发一个门牌号</h3>
+
+          <p class="mt-3">
+            「地址」这个词是初学者最容易卡住的地方，因为它被用得太随意了。
+            换成一句人话：<b class="font-semibold text-ink">地址就是门牌号</b>。
+            RAM 和 Flash 里面是密密麻麻的存储单元，每个单元能存 8 位（也就是一个字节），
+            为了能指名道姓地找到某一个单元，就给每个单元编了一个号——
+            这个号就是地址，从 <code class="icode">0</code> 开始往上数。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="地址就是门牌号：一排编号的格子">
+            <pre><code>把内部 RAM 想成一条街上的房子，每间房子里放 8 位数据：
+
+  门牌号:  0x30    0x31    0x32    0x33    0x34    0x35
+         ┌───────┬───────┬───────┬───────┬───────┬───────┐
+  内容:  │ 0000  │ 1010  │ 1111  │ 0000  │ 0000  │ 0000  │
+         │ 0000  │ 0101  │ 1111  │ 0000  │ 0000  │ 0000  │
+         └───────┴───────┴───────┴───────┴───────┴───────┘
+            ↑
+            │  0x30 这个门牌号里住着一个字节，值是 0x00
+
+C 里写：
+    unsigned char a = 0x3F;   /* 编译器在 RAM 里分一间房给 a，比如 0x30 */
+    a = 0x5B;                 /* 往 0x30 这间房里写 0x5B */
+
+「给变量赋值」的真相就是：往某个门牌号对应的格子里写 8 位数据。
+至于分到哪个门牌号，你不需要管，编译器自动安排。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            那为什么地址总是写成 <code class="icode">0x00</code> ~ <code class="icode">0xFF</code>？
+            因为 51 是 8 位单片机，它内部 RAM 的地址用 8 位表示，
+            8 位能表示 <code class="icode">0000 0000</code> ~ <code class="icode">1111 1111</code>，
+            也就是 0 ~ 255，写成十六进制正好是 <code class="icode">0x00</code> ~ <code class="icode">0xFF</code>。
+            <b class="font-semibold text-ink">8 位地址能覆盖的范围就是 256 个格子</b>——
+            这就是内部 RAM 正好 256 字节的原因，不是巧合，是位宽决定的。
+          </p>
+
+          <p class="mt-4">
+            同理，Flash 的地址用 16 位表示（因为 8 位不够装下 8 KB），
+            16 位能表示 0 ~ 65535，也就是 <code class="icode">0x0000</code> ~ <code class="icode">0xFFFF</code>，
+            这就是为什么 PC 和 DPTR 都是 16 位。
+            外部扩展存储器理论上能用到这 64 KB，而 STC89C52RC 内部只用了其中 8 KB。
+          </p>
+
+          <p class="mt-4">
+            接下来是一个非常关键、但几乎所有教程都跳过的细节：
+            <b class="font-semibold text-ink">内部 RAM 的高 128 字节（0x80~0xFF）为什么"只能间接寻址"？</b>
+            原因和 SFR 有关：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="地址重叠：同一个 0x90 是两个完全不同的东西">
+            <pre><code>在 51 里，0x80 ~ 0xFF 这段地址是有「两套含义」的：
+
+  指令 MOV A, 0x90        ← 直接寻址：CPU 认为你指的是 SFR，取 P1 口的值
+  指令 MOV A, @R0         ← 间接寻址：R0 = 0x90 时，CPU 取的是 RAM 高 128 字节
+
+  ┌──────────────────────────────────────────────────────────────┐
+  │  地址 0x90 这一个数字，指向哪块地方，取决于你用哪种寻址方式   │
+  ├───────────────────────────┬──────────────────────────────────┤
+  │  直接寻址（指令里写地址） │  → SFR 区，0x90 就是 P1 口        │
+  │  间接寻址（地址放 R0/R1） │  → 内部 RAM 高 128 字节           │
+  └───────────────────────────┴──────────────────────────────────┘
+
+所以：
+  · 低 128 字节（0x00~0x7F）两种寻址方式都能到，最快，这就是 data
+  · 高 128 字节（0x80~0xFF）只有间接寻址能到，这就是 idata 比 data 慢的原因
+  · SFR（0x80~0xFF）只能用直接寻址，这就是为什么寄存器名必须"预先声明"</code></pre>
+          </div>
+
+          <p class="mt-4">
+            这段可能读一遍还不太透，但它解释了三个你以后一定会遇到的现象：
+            为什么 <code class="icode">idata</code> 变量访问比 <code class="icode">data</code> 慢；
+            为什么 51 的 RAM 明明有 256 字节，Keil 编译信息里 <code class="icode">data</code> 那一栏却经常只有一百多；
+            以及下一节要讲的——为什么 <code class="icode">sfr</code> 声明必须写地址。
+          </p>
+
+          <p class="mt-4">
+            最后把这一节的三套地址空间整理成一张表，方便对比记忆：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>地址空间</th>
+                  <th>地址宽度</th>
+                  <th>范围</th>
+                  <th>装什么</th>
+                  <th>用 C 的什么关键字访问</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>程序空间（Flash）</td>
+                  <td>16 位</td>
+                  <td><code class="icode">0x0000</code> ~ <code class="icode">0xFFFF</code>（实际用到 8 KB）</td>
+                  <td>机器码、<code class="icode">code</code> 常量</td>
+                  <td><code class="icode">code</code></td>
+                </tr>
+                <tr>
+                  <td>内部数据空间（RAM）</td>
+                  <td>8 位</td>
+                  <td><code class="icode">0x00</code> ~ <code class="icode">0xFF</code></td>
+                  <td>变量、数组、堆栈</td>
+                  <td><code class="icode">data</code> / <code class="icode">idata</code> / <code class="icode">bdata</code></td>
+                </tr>
+                <tr>
+                  <td>SFR 空间</td>
+                  <td>8 位</td>
+                  <td><code class="icode">0x80</code> ~ <code class="icode">0xFF</code>（与 RAM 高位重叠）</td>
+                  <td>硬件开关（P0~P3、TMOD、IE…）</td>
+                  <td><code class="icode">sfr</code> / <code class="icode">sbit</code>（或用头文件里声明好的名字）</td>
+                </tr>
+                <tr>
+                  <td>扩展数据空间（xdata）</td>
+                  <td>16 位</td>
+                  <td><code class="icode">0x0000</code> ~ <code class="icode">0xFFFF</code></td>
+                  <td>大数组、缓冲区（片内扩展或片外 RAM）</td>
+                  <td><code class="icode">xdata</code> / <code class="icode">pdata</code></td>
+                </tr>
+                <tr>
+                  <td>位地址空间</td>
+                  <td>8 位</td>
+                  <td><code class="icode">0x00</code> ~ <code class="icode">0xFF</code>（共 256 个可寻址位）</td>
+                  <td>位寻址区与部分 SFR 的每一位</td>
+                  <td><code class="icode">bit</code> / <code class="icode">sbit</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-6">
+            <p class="callout-title">一句话记住这一节</p>
+            <p class="mt-2">
+              地址 ＝ 门牌号；8 位地址管 256 个格子，16 位地址管 65536 个格子；
+              同一个数字在不同寻址方式下可以是 RAM，也可以是 SFR。
+              你不需要背下这些数字，但需要知道「<b class="font-semibold text-ink">写寄存器 = 往一个特定门牌号写数据</b>」。
+            </p>
+          </div>
+        <h3 id="sub-sfr" class="mt-7 text-base font-semibold">寄存器与 SFR：本节是全篇的重点</h3>
+
+          <p class="mt-3">
+            先把「寄存器」这个词的含义固定下来，不然后面全是空话。
+            <b class="font-semibold text-ink">寄存器就是芯片内部一个能存数据的小格子，而且它的内容会和某个硬件功能绑在一起。</b>
+            普通的小格子（比如 RAM 里的变量）只负责存数字，存什么都没人管；
+            寄存器不一样：<b class="font-semibold text-ink">你写进去的数字，会被硬件当成命令执行</b>。
+          </p>
+
+          <p class="mt-4">
+            用一个生活里的例子：家里的配电箱。箱子里是一排开关，
+            每个开关背后连着不同的灯或插座。你要让客厅灯亮，
+            正确做法不是爬到天花板上拽电线，而是走到配电箱前，
+            <b class="font-semibold text-ink">把对应那个开关拨上去</b>。
+            对 CPU 来说，寄存器就是它的配电箱：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="配电箱类比：CPU 不能直接碰硬件，只能拨开关">
+            <pre><code>你的想法           C 语言                 CPU 的动作              硬件的结果
+────────────      ────────────────       ─────────────────       ──────────────────
+「让 P1.0 的灯亮」  P1 = 0xFE;            往地址 0x90 写 0xFE      8 个锁存器变成 1111 1110
+                                                                    → P1.0 引脚变低电平
+                                                                    → 灯亮（灌电流接法）
+
+       ┌──────────────┐        ┌────────────────────────────┐
+       │     CPU      │        │  寄存器 = 配电箱            │
+       │              │        │                            │
+       │  我想让某根   │  写    │  ┌────┐ ← 地址 0x90 = P1 口 │
+       │  引脚变低     │───────►│  │0x90│   （8 个开关，每一位 │
+       │              │  数据  │  └────┘    控制一根引脚）    │
+       └──────────────┘        │                            │
+                               │  ┌────┐ ← 地址 0x89 = TMOD  │
+                               │  │0x89│   定时器工作方式     │
+                               │  └────┘                     │
+                               │  ┌────┐ ← 地址 0xA8 = IE    │
+                               │  │0xA8│   中断总开关         │
+                               │  └────┘                     │
+                               └─────────────┬──────────────┘
+                                             │ 开关状态直接连到硬件电路
+                                             ▼
+                                       引脚电平 / 定时器 / 中断</code></pre>
+          </div>
+
+          <p class="mt-4">
+            现在给出正式定义：
+            <b class="font-semibold text-ink">SFR = Special Function Register = 特殊功能寄存器</b>。
+            「特殊功能」四个字的意思就是「它连着的不是普通存储，而是某个硬件功能」。
+            51 把内部 RAM 上方的一段地址 <code class="icode">0x80</code> ~ <code class="icode">0xFF</code>
+            专门划给这些硬件开关，总共 128 个地址位置，
+            经典 8051 里实际放了 21 个 SFR（STC89C52RC 因为多一个定时器 T2，
+            数量还要多几个，地址都在同一段里）。
+          </p>
+
+          <div class="callout callout-warn mt-6">
+            <p class="callout-title">两组名字都叫「寄存器」，必须先分清</p>
+            <p class="mt-2">
+              <b class="font-semibold text-ink">第一组：CPU 内部寄存器</b>——A、B、PSW、SP、DPTR、R0~R7。
+              它们是 CPU 运算时的工作台，你写的 C 代码基本看不见它们，编译器自动安排。<br>
+              <b class="font-semibold text-ink">第二组：SFR 特殊功能寄存器</b>——P0~P3、TMOD、TCON、SCON、IE、IP 等。
+              它们是外设的开关面板，是你写 51 程序时天天要碰的东西。<br>
+              两组里都有人把 PSW、SP、DPTR、ACC、B 算进去（因为它们既在 CPU 内部，又有 SFR 地址），
+              这个「重叠」正是 51 的设计特点：<b class="font-semibold text-ink">CPU 的内部工作台也被分配了 SFR 地址，
+              所以你能在调试器里看到它们</b>。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            接下来回答这一页最核心的那个问题：
+            <b class="font-semibold text-ink"><code class="icode">sfr P1 = 0x90;</code> 这一行到底做了什么？</b>
+            它做的事比你想的少，也比你想的重要——
+            它<b class="font-semibold text-ink">一行机器码都不产生</b>，只是给编译器交代了三件事：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="sfr P1 = 0x90; 的三个作用（编译期的约定，不占程序空间）">
+            <pre><code>sfr P1 = 0x90;
+
+  ① 声明一个名字：从这一行往后，代码里出现 P1 时，编译器知道它是什么
+       （不做这一步，写 P1 会报 error C202: 'P1': undefined identifier）
+
+  ② 绑定地址：P1 这个名字代表地址 0x90 这个存储位置
+       （P1 不是变量！它没有"分配"到 RAM，它指向一个已经存在的硬件地址）
+
+  ③ 指定访问方式：告诉编译器"这是 SFR"，以后访问 P1 要生成
+       直接寻址指令（MOV direct / SETB / CLR 之类），
+       而不是像普通变量那样先算地址再间接访问
+
+  对比一下：unsigned char x = 0x90;
+       这一行是"分配一间新房子，把门牌号 0x90 写进去"——
+       变量 x 自己占一个 RAM 地址，内容恰好是 0x90。
+       两者完全不同：一个是"名字指向 0x90"，一个是"内容等于 0x90"。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            因为 <code class="icode">sfr</code> 声明只是编译期约定，所以它必须写在函数外面（全局位置），
+            而且必须在第一次使用之前。这也是为什么每份 51 程序的头顶都有一行
+            <code class="icode">#include &lt;reg52.h&gt;</code>：
+            那个头文件里就是一串这样的声明，替你把 21 个 SFR 名字都绑好了。
+            下面是从 <code class="icode">reg52.h</code> 里摘出来的真实内容（节选）：
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="reg52.h 里真实存在的 sfr 声明（节选）">
+            <pre><code>/* 下面这些就是 reg52.h 里替你做好的声明，你自己写程序时不用重复写 */
+sfr P0   = 0x80;    /* 4 个 IO 口，每个口 8 根引脚 */
+sfr P1   = 0x90;
+sfr P2   = 0xA0;
+sfr P3   = 0xB0;
+
+sfr SP   = 0x81;    /* 堆栈指针 */
+sfr DPL  = 0x82;    /* 数据指针低字节 */
+sfr DPH  = 0x83;    /* 数据指针高字节 */
+sfr PCON = 0x87;    /* 电源控制（里有 SMOD 波特率加倍位） */
+
+sfr TCON = 0x88;    /* 定时器控制：启停位、溢出标志、外部中断触发方式 */
+sfr TMOD = 0x89;    /* 定时器工作方式 */
+sfr TL0  = 0x8A;    /* 定时器 0 低字节 */
+sfr TL1  = 0x8B;
+sfr TH0  = 0x8C;    /* 定时器 0 高字节 */
+sfr TH1  = 0x8D;
+
+sfr SCON = 0x98;    /* 串口控制 */
+sfr SBUF = 0x99;    /* 串口数据缓冲：写=发送，读=接收（同名两间房！） */
+
+sfr IE   = 0xA8;    /* 中断使能：总开关与分开关 */
+sfr IP   = 0xB8;    /* 中断优先级 */
+
+sfr PSW  = 0xD0;    /* 程序状态字：进位、溢出、寄存器组选择 */
+sfr ACC  = 0xE0;    /* 累加器 */
+sfr B    = 0xF0;    /* 乘除法搭档 */</code></pre>
+          </div>
+
+          <p class="mt-4">
+            注意最后一行注释里的 <code class="icode">SBUF</code>，它是一个特别典型的例子：
+            <b class="font-semibold text-ink">同一个地址 0x99，写进去是"要发送的数据"，读出来是"刚收到的数据"</b>，
+            物理上是两个不同的缓冲器，只是共用了一个名字和地址。
+            这也说明 SFR 的「可读可写」不能一概而论，必须查手册：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>读写特性</th>
+                  <th>典型 SFR</th>
+                  <th>说明与坑</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>可读可写</td>
+                  <td>P0 ~ P3、TMOD、TCON、SCON、IE、IP、PCON、TH0/TL0/TH1/TL1</td>
+                  <td>最常见的一类。注意 TCON/SCON 里有些位是标志位，硬件置 1 后要<b class="font-semibold text-ink">软件写 0 清掉</b></td>
+                </tr>
+                <tr>
+                  <td>读和写访问的是两个不同的东西</td>
+                  <td><code class="icode">SBUF</code>（0x99）</td>
+                  <td>写 = 把数据交给发送电路；读 = 从接收电路取数据。<b class="font-semibold text-ink">读回自己刚写的值是没有意义的</b></td>
+                </tr>
+                <tr>
+                  <td>读的是「锁存器」而不是引脚（读-改-写指令）</td>
+                  <td>P0 ~ P3</td>
+                  <td><code class="icode">ANL P1,#0FEH</code>、<code class="icode">ORL P1,#01H</code> 这类指令读回的是上次写进去的值，<b class="font-semibold text-ink">不是引脚上的真实电平</b>，所以对外部负载很"宽容"</td>
+                </tr>
+                <tr>
+                  <td>读的是引脚真实电平</td>
+                  <td>P0 ~ P3（用 <code class="icode">MOV A,P1</code> 这种读引脚指令）</td>
+                  <td>C 里写 <code class="icode">x = P1;</code> 就是这一类，读到的是外部电路此刻的电压高低</td>
+                </tr>
+                <tr>
+                  <td>只能整体读写的 16 位寄存器</td>
+                  <td><code class="icode">DPTR</code>（= DPH + DPL 两个 8 位）</td>
+                  <td>地址 0x82/0x83 各是半个，读 DPTR 要分两次读</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            「读锁存器还是读引脚」这一条看起来抽象，但它是 51 编程里最容易踩的坑之一，
+            和下一小节的准双向口直接相关，先记住结论：
+            <b class="font-semibold text-ink">按位取反、与、或这类「读了再改再写回」的操作，
+            CPU 读的是自己上次写出去的锁存器值，不是引脚电平</b>。
+            这既是好事（不怕外部把引脚拉低），也是坏事（外部电路的变化你读不到，要读就得专门用
+            <code class="icode">x = P1;</code> 这种读引脚指令）。
+          </p>
+
+          <p class="mt-4">
+            现在把 <code class="icode">P1 = 0xFE;</code> 这行 C 代码的完整旅程串一遍，
+            这是本节要你带走的最终画面（更细的硬件过程在
+            <a class="text-brand-600 dark:text-brand-300" href="#sec-hardware">下一节</a> 展开）：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>步骤</th>
+                  <th>发生了什么</th>
+                  <th>层次</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1</td>
+                  <td>你写下 <code class="icode">P1 = 0xFE;</code></td>
+                  <td>C 语言</td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td>编译器根据 <code class="icode">sfr P1 = 0x90;</code> 的声明，知道要往地址 0x90 写 0xFE</td>
+                  <td>编译期</td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td>生成机器码 <code class="icode">75 90 FE</code>（MOV direct,#data，3 字节 2 个机器周期）</td>
+                  <td>机器码</td>
+                </tr>
+                <tr>
+                  <td>4</td>
+                  <td>CPU 取指、译码，发现是一条「写数据到 0x90」的指令</td>
+                  <td>CPU</td>
+                </tr>
+                <tr>
+                  <td>5</td>
+                  <td>地址译码电路发现 0x90 属于 SFR 区，选通 P1 口对应的 8 个锁存器</td>
+                  <td>片内总线</td>
+                </tr>
+                <tr>
+                  <td>6</td>
+                  <td>数据 0xFE = <code class="icode">1111 1110</code> 被写进这 8 个锁存器</td>
+                  <td>寄存器</td>
+                </tr>
+                <tr>
+                  <td>7</td>
+                  <td>P1.0 的锁存器输出 0，它控制的场效应管导通，把引脚拉到 GND</td>
+                  <td>引脚级</td>
+                </tr>
+                <tr>
+                  <td>8</td>
+                  <td>接在 P1.0 上、正极经限流电阻接 VCC 的 LED 有电流通过，灯亮</td>
+                  <td>电路级</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            这八步里，<b class="font-semibold text-ink">第 2 步是 sfr 声明的作用，第 6~8 步是"写寄存器 = 改硬件"的真正含义</b>。
+            理解了这八步，你就不会再觉得「给 P1 赋值能点亮灯」是魔法了。
+          </p>
+
+          <h3 id="sub-bitaddr" class="mt-7 text-base font-semibold">位寻址与 sbit：只改一个引脚，不动其它七个</h3>
+
+          <p class="mt-3">
+            假设现在 8 颗灯里有 7 颗正亮着（<code class="icode">P1 = 0x7F</code>），
+            你只想让 P1.7 那颗也亮起来，别的都不动。用字节操作要这么写：
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="字节操作的写法：先算掩码，再读-改-写">
+            <pre><code>P1 = P1 &amp; 0x7F;    /* 0x7F = 0111 1111，把最高位清 0，其余位保持 */
+
+/* 这行代码实际是三步：
+     ① 读回 P1 当前的值（读的是锁存器，不是引脚）
+     ② 和 0x7F 做按位与，得到新值
+     ③ 把新值写回 P1
+   算下来大约需要 5~6 条指令、6~8 个机器周期。 */</code></pre>
+          </div>
+
+          <p class="mt-4">
+            能用，但麻烦：每改一位都要算掩码，还容易算错。
+            51 的设计者考虑到 IO 口操作太常见，专门做了一套
+            <b class="font-semibold text-ink">位寻址机制</b>：
+            在地址空间里另开一套「位的门牌号」，让一条指令直接操作某一位。
+            上面那行代码用位寻址只需要一条指令：
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="位寻址的写法：一条指令，1 个机器周期">
+            <pre><code>sbit LED7 = P1^7;   /* 声明：LED7 就是 P1 口的第 7 位 */
+LED7 = 1;           /* 编译成 SETB 90H... 准确说是 SETB P1.7，1 条指令 1 个机器周期 */
+
+/* 直接写位地址也可以，效果完全一样：*/
+sbit LED7 = 0x97;   /* 0x97 是 P1.7 的位地址，见下面的换算表 */</code></pre>
+          </div>
+
+          <p class="mt-4">那么哪些地址可以位寻址？规则只有两条，记起来不难：</p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="可位寻址的两块区域">
+            <pre><code>【第一块】内部 RAM 的 0x20 ~ 0x2F 这 16 个字节
+   共 16 × 8 = 128 个位，位地址从 0x00 排到 0x7F：
+     字节 0x20 的 8 位 = 位地址 0x00 ~ 0x07
+     字节 0x21 的 8 位 = 位地址 0x08 ~ 0x0F
+     字节 0x22 的 8 位 = 位地址 0x10 ~ 0x17
+     ...（每往后一个字节，位地址加 8）
+     字节 0x2F 的 8 位 = 位地址 0x78 ~ 0x7F
+   这一块就是 bdata 区，声明成 bdata 的变量就住在这里
+
+【第二块】地址能被 8 整除的那些 SFR
+   判断方法：地址的二进制最低三位是 0（也就是十六进制末位是 0 或 8）
+     0x80 P0   0x88 TCON   0x90 P1   0x98 SCON
+     0xA0 P2   0xA8 IE     0xB0 P3   0xB8 IP
+     0xC0 （保留） 0xC8 （保留） 0xD0 PSW   0xD8 （保留）
+     0xE0 ACC  0xE8 （保留） 0xF0 B     0xF8 （保留）
+   每个这样的 SFR 占 8 个位地址，正好铺满 0x80 ~ 0xFF 这 128 个
+
+【注意】0x81（SP）、0x89（TMOD）、0x99（SBUF）这类地址
+   不能被 8 整除，所以它们不能位寻址，只能整字节读写
+   —— 这就是"TMOD 为什么要整字节赋值"的原因</code></pre>
+          </div>
+
+          <p class="mt-4">
+            位地址的换算规则也很朴素：<b class="font-semibold text-ink">某个可位寻址 SFR 的位地址，
+            就是从它自己的地址开始往上数 8 个</b>。
+            以 0x90（P1）为例：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="位地址换算：0x90 (P1) 的 8 个位是 0x90 ~ 0x97">
+            <pre><code>字节地址 0x90 = P1，把它摊开成 8 位：
+
+   P1.7   P1.6   P1.5   P1.4   P1.3   P1.2   P1.1   P1.0   ← 位名称
+    1      1      1      1      1      1      1      0     ← P1 = 0xFE 时的值
+    0x97   0x96   0x95   0x94   0x93   0x92   0x91   0x90   ← 位地址（就是它的门牌号）
+
+C 里的三种等价写法：
+   sbit  K1 = P1^0;    /* 用位号写法：P1 口第 0 位 */
+   sbit  K2 = 0x90;    /* 直接写位地址 */
+   sbit  K3 = 0x90^0;  /* 位地址 + 位号（少见，但合法） */
+
+   K1 = 0;   /* 编译成 CLR P1.0，把引脚拉到低电平 */
+   K1 = 1;   /* 编译成 SETB P1.0，把引脚放高 */
+
+同样的方法可以算出所有常用位地址，这张表建议直接背下来常用的几个：</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>SFR（地址）</th>
+                  <th>位地址范围</th>
+                  <th>每个位的名字（从低位到高位）</th>
+                  <th>为什么常用</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>P0（0x80）</td>
+                  <td>0x80 ~ 0x87</td>
+                  <td>P0.0 ~ P0.7</td>
+                  <td>接数码管段选、外部总线（注意需要上拉）</td>
+                </tr>
+                <tr>
+                  <td>P1（0x90）</td>
+                  <td>0x90 ~ 0x97</td>
+                  <td>P1.0 ~ P1.7</td>
+                  <td>最常用于接 LED、按键、继电器</td>
+                </tr>
+                <tr>
+                  <td>P2（0xA0）</td>
+                  <td>0xA0 ~ 0xA7</td>
+                  <td>P2.0 ~ P2.7</td>
+                  <td>接数码管位选；扩展外部存储器时输出高 8 位地址</td>
+                </tr>
+                <tr>
+                  <td>P3（0xB0）</td>
+                  <td>0xB0 ~ 0xB7</td>
+                  <td>P3.0 ~ P3.7（每个都有第二功能）</td>
+                  <td>RXD/TXD/INT0/INT1/T0/T1/WR/RD 都在这个口</td>
+                </tr>
+                <tr>
+                  <td>TCON（0x88）</td>
+                  <td>0x88 ~ 0x8F</td>
+                  <td>IT0 IE0 IT1 IE1 TR0 TF0 TR1 TF1</td>
+                  <td>启动定时器 <code class="icode">TR0 = 1;</code>、查溢出标志 <code class="icode">TF0</code></td>
+                </tr>
+                <tr>
+                  <td>SCON（0x98）</td>
+                  <td>0x98 ~ 0x9F</td>
+                  <td>RI TI RB8 TB8 REN SM2 SM1 SM0</td>
+                  <td>串口收发标志清零 <code class="icode">TI = 0;</code>、允许接收 <code class="icode">REN = 1;</code></td>
+                </tr>
+                <tr>
+                  <td>IE（0xA8）</td>
+                  <td>0xA8 ~ 0xAF</td>
+                  <td>EX0 ET0 EX1 ET1 ES — EA</td>
+                  <td>中断开关：<code class="icode">EA = 1;</code> 是最著名的一行</td>
+                </tr>
+                <tr>
+                  <td>IP（0xB8）</td>
+                  <td>0xB8 ~ 0xBF</td>
+                  <td>PX0 PT0 PX1 PT1 PS —</td>
+                  <td>设置中断优先级</td>
+                </tr>
+                <tr>
+                  <td>PSW（0xD0）</td>
+                  <td>0xD0 ~ 0xD7</td>
+                  <td>P — OV RS0 RS1 F0 AC CY</td>
+                  <td>读进位标志 <code class="icode">CY</code>、切换寄存器组 RS0/RS1</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            除了 <code class="icode">sbit</code>，51 编译器还有一个 <code class="icode">bit</code> 类型，
+            用来定义只占一位的变量。它自动住在位寻址区里，非常适合放「开/关」这种标志：
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="bit 变量与 bdata + sbit 组合（一个字节当 8 个标志用）">
+            <pre><code>/* 写法一：单个位变量，编译器自动分配到位寻址区 */
+bit KeyPressed;         /* 只占 1 位，不占 1 字节 */
+bit LedState;
+
+void main(void)
+{
+    KeyPressed = 0;
+    LedState = 1;
+    if (LedState) { P1 = 0xFE; }
+    while (1);
+}
+
+/* 写法二：一个字节里塞 8 个标志位（省 RAM 的经典技巧） */
+unsigned char bdata Flags;      /* bdata 必须写！否则不能位寻址 */
+sbit F_LED_ON  = Flags^0;       /* 第 0 位：灯是否亮 */
+sbit F_KEY_1   = Flags^1;       /* 第 1 位：按键 1 是否按下 */
+sbit F_TIME_UP = Flags^2;       /* 第 2 位：定时是否到 */
+sbit F_UART_OK = Flags^3;       /* 第 3 位：串口是否收到完整一帧 */
+
+void Check(void)
+{
+    if (F_KEY_1) { F_LED_ON = 1; }   /* 直接操作某一位，不影响另外 7 位 */
+}</code></pre>
+          </div>
+
+          <p class="mt-4">
+            那什么时候用位操作、什么时候用字节操作？下面这张表是实战结论：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>场景</th>
+                  <th>推荐写法</th>
+                  <th>理由</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>只改一根引脚（点灯、响蜂鸣器）</td>
+                  <td><code class="icode">sbit LED = P1^0; LED = 0;</code></td>
+                  <td>一条指令、不影响其它引脚、可读性最好</td>
+                </tr>
+                <tr>
+                  <td>一次改整个口（数码管段码、8 颗灯一起）</td>
+                  <td><code class="icode">P0 = SegCode[i];</code></td>
+                  <td>本来就要整体赋值，位操作反而啰嗦</td>
+                </tr>
+                <tr>
+                  <td>一边改一部分位、一边保持其它位</td>
+                  <td><code class="icode">P1 &amp;= 0x0F;</code> 或位操作</td>
+                  <td>字节操作要算掩码，位操作更直观；<b class="font-semibold text-ink">千万别写 <code class="icode">P1 = 0x01;</code> 这种"只想要一位、却把其它七位清零"的代码</b></td>
+                </tr>
+                <tr>
+                  <td>频繁判断某个标志（按键、中断标志）</td>
+                  <td><code class="icode">sbit</code> / <code class="icode">bit</code></td>
+                  <td>1 位 vs 1 字节，还省了掩码运算</td>
+                </tr>
+                <tr>
+                  <td>要读外部引脚的真实电平（按键）</td>
+                  <td><code class="icode">x = P3;</code> 然后判断某一位，或先写 1 再读</td>
+                  <td>准双向口的规矩：读引脚前先把该位写 1（见 <a class="text-brand-600 dark:text-brand-300" href="#sub-ioport">IO 口内部结构</a>）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-danger mt-6">
+            <p class="callout-title">位寻址最常见的三个错</p>
+            <p class="mt-2">
+              <b>① 位地址算错。</b>P1.0 的位地址是 <code class="icode">0x90</code>，不是 <code class="icode">0x00</code>；
+              P1.7 是 <code class="icode">0x97</code>，不是 <code class="icode">0x07</code>。
+              记忆方法：位地址＝SFR 地址 ＋ 位号。<br>
+              <b>② 对不可位寻址的 SFR 用 sbit。</b>
+              <code class="icode">sbit X = TMOD^0;</code> 编译会报错，因为 TMOD 的地址 0x89 不能被 8 整除。<br>
+              <b>③ sbit 写在函数里。</b><code class="icode">sbit</code> 是声明，必须写在所有函数外面。
+              写在函数内部会报 <code class="icode">error C141: syntax error near 'sbit'</code> 之类的错。
+            </p>
+          </div>
+
+          <h3 id="sub-clock" class="mt-7 text-base font-semibold">时钟：晶振、时钟周期与机器周期</h3>
+
+          <p class="mt-3">
+            前面反复提到「机器周期」，现在把它讲清楚。
+            先说一个反直觉的事实：<b class="font-semibold text-ink">CPU 内部没有"时间"这个概念</b>。
+            它不知道一秒有多长，它只知道「第几个节拍到了」。
+            这个节拍由外部的一个元件提供——<b class="font-semibold text-ink">晶振（石英晶体振荡器）</b>。
+          </p>
+
+          <p class="mt-4">
+            晶振的物理原理是利用石英晶体的压电效应产生极其稳定的振荡频率。
+            对使用者来说，只需要知道三件事：
+            <b class="font-semibold text-ink">它接在 XTAL1 和 XTAL2 两个引脚上</b>、
+            <b class="font-semibold text-ink">它的频率决定了芯片跑多快</b>、
+            <b class="font-semibold text-ink">STC89C52RC 没有内部时钟，不接晶振就完全不工作</b>。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="典型晶振电路（每个 51 最小系统板上都有这两个电容）">
+            <pre><code>                 ┌───────────────┐
+                 │  STC89C52RC   │
+                 │               │
+                 │   XTAL1 ●─────┼──────┬──────┐
+                 │               │      │      │
+                 │   XTAL2 ●─────┼──┐   │      │
+                 │               │  │   │      │
+                 └───────────────┘  │   │      │
+                                    │   │      │
+                              ┌─────┴───┴──┐   │
+                              │  11.0592M │   │
+                              │   晶振    │   │
+                              └─────┬───┬──┘   │
+                                    │   │      │
+                              ┌─────┴─┐ │ ┌────┴───┐
+                              │ 30 pF │ │ │ 30 pF  │
+                              └───┬───┘ │ └───┬────┘
+                                  │     │     │
+                                 GND   GND   GND
+
+  两个 30 pF 电容叫"负载电容"，作用是把晶振稳定在标称频率上。
+  少了它们，晶振可能不起振，或者频率偏高，表现为"程序时快时慢"。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            有了节拍，就可以定义所有时间单位了。这三个概念要按顺序理解：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="时钟周期 → 机器周期 → 指令周期（以 12 MHz 晶振为例）">
+            <pre><code>【时钟周期】= 1 / 晶振频率
+   12 MHz 晶振 → 时钟周期 = 1 / 12000000 秒 ≈ 83.3 ns
+   这是芯片内部最小的时间单位，一个"节拍"
+
+【机器周期】= 12 个时钟周期（STC89C52RC 是 12T 模式）
+   12 MHz 时：机器周期 = 12 × 83.3 ns = 1 μs  ← 记住这个 1 微秒，非常好用
+   一条指令通常需要 1 ~ 4 个机器周期
+   所以 12 MHz 下：NOP 指令 = 1 μs，MOV direct,#data = 2 μs，MUL AB = 4 μs
+
+【指令周期】= 执行一条指令需要的机器周期数
+   不同指令不一样，这就是为什么"精确延时"必须写汇编或
+   用 _nop_() 这种函数，而不能指望 C 的循环次数直接换算时间</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>晶振频率</th>
+                  <th>时钟周期</th>
+                  <th>机器周期</th>
+                  <th>典型用途与注意点</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>6 MHz</td>
+                  <td>166.7 ns</td>
+                  <td>2 μs</td>
+                  <td>老教材常用；慢但抗干扰好，串口常用波特率也能整除</td>
+                </tr>
+                <tr>
+                  <td>11.0592 MHz</td>
+                  <td>90.4 ns</td>
+                  <td>≈ 1.085 μs</td>
+                  <td><b class="font-semibold text-ink">要用串口就必须选它</b>，波特率能整除，误差为 0</td>
+                </tr>
+                <tr>
+                  <td>12 MHz</td>
+                  <td>83.3 ns</td>
+                  <td>1 μs</td>
+                  <td>延时最好算（机器周期是整数 1 μs），教学板最常用；但串口 9600 会有约 8.5% 误差</td>
+                </tr>
+                <tr>
+                  <td>24 MHz</td>
+                  <td>41.7 ns</td>
+                  <td>0.5 μs</td>
+                  <td>跑得快，但功耗、抗干扰变差，延时公式要全部重算</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            这里必须插进一个 STC 特有的概念：<b class="font-semibold text-ink">12T 与 1T</b>。
+            传统的 8051（包括 STC89C52RC）是「12 个时钟周期 = 1 个机器周期」，
+            也就是所谓的 12T 模式。后来 STC 推出了 1T 系列（如 STC12、STC15、STC8），
+            一个时钟周期就能执行一条指令，同样的晶振频率下速度快 12 倍。
+          </p>
+
+          <div class="callout callout-warn mt-6">
+            <p class="callout-title">移植代码时的隐形炸弹</p>
+            <p class="mt-2">
+              一个在 STC89C52RC（12T）上「延时 1 秒」的循环，
+              原样搬到 1T 的 STC15 上就只延时了约 1/12 秒。
+              反过来，别人给你的 STC15 代码里的定时器初值，直接用在 89C52 上也会差 12 倍。
+              <b class="font-semibold text-ink">换芯片型号时，所有和"时间"有关的参数都要重算</b>：
+              软件延时循环次数、定时器初值、串口波特率配置，一个都不能漏。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            接下来回答那个经典疑问：<b class="font-semibold text-ink">为什么会有 11.0592 MHz 这么奇怪的频率？</b>
+            这不是厂商乱标，而是被串口波特率"逼"出来的。
+            51 的串口在用定时器 1 产生波特率时，公式是这样的（定时器 1 工作在方式 2）：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="为什么必须是 11.0592 MHz：把公式代进去算一遍">
+            <pre><code>波特率公式（SMOD = 0，定时器 1 方式 2）：
+
+              晶振频率
+   波特率 = ─────────────────────
+            384 × (256 − TH1)
+
+   其中 384 = 32 × 12：32 是串口内部固定分频，12 是 12T 的机器周期分频
+   TH1 是你要填进定时器的初值，必须是 0~255 的整数
+
+要得到 9600 bps，需要 256 − TH1 = 3，也就是 TH1 = 253 = 0xFD
+
+【用 11.0592 MHz 代入】
+   波特率 = 11059200 / (384 × 3) = 11059200 / 1152 = 9600   ← 正好是 9600，误差 0
+
+【用 12 MHz 代入】
+   256 − TH1 = 3 时：12000000 / 1152 = 10416.7   ← 比 9600 高 8.5%
+   256 − TH1 = 2 时：12000000 / 768  = 15625     ← 差太多
+   256 − TH1 = 4 时：12000000 / 1536 = 7812.5    ← 低 18.6%
+   最接近的整数初值仍然有 8.5% 的误差，而串口一帧 10 位，
+   累计误差超过约 2%~3% 就会采错位，必然乱码。
+
+结论：11.0592 MHz = 12 MHz × 0.9216，是一个"能被常用波特率整除"的频率。
+      它牺牲了一点速度（机器周期 1.085 μs 而不是 1 μs），换来了串口 0 误差。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            顺带把常用波特率对应的初值表也给你，以后配串口直接查（晶振 11.0592 MHz）：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>目标波特率</th>
+                  <th>SMOD</th>
+                  <th>TH1 初值</th>
+                  <th>实际波特率</th>
+                  <th>误差</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>2400</td>
+                  <td>0</td>
+                  <td><code class="icode">0xF4</code>（256−12）</td>
+                  <td>2400</td>
+                  <td>0</td>
+                </tr>
+                <tr>
+                  <td>4800</td>
+                  <td>0</td>
+                  <td><code class="icode">0xFA</code>（256−6）</td>
+                  <td>4800</td>
+                  <td>0</td>
+                </tr>
+                <tr>
+                  <td>9600</td>
+                  <td>0</td>
+                  <td><code class="icode">0xFD</code>（256−3）</td>
+                  <td>9600</td>
+                  <td>0</td>
+                </tr>
+                <tr>
+                  <td>19200</td>
+                  <td>1</td>
+                  <td><code class="icode">0xFD</code>（256−3）</td>
+                  <td>19200</td>
+                  <td>0</td>
+                </tr>
+                <tr>
+                  <td>57600（经典 51 的极限）</td>
+                  <td>1</td>
+                  <td><code class="icode">0xFF</code>（256−1）</td>
+                  <td>57600</td>
+                  <td>0</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            最后是选型建议，一句话版本：
+            <b class="font-semibold text-ink">要做串口通信就买 11.0592 MHz，其余情况用 12 MHz</b>。
+            因为 12 MHz 下机器周期正好是 1 μs，算延时时心算就能出结果，
+            而 11.0592 MHz 下你要记住 1.085 μs 这个不整的数。
+            另外换晶振时别忘了：<b class="font-semibold text-ink">所有延时函数、定时器初值、波特率设置都要跟着改</b>，
+            这是初学者换板子后「程序突然变慢/串口乱码」的最常见原因。
+          </p>
+
+          <h3 id="sub-reset" class="mt-7 text-base font-semibold">复位：芯片怎么"从头开始"，复位后各寄存器是什么值</h3>
+
+          <p class="mt-3">
+            复位（Reset）是芯片的一次「清场重来」：PC 回到 0x0000，
+            所有 SFR 回到出厂默认值，程序从启动代码重新跑一遍。
+            它和「断电」不是一回事，但效果上很接近，先看它是怎么被触发的。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="典型复位电路：上电自动复位 + 按键手动复位">
+            <pre><code>                       VCC (5V)
+                        │
+                        ├──────────┐
+                        │          │
+                     ┌──┴──┐    ┌──┴──┐
+                     │ 10k │    │ 按键 │   ← 手动复位按钮
+                     └──┬──┘    └──┬──┘
+                        │          │
+        RST ●───────────┴──────────┘
+         │
+         │      ┌────────┐
+         └──────┤ 10 μF  ├────── VCC        ← 上电复位电容
+                └────────┘
+
+  工作过程：
+   · 上电瞬间：电容两端电压不能突变，RST 被电容"拉"到接近 VCC，
+     也就是高电平 → 芯片检测到复位信号 → 开始复位流程
+   · 电容通过 10k 电阻慢慢充电，RST 电压逐渐下降，
+     降到低电平阈值以下时复位结束，芯片开始正常跑程序
+   · 时间常数 τ = 10k × 10μF = 0.1 秒（100 ms 量级），
+     远远大于芯片要求的"至少 2 个机器周期"（12 MHz 下只要 2 μs），所以非常可靠
+   · 按下按键：RST 被直接接到 VCC，同样触发复位；
+     松开后电容重新充电，再次完成一次复位
+
+  为什么 RST 是高电平有效？51 的设计如此。
+  所以"复位脚悬空"是危险的：悬空可能被干扰拉高，导致芯片不停复位。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            复位之后，所有寄存器的值都被硬件设成了固定初值。
+            这张表是本节最实用的内容之一，很多「我什么都没写，引脚为什么是高电平」的问题都能在这里找到答案：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>寄存器</th>
+                  <th>复位后的值</th>
+                  <th>意味着什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">PC</code></td>
+                  <td><code class="icode">0x0000</code></td>
+                  <td>从 Flash 开头开始执行（启动代码）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">P0</code>、<code class="icode">P1</code>、<code class="icode">P2</code>、<code class="icode">P3</code></td>
+                  <td><code class="icode">0xFF</code>（全部 8 位都是 1）</td>
+                  <td><b class="font-semibold text-ink">32 根引脚全部输出高电平</b>：灌电流接法的 LED 全灭，继电器不吸合</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">SP</code></td>
+                  <td><code class="icode">0x07</code></td>
+                  <td>堆栈从地址 0x08 开始；这也是为什么 51 的堆栈必须放在内部 RAM 里</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">PSW</code></td>
+                  <td><code class="icode">0x00</code></td>
+                  <td>进位 CY = 0、当前使用第 0 组工作寄存器（RS0 = RS1 = 0）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ACC</code>、<code class="icode">B</code></td>
+                  <td><code class="icode">0x00</code></td>
+                  <td>累加器和乘除法搭档都是 0</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">DPTR</code></td>
+                  <td><code class="icode">0x0000</code></td>
+                  <td>数据指针归零</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">TMOD</code></td>
+                  <td><code class="icode">0x00</code></td>
+                  <td>两个定时器都是方式 0、都工作在定时（不是计数）模式、都不受外部引脚控制</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">TCON</code></td>
+                  <td><code class="icode">0x00</code></td>
+                  <td>定时器都没启动（TR0 = TR1 = 0）、溢出标志清零、外部中断为低电平触发</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">TH0</code>、<code class="icode">TL0</code>、<code class="icode">TH1</code>、<code class="icode">TL1</code></td>
+                  <td><code class="icode">0x00</code></td>
+                  <td>定时器计数值归零</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">SCON</code></td>
+                  <td><code class="icode">0x00</code></td>
+                  <td>串口工作在方式 0、不允许接收（REN = 0）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">SBUF</code></td>
+                  <td>不确定</td>
+                  <td>内部的收发缓冲器没有规定初值，用之前必须自己赋值</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">IE</code></td>
+                  <td><code class="icode">0x00</code></td>
+                  <td><b class="font-semibold text-ink">总开关 EA = 0，所有中断都被关闭</b>——这就是"忘了开 EA"报错的根源</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">IP</code></td>
+                  <td><code class="icode">0x00</code></td>
+                  <td>所有中断都是低优先级</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">PCON</code></td>
+                  <td><code class="icode">0x00</code></td>
+                  <td>SMOD = 0，波特率不加倍</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            这张表里最重要的是两行：
+            <b class="font-semibold text-ink">IO 口复位后是 0xFF</b>（引脚全高）
+            和 <b class="font-semibold text-ink">IE 复位后是 0x00</b>（中断全关）。
+            它们解释了初学者最常见的两个困惑：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <b class="font-semibold text-ink">「我程序里明明什么都没写，为什么 LED 是灭的？」</b>
+              —— 因为复位后 P1 = 0xFF，八个引脚都是高电平；
+              如果你的 LED 是灌电流接法（正极经电阻接 VCC、负极接引脚），
+              高电平就没电流，灯自然灭。要让它亮必须写 <code class="icode">P1 = 0xFE;</code> 把某一位拉低。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">「我配好了定时器，中断函数也写了，为什么就是进不去？」</b>
+              —— 因为复位后 IE = 0x00，总开关 EA 是关的。
+              51 的中断有「总开关 + 分开关」两层，
+              <code class="icode">ET0 = 1;</code> 只是打开定时器 0 这个分开关，
+              还必须写 <code class="icode">EA = 1;</code> 打开总开关，中断才会真的发生。
+            </li>
+          </ul>
+
+          <div class="callout callout-info mt-6">
+            <p class="callout-title">复位 ≠ 断电：一个关于变量的重要细节</p>
+            <p class="mt-2">
+              按一下复位键，RAM 里的内容其实<b class="font-semibold text-ink">并没有被硬件擦掉</b>，
+              但启动代码（STARTUP.A51）会执行一段「把内部 RAM 全部清零」的循环，
+              所以你在 C 里看到的效果就是「所有没赋初值的变量都变成 0」。
+              有初值的全局变量则由启动代码在清零之后从 Flash 里复制过来——
+              这也是为什么<b class="font-semibold text-ink">局部变量不初始化就是随机值，而全局变量不初始化是 0</b>：
+              前者躺在堆栈里没人管，后者被启动代码照顾过。
+            </p>
+          </div>
+
+          <h3 id="sub-ioport" class="mt-7 text-base font-semibold">IO 口的内部结构：锁存器、场效应管和上拉电阻</h3>
+
+          <p class="mt-3">
+            这一小节回答本文开头的那个问题：<b class="font-semibold text-ink">写 <code class="icode">P1 = 0xFE;</code> 之后，
+            P1.0 那根引脚上到底发生了什么？</b>
+            我们把 P1 口的<b class="font-semibold text-ink">一位</b>放大来看（其余七位完全一样）：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="P1 口一位的内部等效电路（简化画法）">
+            <pre><code>                      芯片内部                          │        芯片外部
+                                                        │
+   内部总线 ──────►┌──────────┐                        │
+   （要写的 0 或 1）│  D 锁存器 │──┬─────────────────────┼──────────► 引脚 P1.0
+                   │          │  │                     │
+       写脉冲 ────►│   Q      │  │    ┌──────────┐     │
+                   └──────────┘  └───►│ 场效应管 │     │     外部电路
+                                      │  (上拉)  │     │    （例如 LED 的负极）
+                                      └────┬─────┘     │
+                                           │           │
+                                      ┌────┴─────┐     │
+                                      │ 场效应管 │     │
+                                      │  (下拉)  │     │
+                                      └────┬─────┘     │
+                                           │           │
+                                          GND          │
+
+   虚线框里就两样东西：
+     · 一个 D 锁存器：保存你写进来的那一位（写 0xFE 时，P1.0 的锁存器 = 0）
+     · 两个场效应管（可以理解成两个电子开关）：
+         上拉管导通 → 引脚通过一个电阻接到 VCC → 引脚是高电平
+         下拉管导通 → 引脚通过一个电阻接到 GND → 引脚是低电平
+       锁存器是 1 时上拉管导通、下拉管关断；锁存器是 0 时反过来。
+
+   所以「P1 = 0xFE」这句话的物理含义是：
+     把 P1.0 的锁存器写成 0 → 它的下拉管导通 → 引脚被拉到 GND → LED 两端有 5V 压差 → 灯亮</code></pre>
+          </div>
+
+          <p class="mt-4">
+            上面是 P1/P2/P3 的结构。P0 口有一个关键差别：
+            <b class="font-semibold text-ink">它内部没有上拉管，只有下拉管</b>，
+            这种结构叫「<b class="font-semibold text-ink">开漏输出</b>」。
+            后果是：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>端口</th>
+                  <th>内部结构</th>
+                  <th>写 1 时引脚是什么状态</th>
+                  <th>能不能直接输出高电平</th>
+                  <th>结论</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>P0</td>
+                  <td>只有下拉管（开漏）</td>
+                  <td><b class="font-semibold text-ink">高阻态（悬空）</b>，不是高电平</td>
+                  <td>不能</td>
+                  <td><b class="font-semibold text-ink">必须外接上拉电阻</b>（常用 10 kΩ 排阻）才能真正输出高电平</td>
+                </tr>
+                <tr>
+                  <td>P1、P2、P3</td>
+                  <td>下拉管 + 内部弱上拉</td>
+                  <td>被弱上拉拉到接近 VCC，是高电平</td>
+                  <td>能，但驱动能力很弱</td>
+                  <td>可以直接输出高电平给高阻输入（如另一片芯片的输入脚），但不能用来"拉电流"点灯</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            为什么 P0 要设计成开漏？因为 P0 在扩展外部存储器时有第二职业：
+            <b class="font-semibold text-ink">它要分时复用成低 8 位地址总线和 8 位数据总线</b>，
+            这两种场合都是「多设备挂在一根线上、谁说话谁拉低」，
+            正好需要开漏结构；如果内部有强上拉，多个设备同时驱动就会打架。
+            所以 P0 的上拉电阻不是"补丁"，而是设计上的取舍。
+          </p>
+
+          <p class="mt-4">
+            然后是「<b class="font-semibold text-ink">准双向口</b>」这个词。
+            P1/P2/P3 被称为准双向口，意思是它们既能当输出、也能当输入，
+            但用起来有两个必须知道的规矩：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="准双向口的两条规矩">
+            <pre><code>【规矩一】当输入用之前，必须先往这一位写 1
+
+   为什么？看上面那张图：如果锁存器里是 0，下拉管是导通的，
+   引脚被芯片自己强行拉到 GND。这时候外部信号无论是什么，
+   你读回来的永远是 0 —— 按键按不按都一样，程序看起来"按键失灵"。
+
+   写了 1 之后，下拉管关断，引脚由外部电路决定（按键接 GND 时
+   按下就是低电平、松开靠外部上拉就是高电平），这时读引脚才有意义。
+
+   C 里的正确写法：
+       P3 = 0xFF;      /* 或者 P3 |= 0x10; 只把要输入的那一位写 1 */
+       if ((P3 &amp; 0x10) == 0) { /* P3.4 被按下 */ }
+
+【规矩二】读引脚和读锁存器是两回事
+
+   读引脚（MOV A,P3、C 里 x = P3;）：得到引脚上的真实电平，
+       受外部电路影响 —— 读按键必须用这种
+   读-改-写（ANL/ORL/XRL/INC/DEC/CPL 等）：读回的是上次写出去的锁存器值，
+       与外部电路无关 —— 这才是"改一位不影响其它位"能安全工作的原因
+
+   所以：P1 &amp;= 0xFE; 这样的语句是安全的，它不会因为外部把某根线拉低
+        而把其它位意外改掉。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            最后是驱动能力的问题，这直接决定你的 LED 该怎么接。
+            51 的引脚有两种用法：
+            <b class="font-semibold text-ink">拉电流（引脚输出高电平，电流从引脚流出去）</b>
+            和 <b class="font-semibold text-ink">灌电流（引脚输出低电平，电流从外部流进引脚）</b>。
+            对 LED 来说，这两种接法都亮，但能力差很多：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="两种 LED 接法对比（为什么教程都用灌电流接法）">
+            <pre><code>【灌电流接法 · 推荐】
+                    VCC
+                     │
+                   ┌─┴─┐
+                   │LED│        限流电阻 470 Ω ~ 1 kΩ
+                   └─┬─┘
+                     │
+                   ┌─┴──┐
+                   │470Ω│
+                   └─┬──┘
+                     │
+   引脚 P1.0 ●───────┘
+   写 0 时：引脚是低电平，电流从 VCC 经 LED 流入引脚内部到 GND → 灯亮
+   写 1 时：引脚高，两端没有压差 → 灯灭
+
+   好处：电流由引脚的"下拉管"承担，51 的下拉管能力较强
+        （STC89C52RC 手册标称单个 IO 灌电流可达 20 mA 量级）
+   所以复位后 P1 = 0xFF 时灯是灭的，符合直觉，也安全
+
+【拉电流接法 · 不推荐】
+                    VCC
+                     │
+   引脚 P1.0 ●───────┴─┐
+                     ┌─┴──┐
+                     │470Ω│
+                     └─┬──┘
+                       │
+                     ┌─┴─┐
+                     │LED│
+                     └─┬─┘
+                       │
+                      GND
+   写 1 时：靠引脚内部弱上拉供电，而弱上拉只能提供几十到几百微安的电流
+           （具体数值以数据手册为准），LED 要么不亮、要么非常暗
+   写 0 时：LED 两端电压相等 → 灭
+
+   结论：想让灯正常亮，就用灌电流接法（低电平点亮）。
+        如果确实需要高电平驱动大电流（继电器、蜂鸣器），
+        必须加三极管或专门的驱动芯片（如 ULN2003、74HC245）。</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-6">
+            <p class="callout-title">P0 口不亮的最经典原因</p>
+            <p class="mt-2">
+              「P1 口点灯正常，换成 P0 口就不亮」——99% 是因为 P0 没接上拉电阻。
+              P0 输出 1 时是高阻态，如果你的 LED 是灌电流接法，
+              写 0 时灯能亮（下拉管有效）、写 1 时灯灭，看起来正常；
+              但如果是拉电流接法、或者 P0 要驱动共阳数码管的段，
+              没有上拉就完全没有高电平输出，现象就是「什么都不显示」。
+              这也是为什么开发板上 P0 口旁边通常焊着一个 10 kΩ 排阻。
+            </p>
+          </div>
+
+          <h3 id="sub-interrupt" class="mt-7 text-base font-semibold">中断系统概览：让外设"叫"CPU 一声</h3>
+
+          <p class="mt-3">
+            中断是单片机从「只会按顺序干活」变成「能响应外界」的关键机制。
+            先用生活场景理解它，再看硬件怎么实现。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="中断的生活类比：做饭时门铃响了">
+            <pre><code>【没有中断的世界（轮询）】
+   你在炒菜，每隔 5 秒就跑到门口看一眼有没有人 ——
+   菜炒糊了，而且大部分时候门口都没人，白跑。
+
+   程序里的写法：
+       while (1) {
+           if (按键按下) { 处理按键; }     /* 一直问"按了吗" */
+           if (定时到了) { 更新时间; }     /* 一直问"到了吗" */
+           干正事;                          /* 被挤得没多少时间 */
+       }
+
+【有中断的世界】
+   你专心炒菜，门铃响了（中断请求）→ 你关火（保护现场）
+   → 去开门（执行中断服务函数）→ 回来继续炒（恢复现场接着干）
+
+   门铃可以用开关关掉（EA = 0 就是总静音），
+   也可以只关某一个门铃（EX0 = 0 只关外部中断 0）
+
+   好处：CPU 不用一直问，事件发生的那一刻才被"叫醒"，
+        主程序可以专心干正事，响应也更快。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            51 的中断源是固定的几个（STC89C52RC / 经典 8052 结构），
+            每个中断源有三样东西要记：<b class="font-semibold text-ink">开关位</b>、
+            <b class="font-semibold text-ink">标志位</b>、<b class="font-semibold text-ink">中断号和入口地址</b>。
+            下表把它们一次列全（这张表以后写任何中断程序都要回来查）：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>中断源</th>
+                  <th>触发条件</th>
+                  <th>中断号</th>
+                  <th>入口地址</th>
+                  <th>分开关（IE 里）</th>
+                  <th>标志位</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>外部中断 0（INT0）</td>
+                  <td>P3.2 引脚低电平或下降沿</td>
+                  <td>0</td>
+                  <td><code class="icode">0x0003</code></td>
+                  <td><code class="icode">EX0</code>（IE.0）</td>
+                  <td><code class="icode">IE0</code>（TCON.1）</td>
+                </tr>
+                <tr>
+                  <td>定时器 0（T0）</td>
+                  <td>TH0/TL0 计数溢出</td>
+                  <td>1</td>
+                  <td><code class="icode">0x000B</code></td>
+                  <td><code class="icode">ET0</code>（IE.1）</td>
+                  <td><code class="icode">TF0</code>（TCON.5）</td>
+                </tr>
+                <tr>
+                  <td>外部中断 1（INT1）</td>
+                  <td>P3.3 引脚低电平或下降沿</td>
+                  <td>2</td>
+                  <td><code class="icode">0x0013</code></td>
+                  <td><code class="icode">EX1</code>（IE.2）</td>
+                  <td><code class="icode">IE1</code>（TCON.3）</td>
+                </tr>
+                <tr>
+                  <td>定时器 1（T1）</td>
+                  <td>TH1/TL1 计数溢出</td>
+                  <td>3</td>
+                  <td><code class="icode">0x001B</code></td>
+                  <td><code class="icode">ET1</code>（IE.3）</td>
+                  <td><code class="icode">TF1</code>（TCON.7）</td>
+                </tr>
+                <tr>
+                  <td>串口（UART）</td>
+                  <td>收到一个字节（RI）或发送完一个字节（TI）</td>
+                  <td>4</td>
+                  <td><code class="icode">0x0023</code></td>
+                  <td><code class="icode">ES</code>（IE.4）</td>
+                  <td><code class="icode">RI</code> / <code class="icode">TI</code>（SCON 里）</td>
+                </tr>
+                <tr>
+                  <td>定时器 2（T2，52 才有）</td>
+                  <td>T2 计数溢出</td>
+                  <td>5</td>
+                  <td><code class="icode">0x002B</code></td>
+                  <td><code class="icode">ET2</code>（IE.5）</td>
+                  <td><code class="icode">TF2</code></td>
+                </tr>
+                <tr>
+                  <td>总开关</td>
+                  <td>所有中断的总闸</td>
+                  <td>—</td>
+                  <td>—</td>
+                  <td><b class="font-semibold text-ink"><code class="icode">EA</code>（IE.7）</b></td>
+                  <td>—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            表里的「入口地址」是一段固定的小地址，间隔 8 个字节。
+            为什么是 8 字节？因为每个入口只需要放一条跳转指令（3 字节），
+            8 字节足够放下，剩下的留作将来扩展。
+            复位地址 0x0000 也在这套系统里，它是最高优先级的「复位中断」。
+            这些地址你平时不用写——C 编译器会自动在对应位置生成跳转，
+            你只需要在函数后面写上正确的<b class="font-semibold text-ink">中断号</b>：
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="中断服务函数的写法（概念级，细节留给定时器/外部中断专题）">
+            <pre><code>#include &lt;reg52.h&gt;
+
+/* 定时器 0 的中断服务函数：中断号 1，对应入口地址 0x000B */
+void T0_Isr(void) interrupt 1
+{
+    TH0 = 0xFC;          /* 12 MHz 下重装初值，约 1 ms 一次中断 */
+    TL0 = 0x18;
+    P1 = ~P1;            /* 每次中断把 P1 的 8 位全部取反：灯闪烁 */
+}
+
+void main(void)
+{
+    TMOD = 0x01;         /* 定时器 0 工作在方式 1（16 位定时） */
+    TH0  = 0xFC;         /* 装入初值 */
+    TL0  = 0x18;
+    ET0  = 1;            /* 打开定时器 0 这个分开关 */
+    EA   = 1;            /* 打开总开关（忘了这行，中断永远不会发生） */
+    TR0  = 1;            /* 启动定时器开始计数 */
+
+    while (1);           /* 主程序空转，所有事情都在中断里做 */
+}
+
+/* 关于这行函数头的三条硬规矩：
+     ① interrupt 后面的数字是"中断号"，不是地址！
+        interrupt 1 = 定时器 0，interrupt 0 = 外部中断 0，见上表
+     ② 中断函数不能有参数、不能有返回值，所以前面必须写 void
+     ③ 想换一组工作寄存器（减少压栈）可以在后面加 using 1 ~ using 3，
+        例如：void T0_Isr(void) interrupt 1 using 1
+   编译器会自动处理现场保护（压栈/出栈）和最后的 RETI 返回指令，
+   你在 C 里不需要也不应该手写 PUSH/POP。 */</code></pre>
+          </div>
+
+          <p class="mt-4">
+            中断发生的那一瞬间，硬件到底做了什么？整个过程是固定的一套动作，
+            理解它有助于你明白「为什么中断函数要短」：
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="一次中断响应的完整过程">
+            <pre><code>① 事件发生，硬件把对应的标志位置 1
+     （比如定时器溢出 → TF0 = 1，按键按下 → IE0 = 1）
+
+② 硬件检查三层条件：
+     总开关 EA = 1 吗？
+     这个中断的分开关（如 ET0）= 1 吗？
+     有没有更高优先级的中断正在执行？
+   三个条件都满足，才继续往下走
+
+③ 把当前 PC 的值压入堆栈（这样才知道回来时从哪继续），
+     同时硬件自动清除该中断的标志位（TF0 这类由硬件清；
+     串口的 TI/RI 必须软件清，这是最容易漏的一条）
+
+④ PC 跳到固定的入口地址（定时器 0 是 0x000B），
+     编译器在那里放的跳转指令把你带到中断函数
+
+⑤ 执行中断函数里的代码
+
+⑥ 执行 RETI 指令返回：
+     从堆栈恢复 PC，同时通知中断控制器"这次中断处理完了"
+
+⑦ 主程序从被打断的那条指令后面继续执行，像什么都没发生过</code></pre>
+          </div>
+
+          <p class="mt-4">
+            最后是优先级。51 的优先级只有两级，规则很简单：
+            <b class="font-semibold text-ink">默认情况下，所有中断都是低优先级，
+            同时来的时候按固定的自然顺序（INT0 → T0 → INT1 → T1 → 串口）排队；
+            把 IP 寄存器里对应的位置 1，就能把它提到高优先级</b>。
+            高优先级中断可以打断正在执行的低优先级中断（这叫中断嵌套），
+            但同级之间不能互相打断——后到的必须等前一个处理完。
+          </p>
+
+          <div class="callout callout-tip mt-6">
+            <p class="callout-title">写中断函数的三条军规</p>
+            <p class="mt-2">
+              <b>① 越短越好。</b>中断函数执行期间，同级中断都在排队；
+              在里面做延时、刷液晶、发串口，就等于把整个系统卡住。<br>
+              <b>② 和主程序共享的变量必须加 <code class="icode">volatile</code>。</b>
+              否则编译器优化后可能认为「这个变量在循环里没人改」而把它提到寄存器里，
+              中断里改了主程序也看不见，表现为程序卡死。<br>
+              <b>③ 标志位要记得清。</b>串口的 <code class="icode">TI</code>/<code class="icode">RI</code>
+              必须软件写 0；定时器方式 0/1 不自动重装初值，必须在中断里重新写 TH/TL。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            中断系统的完整用法（怎么配定时器、怎么消抖按键、怎么收发串口数据）
+            在后面的三个专题篇里：
+            <a class="text-brand-600 dark:text-brand-300" href="mcu51-exti.html">外部中断</a>、
+            <a class="text-brand-600 dark:text-brand-300" href="mcu51-timer.html">定时器与中断</a>、
+            <a class="text-brand-600 dark:text-brand-300" href="mcu51-uart.html">串口通信</a>。
+            这一页只需要你建立三个概念：<b class="font-semibold text-ink">中断源、开关位、中断号</b>。
+          </p>
+        </section>
+
+        <!-- ---------------------------- 2. 硬件对应 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="mt-10 text-xl font-semibold">写 P1 = 0xFE 时，硬件到底发生了什么</h2>
+
+          <p class="mt-4">
+            前面几节把概念讲完了，这一节把镜头推到最近：
+            我们跟着一条语句 <code class="icode">P1 = 0xFE;</code> 走一遍，
+            看清楚它经过的每一个零件。假设板子上 P1 口的 8 根引脚各接了一颗 LED，
+            接法是灌电流（LED 正极经限流电阻接 VCC，负极接引脚）。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="P1 = 0xFE; 的完整硬件路径（从内部总线到 8 颗 LED）">
+            <pre><code>                    CPU 执行指令 MOV P1,#0FEH（机器码 75 90 FE）
+                                      │
+                                      │  ① 地址 0x90 送上内部地址总线
+                                      │  ② 数据 0xFE 送上内部数据总线
+                                      ▼
+            ┌──────────────────────────────────────────────────────────────┐
+            │  地址译码电路：0x90 是 SFR 区里 P1 口的地址 → 选通 P1 口      │
+            │  产生一个写脉冲，只送给 P1 口的 8 个锁存器                    │
+            └───────────────────────────┬──────────────────────────────────┘
+                                        │  ③ 写脉冲到，8 个锁存器同时锁存数据
+                                        ▼
+     ┌──────────────────────────────────────────────────────────────────────────┐
+     │  P1 口的 8 个 D 锁存器（每个锁存器就是 1 位存储单元，输出直接接场效应管）  │
+     │                                                                          │
+     │     D7    D6    D5    D4    D3    D2    D1    D0                         │
+     │    ┌───┐ ┌───┐ ┌───┐ ┌───┐ ┌───┐ ┌───┐ ┌───┐ ┌───┐                       │
+     │    │ 1 │ │ 1 │ │ 1 │ │ 1 │ │ 1 │ │ 1 │ │ 1 │ │ 0 │  ← 0xFE = 1111 1110  │
+     │    └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘                       │
+     └──────┼─────┼─────┼─────┼─────┼─────┼─────┼─────┼─────────────────────────┘
+            │     │     │     │     │     │     │     │   ④ 锁存器输出 = 场效应管栅极电平
+            ▼     ▼     ▼     ▼     ▼     ▼     ▼     ▼
+         上拉管 关断  关断  关断  关断  关断  关断  关断  导通     ← 锁存器是 0 → 上拉管关断
+         下拉管 导通  导通  导通  导通  导通  导通  导通  关断     ← 锁存器是 0 → 下拉管导通
+            │     │     │     │     │     │     │     │
+            ▼     ▼     ▼     ▼     ▼     ▼     ▼     ▼
+    引脚： P1.7  P1.6  P1.5  P1.4  P1.3  P1.2  P1.1  P1.0
+           高     高     高     高     高     高     高     低      ← ⑤ 引脚电平
+            │     │     │     │     │     │     │     │
+          ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐
+          │LED│ │LED│ │LED│ │LED│ │LED│ │LED│ │LED│ │LED│           ⑥ 外部电路
+          └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘
+           470Ω  470Ω  470Ω  470Ω  470Ω  470Ω  470Ω  470Ω
+            │     │     │     │     │     │     │     │
+           VCC   VCC   VCC   VCC   VCC   VCC   VCC   VCC
+           灭     灭     灭     灭     灭     灭     灭     亮        ← ⑦ 现象
+     （引脚高 → LED 两端没有压差 → 不亮；引脚低 → 电流从 VCC 经 LED 流入引脚 → 亮）</code></pre>
+          </div>
+
+          <p class="mt-4">
+            把上图里 8 个位逐一列成表，这是「写 0xFE 到底改了哪几颗灯」的标准答案：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>数据位</th>
+                  <th>值</th>
+                  <th>锁存器</th>
+                  <th>上拉管</th>
+                  <th>下拉管</th>
+                  <th>引脚电平</th>
+                  <th>LED（灌电流接法）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>D7（P1.7）</td><td>1</td><td>1</td><td>导通</td><td>关断</td><td>高（约 5 V）</td><td>灭</td></tr>
+                <tr><td>D6（P1.6）</td><td>1</td><td>1</td><td>导通</td><td>关断</td><td>高</td><td>灭</td></tr>
+                <tr><td>D5（P1.5）</td><td>1</td><td>1</td><td>导通</td><td>关断</td><td>高</td><td>灭</td></tr>
+                <tr><td>D4（P1.4）</td><td>1</td><td>1</td><td>导通</td><td>关断</td><td>高</td><td>灭</td></tr>
+                <tr><td>D3（P1.3）</td><td>1</td><td>1</td><td>导通</td><td>关断</td><td>高</td><td>灭</td></tr>
+                <tr><td>D2（P1.2）</td><td>1</td><td>1</td><td>导通</td><td>关断</td><td>高</td><td>灭</td></tr>
+                <tr><td>D1（P1.1）</td><td>1</td><td>1</td><td>导通</td><td>关断</td><td>高</td><td>灭</td></tr>
+                <tr><td><b class="font-semibold text-ink">D0（P1.0）</b></td><td><b class="font-semibold text-ink">0</b></td><td><b class="font-semibold text-ink">0</b></td><td><b class="font-semibold text-ink">关断</b></td><td><b class="font-semibold text-ink">导通</b></td><td><b class="font-semibold text-ink">低（约 0 V）</b></td><td><b class="font-semibold text-ink">亮</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            接下来是本节最有价值的一张表：
+            <b class="font-semibold text-ink">同样想「让 P1.0 变低」，不同的 C 写法会生成不同的指令，
+            对硬件的影响也不同</b>。理解了这张表，你就明白为什么「点灯」可以有很多写法、
+            而它们的差别不只是"好看不好看"：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>C 写法</th>
+                  <th>生成的汇编</th>
+                  <th>机器码</th>
+                  <th>字节/周期</th>
+                  <th>对硬件做了什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">P1 = 0xFE;</code></td>
+                  <td><code class="icode">MOV P1,#0FEH</code></td>
+                  <td><code class="icode">75 90 FE</code></td>
+                  <td>3 字节 / 2 周期</td>
+                  <td><b class="font-semibold text-ink">8 个锁存器全部被重写</b>，其它 7 根引脚的当前状态被这句值决定</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">P1 &amp;= 0xFE;</code></td>
+                  <td><code class="icode">ANL P1,#0FEH</code></td>
+                  <td><code class="icode">53 90 FE</code></td>
+                  <td>3 字节 / 2 周期</td>
+                  <td>读锁存器 → 与 0xFE → 写回；只有 D0 可能变化，其余 7 位保持原样</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">P1 |= 0x01;</code></td>
+                  <td><code class="icode">ORL P1,#01H</code></td>
+                  <td><code class="icode">43 90 01</code></td>
+                  <td>3 字节 / 2 周期</td>
+                  <td>读锁存器 → 或 0x01 → 写回；只把 D0 置 1</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">P1 ^= 0x01;</code></td>
+                  <td><code class="icode">XRL P1,#01H</code></td>
+                  <td><code class="icode">63 90 01</code></td>
+                  <td>3 字节 / 2 周期</td>
+                  <td>读锁存器 → 异或 → 写回；只把 D0 取反（最常用的闪烁写法）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">LED = 0;</code>（<code class="icode">sbit</code>）</td>
+                  <td><code class="icode">CLR P1.0</code></td>
+                  <td><code class="icode">C2 90</code></td>
+                  <td>2 字节 / 1 周期</td>
+                  <td><b class="font-semibold text-ink">只操作 D0 这一个锁存器</b>，其余 7 位完全不受影响</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">LED = 1;</code>（<code class="icode">sbit</code>）</td>
+                  <td><code class="icode">SETB P1.0</code></td>
+                  <td><code class="icode">D2 90</code></td>
+                  <td>2 字节 / 1 周期</td>
+                  <td>只把 D0 这个锁存器置 1</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">x = P1;</code></td>
+                  <td><code class="icode">MOV A,P1</code></td>
+                  <td><code class="icode">E5 90</code></td>
+                  <td>2 字节 / 1 周期</td>
+                  <td><b class="font-semibold text-ink">读引脚</b>：读回 8 根引脚此刻的真实电平（受外部电路影响）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-6">
+            <p class="callout-title">从这张表里能读出三条实战结论</p>
+            <p class="mt-2">
+              <b>① 位操作比字节操作更快、更安全。</b>
+              <code class="icode">LED = 0;</code> 只花 1 个机器周期、只碰 1 个锁存器；
+              而 <code class="icode">P1 = 0xFE;</code> 要花 2 个周期、并且会把另外 7 根引脚一起改写。<br>
+              <b>② 想"只改几位、保留其它位"就用 <code class="icode">&amp;=</code>、<code class="icode">|=</code>、<code class="icode">^=</code>。</b>
+              它们编译成读-改-写指令，读回来的是锁存器，所以非常可靠。<br>
+              <b>③ 想读外部电路的状态（按键、传感器）必须用 <code class="icode">x = P3;</code> 这类读引脚指令。</b>
+              用 <code class="icode">P3 &amp;= 0x10;</code> 是读不到按键的——它读的是你自己上次写出去的值。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            最后做一个对比实验：把上面的 P1 换成 P0，其它条件完全不变，
+            看看「为什么很多人第一次用 P0 点灯会失败」。
+            区别只有一个：<b class="font-semibold text-ink">P0 内部没有上拉管</b>。
+          </p>
+
+          <div class="code-block mt-4" data-lang="text" data-title="同样的操作放到 P0 口：缺了上拉电阻会怎样">
+            <pre><code>【场景 A】P0 接 LED，灌电流接法（LED 正极经电阻接 VCC，负极接 P0.x）
+   写 P0 = 0xFE  →  P0.0 的下拉管导通 → 引脚被拉到低 → 灯亮          ✔ 正常
+   写 P0 = 0xFF  →  P0.0 的下拉管关断 → 引脚悬空（高阻）
+                    悬空引脚上 LED 两端没有稳定压差 → 灯灭（但状态不干净）  ~ 勉强能用
+
+【场景 B】P0 接 LED，拉电流接法（引脚接 LED 正极，负极经电阻接 GND）
+   写 P0 = 0xFE  →  P0.0 是低电平 → LED 两端电压相等 → 灭              ✔ 符合预期
+   写 P0 = 0xFF  →  期望引脚输出高电平点亮 LED，但 P0 没有内部上拉，
+                    引脚处于高阻态，供不出电流 → 灯完全不亮             ✘ 失败
+
+【场景 C】P0 接共阳数码管的段线（段线是数码管的负极，需要单片机输出低电平来点亮）
+   写 P0 = 段码  →  输出 0 的段被点亮，输出 1 的段因为高阻而"灭得不干净"，
+                    容易出现"该灭的段有点微亮"                      ✘ 现象异常
+
+【解决办法】在 P0 的 8 根线与 VCC 之间各接一个 10 kΩ 上拉电阻（一般用排阻）
+   接上上拉之后：
+     写 1 → 引脚被外部电阻拉到 VCC → 真正的高电平，能供出少量电流
+     写 0 → 下拉管把引脚拉到 GND，外部电阻上流过约 0.5 mA（5V / 10kΩ），
+            完全在 P0 的承受范围内，不影响低电平
+
+   注意：上拉电阻的阻值不能太小（比如 1 kΩ），否则写 0 时灌入的电流太大；
+        也不能太大（比如 100 kΩ），否则高电平上升太慢、容易被干扰。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            把这一节的所有对应关系收成一张总结表，可以贴在你的实验台旁边：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你写的代码</th>
+                  <th>动的是哪个硬件</th>
+                  <th>外部电路上能看到什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">P1 = 0xFE;</code></td>
+                  <td>P1 口 8 个锁存器同时被写</td>
+                  <td>P1.0 低电平（灯亮），其余 7 根高电平（灯灭）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">sbit LED = P1^0; LED = 0;</code></td>
+                  <td>只有 P1.0 的锁存器被清零</td>
+                  <td>只有 P1.0 变低，其余引脚的电平一个都不动</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">TMOD = 0x01; TR0 = 1;</code></td>
+                  <td>定时器 0 的方式寄存器、启动位</td>
+                  <td>定时器开始按机器周期计数，看不到引脚变化，但溢出时会置 TF0</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ET0 = 1; EA = 1;</code></td>
+                  <td>IE 里定时器 0 的分开关与总开关</td>
+                  <td>定时器溢出时 CPU 会跳进中断函数，主程序被"打断"</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">SCON = 0x50; REN = 1;</code></td>
+                  <td>串口工作在方式 1、允许接收</td>
+                  <td>RXD 引脚开始监听串口数据，收到一字节后 RI 置 1</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">x = P3;</code></td>
+                  <td>读引脚：8 个三态缓冲器把引脚电平送上总线</td>
+                  <td>读到的是按键/外部电路当前的真实电平</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">SP = 0x60;</code></td>
+                  <td>堆栈指针</td>
+                  <td>看不到现象；但之后函数调用用的堆栈空间从 0x60 往上长，写错会冲掉变量</td>
+                </tr>
+                <tr>
+                  <td>往 <code class="icode">code</code> 数组取值</td>
+                  <td>DPTR + MOVC 读 Flash</td>
+                  <td>看不到电气现象；只是把 Flash 里的常数搬回 CPU</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="mt-10 text-xl font-semibold">完整代码：从声明 sfr 开始</h2>
+
+          <p class="mt-4">
+            平时写程序第一行永远是 <code class="icode">#include &lt;reg52.h&gt;</code>，
+            很省事，但也让人永远搞不清那些名字是从哪来的。
+            下面这两个程序故意<b class="font-semibold text-ink">不用头文件，全部自己声明</b>，
+            把「寄存器名字是怎么来的」这件事摊开给你看。
+            两个程序都能直接在 Keil 里编译、下载到 STC89C52RC 上运行。
+          </p>
+
+          <h3 id="sub-code-1" class="mt-7 text-base font-semibold">程序①：两种方式点亮同一颗灯</h3>
+
+          <div class="code-block mt-4" data-lang="c" data-title="程序①：不用 reg52.h，从声明 sfr 开始（可直接编译运行）">
+            <pre><code>/* ==========================================================================
+   程序①：从零声明寄存器，用三种方式操作同一颗 LED
+   硬件：STC89C52RC，P1.0 接一颗 LED（灌电流接法：正极经 470Ω 接 VCC）
+         P3.2 接一个按键（按键另一端接 GND），用于演示读引脚
+   晶振：12 MHz
+   ========================================================================== */
+
+/* ---------- 第 1 步：声明 SFR ----------
+   这两行是"给编译器交代地址"，不生成任何机器码。
+   地址来自芯片手册的 SFR 表（本文最后一节有完整速查表）。 */
+sfr  P1 = 0x90;         /* P1 口：8 根引脚，地址 0x90 */
+sfr  P3 = 0xB0;         /* P3 口：地址 0xB0，P3.2 还有外部中断 0 的功能 */
+
+/* ---------- 第 2 步：声明位 ----------
+   位地址 = SFR 地址 + 位号：P1 的位地址是 0x90~0x97，P3 是 0xB0~0xB7。 */
+sbit LED = P1^0;        /* 名字 LED 绑定到位地址 0x90（P1 口第 0 位） */
+sbit KEY = P3^2;        /* 名字 KEY 绑定到位地址 0xB2（P3 口第 2 位） */
+
+/* ---------- 第 3 步：软件延时 ----------
+   原理：让 CPU 空转。12 MHz 下内层循环 120 次约等于 1 ms，
+   这个数字是实测出来的，换晶振必须重算。 */
+void Delay_ms(unsigned int ms)
+{
+    unsigned int i;
+    while (ms--) {
+        for (i = 0; i &lt; 120; i++) {
+            ;               /* 空语句：什么也不做，只为消耗时间 */
+        }
+    }
+}
+
+/* ---------- 主程序 ---------- */
+void main(void)
+{
+    /* 【方式一】字节操作：一条语句写 8 个锁存器
+       0xFE = 1111 1110
+       → P1.0 的锁存器变 0 → 下拉管导通 → 引脚低 → 这颗灯亮
+       → 其余 7 位的锁存器变 1 → 上拉管导通 → 引脚高 → 7 颗灯灭 */
+    P1 = 0xFE;
+    Delay_ms(500);
+
+    /* 【方式二】位操作：只动 1 个锁存器
+       LED = 1 编译成 SETB P1.0（机器码 D2 90），只花 1 个机器周期。
+       注意：它不会把其它 7 位变成 1，只是"不再拉低"这一位。 */
+    LED = 1;
+    Delay_ms(500);
+
+    /* 再拉低，灯又亮。观察现象：灯亮、灭、亮各持续半秒 */
+    LED = 0;
+    Delay_ms(500);
+
+    /* 【方式三】读-改-写：只想改低 4 位，保持高 4 位
+       P1 &amp;= 0x0F 编译成 ANL P1,#0FH（机器码 53 90 0F）
+       CPU 读回的是锁存器（不是引脚），与外部电路无关，非常可靠。
+       结果：P1 = 0000 1111 → P1.0~P1.3 变低（4 颗灯亮），
+             P1.4~P1.7 保持原来的值（原先是 1，所以 4 颗灯灭） */
+    P1 &amp;= 0x0F;
+    Delay_ms(500);
+
+    /* ---------- 主循环：让 P1.7 每半秒翻转一次 ---------- */
+    while (1) {
+        P1 ^= 0x80;         /* 异或 0x80：只把 D7 取反，其余 7 位不变 */
+        Delay_ms(500);
+
+        /* 顺便演示"读引脚"：先把这一位写 1，关掉内部下拉管，才能读外部电平 */
+        KEY = 1;            /* 写 1 = 释放引脚，让它由外部按键决定电平 */
+        if (KEY == 0) {     /* 读到低电平 → 按键被按下（按键另一端接 GND） */
+            P1 = 0x00;      /* 8 个锁存器全 0 → 8 颗灯全亮 */
+            Delay_ms(200);
+            P1 = 0xFF;      /* 8 个锁存器全 1 → 8 颗灯全灭 */
+            Delay_ms(200);
+            P1 ^= 0x80;     /* 把刚才被覆盖的 D7 状态恢复回去 */
+        }
+    }
+}</code></pre>
+          </div>
+
+          <p class="mt-4">
+            把程序里几个关键语句和它们在硬件上的效果逐行对照一遍，
+            这张表就是「C 语句 → 机器码 → 锁存器 → 引脚」的完整链条：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>代码行</th>
+                  <th>编译结果</th>
+                  <th>锁存器变化</th>
+                  <th>引脚与现象</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">sfr P1 = 0x90;</code></td>
+                  <td>无机器码（编译期约定）</td>
+                  <td>不动硬件</td>
+                  <td>无现象；只是让编译器认识 <code class="icode">P1</code></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">sbit LED = P1^0;</code></td>
+                  <td>无机器码（编译期约定）</td>
+                  <td>不动硬件</td>
+                  <td>无现象；位地址 0x90 被起名为 <code class="icode">LED</code></td>
+                </tr>
+                <tr>
+                  <td><code class="icode">P1 = 0xFE;</code></td>
+                  <td><code class="icode">MOV P1,#0FEH</code>（75 90 FE）</td>
+                  <td>8 个锁存器一起被写成 1111 1110</td>
+                  <td>P1.0 低（第 1 颗亮），其余 7 根高（灭）</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">LED = 1;</code></td>
+                  <td><code class="icode">SETB P1.0</code>（D2 90）</td>
+                  <td>只有 D0 锁存器置 1</td>
+                  <td>P1.0 变高 → 灯灭；其余引脚完全不动</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">LED = 0;</code></td>
+                  <td><code class="icode">CLR P1.0</code>（C2 90）</td>
+                  <td>只有 D0 锁存器清零</td>
+                  <td>P1.0 变低 → 灯亮</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">P1 &amp;= 0x0F;</code></td>
+                  <td><code class="icode">ANL P1,#0FH</code>（53 90 0F）</td>
+                  <td>读锁存器 → 与 0x0F → 写回</td>
+                  <td>低 4 位变低（4 颗灯亮），高 4 位不变</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">P1 ^= 0x80;</code></td>
+                  <td><code class="icode">XRL P1,#80H</code>（63 90 80）</td>
+                  <td>读锁存器 → 异或 0x80 → 写回</td>
+                  <td>只有 P1.7 的电平翻转，其余 7 根不动</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">KEY = 1;</code></td>
+                  <td><code class="icode">SETB P3.2</code>（D2 B2）</td>
+                  <td>P3.2 锁存器置 1，下拉管关断</td>
+                  <td>引脚被释放，由外部按键/上拉决定电平</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">if (KEY == 0)</code></td>
+                  <td><code class="icode">MOV C,P3.2</code> 之类的读引脚指令</td>
+                  <td>不动锁存器</td>
+                  <td><b class="font-semibold text-ink">读的是引脚真实电平</b>：按下（低）就进分支</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-6">
+            <p class="callout-title">在 Keil 里验证这个程序</p>
+            <p class="mt-2">
+              新建工程时芯片选 <b class="font-semibold text-ink">AT89C52</b>（STC 的器件库要另外装，
+              教学上用 AT89C52 完全兼容），把上面的代码存成 <code class="icode">main.c</code> 加进工程，
+              编译后打开 <b class="font-semibold text-ink">View → Disassembly Window</b>，
+              你会亲眼看到 <code class="icode">P1 = 0xFE;</code> 那一行对应的就是
+              <code class="icode">MOV P1,#0FEH</code>，
+              而 <code class="icode">LED = 1;</code> 对应 <code class="icode">SETB P1.0</code>。
+              这是把本文所有概念"钉死"的最快方法。
+            </p>
+          </div>
+
+          <h3 id="sub-code-2" class="mt-7 text-base font-semibold">程序②：读引脚还是读锁存器，用按键验证</h3>
+
+          <p class="mt-3">
+            第二个程序很短，但它演示的是 51 编程里最容易搞混的一对概念。
+            板子上只要有一颗接 P1.0 的 LED 和一个接 P3.2 的按键就能做。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="程序②：读引脚 vs 读锁存器（可直接编译运行）">
+            <pre><code>/* ==========================================================================
+   程序②：三种"读"的区别
+   硬件：P1.0 接 LED（灌电流接法），P3.2 接按键（另一端接 GND）
+   ========================================================================== */
+
+sfr  P1 = 0x90;
+sfr  P3 = 0xB0;
+sbit LED = P1^0;
+sbit KEY = P3^2;
+
+void main(void)
+{
+    unsigned char pin_value;    /* 用来存放"读引脚"的结果 */
+    unsigned char latch_value;  /* 用来存放"读锁存器"的结果 */
+
+    /* ---------- 实验 1：读引脚 ---------- */
+    KEY = 1;                    /* 关键一步：先把 P3.2 写 1，关掉内部下拉管 */
+    pin_value = P3;             /* 编译成 MOV A,P3 —— 读的是引脚上的真实电平 */
+    /* 按键松开时读到 0xFF（8 位都高，按键那条线被外部上拉拉高）
+       按键按下时读到 0xF8 之类的值（P3.2 那一位被按键拉到 GND）
+       注意：读到的是整个字节，要判断某一位得自己用 &amp; 屏蔽 */
+
+    /* ---------- 实验 2：读-改-写（读的是锁存器） ---------- */
+    P1 = 0x00;                  /* 先把 8 个锁存器全部写 0（此时 8 颗灯全亮） */
+    P1 |= 0x01;                 /* 编译成 ORL P1,#01H：
+                                   读到的是锁存器 0x00（不是引脚），
+                                   或上 0x01 得到 0x01，再整体写回。
+                                   结果：只有 P1.0 变成高电平（灯灭），
+                                   其余 7 位保持 0（7 颗灯继续亮）。 */
+
+    /* ---------- 实验 3：只改一位，绝对不动别人 ---------- */
+    LED = 1;                    /* SETB P1.0：只有这一位的锁存器被置 1 */
+    LED = 0;                    /* CLR  P1.0：又拉低，灯亮 */
+
+    while (1) {
+        /* 主循环：按键按下就把灯点亮，松开就熄灭 */
+        KEY = 1;                /* 每次都先释放引脚，才能读外部电平 */
+        if (KEY == 0) {
+            LED = 0;            /* 位操作：只拉低 P1.0，不影响其它 7 位 */
+        } else {
+            LED = 1;
+        }
+    }
+}</code></pre>
+          </div>
+
+          <p class="mt-4">
+            这个程序里没有任何延时，但主循环里那两行
+            <code class="icode">KEY = 1; if (KEY == 0)</code>
+            正是所有按键程序的雏形。它背后的两条规则，用表格总结如下：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>读的方式</th>
+                  <th>C 里的写法</th>
+                  <th>编译成什么</th>
+                  <th>读到的值由谁决定</th>
+                  <th>什么时候用</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>读引脚</td>
+                  <td><code class="icode">x = P3;</code>、<code class="icode">if (KEY == 0)</code></td>
+                  <td><code class="icode">MOV A,P3</code> / <code class="icode">MOV C,P3.2</code></td>
+                  <td>外部电路（按键、传感器、另一片芯片的输出）</td>
+                  <td>检测按键、读外部电平、读总线上的数据</td>
+                </tr>
+                <tr>
+                  <td>读锁存器</td>
+                  <td><code class="icode">P1 |= 0x01;</code>、<code class="icode">P1 &amp;= 0x0F;</code>、<code class="icode">P1 ^= 0x80;</code></td>
+                  <td><code class="icode">ORL</code> / <code class="icode">ANL</code> / <code class="icode">XRL</code> 直接寻址指令</td>
+                  <td>你自己上次写出去的值</td>
+                  <td>改某几位又不想影响其它位时（这说明它是可靠的）</td>
+                </tr>
+                <tr>
+                  <td>读位锁存器</td>
+                  <td><code class="icode">if (LED)</code>（<code class="icode">LED</code> 是 <code class="icode">sbit</code>）</td>
+                  <td><code class="icode">MOV C,P1.0</code></td>
+                  <td><b class="font-semibold text-ink">引脚电平</b>（端口位读的是引脚）</td>
+                  <td>想确认引脚当前是高还是低</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            为什么硬件要设计成「读-改-写指令读锁存器」？原因是现实中的引脚常常带着负载：
+            比如一个 LED 灌电流接法，引脚写 0 时电压并不是理想的 0 V，而是零点几伏；
+            如果 <code class="icode">P1 |= 0x01;</code> 去读引脚，这个非理想的低电平可能被判断成 1，
+            于是写回去的时候就把别的位改错了。
+            <b class="font-semibold text-ink">读锁存器让「只改我要改的位」这件事变得绝对安全</b>——
+            这是 51 设计里一个很贴心的细节，也是准双向口能当双向口用的基础。
+          </p>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 速查表 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="mt-10 text-xl font-semibold">51 常用 SFR 速查表</h2>
+
+          <p class="mt-4">
+            下面这张表覆盖了经典 8051 / STC89C52RC 里你 95% 时间会用到的全部 SFR。
+            「可位寻址」那一列写着「是」的，就可以用 <code class="icode">sbit</code> 单独操作它的某一位；
+            写着「否」的，只能整字节赋值——这也是为什么
+            <code class="icode">TMOD</code> 必须写成 <code class="icode">TMOD = 0x01;</code>
+            而不能写 <code class="icode">TMOD0 = 1;</code>。
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>寄存器名</th>
+                  <th>地址</th>
+                  <th>可位寻址</th>
+                  <th>作用</th>
+                  <th>复位初值</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code class="icode">P0</code></td>
+                  <td>0x80</td>
+                  <td>是（0x80~0x87）</td>
+                  <td>IO 口 0；开漏结构，<b class="font-semibold text-ink">必须外接上拉电阻</b>；扩展时作低 8 位地址/数据总线</td>
+                  <td>0xFF</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">SP</code></td>
+                  <td>0x81</td>
+                  <td>否</td>
+                  <td>堆栈指针，指向栈顶；复位后从 0x07 开始，即堆栈从 0x08 往上用</td>
+                  <td>0x07</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">DPL</code> / <code class="icode">DPH</code></td>
+                  <td>0x82 / 0x83</td>
+                  <td>否</td>
+                  <td>数据指针 DPTR 的低/高字节，查表（MOVC）与访问 xdata 时用</td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">PCON</code></td>
+                  <td>0x87</td>
+                  <td>否</td>
+                  <td>电源控制；最高位 SMOD 决定串口波特率是否加倍。STC 的 89 系列里低两位还用于其他功能</td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">TCON</code></td>
+                  <td>0x88</td>
+                  <td>是（0x88~0x8F）</td>
+                  <td>定时器控制：<code class="icode">TR0/TR1</code> 启停、<code class="icode">TF0/TF1</code> 溢出标志、外部中断触发方式 <code class="icode">IT0/IT1</code> 与标志 <code class="icode">IE0/IE1</code></td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">TMOD</code></td>
+                  <td>0x89</td>
+                  <td>否</td>
+                  <td>定时器工作方式：低 4 位管 T0、高 4 位管 T1，每 4 位里含方式选择位与门控位</td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">TL0</code> / <code class="icode">TH0</code></td>
+                  <td>0x8A / 0x8C</td>
+                  <td>否</td>
+                  <td>定时器 0 的低/高字节计数值（装初值、读当前计数）</td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">TL1</code> / <code class="icode">TH1</code></td>
+                  <td>0x8B / 0x8D</td>
+                  <td>否</td>
+                  <td>定时器 1 的低/高字节计数值；TH1 还兼任串口波特率发生器</td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">P1</code></td>
+                  <td>0x90</td>
+                  <td>是（0x90~0x97）</td>
+                  <td>IO 口 1；内部有弱上拉，最常用于 LED、按键、继电器</td>
+                  <td>0xFF</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">SCON</code></td>
+                  <td>0x98</td>
+                  <td>是（0x98~0x9F）</td>
+                  <td>串口控制：方式选择、<code class="icode">REN</code> 允许接收、<code class="icode">TI/RI</code> 收发标志（必须软件清零）</td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">SBUF</code></td>
+                  <td>0x99</td>
+                  <td>否</td>
+                  <td>串口数据缓冲：<b class="font-semibold text-ink">写 = 发送，读 = 接收</b>，同名两个物理缓冲器</td>
+                  <td>不确定</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">P2</code></td>
+                  <td>0xA0</td>
+                  <td>是（0xA0~0xA7）</td>
+                  <td>IO 口 2；扩展外部存储器时输出高 8 位地址，平时作普通 IO</td>
+                  <td>0xFF</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">IE</code></td>
+                  <td>0xA8</td>
+                  <td>是（0xA8~0xAF）</td>
+                  <td>中断使能：<code class="icode">EA</code> 总开关（IE.7）、<code class="icode">EX0/ET0/EX1/ET1/ES</code> 分开关</td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">P3</code></td>
+                  <td>0xB0</td>
+                  <td>是（0xB0~0xB7）</td>
+                  <td>IO 口 3，每一位都有第二功能：RXD / TXD / INT0 / INT1 / T0 / T1 / WR / RD</td>
+                  <td>0xFF</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">IP</code></td>
+                  <td>0xB8</td>
+                  <td>是（0xB8~0xBF）</td>
+                  <td>中断优先级：对应位置 1 即升为高优先级</td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">T2CON</code>（52 才有）</td>
+                  <td>0xC8</td>
+                  <td>是（0xC8~0xCF）</td>
+                  <td>定时器 2 控制：启停、方式、溢出标志</td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">RCAP2L</code> / <code class="icode">RCAP2H</code></td>
+                  <td>0xCA / 0xCB</td>
+                  <td>否</td>
+                  <td>定时器 2 的自动重装值（捕获/重装），做精确定时很方便</td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">TL2</code> / <code class="icode">TH2</code></td>
+                  <td>0xCC / 0xCD</td>
+                  <td>否</td>
+                  <td>定时器 2 的低/高字节计数值</td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">PSW</code></td>
+                  <td>0xD0</td>
+                  <td>是（0xD0~0xD7）</td>
+                  <td>程序状态字：<code class="icode">CY</code> 进位、<code class="icode">OV</code> 溢出、<code class="icode">RS0/RS1</code> 寄存器组选择、<code class="icode">P</code> 奇偶标志</td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">ACC</code></td>
+                  <td>0xE0</td>
+                  <td>是（0xE0~0xE7）</td>
+                  <td>累加器 A；几乎所有运算都要经过它</td>
+                  <td>0x00</td>
+                </tr>
+                <tr>
+                  <td><code class="icode">B</code></td>
+                  <td>0xF0</td>
+                  <td>是（0xF0~0xF7）</td>
+                  <td>乘除法（MUL AB / DIV AB）的搭档寄存器</td>
+                  <td>0x00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            这张表的使用方法：<b class="font-semibold text-ink">写任何 51 程序时，凡是看到一个不认识的寄存器名，
+            回来查它的地址和可位寻址性</b>。
+            你会发现自己逐渐能"读懂"别人代码里那些奇怪的行，比如
+            <code class="icode">P1 &amp;= 0xF0;</code>（保护低 4 位）、
+            <code class="icode">PCON |= 0x80;</code>（波特率加倍）、
+            <code class="icode">SP = 0x60;</code>（把堆栈挪到安全位置）。
+          </p>
+
+          <p class="mt-4">
+            再补一张「位地址速查」小表，位操作时直接查（位地址 = SFR 地址 + 位号）：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>SFR</th>
+                  <th>第 0 位</th>
+                  <th>第 1 位</th>
+                  <th>第 2 位</th>
+                  <th>第 3 位</th>
+                  <th>第 4 位</th>
+                  <th>第 5 位</th>
+                  <th>第 6 位</th>
+                  <th>第 7 位</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>P1（0x90）</td>
+                  <td>P1.0 = 0x90</td>
+                  <td>P1.1 = 0x91</td>
+                  <td>P1.2 = 0x92</td>
+                  <td>P1.3 = 0x93</td>
+                  <td>P1.4 = 0x94</td>
+                  <td>P1.5 = 0x95</td>
+                  <td>P1.6 = 0x96</td>
+                  <td>P1.7 = 0x97</td>
+                </tr>
+                <tr>
+                  <td>TCON（0x88）</td>
+                  <td>IT0 = 0x88</td>
+                  <td>IE0 = 0x89</td>
+                  <td>IT1 = 0x8A</td>
+                  <td>IE1 = 0x8B</td>
+                  <td>TR0 = 0x8C</td>
+                  <td>TF0 = 0x8D</td>
+                  <td>TR1 = 0x8E</td>
+                  <td>TF1 = 0x8F</td>
+                </tr>
+                <tr>
+                  <td>SCON（0x98）</td>
+                  <td>RI = 0x98</td>
+                  <td>TI = 0x99</td>
+                  <td>RB8 = 0x9A</td>
+                  <td>TB8 = 0x9B</td>
+                  <td>REN = 0x9C</td>
+                  <td>SM2 = 0x9D</td>
+                  <td>SM1 = 0x9E</td>
+                  <td>SM0 = 0x9F</td>
+                </tr>
+                <tr>
+                  <td>IE（0xA8）</td>
+                  <td>EX0 = 0xA8</td>
+                  <td>ET0 = 0xA9</td>
+                  <td>EX1 = 0xAA</td>
+                  <td>ET1 = 0xAB</td>
+                  <td>ES = 0xAC</td>
+                  <td>—</td>
+                  <td>—</td>
+                  <td>EA = 0xAF</td>
+                </tr>
+                <tr>
+                  <td>IP（0xB8）</td>
+                  <td>PX0 = 0xB8</td>
+                  <td>PT0 = 0xB9</td>
+                  <td>PX1 = 0xBA</td>
+                  <td>PT1 = 0xBB</td>
+                  <td>PS = 0xBC</td>
+                  <td>—</td>
+                  <td>—</td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td>PSW（0xD0）</td>
+                  <td>P = 0xD0</td>
+                  <td>—</td>
+                  <td>OV = 0xD2</td>
+                  <td>RS0 = 0xD3</td>
+                  <td>RS1 = 0xD4</td>
+                  <td>F0 = 0xD5</td>
+                  <td>AC = 0xD6</td>
+                  <td>CY = 0xD7</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-tip mt-6">
+            <p class="callout-title">怎么用最省事</p>
+            <p class="mt-2">
+              实战里不要手写位地址，直接写 <code class="icode">sbit TR0_bit = TCON^4;</code>
+              这种"名字^位号"的形式，编译器会自己算。
+              位地址表的价值在于：当你在别人代码或手册里看到
+              <code class="icode">CLR 8CH</code>、<code class="icode">SETB AFH</code>
+              这类十六进制数时，能立刻反应过来
+              「8C 是 TR0，AF 是 EA」。
+            </p>
+          </div>
+
+          <p class="mt-4">
+            另外要提醒一句：<b class="font-semibold text-ink">STC 的部分型号还有自家独有的 SFR</b>，
+            比如 <code class="icode">AUXR</code>（辅助寄存器，用于选择定时器速度倍率、扩展 RAM 使能等）、
+            <code class="icode">WDT_CONTR</code>（看门狗）等。
+            它们的地址不与标准 8051 冲突，用的时候查 STC 官方手册即可。
+            本文和你手上的通用教程只依赖上表这些标准寄存器，不会因为型号细节而出错。
+          </p>
+        </section>
+
+        <!-- ---------------------------- 5. 常见错误 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="mt-10 text-xl font-semibold">常见错误与排查</h2>
+
+          <p class="mt-4">
+            下面这些是学这一篇时最常撞上的九堵墙，按「现象 → 原因 → 解决」写。
+            每一条都对应前文的一个知识点，看的时候顺便回想一下它属于哪一节，
+            这样知识就串起来了。
+          </p>
+
+          <div class="callout callout-danger mt-6">
+            <p class="callout-title">① P1 口点灯一切正常，换到 P0 口就不亮</p>
+            <p class="mt-2">
+              <b>现象：</b>同一段程序、同样的 LED 接法，把 <code class="icode">P1</code> 改成 <code class="icode">P0</code> 之后灯不亮，
+              或者数码管"该灭的段"灭不干净。<br>
+              <b>原因：</b>P0 口是<b class="font-semibold text-ink">开漏结构</b>，内部没有上拉管。
+              写 1 时引脚处于高阻态而不是输出高电平，供不出电流。<br>
+              <b>解决：</b>在 P0 的 8 根线与 VCC 之间各接一个 10 kΩ 上拉电阻（一般用 9 脚排阻，
+              公共脚接 VCC）；或者改用灌电流接法（写 0 点亮），因为它靠的是下拉管，不需要上拉。
+              详见 <a class="text-brand-600 dark:text-brand-300" href="#sub-ioport">IO 口的内部结构</a>。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <p class="callout-title">② 定时器都配好了，中断函数就是不执行</p>
+            <p class="mt-2">
+              <b>现象：</b><code class="icode">TMOD</code> 写了、<code class="icode">TH0</code>/<code class="icode">TL0</code> 装了、
+              <code class="icode">TR0 = 1;</code> 也写了，中断函数里的灯就是不闪。<br>
+              <b>原因：</b>忘了打开<b class="font-semibold text-ink">总开关 EA</b>。
+              复位后 <code class="icode">IE = 0x00</code>，所有中断都是关的；
+              <code class="icode">ET0 = 1;</code> 只是打开了定时器 0 这一个分开关。<br>
+              <b>解决：</b>补上 <code class="icode">EA = 1;</code>。
+              等价的整字节写法是 <code class="icode">IE = 0x82;</code>（EA + ET0），
+              但推荐用位操作分别写，可读性更好。<b class="font-semibold text-ink">排查方法：</b>
+              在 Keil 仿真里打开 <b class="font-semibold text-ink">Peripherals → Interrupt</b> 窗口，
+              能直接看到 IE 每一位的状态。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <p class="callout-title">③ error C202: 'P1': undefined identifier</p>
+            <p class="mt-2">
+              <b>现象：</b>编译报 <code class="icode">main.c(8): error C202: 'P1': undefined identifier</code>。<br>
+              <b>原因：</b>编译器不认识 <code class="icode">P1</code> 这个名字——没有包含头文件，
+              也没有自己写 <code class="icode">sfr</code> 声明。
+              <code class="icode">sfr</code> 声明是编译期的约定，不写就等于这个名字从来没被定义过。<br>
+              <b>解决：</b>两种写法二选一：在文件最上面加
+              <code class="icode">#include &lt;reg52.h&gt;</code>，
+              或者自己声明 <code class="icode">sfr P1 = 0x90;</code>。
+              注意：地址写错不会报这个错，而是会去操作一个错误的硬件地址——
+              这类错误更隐蔽，所以声明地址一定要对着手册抄。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <p class="callout-title">④ 'LED': redefinition（重复定义）</p>
+            <p class="mt-2">
+              <b>现象：</b>编译报重复定义类的错误，指向某个寄存器名或位名。<br>
+              <b>原因：</b>最常见的是「又 <code class="icode">#include</code> 了 reg52.h，又自己
+              <code class="icode">sfr P1 = 0x90;</code>」，同一个名字被声明了两次。<br>
+              <b>解决：</b>要么删掉自己的声明用头文件，要么删掉头文件自己声明，
+              <b class="font-semibold text-ink">不要同时用</b>。
+              如果你想"只声明自己用到的寄存器"来减小依赖，
+              那就必须把 <code class="icode">#include &lt;reg52.h&gt;</code> 全部去掉，
+              连 <code class="icode">sbit</code> 的写法也要自己写全。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <p class="callout-title">⑤ sbit 声明编译不过：地址不能被 8 整除</p>
+            <p class="mt-2">
+              <b>现象：</b>写 <code class="icode">sbit X = TMOD^0;</code> 或
+              <code class="icode">sbit Y = SBUF^0;</code> 时编译报错。<br>
+              <b>原因：</b>位寻址有硬性条件——<b class="font-semibold text-ink">只有地址能被 8 整除的 SFR 才能按位访问</b>。
+              TMOD 在 0x89、SBUF 在 0x99，都不满足，所以它们的位没有独立的位地址。<br>
+              <b>解决：</b>对这类寄存器只能用整字节操作，例如
+              <code class="icode">TMOD = (TMOD &amp; 0xF0) | 0x01;</code>。
+              记忆方法：可位寻址的 SFR 地址末位一定是 <code class="icode">0</code> 或 <code class="icode">8</code>
+              （0x80、0x88、0x90、0x98、0xA0…），详见
+              <a class="text-brand-600 dark:text-brand-300" href="#sub-bitaddr">位寻址与 sbit</a>。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <p class="callout-title">⑥ 位地址算错：P1.0 写成 0x00</p>
+            <p class="mt-2">
+              <b>现象：</b><code class="icode">sbit LED = 0x00;</code> 能编译通过，
+              但操作 <code class="icode">LED</code> 时灯不亮，而且还会冒出别的奇怪现象
+              （因为它操作的是位寻址区 0x20 那个字节的第 0 位，不是引脚）。<br>
+              <b>原因：</b>位地址不是"第几位"，而是<b class="font-semibold text-ink">SFR 地址 + 位号</b>。
+              P1 的地址是 0x90，所以 P1.0 的位地址是 0x90、P1.7 是 0x97。<br>
+              <b>解决：</b>一律用「<code class="icode">名字^位号</code>」的写法让编译器自己算：
+              <code class="icode">sbit LED = P1^0;</code>。
+              只有查表或读汇编时才需要记住具体的位地址数字。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <p class="callout-title">⑦ 按键一直读到 0，怎么按都没反应</p>
+            <p class="mt-2">
+              <b>现象：</b>接在 P3.2 上的按键，程序里读回来永远是低电平（或者永远不进 if 分支）。<br>
+              <b>原因：</b>准双向口的规矩——<b class="font-semibold text-ink">当输入用之前必须先往这一位写 1</b>。
+              如果锁存器里是 0，内部下拉管一直导通，把引脚死死拉在 GND，
+              外部按键怎么动都读不到变化。<br>
+              <b>解决：</b>读之前先写 <code class="icode">KEY = 1;</code>（或整口写 <code class="icode">P3 = 0xFF;</code>），
+              把下拉管关断，再读引脚。这是所有按键程序的第一行准备工作。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <p class="callout-title">⑧ 用 <code class="icode">P3 |= 0x04;</code> 检测按键，结果永远检测不到</p>
+            <p class="mt-2">
+              <b>现象：</b>想"只改一位"，于是写成带赋值号的复合运算，结果条件永远不成立（或者永远成立）。<br>
+              <b>原因：</b><code class="icode">|=</code>、<code class="icode">&amp;=</code>、<code class="icode">^=</code>
+              编译成<b class="font-semibold text-ink">读-改-写指令，读的是锁存器而不是引脚</b>，
+              读回来的是你自己上次写出去的值，和按键状态毫无关系。<br>
+              <b>解决：</b>检测外部状态必须用「读引脚」的写法：
+              <code class="icode">if ((P3 &amp; 0x04) == 0) { … }</code>。
+              注意 <code class="icode">P3 &amp; 0x04</code> 这种"取值再屏蔽"的表达式读的是引脚，
+              而带赋值号的复合运算读的是锁存器——这一条区别值得单独记在笔记本上。
+            </p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <p class="callout-title">⑨ 12 MHz 晶振下串口收到的全是乱码</p>
+            <p class="mt-2">
+              <b>现象：</b>程序里定时器 1 的初值按 9600 波特率算好了（<code class="icode">TH1 = 0xFD;</code>），
+              但串口助手收到的是一堆乱码，换波特率也不稳定。<br>
+              <b>原因：</b>12 MHz 晶振下，9600 bps 的最近初值误差约 <b class="font-semibold text-ink">8.5%</b>，
+              远超串口能容忍的范围（一帧 10 位，累计误差超过约 2%~3% 就会采错位）。<br>
+              <b>解决：</b>把晶振换成 <b class="font-semibold text-ink">11.0592 MHz</b>——
+              它就是为整除常用波特率而存在的，9600 时 <code class="icode">TH1 = 0xFD</code> 误差为 0。
+              算不出来的同学可以直接查本文
+              <a class="text-brand-600 dark:text-brand-300" href="#sub-clock">时钟那一节</a> 的波特率初值表。
+              另外别忘了：换晶振之后所有延时函数、定时器初值也都要重算。
+            </p>
+          </div>
+
+          <div class="callout callout-tip mt-6">
+            <p class="callout-title">排查纪律：先分类，再动手</p>
+            <p class="mt-2">
+              遇到问题先问自己三个问题，能把排查范围缩小一大半：<br>
+              <b>1. 是编译期还是运行期？</b>编译报错基本是名字/声明/语法问题（本文的错误③④⑤都是）；
+              运行不对才是硬件配置问题。<br>
+              <b>2. 是"没生效"还是"生效了但现象相反"？</b>没生效通常是因为开关没打开（EA、REN、TR0）；
+              现象相反通常是电平极性想反了（灌电流 vs 拉电流）。<br>
+              <b>3. 这个现象能用电表量出来吗？</b>引脚电压、LED 两端电压、RST 电压——
+              量一次比猜十次快，而且能立刻区分「程序没跑起来」和「程序跑了但硬件接错」。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="mt-10 text-xl font-semibold">小结与自检</h2>
+
+          <p class="mt-4">
+            这一篇的信息量不小，但真正需要你"带走"的只有下面这些。
+            如果只能记住一段话，那就记住这一段：
+            <b class="font-semibold text-ink">51 单片机里的每一个硬件功能，
+            都对应一个固定地址的寄存器；你写的每一行寄存器赋值，
+            最后都会变成某个引脚上的电平、某个计数器的值、或某个开关的通断。</b>
+          </p>
+
+          <ul class="mt-4 list-disc space-y-2.5 pl-5">
+            <li>
+              <b class="font-semibold text-ink">结构：</b>CPU（取指 → 译码 → 执行，靠 PC 记位置）
+              ＋ Flash（8 KB，存程序，掉电不丢）＋ RAM（256 字节，存变量，掉电就丢）
+              ＋ SFR（0x80~0xFF，硬件开关面板）＋ 外设（定时器、串口、中断、IO）。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">地址：</b>地址就是门牌号；8 位地址管 256 个格子（内部 RAM），
+              16 位地址管 65536 个格子（Flash 与 xdata）。
+              同一个数字在不同寻址方式下可以是 RAM，也可以是 SFR。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">SFR：</b><code class="icode">sfr P1 = 0x90;</code>
+              只做三件事——给名字、绑地址、指定用直接寻址；它不生成任何机器码。
+              <code class="icode">#include &lt;reg52.h&gt;</code> 就是替你做完了全部 21 个声明。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">为什么赋值能改电平：</b>地址 0x90 背后不是普通内存，
+              而是 8 个 D 锁存器；锁存器的输出直接控制两个场效应管，
+              场效应管再决定引脚是高还是低。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">位寻址：</b>地址能被 8 整除的对象才有位地址，
+              位地址 = 地址 + 位号（P1.0 = 0x90，P1.7 = 0x97）。
+              <code class="icode">LED = 0;</code> 编译成一条 <code class="icode">CLR</code> 指令，
+              比 <code class="icode">P1 &amp;= 0xFE;</code> 更快而且绝不误伤其它位。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">时钟：</b>晶振给节拍，12 个时钟周期 = 1 个机器周期；
+              12 MHz 下机器周期 = 1 μs。
+              要用串口就选 11.0592 MHz（波特率误差为 0），否则选 12 MHz（延时期好算）。
+              12T 与 1T 型号之间移植代码时，所有和时间有关的参数都要重算。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">复位：</b>RST 高电平有效，上电复位靠 RC 电路，
+              手动复位靠按键。复位后 <code class="icode">P0~P3 = 0xFF</code>（引脚全高，灯灭、继电器不动）、
+              <code class="icode">SP = 0x07</code>、<code class="icode">IE = 0x00</code>（中断全关），
+              其余大部分寄存器为 0。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">IO 口：</b>P1/P2/P3 是准双向口（内部有弱上拉），
+              P0 是开漏（必须外接上拉）。
+              当输入用之前先写 1；读-改-写指令读锁存器，读引脚要用 <code class="icode">x = P3;</code>。
+              点灯用灌电流接法（低电平点亮）。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">中断：</b>六个中断源各有开关位、标志位、中断号；
+              <code class="icode">EA</code> 是总开关，<code class="icode">interrupt n</code> 里的 n 是中断号不是地址；
+              中断函数要短，被中断改动的共享变量要加 <code class="icode">volatile</code>。
+            </li>
+          </ul>
+
+          <h3 class="mt-8 text-base font-semibold">五道自检题</h3>
+
+          <p class="mt-3">
+            先不看答案自己答一遍，能答出四道就说明这一篇真的读进去了。
+          </p>
+
+          <ol class="mt-4 list-decimal space-y-3 pl-5">
+            <li>
+              <code class="icode">sfr P1 = 0x90;</code> 这一行会生成多少机器码？它替编译器交代了哪三件事？
+            </li>
+            <li>
+              P1.3 的<b class="font-semibold text-ink">位地址</b>是多少？
+              为什么 <code class="icode">sbit X = TMOD^0;</code> 编译不过，而 <code class="icode">sbit Y = P1^0;</code> 可以？
+            </li>
+            <li>
+              复位之后 <code class="icode">P1</code> 的值是多少？
+              为什么灌电流接法的 LED 在刚上电时全都是灭的？
+            </li>
+            <li>
+              为什么 P0 口必须外接上拉电阻，P1 口不用？
+              把 P0 接到共阳数码管的段线上、不加排阻会出现什么现象？
+            </li>
+            <li>
+              你写了 <code class="icode">P1 |= 0x01;</code>，然后 <code class="icode">x = P1;</code>。
+              这两次读，读到的分别是哪里的值？各自由谁决定？
+            </li>
+          </ol>
+
+          <div class="callout callout-info mt-6">
+            <p class="callout-title">参考答案（先自己答完再看）</p>
+            <p class="mt-2">
+              <b>第 1 题：</b>生成 <b>0 字节</b>机器码，它是编译期约定。三件事：① 声明名字
+              <code class="icode">P1</code> 存在；② 把它绑定到地址 <code class="icode">0x90</code>；
+              ③ 告诉编译器这是 SFR，访问时要生成直接寻址指令。<br>
+              <b>第 2 题：</b>P1.3 的位地址是 <b><code class="icode">0x93</code></b>
+              （0x90 + 3）。TMOD 的地址是 0x89，<b class="font-semibold text-ink">不能被 8 整除</b>，
+              没有位地址，所以不能按位访问，只能整字节读写。<br>
+              <b>第 3 题：</b>复位后 P1 = <b><code class="icode">0xFF</code></b>，8 根引脚全为高电平。
+              灌电流接法是"低电平点亮"（LED 正极经电阻接 VCC、负极接引脚），
+              引脚为高时 LED 两端没有压差，所以全灭。<br>
+              <b>第 4 题：</b>因为 P0 是<b class="font-semibold text-ink">开漏结构</b>，
+              内部没有上拉管，写 1 时引脚是高阻态，输出不了高电平；
+              P1 内部有弱上拉，能输出高电平（虽然驱动能力很弱）。
+              共阳数码管的段线需要"输出高电平来熄灭"，P0 不加排阻时高阻态的段会呈现
+              <b class="font-semibold text-ink">微亮或乱亮</b>，显示完全不可读。<br>
+              <b>第 5 题：</b><code class="icode">P1 |= 0x01;</code> 里的读是
+              <b class="font-semibold text-ink">读锁存器</b>——读到的是你上次写进去的值，与外部电路无关
+              （这也是它安全的原因）；<code class="icode">x = P1;</code> 是
+              <b class="font-semibold text-ink">读引脚</b>（<code class="icode">MOV A,P1</code>），
+              读到的是 8 根引脚此刻的真实电平，由外部电路决定。
+            </p>
+          </div>
+
+          <div class="callout callout-tip mt-6">
+            <p class="callout-title">下一步</p>
+            <p class="mt-2">
+              到这一步，你已经知道「寄存器是什么、写它会发生什么」。
+              但还有一个问题没回答：<b class="font-semibold text-ink">你写的 C 文件是怎么变成芯片里的 0 和 1 的？</b>
+              下一篇 <a class="text-brand-600 dark:text-brand-300" href="mcu51-basic-toolchain.html">从源码到芯片：编译、HEX 与烧录</a>
+              会带你走完预处理 → 编译 → 汇编 → 链接 → 生成 HEX → 烧进芯片的完整流程，
+              把本文里出现过的机器码 <code class="icode">75 90 FE</code> 的来历彻底讲清楚。
+            </p>
+          </div>
+        </section>
+
+        <!-- ---------------------------- 上一篇 / 下一篇 ---------------------------- -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="mcu51-basic-c.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">C 语言基础：单片机编程真正要用的部分</p>
+          </a>
+          <a href="mcu51-basic-toolchain.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">从源码到芯片：编译、HEX 与烧录</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>

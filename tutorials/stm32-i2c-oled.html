@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>I2C 通信与 OLED 屏幕 - McuStudy</title>
+  <meta name="description" content="STM32F103C8T6 驱动 SSD1306 OLED 完整教程：I2C 开漏结构与上拉电阻的必要性、起始停止条件与从机地址 0x78、硬件 I2C 卡死的原因与软件模拟 I2C 的写法、SSD1306 八页显存结构、ASCII 与汉字取模显示，附可直接编译的 oled.c/oled.h 完整代码。">
+  <meta name="keywords" content="STM32 I2C,SSD1306,OLED 0.96,软件模拟I2C,汉字取模,HAL_I2C,开漏输出上拉电阻,I2C卡死">
+  <meta name="theme-color" content="#F7F9FC">
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/app.css">
+  <!-- 主题脚本必须同步加载：在首屏绘制前写好 .dark 类，避免闪屏 -->
+  <script src="../assets/js/theme.js"></script>
+  <script src="../assets/js/site.js" defer></script>
+</head>
+
+<body data-page="stm32" class="min-h-screen">
+
+  <!-- ============================== 顶部导航 ============================== -->
+  <header id="siteHeader"
+          class="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md transition-shadow">
+    <div class="wrap">
+      <div class="flex h-16 items-center justify-between gap-4">
+
+        <a href="../index.html" class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 font-mono text-[13px] font-bold text-white">MCU</span>
+          <span class="text-[17px] font-semibold tracking-tight">McuStudy<span class="text-brand-500">.</span></span>
+        </a>
+
+        <nav class="hidden items-center gap-0.5 lg:flex" aria-label="主导航">
+          <a class="nav-link" data-nav="index" href="../index.html">首页</a>
+          <a class="nav-link" data-nav="route" href="../route.html">学习路线</a>
+          <a class="nav-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+          <a class="nav-link" data-nav="stm32" href="../stm32.html">STM32</a>
+          <a class="nav-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+          <a class="nav-link" data-nav="tools" href="../tools.html">在线工具</a>
+          <a class="nav-link" data-nav="resource" href="../resource.html">资料下载</a>
+          <a class="nav-link" data-nav="project" href="../project.html">实训毕设</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" data-theme-toggle
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:border-brand-300 hover:text-brand-600"
+                  aria-label="切换亮色/暗色主题">
+            <!-- 亮色下显示太阳，暗色下显示月亮（纯 CSS 切换，无 JS 闪烁） -->
+            <svg class="h-[18px] w-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>
+            </svg>
+            <svg class="hidden h-[18px] w-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+            </svg>
+          </button>
+
+          <button type="button" id="navToggle"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted lg:hidden"
+                  aria-label="打开菜单" aria-expanded="false" aria-controls="navMobile">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 移动端抽屉 -->
+    <div id="navMobile" class="hidden border-t border-line bg-surface lg:hidden">
+      <nav class="wrap flex flex-col gap-0.5 py-3" aria-label="移动端导航">
+        <a class="nav-mobile-link" data-nav="index" href="../index.html">首页</a>
+        <a class="nav-mobile-link" data-nav="route" href="../route.html">学习路线</a>
+        <a class="nav-mobile-link" data-nav="mcu51" href="../mcu51.html">51单片机</a>
+        <a class="nav-mobile-link" data-nav="stm32" href="../stm32.html">STM32</a>
+        <a class="nav-mobile-link" data-nav="esp32" href="../esp32.html">ESP32</a>
+        <a class="nav-mobile-link" data-nav="tools" href="../tools.html">在线工具</a>
+        <a class="nav-mobile-link" data-nav="resource" href="../resource.html">资料下载</a>
+        <a class="nav-mobile-link" data-nav="project" href="../project.html">实训毕设</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============================== 文章页头 ============================== -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="wrap hero-inner py-10 sm:py-12">
+
+        <nav class="mb-4 flex items-center gap-2 text-xs text-faint" aria-label="面包屑">
+          <a href="../index.html" class="hover:text-brand-600 dark:hover:text-brand-300">首页</a>
+          <span>/</span>
+          <a href="../stm32.html" class="hover:text-brand-600 dark:hover:text-brand-300">STM32</a>
+          <span>/</span>
+          <span class="text-muted">I2C 通信与 OLED 屏幕</span>
+        </nav>
+
+        <h1 class="text-balance text-2xl font-bold leading-snug tracking-tight sm:text-3xl">
+          I2C 通信与 OLED 屏幕
+        </h1>
+
+        <p class="mt-4 max-w-3xl text-[15px] leading-relaxed text-muted">
+          只用两根线就能点亮一块 0.96 寸 OLED，这就是 I2C 的威力。但也正因为只有两根线，
+          一旦哪一根没接对，现象就只是“屏幕全黑”，什么提示都没有。
+          这一篇从开漏输出为什么必须配上拉电阻讲起，把起始条件、从机地址、SSD1306 的八页显存结构全部拆开，
+          再给出一份能直接编译的 <code class="icode">oled.c / oled.h</code> 驱动，
+          最后用它把 ADC 采到的电压显示在屏幕上。读完你能独立给任何 I2C 模块写驱动。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-2.5">
+          <span class="badge-mid">进阶</span>
+          <span class="stat-pill">芯片：<b>STM32F103C8T6</b></span>
+          <span class="stat-pill">外设：<b>SSD1306 0.96" OLED</b></span>
+          <span class="stat-pill">阅读约 <b>18</b> 分钟</span>
+          <span class="stat-pill">更新于 <span data-year>2026</span></span>
+        </div>
+
+      </div>
+    </section>
+
+<!-- ============================== 前置知识 ============================== -->
+    <section class="wrap pt-10">
+      <div class="callout callout-info">
+        <div class="callout-title">读这篇之前，建议先弄懂这几个概念</div>
+        <p>I2C 是你遇到的第一个「总线协议」——它靠两根线上的时序约定通信，不是一根线对一个脚。</p>
+        <ul class="mt-3 space-y-1.5">
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-hal.html">寄存器、标准库与 HAL</a> —— I2C 句柄、超时参数与错误码怎么读</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-clock.html">时钟系统：为什么第一件事是配时钟</a> —— I2C 时钟与 GPIO 复用功能之间的关系</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-c.html">C 语言进阶：指针、结构体与回调</a> —— 字库数组、指针遍历，以及取模软件输出的字节怎么用</li>
+          <li>· <a class="text-brand-600 dark:text-brand-300" href="stm32-basic-level.html">3.3V 电平与硬件安全</a> —— I2C 为什么必须接上拉电阻，不接会怎样</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== 正文两栏：左侧目录 + 右侧正文 ============================== -->
+    <div class="wrap grid gap-10 py-12 lg:grid-cols-[230px_minmax(0,1fr)] lg:gap-14">
+
+      <!-- 移动端目录（可折叠） -->
+      <details class="card card-pad lg:hidden">
+        <summary class="cursor-pointer text-sm font-semibold">本页目录</summary>
+        <nav class="mt-3" aria-label="文章目录（移动端）">
+          <a class="toc-link" href="#sec-intro">原理介绍</a>
+          <a class="toc-link is-sub" href="#sub-open">开漏输出与上拉电阻</a>
+          <a class="toc-link is-sub" href="#sub-timing">起始/停止条件与从机地址</a>
+          <a class="toc-link is-sub" href="#sub-ssd1306">SSD1306 的页结构</a>
+          <a class="toc-link is-sub" href="#sub-hw-vs-sw">硬件 I2C 为什么容易卡死</a>
+          <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+          <a class="toc-link" href="#sec-code">完整代码</a>
+          <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+          <a class="toc-link is-sub" href="#sub-code-cn">汉字取模显示的原理</a>
+          <a class="toc-link" href="#sec-demo">现象演示说明</a>
+          <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+          <a class="toc-link" href="#sec-summary">小结与练习</a>
+        </nav>
+      </details>
+
+      <!-- 桌面端固定目录：sticky 跟随滚动，滚动到哪一节自动高亮 -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-24">
+          <p class="mb-3 text-2xs font-semibold uppercase tracking-wider text-faint">本页目录</p>
+          <nav class="no-scrollbar max-h-[calc(100vh-9rem)] overflow-y-auto" aria-label="文章目录">
+            <a class="toc-link" href="#sec-intro">原理介绍</a>
+            <a class="toc-link is-sub" href="#sub-open">开漏输出与上拉电阻</a>
+            <a class="toc-link is-sub" href="#sub-timing">起始/停止条件与从机地址</a>
+            <a class="toc-link is-sub" href="#sub-ssd1306">SSD1306 的页结构</a>
+            <a class="toc-link is-sub" href="#sub-hw-vs-sw">硬件 I2C 为什么容易卡死</a>
+            <a class="toc-link" href="#sec-hardware">硬件接线说明</a>
+            <a class="toc-link" href="#sec-code">完整代码</a>
+            <a class="toc-link is-sub" href="#sub-code-key">关键代码解析</a>
+            <a class="toc-link is-sub" href="#sub-code-cn">汉字取模显示的原理</a>
+            <a class="toc-link" href="#sec-demo">现象演示说明</a>
+            <a class="toc-link" href="#sec-errors">常见报错排查方案</a>
+            <a class="toc-link" href="#sec-summary">小结与练习</a>
+          </nav>
+
+          <div class="mt-6 border-t border-line pt-4">
+            <p class="text-2xs leading-relaxed text-faint">
+              想把 SSD1306 的初始化命令逐条拆开看？
+              用<a class="text-brand-600 dark:text-brand-300" href="../tools.html#tool-base">进制转换工具</a>把 0x8D、0x14 这类命令字拆成二进制，对照数据手册读更快。
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 正文 -->
+      <article class="prose-mcu min-w-0">
+
+        <!-- ---------------------------- 1. 原理介绍 ---------------------------- -->
+        <section>
+          <h2 id="sec-intro" class="text-xl font-semibold">原理介绍</h2>
+
+          <p class="mt-4">
+            I2C（读作“I 方 C”，Inter-Integrated Circuit）是飞利浦发明的一种
+            <b class="font-semibold text-ink">两线制同步串行总线</b>：
+            一根 SCL 负责时钟，一根 SDA 负责数据。
+            主机（我们的 STM32）产生时钟并决定跟谁说话，从机（OLED 模块）只能被动应答。
+            一条总线上可以挂很多个从机，靠<b class="font-semibold text-ink">地址</b>区分——
+            这就是为什么只用两根线就能同时接 OLED、EEPROM、温湿度传感器。
+          </p>
+
+          <p class="mt-3">
+            但 I2C 也是最容易“接上了却不工作”的总线，因为它有两个反直觉的设计：
+            <b class="font-semibold text-ink">引脚是开漏的，必须外加上拉电阻</b>；
+            以及<b class="font-semibold text-ink">从机不响应时主机只会静静地等</b>，
+            什么错误都不报。把这两点搞明白，I2C 的调试难度会下降一大半。
+          </p>
+
+          <div class="mt-6 grid gap-4 sm:grid-cols-3">
+            <div class="stat">
+              <div class="stat-k">总线线数</div>
+              <div class="stat-v">2 根（SCL / SDA）</div>
+            </div>
+            <div class="stat">
+              <div class="stat-k">SSD1306 写地址</div>
+              <div class="stat-v">0x78（7 位为 0x3C）</div>
+            </div>
+            <div class="stat">
+              <div class="stat-k">显存容量</div>
+              <div class="stat-v">128 × 64 bit = 1KB</div>
+            </div>
+          </div>
+
+          <h3 id="sub-open" class="mt-7 text-base font-semibold">开漏输出与上拉电阻</h3>
+          <p class="mt-3">
+            先说一个很多人没想清楚的问题：
+            <b class="font-semibold text-ink">为什么 I2C 的两根线必须接上拉电阻，不接就没有高电平？</b>
+          </p>
+
+          <p class="mt-3">
+            因为 I2C 的引脚是<b class="font-semibold text-ink">开漏（Open-Drain）结构</b>。
+            普通推挽输出内部有上下两个 MOS 管，可以主动把引脚“推”到高电平，也可以“拉”到低电平。
+            而开漏输出<b class="font-semibold text-ink">只有下面那个管子</b>：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li>输出 0 时，下面的管子导通，把线牢牢拉到 GND，这是<b class="font-semibold">主动拉低</b>。</li>
+            <li>输出 1 时，下面的管子截止，引脚进入<b class="font-semibold">高阻态</b>——相当于这根线被“松开”了，它自己产生不了高电平。</li>
+          </ul>
+
+          <p class="mt-3">
+            线被松开以后，是谁把它恢复到高电平的？答案就是上拉电阻。
+            电阻一端接 3.3V、一端接 SDA，当所有设备都松开时，电流经电阻把线充到 3.3V。
+            所以<b class="font-semibold text-ink">没有上拉电阻，总线永远停在低电平，通信根本不可能开始</b>。
+            典型取值是 4.7kΩ（100kHz 总线）到 2.2kΩ（400kHz 总线）。
+          </p>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">开漏结构为什么值得专门设计</div>
+            <p>
+              正因为谁都不能主动输出高电平，所以
+              <b class="font-semibold">两个设备同时驱动总线也不会短路</b>：
+              只要有一个拉低，线就是低；全都松开了，线才变高。
+              这正好实现了 I2C 需要的两个机制——
+              <b class="font-semibold">线与（wired-AND）</b>，以及
+              <b class="font-semibold">时钟拉伸</b>（从机来不及处理时可以把 SCL 拉低，让主机等它）。
+              代价就是必须外加上拉电阻。
+            </p>
+          </div>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">模块自带的上拉电阻：好事也可能变成坑</div>
+            <p>
+              市面上大多数 0.96 寸 OLED 模块<b class="font-semibold">板上已经焊了 4.7kΩ 上拉电阻</b>。
+              这时候你不需要再加。如果你没检查就又并了一对 4.7kΩ，
+              等效上拉变成 2.35kΩ，100kHz 下通常还能工作，但总线电流翻倍，
+              有些模块会因此变得不稳定。
+              判断方法很简单：<b class="font-semibold">断电后用万用表量 SCL 对 VCC 的电阻</b>，
+              读数在 5kΩ 左右说明板载已有上拉，读数是无穷大就必须自己加。
+            </p>
+          </div>
+
+          <h3 id="sub-timing" class="mt-7 text-base font-semibold">起始/停止条件与从机地址</h3>
+          <p class="mt-3">
+            I2C 的“通信开始”和“通信结束”不是靠额外的信号线，而是靠
+            <b class="font-semibold text-ink">两根线在特定时刻的相对变化</b>来定义的。
+            关键规则是：<b class="font-semibold text-ink">SCL 为高电平时，SDA 必须保持稳定</b>，
+            因为这段时间是从机读取数据的窗口。所以“在 SCL 高电平期间改变 SDA”就成了特殊命令：
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="I2C 的起始条件与停止条件">
+            <pre><code>起始条件（Start）：SCL 为高时，SDA 由高变低
+        ┌───────────┐
+   SCL ─┘           └────────
+        ┌──────┐
+   SDA ─┘      └─────────────
+              ↑ 这个下降沿就是 Start
+
+停止条件（Stop）：SCL 为高时，SDA 由低变高
+        ┌───────────┐
+   SCL ─┘           └────────
+             ┌──────┐
+   SDA ──────┘      └────────
+                    ↑ 这个上升沿就是 Stop
+
+数据位：SCL 低电平时准备数据，SCL 高电平时数据必须稳定
+        ┌───┐   ┌───┐   ┌───┐
+   SCL ─┘   └───┘   └───┘   └──
+        ┌───────┐───────┐───────
+   SDA ─┘  bit  └  bit  └  bit
+         ↑高电平期间保持不变，从机在这时候采样</code></pre>
+          </div>
+
+          <p class="mt-4">
+            一次完整的“写一字节”时序是这样的：Start → 7 位从机地址 → 第 8 位读写位（0 = 写，1 = 读）
+            → 从机拉低 SDA 回应“ACK” → 数据字节 → ACK → …… → Stop。
+            注意<b class="font-semibold text-ink">第 9 个时钟不是数据，而是从机用来回应“我收到了”的应答位</b>。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="写一个字节的完整时序（以 SSD1306 为例）">
+            <pre><code>Start | 0x3C (7位地址) | 0(写) | ACK | 0x00(控制字节:命令) | ACK | 0xAE(命令) | ACK | Stop
+
+  把 7 位地址 0x3C 左移一位、低位补上读写位 0：
+      0x3C &lt;&lt; 1 | 0  =  0x78      ← 这就是代码里写的 OLED_I2C_ADDR
+  如果是读操作：
+      0x3C &lt;&lt; 1 | 1  =  0x79
+
+★ 所以“地址 0x3C”和“地址 0x78”说的是同一块屏，
+  区别只是 0x3C 是数据手册里的 7 位形式，0x78 是实际出现在总线上的 8 位形式。
+  看别人代码时不要被这两个数搞混。</code></pre>
+          </div>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>模块背面 SA0 的接法</th>
+                  <th>7 位地址</th>
+                  <th>写地址（8 位）</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>SA0 接 GND（默认）</td><td class="font-mono text-xs">0x3C</td><td class="font-mono text-xs">0x78</td><td>绝大多数模块是这个，代码里先试它</td></tr>
+                <tr><td>SA0 接 VCC</td><td class="font-mono text-xs">0x3D</td><td class="font-mono text-xs">0x7A</td><td>少数模块或同总线挂两块屏时用</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            还有一个必须记住的细节：
+            <b class="font-semibold text-ink">SSD1306 在 I2C 上传输的每个字节前面都要多一个“控制字节”</b>。
+            它是 0x00 时表示后面跟的是命令，是 0x40 时表示后面跟的是显存数据。
+            这就是为什么裸写 I2C 时序驱动 OLED 比驱动 EEPROM 麻烦一点——
+            每字节都要多带一个“这是命令还是数据”的标签。
+          </p>
+
+          <h3 id="sub-ssd1306" class="mt-7 text-base font-semibold">SSD1306 的页结构</h3>
+          <p class="mt-3">
+            屏幕是 128×64 个像素，但显存不是按“行”组织的，而是
+            <b class="font-semibold text-ink">按“页（Page）”组织的 8 位竖条</b>。
+            这一点不搞清楚，你会发现自己想点亮第 3 行第 5 列的像素，却点亮了奇怪的位置。
+          </p>
+
+          <div class="code-block mt-3" data-lang="text" data-title="SSD1306 的显存组织方式（128×64 = 8 页）">
+            <pre><code>显存总大小 = 128 列 × 64 行 ÷ 8 行/字节 = 1024 字节
+
+                列 0   列 1   列 2   ......   列 127
+              ┌──────┬──────┬──────┬─────┬──────┐
+   Page 0     │ 1字节│ 1字节│ 1字节│ ... │ 1字节│  ← 屏幕第  0~ 7 行
+              ├──────┼──────┼──────┼─────┼──────┤
+   Page 1     │ 1字节│ 1字节│ 1字节│ ... │ 1字节│  ← 屏幕第  8~15 行
+              ├──────┼──────┼──────┼─────┼──────┤
+   Page 2     │      │      │      │     │      │  ← 屏幕第 16~23 行
+              ├──────┼──────┼──────┼─────┼──────┤
+   Page 3     │      │      │      │     │      │  ← 屏幕第 24~31 行
+              ├──────┼──────┼──────┼─────┼──────┤
+   Page 4     │      │      │      │     │      │  ← 屏幕第 32~39 行
+              ├──────┼──────┼──────┼─────┼──────┤
+   Page 5     │      │      │      │     │      │  ← 屏幕第 40~47 行
+              ├──────┼──────┼──────┼─────┼──────┤
+   Page 6     │      │      │      │     │      │  ← 屏幕第 48~55 行
+              ├──────┼──────┼──────┼─────┼──────┤
+   Page 7     │      │      │      │     │      │  ← 屏幕第 56~63 行
+              └──────┴──────┴──────┴─────┴──────┘
+
+  一个字节的 8 个位，对应屏幕上竖着的 8 个像素：
+        bit7  → 该页的最下面一行
+        bit0  → 该页的最上面一行     （bit0 在最上，别记反了）
+
+  所以“在 (x=0, y=0) 画一个点”= 把第 0 页第 0 列那个字节的 bit0 置 1
+
+★ 0.91 寸的屏只有 64×32 个像素，只用到 Page 0~3，共 4 页。
+  买了 0.91 寸的屏却套用 0.96 寸的初始化序列，就会只点亮上半屏 ——
+  因为 0xA8 那条“多路复用比”命令还写着 0x3F（64 行），应该改成 0x1F（32 行）。</code></pre>
+          </div>
+
+          <p class="mt-4">
+            为什么 SSD1306 要用这种奇怪的竖条布局？因为它原本是给
+            <b class="font-semibold text-ink">按列扫描的驱动电路</b>设计的：
+            OLED 屏的每一列由一根源极驱动线控制，一次刷新就是一列一列地送。
+            用“页 + 列”的地址方式，正好能让列地址自动加 1 连续送数，
+            不需要每次重设坐标——这也是为什么我们的
+            <code class="icode">OLED_WriteDataBuf</code> 能一口气写 128 字节。
+          </p>
+
+          <div class="callout callout-info mt-4">
+            <div class="callout-title">写显存不会闪屏，清屏再重画才会闪</div>
+            <p>
+              SSD1306 内部有 1KB 的独立显存，屏幕的显示内容是芯片自己扫出来的。
+              你写显存的过程屏幕根本看不见，所以
+              <b class="font-semibold">“改一个数字”是不会闪的</b>。
+              会闪是因为很多教程先调 <code class="icode">OLED_Clear()</code> 把整屏擦掉，
+              再从头画一遍——那一瞬间的空白就是你看到的闪烁。
+              正确做法是<b class="font-semibold">用固定宽度右对齐覆盖旧字符</b>，
+              或者用 RAM 中的双缓冲一次性刷 1024 字节。具体做法见
+              <a class="text-brand-600 dark:text-brand-300" href="stm32-voltmeter.html">数字电压表</a>那一篇。
+            </p>
+          </div>
+
+          <h3 id="sub-hw-vs-sw" class="mt-7 text-base font-semibold">硬件 I2C 为什么容易卡死</h3>
+          <p class="mt-3">
+            按理说 STM32F103 片内有硬件 I2C 外设，用它应该比软件翻转 GPIO 更省事。
+            但实际做项目的人往往会告诉你：<b class="font-semibold text-ink">能不用硬件 I2C 就不用</b>。
+            这不是偏见，有三个具体原因：
+          </p>
+
+          <ol class="mt-3 list-decimal space-y-2.5 pl-5">
+            <li>
+              <b class="font-semibold text-ink">著名的总线死锁问题。</b>
+              如果通信进行到一半时 MCU 复位了（比如你按了复位键重新下载程序），
+              而从机正好处在“正在拉低 SDA 发送 ACK”的状态，
+              这时总线是被从机占住的。MCU 复位后 I2C 外设看到 SDA 是低电平，
+              判定“总线忙”，于是 <code class="icode">BUSY</code> 标志位一直不清零，
+              所有后续传输全部失败——而且复位都救不回来，必须断电。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">HAL 库的阻塞式 API 会无限等待。</b>
+              <code class="icode">HAL_I2C_Master_Transmit(&amp;hi2c1, addr, buf, len, HAL_MAX_DELAY)</code>
+              里的最后一个参数如果传 <code class="icode">HAL_MAX_DELAY</code>，
+              从机不响应时这个函数<b class="font-semibold">永远不会返回</b>，
+              程序看起来就是“卡死在某一行”。
+            </li>
+            <li>
+              <b class="font-semibold text-ink">出错信息少，难定位。</b>
+              硬件 I2C 出错只给你一个 <code class="icode">HAL_ERROR</code> 或 <code class="icode">HAL_BUSY</code>，
+              到底是没有 ACK、还是总线被占、还是时序错乱，你只能靠猜。
+              而软件模拟 I2C 的每一拍都是你自己写的，
+              拿示波器一量就知道卡在哪一位。
+            </li>
+          </ol>
+
+          <p class="mt-4">
+            所以本页的做法是：<b class="font-semibold text-ink">用两个普通 GPIO 软件模拟 I2C</b>。
+            好处是时序完全可控、引脚想换就换、调试时能一行一行跟；
+            代价是最高速率大约只有 100~300kHz，而且发送时 CPU 要全程参与。
+            对刷一块 1KB 显存的 OLED 来说，这个代价完全可以接受——
+            实测全屏刷新约 30ms，人眼根本看不出。
+          </p>
+
+          <div class="callout callout-warn mt-4">
+            <div class="callout-title">什么时候还是得用硬件 I2C</div>
+            <p>
+              需要高速（400kHz 以上）连续读取大量数据时，比如从 MPU6050 读六轴数据、
+              从 EEPROM 搬大块固件，软件模拟就会明显拖慢主循环。
+              这时候再用硬件 I2C，并且务必做到三件事：
+              <b class="font-semibold">所有调用都传有限的超时时间</b>、
+              <b class="font-semibold">在错误回调里做外设软复位</b>
+              （<code class="icode">__HAL_I2C_DISABLE</code> 后重新 <code class="icode">HAL_I2C_Init</code>）、
+              <b class="font-semibold">开机时先发 9 个时钟脉冲解锁可能被占住的总线</b>。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 2. 硬件接线说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-hardware" class="text-xl font-semibold">硬件接线说明</h2>
+
+          <p class="mt-4">
+            OLED 模块只有 4 个引脚，接线本身很简单，但有两个地方必须在上电前确认：
+            <b class="font-semibold text-ink">模块有没有板载上拉电阻</b>，
+            以及<b class="font-semibold text-ink">供电是 3.3V 还是 5V</b>。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">元件与接线表</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>元件</th>
+                  <th>引脚 / 规格</th>
+                  <th>连接到</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>蓝药丸最小系统板</td>
+                  <td class="font-mono text-xs">PB6</td>
+                  <td>OLED 的 SCL</td>
+                  <td>软件 I2C 的时钟线，配成开漏输出</td>
+                </tr>
+                <tr>
+                  <td>蓝药丸最小系统板</td>
+                  <td class="font-mono text-xs">PB7</td>
+                  <td>OLED 的 SDA</td>
+                  <td>软件 I2C 的数据线，同样配成开漏输出</td>
+                </tr>
+                <tr>
+                  <td>SSD1306 OLED 模块</td>
+                  <td class="font-mono text-xs">VCC</td>
+                  <td>蓝药丸的 3.3V</td>
+                  <td>大多数模块支持 3.3~5V，但接 3.3V 最省心</td>
+                </tr>
+                <tr>
+                  <td>SSD1306 OLED 模块</td>
+                  <td class="font-mono text-xs">GND</td>
+                  <td>蓝药丸的 GND</td>
+                  <td>必须共地，这是所有通信的前提</td>
+                </tr>
+                <tr>
+                  <td>上拉电阻 ×2</td>
+                  <td class="font-mono text-xs">4.7kΩ</td>
+                  <td>SCL→3.3V、SDA→3.3V</td>
+                  <td><b class="font-semibold text-ink">模块板载已有就不用加</b>，先量一下再决定</td>
+                </tr>
+                <tr>
+                  <td>去耦电容（可选）</td>
+                  <td class="font-mono text-xs">100nF + 10µF</td>
+                  <td>OLED 模块的 VCC 与 GND 之间</td>
+                  <td>屏幕点亮瞬间电流会跳变，加电容能避免花屏</td>
+                </tr>
+                <tr>
+                  <td>电位器（配合本例）</td>
+                  <td class="font-mono text-xs">10kΩ</td>
+                  <td>两端接 3.3V / GND，滑臂接 PA1</td>
+                  <td>给 ADC 提供 0~3.3V 的可调电压</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">接线示意图</h3>
+          <div class="code-block mt-3" data-lang="text" data-title="接线示意（软件 I2C 驱动 OLED + ADC 采集）">
+            <pre><code>        3.3V
+          │
+          ├────────┬───────────┬─────────────┐
+          │        │           │             │
+        [4.7k]   [4.7k]        │             │
+          │        │       ┌────┴────┐   ┌────┴─────┐
+          │        │       │  OLED   │   │  蓝药丸   │
+          │        │       │ SSD1306 │   │ STM32F1  │
+          │        │       │ 0.96"   │   │ 03C8T6   │
+          │        │       │         │   │          │
+          │        └───────┤ SCL     │   │          │
+          │                │         │   │          │
+          └────────────────┤ SDA     │   │          │
+                           │         │   │          │
+                   3.3V ───┤ VCC     │   │          │
+                           │         │   │          │
+                   GND ────┤ GND     ├───┤ GND      │
+                           └─────────┘   │          │
+                                         │ PB6 ─────┼──→ 接 SCL
+                                         │ PB7 ─────┼──→ 接 SDA
+                                         │          │
+                                         │ PA1 ─────┼──→ 电位器滑臂
+                                         └──────────┘
+
+  说明：
+  1. 上拉电阻画在单片机这一侧，实际接在哪一端都行，只要 SCL/SDA 各有一个 4.7k 到 3.3V
+  2. 用万用表量模块的 SCL 对 VCC：约 5kΩ 说明板载已有上拉，这时图上两个电阻就不用焊
+  3. 杜邦线尽量短，超过 20cm 建议缩短或换排线，长线会让 I2C 波形变圆、通信变不稳</code></pre>
+          </div>
+
+          <h3 class="mt-7 text-base font-semibold">CubeMX 配置清单</h3>
+          <p class="mt-3">
+            用软件 I2C 时，<b class="font-semibold text-ink">CubeMX 里不要开 I2C 外设</b>，
+            只要把 PB6/PB7 配成普通的开漏输出即可。
+          </p>
+          <div class="code-block mt-3" data-lang="text" data-title="CubeMX 配置清单（软件 I2C）">
+            <pre><code>1. System Core → RCC
+     High Speed Clock (HSE) = Crystal/Ceramic Resonator
+
+2. Clock Configuration
+     HCLK = 72MHz
+     ★ ADC 预分频改成 /6（ADCCLK = 12MHz，协议上限 14MHz）
+
+3. System Core → GPIO
+     PB6  → 点一下选 GPIO_Output
+            GPIO output level = High         （空闲时松开总线）
+            GPIO mode          = Output Open Drain   ★ 必须是开漏
+            Maximum output speed = High
+            User Label         = OLED_SCL
+     PB7  → 同样配置
+            GPIO output level = High
+            GPIO mode          = Output Open Drain   ★
+            Maximum output speed = High
+            User Label         = OLED_SDA
+     ★ 开漏 + 内部上拉也可以先顶上：把 GPIO Pull-up/Pull-down 选 Pull-up，
+       这样即使忘记焊外部上拉也能通信，但内部上拉约 40kΩ，边沿很慢，
+       只能算应急方案，正式板子还是要焊 4.7k 外部电阻
+
+4. Analog → ADC1
+     IN1 勾选（PA1），Resolution = 12 bits
+     Sampling Time = 71.5 Cycles
+     Scan / Continuous 都保持 Disabled
+
+5. Connectivity → 不需要开 I2C！
+     本页用软件模拟，I2C1 外设保持 Disabled
+     如果需要串口打印调试信息，再开 USART1 = 115200 8N1</code></pre>
+          </div>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">上电前必查</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><b class="font-semibold">VCC 和 GND 千万别接反。</b> OLED 模块没有反接保护，接反一次基本就报废了，而且烧掉的时候没有明显征兆。</li>
+              <li><b class="font-semibold">上拉电阻接到 3.3V，不要接到 5V。</b> 虽然 F103 的 PB6/PB7 是 5V 容忍引脚（数据手册里标 FT），接 5V 不会立刻烧，但整个总线的电平判据都被抬高，还可能与 3.3V 供电的 OLED 产生灌电流。</li>
+              <li><b class="font-semibold">确认是 0.96 寸（64 行）还是 0.91 寸（32 行）。</b> 买错屏最常见的现象就是“只有上半屏有字”，需要改初始化序列里的 0xA8 参数。</li>
+              <li>杜邦线插紧。I2C 断一根线的现象是屏幕全黑，和“没供电”长得一模一样，很难分辨。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 3. 完整代码 ---------------------------- -->
+        <section>
+          <h2 id="sec-code" class="text-xl font-semibold">完整代码</h2>
+
+          <p class="mt-4">
+            驱动分成三个文件：<code class="icode">oled.h</code> 声明接口和引脚、
+            <code class="icode">oled.c</code> 实现软件 I2C 与 SSD1306 的全部操作、
+            <code class="icode">main.c</code> 把 ADC 采到的电压显示出来。
+            这三个文件加进工程就能编译，不需要额外安装任何库。
+          </p>
+
+          <div class="code-block mt-4" data-lang="c" data-title="oled.h —— 引脚定义与对外接口">
+            <pre><code>/* =====================================================================
+ * oled.h —— SSD1306 OLED 驱动（软件模拟 I2C 版）
+ * 芯片：STM32F103C8T6    依赖：STM32F1 HAL 库
+ * ===================================================================== */
+#ifndef __OLED_H
+#define __OLED_H
+
+#include "main.h"       /* 提供 GPIO_TypeDef、GPIO_PIN_x、uint8_t 等定义 */
+
+/* ---------------------------------------------------------------------
+ * 软件 I2C 的引脚定义
+ * 想换引脚只需要改这四行，不用动 oled.c —— 这是软件模拟 I2C 最大的好处。
+ * 前提：CubeMX 里要把这两个脚配成 GPIO_Output + Output Open Drain
+ * ------------------------------------------------------------------- */
+#define OLED_SCL_PORT       GPIOB
+#define OLED_SCL_PIN        GPIO_PIN_6
+#define OLED_SDA_PORT       GPIOB
+#define OLED_SDA_PIN        GPIO_PIN_7
+
+/* ---------------------------------------------------------------------
+ * SSD1306 的从机地址
+ * 数据手册里的 7 位地址是 0x3C，左移一位补上读写位 0 之后是 0x78，
+ * 这个 0x78 才是真正出现在总线上的字节。
+ * 如果屏幕点不亮，第二个要试的就是 0x7A（对应 7 位地址 0x3D）。
+ * ------------------------------------------------------------------- */
+#define OLED_I2C_ADDR       0x78
+
+/* ---------------------------------------------------------------------
+ * 屏幕尺寸。0.96 寸是 128x64（8 页）；
+ * 0.91 寸是 128x32（4 页），把 OLED_PAGES 改成 4，
+ * 并把 oled.c 初始化序列里 0xA8 后面的参数从 0x3F 改成 0x1F。
+ * ------------------------------------------------------------------- */
+#define OLED_WIDTH          128
+#define OLED_PAGES          8
+
+/* ---- 对外接口 ------------------------------------------------------ */
+void OLED_Init(void);                                            /* 上电初始化 */
+void OLED_Clear(void);                                           /* 清空整屏显存 */
+void OLED_ShowChar(uint8_t x, uint8_t y, char ch);               /* 显示一个 6x8 字符 */
+void OLED_ShowString(uint8_t x, uint8_t y, const char *str);     /* 显示字符串 */
+void OLED_ShowNum(uint8_t x, uint8_t y, uint32_t num, uint8_t len);  /* 高位补空格 */
+void OLED_ShowNumZ(uint8_t x, uint8_t y, uint32_t num, uint8_t len); /* 高位补 0 */
+void OLED_ShowCN(uint8_t x, uint8_t y, const uint8_t *hz);       /* 显示 16x16 汉字 */
+uint8_t OLED_TestConnection(void);                               /* 探测从机是否应答 */
+
+#endif /* __OLED_H */
+</code></pre>
+          </div>
+
+          <div class="code-block mt-4" data-lang="c" data-title="oled.c —— 软件 I2C 时序 + SSD1306 驱动">
+            <pre><code>/* =====================================================================
+ * oled.c —— SSD1306 OLED 驱动（软件模拟 I2C）
+ * ---------------------------------------------------------------------
+ * 目录：
+ *   1. 软件 I2C 的底层时序（Start / Stop / 写字节 / 等应答）
+ *   2. SSD1306 的命令与数据写入
+ *   3. 初始化序列
+ *   4. 6x8 ASCII 字库与字符、字符串、数字显示
+ *   5. 16x16 汉字显示
+ * ===================================================================== */
+#include "oled.h"
+
+/* =====================================================================
+ * 1. 软件 I2C 底层时序
+ * ===================================================================== */
+
+/* 位延时。I2C 协议只规定最大频率（标准模式 100kHz、快速模式 400kHz），
+ * 没有规定最小频率，所以时钟慢一点永远安全。
+ * 这个循环在 72MHz 下产生约 2µs 的高/低电平，对应约 250kHz，
+ * 在 SSD1306 支持的范围内。如果杜邦线很长导致通信不稳，把 20 改大即可。 */
+static void I2C_Delay(void)
+{
+    for (volatile uint8_t i = 0; i &lt; 20U; i++)
+    {
+        __NOP();        /* 空操作，占一个时钟周期，防止被编译器优化掉 */
+    }
+}
+
+/* 把 SCL / SDA 拉高或拉低。
+ * 因为引脚配成了开漏输出，"写 1" 实际是松开总线让上拉电阻把它拉高。 */
+#define SCL_H()   HAL_GPIO_WritePin(OLED_SCL_PORT, OLED_SCL_PIN, GPIO_PIN_SET)
+#define SCL_L()   HAL_GPIO_WritePin(OLED_SCL_PORT, OLED_SCL_PIN, GPIO_PIN_RESET)
+#define SDA_H()   HAL_GPIO_WritePin(OLED_SDA_PORT, OLED_SDA_PIN, GPIO_PIN_SET)
+#define SDA_L()   HAL_GPIO_WritePin(OLED_SDA_PORT, OLED_SDA_PIN, GPIO_PIN_RESET)
+
+/* 读 SDA 的电平。
+ * 技巧：STM32 的输入数据寄存器 IDR 一直在采样引脚电平，
+ * 不管引脚被配成输入还是输出。所以开漏输出模式下可以直接读回总线状态，
+ * 不需要来回切换引脚方向 —— 这正是判断 ACK 需要的。 */
+#define SDA_READ()   HAL_GPIO_ReadPin(OLED_SDA_PORT, OLED_SDA_PIN)
+
+/* ---------------------------------------------------------------------
+ * 起始条件：SCL 为高时，SDA 由高变低
+ * ------------------------------------------------------------------- */
+static void I2C_Start(void)
+{
+    SDA_H();            /* 先确保两条线都是空闲的高电平 */
+    SCL_H();
+    I2C_Delay();
+
+    SDA_L();            /* SCL 保持高，SDA 拉低 → 这就是 Start */
+    I2C_Delay();
+
+    SCL_L();            /* 拉低 SCL，准备发送数据位 */
+    I2C_Delay();
+}
+
+/* ---------------------------------------------------------------------
+ * 停止条件：SCL 为高时，SDA 由低变高
+ * ------------------------------------------------------------------- */
+static void I2C_Stop(void)
+{
+    SDA_L();            /* 先保证 SDA 是低 */
+    I2C_Delay();
+
+    SCL_H();            /* 先把 SCL 抬起来 */
+    I2C_Delay();
+
+    SDA_H();            /* SCL 为高时 SDA 上升 → 这就是 Stop */
+    I2C_Delay();
+}
+
+/* ---------------------------------------------------------------------
+ * 发送一个字节（高位在前）
+ * ------------------------------------------------------------------- */
+static void I2C_WriteByte(uint8_t byte)
+{
+    uint8_t i;
+
+    for (i = 0; i &lt; 8U; i++)
+    {
+        SCL_L();                        /* SCL 拉低期间准备数据，数据才允许变化 */
+        I2C_Delay();
+
+        if ((byte &amp; 0x80U) != 0U)       /* 每次取最高位 */
+        {
+            SDA_H();
+        }
+        else
+        {
+            SDA_L();
+        }
+        byte = (uint8_t)(byte &lt;&lt; 1);    /* 左移，把下一位顶到最高位 */
+        I2C_Delay();
+
+        SCL_H();                        /* SCL 拉高，从机在这一刻采样 SDA */
+        I2C_Delay();
+    }
+
+    SCL_L();                            /* 8 位发完，拉低 SCL 准备应答位 */
+    I2C_Delay();
+}
+
+/* ---------------------------------------------------------------------
+ * 读取从机的应答位
+ * 返回：0 = 收到 ACK（从机在线），1 = 没有应答（从机不在或地址错）
+ * ------------------------------------------------------------------- */
+static uint8_t I2C_WaitAck(void)
+{
+    uint8_t ack;
+
+    SDA_H();            /* 主机松开 SDA，把发言权交给从机 */
+    I2C_Delay();
+
+    SCL_H();            /* 第 9 个时钟，从机如果在线就会把 SDA 拉低 */
+    I2C_Delay();
+
+    ack = (SDA_READ() == GPIO_PIN_RESET) ? 0U : 1U;   /* 低电平就是 ACK */
+
+    SCL_L();
+    I2C_Delay();
+
+    return ack;
+}
+
+/* =====================================================================
+ * 2. SSD1306 的命令与数据写入
+ * ===================================================================== */
+
+/* ---------------------------------------------------------------------
+ * 写一条命令。
+ * I2C 帧结构：[Start][0x78][ACK][0x00][ACK][命令][ACK][Stop]
+ * 其中 0x00 是控制字节，告诉 SSD1306“接下来这个字节是命令”。
+ * ------------------------------------------------------------------- */
+static void OLED_WriteCmd(uint8_t cmd)
+{
+    I2C_Start();
+    I2C_WriteByte(OLED_I2C_ADDR);   /* 从机地址 + 写方向 */
+    I2C_WaitAck();
+    I2C_WriteByte(0x00);            /* 控制字节 0x00 = 命令 */
+    I2C_WaitAck();
+    I2C_WriteByte(cmd);
+    I2C_WaitAck();
+    I2C_Stop();
+}
+
+/* ---------------------------------------------------------------------
+ * 连续写 n 个显存字节。
+ * 关键优化：只在开头和结尾各一次 Start/Stop，中间的 0x40 控制字节
+ * 只发一次，之后 SSD1306 的列地址会自动加 1，数据一路灌进去就行。
+ * 比“每个字节都走一次完整 I2C 事务”快 4 倍以上。
+ * ------------------------------------------------------------------- */
+static void OLED_WriteDataBuf(const uint8_t *buf, uint16_t n)
+{
+    uint16_t i;
+
+    I2C_Start();
+    I2C_WriteByte(OLED_I2C_ADDR);
+    I2C_WaitAck();
+    I2C_WriteByte(0x40);            /* 控制字节 0x40 = 显存数据 */
+    I2C_WaitAck();
+
+    for (i = 0; i &lt; n; i++)
+    {
+        I2C_WriteByte(buf[i]);
+        I2C_WaitAck();
+    }
+
+    I2C_Stop();
+}
+
+/* 写一个显存字节（字符显示用） */
+static void OLED_WriteData(uint8_t dat)
+{
+    OLED_WriteDataBuf(&amp;dat, 1U);
+}
+
+/* ---------------------------------------------------------------------
+ * 设置写入位置：x = 列（0~127），page = 页（0~7）
+ * ------------------------------------------------------------------- */
+static void OLED_SetCursor(uint8_t x, uint8_t page)
+{
+    OLED_WriteCmd((uint8_t)(0xB0U | (page &amp; 0x07U)));          /* 页地址 */
+    OLED_WriteCmd((uint8_t)(0x00U | (x &amp; 0x0FU)));            /* 列地址低 4 位 */
+    OLED_WriteCmd((uint8_t)(0x10U | ((x &gt;&gt; 4) &amp; 0x0FU)));      /* 列地址高 4 位 */
+}
+
+/* =====================================================================
+ * 3. 初始化序列
+ * ===================================================================== */
+
+/* 逐条对应数据手册的命令表。★ 标记的两条是最常被漏掉的。 */
+static const uint8_t OLED_INIT_CMDS[] = {
+    0xAE,           /* 关闭显示：配置过程中先黑屏，避免看到花屏过程 */
+    0x20, 0x00,     /* 寻址模式 = 水平寻址，写满一页自动跳到下一页 */
+    0xB0,           /* 页地址从 0 开始 */
+    0xC8,           /* COM 扫描方向 = 从下往上（配合 0xA1 得到正立画面） */
+    0x00,           /* 列地址低 4 位 = 0 */
+    0x10,           /* 列地址高 4 位 = 0 */
+    0x40,           /* 显示起始行 = 0 */
+    0x81, 0xCF,     /* 对比度 = 0xCF（0x00~0xFF，调大到 0xFF 最亮） */
+    0xA1,           /* 段重映射：左右方向，和 0xC8 一起决定画面是否正立 */
+    0xA6,           /* 正常显示（改成 0xA7 就是黑底白字反相） */
+    0xA8, 0x3F,     /* ★ 多路复用比 = 0x3F+1 = 64 行。
+                       0.91 寸屏（32 行）必须改成 0x1F，否则只亮上半屏 */
+    0xA4,           /* 输出跟随显存内容（0xA5 是强制全亮，出厂测试用） */
+    0xD3, 0x00,     /* 显示垂直偏移 = 0 */
+    0xD5, 0x80,     /* 时钟分频与振荡频率，0x80 是官方推荐值 */
+    0xD9, 0xF1,     /* 预充电周期，0xF1 配合内部电荷泵使用 */
+    0xDA, 0x12,     /* ★ COM 引脚硬件配置 = 0x12（交替模式），
+                       0.96 寸标准值。写错会出现隔行亮、半屏花 */
+    0xDB, 0x40,     /* VCOMH 反压电平 */
+    0x8D, 0x14,     /* ★★ 电荷泵使能：0x14 = 开启，0x10 = 关闭。
+                       这一条漏了屏幕会完全不亮，是头号经典坑。
+                       SSD1306 靠内部电荷泵产生约 7.5V 的驱动电压，
+                       不开启就没有点亮的能量 */
+    0xAF            /* 打开显示 */
+};
+
+/* ---------------------------------------------------------------------
+ * 初始化 OLED
+ * ------------------------------------------------------------------- */
+void OLED_Init(void)
+{
+    uint16_t i;
+
+    /* CubeMX 里如果忘了使能 GPIOB 时钟，下面两个脚永远不会动。
+     * 这里补一句，让驱动不依赖 CubeMX 的勾选，更保险。 */
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+
+    /* 依次发出初始化命令表里的每一条 */
+    for (i = 0; i &lt; sizeof(OLED_INIT_CMDS); i++)
+    {
+        OLED_WriteCmd(OLED_INIT_CMDS[i]);
+    }
+
+    /* 清空显存，避免上电后看到随机雪花点 */
+    OLED_Clear();
+}
+
+/* ---------------------------------------------------------------------
+ * 探测从机是否应答，用来区分“硬件没接好”和“代码写错了”
+ * 返回：0 = 收到应答，OLED 在线；非 0 = 没有任何设备应答
+ * ------------------------------------------------------------------- */
+uint8_t OLED_TestConnection(void)
+{
+    uint8_t ret;
+
+    I2C_Start();
+    I2C_WriteByte(OLED_I2C_ADDR);
+    ret = I2C_WaitAck();
+    I2C_Stop();
+
+    return ret;
+}
+
+/* ---------------------------------------------------------------------
+ * 清屏：8 页 × 128 列全部写 0
+ * ------------------------------------------------------------------- */
+void OLED_Clear(void)
+{
+    uint8_t page;
+    /* 一整页的空白显存。写成 static const 会放进 Flash，不占用 RAM */
+    static const uint8_t blank_line[OLED_WIDTH] = { 0 };
+
+    for (page = 0; page &lt; OLED_PAGES; page++)
+    {
+        OLED_SetCursor(0, page);
+        OLED_WriteDataBuf(blank_line, OLED_WIDTH);
+    }
+}
+
+/* =====================================================================
+ * 4. 字库与字符显示
+ * ===================================================================== */
+
+/* ---------------------------------------------------------------------
+ * 6x8 点阵字库：每个字符 6 列，每列 8 位，bit0 对应页内最上面那一行。
+ * 只列了本工程用到的字符，方便你照着加。
+ * 完整 95 个可打印 ASCII 字符的字库在资料下载页，结构和这里完全一致，
+ * 直接替换掉整个数组即可。
+ * ------------------------------------------------------------------- */
+typedef struct
+{
+    char    code;       /* 字符的 ASCII 码 */
+    uint8_t col[6];     /* 6 列的点阵数据 */
+} Font6x8_TypeDef;
+
+static const Font6x8_TypeDef FONT_6X8[] = {
+    { ' ', { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
+    { '-', { 0x08, 0x08, 0x08, 0x08, 0x08, 0x00 } },
+    { '.', { 0x00, 0x60, 0x60, 0x00, 0x00, 0x00 } },
+    { ':', { 0x00, 0x36, 0x36, 0x00, 0x00, 0x00 } },
+    { '%', { 0x23, 0x13, 0x08, 0x64, 0x62, 0x00 } },
+    { '0', { 0x3E, 0x51, 0x49, 0x45, 0x3E, 0x00 } },
+    { '1', { 0x00, 0x42, 0x7F, 0x40, 0x00, 0x00 } },
+    { '2', { 0x42, 0x61, 0x51, 0x49, 0x46, 0x00 } },
+    { '3', { 0x21, 0x41, 0x45, 0x4B, 0x31, 0x00 } },
+    { '4', { 0x18, 0x14, 0x12, 0x7F, 0x10, 0x00 } },
+    { '5', { 0x27, 0x45, 0x45, 0x45, 0x39, 0x00 } },
+    { '6', { 0x3C, 0x4A, 0x49, 0x49, 0x30, 0x00 } },
+    { '7', { 0x01, 0x71, 0x09, 0x05, 0x03, 0x00 } },
+    { '8', { 0x36, 0x49, 0x49, 0x49, 0x36, 0x00 } },
+    { '9', { 0x06, 0x49, 0x49, 0x29, 0x1E, 0x00 } },
+    { '=', { 0x14, 0x14, 0x14, 0x14, 0x14, 0x00 } },
+    { 'A', { 0x7E, 0x11, 0x11, 0x11, 0x7E, 0x00 } },
+    { 'C', { 0x3E, 0x41, 0x41, 0x41, 0x22, 0x00 } },
+    { 'D', { 0x7F, 0x41, 0x41, 0x22, 0x1C, 0x00 } },
+    { 'E', { 0x7F, 0x49, 0x49, 0x49, 0x41, 0x00 } },
+    { 'H', { 0x7F, 0x08, 0x08, 0x08, 0x7F, 0x00 } },
+    { 'L', { 0x7F, 0x40, 0x40, 0x40, 0x40, 0x00 } },
+    { 'M', { 0x7F, 0x02, 0x0C, 0x02, 0x7F, 0x00 } },
+    { 'O', { 0x3E, 0x41, 0x41, 0x41, 0x3E, 0x00 } },
+    { 'P', { 0x7F, 0x09, 0x09, 0x09, 0x06, 0x00 } },
+    { 'R', { 0x7F, 0x09, 0x19, 0x29, 0x46, 0x00 } },
+    { 'S', { 0x46, 0x49, 0x49, 0x49, 0x31, 0x00 } },
+    { 'T', { 0x01, 0x01, 0x7F, 0x01, 0x01, 0x00 } },
+    { 'V', { 0x3F, 0x40, 0x40, 0x40, 0x3F, 0x00 } },
+    { 'W', { 0x3F, 0x40, 0x38, 0x40, 0x3F, 0x00 } },
+    { 'm', { 0x7C, 0x04, 0x18, 0x04, 0x78, 0x00 } },
+    { 'v', { 0x3C, 0x40, 0x40, 0x40, 0x3C, 0x00 } },
+};
+
+/* 在字库里查一个字符的点阵。
+ * 查不到就退化成空格，这样即使字库不全也只是显示成空白，不会乱码。 */
+static const uint8_t *Font6x8_Get(char ch)
+{
+    uint16_t i;
+
+    for (i = 0; i &lt; (sizeof(FONT_6X8) / sizeof(FONT_6X8[0])); i++)
+    {
+        if (FONT_6X8[i].code == ch)
+        {
+            return FONT_6X8[i].col;
+        }
+    }
+
+    return FONT_6X8[0].col;     /* 第 0 个就是空格 */
+}
+
+/* ---------------------------------------------------------------------
+ * 显示一个字符。x 单位是像素列（建议用 6 的倍数），y 是页号 0~7
+ * ------------------------------------------------------------------- */
+void OLED_ShowChar(uint8_t x, uint8_t y, char ch)
+{
+    if ((x > (OLED_WIDTH - 6U)) || (y >= OLED_PAGES))
+    {
+        return;     /* 越界直接返回，避免把显存写到屏外造成错位 */
+    }
+
+    OLED_SetCursor(x, y);
+    OLED_WriteDataBuf(Font6x8_Get(ch), 6U);
+}
+
+/* ---------------------------------------------------------------------
+ * 显示字符串。自动按 6 像素一个字符往右铺，超出屏宽就换到下一页
+ * ------------------------------------------------------------------- */
+void OLED_ShowString(uint8_t x, uint8_t y, const char *str)
+{
+    while (*str != '\0')
+    {
+        if (x > (OLED_WIDTH - 6U))      /* 这一页写满了 */
+        {
+            x = 0U;
+            y = (uint8_t)(y + 1U);      /* 换到下一页继续 */
+            if (y >= OLED_PAGES)
+            {
+                return;                 /* 整屏写满，收工 */
+            }
+        }
+
+        OLED_ShowChar(x, y, *str);
+        x = (uint8_t)(x + 6U);
+        str++;
+    }
+}
+
+/* ---------------------------------------------------------------------
+ * 显示数字的内部实现
+ * pad = ' ' 时高位补空格（适合显示原始值，旧数字能被覆盖干净）
+ * pad = '0' 时高位补 0（适合显示小数位，例如 050 表示 0.050）
+ * ------------------------------------------------------------------- */
+static void OLED_ShowNumEx(uint8_t x, uint8_t y, uint32_t num, uint8_t len, char pad)
+{
+    uint8_t  i;
+    uint32_t div = 1U;
+
+    if ((len == 0U) || (len > 10U))
+    {
+        return;
+    }
+
+    /* 求出最高位的权值：len = 3 时 div = 100 */
+    for (i = 1U; i &lt; len; i++)
+    {
+        div *= 10U;
+    }
+
+    for (i = 0U; i &lt; len; i++)
+    {
+        char ch;
+
+        if ((pad == ' ') &amp;&amp; (num &lt; div))
+        {
+            ch = ' ';       /* 高位还没轮到有效数字，用空格占位 */
+        }
+        else
+        {
+            ch = (char)('0' + ((num / div) % 10U));
+        }
+
+        OLED_ShowChar((uint8_t)(x + i * 6U), y, ch);
+        div /= 10U;
+    }
+}
+
+void OLED_ShowNum(uint8_t x, uint8_t y, uint32_t num, uint8_t len)
+{
+    OLED_ShowNumEx(x, y, num, len, ' ');
+}
+
+void OLED_ShowNumZ(uint8_t x, uint8_t y, uint32_t num, uint8_t len)
+{
+    OLED_ShowNumEx(x, y, num, len, '0');
+}
+
+/* =====================================================================
+ * 5. 16x16 汉字显示
+ * ===================================================================== */
+
+/* ---------------------------------------------------------------------
+ * 显示一个 16x16 汉字。hz 指向 32 字节的点阵数据。
+ *
+ * 取模软件（PCtoLCD2002）设置：
+ *   点阵大小 16x16，阴码，逐列式，顺向（高位在前），C51 格式
+ * 这 32 字节的排布是：
+ *   第 0~15 字节 → 汉字左半边的上半部分 + 下半部分（每列 2 字节）
+ *   第 16~31 字节 → 汉字右半边，同样每列 2 字节
+ * 换句话说，第 i 列的上半部分在 hz[i*2]，下半部分在 hz[i*2+1]。
+ *
+ * ★ y 必须是偶数（0、2、4、6），因为一个汉字要占两页。
+ * ------------------------------------------------------------------- */
+void OLED_ShowCN(uint8_t x, uint8_t y, const uint8_t *hz)
+{
+    uint8_t i;
+
+    if ((y + 1U) >= OLED_PAGES)
+    {
+        return;     /* 汉字需要两页，底部不够就不画 */
+    }
+
+    OLED_SetCursor(x, y);                   /* 先写上半部分（16 列） */
+    for (i = 0; i &lt; 16U; i++)
+    {
+        OLED_WriteData(hz[i * 2U]);
+    }
+
+    OLED_SetCursor(x, (uint8_t)(y + 1U));   /* 再写下半部分 */
+    for (i = 0; i &lt; 16U; i++)
+    {
+        OLED_WriteData(hz[i * 2U + 1U]);
+    }
+}
+</code></pre>
+          </div>
+
+          <div class="code-block mt-4" data-lang="c" data-title="main.c —— 在 OLED 上显示 ADC 采到的电压值">
+            <pre><code>/* =====================================================================
+ * main.c —— ADC 采集 PA1 电压并在 OLED 上显示
+ * 芯片：STM32F103C8T6（蓝药丸）    外设：SSD1306 0.96 寸 OLED（软件 I2C）
+ * ---------------------------------------------------------------------
+ * 显示布局（y 是页号，每页 8 像素高，一屏 8 页）：
+ *   Page 0 : STM32 ADC OLED
+ *   Page 2 : V=1.234V
+ *   Page 4 : RAW=2048
+ *   Page 6 : PA1  CH1
+ * ===================================================================== */
+#include "main.h"
+#include "adc.h"
+#include "gpio.h"
+#include "oled.h"
+
+/* ---------------------------------------------------------------------
+ * 读一次 ADC1 的原始值（轮询方式，详细原理见 ADC 那一篇）
+ * ------------------------------------------------------------------- */
+static uint16_t ADC1_ReadRaw(void)
+{
+    uint16_t raw = 0xFFFF;
+
+    HAL_ADC_Start(&amp;hadc1);
+    if (HAL_ADC_PollForConversion(&amp;hadc1, 10U) == HAL_OK)
+    {
+        raw = (uint16_t)HAL_ADC_GetValue(&amp;hadc1);
+    }
+    HAL_ADC_Stop(&amp;hadc1);
+
+    return raw;
+}
+
+/* ---------------------------------------------------------------------
+ * 屏幕没有应答时用它报警：板载 LED（PC13，低电平点亮）快闪三次
+ * 这样即使 OLED 全黑，你也能从 LED 判断出“是屏的问题”而不是“程序没跑”
+ * ------------------------------------------------------------------- */
+static void ErrorBlink(void)
+{
+    uint8_t i;
+
+    for (i = 0; i &lt; 6U; i++)
+    {
+        HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+        HAL_Delay(80);
+    }
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   /* 灭 */
+}
+
+/* ---------------------------------------------------------------------
+ * 把已经算好的毫伏值刷到屏幕上
+ * ------------------------------------------------------------------- */
+static void ShowVoltage(uint16_t raw, uint16_t mv)
+{
+    /* --- 第 2 页：V=x.xxxV ---
+     * 全部用整数拼出来，不碰浮点：
+     *   mv / 1000   → 整数位
+     *   mv % 1000   → 小数位，用补 0 的方式显示，保证 3 位宽度 */
+    OLED_ShowString(0, 2, "V=");
+    OLED_ShowNum(12, 2, mv / 1000U, 1);     /* 整数位，1 个字符宽 */
+    OLED_ShowChar(18, 2, '.');              /* 小数点，x 每次进 6 像素 */
+    OLED_ShowNumZ(24, 2, mv % 1000U, 3);    /* 小数位，3 个字符宽，高位补 0 */
+    OLED_ShowString(42, 2, "V");
+
+    /* --- 第 4 页：RAW=xxxx ---
+     * 用补空格的 ShowNum：数字变短时左边会被空格覆盖，
+     * 不会留下上一个值的残影 —— 这就是“不闪屏刷新”的关键技巧 */
+    OLED_ShowString(0, 4, "RAW=");
+    OLED_ShowNum(24, 4, raw, 4);
+}
+
+int main(void)
+{
+    uint16_t raw;
+    uint16_t mv;
+
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_ADC1_Init();
+
+    /* F1 系列 ADC 必须做自校准，否则首次转换结果会明显偏大 */
+    HAL_ADCEx_Calibration_Start(&amp;hadc1);
+
+    /* ---- 初始化 OLED ---- */
+    OLED_Init();
+
+    /* 先探测从机应答，这是区分“接线/地址问题”和“代码问题”的分水岭 */
+    if (OLED_TestConnection() != 0U)
+    {
+        ErrorBlink();       /* 从机不应答，用 LED 报警，然后继续跑主循环 */
+    }
+
+    /* ---- 画静态内容，只画一次 ----
+     * 固定不变的文字在开机时画一次就够了，主循环里只更新会变的部分。
+     * 这样既省时间（软件 I2C 全屏刷新要几十毫秒），也避免了闪烁。 */
+    OLED_ShowString(0, 0, "STM32 ADC OLED");
+    OLED_ShowString(0, 6, "PA1  CH1");
+
+    while (1)
+    {
+        raw = ADC1_ReadRaw();
+
+        if (raw != 0xFFFF)
+        {
+            /* 电压 = 原始值 × 3300mV / 4095，先乘后除并用 32 位中间变量防溢出 */
+            mv = (uint16_t)(((uint32_t)raw * 3300U) / 4095U);
+            ShowVoltage(raw, mv);
+        }
+
+        /* 每 300ms 刷一次。太快了数字跳得看不清，
+         * 而且软件 I2C 刷新本身要花时间，没必要那么频繁 */
+        HAL_Delay(300);
+    }
+}
+</code></pre>
+          </div>
+
+          <h3 id="sub-code-key" class="mt-7 text-base font-semibold">关键代码解析</h3>
+          <ul class="mt-3 list-disc space-y-2.5 pl-5">
+            <li>
+              <code class="icode">#define SCL_H() HAL_GPIO_WritePin(..., GPIO_PIN_SET)</code>——
+              为什么“写 1”能让线变高？因为引脚是<b class="font-semibold">开漏输出</b>，
+              写 1 只是让内部的下管截止、引脚进入高阻态，真正把它拉高的是外部的 4.7kΩ 上拉电阻。
+              这也意味着<b class="font-semibold">忘焊上拉电阻时，SCL_H() 是无效操作</b>，
+              线永远停在低电平，屏幕自然全黑。这是本页第一条要记住的因果关系。
+            </li>
+            <li>
+              <code class="icode">ack = (SDA_READ() == GPIO_PIN_RESET) ? 0U : 1U;</code>——
+              在开漏输出模式下读引脚电平，靠的是 STM32 的输入数据寄存器 IDR
+              始终在采样引脚真实电平这一特性。这样就不用来回切换引脚方向，
+              省掉了 <code class="icode">HAL_GPIO_Init</code> 的开销，时序也更干净。
+            </li>
+            <li>
+              <code class="icode">OLED_WriteDataBuf(const uint8_t *buf, uint16_t n)</code>——
+              这个函数是整份驱动的性能核心。I2C 每次 Start/Stop 都要花好几个位时间，
+              如果每写一个字节都走一遍完整事务，清屏 1024 字节就要 1024 次 Start/Stop。
+              改成一次事务连写 n 字节后，实测全屏清屏从约 150ms 降到约 30ms。
+              <b class="font-semibold">能批量就批量，这是 I2C 驱动优化的第一原则。</b>
+            </li>
+            <li>
+              <code class="icode">0x8D, 0x14</code>——电荷泵使能。
+              SSD1306 的 OLED 像素需要约 7.5V 的驱动电压，而模块只供 3.3V，
+              多出来的电压靠芯片内部的电荷泵升压得到。
+              这条命令写错或漏掉，现象就是
+              <b class="font-semibold">I2C 通信完全正常（ACK 都有）、但屏幕一点光都不出</b>。
+              遇到“全黑但有应答”，第一个就查它。
+            </li>
+            <li>
+              <code class="icode">0xA8, 0x3F</code> 里的 <code class="icode">0x3F</code>——
+              多路复用比，0x3F + 1 = 64 行。0.91 寸屏只有 32 行，
+              这个值必须改成 0x1F。改错的现象是“只有上半屏显示，下半屏永远黑”。
+            </li>
+            <li>
+              <code class="icode">OLED_ShowNum</code> 高位补空格、
+              <code class="icode">OLED_ShowNumZ</code> 高位补 0——
+              两个函数共用一个 <code class="icode">OLED_ShowNumEx</code>，区别只有 pad 参数。
+              补空格是为了覆盖旧内容（RAW=2048 变成 RAW=57 时，
+              后两位会显示成空格而不是残留的 48），
+              补 0 是为了小数位的定宽显示（50mV 要写成 .050 而不是 . 50）。
+              <b class="font-semibold">看清楚这两个使用场景的差别，就不会再闪屏了。</b>
+            </li>
+            <li>
+              <code class="icode">if ((x &gt; (OLED_WIDTH - 6U)) || (y &gt;= OLED_PAGES)) return;</code>——
+              越界检查。SSD1306 的列地址是循环的，写超了会绕回屏幕左边，
+              现象是莫名其妙的错位文字，很难查。加一行判断能省掉一晚上的调试。
+            </li>
+          </ul>
+
+          <h3 id="sub-code-cn" class="mt-7 text-base font-semibold">汉字取模显示的原理</h3>
+          <p class="mt-3">
+            OLED 本身不认识汉字，它只认识显存里的 0 和 1。
+            所谓“显示汉字”，就是把汉字的图形
+            <b class="font-semibold text-ink">事先在电脑上转换成字节数组，存进单片机的 Flash</b>，
+            需要时把数组搬进显存。这个过程叫“取模”。
+          </p>
+
+          <p class="mt-3">
+            一个 16×16 的汉字一共 256 个像素，也就是 256 个 0/1 位，
+            打包成字节就是 <b class="font-semibold text-ink">32 字节</b>。
+            取模软件负责把图形变成这 32 字节，我们负责把它写对位置。
+            常用的 PCtoLCD2002 软件里要这样设置：
+          </p>
+
+          <div class="table-scroll mt-4">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>设置项</th>
+                  <th>选什么</th>
+                  <th>为什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>点阵大小</td><td>16 × 16</td><td>正好占两页（2 × 8 = 16 行），横向 16 列</td></tr>
+                <tr><td>字模选项</td><td>阴码</td><td>阴码 = 1 表示点亮。反了就会显示成“白底黑字”的方块</td></tr>
+                <tr><td>取模方式</td><td>逐列式</td><td>和 SSD1306 的竖条显存结构一致，可以直接按列搬</td></tr>
+                <tr><td>取模走向</td><td>顺向（高位在前）</td><td>决定 bit0 在上还是 bit7 在上。反了字会上下颠倒</td></tr>
+                <tr><td>输出格式</td><td>C51 格式</td><td>直接生成 <code class="icode">0x12, 0x34, ...</code> 的数组，粘进代码就能用</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="mt-4">
+            取模软件生成的结果，粘进代码里长这样（
+            <b class="font-semibold">下面的数值必须用你自己的取模软件生成</b>，
+            这里只展示数据格式）：
+          </p>
+
+          <div class="code-block mt-3" data-lang="c" data-title="汉字点阵数组的格式（16x16 = 32 字节）">
+            <pre><code>/* 取模软件生成：16x16 汉字，逐列式，顺向，阴码
+ * ---------------------------------------------------------------------
+ * 这 32 个字节的排布规律（和 OLED_ShowCN 的实现一一对应）：
+ *
+ *   hz[0]  hz[1]   ← 第 0 列：上半部分 8 行、下半部分 8 行
+ *   hz[2]  hz[3]   ← 第 1 列：上半、下半
+ *   hz[4]  hz[5]   ← 第 2 列
+ *   ......
+ *   hz[30] hz[31]  ← 第 15 列：上半、下半
+ *
+ * 所以第 i 列的上半部分永远是 hz[i*2]，下半部分是 hz[i*2+1]，
+ * 这就是 OLED_ShowCN 里那句话的来历。
+ * ------------------------------------------------------------------- */
+const uint8_t HZ_DIAN[32] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};      /* ← 把取模软件生成的 32 个数值替换到这里 */
+
+/* 调用方式：x 是起始列，y 必须是偶数（汉字要占第 y 页和第 y+1 页） */
+OLED_ShowCN(0, 4, HZ_DIAN);
+
+/* 一行可以放 128 / 16 = 8 个汉字，所以“电压表”三个字这样写： */
+OLED_ShowCN(0,  6, HZ_DIAN);    /* 第 1 个字，占列 0~15  */
+OLED_ShowCN(16, 6, HZ_DIAN);    /* 第 2 个字，占列 16~31 */
+OLED_ShowCN(32, 6, HZ_DIAN);    /* 第 3 个字，占列 32~47 */</code></pre>
+          </div>
+
+          <div class="callout callout-tip mt-4">
+            <div class="callout-title">汉字显示上下颠倒或左右镜像怎么办</div>
+            <p>
+              这是取模设置和屏幕扫描方向不匹配造成的，不用改驱动代码，两条路选一条：
+            </p>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><b class="font-semibold">改取模软件</b>：把“顺向/逆向”或“高位在前/低位在前”反过来，重新生成 32 字节。</li>
+              <li><b class="font-semibold">改初始化命令</b>：上下颠倒就改 <code class="icode">0xC8</code> 为 <code class="icode">0xC0</code>，左右镜像就改 <code class="icode">0xA1</code> 为 <code class="icode">0xA0</code>。
+              但注意这会让<b class="font-semibold">整个屏幕</b>都翻转，ASCII 字符也会跟着变，所以只在你确认所有内容方向一致时才这么干。</li>
+            </ul>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 4. 现象演示说明 ---------------------------- -->
+        <section>
+          <h2 id="sec-demo" class="text-xl font-semibold">现象演示说明</h2>
+
+          <p class="mt-4">
+            上电后屏幕应该立刻亮起并显示四行内容。下面这张表把“你看到的”和“它说明什么”对应起来。
+          </p>
+
+          <h3 class="mt-7 text-base font-semibold">正确现象</h3>
+          <ol class="mt-3 list-decimal space-y-2 pl-5">
+            <li>上电后屏幕上先是一瞬间的空白（初始化期间 0xAE 关着显示），然后立刻出现文字。</li>
+            <li>第 1 行显示 <code class="icode">STM32 ADC OLED</code>，第 7 行显示 <code class="icode">PA1  CH1</code>，这两行开机后不再变化。</li>
+            <li>第 3 行显示电压，形如 <code class="icode">V=1.234V</code>；第 5 行显示 <code class="icode">RAW=2048</code>。</li>
+            <li>缓慢旋转电位器，两行数字同步平滑变化，<b class="font-semibold text-ink">整个过程屏幕不闪、没有残影</b>。</li>
+            <li>把电位器拧到底，电压显示应在 0.000V ~ 3.29V 之间连续变化。</li>
+            <li>板载 LED（PC13）保持熄灭状态——它只在 OLED 不应答时才闪。</li>
+          </ol>
+
+          <h3 class="mt-7 text-base font-semibold">观察点与判据</h3>
+          <div class="table-scroll mt-3">
+            <table class="table-mcu">
+              <thead>
+                <tr>
+                  <th>你观察到的</th>
+                  <th>说明什么</th>
+                  <th>下一步查什么</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>屏幕全黑，板载 LED 快闪三次</td>
+                  <td><code class="icode">OLED_TestConnection()</code> 没收到 ACK，从机根本没应答</td>
+                  <td>先量 SCL/SDA 空闲时是不是 3.3V（不是就是没上拉）；再把地址在 0x78 / 0x7A 之间换一次</td>
+                </tr>
+                <tr>
+                  <td>屏幕全黑，但 LED 不闪</td>
+                  <td>总线通、地址对，问题在显示相关配置</td>
+                  <td>十有八九是电荷泵那条 <code class="icode">0x8D, 0x14</code> 漏了或写成了 0x10</td>
+                </tr>
+                <tr>
+                  <td>只有上半屏有字，下半屏永远黑</td>
+                  <td>多路复用比不对：初始化按 64 行配置，但屏只有 32 行</td>
+                  <td>确认屏是 0.96 寸还是 0.91 寸；0.91 寸要把 <code class="icode">0xA8</code> 的参数从 0x3F 改成 0x1F</td>
+                </tr>
+                <tr>
+                  <td>屏幕亮了但全是随机雪花点</td>
+                  <td>显存内容是随机的，说明清屏没执行或没生效</td>
+                  <td>确认 <code class="icode">OLED_Init()</code> 末尾调用了 <code class="icode">OLED_Clear()</code>；量一下供电是否稳定</td>
+                </tr>
+                <tr>
+                  <td>字是反的（白底黑字、左右镜像或上下颠倒）</td>
+                  <td>段重映射 / COM 扫描方向与预期不一致</td>
+                  <td>把 <code class="icode">0xA1</code> 与 <code class="icode">0xA0</code>、<code class="icode">0xC8</code> 与 <code class="icode">0xC0</code> 各试一遍，四种组合必有一种正立</td>
+                </tr>
+                <tr>
+                  <td>显示正常但偶发花屏/卡住</td>
+                  <td>I2C 时序太快或线太长，位延时不够</td>
+                  <td>把 <code class="icode">I2C_Delay()</code> 里的循环次数从 20 加大到 40 或 80；缩短杜邦线</td>
+                </tr>
+                <tr>
+                  <td>电压值一直是 0.000V，但 RAW 正常变化</td>
+                  <td>换算或显示拆分有问题，ADC 本身是好的</td>
+                  <td>检查 <code class="icode">mv % 1000U</code> 那一行有没有写成 <code class="icode">mv - 1000U</code> 之类的笔误</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">用示波器看 I2C 波形（强烈建议做一次）</div>
+            <p>
+              把示波器两个通道分别夹在 SCL 和 SDA 上，触发设在 SDA 下降沿。
+              你应该能看到：起始条件那一瞬间 SCL 是高、SDA 往下跳；
+              之后每 9 个时钟一组，第 9 个时钟上 SDA 被从机拉低（那就是 ACK）；
+              最后 SDA 在 SCL 高电平期间上升（那就是 Stop）。
+            </p>
+            <p class="mt-2">
+              这一步的价值在于：<b class="font-semibold">你能亲眼看到“上拉电阻有没有起作用”</b>——
+              如果波形的高电平只有 1V 左右、上升沿圆得像山坡，说明上拉太弱或线太长；
+              如果高电平干脆上不去，那就是上拉电阻根本没接。
+              这比看一万字文字描述都管用。
+            </p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 5. 常见报错排查 ---------------------------- -->
+        <section>
+          <h2 id="sec-errors" class="text-xl font-semibold">常见报错排查方案</h2>
+
+          <p class="mt-4">
+            I2C 和 OLED 的调试有一个通用的分诊顺序，建议按这个顺序查，
+            能避免在错误的方向上浪费时间：
+            <b class="font-semibold text-ink">先量电源 → 再量两根线的空闲电平 → 再确认地址 → 最后才怀疑代码</b>。
+          </p>
+
+          <div class="callout callout-danger mt-5">
+            <div class="callout-title">现象：屏幕完全不亮（全黑），程序跑得却很正常</div>
+            <p><b class="font-semibold">原因：</b>按概率从高到低排——① 上拉电阻缺失或虚焊，SCL/SDA 停在低电平，通信根本无法开始；② 从机地址不对（模块是 0x3D 而代码写的是 0x78）；③ 初始化序列里电荷泵那条 <code class="icode">0x8D, 0x14</code> 漏写或写成了 <code class="icode">0x10</code>；④ VCC 或 GND 有一根没插上。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>按顺序验：万用表量 OLED 的 VCC 与 GND 之间是不是 3.3V；
+            <b>断电</b>后量 SCL 对 VCC 的电阻（应当在 5kΩ 左右，无穷大就说明没上拉）；
+            上电量 SCL/SDA 的空闲电压（应当是 3.3V，不是就说明上拉没起作用）；
+            最后把 <code class="icode">OLED_I2C_ADDR</code> 改成 <code class="icode">0x7A</code> 再试一次。
+            这四步走完，绝大多数黑屏都能定位。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：程序卡死在 HAL_I2C_Master_Transmit，或者一直返回 HAL_BUSY</div>
+            <p><b class="font-semibold">原因：</b>这是硬件 I2C 的经典问题。如果上一次通信中途 MCU 复位（比如你按复位键重新下载），而从机正好在拉低 SDA 发 ACK，总线就被占住了；MCU 复位后看到 SDA 是低电平，判定总线忙，<code class="icode">BUSY</code> 标志一直不清零，之后所有传输全部失败。另外，超时参数如果传了 <code class="icode">HAL_MAX_DELAY</code>，函数就永远不会返回。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>三个办法。
+            ① <b>最简单：改用本文的软件模拟 I2C</b>，不再依赖那个会死锁的外设；
+            ② 如果必须用硬件 I2C，开机时先手动发 9 个 SCL 脉冲解锁总线（把 SCL 当普通 GPIO 翻转，直到 SDA 变高为止），再初始化 I2C 外设；
+            ③ 所有调用一律传有限超时，并在返回 <code class="icode">HAL_ERROR</code> 时执行外设软复位：<code class="icode">__HAL_I2C_DISABLE(&amp;hi2c1); HAL_I2C_Init(&amp;hi2c1);</code>。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：屏幕亮了但显示花屏，或者只有一部分内容正确</div>
+            <p><b class="font-semibold">原因：</b>① 初始化序列不完整，特别是 <code class="icode">0xA8</code>（多路复用比）和 <code class="icode">0xDA</code>（COM 引脚配置）写错，会出现隔行亮或局部花屏；② 供电不稳——OLED 全屏点亮的瞬间电流会跳到 20mA 以上，USB 供电加上细杜邦线会造成电压跌落；③ 杜邦线太长（超过 20cm）导致 I2C 边沿变缓、位错乱。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>对照本页的初始化表逐条核对，重点确认 <code class="icode">0xA8, 0x3F</code> 和 <code class="icode">0xDA, 0x12</code>；
+            在 OLED 的 VCC 与 GND 之间并一个 100nF 加一个 10µF 电容；
+            把杜邦线换成 10cm 以内的短线，或者直接焊在洞洞板上。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：显示的文字上下颠倒，或者左右镜像</div>
+            <p><b class="font-semibold">原因：</b>屏幕的扫描方向和你的字模数据方向不匹配。涉及两条命令：<code class="icode">0xA1 / 0xA0</code> 控制段重映射（左右），<code class="icode">0xC8 / 0xC0</code> 控制 COM 扫描方向（上下）。不同厂家的模块出厂默认值不一样，同一份代码换一块屏就可能变反。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>在初始化序列里试四种组合，必有一种正立。注意这两个命令影响的是<b class="font-semibold">整屏所有内容</b>，所以要改就整体改，不要只针对汉字调整。如果只有汉字方向不对而 ASCII 正常，那问题在取模软件的“顺向/逆向”设置，改软件重新生成即可。</p>
+          </div>
+
+          <div class="callout callout-danger mt-4">
+            <div class="callout-title">现象：字符显示错位、串行，或者第二行字跑到别的位置去了</div>
+            <p><b class="font-semibold">原因：</b>坐标写越界了。SSD1306 的列地址是<b class="font-semibold">循环</b>的：你从第 124 列开始写一个 6 像素宽的字符，它会写 124、125、126、127、然后绕回 0、1——结果就是屏幕左边莫名其妙冒出字符。另一个原因是把 y 当成了像素行号，实际上 y 是页号，取值范围只有 0~7。</p>
+            <p class="mt-2"><b class="font-semibold">解决：</b>记住两条换算：
+            <b class="font-semibold">一行最多放 128 / 6 = 21 个字符</b>；
+            <b class="font-semibold">y 是页号（0~7），一个页号对应 8 个像素行</b>。
+            本页的 <code class="icode">OLED_ShowChar</code> 里已经加了越界判断，如果你用的是别的库，记得自己补上。</p>
+          </div>
+        </section>
+
+        <hr class="hr-soft my-10">
+
+        <!-- ---------------------------- 6. 小结与练习 ---------------------------- -->
+        <section>
+          <h2 id="sec-summary" class="text-xl font-semibold">小结与练习</h2>
+
+          <p class="mt-4">
+            这一篇把 I2C 和 OLED 从电气层一路讲到了像素层。需要带走的结论有六条：
+          </p>
+
+          <ul class="mt-3 list-disc space-y-2 pl-5">
+            <li><b class="font-semibold text-ink">开漏结构决定了必须有上拉电阻</b>——I2C 引脚只能主动拉低，高电平全靠外部电阻提供。</li>
+            <li><b class="font-semibold text-ink">起始/停止条件靠 SDA 在 SCL 高电平时的跳变定义</b>，数据和它正好相反，必须在 SCL 高电平期间保持稳定。</li>
+            <li><b class="font-semibold text-ink">7 位地址 0x3C 和 8 位地址 0x78 是同一个东西</b>，后者是左移一位补上读写位后的结果。</li>
+            <li><b class="font-semibold text-ink">SSD1306 的显存是按页（8 像素竖条）组织的</b>，128×64 一共 8 页 1024 字节；0.91 寸只有 4 页。</li>
+            <li><b class="font-semibold text-ink">每个字节前面都要带控制字节</b>，0x00 是命令、0x40 是数据。</li>
+            <li><b class="font-semibold text-ink">能批量写就批量写</b>，一次 Start/Stop 连发多个字节，是软件 I2C 提速的关键。</li>
+          </ul>
+
+          <div class="callout callout-tip mt-5">
+            <div class="callout-title">动手练习</div>
+            <ol class="list-decimal space-y-1.5 pl-5">
+              <li>
+                <b class="font-semibold">把电压显示改成柱状条。</b>
+                在屏幕第 1 行（Page 1）用像素画一条随电压变长的横条：
+                电压 0V 时长度为 0，3.3V 时铺满 128 像素。
+                提示：横条其实就是往若干个连续列写 <code class="icode">0xFF</code>，
+                用一个循环 <code class="icode">OLED_SetCursor(i, 1)</code> 配合 <code class="icode">OLED_WriteData(0xFF)</code> 就能做到。
+                想一想：怎么让这条柱子不闪？（提示：先把旧柱子用 0x00 擦掉，再画新的）
+              </li>
+              <li>
+                <b class="font-semibold">给字库加字符并显示一行温度信息。</b>
+                现在的字库只有 32 个字符。请照着现有格式补上
+                <code class="icode">'N'</code>、<code class="icode">'U'</code>、<code class="icode">'I'</code>、<code class="icode">'F'</code>
+                等字符，让屏幕能显示 <code class="icode">UNIT=V</code> 和 <code class="icode">OK</code>。
+                提示：如果要显示一个汉字，用 PCtoLCD2002 按“16x16 / 阴码 / 逐列式 / 顺向 / C51 格式”生成 32 字节，
+                再用 <code class="icode">OLED_ShowCN</code> 显示出来。
+                如果显示出来是上下颠倒的，把取模走向反过来重新生成。
+              </li>
+              <li>
+                <b class="font-semibold">测一测你的 I2C 到底有多快。</b>
+                在 <code class="icode">OLED_Clear()</code> 前后各读一次
+                <code class="icode">HAL_GetTick()</code>，把两次的差值通过串口打出来。
+                然后做三组对比：① 位延时循环 20 次；② 改成 5 次；③ 把
+                <code class="icode">OLED_WriteDataBuf</code> 改成每个字节一次完整 I2C 事务。
+                记录下三组的耗时，再想想：如果这块屏要用电池供电，
+                刷新时间越短意味着什么？（提示：CPU 醒着的时间越短，平均功耗越低）
+              </li>
+            </ol>
+          </div>
+
+          <div class="callout callout-info mt-5">
+            <div class="callout-title">下一篇看什么</div>
+            <ul class="list-disc space-y-1.5 pl-5">
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-exti.html">外部中断</a>——加一个按键，让屏幕在“显示电压”和“显示原始值”之间切换。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-voltmeter.html">综合项目：STM32 数字电压表</a>——把 ADC、分压、滤波和这块 OLED 拼成一个完整仪器，含不闪屏刷新与标定方法。</li>
+              <li><a class="text-brand-600 dark:text-brand-300" href="stm32-adc.html">ADC 模拟采集</a>——如果对电压是怎么来的还有疑问，回去把逐次逼近和参考电压那一节再看一遍。</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- 上一篇 / 下一篇 -->
+        <nav class="mt-12 flex flex-col gap-4 border-t border-line pt-8 sm:flex-row sm:justify-between" aria-label="上一篇下一篇">
+          <a href="stm32-adc.html" class="card card-pad card-hover group sm:max-w-[48%]">
+            <span class="text-2xs text-faint">← 上一篇</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">ADC 模拟采集</p>
+          </a>
+          <a href="stm32-exti.html" class="card card-pad card-hover group sm:max-w-[48%] sm:text-right">
+            <span class="text-2xs text-faint">下一篇 →</span>
+            <p class="mt-1 text-sm font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">外部中断</p>
+          </a>
+        </nav>
+
+      </article>
+    </div>
+
+  </main>
+
+  <!-- ============================== 页脚 ============================== -->
+  <footer class="border-t border-line bg-surface">
+    <div class="wrap py-12">
+      <div class="grid gap-9 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 font-mono text-xs font-bold text-white">MCU</span>
+            <span class="text-base font-semibold">McuStudy<span class="text-brand-500">.</span></span>
+          </div>
+          <p class="mt-4 max-w-xs text-[13px] leading-relaxed text-muted">
+            面向机电、自动化、电子信息专业学生的单片机学习站。51 / STM32 / ESP32 三条主线，
+            教程 + 工具 + 案例一体，全部免费、免注册。
+          </p>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">教程</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../route.html">学习路线</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../knowledge.html">知识体系</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../mcu51.html">51 单片机</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../stm32.html">STM32 HAL 库</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../esp32.html">ESP32 物联网</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">资源</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px]">
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../tools.html">在线工具</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../resource.html">资料下载</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../project.html">实训毕设</a></li>
+            <li><a class="text-muted hover:text-brand-600 dark:hover:text-brand-300" href="../article-template.html">教程模板</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-faint">关于本站</h3>
+          <ul class="mt-4 space-y-2.5 text-[13px] text-muted">
+            <li>纯前端静态站，无后端、无数据库</li>
+            <li>支持亮色 / 暗色一键切换</li>
+            <li>适配电脑、平板、手机</li>
+            <li>可直接部署到 Vercel / GitHub Pages</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-10 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row sm:items-center">
+        <p>© <span data-year>2026</span> McuStudy · 本站内容仅供学习交流，转载请注明出处。</p>
+        <p>部署说明：纯静态站点 · 零依赖运行时 · 托管于 Vercel / GitHub Pages 即可访问。</p>
+      </div>
+    </div>
+  </footer>
+
+  <button type="button" id="backTop"
+          class="fixed bottom-6 right-6 z-30 hidden h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-pop transition-colors hover:border-brand-300 hover:text-brand-600"
+          aria-label="回到顶部">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6"/>
+    </svg>
+  </button>
+
+</body>
+</html>
